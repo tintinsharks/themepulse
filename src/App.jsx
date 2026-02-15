@@ -340,17 +340,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
   );
 }
 
-// ── GAUGE DIAL COMPONENT ──
+// ── BAR GAUGE COMPONENT ──
 function Gauge({ value, min, max, label, zones, unit = "" }) {
-  const w = 90, h = 52;
-  const cx = w / 2, cy = h;
-  const r = 36;
-  
-  const clampedVal = Math.max(min, Math.min(max, value));
-  const pct = max > min ? (clampedVal - min) / (max - min) : 0;
-  const needleAngle = Math.PI - pct * Math.PI;
-  const nx = cx + (r - 6) * Math.cos(needleAngle);
-  const ny = cy - (r - 6) * Math.sin(needleAngle);
+  const pct = max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0;
   
   let zoneColor = "#666";
   if (zones) {
@@ -364,45 +356,37 @@ function Gauge({ value, min, max, label, zones, unit = "" }) {
     else zoneColor = "#eab308";
   }
   
-  // Arc from left (π) to right (0), half circle above the center point
-  function arcPath(startPct, endPct) {
-    const a1 = Math.PI - startPct * Math.PI;
-    const a2 = Math.PI - endPct * Math.PI;
-    const x1 = cx + r * Math.cos(a1), y1 = cy - r * Math.sin(a1);
-    const x2 = cx + r * Math.cos(a2), y2 = cy - r * Math.sin(a2);
-    const large = (endPct - startPct) > 0.5 ? 1 : 0;
-    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
-  }
-  
-  const zoneArcs = [];
-  if (zones) {
-    [{ key: "red_low", color: "#ef444440" }, { key: "red", color: "#ef444440" },
-     { key: "yellow_low", color: "#eab30830" }, { key: "yellow", color: "#eab30830" },
-     { key: "green", color: "#22c55e30" },
-     { key: "yellow_high", color: "#eab30830" },
-     { key: "red_high", color: "#ef444440" }].forEach(({ key, color }) => {
-      if (zones[key]) {
-        const s = Math.max(0, (zones[key][0] - min) / (max - min));
-        const e = Math.min(1, (zones[key][1] - min) / (max - min));
-        if (e > s) zoneArcs.push({ path: arcPath(s, e), color });
-      }
-    });
-  }
-  
   const displayVal = typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value;
   
   return (
-    <div style={{ textAlign: "center" }}>
-      <svg width={w} height={h + 4} viewBox={`0 ${cy - r - 6} ${w} ${r + 10}`} overflow="visible">
-        <path d={arcPath(0, 1)} fill="none" stroke="#222" strokeWidth={6} strokeLinecap="round" />
-        {zoneArcs.map((z, i) => <path key={i} d={z.path} fill="none" stroke={z.color} strokeWidth={6} />)}
-        {pct > 0.01 && <path d={arcPath(0, pct)} fill="none" stroke={zoneColor} strokeWidth={3} strokeLinecap="round" />}
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={zoneColor} strokeWidth={1.5} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={2.5} fill={zoneColor} />
-        <circle cx={cx} cy={cy} r={1} fill="#0a0a0a" />
-      </svg>
-      <div style={{ fontSize: 13, fontWeight: 900, fontFamily: "monospace", color: zoneColor, marginTop: 2 }}>{displayVal}{unit}</div>
-      <div style={{ fontSize: 8, color: "#555", marginTop: 1 }}>{label}</div>
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+        <span style={{ fontSize: 10, color: "#888" }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 900, fontFamily: "monospace", color: zoneColor }}>{displayVal}{unit}</span>
+      </div>
+      <div style={{ height: 6, background: "#1a1a1a", borderRadius: 3, overflow: "hidden", position: "relative" }}>
+        {/* Zone background segments */}
+        {zones && (() => {
+          const segs = [];
+          const allZones = [
+            { key: "red_low", color: "#ef444425" }, { key: "red", color: "#ef444425" },
+            { key: "yellow_low", color: "#eab30820" }, { key: "yellow", color: "#eab30820" },
+            { key: "green", color: "#22c55e20" },
+            { key: "yellow_high", color: "#eab30820" },
+            { key: "red_high", color: "#ef444425" },
+          ];
+          allZones.forEach(({ key, color }) => {
+            if (zones[key]) {
+              const left = Math.max(0, (zones[key][0] - min) / (max - min) * 100);
+              const right = Math.min(100, (zones[key][1] - min) / (max - min) * 100);
+              if (right > left) segs.push(<div key={key} style={{ position: "absolute", left: `${left}%`, width: `${right - left}%`, height: "100%", background: color }} />);
+            }
+          });
+          return segs;
+        })()}
+        {/* Value bar */}
+        <div style={{ height: "100%", width: `${pct}%`, background: zoneColor, borderRadius: 3, position: "relative", transition: "width 0.3s" }} />
+      </div>
     </div>
   );
 }
@@ -449,7 +433,7 @@ function MarketMonitor({ mmData }) {
       {/* PRIMARY INDICATORS */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>Primary Indicators</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, maxWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", maxWidth: 700 }}>
           <Gauge value={c.up_4pct} min={0} max={maxUp4} label="Up 4%+ Today" zones={gz("up_4pct")} />
           <Gauge value={c.down_4pct} min={0} max={maxDn4} label="Down 4%+ Today" zones={gz("down_4pct")} />
           <Gauge value={c.up_25q} min={0} max={maxQ} label="Up 25%+ Qtr" zones={gz("up_25q")} />
@@ -462,14 +446,14 @@ function MarketMonitor({ mmData }) {
       {/* SECONDARY INDICATORS */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>Secondary Indicators</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8, maxWidth: 820 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", maxWidth: 700 }}>
           <Gauge value={c.up_25m} min={0} max={Math.max(500, c.up_25m)} label="Up 25%+ Mo" zones={gz("up_25m")} />
           <Gauge value={c.down_25m} min={0} max={Math.max(500, c.down_25m)} label="Down 25%+ Mo" zones={gz("down_25m")} />
           <Gauge value={c.up_50m} min={0} max={Math.max(100, c.up_50m)} label="Up 50%+ Mo" zones={gz("up_50m")} />
           <Gauge value={c.down_50m} min={0} max={Math.max(100, c.down_50m)} label="Down 50%+ Mo" zones={gz("down_50m")} />
           <Gauge value={c.up_13_34d} min={0} max={Math.max(800, c.up_13_34d)} label="Up 13%+ 34d" zones={gz("up_13_34d")} />
           <Gauge value={c.down_13_34d} min={0} max={Math.max(800, c.down_13_34d)} label="Down 13%+ 34d" zones={gz("down_13_34d")} />
-          <Gauge value={c.t2108} min={0} max={100} label="T2108 (>40MA)" zones={gz("t2108")} unit="%" />
+          <Gauge value={c.t2108} min={0} max={100} label="T2108 (% > 40MA)" zones={gz("t2108")} unit="%" />
         </div>
       </div>
 
