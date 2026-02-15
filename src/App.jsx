@@ -342,19 +342,20 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
 
 // ── GAUGE DIAL COMPONENT ──
 function Gauge({ value, min, max, label, zones, description, unit = "" }) {
-  // zones: { green: [lo, hi], yellow: [lo, hi], red: [lo, hi] } or custom
-  const size = 120;
-  const cx = size / 2, cy = size / 2 + 5;
-  const r = 45;
-  const startAngle = -225, endAngle = 45; // 270 degree arc
-  const range = endAngle - startAngle;
+  const w = 130, h = 80;
+  const cx = w / 2, cy = h - 8;
+  const r = 52;
+  // 180-degree arc: left to right (π to 0)
+  const startAngle = Math.PI; // left (180°)
+  const endAngle = 0; // right (0°)
   
   const clampedVal = Math.max(min, Math.min(max, value));
-  const pct = (clampedVal - min) / (max - min);
-  const needleAngle = startAngle + pct * range;
-  const needleRad = (needleAngle * Math.PI) / 180;
-  const nx = cx + (r - 8) * Math.cos(needleRad);
-  const ny = cy + (r - 8) * Math.sin(needleRad);
+  const pct = max > min ? (clampedVal - min) / (max - min) : 0;
+  // Needle angle: π (left) to 0 (right)
+  const needleAngle = Math.PI - pct * Math.PI;
+  const needleLen = r - 10;
+  const nx = cx + needleLen * Math.cos(needleAngle);
+  const ny = cy - needleLen * Math.sin(needleAngle);
   
   // Determine zone color for current value
   let zoneColor = "#666";
@@ -369,13 +370,14 @@ function Gauge({ value, min, max, label, zones, description, unit = "" }) {
     else zoneColor = "#eab308";
   }
   
-  // Draw arc segments for zones
+  // Draw arc segment (half-circle, angles in math convention: 0=right, π=left)
   function arcPath(startPct, endPct) {
-    const a1 = ((startAngle + startPct * range) * Math.PI) / 180;
-    const a2 = ((startAngle + endPct * range) * Math.PI) / 180;
-    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
-    const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
-    const large = endPct - startPct > 0.5 ? 1 : 0;
+    // pct 0 = left (π), pct 1 = right (0)
+    const a1 = Math.PI - startPct * Math.PI;
+    const a2 = Math.PI - endPct * Math.PI;
+    const x1 = cx + r * Math.cos(a1), y1 = cy - r * Math.sin(a1);
+    const x2 = cx + r * Math.cos(a2), y2 = cy - r * Math.sin(a2);
+    const large = (endPct - startPct) > 0.5 ? 1 : 0;
     return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
   }
   
@@ -383,11 +385,11 @@ function Gauge({ value, min, max, label, zones, description, unit = "" }) {
   const zoneArcs = [];
   if (zones) {
     const allZones = [
-      { key: "red_low", color: "#ef444440" }, { key: "red", color: "#ef444440" },
-      { key: "yellow_low", color: "#eab30830" }, { key: "yellow", color: "#eab30830" },
-      { key: "green", color: "#22c55e30" },
-      { key: "yellow_high", color: "#eab30830" },
-      { key: "red_high", color: "#ef444440" },
+      { key: "red_low", color: "#ef444450" }, { key: "red", color: "#ef444450" },
+      { key: "yellow_low", color: "#eab30840" }, { key: "yellow", color: "#eab30840" },
+      { key: "green", color: "#22c55e40" },
+      { key: "yellow_high", color: "#eab30840" },
+      { key: "red_high", color: "#ef444450" },
     ];
     allZones.forEach(({ key, color }) => {
       if (zones[key]) {
@@ -398,24 +400,31 @@ function Gauge({ value, min, max, label, zones, description, unit = "" }) {
     });
   }
   
+  const displayVal = typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value;
+  
   return (
-    <div style={{ textAlign: "center", width: size }}>
-      <svg width={size} height={size - 15} viewBox={`0 0 ${size} ${size - 15}`}>
+    <div style={{ textAlign: "center", width: w }}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         {/* Background arc */}
-        <path d={arcPath(0, 1)} fill="none" stroke="#222" strokeWidth={8} />
+        <path d={arcPath(0, 1)} fill="none" stroke="#1a1a1a" strokeWidth={10} strokeLinecap="round" />
         {/* Zone arcs */}
-        {zoneArcs.map((z, i) => <path key={i} d={z.path} fill="none" stroke={z.color} strokeWidth={8} />)}
-        {/* Active arc */}
-        <path d={arcPath(0, pct)} fill="none" stroke={zoneColor} strokeWidth={4} />
+        {zoneArcs.map((z, i) => <path key={i} d={z.path} fill="none" stroke={z.color} strokeWidth={10} />)}
+        {/* Filled arc up to value */}
+        {pct > 0.01 && <path d={arcPath(0, pct)} fill="none" stroke={zoneColor} strokeWidth={4} strokeLinecap="round" />}
+        {/* Tick marks at 0%, 25%, 50%, 75%, 100% */}
+        {[0, 0.25, 0.5, 0.75, 1].map(p => {
+          const a = Math.PI - p * Math.PI;
+          const ix = cx + (r + 6) * Math.cos(a), iy = cy - (r + 6) * Math.sin(a);
+          const ox = cx + (r + 1) * Math.cos(a), oy = cy - (r + 1) * Math.sin(a);
+          return <line key={p} x1={ox} y1={oy} x2={ix} y2={iy} stroke="#333" strokeWidth={1} />;
+        })}
         {/* Needle */}
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={zoneColor} strokeWidth={2} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={3} fill={zoneColor} />
-        {/* Value */}
-        <text x={cx} y={cy + 20} textAnchor="middle" fill={zoneColor} fontSize={16} fontWeight={900} fontFamily="monospace">
-          {typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value}{unit}
-        </text>
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={zoneColor} strokeWidth={2.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={3.5} fill={zoneColor} />
+        <circle cx={cx} cy={cy} r={1.5} fill="#0a0a0a" />
       </svg>
-      <div style={{ fontSize: 9, color: "#888", marginTop: -4, lineHeight: 1.2 }}>{label}</div>
+      <div style={{ marginTop: -2, fontSize: 16, fontWeight: 900, fontFamily: "monospace", color: zoneColor }}>{displayVal}{unit}</div>
+      <div style={{ fontSize: 9, color: "#666", marginTop: 2, lineHeight: 1.2 }}>{label}</div>
     </div>
   );
 }
@@ -437,6 +446,11 @@ function MarketMonitor({ mmData }) {
   const c = mmData.current;
   const gauges = mmData.gauges;
   const history = mmData.history || [];
+  
+  // Ratios might be in history but not in current (calculated after append)
+  const lastHist = history.length > 0 ? history[history.length - 1] : {};
+  const ratio5d = c.ratio_5d || lastHist.ratio_5d || 0;
+  const ratio10d = c.ratio_10d || lastHist.ratio_10d || 0;
   
   // Helper to get gauge zones from config
   const gz = (key) => gauges[key] || {};
@@ -462,8 +476,8 @@ function MarketMonitor({ mmData }) {
           <Gauge value={c.down_4pct} min={0} max={maxDn4} label="Down 4%+ Today" zones={gz("down_4pct")} />
           <Gauge value={c.up_25q} min={0} max={maxQ} label="Up 25%+ Quarter" zones={gz("up_25q")} />
           <Gauge value={c.down_25q} min={0} max={maxQ} label="Down 25%+ Quarter" zones={gz("down_25q")} />
-          <Gauge value={c.ratio_5d || 0} min={0} max={5} label="5-Day Ratio" zones={gz("ratio_5d")} />
-          <Gauge value={c.ratio_10d || 0} min={0} max={5} label="10-Day Ratio" zones={gz("ratio_10d")} />
+          <Gauge value={ratio5d} min={0} max={5} label="5-Day Ratio" zones={gz("ratio_5d")} />
+          <Gauge value={ratio10d} min={0} max={5} label="10-Day Ratio" zones={gz("ratio_10d")} />
         </div>
       </div>
 
