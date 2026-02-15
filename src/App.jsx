@@ -182,10 +182,7 @@ function ChartPanel({ ticker, stock, onClose }) {
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#4ade80" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
-          {stock.rsi != null && <StockStat label="RSI" value={stock.rsi}
-            color={stock.rsi >= 70 ? "#f87171" : stock.rsi <= 30 ? "#4ade80" : "#f97316"} />}
           {stock.rel_volume != null && <StockStat label="RVol" value={`${stock.rel_volume}x`} />}
-          {stock.beta != null && <StockStat label="Beta" value={stock.beta} />}
         </div>
       )}
 
