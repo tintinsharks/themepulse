@@ -55,46 +55,46 @@ function ChartPanel({ ticker, stock, onClose }) {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
 
-    const wrapper = document.createElement("div");
-    wrapper.className = "tradingview-widget-container";
-    wrapper.style.height = "100%";
-    wrapper.style.width = "100%";
-
-    const inner = document.createElement("div");
-    inner.className = "tradingview-widget-container__widget";
-    inner.style.height = "100%";
-    inner.style.width = "100%";
-    wrapper.appendChild(inner);
+    const widgetDiv = document.createElement("div");
+    widgetDiv.id = "tv_chart_container";
+    widgetDiv.style.height = "100%";
+    widgetDiv.style.width = "100%";
+    containerRef.current.appendChild(widgetDiv);
 
     const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
+    script.src = "https://s3.tradingview.com/tv.js";
     script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: ticker,
-      interval: tf,
-      timezone: "America/New_York",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      backgroundColor: "rgba(10, 10, 10, 1)",
-      gridColor: "rgba(30, 30, 30, 1)",
-      allow_symbol_change: true,
-      save_image: false,
-      calendar: false,
-      hide_volume: false,
-      support_host: "https://www.tradingview.com",
-      studies: [
-        { id: "STD;EMA", inputs: { length: 8 }, styles: { plot: { color: "#ef4444", linestyle: 2, linewidth: 1 } } },
-        { id: "STD;EMA", inputs: { length: 21 }, styles: { plot: { color: "#3b82f6", linestyle: 1, linewidth: 1 } } },
-        { id: "STD;SMA", inputs: { length: 50 }, styles: { plot: { color: "#22c55e", linestyle: 2, linewidth: 1 } } },
-        { id: "STD;SMA", inputs: { length: 200 }, styles: { plot: { color: "#a855f7", linestyle: 1, linewidth: 1 } } },
-      ],
-    });
+    script.onload = () => {
+      if (window.TradingView) {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: ticker,
+          interval: tf,
+          timezone: "America/New_York",
+          theme: "dark",
+          style: "1",
+          locale: "en",
+          toolbar_bg: "#0a0a0a",
+          enable_publishing: false,
+          allow_symbol_change: true,
+          save_image: false,
+          backgroundColor: "rgba(10, 10, 10, 1)",
+          gridColor: "rgba(30, 30, 30, 1)",
+          container_id: "tv_chart_container",
+          studies: [
+            { id: "MAExp@tv-basicstudies", inputs: { length: 8 } },
+            { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
+            { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
+            { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
+          ],
+        });
+      }
+    };
+    document.head.appendChild(script);
 
-    wrapper.appendChild(script);
-    containerRef.current.appendChild(wrapper);
+    return () => {
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
   }, [ticker, tf]);
 
   return (
