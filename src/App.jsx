@@ -340,6 +340,199 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
   );
 }
 
+// ── GAUGE DIAL COMPONENT ──
+function Gauge({ value, min, max, label, zones, description, unit = "" }) {
+  // zones: { green: [lo, hi], yellow: [lo, hi], red: [lo, hi] } or custom
+  const size = 120;
+  const cx = size / 2, cy = size / 2 + 5;
+  const r = 45;
+  const startAngle = -225, endAngle = 45; // 270 degree arc
+  const range = endAngle - startAngle;
+  
+  const clampedVal = Math.max(min, Math.min(max, value));
+  const pct = (clampedVal - min) / (max - min);
+  const needleAngle = startAngle + pct * range;
+  const needleRad = (needleAngle * Math.PI) / 180;
+  const nx = cx + (r - 8) * Math.cos(needleRad);
+  const ny = cy + (r - 8) * Math.sin(needleRad);
+  
+  // Determine zone color for current value
+  let zoneColor = "#666";
+  if (zones) {
+    if (zones.green && value >= zones.green[0] && value <= zones.green[1]) zoneColor = "#22c55e";
+    else if (zones.yellow && value >= zones.yellow[0] && value <= zones.yellow[1]) zoneColor = "#eab308";
+    else if (zones.yellow_low && value >= zones.yellow_low[0] && value <= zones.yellow_low[1]) zoneColor = "#eab308";
+    else if (zones.yellow_high && value >= zones.yellow_high[0] && value <= zones.yellow_high[1]) zoneColor = "#eab308";
+    else if (zones.red && value >= zones.red[0] && value <= zones.red[1]) zoneColor = "#ef4444";
+    else if (zones.red_low && value >= zones.red_low[0] && value <= zones.red_low[1]) zoneColor = "#ef4444";
+    else if (zones.red_high && value >= zones.red_high[0] && value <= zones.red_high[1]) zoneColor = "#ef4444";
+    else zoneColor = "#eab308";
+  }
+  
+  // Draw arc segments for zones
+  function arcPath(startPct, endPct) {
+    const a1 = ((startAngle + startPct * range) * Math.PI) / 180;
+    const a2 = ((startAngle + endPct * range) * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+    const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+    const large = endPct - startPct > 0.5 ? 1 : 0;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+  }
+  
+  // Zone arcs
+  const zoneArcs = [];
+  if (zones) {
+    const allZones = [
+      { key: "red_low", color: "#ef444440" }, { key: "red", color: "#ef444440" },
+      { key: "yellow_low", color: "#eab30830" }, { key: "yellow", color: "#eab30830" },
+      { key: "green", color: "#22c55e30" },
+      { key: "yellow_high", color: "#eab30830" },
+      { key: "red_high", color: "#ef444440" },
+    ];
+    allZones.forEach(({ key, color }) => {
+      if (zones[key]) {
+        const s = Math.max(0, (zones[key][0] - min) / (max - min));
+        const e = Math.min(1, (zones[key][1] - min) / (max - min));
+        if (e > s) zoneArcs.push({ path: arcPath(s, e), color });
+      }
+    });
+  }
+  
+  return (
+    <div style={{ textAlign: "center", width: size }}>
+      <svg width={size} height={size - 15} viewBox={`0 0 ${size} ${size - 15}`}>
+        {/* Background arc */}
+        <path d={arcPath(0, 1)} fill="none" stroke="#222" strokeWidth={8} />
+        {/* Zone arcs */}
+        {zoneArcs.map((z, i) => <path key={i} d={z.path} fill="none" stroke={z.color} strokeWidth={8} />)}
+        {/* Active arc */}
+        <path d={arcPath(0, pct)} fill="none" stroke={zoneColor} strokeWidth={4} />
+        {/* Needle */}
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={zoneColor} strokeWidth={2} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={3} fill={zoneColor} />
+        {/* Value */}
+        <text x={cx} y={cy + 20} textAnchor="middle" fill={zoneColor} fontSize={16} fontWeight={900} fontFamily="monospace">
+          {typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value}{unit}
+        </text>
+      </svg>
+      <div style={{ fontSize: 9, color: "#888", marginTop: -4, lineHeight: 1.2 }}>{label}</div>
+    </div>
+  );
+}
+
+// ── MARKET MONITOR ──
+function MarketMonitor({ mmData }) {
+  if (!mmData) {
+    return (
+      <div style={{ textAlign: "center", padding: 40 }}>
+        <div style={{ fontSize: 24, fontWeight: 900, color: "#fff", marginBottom: 8 }}>MARKET MONITOR</div>
+        <div style={{ color: "#666", fontSize: 13, marginBottom: 24 }}>Stockbee-style Breadth Tracker</div>
+        <div style={{ color: "#888", fontSize: 12, padding: 20, border: "1px dashed #333", borderRadius: 8, maxWidth: 400, margin: "0 auto" }}>
+          No market monitor data found. Run <code style={{ color: "#10b981" }}>10_market_monitor.py</code> to generate data, then copy <code style={{ color: "#10b981" }}>market_monitor.json</code> to your themepulse/public/ folder.
+        </div>
+      </div>
+    );
+  }
+
+  const c = mmData.current;
+  const gauges = mmData.gauges;
+  const history = mmData.history || [];
+  
+  // Helper to get gauge zones from config
+  const gz = (key) => gauges[key] || {};
+  
+  // Determine max values for gauges dynamically
+  const maxUp4 = Math.max(1000, c.up_4pct, ...history.map(h => h.up_4pct || 0));
+  const maxDn4 = Math.max(1000, c.down_4pct, ...history.map(h => h.down_4pct || 0));
+  const maxQ = Math.max(2000, c.up_25q, c.down_25q, ...history.map(h => Math.max(h.up_25q || 0, h.down_25q || 0)));
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <span style={{ fontSize: 20, fontWeight: 900, color: "#fff" }}>MARKET MONITOR</span>
+        <span style={{ color: "#666", fontSize: 11 }}>{mmData.date}</span>
+        <span style={{ color: "#555", fontSize: 10 }}>{c.total_stocks} stocks scanned</span>
+      </div>
+
+      {/* PRIMARY INDICATORS */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Primary Indicators</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+          <Gauge value={c.up_4pct} min={0} max={maxUp4} label="Up 4%+ Today" zones={gz("up_4pct")} />
+          <Gauge value={c.down_4pct} min={0} max={maxDn4} label="Down 4%+ Today" zones={gz("down_4pct")} />
+          <Gauge value={c.up_25q} min={0} max={maxQ} label="Up 25%+ Quarter" zones={gz("up_25q")} />
+          <Gauge value={c.down_25q} min={0} max={maxQ} label="Down 25%+ Quarter" zones={gz("down_25q")} />
+          <Gauge value={c.ratio_5d || 0} min={0} max={5} label="5-Day Ratio" zones={gz("ratio_5d")} />
+          <Gauge value={c.ratio_10d || 0} min={0} max={5} label="10-Day Ratio" zones={gz("ratio_10d")} />
+        </div>
+      </div>
+
+      {/* SECONDARY INDICATORS */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Secondary Indicators</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+          <Gauge value={c.up_25m} min={0} max={Math.max(500, c.up_25m)} label="Up 25%+ Month" zones={gz("up_25m")} />
+          <Gauge value={c.down_25m} min={0} max={Math.max(500, c.down_25m)} label="Down 25%+ Month" zones={gz("down_25m")} />
+          <Gauge value={c.up_50m} min={0} max={Math.max(100, c.up_50m)} label="Up 50%+ Month" zones={gz("up_50m")} />
+          <Gauge value={c.down_50m} min={0} max={Math.max(100, c.down_50m)} label="Down 50%+ Month" zones={gz("down_50m")} />
+          <Gauge value={c.up_13_34d} min={0} max={Math.max(800, c.up_13_34d)} label="Up 13%+ 34d" zones={gz("up_13_34d")} />
+          <Gauge value={c.down_13_34d} min={0} max={Math.max(800, c.down_13_34d)} label="Down 13%+ 34d" zones={gz("down_13_34d")} />
+          <Gauge value={c.t2108} min={0} max={100} label="T2108 (% > 40MA)" zones={gz("t2108")} unit="%" />
+        </div>
+      </div>
+
+      {/* HISTORY TABLE */}
+      {history.length > 0 && (
+        <div>
+          <div style={{ color: "#888", fontSize: 11, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>History</div>
+          <div style={{ overflowX: "auto", maxHeight: "40vh", overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+              <thead><tr style={{ position: "sticky", top: 0, background: "#111", borderBottom: "2px solid #333", zIndex: 1 }}>
+                {["Date","4%↑","4%↓","25%Q↑","25%Q↓","5dR","10dR","25%M↑","25%M↓","50%M↑","50%M↓","13%/34↑","13%/34↓","T2108"].map(h => (
+                  <th key={h} style={{ padding: "4px 6px", color: "#666", fontWeight: 700, textAlign: "center", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>{[...history].reverse().map((row, i) => {
+                const cellColor = (val, key) => {
+                  const g = gauges[key];
+                  if (!g) return "#888";
+                  if (g.green && val >= g.green[0] && val <= g.green[1]) return "#4ade80";
+                  if (g.red && val >= g.red[0] && val <= g.red[1]) return "#f87171";
+                  if (g.red_low && val >= g.red_low[0] && val <= g.red_low[1]) return "#f87171";
+                  if (g.red_high && val >= g.red_high[0] && val <= g.red_high[1]) return "#f87171";
+                  if (g.yellow && val >= g.yellow[0] && val <= g.yellow[1]) return "#fbbf24";
+                  if (g.yellow_low && val >= g.yellow_low[0] && val <= g.yellow_low[1]) return "#fbbf24";
+                  if (g.yellow_high && val >= g.yellow_high[0] && val <= g.yellow_high[1]) return "#fbbf24";
+                  return "#888";
+                };
+                const cc = (val, key) => ({ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", color: cellColor(val, key), fontWeight: i === 0 ? 700 : 400 });
+                return (
+                  <tr key={row.date} style={{ borderBottom: "1px solid #1a1a1a", background: i === 0 ? "#10b98108" : "transparent" }}>
+                    <td style={{ padding: "3px 6px", color: i === 0 ? "#fff" : "#666", fontWeight: i === 0 ? 700 : 400, whiteSpace: "nowrap" }}>{row.date}</td>
+                    <td style={cc(row.up_4pct, "up_4pct")}>{row.up_4pct}</td>
+                    <td style={cc(row.down_4pct, "down_4pct")}>{row.down_4pct}</td>
+                    <td style={cc(row.up_25q, "up_25q")}>{row.up_25q}</td>
+                    <td style={cc(row.down_25q, "down_25q")}>{row.down_25q}</td>
+                    <td style={cc(row.ratio_5d, "ratio_5d")}>{row.ratio_5d?.toFixed(1)}</td>
+                    <td style={cc(row.ratio_10d, "ratio_10d")}>{row.ratio_10d?.toFixed(1)}</td>
+                    <td style={cc(row.up_25m, "up_25m")}>{row.up_25m}</td>
+                    <td style={cc(row.down_25m, "down_25m")}>{row.down_25m}</td>
+                    <td style={cc(row.up_50m, "up_50m")}>{row.up_50m}</td>
+                    <td style={cc(row.down_50m, "down_50m")}>{row.down_50m}</td>
+                    <td style={cc(row.up_13_34d, "up_13_34d")}>{row.up_13_34d}</td>
+                    <td style={cc(row.down_13_34d, "down_13_34d")}>{row.down_13_34d}</td>
+                    <td style={cc(row.t2108, "t2108")}>{row.t2108}</td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Grid({ stocks, onTickerClick, activeTicker }) {
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
   const groups = useMemo(() => {
@@ -379,11 +572,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chartTicker, setChartTicker] = useState(null);
+  const [mmData, setMmData] = useState(null);
 
   useEffect(() => {
     fetch("/dashboard_data.json").then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(p => { if (!p.stocks || !p.themes) throw new Error(); setData(p); setLoading(false); })
       .catch(() => setLoading(false));
+    // Also load market monitor data (optional, won't block)
+    fetch("/market_monitor.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setMmData(d); }).catch(() => {});
   }, []);
 
   const handleFile = useCallback((e) => {
@@ -447,7 +643,7 @@ export default function App() {
 
       {/* Nav + filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
-        {[["leaders","Theme Leaders"],["rotation","Rotation"],["scan","Scan Watch"],["grid","RTS Grid"]].map(([id, label]) => (
+        {[["leaders","Theme Leaders"],["rotation","Rotation"],["scan","Scan Watch"],["grid","RTS Grid"],["mm","Mkt Monitor"]].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #10b98150" : "1px solid transparent",
             background: view === id ? "#10b98115" : "transparent", color: view === id ? "#6ee7b7" : "#666" }}>{label}</button>
@@ -477,6 +673,7 @@ export default function App() {
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} />}
+          {view === "mm" && <MarketMonitor mmData={mmData} />}
         </div>
 
         {/* Right: chart panel */}

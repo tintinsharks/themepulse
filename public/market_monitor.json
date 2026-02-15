@@ -1,0 +1,272 @@
+{
+  "date": "2026-02-13",
+  "generated": "2026-02-15 10:23",
+  "total_stocks": 4307,
+  "current": {
+    "date": "2026-02-13",
+    "up_4pct": 242,
+    "down_4pct": 87,
+    "up_25q": 650,
+    "down_25q": 612,
+    "up_25m": 148,
+    "down_25m": 463,
+    "up_50m": 45,
+    "down_50m": 73,
+    "up_13_34d": 909,
+    "down_13_34d": 879,
+    "t2108": 55.9,
+    "total_stocks": 4307,
+    "ratio_5d": 0,
+    "ratio_10d": 0
+  },
+  "gauges": {
+    "up_4pct": {
+      "label": "Stocks Up 4%+ Today",
+      "type": "primary",
+      "green": [
+        300,
+        9999
+      ],
+      "yellow": [
+        100,
+        300
+      ],
+      "red": [
+        0,
+        100
+      ],
+      "description": "Daily buying pressure. >300 = strong, >500 = very bullish"
+    },
+    "down_4pct": {
+      "label": "Stocks Down 4%+ Today",
+      "type": "primary",
+      "green": [
+        0,
+        100
+      ],
+      "yellow": [
+        100,
+        300
+      ],
+      "red": [
+        300,
+        9999
+      ],
+      "description": "Daily selling pressure. >700 = extreme, often near bottoms"
+    },
+    "up_25q": {
+      "label": "Stocks Up 25%+ in Quarter",
+      "type": "primary",
+      "green": [
+        500,
+        9999
+      ],
+      "yellow": [
+        200,
+        500
+      ],
+      "red": [
+        0,
+        200
+      ],
+      "description": "PRIMARY indicator. <200 = bearish extreme (buy signal)"
+    },
+    "down_25q": {
+      "label": "Stocks Down 25%+ in Quarter",
+      "type": "primary",
+      "green": [
+        0,
+        200
+      ],
+      "yellow": [
+        200,
+        500
+      ],
+      "red": [
+        500,
+        9999
+      ],
+      "description": "PRIMARY indicator. Rising = market weakness"
+    },
+    "ratio_5d": {
+      "label": "5-Day Ratio (Up/Down)",
+      "type": "primary",
+      "green": [
+        2.0,
+        999
+      ],
+      "yellow": [
+        0.5,
+        2.0
+      ],
+      "red": [
+        0,
+        0.5
+      ],
+      "description": "5-day sum of 4% up / 4% down. >2 = bullish, <0.5 = bearish"
+    },
+    "ratio_10d": {
+      "label": "10-Day Ratio (Up/Down)",
+      "type": "primary",
+      "green": [
+        2.0,
+        999
+      ],
+      "yellow": [
+        0.5,
+        2.0
+      ],
+      "red": [
+        0,
+        0.5
+      ],
+      "description": "10-day sum of 4% up / 4% down. >2 = bullish, <0.5 = bearish"
+    },
+    "up_25m": {
+      "label": "Stocks Up 25%+ in Month",
+      "type": "secondary",
+      "green": [
+        100,
+        9999
+      ],
+      "yellow": [
+        20,
+        100
+      ],
+      "red": [
+        0,
+        20
+      ],
+      "description": "Monthly momentum. Consistently high = pullback likely"
+    },
+    "down_25m": {
+      "label": "Stocks Down 25%+ in Month",
+      "type": "secondary",
+      "green": [
+        0,
+        20
+      ],
+      "yellow": [
+        20,
+        100
+      ],
+      "red": [
+        100,
+        9999
+      ],
+      "description": "Monthly selling. High = fear, potential bottom"
+    },
+    "up_50m": {
+      "label": "Stocks Up 50%+ in Month",
+      "type": "secondary",
+      "green": [
+        20,
+        9999
+      ],
+      "yellow": [
+        5,
+        20
+      ],
+      "red": [
+        0,
+        5
+      ],
+      "description": "Extreme momentum. Many red bars = near market top"
+    },
+    "down_50m": {
+      "label": "Stocks Down 50%+ in Month",
+      "type": "secondary",
+      "green": [
+        0,
+        5
+      ],
+      "yellow": [
+        5,
+        20
+      ],
+      "red": [
+        20,
+        9999
+      ],
+      "description": "Extreme selling in a month"
+    },
+    "up_13_34d": {
+      "label": "Stocks Up 13%+ in 34 Days",
+      "type": "secondary",
+      "green": [
+        200,
+        9999
+      ],
+      "yellow": [
+        50,
+        200
+      ],
+      "red": [
+        0,
+        50
+      ],
+      "description": "Trend intensity breakouts. Rising = bullish momentum"
+    },
+    "down_13_34d": {
+      "label": "Stocks Down 13%+ in 34 Days",
+      "type": "secondary",
+      "green": [
+        0,
+        50
+      ],
+      "yellow": [
+        50,
+        200
+      ],
+      "red": [
+        200,
+        9999
+      ],
+      "description": "Trend intensity breakdowns"
+    },
+    "t2108": {
+      "label": "T2108 (% Above 40-Day MA)",
+      "type": "secondary",
+      "green": [
+        50,
+        80
+      ],
+      "yellow_low": [
+        20,
+        50
+      ],
+      "yellow_high": [
+        80,
+        90
+      ],
+      "red_low": [
+        0,
+        20
+      ],
+      "red_high": [
+        90,
+        100
+      ],
+      "description": "<20 = oversold (bottom), >80 = overbought (pullback likely)"
+    }
+  },
+  "history": [
+    {
+      "date": "2026-02-13",
+      "up_4pct": 242,
+      "down_4pct": 87,
+      "up_25q": 650,
+      "down_25q": 612,
+      "up_25m": 148,
+      "down_25m": 463,
+      "up_50m": 45,
+      "down_50m": 73,
+      "up_13_34d": 909,
+      "down_13_34d": 879,
+      "t2108": 55.9,
+      "total_stocks": 4307,
+      "ratio_5d": 2.78,
+      "ratio_10d": 2.78
+    }
+  ]
+}
