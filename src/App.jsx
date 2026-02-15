@@ -276,6 +276,17 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker }) {
             </div>
             {isOpen && (
               <div style={{ background: "#0a0a0a", padding: "4px 8px" }}>
+                {/* Theme summary bar */}
+                <div style={{ display: "flex", gap: 16, padding: "6px 8px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 10, flexWrap: "wrap" }}>
+                  <span style={{ color: "#888" }}>Stocks: <b style={{ color: "#fff" }}>{theme.count}</b></span>
+                  <span style={{ color: "#888" }}>A grades: <b style={{ color: "#4ade80" }}>{theme.a_grades}</b></span>
+                  <span style={{ color: "#888" }}>Breadth: <b style={{ color: theme.breadth >= 60 ? "#4ade80" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</b></span>
+                  <span style={{ color: "#888" }}>Avg RS: <b style={{ color: "#ccc" }}>{Math.round(theme.subthemes.reduce((s, sub) => s + sub.tickers.reduce((a, t) => a + (stockMap[t]?.rs_rank || 0), 0), 0) / Math.max(1, theme.count))}</b></span>
+                  <span style={{ color: "#888" }}>FrHi &lt;5%: <b style={{ color: "#4ade80" }}>{theme.subthemes.reduce((s, sub) => s + sub.tickers.filter(t => stockMap[t]?.pct_from_high >= -5).length, 0)}</b></span>
+                  {(() => { const best = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean)).sort((a, b) => b.return_3m - a.return_3m)[0];
+                    return best ? <span style={{ color: "#888" }}>Top 3M: <b style={{ color: "#4ade80" }}>{best.ticker}</b> <Ret v={best.return_3m} bold /></span> : null;
+                  })()}
+                </div>
                 {theme.subthemes.map(sub => (
                   <div key={sub.name} style={{ marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderBottom: "1px solid #1a1a1a", fontSize: 11 }}>
@@ -357,19 +368,42 @@ function Rotation({ themes }) {
 }
 
 function Scan({ stocks, themes, onTickerClick, activeTicker }) {
+  const [sortBy, setSortBy] = useState("default");
+  const [nearPivot, setNearPivot] = useState(false);
   const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
   const candidates = useMemo(() => {
-    return stocks.filter(s => {
+    let list = stocks.filter(s => {
       const good = ["A+","A","A-","B+"].includes(s.grade);
       const inLead = s.themes.some(t => leading.has(t.theme));
       return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
-    }).sort((a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank));
-  }, [stocks, leading]);
+    });
+    if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
+    const sorters = {
+      default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
+      rs: (a, b) => b.rs_rank - a.rs_rank,
+      ret3m: (a, b) => b.return_3m - a.return_3m,
+      fromhi: (a, b) => b.pct_from_high - a.pct_from_high,
+      atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
+    };
+    return list.sort(sorters[sortBy] || sorters.default);
+  }, [stocks, leading, sortBy, nearPivot]);
 
   return (
     <div>
-      <div style={{ color: "#888", fontSize: 11, marginBottom: 8 }}>
-        A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+ — <span style={{ color: "#4ade80", fontWeight: 700 }}>{candidates.length} candidates</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{ color: "#888", fontSize: 11 }}>A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+</span>
+        <span style={{ color: "#4ade80", fontWeight: 700, fontSize: 11 }}>{candidates.length} candidates</span>
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          <span style={{ color: "#555", fontSize: 10 }}>Sort:</span>
+          {[["default","Default"],["rs","RS"],["ret3m","3M%"],["fromhi","Fr.High"],["atr50","ATR/50"]].map(([k, l]) => (
+            <button key={k} onClick={() => setSortBy(k)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+              border: sortBy === k ? "1px solid #10b981" : "1px solid #333",
+              background: sortBy === k ? "#10b98120" : "transparent", color: sortBy === k ? "#6ee7b7" : "#666" }}>{l}</button>
+          ))}
+          <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer", marginLeft: 8,
+            border: nearPivot ? "1px solid #c084fc" : "1px solid #333",
+            background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#666" }}>Near Pivot (&lt;3%)</button>
+        </div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
@@ -533,7 +567,8 @@ function MarketMonitor({ mmData }) {
                   <th key={h} style={{ padding: "4px 6px", color: "#666", fontWeight: 700, textAlign: "center", whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr></thead>
-              <tbody>{[...history].reverse().map((row, i) => {
+              <tbody>{[...history].reverse().map((row, i, arr) => {
+                const prev = arr[i + 1]; // previous day (next in reversed array)
                 const cellColor = (val, key) => {
                   const g = gauges[key];
                   if (!g) return "#888";
@@ -546,23 +581,43 @@ function MarketMonitor({ mmData }) {
                   if (g.yellow_high && val >= g.yellow_high[0] && val <= g.yellow_high[1]) return "#fbbf24";
                   return "#888";
                 };
-                const cc = (val, key) => ({ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", color: cellColor(val, key), fontWeight: i === 0 ? 700 : 400 });
+                const delta = (val, prevVal) => {
+                  if (prev == null || prevVal == null || val == null) return "";
+                  const d = val - prevVal;
+                  if (d > 0) return " ▲";
+                  if (d < 0) return " ▼";
+                  return "";
+                };
+                const deltaCol = (val, prevVal) => {
+                  if (prev == null || prevVal == null || val == null) return undefined;
+                  const d = val - prevVal;
+                  if (d > 0) return "#4ade8060";
+                  if (d < 0) return "#f8717160";
+                  return undefined;
+                };
+                const cc = (val, key, prevVal) => ({ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", color: cellColor(val, key), fontWeight: i === 0 ? 700 : 400 });
+                const cv = (val, key, prevKey) => {
+                  const pv = prev ? prev[prevKey || key] : null;
+                  const d = delta(val, pv);
+                  const fmt = typeof val === 'number' && !Number.isInteger(val) ? val?.toFixed(1) : val;
+                  return <>{fmt}<span style={{ fontSize: 7, color: d.includes("▲") ? "#4ade80" : "#f87171" }}>{d}</span></>;
+                };
                 return (
                   <tr key={row.date} style={{ borderBottom: "1px solid #1a1a1a", background: i === 0 ? "#10b98108" : "transparent" }}>
                     <td style={{ padding: "3px 6px", color: i === 0 ? "#fff" : "#666", fontWeight: i === 0 ? 700 : 400, whiteSpace: "nowrap" }}>{row.date}</td>
-                    <td style={cc(row.up_4pct, "up_4pct")}>{row.up_4pct}</td>
-                    <td style={cc(row.down_4pct, "down_4pct")}>{row.down_4pct}</td>
-                    <td style={cc(row.up_25q, "up_25q")}>{row.up_25q}</td>
-                    <td style={cc(row.down_25q, "down_25q")}>{row.down_25q}</td>
-                    <td style={cc(row.ratio_5d, "ratio_5d")}>{row.ratio_5d?.toFixed(1)}</td>
-                    <td style={cc(row.ratio_10d, "ratio_10d")}>{row.ratio_10d?.toFixed(1)}</td>
-                    <td style={cc(row.up_25m, "up_25m")}>{row.up_25m}</td>
-                    <td style={cc(row.down_25m, "down_25m")}>{row.down_25m}</td>
-                    <td style={cc(row.up_50m, "up_50m")}>{row.up_50m}</td>
-                    <td style={cc(row.down_50m, "down_50m")}>{row.down_50m}</td>
-                    <td style={cc(row.up_13_34d, "up_13_34d")}>{row.up_13_34d}</td>
-                    <td style={cc(row.down_13_34d, "down_13_34d")}>{row.down_13_34d}</td>
-                    <td style={cc(row.t2108, "t2108")}>{row.t2108}</td>
+                    <td style={cc(row.up_4pct, "up_4pct")}>{cv(row.up_4pct, "up_4pct")}</td>
+                    <td style={cc(row.down_4pct, "down_4pct")}>{cv(row.down_4pct, "down_4pct")}</td>
+                    <td style={cc(row.up_25q, "up_25q")}>{cv(row.up_25q, "up_25q")}</td>
+                    <td style={cc(row.down_25q, "down_25q")}>{cv(row.down_25q, "down_25q")}</td>
+                    <td style={cc(row.ratio_5d, "ratio_5d")}>{cv(row.ratio_5d, "ratio_5d")}</td>
+                    <td style={cc(row.ratio_10d, "ratio_10d")}>{cv(row.ratio_10d, "ratio_10d")}</td>
+                    <td style={cc(row.up_25m, "up_25m")}>{cv(row.up_25m, "up_25m")}</td>
+                    <td style={cc(row.down_25m, "down_25m")}>{cv(row.down_25m, "down_25m")}</td>
+                    <td style={cc(row.up_50m, "up_50m")}>{cv(row.up_50m, "up_50m")}</td>
+                    <td style={cc(row.down_50m, "down_50m")}>{cv(row.down_50m, "down_50m")}</td>
+                    <td style={cc(row.up_13_34d, "up_13_34d")}>{cv(row.up_13_34d, "up_13_34d")}</td>
+                    <td style={cc(row.down_13_34d, "down_13_34d")}>{cv(row.down_13_34d, "down_13_34d")}</td>
+                    <td style={cc(row.t2108, "t2108")}>{cv(row.t2108, "t2108")}</td>
                   </tr>
                 );
               })}</tbody>
@@ -671,6 +726,43 @@ export default function App() {
   const stockMap = useMemo(() => { if (!data) return {}; const m = {}; data.stocks.forEach(s => { m[s.ticker] = s; }); return m; }, [data]);
   const openChart = useCallback((t) => setChartTicker(t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
+
+  // Build navigable ticker list based on current view
+  const tickerList = useMemo(() => {
+    if (!data) return [];
+    if (view === "scan") {
+      const leading = new Set(data.themes.filter(t => t.rts >= 50).map(t => t.theme));
+      return data.stocks.filter(s => {
+        const good = ["A+","A","A-","B+"].includes(s.grade);
+        const inLead = s.themes.some(t => leading.has(t.theme));
+        return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
+      }).sort((a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank)).map(s => s.ticker);
+    }
+    if (view === "leaders") {
+      return data.themes.flatMap(t => t.subthemes.flatMap(s => s.tickers)).filter((v, i, a) => a.indexOf(v) === i);
+    }
+    return data.stocks.sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker);
+  }, [data, view]);
+
+  // Keyboard navigation: ↑↓ to cycle tickers, Esc to close chart
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === "INPUT") return; // don't hijack search box
+      if (e.key === "Escape") { closeChart(); return; }
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && tickerList.length > 0) {
+        e.preventDefault();
+        setChartTicker(prev => {
+          if (!prev) return tickerList[0];
+          const idx = tickerList.indexOf(prev);
+          if (idx === -1) return tickerList[0];
+          const next = e.key === "ArrowDown" ? Math.min(idx + 1, tickerList.length - 1) : Math.max(idx - 1, 0);
+          return tickerList[next];
+        });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [tickerList, closeChart]);
 
   if (!data) {
     return (
