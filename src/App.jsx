@@ -41,7 +41,25 @@ function Badge({ grade }) {
 const TV_LAYOUT = "nS7up88o";
 
 function ChartPanel({ ticker, stock, onClose }) {
-  const tvUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
+  const [tf, setTf] = useState("D");
+
+  const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
+
+  const tfMap = { "1": "1", "5": "5", "15": "15", "60": "60", "D": "D", "W": "W", "M": "M" };
+  const studies = [
+    "MAExp@tv-basicstudies|8",
+    "MAExp@tv-basicstudies|21",
+    "MASimple@tv-basicstudies|50",
+    "MASimple@tv-basicstudies|200",
+    "Volume@tv-basicstudies",
+  ];
+  const studiesParam = studies.map(s => `&studies=${encodeURIComponent(s)}`).join("");
+  const widgetUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(ticker)}&interval=${tfMap[tf]}&theme=dark&style=1&timezone=America%2FNew_York${studiesParam}&hide_side_toolbar=0&allow_symbol_change=1&save_image=0&backgroundColor=rgba(10%2C10%2C10%2C1)`;
+
+  const tfOptions = [
+    ["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"],
+    ["D", "D"], ["W", "W"], ["M", "M"],
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a" }}>
@@ -60,10 +78,19 @@ function ChartPanel({ ticker, stock, onClose }) {
           </>)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <a href={tvUrl} target="_blank" rel="noopener noreferrer"
+          {tfOptions.map(([val, label]) => (
+            <button key={val} onClick={() => setTf(val)}
+              style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
+                border: tf === val ? "1px solid #10b981" : "1px solid #333",
+                background: tf === val ? "#10b98120" : "transparent",
+                color: tf === val ? "#6ee7b7" : "#666" }}>
+              {label}
+            </button>
+          ))}
+          <a href={tvLayoutUrl} target="_blank" rel="noopener noreferrer"
             style={{ color: "#10b981", fontSize: 11, textDecoration: "none", padding: "4px 12px", border: "1px solid #10b98140",
-              borderRadius: 4, fontWeight: 700 }}>
-            Open in TradingView ↗</a>
+              borderRadius: 4, fontWeight: 700, marginLeft: 4 }}>
+            Full Chart ↗</a>
           <button onClick={onClose} style={{ background: "none", border: "1px solid #444", borderRadius: 4, color: "#666", fontSize: 14,
             width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>×</button>
         </div>
@@ -84,11 +111,11 @@ function ChartPanel({ ticker, stock, onClose }) {
         </div>
       )}
 
-      {/* TradingView chart - your custom layout with all Pine indicators */}
+      {/* TradingView widget chart with 8EMA, 21EMA, 50SMA, 200SMA */}
       <div style={{ flex: 1, minHeight: 0 }}>
         <iframe
-          key={ticker}
-          src={tvUrl}
+          key={`${ticker}-${tf}`}
+          src={widgetUrl}
           style={{ width: "100%", height: "100%", border: "none" }}
           allow="encrypted-media"
         />
