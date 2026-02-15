@@ -185,6 +185,8 @@ function ChartPanel({ ticker, stock, onClose }) {
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#4ade80" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
+          {stock.vcs != null && <StockStat label="VCS" value={stock.vcs}
+            color={stock.vcs >= 80 ? "#4ade80" : stock.vcs >= 60 ? "#60a5fa" : "#f97316"} />}
           {stock.rel_volume != null && <StockStat label="RVol" value={`${stock.rel_volume}x`} />}
         </div>
       )}
@@ -384,6 +386,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
       ret3m: (a, b) => b.return_3m - a.return_3m,
       fromhi: (a, b) => b.pct_from_high - a.pct_from_high,
       atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
+      vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
     };
     return list.sort(sorters[sortBy] || sorters.default);
   }, [stocks, leading, sortBy, nearPivot]);
@@ -395,7 +398,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
         <span style={{ color: "#4ade80", fontWeight: 700, fontSize: 11 }}>{candidates.length} candidates</span>
         <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
           <span style={{ color: "#555", fontSize: 10 }}>Sort:</span>
-          {[["default","Default"],["rs","RS"],["ret3m","3M%"],["fromhi","Fr.High"],["atr50","ATR/50"]].map(([k, l]) => (
+          {[["default","Default"],["rs","RS"],["ret3m","3M%"],["fromhi","Fr.High"],["atr50","ATR/50"],["vcs","VCS"]].map(([k, l]) => (
             <button key={k} onClick={() => setSortBy(k)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
               border: sortBy === k ? "1px solid #10b981" : "1px solid #333",
               background: sortBy === k ? "#10b98120" : "transparent", color: sortBy === k ? "#6ee7b7" : "#666" }}>{l}</button>
@@ -407,7 +410,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
-          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","Theme"].map(h => (
+          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","VCS","Theme"].map(h => (
             <th key={h} style={{ padding: "6px 8px", color: "#666", fontWeight: 700, textAlign: "center", fontSize: 10 }}>{h}</th>
           ))}
         </tr></thead>
@@ -430,6 +433,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#888", fontFamily: "monospace" }}>{s.atr_to_50}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.vcs >= 80 ? "#4ade80" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#888" : "#333",
+                fontWeight: s.vcs >= 60 ? 700 : 400 }}
+                title={s.vcs_detail ? `ATR:${s.vcs_detail.atr ?? '-'} Vol:${s.vcs_detail.vol ?? '-'} Cons:${s.vcs_detail.cons ?? '-'} Struc:${s.vcs_detail.struc ?? '-'}` : ''}>
+                {s.vcs != null ? s.vcs : '—'}</td>
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
             </tr>
           );
