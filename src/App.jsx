@@ -87,6 +87,16 @@ function ChartPanel({ ticker, stock, onClose }) {
             { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
             { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
           ],
+          studies_overrides: {
+            "moving average exponential.plot.color.0": "#ef4444",
+            "moving average exponential.plot.linestyle.0": 2,
+            "moving average exponential.plot.color.1": "#3b82f6",
+            "moving average exponential.plot.linestyle.1": 1,
+            "moving average.plot.color.0": "#22c55e",
+            "moving average.plot.linestyle.0": 2,
+            "moving average.plot.color.1": "#a855f7",
+            "moving average.plot.linestyle.1": 1,
+          },
         });
       }
     };
