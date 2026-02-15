@@ -37,6 +37,16 @@ function Badge({ grade }) {
   return <span style={{ background: bg, color: light ? "#222" : "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
 }
 
+// ── STOCK STAT (label: value pair for chart panel) ──
+function StockStat({ label, value, color = "#888" }) {
+  return (
+    <span style={{ whiteSpace: "nowrap" }}>
+      <span style={{ color: "#555" }}>{label}: </span>
+      <span style={{ color, fontFamily: "monospace", fontWeight: 600 }}>{value}</span>
+    </span>
+  );
+}
+
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nS7up88o";
 
@@ -142,6 +152,61 @@ function ChartPanel({ ticker, stock, onClose }) {
           <span style={{ color: "#888" }}>1W: <Ret v={stock.return_1w} /></span>
           <span style={{ color: "#888" }}>6M: <Ret v={stock.return_6m} /></span>
           <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
+        </div>
+      )}
+
+      {/* Stock detail row — matches Swing Data Pine Script color thresholds */}
+      {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
+        <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0, flexWrap: "wrap" }}>
+          {/* ADR%: >8% teal, >5% green, >3% yellow, else default */}
+          {stock.adr_pct != null && <StockStat label="ADR%" value={`${stock.adr_pct}%`}
+            color={stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#4ade80" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316"} />}
+          {stock.atr != null && <StockStat label="ATR" value={stock.atr} />}
+          {/* Off 52W High: >= -25% green, else default */}
+          {stock.off_52w_high != null && <StockStat label="Off 52W Hi" value={`${stock.off_52w_high}%`}
+            color={stock.off_52w_high >= -25 ? "#4ade80" : "#f97316"} />}
+          {stock.above_52w_low != null && <StockStat label="Ab 52W Lo" value={`+${stock.above_52w_low}%`} />}
+          {/* Earnings: red if available (< 14 days would need date parsing, show purple for now) */}
+          {stock.earnings_date && <StockStat label="Earnings" value={stock.earnings_date} color="#c084fc" />}
+          {/* Avg $ Vol: >20M green, >10M yellow, else default */}
+          {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
+            color={stock.avg_dollar_vol_raw > 20000000 ? "#4ade80" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
+          {/* Avg Vol: >1M green, else default */}
+          {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
+            color={stock.avg_volume_raw > 1000000 ? "#4ade80" : "#f97316"} />}
+          {/* RS Rating: >90 green, else default */}
+          {stock.rs_rank != null && <StockStat label="RS" value={stock.rs_rank}
+            color={stock.rs_rank > 90 ? "#4ade80" : "#f97316"} />}
+          {stock.market_cap && <StockStat label="MCap" value={`$${stock.market_cap}`} />}
+          {/* Float: <10M green, <25M yellow, else default */}
+          {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
+            color={stock.shares_float_raw < 10000000 ? "#4ade80" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
+          {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
+          {stock.rsi != null && <StockStat label="RSI" value={stock.rsi}
+            color={stock.rsi >= 70 ? "#f87171" : stock.rsi <= 30 ? "#4ade80" : "#f97316"} />}
+          {stock.rel_volume != null && <StockStat label="RVol" value={`${stock.rel_volume}x`} />}
+          {stock.beta != null && <StockStat label="Beta" value={stock.beta} />}
+        </div>
+      )}
+
+      {/* ATRX Pro style MA distances — matches Pine Script color thresholds */}
+      {stock && (stock.dist_50sma_atrx != null || stock.dist_20dma_atrx != null) && (
+        <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0 }}>
+          {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
+            const atrx = Math.abs(stock.dist_50sma_atrx);
+            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
+            return <StockStat label="Dist 50 SMA" value={`${stock.sma50_pct > 0 ? '+' : ''}${stock.sma50_pct}% / ${stock.dist_50sma_atrx}x`} color={col} />;
+          })()}
+          {stock.sma20_pct != null && stock.dist_20dma_atrx != null && (() => {
+            const atrx = Math.abs(stock.dist_20dma_atrx);
+            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
+            return <StockStat label="Dist 20 DMA" value={`${stock.sma20_pct > 0 ? '+' : ''}${stock.sma20_pct}% / ${stock.dist_20dma_atrx}x`} color={col} />;
+          })()}
+          {stock.sma200_pct != null && stock.dist_200sma_atrx != null && (() => {
+            const atrx = Math.abs(stock.dist_200sma_atrx);
+            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
+            return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
+          })()}
         </div>
       )}
 
