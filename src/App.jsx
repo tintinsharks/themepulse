@@ -166,8 +166,11 @@ function ChartPanel({ ticker, stock, onClose }) {
           {stock.off_52w_high != null && <StockStat label="Off 52W Hi" value={`${stock.off_52w_high}%`}
             color={stock.off_52w_high >= -25 ? "#4ade80" : "#f97316"} />}
           {stock.above_52w_low != null && <StockStat label="Ab 52W Lo" value={`+${stock.above_52w_low}%`} />}
-          {/* Earnings: red if available (< 14 days would need date parsing, show purple for now) */}
-          {stock.earnings_date && <StockStat label="Earnings" value={stock.earnings_date} color="#c084fc" />}
+          {/* Earnings: <14 days red (matches Pine Script) */}
+          {(stock.earnings_display || stock.earnings_date) && <StockStat
+            label="Earnings"
+            value={stock.earnings_display || stock.earnings_date}
+            color={stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc"} />}
           {/* Avg $ Vol: >20M green, >10M yellow, else default */}
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#4ade80" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
@@ -564,6 +567,38 @@ function MarketMonitor({ mmData }) {
                 );
               })}</tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* THEME BREADTH — 4% movers by theme */}
+      {mmData.theme_breadth && mmData.theme_breadth.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Theme Breadth — Where are the 4% movers?</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px", maxWidth: 700 }}>
+            {mmData.theme_breadth.map(tb => {
+              const total = tb.up_4pct + tb.down_4pct;
+              if (total === 0) return null;
+              const upPct = total > 0 ? (tb.up_4pct / total * 100) : 0;
+              const netColor = tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#888";
+              return (
+                <div key={tb.theme} style={{ marginBottom: 6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, color: "#aaa" }}>{tb.theme}</span>
+                    <span style={{ fontSize: 10, fontFamily: "monospace" }}>
+                      <span style={{ color: "#4ade80" }}>+{tb.up_4pct}</span>
+                      <span style={{ color: "#555" }}> / </span>
+                      <span style={{ color: "#f87171" }}>-{tb.down_4pct}</span>
+                      <span style={{ color: netColor, fontWeight: 700, marginLeft: 6 }}>({tb.net >= 0 ? '+' : ''}{tb.net})</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 4, background: "#1a1a1a", borderRadius: 2, overflow: "hidden", display: "flex" }}>
+                    <div style={{ width: `${upPct}%`, background: "#22c55e60", transition: "width 0.3s" }} />
+                    <div style={{ width: `${100 - upPct}%`, background: "#ef444460", transition: "width 0.3s" }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
