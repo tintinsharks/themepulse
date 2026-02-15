@@ -342,15 +342,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
 
 // ── GAUGE DIAL COMPONENT ──
 function Gauge({ value, min, max, label, zones, unit = "" }) {
-  const w = 100, h = 62;
-  const cx = w / 2, cy = h - 4;
-  const r = 40;
+  const w = 90, h = 52;
+  const cx = w / 2, cy = h;
+  const r = 36;
   
   const clampedVal = Math.max(min, Math.min(max, value));
   const pct = max > min ? (clampedVal - min) / (max - min) : 0;
   const needleAngle = Math.PI - pct * Math.PI;
-  const nx = cx + (r - 8) * Math.cos(needleAngle);
-  const ny = cy - (r - 8) * Math.sin(needleAngle);
+  const nx = cx + (r - 6) * Math.cos(needleAngle);
+  const ny = cy - (r - 6) * Math.sin(needleAngle);
   
   let zoneColor = "#666";
   if (zones) {
@@ -364,6 +364,7 @@ function Gauge({ value, min, max, label, zones, unit = "" }) {
     else zoneColor = "#eab308";
   }
   
+  // Arc from left (π) to right (0), half circle above the center point
   function arcPath(startPct, endPct) {
     const a1 = Math.PI - startPct * Math.PI;
     const a2 = Math.PI - endPct * Math.PI;
@@ -375,11 +376,11 @@ function Gauge({ value, min, max, label, zones, unit = "" }) {
   
   const zoneArcs = [];
   if (zones) {
-    [{ key: "red_low", color: "#ef444450" }, { key: "red", color: "#ef444450" },
-     { key: "yellow_low", color: "#eab30840" }, { key: "yellow", color: "#eab30840" },
-     { key: "green", color: "#22c55e40" },
-     { key: "yellow_high", color: "#eab30840" },
-     { key: "red_high", color: "#ef444450" }].forEach(({ key, color }) => {
+    [{ key: "red_low", color: "#ef444440" }, { key: "red", color: "#ef444440" },
+     { key: "yellow_low", color: "#eab30830" }, { key: "yellow", color: "#eab30830" },
+     { key: "green", color: "#22c55e30" },
+     { key: "yellow_high", color: "#eab30830" },
+     { key: "red_high", color: "#ef444440" }].forEach(({ key, color }) => {
       if (zones[key]) {
         const s = Math.max(0, (zones[key][0] - min) / (max - min));
         const e = Math.min(1, (zones[key][1] - min) / (max - min));
@@ -392,16 +393,16 @@ function Gauge({ value, min, max, label, zones, unit = "" }) {
   
   return (
     <div style={{ textAlign: "center" }}>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-        <path d={arcPath(0, 1)} fill="none" stroke="#1a1a1a" strokeWidth={8} strokeLinecap="round" />
-        {zoneArcs.map((z, i) => <path key={i} d={z.path} fill="none" stroke={z.color} strokeWidth={8} />)}
+      <svg width={w} height={h + 4} viewBox={`0 ${cy - r - 6} ${w} ${r + 10}`} overflow="visible">
+        <path d={arcPath(0, 1)} fill="none" stroke="#222" strokeWidth={6} strokeLinecap="round" />
+        {zoneArcs.map((z, i) => <path key={i} d={z.path} fill="none" stroke={z.color} strokeWidth={6} />)}
         {pct > 0.01 && <path d={arcPath(0, pct)} fill="none" stroke={zoneColor} strokeWidth={3} strokeLinecap="round" />}
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={zoneColor} strokeWidth={2} strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r={3} fill={zoneColor} />
-        <circle cx={cx} cy={cy} r={1.5} fill="#0a0a0a" />
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={zoneColor} strokeWidth={1.5} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={2.5} fill={zoneColor} />
+        <circle cx={cx} cy={cy} r={1} fill="#0a0a0a" />
       </svg>
-      <div style={{ fontSize: 14, fontWeight: 900, fontFamily: "monospace", color: zoneColor, marginTop: -2 }}>{displayVal}{unit}</div>
-      <div style={{ fontSize: 8, color: "#666", marginTop: 1 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 900, fontFamily: "monospace", color: zoneColor, marginTop: 2 }}>{displayVal}{unit}</div>
+      <div style={{ fontSize: 8, color: "#555", marginTop: 1 }}>{label}</div>
     </div>
   );
 }
