@@ -212,6 +212,28 @@ function ChartPanel({ ticker, stock, onClose }) {
         </div>
       )}
 
+      {/* Fundamentals row */}
+      {stock && (stock.eps_qq != null || stock.sales_qq != null || stock.pe != null) && (
+        <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0, flexWrap: "wrap" }}>
+          {stock.eps_qq != null && <StockStat label="EPS Q/Q" value={`${stock.eps_qq > 0 ? '+' : ''}${stock.eps_qq}%`}
+            color={stock.eps_qq > 25 ? "#4ade80" : stock.eps_qq > 0 ? "#888" : "#f87171"} />}
+          {stock.sales_qq != null && <StockStat label="Rev Q/Q" value={`${stock.sales_qq > 0 ? '+' : ''}${stock.sales_qq}%`}
+            color={stock.sales_qq > 25 ? "#4ade80" : stock.sales_qq > 0 ? "#888" : "#f87171"} />}
+          {stock.eps_growth_y != null && <StockStat label="EPS Y" value={`${stock.eps_growth_y > 0 ? '+' : ''}${stock.eps_growth_y}%`}
+            color={stock.eps_growth_y > 25 ? "#4ade80" : stock.eps_growth_y > 0 ? "#888" : "#f87171"} />}
+          {stock.eps_growth_ny != null && <StockStat label="EPS NY" value={`${stock.eps_growth_ny > 0 ? '+' : ''}${stock.eps_growth_ny}%`}
+            color={stock.eps_growth_ny > 15 ? "#4ade80" : stock.eps_growth_ny > 0 ? "#888" : "#f87171"} />}
+          {stock.pe != null && <StockStat label="P/E" value={stock.pe} />}
+          {stock.fwd_pe != null && <StockStat label="Fwd P/E" value={stock.fwd_pe} />}
+          {stock.peg != null && <StockStat label="PEG" value={stock.peg}
+            color={stock.peg > 0 && stock.peg < 1.5 ? "#4ade80" : stock.peg > 3 ? "#f87171" : "#888"} />}
+          {stock.roe != null && <StockStat label="ROE" value={`${stock.roe}%`}
+            color={stock.roe > 15 ? "#4ade80" : stock.roe > 0 ? "#888" : "#f87171"} />}
+          {stock.profit_margin != null && <StockStat label="Net Margin" value={`${stock.profit_margin}%`}
+            color={stock.profit_margin > 10 ? "#4ade80" : stock.profit_margin > 0 ? "#888" : "#f87171"} />}
+        </div>
+      )}
+
       <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
     </div>
   );
@@ -372,13 +394,51 @@ function Rotation({ themes }) {
 function Scan({ stocks, themes, onTickerClick, activeTicker }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
+  const [scanMode, setScanMode] = useState("theme"); // "theme" = original, "winners" = Best Winners, "liquid" = Liquid Leaders
   const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
   const candidates = useMemo(() => {
-    let list = stocks.filter(s => {
-      const good = ["A+","A","A-","B+"].includes(s.grade);
-      const inLead = s.themes.some(t => leading.has(t.theme));
-      return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
-    });
+    let list;
+    if (scanMode === "winners") {
+      // Best Winners filter
+      list = stocks.filter(s => {
+        const price = s.price || 0;
+        const adr = s.adr_pct || 0;
+        const aboveLow = s.above_52w_low || 0;
+        const avgDolVol = s.avg_dollar_vol_raw || 0;
+        const sma20 = s.sma20_pct;
+        const sma50 = s.sma50_pct;
+        return price > 1
+          && adr > 4.5
+          && aboveLow >= 70
+          && avgDolVol >= 7000000
+          && sma20 != null && sma20 > 0
+          && sma50 != null && sma50 > 0;
+      });
+    } else if (scanMode === "liquid") {
+      // Liquid Leaders filter — high-quality liquid institutional names
+      // Revenue Growth Q/Q > 25%, Price > $10, MCap > $300M, AvgVol > 1M, Avg$Vol > $100M, ADR > 3%
+      list = stocks.filter(s => {
+        const price = s.price || 0;
+        const mcap = s.market_cap_raw || 0;
+        const avgVol = s.avg_volume_raw || 0;
+        const avgDolVol = s.avg_dollar_vol_raw || 0;
+        const adr = s.adr_pct || 0;
+        const salesQQ = s.sales_qq;
+        return price > 10
+          && mcap >= 300000000
+          && avgVol >= 1000000
+          && avgDolVol >= 100000000
+          && adr > 3
+          && salesQQ != null && salesQQ > 25;
+      });
+    } else {
+      // Original theme-based filter
+      list = stocks.filter(s => {
+        const good = ["A+","A","A-","B+"].includes(s.grade);
+        const inLead = s.themes.some(t => leading.has(t.theme));
+        return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
+      });
+    }
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     const sorters = {
       default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
@@ -387,30 +447,44 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
       fromhi: (a, b) => b.pct_from_high - a.pct_from_high,
       atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
       vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
+      adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
     };
     return list.sort(sorters[sortBy] || sorters.default);
-  }, [stocks, leading, sortBy, nearPivot]);
+  }, [stocks, leading, sortBy, nearPivot, scanMode]);
+
+  const filterDesc = scanMode === "winners"
+    ? "Price>$1 | ADR>4.5% | Ab52WLo≥70% | Avg$Vol>$7M | >20SMA | >50SMA"
+    : scanMode === "liquid"
+    ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | RevQ/Q>25%"
+    : "A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+";
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-        <span style={{ color: "#888", fontSize: 11 }}>A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+</span>
-        <span style={{ color: "#4ade80", fontWeight: 700, fontSize: 11 }}>{candidates.length} candidates</span>
-        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-          <span style={{ color: "#555", fontSize: 10 }}>Sort:</span>
-          {[["default","Default"],["rs","RS"],["ret3m","3M%"],["fromhi","Fr.High"],["atr50","ATR/50"],["vcs","VCS"]].map(([k, l]) => (
-            <button key={k} onClick={() => setSortBy(k)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
-              border: sortBy === k ? "1px solid #10b981" : "1px solid #333",
-              background: sortBy === k ? "#10b98120" : "transparent", color: sortBy === k ? "#6ee7b7" : "#666" }}>{l}</button>
-          ))}
-          <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer", marginLeft: 8,
-            border: nearPivot ? "1px solid #c084fc" : "1px solid #333",
-            background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#666" }}>Near Pivot (&lt;3%)</button>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        {/* Scan mode toggle */}
+        {[["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"]].map(([k, l]) => (
+          <button key={k} onClick={() => setScanMode(k)} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
+            border: scanMode === k ? "1px solid #10b981" : "1px solid #333",
+            background: scanMode === k ? "#10b98118" : "transparent", color: scanMode === k ? "#6ee7b7" : "#666" }}>{l}</button>
+        ))}
+        <span style={{ color: "#555", fontSize: 10 }}>|</span>
+        <span style={{ color: "#888", fontSize: 10 }}>{filterDesc}</span>
+        <span style={{ color: "#4ade80", fontWeight: 700, fontSize: 11 }}>{candidates.length}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}>
+        <span style={{ color: "#555", fontSize: 10 }}>Sort:</span>
+        {[["default","Default"],["rs","RS"],["ret3m","3M%"],["fromhi","Fr.High"],["atr50","ATR/50"],["vcs","VCS"],["adr","ADR%"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSortBy(k)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+            border: sortBy === k ? "1px solid #10b981" : "1px solid #333",
+            background: sortBy === k ? "#10b98120" : "transparent", color: sortBy === k ? "#6ee7b7" : "#666" }}>{l}</button>
+        ))}
+        <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer", marginLeft: 8,
+          border: nearPivot ? "1px solid #c084fc" : "1px solid #333",
+          background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#666" }}>Near Pivot (&lt;3%)</button>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
-          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","VCS","Theme"].map(h => (
+          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","VCS","ADR%","EPS Q/Q","Rev Q/Q","Theme"].map(h => (
             <th key={h} style={{ padding: "6px 8px", color: "#666", fontWeight: 700, textAlign: "center", fontSize: 10 }}>{h}</th>
           ))}
         </tr></thead>
@@ -438,6 +512,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
                 fontWeight: s.vcs >= 60 ? 700 : 400 }}
                 title={s.vcs_detail ? `ATR:${s.vcs_detail.atr ?? '-'} Vol:${s.vcs_detail.vol ?? '-'} Cons:${s.vcs_detail.cons ?? '-'} Struc:${s.vcs_detail.struc ?? '-'}` : ''}>
                 {s.vcs != null ? s.vcs : '—'}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.eps_qq > 25 ? "#4ade80" : s.eps_qq > 0 ? "#888" : s.eps_qq != null ? "#f87171" : "#333" }}>
+                {s.eps_qq != null ? `${s.eps_qq}%` : '—'}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.sales_qq > 25 ? "#4ade80" : s.sales_qq > 0 ? "#888" : s.sales_qq != null ? "#f87171" : "#333" }}>
+                {s.sales_qq != null ? `${s.sales_qq}%` : '—'}</td>
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
             </tr>
           );
