@@ -37,69 +37,94 @@ function Badge({ grade }) {
   return <span style={{ background: bg, color: light ? "#222" : "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
 }
 
-function ChartModal({ ticker, stock, onClose }) {
-  const containerRef = useRef(null);
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      autosize: true, symbol: ticker, interval: "D", timezone: "America/New_York",
-      theme: "dark", style: "1", locale: "en",
-      backgroundColor: "rgba(10, 10, 10, 1)", gridColor: "rgba(40, 40, 40, 1)",
-      hide_top_toolbar: false, hide_legend: false, allow_symbol_change: true,
-      save_image: false, calendar: false,
-      studies: ["MASimple@tv-basicstudies|10|0","MASimple@tv-basicstudies|21|0","MASimple@tv-basicstudies|50|0","MASimple@tv-basicstudies|200|0","Volume@tv-basicstudies"],
-      support_host: "https://www.tradingview.com",
-    });
-    const wrapper = document.createElement("div");
-    wrapper.className = "tradingview-widget-container";
-    wrapper.style.height = "100%"; wrapper.style.width = "100%";
-    const inner = document.createElement("div");
-    inner.className = "tradingview-widget-container__widget";
-    inner.style.height = "100%"; inner.style.width = "100%";
-    wrapper.appendChild(inner); wrapper.appendChild(script);
-    containerRef.current.appendChild(wrapper);
-  }, [ticker]);
+// ── PERSISTENT CHART PANEL (right side) ──
+function ChartPanel({ ticker, stock, onClose }) {
+  const iframeKey = useRef(0);
+  const [tf, setTf] = useState("D");
+
+  // Increment key to force iframe reload on ticker or timeframe change
+  useEffect(() => { iframeKey.current += 1; }, [ticker, tf]);
+
+  const tfOptions = [
+    ["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"],
+    ["D", "D"], ["W", "W"], ["M", "M"],
+  ];
+
+  const tvUrl = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(ticker)}&interval=${tf}&theme=dark&style=1&timezone=America%2FNew_York&studies=MASimple%4010&studies=MASimple%4021&studies=MASimple%4050&studies=MASimple%40200&studies=Volume&hide_side_toolbar=0&allow_symbol_change=1&save_image=0&backgroundColor=rgba(10%2C10%2C10%2C1)`;
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)" }} onClick={onClose} />
-      <div style={{ position: "relative", margin: "24px auto", width: "90vw", maxWidth: 1200, height: "calc(100vh - 48px)",
-        background: "#0a0a0a", borderRadius: 12, border: "1px solid #333", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #222", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 20, fontWeight: 900, color: "#fff" }}>{ticker}</span>
-            {stock && (<>
-              <Badge grade={stock.grade} />
-              <span style={{ color: "#888", fontSize: 12 }}>{stock.company}</span>
-              <span style={{ color: "#666", fontSize: 11 }}>RS: {stock.rs_rank}</span>
-              <Ret v={stock.return_1m} /><Ret v={stock.return_3m} bold />
-              <span style={{ color: stock.pct_from_high >= -5 ? "#4ade80" : "#888", fontSize: 11, fontFamily: "monospace" }}>FrHi: {stock.pct_from_high}%</span>
-              <span style={{ color: "#888", fontSize: 11, fontFamily: "monospace" }}>ATR/50: {stock.atr_to_50}</span>
-            </>)}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <a href={`https://www.tradingview.com/chart/?symbol=${ticker}`} target="_blank" rel="noopener noreferrer"
-              style={{ color: "#10b981", fontSize: 11, textDecoration: "none", padding: "4px 10px", border: "1px solid #10b98140", borderRadius: 4 }}>
-              Open in TradingView ↗</a>
-            <button onClick={onClose} style={{ background: "none", border: "1px solid #444", borderRadius: 6, color: "#888", fontSize: 18,
-              width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a" }}>
+      {/* Chart header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
+        borderBottom: "1px solid #222", flexShrink: 0, background: "#111" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16, fontWeight: 900, color: "#fff" }}>{ticker}</span>
+          {stock && (<>
+            <Badge grade={stock.grade} />
+            <span style={{ color: "#666", fontSize: 11 }}>RS:{stock.rs_rank}</span>
+            <Ret v={stock.return_1m} />
+            <Ret v={stock.return_3m} bold />
+            <span style={{ color: stock.pct_from_high >= -5 ? "#4ade80" : "#888", fontSize: 10, fontFamily: "monospace" }}>FrHi:{stock.pct_from_high}%</span>
+            <span style={{ color: "#666", fontSize: 10, fontFamily: "monospace" }}>ATR/50:{stock.atr_to_50}</span>
+          </>)}
         </div>
-        <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {/* Timeframe buttons */}
+          {tfOptions.map(([val, label]) => (
+            <button key={val} onClick={() => setTf(val)}
+              style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
+                border: tf === val ? "1px solid #10b981" : "1px solid #333",
+                background: tf === val ? "#10b98120" : "transparent",
+                color: tf === val ? "#6ee7b7" : "#666" }}>
+              {label}
+            </button>
+          ))}
+          <a href={`https://www.tradingview.com/chart/?symbol=${ticker}`} target="_blank" rel="noopener noreferrer"
+            style={{ color: "#10b981", fontSize: 10, textDecoration: "none", padding: "2px 8px", border: "1px solid #10b98140", borderRadius: 3, marginLeft: 4 }}>
+            TV ↗</a>
+          <button onClick={onClose} style={{ background: "none", border: "1px solid #444", borderRadius: 4, color: "#666", fontSize: 14,
+            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>×</button>
+        </div>
+      </div>
+
+      {/* Stock info bar */}
+      {stock && (
+        <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0 }}>
+          <span style={{ color: "#888" }}>{stock.company}</span>
+          <span style={{ color: "#666" }}>{stock.sector}</span>
+          <span style={{ color: "#666" }}>{stock.industry}</span>
+          {stock.themes && stock.themes.length > 0 && (
+            <span style={{ color: "#10b981" }}>{stock.themes.map(t => t.theme).join(", ")}</span>
+          )}
+          <span style={{ color: "#888" }}>1W: <Ret v={stock.return_1w} /></span>
+          <span style={{ color: "#888" }}>6M: <Ret v={stock.return_6m} /></span>
+          <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
+        </div>
+      )}
+
+      {/* TradingView iframe */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <iframe
+          key={`${ticker}-${tf}-${iframeKey.current}`}
+          src={tvUrl}
+          style={{ width: "100%", height: "100%", border: "none" }}
+          allowTransparency="true"
+          allow="encrypted-media"
+        />
       </div>
     </div>
   );
 }
 
-function Ticker({ children, ticker, style, onClick, ...props }) {
+// ── CLICKABLE TICKER ──
+function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
+  const isActive = ticker === activeTicker;
   return (
-    <span {...props} onClick={(e) => { e.stopPropagation(); onClick(ticker); }}
-      style={{ ...style, cursor: "pointer", transition: "opacity 0.15s" }}
+    <span {...props}
+      onClick={(e) => { e.stopPropagation(); onClick(ticker); }}
+      style={{ ...style, cursor: "pointer", transition: "all 0.15s",
+        outline: isActive ? "2px solid #10b981" : "none",
+        outlineOffset: 1 }}
       onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.7"; }}
       onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}>
       {children}
@@ -107,7 +132,8 @@ function Ticker({ children, ticker, style, onClick, ...props }) {
   );
 }
 
-function Leaders({ themes, stockMap, filters, onTickerClick }) {
+// ── THEME LEADERS ──
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
   const list = useMemo(() => {
@@ -166,7 +192,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick }) {
                         const ext = s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : null;
                         const gc = GRADE_COLORS[s.grade] || "#333";
                         return (
-                          <Ticker key={s.ticker} ticker={s.ticker} onClick={onTickerClick}
+                          <Ticker key={s.ticker} ticker={s.ticker} onClick={onTickerClick} activeTicker={activeTicker}
                             title={`${s.company}\nGrade: ${s.grade} | RS: ${s.rs_rank}\n3M: ${s.return_3m}% | ATR/50: ${s.atr_to_50}\nFrom High: ${s.pct_from_high}%`}
                             style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, fontSize: 11, fontFamily: "monospace",
                               background: gc + "20", border: `1px solid ${gc}40`, color: ext || "#ddd", fontWeight: ext ? 700 : 400 }}>
@@ -231,7 +257,7 @@ function Rotation({ themes }) {
   );
 }
 
-function Scan({ stocks, themes, onTickerClick }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker }) {
   const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
   const candidates = useMemo(() => {
     return stocks.filter(s => {
@@ -258,10 +284,13 @@ function Scan({ stocks, themes, onTickerClick }) {
           const action = near ? "BUY ZONE" : pb ? "WATCH PB" : "ON RADAR";
           const ac = near ? "#059669" : pb ? "#d97706" : "#555";
           const theme = s.themes.find(t => leading.has(t.theme));
+          const isActive = s.ticker === activeTicker;
           return (
-            <tr key={s.ticker} style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer" }} onClick={() => onTickerClick(s.ticker)}>
+            <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+              style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer",
+                background: isActive ? "#10b98115" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><span style={{ background: ac, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{action}</span></td>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#fff", fontWeight: 700 }}>{s.ticker}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#10b981" : "#fff", fontWeight: 700 }}>{s.ticker}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s.rs_rank}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
@@ -277,7 +306,7 @@ function Scan({ stocks, themes, onTickerClick }) {
   );
 }
 
-function Grid({ stocks, onTickerClick }) {
+function Grid({ stocks, onTickerClick, activeTicker }) {
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
   const groups = useMemo(() => {
     const g = {}; grades.forEach(gr => { g[gr] = stocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
@@ -296,7 +325,8 @@ function Grid({ stocks, onTickerClick }) {
                   <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | 3M:${s.return_3m}%`}
                     onClick={() => onTickerClick(s.ticker)}
                     style={{ textAlign: "center", fontSize: 10, padding: "2px 0", fontFamily: "monospace",
-                      background: GRADE_COLORS[g] + "25", color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
+                      background: s.ticker === activeTicker ? "#10b98130" : GRADE_COLORS[g] + "25",
+                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
                       fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
                 ))}
               </div>
@@ -339,11 +369,6 @@ export default function App() {
   const openChart = useCallback((t) => setChartTicker(t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
 
-  useEffect(() => {
-    const h = (e) => { if (e.key === "Escape") closeChart(); };
-    window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
-  }, [closeChart]);
-
   if (!data) {
     return (
       <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -367,10 +392,13 @@ export default function App() {
   const breadth = Math.round(data.stocks.filter(s => s.above_50ma).length / data.stocks.length * 100);
   const strongC = data.themes.filter(t => getQuad(t.weekly_rs, t.monthly_rs) === "STRONG").length;
 
+  // Layout: when chart is open, split view 50/50
+  const chartOpen = chartTicker !== null;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#ccc", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      {chartTicker && <ChartModal ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} />}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #222", background: "#111" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#ccc", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+      {/* Top bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #222", background: "#111", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", letterSpacing: -1 }}>THEME<span style={{ color: "#10b981" }}>PULSE</span></span>
           <span style={{ color: "#555", fontSize: 11 }}>{data.date}</span>
@@ -382,7 +410,9 @@ export default function App() {
           <span style={{ color: "#666" }}>Breadth: <b style={{ color: breadth >= 60 ? "#4ade80" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</b></span>
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #1a1a1a" }}>
+
+      {/* Nav + filters */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
         {[["leaders","Theme Leaders"],["rotation","Rotation"],["scan","Scan Watch"],["grid","RTS Grid"]].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #10b98150" : "1px solid transparent",
@@ -404,11 +434,23 @@ export default function App() {
           style={{ width: 80, accentColor: "#10b981" }} />
         <span style={{ fontSize: 10, color: "#888", fontFamily: "monospace" }}>{filters.minRTS}</span>
       </div>
-      <div style={{ padding: 16, maxHeight: "calc(100vh - 100px)", overflowY: "auto" }}>
-        {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} />}
-        {view === "rotation" && <Rotation themes={data.themes} />}
-        {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} />}
-        {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} />}
+
+      {/* Main content: split layout when chart is open */}
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        {/* Left: data views */}
+        <div style={{ width: chartOpen ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
+          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} />}
+          {view === "rotation" && <Rotation themes={data.themes} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} />}
+          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} />}
+        </div>
+
+        {/* Right: chart panel */}
+        {chartOpen && (
+          <div style={{ width: "50%", height: "100%" }}>
+            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} />
+          </div>
+        )}
       </div>
     </div>
   );
