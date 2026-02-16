@@ -1424,22 +1424,27 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [portfolio, setPortfolio] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_portfolio") || "[]"); } catch { return []; }
+  });
   const [watchlist, setWatchlist] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_watchlist") || "[]"); } catch { return []; }
   });
-  const [addTicker, setAddTicker] = useState("");
+  const [addTickerP, setAddTickerP] = useState("");
+  const [addTickerW, setAddTickerW] = useState("");
+  const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
   const [vgSort, setVgSort] = useState("rel_volume");
 
-  // Save watchlist to localStorage
-  useEffect(() => {
-    localStorage.setItem("tp_watchlist", JSON.stringify(watchlist));
-  }, [watchlist]);
+  useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
+  useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
 
-  // Fetch live data
+  // Combine all tickers for API call
+  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
+
   const fetchLive = useCallback(async () => {
     try {
-      const tickerParam = watchlist.length > 0 ? `?tickers=${watchlist.join(",")}` : "";
+      const tickerParam = allTickers.length > 0 ? `?tickers=${allTickers.join(",")}` : "";
       const resp = await fetch(`/api/live${tickerParam}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
@@ -1447,132 +1452,215 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
       setLiveData(json);
       setLastUpdate(new Date());
       setError(null);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [watchlist]);
+    } catch (e) { setError(e.message); } finally { setLoading(false); }
+  }, [allTickers]);
 
-  // Initial fetch + 60s interval
-  useEffect(() => {
-    fetchLive();
-    const interval = setInterval(fetchLive, 60000);
-    return () => clearInterval(interval);
-  }, [fetchLive]);
+  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
-  // Report visible tickers
   useEffect(() => {
     if (!liveData || !onVisibleTickers) return;
     const tickers = [
       ...(liveData.watchlist || []).map(s => s.ticker),
-      ...(liveData.volume_gainers || []).slice(0, 20).map(s => s.ticker),
+      ...(liveData.volume_gainers || []).slice(0, 30).map(s => s.ticker),
     ];
     onVisibleTickers(tickers);
   }, [liveData, onVisibleTickers]);
 
-  // Add to watchlist
-  const handleAdd = () => {
-    const t = addTicker.trim().toUpperCase();
-    if (t && !watchlist.includes(t)) {
-      setWatchlist(prev => [...prev, t]);
-    }
-    setAddTicker("");
-  };
+  // Build merged lookup: live data + pipeline stockMap
+  const liveLookup = useMemo(() => {
+    const m = {};
+    (liveData?.watchlist || []).forEach(s => { m[s.ticker] = s; });
+    return m;
+  }, [liveData?.watchlist]);
 
-  // Add from stockMap (quick-add any ticker from the pipeline)
-  const addFromClick = (ticker) => {
-    if (!watchlist.includes(ticker)) {
-      setWatchlist(prev => [...prev, ticker]);
-    }
-  };
+  // Merge live + pipeline data for a ticker
+  const mergeStock = useCallback((ticker) => {
+    const live = liveLookup[ticker] || {};
+    const pipe = stockMap?.[ticker] || {};
+    return {
+      ticker,
+      price: live.price ?? pipe.price,
+      change: live.change,
+      rel_volume: live.rel_volume ?? pipe.rel_volume,
+      grade: pipe.grade,
+      rs_rank: pipe.rs_rank,
+      return_1m: live.perf_month ?? pipe.return_1m,
+      return_3m: live.perf_quart ?? pipe.return_3m,
+      pct_from_high: live.high_52w ?? pipe.pct_from_high,
+      atr_to_50: pipe.atr_to_50,
+      vcs: pipe.vcs,
+      vcs_detail: pipe.vcs_detail,
+      adr_pct: pipe.adr_pct,
+      eps_past_5y: pipe.eps_past_5y,
+      sales_past_5y: pipe.sales_past_5y,
+      pe: live.pe ?? pipe.pe,
+      roe: pipe.roe,
+      profit_margin: pipe.profit_margin,
+      rsi: live.rsi ?? pipe.rsi,
+      theme: pipe.themes?.[0]?.theme || live.sector || "",
+      company: live.company || pipe.company || "",
+    };
+  }, [liveLookup, stockMap]);
 
-  const removeFromWatchlist = (ticker) => {
-    setWatchlist(prev => prev.filter(t => t !== ticker));
-  };
+  // Merge for volume gainers (no pipeline data typically)
+  const mergeGainer = useCallback((g) => {
+    const pipe = stockMap?.[g.ticker] || {};
+    return {
+      ticker: g.ticker,
+      price: g.price,
+      change: g.change,
+      rel_volume: g.rel_volume,
+      grade: pipe.grade,
+      rs_rank: pipe.rs_rank,
+      return_1m: g.perf_month ?? pipe.return_1m,
+      return_3m: g.perf_quart ?? pipe.return_3m,
+      pct_from_high: g.high_52w ?? pipe.pct_from_high,
+      atr_to_50: pipe.atr_to_50,
+      vcs: pipe.vcs,
+      vcs_detail: pipe.vcs_detail,
+      adr_pct: pipe.adr_pct,
+      eps_past_5y: pipe.eps_past_5y,
+      sales_past_5y: pipe.sales_past_5y,
+      pe: pipe.pe,
+      roe: pipe.roe,
+      profit_margin: pipe.profit_margin,
+      rsi: g.rsi ?? pipe.rsi,
+      theme: pipe.themes?.[0]?.theme || g.sector || "",
+      company: g.company || pipe.company || "",
+    };
+  }, [stockMap]);
 
-  // Sorting helpers
+  const handleAddP = () => { const t = addTickerP.trim().toUpperCase(); if (t && !portfolio.includes(t)) setPortfolio(p => [...p, t]); setAddTickerP(""); };
+  const handleAddW = () => { const t = addTickerW.trim().toUpperCase(); if (t && !watchlist.includes(t)) setWatchlist(p => [...p, t]); setAddTickerW(""); };
+  const removeP = (t) => setPortfolio(p => p.filter(x => x !== t));
+  const removeW = (t) => setWatchlist(p => p.filter(x => x !== t));
+  const addToWatch = (t) => { if (!watchlist.includes(t)) setWatchlist(p => [...p, t]); };
+  const addToPortfolio = (t) => { if (!portfolio.includes(t)) setPortfolio(p => [...p, t]); };
+
   const sortFn = (key, desc = true) => (a, b) => {
     const av = a[key] ?? (desc ? -Infinity : Infinity);
     const bv = b[key] ?? (desc ? -Infinity : Infinity);
     return desc ? bv - av : av - bv;
   };
 
-  const sortedWatchlist = useMemo(() => {
-    const list = [...(liveData?.watchlist || [])];
-    const sorters = {
-      ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-      change: sortFn("change"),
-      rel_volume: sortFn("rel_volume"),
-      rsi: sortFn("rsi"),
-      price: sortFn("price"),
-      perf_week: sortFn("perf_week"),
-      perf_month: sortFn("perf_month"),
-    };
-    if (sorters[wlSort]) list.sort(sorters[wlSort]);
-    return list;
-  }, [liveData?.watchlist, wlSort]);
+  const makeSorters = () => ({
+    ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+    change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
+    fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
+    atr50: sortFn("atr_to_50"), vcs: sortFn("vcs"), adr: sortFn("adr_pct"),
+    eps: sortFn("eps_past_5y"), rev: sortFn("sales_past_5y"),
+    pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
+    roe: sortFn("roe"), margin: sortFn("profit_margin"),
+    rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
+  });
 
-  const sortedGainers = useMemo(() => {
-    const list = [...(liveData?.volume_gainers || [])];
-    const sorters = {
-      ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-      change: sortFn("change"),
-      rel_volume: sortFn("rel_volume"),
-      rsi: sortFn("rsi"),
-      price: sortFn("price"),
-    };
-    if (sorters[vgSort]) list.sort(sorters[vgSort]);
-    return list;
-  }, [liveData?.volume_gainers, vgSort]);
+  const sortList = (list, sortKey) => {
+    const sorters = makeSorters();
+    const sorted = [...list];
+    if (sorters[sortKey]) sorted.sort(sorters[sortKey]);
+    return sorted;
+  };
 
-  const chgColor = (v) => !v ? "#555" : v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#888";
+  const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
+  const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
+  const gainersMerged = useMemo(() => sortList((liveData?.volume_gainers || []).map(mergeGainer), vgSort), [liveData?.volume_gainers, mergeGainer, vgSort]);
 
-  const SortBtn = ({ label, sortKey, current, setter }) => (
-    <span onClick={() => setter(sortKey)} style={{ cursor: "pointer", color: current === sortKey ? "#6ee7b7" : "#555",
-      textDecoration: current === sortKey ? "underline" : "none" }}>{label}</span>
+  // ── Shared table components (mirrors Scan Watch) ──
+  const columns = [
+    ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["RVol", "rel_volume"],
+    ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
+    ["EPS 5Y", "eps"], ["Rev 5Y", "rev"], ["P/E", "pe"], ["ROE", "roe"], ["Mgn%", "margin"],
+  ];
+
+  const SortHeader = ({ sortKey, setter, current }) => (
+    <thead><tr style={{ borderBottom: "2px solid #333" }}>
+      {columns.map(([h, sk]) => (
+        <th key={h || "act"} onClick={sk ? () => setter(prev => prev === sk ? "change" : sk) : undefined}
+          style={{ padding: "6px 6px", color: current === sk ? "#6ee7b7" : "#666", fontWeight: 700, textAlign: "center", fontSize: 10,
+            cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+          {h}{current === sk ? " ▼" : ""}</th>
+      ))}
+    </tr></thead>
   );
 
-  const StockRow = ({ s, showAdd }) => (
-    <div onClick={() => onTickerClick(s.ticker)} style={{ display: "grid", gridTemplateColumns: "60px 60px 55px 50px 50px 50px 50px 45px 1fr",
-      gap: 4, padding: "4px 0", borderBottom: "1px solid #111", cursor: "pointer", fontSize: 11, fontFamily: "monospace",
-      background: activeTicker === s.ticker ? "#10b98115" : "transparent" }}>
-      <span style={{ fontWeight: 700, color: "#fff" }}>{s.ticker}</span>
-      <span style={{ color: "#ccc" }}>{s.price?.toFixed(2)}</span>
-      <span style={{ color: chgColor(s.change), fontWeight: 700 }}>{s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</span>
-      <span style={{ color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>{s.rel_volume?.toFixed(1) || '—'}x</span>
-      <span style={{ color: chgColor(s.perf_week) }}>{s.perf_week != null ? `${s.perf_week >= 0 ? '+' : ''}${s.perf_week.toFixed(1)}%` : ''}</span>
-      <span style={{ color: chgColor(s.perf_month) }}>{s.perf_month != null ? `${s.perf_month >= 0 ? '+' : ''}${s.perf_month.toFixed(1)}%` : ''}</span>
-      <span style={{ color: s.rsi >= 70 ? "#fbbf24" : s.rsi <= 30 ? "#60a5fa" : "#888" }}>{s.rsi?.toFixed(0) || ''}</span>
-      <span style={{ color: s.high_52w != null && s.high_52w >= -5 ? "#4ade80" : "#555" }}>{s.high_52w != null ? `${s.high_52w.toFixed(0)}%` : ''}</span>
-      <span style={{ color: "#555", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {s.company || s.sector || ''}
-        {showAdd && !watchlist.includes(s.ticker) && (
-          <span onClick={(e) => { e.stopPropagation(); addFromClick(s.ticker); }}
-            style={{ marginLeft: 6, color: "#10b981", cursor: "pointer", fontSize: 10 }}>+watch</span>
-        )}
-      </span>
-    </div>
+  const LiveRow = ({ s, onRemove, onAdd, addLabel }) => {
+    const isActive = s.ticker === activeTicker;
+    const near = s.pct_from_high != null && s.pct_from_high >= -5;
+    const chg = (v) => !v && v !== 0 ? "#555" : v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#888";
+    return (
+      <tr onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer",
+        background: isActive ? "#10b98115" : "transparent" }}>
+        <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
+          {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
+            style={{ color: "#555", cursor: "pointer", fontSize: 10, marginRight: 2 }}>✕</span>}
+          {onAdd && <span onClick={(e) => { e.stopPropagation(); onAdd(s.ticker); }}
+            style={{ color: "#10b981", cursor: "pointer", fontSize: 10 }}>{addLabel || "+watch"}</span>}
+        </td>
+        <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#10b981" : "#fff", fontWeight: 700, fontSize: 11 }}>{s.ticker}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#333" }}>—</span>}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", color: "#ccc", fontFamily: "monospace", fontSize: 11 }}>{s.rs_rank ?? '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>
+          {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
+          {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
+        <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
+        <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 11 }}>
+          {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: s.vcs >= 80 ? "#4ade80" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#888" : "#333",
+          fontWeight: s.vcs >= 60 ? 700 : 400 }}
+          title={s.vcs_detail ? `ATR:${s.vcs_detail.atr ?? '-'} Vol:${s.vcs_detail.vol ?? '-'} Cons:${s.vcs_detail.cons ?? '-'} Struc:${s.vcs_detail.struc ?? '-'}` : ''}>
+          {s.vcs != null ? s.vcs : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#333" }}>
+          {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+        {(() => { const v = s.eps_past_5y; return (
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
+          {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>); })()}
+        {(() => { const v = s.sales_past_5y; return (
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
+          {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>); })()}
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: s.pe != null && s.pe > 0 ? (s.pe < 20 ? "#4ade80" : s.pe < 40 ? "#888" : "#f97316") : "#333" }}>
+          {s.pe != null && s.pe > 0 ? s.pe.toFixed(0) : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: s.roe != null ? (s.roe > 20 ? "#4ade80" : s.roe > 10 ? "#888" : s.roe > 0 ? "#f97316" : "#f87171") : "#333" }}>
+          {s.roe != null ? `${s.roe}%` : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+          color: s.profit_margin != null ? (s.profit_margin > 15 ? "#4ade80" : s.profit_margin > 5 ? "#888" : s.profit_margin > 0 ? "#f97316" : "#f87171") : "#333" }}>
+          {s.profit_margin != null ? `${s.profit_margin}%` : '—'}</td>
+      </tr>
+    );
+  };
+
+  const TickerInput = ({ value, setValue, onAdd, placeholder }) => (
+    <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+      <input value={value} onChange={e => setValue(e.target.value.toUpperCase())}
+        onKeyDown={e => e.key === "Enter" && onAdd()}
+        placeholder={placeholder || "Add ticker..."}
+        style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 4, padding: "3px 8px",
+          fontSize: 11, color: "#fff", width: 80, outline: "none", fontFamily: "monospace" }} />
+      <button onClick={onAdd} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer",
+        background: "#10b98120", border: "1px solid #10b98140", color: "#10b981" }}>+</button>
+    </span>
   );
 
-  const HeaderRow = ({ sortKey, setter, current }) => (
-    <div style={{ display: "grid", gridTemplateColumns: "60px 60px 55px 50px 50px 50px 50px 45px 1fr",
-      gap: 4, padding: "4px 0", borderBottom: "1px solid #333", fontSize: 10, color: "#555" }}>
-      <SortBtn label="Ticker" sortKey="ticker" current={current} setter={setter} />
-      <SortBtn label="Price" sortKey="price" current={current} setter={setter} />
-      <SortBtn label="Chg%" sortKey="change" current={current} setter={setter} />
-      <SortBtn label="RVol" sortKey="rel_volume" current={current} setter={setter} />
-      <SortBtn label="1W" sortKey="perf_week" current={current} setter={setter} />
-      <SortBtn label="1M" sortKey="perf_month" current={current} setter={setter} />
-      <SortBtn label="RSI" sortKey="rsi" current={current} setter={setter} />
-      <span>52W</span>
-      <span>Name</span>
-    </div>
+  const SectionTable = ({ data, sortKey, setter, onRemove, onAdd, addLabel }) => (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+      <SortHeader sortKey={sortKey} setter={setter} current={sortKey} />
+      <tbody>
+        {data.map(s => <LiveRow key={s.ticker} s={s} onRemove={onRemove} onAdd={onAdd} addLabel={addLabel} />)}
+      </tbody>
+    </table>
   );
 
   return (
     <div>
-      {/* Header bar */}
+      {/* Status bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 10, color: loading ? "#fbbf24" : "#4ade80" }}>●</span>
@@ -1586,60 +1674,53 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
         {error && <span style={{ fontSize: 10, color: "#f87171" }}>Error: {error}</span>}
       </div>
 
-      {/* ── Watchlist section ── */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ color: "#10b981", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            Watchlist ({watchlist.length})
+      {/* ── 1. Portfolio ── */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            Portfolio ({portfolio.length})
           </span>
-          <input value={addTicker} onChange={e => setAddTicker(e.target.value.toUpperCase())}
-            onKeyDown={e => e.key === "Enter" && handleAdd()}
-            placeholder="Add ticker..."
-            style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 4, padding: "3px 8px",
-              fontSize: 11, color: "#fff", width: 90, outline: "none", fontFamily: "monospace" }} />
-          <button onClick={handleAdd} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, cursor: "pointer",
-            background: "#10b98120", border: "1px solid #10b98140", color: "#10b981" }}>Add</button>
+          <TickerInput value={addTickerP} setValue={setAddTickerP} onAdd={handleAddP} />
         </div>
-
-        {watchlist.length === 0 ? (
-          <div style={{ color: "#555", fontSize: 11, padding: 12, background: "#0d0d0d", borderRadius: 8, border: "1px solid #1a1a1a" }}>
-            No watchlist tickers. Type a ticker above or click <span style={{ color: "#10b981" }}>+watch</span> on volume gainers below.
+        {portfolio.length === 0 ? (
+          <div style={{ color: "#555", fontSize: 11, padding: 10, background: "#0d0d0d", borderRadius: 6, border: "1px solid #1a1a1a" }}>
+            Add your holdings above to track live.
           </div>
         ) : (
-          <div>
-            <HeaderRow sortKey={wlSort} setter={setWlSort} current={wlSort} />
-            {sortedWatchlist.map(s => (
-              <div key={s.ticker} style={{ position: "relative" }}>
-                <StockRow s={s} showAdd={false} />
-                <span onClick={(e) => { e.stopPropagation(); removeFromWatchlist(s.ticker); }}
-                  style={{ position: "absolute", right: 0, top: 4, fontSize: 10, color: "#555", cursor: "pointer" }}>✕</span>
-              </div>
-            ))}
-            {sortedWatchlist.length === 0 && !loading && (
-              <div style={{ color: "#555", fontSize: 10, padding: 8 }}>Waiting for data...</div>
-            )}
-          </div>
+          <SectionTable data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeP} />
         )}
       </div>
 
-      {/* ── Volume Gainers section ── */}
+      {/* ── 2. Watchlist ── */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#10b981", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            Watchlist ({watchlist.length})
+          </span>
+          <TickerInput value={addTickerW} setValue={setAddTickerW} onAdd={handleAddW} />
+        </div>
+        {watchlist.length === 0 ? (
+          <div style={{ color: "#555", fontSize: 11, padding: 10, background: "#0d0d0d", borderRadius: 6, border: "1px solid #1a1a1a" }}>
+            Add tickers above or click <span style={{ color: "#10b981" }}>+watch</span> on volume gainers below.
+          </div>
+        ) : (
+          <SectionTable data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeW} />
+        )}
+      </div>
+
+      {/* ── 3. Volume Gainers ── */}
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
             Volume Gainers — Rel Volume &gt; 2x
           </span>
-          <span style={{ fontSize: 10, color: "#555" }}>$1B+ mkt cap</span>
+          <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length} stocks</span>
         </div>
-
-        {sortedGainers.length > 0 ? (
-          <div>
-            <HeaderRow sortKey={vgSort} setter={setVgSort} current={vgSort} />
-            {sortedGainers.map(s => (
-              <StockRow key={s.ticker} s={s} showAdd={true} />
-            ))}
-          </div>
+        {gainersMerged.length > 0 ? (
+          <SectionTable data={gainersMerged} sortKey={vgSort} setter={setVgSort}
+            onAdd={(t) => { addToWatch(t); }} addLabel="+watch" />
         ) : (
-          <div style={{ color: "#555", fontSize: 11, padding: 12 }}>
+          <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
             {loading ? "Loading volume gainers..." : "No stocks with relative volume > 2x right now."}
           </div>
         )}
