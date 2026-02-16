@@ -91,6 +91,9 @@ function ChartPanel({ ticker, stock, onClose }) {
           backgroundColor: "rgba(10, 10, 10, 1)",
           gridColor: "rgba(30, 30, 30, 1)",
           container_id: "tv_chart_container",
+          overrides: {
+            "mainSeriesProperties.priceAxisProperties.isLog": true,
+          },
           studies: [
             { id: "MAExp@tv-basicstudies", inputs: { length: 8 } },
             { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
