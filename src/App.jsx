@@ -305,7 +305,7 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
   const [detailTheme, setDetailTheme] = useState(null); // full table view for a theme
@@ -330,6 +330,16 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     return t;
   }, [themes, filters, sort]);
   const toggle = (name) => setOpen(p => ({ ...p, [name]: !p[name] }));
+
+  // Report visible ticker order to parent for keyboard nav
+  useEffect(() => {
+    if (onVisibleTickers) {
+      const tickers = list.flatMap(t => t.subthemes.flatMap(s =>
+        s.tickers.map(tk => stockMap[tk]).filter(Boolean).sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker)
+      )).filter((v, i, a) => a.indexOf(v) === i);
+      onVisibleTickers(tickers);
+    }
+  }, [list, onVisibleTickers, stockMap]);
 
   return (
     <div>
@@ -570,7 +580,7 @@ function Rotation({ themes }) {
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [scanMode, setScanMode] = useState("theme"); // "theme" = original, "winners" = Best Winners, "liquid" = Liquid Leaders
@@ -630,6 +640,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
     };
     return list.sort(sorters[sortBy] || sorters.default);
   }, [stocks, leading, sortBy, nearPivot, scanMode]);
+
+  // Report visible ticker order to parent for keyboard nav
+  useEffect(() => {
+    if (onVisibleTickers) onVisibleTickers(candidates.map(s => s.ticker));
+  }, [candidates, onVisibleTickers]);
 
   const filterDesc = scanMode === "winners"
     ? "Price>$1 | ADR>4.5% | Ab52WLo≥70% | Avg$Vol>$7M | >20SMA | >50SMA"
@@ -1015,11 +1030,19 @@ function IndexChart({ symbol, name, maData }) {
   );
 }
 
-function Grid({ stocks, onTickerClick, activeTicker }) {
+function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
   const groups = useMemo(() => {
     const g = {}; grades.forEach(gr => { g[gr] = stocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
   }, [stocks]);
+
+  // Report visible ticker order to parent
+  useEffect(() => {
+    if (onVisibleTickers) {
+      const tickers = grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker));
+      onVisibleTickers(tickers);
+    }
+  }, [groups, onVisibleTickers]);
   return (
     <div style={{ overflowX: "auto" }}>
       {/* Legend */}
@@ -1105,42 +1128,29 @@ export default function App() {
   const openChart = useCallback((t) => setChartTicker(t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
 
-  // Build navigable ticker list based on current view
-  const tickerList = useMemo(() => {
-    if (!data) return [];
-    if (view === "scan") {
-      const leading = new Set(data.themes.filter(t => t.rts >= 50).map(t => t.theme));
-      return data.stocks.filter(s => {
-        const good = ["A+","A","A-","B+"].includes(s.grade);
-        const inLead = s.themes.some(t => leading.has(t.theme));
-        return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
-      }).sort((a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank)).map(s => s.ticker);
-    }
-    if (view === "leaders") {
-      return data.themes.flatMap(t => t.subthemes.flatMap(s => s.tickers)).filter((v, i, a) => a.indexOf(v) === i);
-    }
-    return data.stocks.sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker);
-  }, [data, view]);
+  // Visible ticker list — reported by whichever view is active
+  const [visibleTickers, setVisibleTickers] = useState([]);
+  const onVisibleTickers = useCallback((tickers) => setVisibleTickers(tickers), []);
 
   // Keyboard navigation: ↑↓ to cycle tickers, Esc to close chart
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === "INPUT") return; // don't hijack search box
       if (e.key === "Escape") { closeChart(); return; }
-      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && tickerList.length > 0) {
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && visibleTickers.length > 0) {
         e.preventDefault();
         setChartTicker(prev => {
-          if (!prev) return tickerList[0];
-          const idx = tickerList.indexOf(prev);
-          if (idx === -1) return tickerList[0];
-          const next = e.key === "ArrowDown" ? Math.min(idx + 1, tickerList.length - 1) : Math.max(idx - 1, 0);
-          return tickerList[next];
+          if (!prev) return visibleTickers[0];
+          const idx = visibleTickers.indexOf(prev);
+          if (idx === -1) return visibleTickers[0];
+          const next = e.key === "ArrowDown" ? Math.min(idx + 1, visibleTickers.length - 1) : Math.max(idx - 1, 0);
+          return visibleTickers[next];
         });
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [tickerList, closeChart]);
+  }, [visibleTickers, closeChart]);
 
   if (!data) {
     return (
@@ -1212,10 +1222,10 @@ export default function App() {
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* Left: data views */}
         <div style={{ width: (chartOpen && view !== "mm") ? "50%" : view === "mm" ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
-          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} />}
+          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} />}
           {view === "rotation" && <Rotation themes={data.themes} />}
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} />}
-          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "mm" && <MarketMonitor mmData={mmData} />}
         </div>
 
