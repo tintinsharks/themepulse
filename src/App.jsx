@@ -308,6 +308,8 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
+  const [detailTheme, setDetailTheme] = useState(null); // full table view for a theme
+  const [detailSort, setDetailSort] = useState("rs");
   // Build theme breadth lookup from MM data
   const breadthMap = useMemo(() => {
     const m = {};
@@ -365,17 +367,114 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             {isOpen && (
               <div style={{ background: "#0a0a0a", padding: "4px 8px" }}>
                 {/* Theme summary bar */}
-                <div style={{ display: "flex", gap: 16, padding: "6px 8px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 10, flexWrap: "wrap" }}>
-                  <span style={{ color: "#888" }}>Stocks: <b style={{ color: "#fff" }}>{theme.count}</b></span>
-                  <span style={{ color: "#888" }}>A grades: <b style={{ color: "#4ade80" }}>{theme.a_grades}</b></span>
-                  <span style={{ color: "#888" }}>Breadth: <b style={{ color: theme.breadth >= 60 ? "#4ade80" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</b></span>
-                  <span style={{ color: "#888" }}>Avg RS: <b style={{ color: "#ccc" }}>{Math.round(theme.subthemes.reduce((s, sub) => s + sub.tickers.reduce((a, t) => a + (stockMap[t]?.rs_rank || 0), 0), 0) / Math.max(1, theme.count))}</b></span>
-                  <span style={{ color: "#888" }}>FrHi &lt;5%: <b style={{ color: "#4ade80" }}>{theme.subthemes.reduce((s, sub) => s + sub.tickers.filter(t => stockMap[t]?.pct_from_high >= -5).length, 0)}</b></span>
-                  {(() => { const best = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean)).sort((a, b) => b.return_3m - a.return_3m)[0];
-                    return best ? <span style={{ color: "#888" }}>Top 3M: <b style={{ color: "#4ade80" }}>{best.ticker}</b> <Ret v={best.return_3m} bold /></span> : null;
-                  })()}
-                </div>
-                {theme.subthemes.map(sub => (
+                {(() => {
+                  const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
+                  // 52W high proximity distribution
+                  const hi5 = allStocks.filter(s => s.pct_from_high >= -5).length;
+                  const hi10 = allStocks.filter(s => s.pct_from_high >= -10 && s.pct_from_high < -5).length;
+                  const hi25 = allStocks.filter(s => s.pct_from_high >= -25 && s.pct_from_high < -10).length;
+                  const hi50 = allStocks.filter(s => s.pct_from_high >= -50 && s.pct_from_high < -25).length;
+                  const hiRest = allStocks.filter(s => s.pct_from_high < -50).length;
+                  const total = allStocks.length || 1;
+                  return (
+                  <div style={{ display: "flex", gap: 16, padding: "6px 8px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ color: "#888" }}>Stocks: <b style={{ color: "#fff" }}>{theme.count}</b></span>
+                    <span style={{ color: "#888" }}>A grades: <b style={{ color: "#4ade80" }}>{theme.a_grades}</b></span>
+                    <span style={{ color: "#888" }}>Breadth: <b style={{ color: theme.breadth >= 60 ? "#4ade80" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</b></span>
+                    <span style={{ color: "#888" }}>Avg RS: <b style={{ color: "#ccc" }}>{Math.round(allStocks.reduce((a, s) => a + (s.rs_rank || 0), 0) / total)}</b></span>
+                    {(() => { const best = [...allStocks].sort((a, b) => b.return_3m - a.return_3m)[0];
+                      return best ? <span style={{ color: "#888" }}>Top 3M: <b style={{ color: "#4ade80" }}>{best.ticker}</b> <Ret v={best.return_3m} bold /></span> : null;
+                    })()}
+                    {/* 52W High Proximity Distribution */}
+                    <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 1, marginLeft: 4 }} title={`Within 5%: ${hi5}\n5-10%: ${hi10}\n10-25%: ${hi25}\n25-50%: ${hi50}\n>50%: ${hiRest}`}>
+                      <span style={{ fontSize: 8, color: "#555", marginRight: 2, alignSelf: "center" }}>52WH:</span>
+                      {[[hi5,"#4ade80","<5%"],[hi10,"#60a5fa","5-10"],[hi25,"#fbbf24","10-25"],[hi50,"#f97316","25-50"],[hiRest,"#f87171",">50"]].map(([cnt, col, lbl]) => (
+                        <span key={lbl} title={`${lbl}%: ${cnt}`} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+                          <span style={{ width: 14, background: col + "60", borderRadius: "2px 2px 0 0",
+                            height: Math.max(2, Math.round(cnt / total * 40)) }} />
+                          <span style={{ fontSize: 7, color: "#555" }}>{cnt}</span>
+                        </span>
+                      ))}
+                    </span>
+                    <button onClick={(e) => { e.stopPropagation(); setDetailTheme(detailTheme === theme.theme ? null : theme.theme); }}
+                      style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+                        border: detailTheme === theme.theme ? "1px solid #10b981" : "1px solid #333",
+                        background: detailTheme === theme.theme ? "#10b98120" : "transparent",
+                        color: detailTheme === theme.theme ? "#6ee7b7" : "#666" }}>
+                      {detailTheme === theme.theme ? "Close Table" : "Detail Table"}</button>
+                  </div>
+                  );
+                })()}
+
+                {/* Detail table view */}
+                {detailTheme === theme.theme && (() => {
+                  const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
+                  const cols = [["Ticker",null],["Grade",null],["RS","rs"],["1M%",null],["3M%","ret3m"],["FrHi%","fromhi"],["ATR/50","atr50"],["VCS","vcs"],["ADR%","adr"],["EPS","eps"],["Rev","rev"],["Subtheme",null]];
+                  const dSorters = {
+                    rs: (a, b) => b.rs_rank - a.rs_rank,
+                    ret3m: (a, b) => b.return_3m - a.return_3m,
+                    fromhi: (a, b) => b.pct_from_high - a.pct_from_high,
+                    atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
+                    vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
+                    adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
+                    eps: (a, b) => (b.eps_yoy ?? b.eps_qq ?? -999) - (a.eps_yoy ?? a.eps_qq ?? -999),
+                    rev: (a, b) => (b.sales_yoy ?? b.sales_qq ?? -999) - (a.sales_yoy ?? a.sales_qq ?? -999),
+                  };
+                  // Build ticker→subtheme map
+                  const subMap = {};
+                  theme.subthemes.forEach(sub => sub.tickers.forEach(t => { subMap[t] = sub.name; }));
+                  const sorted = [...allStocks].sort(dSorters[detailSort] || dSorters.rs);
+                  return (
+                    <div style={{ marginBottom: 8 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                        <thead><tr style={{ borderBottom: "2px solid #333" }}>
+                          {cols.map(([h, sk]) => (
+                            <th key={h} onClick={sk ? () => setDetailSort(prev => prev === sk ? "rs" : sk) : undefined}
+                              style={{ padding: "4px 6px", color: detailSort === sk ? "#6ee7b7" : "#666", fontWeight: 700, textAlign: "center", fontSize: 9,
+                                cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+                              {h}{detailSort === sk ? " ▼" : ""}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>{sorted.map(s => {
+                          const near = s.pct_from_high >= -5;
+                          const isAct = s.ticker === activeTicker;
+                          const epsVal = s.eps_yoy ?? s.eps_qq;
+                          const revVal = s.sales_yoy ?? s.sales_qq;
+                          return (
+                            <tr key={s.ticker}
+                              ref={isAct ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
+                              onClick={() => onTickerClick(s.ticker)}
+                              style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer", background: isAct ? "#10b98115" : "transparent" }}>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#10b981" : "#fff", fontWeight: 700 }}>{s.ticker}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s.rs_rank}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
+                              <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: "#888", fontFamily: "monospace" }}>{s.atr_to_50}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                color: s.vcs >= 80 ? "#4ade80" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#888" : "#333" }}>
+                                {s.vcs != null ? s.vcs : '—'}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                color: epsVal > 25 ? "#4ade80" : epsVal > 0 ? "#888" : epsVal != null ? "#f87171" : "#333" }}>
+                                {epsVal != null ? `${epsVal > 0 ? '+' : ''}${epsVal}%` : '—'}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                color: revVal > 25 ? "#4ade80" : revVal > 0 ? "#888" : revVal != null ? "#f87171" : "#333" }}>
+                                {revVal != null ? `${revVal > 0 ? '+' : ''}${revVal}%` : '—'}</td>
+                              <td style={{ padding: "3px 6px", color: "#555", fontSize: 9 }}>{subMap[s.ticker]}</td>
+                            </tr>
+                          );
+                        })}</tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+
+                {/* Compact badge view (original) — shown when detail table is NOT active */}
+                {detailTheme !== theme.theme && theme.subthemes.map(sub => (
                   <div key={sub.name} style={{ marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderBottom: "1px solid #1a1a1a", fontSize: 11 }}>
                       <span style={{ color: "#ccc", fontWeight: 600, width: 160, textAlign: "left" }}>{sub.name}</span>
