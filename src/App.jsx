@@ -1396,6 +1396,33 @@ export default function App() {
   const [visibleTickers, setVisibleTickers] = useState([]);
   const onVisibleTickers = useCallback((tickers) => setVisibleTickers(tickers), []);
 
+  // Resizable split panel
+  const [splitPct, setSplitPct] = useState(50);
+  const dragging = useRef(false);
+  const containerRef = useRef(null);
+
+  const onDividerMouseDown = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (ev) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      setSplitPct(Math.max(20, Math.min(80, pct)));
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
   // Keyboard navigation: ↑↓ to cycle tickers, Esc to close chart
   useEffect(() => {
     const handler = (e) => {
@@ -1439,33 +1466,8 @@ export default function App() {
   const breadth = Math.round(data.stocks.filter(s => s.above_50ma).length / data.stocks.length * 100);
   const strongC = data.themes.filter(t => getQuad(t.weekly_rs, t.monthly_rs) === "STRONG").length;
 
-  // Layout: when chart is open, split view 50/50
+  // Layout: when chart is open, use resizable split
   const chartOpen = chartTicker !== null;
-  const [splitPct, setSplitPct] = useState(50);
-  const dragging = useRef(false);
-  const containerRef = useRef(null);
-
-  const onDividerMouseDown = useCallback((e) => {
-    e.preventDefault();
-    dragging.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    const onMove = (ev) => {
-      if (!dragging.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      setSplitPct(Math.max(20, Math.min(80, pct)));
-    };
-    const onUp = () => {
-      dragging.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, []);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#ccc", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -1510,7 +1512,7 @@ export default function App() {
       {/* Main content: split layout when chart is open */}
       <div ref={containerRef} style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
-        <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: dragging.current ? "none" : "width 0.2s" }}>
+        <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} />}
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
@@ -1533,14 +1535,14 @@ export default function App() {
 
         {/* Right: chart panel (individual ticker) — NOT on MM tab */}
         {chartOpen && view !== "mm" && (
-          <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: dragging.current ? "none" : "width 0.2s" }}>
+          <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} />
           </div>
         )}
 
         {/* Right: Index charts grid — MM tab only */}
         {view === "mm" && (
-          <div style={{ width: `${100 - splitPct}%`, height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 0, transition: dragging.current ? "none" : "width 0.2s" }}>
+          <div style={{ width: `${100 - splitPct}%`, height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 0, transition: "none" }}>
             {[
               { symbol: "SPY", name: "S&P 500" },
               { symbol: "QQQ", name: "NASDAQ 100" },
