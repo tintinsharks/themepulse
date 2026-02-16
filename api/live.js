@@ -124,6 +124,66 @@ function num(v) {
   return parseFloat(String(v).replace(/,/g, ""));
 }
 
+function parseVolume(v) {
+  if (!v || v === "-") return null;
+  return parseFloat(String(v).replace(/,/g, ""));
+}
+
+// ── Zanger Volume Ratio (ZVR) ──
+// U-shaped intraday volume curve: cumulative % of daily volume by time
+// Based on empirical US equity market patterns (30-min buckets, 9:30-4:00)
+const INTRADAY_CUMULATIVE = [
+  [570, 0.00],   // 9:30 — market open
+  [600, 0.12],   // 10:00
+  [630, 0.20],   // 10:30
+  [660, 0.26],   // 11:00
+  [690, 0.31],   // 11:30
+  [720, 0.35],   // 12:00
+  [750, 0.39],   // 12:30
+  [780, 0.42],   // 1:00
+  [810, 0.46],   // 1:30
+  [840, 0.49],   // 2:00
+  [870, 0.53],   // 2:30
+  [900, 0.58],   // 3:00
+  [930, 0.65],   // 3:30
+  [960, 1.00],   // 4:00 — market close
+];
+
+function getCumulativeWeight() {
+  // Current ET time
+  const now = new Date();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const mins = et.getHours() * 60 + et.getMinutes(); // minutes since midnight
+
+  if (mins <= 570) return 0;       // before market open
+  if (mins >= 960) return 1.0;     // after market close
+
+  // Interpolate between buckets
+  for (let i = 1; i < INTRADAY_CUMULATIVE.length; i++) {
+    const [t1, w1] = INTRADAY_CUMULATIVE[i - 1];
+    const [t2, w2] = INTRADAY_CUMULATIVE[i];
+    if (mins <= t2) {
+      const frac = (mins - t1) / (t2 - t1);
+      return w1 + frac * (w2 - w1);
+    }
+  }
+  return 1.0;
+}
+
+function calcZVR(volumeStr, avgVolumeStr) {
+  const vol = parseVolume(volumeStr);
+  const avgVol = parseVolume(avgVolumeStr);
+  if (!vol || !avgVol || avgVol === 0) return null;
+
+  const cumWeight = getCumulativeWeight();
+  if (cumWeight <= 0.01) return null; // market not open yet
+
+  // Projected end-of-day volume using U-curve weight
+  const projectedVol = vol / cumWeight;
+  // ZVR as percentage of average daily volume
+  return Math.round((projectedVol / avgVol) * 100);
+}
+
 // ── Fetch watchlist quotes ──
 async function fetchWatchlist(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
@@ -198,6 +258,7 @@ function parseQuotePage(ticker, html) {
     volume: get("Volume"),
     avg_volume: get("Avg Volume"),
     rel_volume: num(get("Rel Volume")),
+    zvr: calcZVR(get("Volume"), get("Avg Volume")),
     perf_week: pct(get("Perf Week")),
     perf_month: pct(get("Perf Month")),
     perf_quart: pct(get("Perf Quarter")),
@@ -248,6 +309,7 @@ async function fetchVolumeGainers(cookies) {
     volume: r["Volume"],
     avg_volume: r["Avg Volume"],
     rel_volume: num(r["Rel Volume"]),
+    zvr: calcZVR(r["Volume"], r["Avg Volume"]),
     perf_week: pct(r["Perf Week"]),
     perf_month: pct(r["Perf Month"]),
     perf_quart: pct(r["Perf Quart"]),

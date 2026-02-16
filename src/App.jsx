@@ -1482,6 +1482,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
       price: live.price ?? pipe.price,
       change: live.change,
       rel_volume: live.rel_volume ?? pipe.rel_volume,
+      zvr: live.zvr ?? null,
       grade: pipe.grade,
       rs_rank: pipe.rs_rank,
       return_1m: live.perf_month ?? pipe.return_1m,
@@ -1510,6 +1511,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
       price: g.price,
       change: g.change,
       rel_volume: g.rel_volume,
+      zvr: g.zvr ?? null,
       grade: pipe.grade,
       rs_rank: pipe.rs_rank,
       return_1m: g.perf_month ?? pipe.return_1m,
@@ -1551,7 +1553,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
     eps: sortFn("eps_past_5y"), rev: sortFn("sales_past_5y"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
-    rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
+    rel_volume: sortFn("rel_volume"), zvr: sortFn("zvr"), rsi: sortFn("rsi"), price: sortFn("price"),
   });
 
   const sortList = (list, sortKey) => {
@@ -1568,8 +1570,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
   // ── Shared table components (mirrors Scan Watch) ──
   const columns = [
     ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["RVol", "rel_volume"],
-    ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
-    ["EPS 5Y", "eps"], ["Rev 5Y", "rev"], ["P/E", "pe"], ["ROE", "roe"], ["Mgn%", "margin"],
+    ["ZVR", "zvr"], ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
+    ["ROE", "roe"], ["Mgn%", "margin"],
   ];
 
   const SortHeader = ({ sortKey, setter, current }) => (
@@ -1604,6 +1606,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
         <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
           color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
           {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
+        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, fontWeight: 700,
+          color: s.zvr >= 200 ? "#f43f5e" : s.zvr >= 150 ? "#c084fc" : s.zvr >= 120 ? "#60a5fa" : s.zvr != null ? "#555" : "#333" }}
+          title={s.zvr != null ? `Projected EOD volume: ${s.zvr}% of avg` : ''}>
+          {s.zvr != null ? `${s.zvr}%` : '—'}</td>
         <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
         <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
         <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 11 }}>
@@ -1616,17 +1622,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
         <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
           color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#333" }}>
           {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-        {(() => { const v = s.eps_past_5y; return (
-        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
-          color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
-          {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>); })()}
-        {(() => { const v = s.sales_past_5y; return (
-        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
-          color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
-          {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>); })()}
-        <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
-          color: s.pe != null && s.pe > 0 ? (s.pe < 20 ? "#4ade80" : s.pe < 40 ? "#888" : "#f97316") : "#333" }}>
-          {s.pe != null && s.pe > 0 ? s.pe.toFixed(0) : '—'}</td>
         <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
           color: s.roe != null ? (s.roe > 20 ? "#4ade80" : s.roe > 10 ? "#888" : s.roe > 0 ? "#f97316" : "#f87171") : "#333" }}>
           {s.roe != null ? `${s.roe}%` : '—'}</td>
