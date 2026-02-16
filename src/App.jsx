@@ -726,23 +726,26 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
       });
     }
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
+    const safe = (fn) => (a, b) => {
+      const av = fn(a), bv = fn(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return bv - av;
+    };
+    const GRADE_ORDER = {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1};
     const sorters = {
       default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
-      rs: (a, b) => b.rs_rank - a.rs_rank,
-      ret3m: (a, b) => b.return_3m - a.return_3m,
-      fromhi: (a, b) => b.pct_from_high - a.pct_from_high,
-      atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
-      vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
-      adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
-      eps: (a, b) => (b.eps_past_5y ?? -999) - (a.eps_past_5y ?? -999),
-      rev: (a, b) => (b.sales_past_5y ?? -999) - (a.sales_past_5y ?? -999),
-      pe: (a, b) => {
-        const ap = a.pe != null && a.pe > 0 ? a.pe : 9999;
-        const bp = b.pe != null && b.pe > 0 ? b.pe : 9999;
-        return ap - bp;
-      },
-      roe: (a, b) => (b.roe ?? -999) - (a.roe ?? -999),
-      margin: (a, b) => (b.profit_margin ?? -999) - (a.profit_margin ?? -999),
+      ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+      grade: safe(s => GRADE_ORDER[s.grade] ?? null),
+      rs: safe(s => s.rs_rank),
+      ret1m: safe(s => s.return_1m),
+      ret3m: safe(s => s.return_3m),
+      fromhi: safe(s => s.pct_from_high),
+      vcs: safe(s => s.vcs),
+      adr: safe(s => s.adr_pct),
+      vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
+      rvol: safe(s => s.rel_volume),
     };
     return list.sort(sorters[sortBy] || sorters.default);
   }, [stocks, leading, sortBy, nearPivot, scanMode]);
@@ -760,9 +763,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
 
   // Column header config: [label, sortKey or null]
   const columns = [
-    ["Action", null], ["Ticker", null], ["Grade", null], ["RS", "rs"], ["1M%", null], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["ATR/50", "atr50"], ["VCS", "vcs"], ["ADR%", "adr"],
-    ["EPS 5Y", "eps"], ["Rev 5Y", "rev"], ["P/E", "pe"], ["ROE", "roe"], ["Mgn%", "margin"], ["Theme", null],
+    ["Action", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"], ["1M%", "ret1m"], ["3M%", "ret3m"],
+    ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null],
   ];
 
   return (
@@ -808,7 +810,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#888", fontFamily: "monospace" }}>{s.atr_to_50}</td>
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.vcs >= 80 ? "#4ade80" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#888" : "#333",
                 fontWeight: s.vcs >= 60 ? 700 : 400 }}
@@ -817,25 +818,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-              {(() => { const v = s.eps_past_5y; return (
+              {(() => { const v = s.avg_volume_raw && s.rel_volume ? Math.round(s.avg_volume_raw * s.rel_volume) : null;
+                const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                  color: v >= 1e6 ? "#888" : v != null ? "#f97316" : "#333" }}>{fmt}</td>; })()}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
-                {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
-              ); })()}
-              {(() => { const v = s.sales_past_5y; return (
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
-                {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
-              ); })()}
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.pe != null && s.pe > 0 ? (s.pe < 20 ? "#4ade80" : s.pe < 40 ? "#888" : "#f97316") : "#333" }}>
-                {s.pe != null && s.pe > 0 ? s.pe.toFixed(0) : '—'}</td>
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.roe != null ? (s.roe > 20 ? "#4ade80" : s.roe > 10 ? "#888" : s.roe > 0 ? "#f97316" : "#f87171") : "#333" }}>
-                {s.roe != null ? `${s.roe}%` : '—'}</td>
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.profit_margin != null ? (s.profit_margin > 15 ? "#4ade80" : s.profit_margin > 5 ? "#888" : s.profit_margin > 0 ? "#f97316" : "#f87171") : "#333" }}>
-                {s.profit_margin != null ? `${s.profit_margin}%` : '—'}</td>
+                color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#555" : "#333" }}>
+                {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
             </tr>
           );
