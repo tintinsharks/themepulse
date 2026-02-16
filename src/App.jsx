@@ -951,6 +951,161 @@ function MarketMonitor({ mmData }) {
   );
 }
 
+// ── EPISODIC PIVOTS ──
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
+  const [sortBy, setSortBy] = useState("date");
+  const [minGap, setMinGap] = useState(8);
+  const [minVol, setMinVol] = useState(3);
+  const [maxDays, setMaxDays] = useState(30);
+  const [statusFilter, setStatusFilter] = useState(null); // null = all
+
+  const filtered = useMemo(() => {
+    if (!epSignals || !epSignals.length) return [];
+    return epSignals
+      .filter(ep => ep.gap_pct >= minGap && ep.vol_ratio >= minVol && ep.days_ago <= maxDays)
+      .filter(ep => !statusFilter || ep.consol?.status === statusFilter)
+      .sort({
+        date: (a, b) => a.days_ago - b.days_ago,
+        gap: (a, b) => b.gap_pct - a.gap_pct,
+        vol: (a, b) => b.vol_ratio - a.vol_ratio,
+        change: (a, b) => b.change_pct - a.change_pct,
+        pb: (a, b) => (b.consol?.pullback_pct || -99) - (a.consol?.pullback_pct || -99),
+      }[sortBy] || ((a, b) => a.days_ago - b.days_ago));
+  }, [epSignals, sortBy, minGap, minVol, maxDays, statusFilter]);
+
+  useEffect(() => {
+    if (onVisibleTickers) onVisibleTickers(filtered.map(ep => ep.ticker));
+  }, [filtered, onVisibleTickers]);
+
+  const STATUS_STYLE = {
+    consolidating: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24", label: "★ CONSOLIDATING" },
+    basing:        { bg: "#60a5fa10", border: "#60a5fa30", color: "#60a5fa", label: "BASING" },
+    fresh:         { bg: "#4ade8010", border: "#4ade8030", color: "#4ade80", label: "FRESH" },
+    holding:       { bg: "#88888810", border: "#88888830", color: "#888",    label: "HOLDING" },
+    failed:        { bg: "#ef444410", border: "#ef444430", color: "#f87171", label: "FAILED" },
+    extended_pullback: { bg: "#f9731610", border: "#f9731630", color: "#f97316", label: "DEEP PB" },
+  };
+
+  const columns = [
+    ["Ticker", null], ["Grade", null], ["Date", "date"], ["Days", null], ["Gap%", "gap"],
+    ["Chg%", "change"], ["VolX", "vol"], ["ClRng", null], ["Status", null],
+    ["PB%", "pb"], ["VolCon", null], ["RS", null], ["Theme", null],
+  ];
+
+  if (!epSignals || !epSignals.length) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <div style={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Episodic Pivots</div>
+        <div style={{ color: "#666", fontSize: 12, marginBottom: 20 }}>No EP data yet. Run the scanner to populate:</div>
+        <code style={{ color: "#10b981", fontSize: 11, background: "#111", padding: "8px 16px", borderRadius: 6 }}>
+          python3 -u scripts/09d_episodic_pivots.py
+        </code>
+      </div>
+    );
+  }
+
+  const consolCount = epSignals.filter(ep => ep.consol?.status === "consolidating").length;
+
+  return (
+    <div>
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
+        <span style={{ color: "#fbbf24", fontWeight: 700 }}>EPISODIC PIVOT</span>
+        <span>Gap ≥8% on open, Volume ≥3x 50d avg, Close in upper 40% of range</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span style={{ color: "#fbbf24", fontWeight: 700 }}>★ CONSOLIDATING</span>
+        <span>= Delayed entry (Bonde): 3+ days after EP, pullback ≤10%, volume contracting ≤70% of EP day, gap held</span>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 12 }}>{filtered.length} EPs</span>
+        {consolCount > 0 && <span style={{ color: "#fbbf24", fontSize: 10, background: "#fbbf2418", border: "1px solid #fbbf2440", padding: "1px 8px", borderRadius: 10 }}>★ {consolCount} consolidating</span>}
+        <span style={{ color: "#555", fontSize: 10 }}>Gap≥</span>
+        <input type="range" min={5} max={25} value={minGap} onChange={e => setMinGap(+e.target.value)}
+          style={{ width: 50, accentColor: "#fbbf24" }} />
+        <span style={{ fontSize: 10, color: "#fbbf24", fontFamily: "monospace" }}>{minGap}%</span>
+        <span style={{ color: "#555", fontSize: 10 }}>Vol≥</span>
+        <input type="range" min={2} max={10} step={0.5} value={minVol} onChange={e => setMinVol(+e.target.value)}
+          style={{ width: 50, accentColor: "#fbbf24" }} />
+        <span style={{ fontSize: 10, color: "#fbbf24", fontFamily: "monospace" }}>{minVol}x</span>
+        <span style={{ color: "#333" }}>|</span>
+        {[5, 10, 20, 30].map(d => (
+          <button key={d} onClick={() => setMaxDays(d)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+            border: maxDays === d ? "1px solid #fbbf24" : "1px solid #333",
+            background: maxDays === d ? "#fbbf2420" : "transparent", color: maxDays === d ? "#fbbf24" : "#666" }}>{d}d</button>
+        ))}
+        <span style={{ color: "#333" }}>|</span>
+        {[["all", null],["★ Consol", "consolidating"],["Fresh", "fresh"],["Basing", "basing"],["Failed", "failed"]].map(([label, val]) => (
+          <button key={label} onClick={() => setStatusFilter(val)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+            border: statusFilter === val ? "1px solid #fbbf24" : "1px solid #333",
+            background: statusFilter === val ? "#fbbf2420" : "transparent",
+            color: statusFilter === val ? "#fbbf24" : val === "consolidating" ? "#fbbf24" : "#666" }}>{label}</button>
+        ))}
+      </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+        <thead><tr style={{ borderBottom: "2px solid #333" }}>
+          {columns.map(([h, sk]) => (
+            <th key={h} onClick={sk ? () => setSortBy(sk) : undefined}
+              style={{ padding: "5px 6px", color: sortBy === sk ? "#fbbf24" : "#666", fontWeight: 700, textAlign: "center", fontSize: 9,
+                cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+              {h}{sortBy === sk ? " ▼" : ""}</th>
+          ))}
+        </tr></thead>
+        <tbody>{filtered.map((ep) => {
+          const s = stockMap[ep.ticker];
+          const isActive = ep.ticker === activeTicker;
+          const c = ep.consol || {};
+          const st = STATUS_STYLE[c.status] || STATUS_STYLE.holding;
+          const isConsol = c.status === "consolidating";
+          return (
+            <tr key={`${ep.ticker}-${ep.date}`}
+              ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
+              onClick={() => onTickerClick(ep.ticker)}
+              style={{ borderBottom: `1px solid ${isConsol ? "#fbbf2425" : "#1a1a1a"}`, cursor: "pointer",
+                background: isActive ? "#fbbf2415" : isConsol ? "#fbbf2408" : "transparent" }}>
+              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                <span style={{ color: isActive ? "#fbbf24" : "#fff", fontWeight: 700 }}>{isConsol && "★ "}{ep.ticker}</span>
+              </td>
+              <td style={{ padding: "4px 6px", textAlign: "center" }}>{s ? <Badge grade={s.grade} /> : "—"}</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", color: ep.days_ago <= 5 ? "#fbbf24" : "#888", fontSize: 10 }}>{ep.date}</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                color: ep.days_ago === 0 ? "#fbbf24" : ep.days_ago <= 5 ? "#fcd34d" : "#666" }}>
+                {ep.days_ago === 0 ? "TODAY" : `${ep.days_ago}d`}</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
+                color: ep.gap_pct >= 15 ? "#fbbf24" : "#4ade80" }}>+{ep.gap_pct}%</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                color: ep.change_pct > 0 ? "#4ade80" : "#f87171" }}>{ep.change_pct > 0 ? "+" : ""}{ep.change_pct}%</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
+                color: ep.vol_ratio >= 8 ? "#fbbf24" : ep.vol_ratio >= 5 ? "#4ade80" : "#60a5fa" }}>{ep.vol_ratio}x</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                color: ep.close_range >= 80 ? "#4ade80" : "#888" }}>{ep.close_range}%</td>
+              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700,
+                  background: st.bg, border: `1px solid ${st.border}`, color: st.color }}>{st.label}</span>
+              </td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                color: c.pullback_pct >= -3 ? "#4ade80" : c.pullback_pct >= -7 ? "#888" : "#f87171" }}>
+                {c.pullback_pct != null ? `${c.pullback_pct}%` : "—"}</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                color: c.vol_contraction <= 0.5 ? "#4ade80" : c.vol_contraction <= 0.7 ? "#60a5fa" : "#888" }}>
+                {c.vol_contraction ? `${c.vol_contraction}x` : "—"}</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
+              <td style={{ padding: "4px 6px", color: "#555", fontSize: 9 }}>{s?.themes?.[0]?.theme || "—"}</td>
+            </tr>
+          );
+        })}</tbody>
+      </table>
+      {filtered.length === 0 && (
+        <div style={{ textAlign: "center", color: "#555", padding: 20, fontSize: 12 }}>
+          No EPs match current filters. Try lowering the gap% or volume threshold.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
 function IndexChart({ symbol, name, maData }) {
   const containerRef = useRef(null);
@@ -1196,7 +1351,7 @@ export default function App() {
 
       {/* Nav + filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
-        {[["leaders","Theme Leaders"],["rotation","Rotation"],["scan","Scan Watch"],["grid","RTS Grid"],["mm","Mkt Monitor"]].map(([id, label]) => (
+        {[["leaders","Theme Leaders"],["rotation","Rotation"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"],["mm","Mkt Monitor"]].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #10b98150" : "1px solid transparent",
             background: view === id ? "#10b98115" : "transparent", color: view === id ? "#6ee7b7" : "#666" }}>{label}</button>
@@ -1226,6 +1381,7 @@ export default function App() {
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "mm" && <MarketMonitor mmData={mmData} />}
         </div>
 
