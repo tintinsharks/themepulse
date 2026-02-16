@@ -1,0 +1,305 @@
+// api/live.js — Vercel Serverless Function
+// Fetches real-time quotes from Finviz Elite for:
+//   1. Watchlist tickers (passed via ?tickers=AAPL,NVDA,PLTR)
+//   2. Top volume gainers (relative volume > 2x)
+//
+// Env vars required in Vercel:
+//   FINVIZ_EMAIL
+//   FINVIZ_PASSWORD
+
+const FINVIZ_LOGIN_URL = "https://finviz.com/login_submit.ashx";
+const FINVIZ_SCREENER_URL = "https://finviz.com/screener.ashx";
+const FINVIZ_EXPORT_URL = "https://finviz.com/export.ashx";
+
+const HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+};
+
+// ── Cookie-based session login ──
+let cachedCookies = null;
+let cookieExpiry = 0;
+
+async function loginFinviz() {
+  // Reuse cookies for 10 minutes
+  if (cachedCookies && Date.now() < cookieExpiry) {
+    return cachedCookies;
+  }
+
+  const email = process.env.FINVIZ_EMAIL;
+  const password = process.env.FINVIZ_PASSWORD;
+  if (!email || !password) {
+    throw new Error("FINVIZ_EMAIL and FINVIZ_PASSWORD env vars required");
+  }
+
+  // Step 1: Hit screener to get initial cookies
+  const initResp = await fetch(FINVIZ_SCREENER_URL, {
+    headers: HEADERS,
+    redirect: "manual",
+  });
+  let cookies = extractCookies(initResp);
+
+  // Step 2: Login
+  const body = new URLSearchParams({ email, password });
+  const loginResp = await fetch(FINVIZ_LOGIN_URL, {
+    method: "POST",
+    headers: {
+      ...HEADERS,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: cookies,
+    },
+    body: body.toString(),
+    redirect: "manual",
+  });
+
+  // Merge cookies
+  const loginCookies = extractCookies(loginResp);
+  cookies = mergeCookies(cookies, loginCookies);
+
+  cachedCookies = cookies;
+  cookieExpiry = Date.now() + 10 * 60 * 1000; // 10 min
+
+  return cookies;
+}
+
+function extractCookies(resp) {
+  const setCookies = resp.headers.getSetCookie?.() || [];
+  return setCookies.map((c) => c.split(";")[0]).join("; ");
+}
+
+function mergeCookies(existing, fresh) {
+  const map = {};
+  (existing || "").split("; ").forEach((c) => {
+    const [k, ...v] = c.split("=");
+    if (k) map[k.trim()] = v.join("=");
+  });
+  (fresh || "").split("; ").forEach((c) => {
+    const [k, ...v] = c.split("=");
+    if (k) map[k.trim()] = v.join("=");
+  });
+  return Object.entries(map)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
+}
+
+// ── CSV parsing ──
+function parseCSV(text) {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const vals = parseCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => (obj[h] = vals[i] || ""));
+    return obj;
+  });
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function pct(v) {
+  if (!v || v === "-") return null;
+  return parseFloat(String(v).replace("%", ""));
+}
+
+function num(v) {
+  if (!v || v === "-") return null;
+  return parseFloat(String(v).replace(/,/g, ""));
+}
+
+// ── Fetch watchlist quotes ──
+async function fetchWatchlist(cookies, tickers) {
+  if (!tickers || tickers.length === 0) return [];
+
+  // Finviz export with ticker filter
+  // Use custom view with key columns
+  const cols = "1,2,3,4,6,7,43,44,45,46,47,48,49,50,55,57,58,59,62,64";
+  // Ticker,Company,Sector,Industry,MarketCap,P/E,Price,Change,Volume,AvgVolume,RelVolume,
+  // PerfWeek,PerfMonth,PerfQuart,ATR,SMA20,SMA50,SMA200,52WHigh,RSI
+
+  // Finviz doesn't have a direct ticker filter in export — use the screener page
+  // For watchlist, fetch individual stock pages or use the full export and filter
+  // Most efficient: fetch full export once, filter client-side
+  // But for small watchlists, we can use the quote page
+
+  // Use bulk approach: fetch quote data for each ticker via finviz quote API
+  const results = [];
+  const batchSize = 20;
+
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    const promises = batch.map(async (ticker) => {
+      try {
+        const resp = await fetch(
+          `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`,
+          {
+            headers: { ...HEADERS, Cookie: cookies },
+          }
+        );
+        if (!resp.ok) return null;
+        const html = await resp.text();
+        return parseQuotePage(ticker, html);
+      } catch {
+        return null;
+      }
+    });
+    const batchResults = await Promise.all(promises);
+    results.push(...batchResults.filter(Boolean));
+  }
+
+  return results;
+}
+
+function parseQuotePage(ticker, html) {
+  // Extract key data from the snapshot table on finviz quote page
+  const get = (label) => {
+    // Pattern: <td ...>Label</td><td ...><b>Value</b></td>
+    const re = new RegExp(
+      `<td[^>]*>\\s*${label}\\s*</td>\\s*<td[^>]*><b[^>]*>([^<]*)</b>`,
+      "i"
+    );
+    const m = html.match(re);
+    return m ? m[1].trim() : null;
+  };
+
+  // Get company name from title
+  const titleMatch = html.match(/<title>([^|]*)\|/);
+  const company = titleMatch ? titleMatch[1].trim() : ticker;
+
+  // Get sector
+  const sectorMatch = html.match(
+    /class="tab-link"[^>]*>([^<]+)<\/a>\s*\|\s*<a[^>]*class="tab-link"[^>]*>([^<]+)<\/a>\s*\|\s*<a/
+  );
+
+  return {
+    ticker,
+    company: company.replace(` (${ticker})`, "").replace(` Stock`, ""),
+    sector: sectorMatch ? sectorMatch[1] : null,
+    industry: sectorMatch ? sectorMatch[2] : null,
+    price: num(get("Price")),
+    change: pct(get("Change")),
+    volume: get("Volume"),
+    avg_volume: get("Avg Volume"),
+    rel_volume: num(get("Rel Volume")),
+    perf_week: pct(get("Perf Week")),
+    perf_month: pct(get("Perf Month")),
+    perf_quart: pct(get("Perf Quarter")),
+    atr: num(get("ATR")),
+    rsi: num(get("RSI \\(14\\)")),
+    sma20: pct(get("SMA20")),
+    sma50: pct(get("SMA50")),
+    sma200: pct(get("SMA200")),
+    high_52w: pct(get("52W High")),
+    pe: num(get("P/E")),
+    market_cap: get("Market Cap"),
+    earnings: get("Earnings"),
+  };
+}
+
+// ── Fetch volume gainers ──
+async function fetchVolumeGainers(cookies) {
+  // Screener: $1B+ market cap, relative volume > 2, sorted by relative volume desc
+  const cols = "1,2,3,4,6,43,44,45,46,47,48,49,50,55,62,64";
+  const url = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,sh_relvol_o2&o=-relativevolume&c=${cols}`;
+
+  const resp = await fetch(url, {
+    headers: { ...HEADERS, Cookie: cookies },
+  });
+
+  if (!resp.ok) {
+    console.error(`Volume gainers fetch failed: ${resp.status}`);
+    return [];
+  }
+
+  const ct = resp.headers.get("content-type") || "";
+  if (ct.includes("html")) {
+    console.error("Got HTML instead of CSV for volume gainers");
+    return [];
+  }
+
+  const text = await resp.text();
+  const rows = parseCSV(text);
+
+  return rows.slice(0, 50).map((r) => ({
+    ticker: r["Ticker"],
+    company: r["Company"],
+    sector: r["Sector"],
+    industry: r["Industry"],
+    market_cap: r["Market Cap"],
+    price: num(r["Price"]),
+    change: pct(r["Change"]),
+    volume: r["Volume"],
+    avg_volume: r["Avg Volume"],
+    rel_volume: num(r["Rel Volume"]),
+    perf_week: pct(r["Perf Week"]),
+    perf_month: pct(r["Perf Month"]),
+    perf_quart: pct(r["Perf Quart"]),
+    atr: num(r["ATR"]),
+    high_52w: pct(r["52W High"]),
+    rsi: num(r["RSI"]),
+  }));
+}
+
+// ── Handler ──
+export default async function handler(req, res) {
+  // CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET");
+  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  try {
+    const cookies = await loginFinviz();
+
+    // Parse watchlist tickers from query
+    const tickerParam = req.query.tickers || "";
+    const watchlistTickers = tickerParam
+      ? tickerParam
+          .split(",")
+          .map((t) => t.trim().toUpperCase())
+          .filter(Boolean)
+          .slice(0, 30) // cap at 30
+      : [];
+
+    // Fetch both in parallel
+    const [watchlist, volumeGainers] = await Promise.all([
+      watchlistTickers.length > 0
+        ? fetchWatchlist(cookies, watchlistTickers)
+        : Promise.resolve([]),
+      fetchVolumeGainers(cookies),
+    ]);
+
+    return res.status(200).json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+      watchlist,
+      volume_gainers: volumeGainers,
+    });
+  } catch (err) {
+    console.error("Live API error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+    });
+  }
+}
