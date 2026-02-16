@@ -1882,17 +1882,22 @@ function AppMain({ authToken, onLogout }) {
 
   // Load from server on mount
   useEffect(() => {
-    if (!authToken) return;
+    if (!authToken) { setServerLoaded(true); return; }
     fetch("/api/userdata", { headers: { Authorization: `Bearer ${authToken}` } })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(d => {
         if (d?.ok && d.data) {
-          if (d.data.portfolio?.length) setPortfolio(d.data.portfolio);
-          if (d.data.watchlist?.length) setWatchlist(d.data.watchlist);
+          // Server data takes priority over localStorage
+          setPortfolio(d.data.portfolio || []);
+          setWatchlist(d.data.watchlist || []);
+          console.log("Loaded from server:", d.data);
         }
-        setServerLoaded(true);
       })
-      .catch(() => setServerLoaded(true));
+      .catch(err => console.warn("Failed to load server data:", err))
+      .finally(() => setServerLoaded(true));
   }, [authToken]);
 
   // Save to localStorage
@@ -1905,11 +1910,15 @@ function AppMain({ authToken, onLogout }) {
     if (!authToken || !serverLoaded) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
+      console.log("Saving to server:", { portfolio, watchlist });
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ portfolio, watchlist }),
-      }).catch(() => {});
+      })
+        .then(r => r.json())
+        .then(d => console.log("Save result:", d))
+        .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [portfolio, watchlist, authToken, serverLoaded]);

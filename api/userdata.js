@@ -2,26 +2,22 @@ import { verifyToken } from "./auth.js";
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const DATA_KEY = "tp:userdata";
+const DATA_KEY = "tp_userdata";
 
-async function redisGet(key) {
-  const resp = await fetch(`${UPSTASH_URL}/get/${key}`, {
-    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
-  });
-  const data = await resp.json();
-  return data.result ? JSON.parse(data.result) : null;
-}
-
-async function redisSet(key, value) {
-  const resp = await fetch(`${UPSTASH_URL}/set/${key}`, {
+async function redisCmd(...args) {
+  const resp = await fetch(UPSTASH_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${UPSTASH_TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(JSON.stringify(value)),
+    body: JSON.stringify(args),
   });
-  return resp.ok;
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Upstash error ${resp.status}: ${text}`);
+  }
+  return resp.json();
 }
 
 export default async function handler(req, res) {
@@ -38,17 +34,20 @@ export default async function handler(req, res) {
   }
 
   if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+    console.error("Upstash env vars missing:", { url: !!UPSTASH_URL, token: !!UPSTASH_TOKEN });
     return res.status(500).json({ ok: false, error: "Upstash not configured" });
   }
 
   if (req.method === "GET") {
     try {
-      const data = await redisGet(DATA_KEY);
+      const result = await redisCmd("GET", DATA_KEY);
+      const data = result.result ? JSON.parse(result.result) : null;
       return res.status(200).json({
         ok: true,
         data: data || { portfolio: [], watchlist: [] },
       });
     } catch (err) {
+      console.error("Upstash GET error:", err);
       return res.status(500).json({ ok: false, error: err.message });
     }
   }
@@ -56,13 +55,16 @@ export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
       const { portfolio, watchlist } = req.body || {};
-      await redisSet(DATA_KEY, {
+      const payload = JSON.stringify({
         portfolio: portfolio || [],
         watchlist: watchlist || [],
         updated: new Date().toISOString(),
       });
+      const result = await redisCmd("SET", DATA_KEY, payload);
+      console.log("Upstash SET result:", result);
       return res.status(200).json({ ok: true });
     } catch (err) {
+      console.error("Upstash SET error:", err);
       return res.status(500).json({ ok: false, error: err.message });
     }
   }
