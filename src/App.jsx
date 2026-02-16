@@ -24,38 +24,6 @@ const QC = {
   WEAK: { bg: "#450a0a", text: "#fca5a5", tag: "#dc2626" },
 };
 
-// ── INFO POPOVER (click to show) ──
-function Tip({ text, children, style }) {
-  const [show, setShow] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!show) return;
-    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setShow(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [show]);
-
-  return (
-    <span ref={ref} style={{ position: "relative", display: "inline-flex", alignItems: "center", ...style }}>
-      <span onClick={(e) => { e.stopPropagation(); setShow(p => !p); }} style={{ cursor: "help" }}>
-        {children}
-      </span>
-      {show && (
-        <span onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
-          background: "#1e1e1e", border: "1px solid #555", borderRadius: 6, padding: "10px 14px",
-          fontSize: 11, color: "#ddd", lineHeight: 1.6, whiteSpace: "pre-line", zIndex: 9999,
-          minWidth: 220, maxWidth: 320, boxShadow: "0 4px 16px rgba(0,0,0,0.7)",
-          textAlign: "left", fontWeight: 400, fontFamily: "system-ui" }}>
-          {text}
-          <span style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
-            borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "6px solid #555" }} />
-        </span>
-      )}
-    </span>
-  );
-}
-
 function Ret({ v, bold }) {
   if (v == null) return <span style={{ color: "#666" }}>—</span>;
   const c = v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#888";
@@ -373,15 +341,20 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
         ))}
       </div>
       {/* Legend */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#555", flexWrap: "wrap" }}>
-        <span style={{ color: "#666", fontWeight: 700 }}>LEGEND:</span>
-        <span>Quadrant</span><span style={{ color: "#444" }}>|</span>
-        <span>Count</span><span style={{ color: "#444" }}>|</span>
-        <span>RTS Score</span><span style={{ color: "#444" }}>|</span>
-        <span>B:Breadth%</span><span style={{ color: "#444" }}>|</span>
-        <span>1W% 1M% <b style={{ color: "#888" }}>3M%</b></span><span style={{ color: "#444" }}>|</span>
-        <span>A Grades</span><span style={{ color: "#444" }}>|</span>
-        <span>4% Movers</span>
+      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
+        <span><b style={{ color: "#059669" }}>STRONG</b>/<b style={{ color: "#d97706" }}>IMPROVING</b>/<b style={{ color: "#ea580c" }}>WEAKENING</b>/<b style={{ color: "#dc2626" }}>WEAK</b> — Quadrant (Weekly vs Monthly RS)</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span><b style={{ color: "#888" }}>11</b> — Stock count</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span><b style={{ color: "#6ee7b7" }}>78.5</b> — RTS Score (0-100, composite theme momentum)</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span><b style={{ color: "#888" }}>B:100%</b> — Breadth (% of stocks above 50MA; <span style={{ color: "#4ade80" }}>≥60%</span> healthy, <span style={{ color: "#fbbf24" }}>≥40%</span> mixed, <span style={{ color: "#f87171" }}>&lt;40%</span> weak)</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span><b style={{ color: "#888" }}>1W% 1M%</b> <b style={{ color: "#ccc" }}>3M%</b> — Returns (bold = 3 month)</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span><b style={{ color: "#888" }}>4A</b> — Count of A+/A/A- graded stocks (top momentum names)</span>
+        <span style={{ color: "#333" }}>|</span>
+        <span><span style={{ color: "#4ade80" }}>4%↑2</span> <span style={{ color: "#f87171" }}>↓1</span> — Today's 4%+ movers on above-avg volume (green = buying, red = selling)</span>
       </div>
       {list.map(theme => {
         const quad = getQuad(theme.weekly_rs, theme.monthly_rs);
@@ -393,29 +366,18 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
               <span style={{ color: "#fff", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, flex: 1 }}>{theme.theme}</span>
-              <Tip text="Quadrant based on Weekly vs Monthly relative strength.&#10;STRONG = Both above 50 — buy these themes&#10;IMPROVING = Weekly rising — watch for breakout&#10;WEAKENING = Monthly strong, weekly fading — tighten stops&#10;WEAK = Both below 50 — avoid">
-                <span style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "help" }}>{quad}</span>
-              </Tip>
-              <Tip text="Total number of stocks in this theme">
-                <span style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.count}</span>
-              </Tip>
-              <Tip text={"Relative Theme Strength (0–100)\nComposite score based on RS rankings, returns, and breadth of stocks in the theme.\nHigher = stronger theme momentum.\n\n80+ = Leading theme\n50-80 = Above average\n<50 = Lagging"}>
-                <span style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace", cursor: "help" }}>{theme.rts}</span>
-              </Tip>
-              <Tip text={`Breadth: ${theme.breadth}% of stocks in this theme are above their 50-day moving average.\n\n≥60% = Healthy broad participation (green)\n40-60% = Mixed, selective (yellow)\n<40% = Weak, most stocks below 50MA (red)`}>
-                <span style={{ color: "#888", fontSize: 11, cursor: "help" }}>B:{theme.breadth}%</span>
-              </Tip>
+              <span style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{quad}</span>
+              <span style={{ color: "#888", fontSize: 11 }}>{theme.count}</span>
+              <span style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace" }}>{theme.rts}</span>
+              <span style={{ color: "#888", fontSize: 11 }}>B:{theme.breadth}%</span>
               <Ret v={theme.return_1w} /><Ret v={theme.return_1m} /><Ret v={theme.return_3m} bold />
-              <Tip text={`A Grades: ${theme.a_grades} stocks have A+, A, or A- RTS grade.\nThese are the top-ranked momentum names in this theme.\n\nMore A's = deeper bench of institutional-quality leaders.`}>
-                <span style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.a_grades}A</span>
-              </Tip>
+              <span style={{ color: "#888", fontSize: 11 }}>{theme.a_grades}A</span>
               {(() => { const tb = breadthMap[theme.theme]; if (!tb || (tb.up_4pct === 0 && tb.down_4pct === 0)) return null;
-                return <Tip text={`Today's 4% movers in this theme:\n\n↑ ${tb.up_4pct} stocks up 4%+ on above-avg volume\n↓ ${tb.down_4pct} stocks down 4%+ on above-avg volume\nNet: ${tb.net >= 0 ? '+' : ''}${tb.net}\n\nPositive net = institutional buying pressure\nNegative net = distribution / selling`}>
-                  <span style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2, cursor: "help",
+                return <span style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2,
                   background: tb.net > 0 ? "#22c55e15" : tb.net < 0 ? "#ef444415" : "#33333330",
                   border: `1px solid ${tb.net > 0 ? "#22c55e30" : tb.net < 0 ? "#ef444430" : "#33333340"}`,
                   color: tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#666" }}>
-                  4%↑{tb.up_4pct} ↓{tb.down_4pct}</span></Tip>;
+                  4%↑{tb.up_4pct} ↓{tb.down_4pct}</span>;
               })()}
             </div>
             {isOpen && (
