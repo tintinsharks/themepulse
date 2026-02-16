@@ -1682,7 +1682,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
   const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
-  const gainersMerged = useMemo(() => sortList((liveData?.top_gainers || []).map(mergeGainer), vgSort), [liveData?.top_gainers, mergeGainer, vgSort]);
+  const [vgThemeOnly, setVgThemeOnly] = useState(true);
+  const gainersMerged = useMemo(() => {
+    const all = (liveData?.top_gainers || []).map(mergeGainer);
+    const filtered = vgThemeOnly ? all.filter(g => stockMap?.[g.ticker]) : all;
+    return sortList(filtered, vgSort);
+  }, [liveData?.top_gainers, mergeGainer, vgSort, vgThemeOnly, stockMap]);
 
   return (
     <div>
@@ -1740,7 +1745,11 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
             Top Gainers
           </span>
-          <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length} stocks | Mid cap+</span>
+          <button onClick={() => setVgThemeOnly(p => !p)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+            border: vgThemeOnly ? "1px solid #c084fc" : "1px solid #333",
+            background: vgThemeOnly ? "#c084fc20" : "transparent", color: vgThemeOnly ? "#c084fc" : "#666" }}>
+            {vgThemeOnly ? "Theme Universe" : "All Stocks"}</button>
+          <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length} stocks</span>
         </div>
         {gainersMerged.length > 0 ? (
           <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={gainersMerged} sortKey={vgSort} setter={setVgSort}
