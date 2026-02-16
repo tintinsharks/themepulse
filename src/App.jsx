@@ -956,7 +956,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [sortBy, setSortBy] = useState("date");
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(3);
-  const [maxDays, setMaxDays] = useState(30);
+  const [maxDays, setMaxDays] = useState(60);
   const [statusFilter, setStatusFilter] = useState(null); // null = all
 
   const filtered = useMemo(() => {
@@ -1030,7 +1030,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           style={{ width: 50, accentColor: "#fbbf24" }} />
         <span style={{ fontSize: 10, color: "#fbbf24", fontFamily: "monospace" }}>{minVol}x</span>
         <span style={{ color: "#333" }}>|</span>
-        {[5, 10, 20, 30].map(d => (
+        {[5, 10, 20, 30, 60].map(d => (
           <button key={d} onClick={() => setMaxDays(d)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
             border: maxDays === d ? "1px solid #fbbf24" : "1px solid #333",
             background: maxDays === d ? "#fbbf2420" : "transparent", color: maxDays === d ? "#fbbf24" : "#666" }}>{d}d</button>
