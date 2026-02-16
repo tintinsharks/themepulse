@@ -1011,36 +1011,96 @@ function MarketMonitor({ mmData }) {
       )}
 
       {/* THEME BREADTH — 4% movers by theme */}
-      {mmData.theme_breadth && mmData.theme_breadth.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <div style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Theme Breadth — Where are the 4% movers?</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px", maxWidth: 700 }}>
-            {mmData.theme_breadth.map(tb => {
-              const total = tb.up_4pct + tb.down_4pct;
-              if (total === 0) return null;
-              const upPct = total > 0 ? (tb.up_4pct / total * 100) : 0;
-              const netColor = tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#888";
-              return (
-                <div key={tb.theme} style={{ marginBottom: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                    <span style={{ fontSize: 10, color: "#aaa" }}>{tb.theme}</span>
-                    <span style={{ fontSize: 10, fontFamily: "monospace" }}>
-                      <span style={{ color: "#4ade80" }}>+{tb.up_4pct}</span>
-                      <span style={{ color: "#555" }}> / </span>
-                      <span style={{ color: "#f87171" }}>-{tb.down_4pct}</span>
-                      <span style={{ color: netColor, fontWeight: 700, marginLeft: 6 }}>({tb.net >= 0 ? '+' : ''}{tb.net})</span>
+      {/* Theme Breadth Sparklines */}
+      {(() => {
+        const hist = mmData.theme_breadth_history;
+        const todayBreadth = mmData.theme_breadth || [];
+        // Get all themes that have either sparkline history or today's 4% movers
+        const allThemes = new Set([
+          ...(hist ? Object.keys(hist) : []),
+          ...todayBreadth.map(tb => tb.theme),
+        ]);
+        if (allThemes.size === 0) return null;
+
+        // Build lookup for today's 4% movers
+        const todayMap = {};
+        todayBreadth.forEach(tb => { todayMap[tb.theme] = tb; });
+
+        // Build theme list with current breadth, sort by latest breadth desc
+        const themes = [...allThemes].map(name => {
+          const points = hist?.[name] || [];
+          const latest = points.length > 0 ? points[points.length - 1].breadth : 0;
+          const tb = todayMap[name];
+          return { name, points, latest, tb };
+        }).sort((a, b) => b.latest - a.latest);
+
+        return (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>
+              Theme Breadth — % Above 50MA (30-day trend)
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", maxWidth: 800 }}>
+              {themes.map(({ name, points, latest, tb }) => {
+                const vals = points.map(p => p.breadth);
+                const sparkW = 80, sparkH = 20;
+                const mn = Math.min(0, ...vals);
+                const mx = Math.max(100, ...vals);
+                const range = mx - mn || 1;
+                // Build SVG path
+                let pathD = "";
+                let areaD = "";
+                if (vals.length > 1) {
+                  const pts = vals.map((v, i) => {
+                    const x = (i / (vals.length - 1)) * sparkW;
+                    const y = sparkH - ((v - mn) / range) * sparkH;
+                    return [x, y];
+                  });
+                  pathD = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
+                  areaD = pathD + ` L${sparkW},${sparkH} L0,${sparkH} Z`;
+                }
+                // Trend: compare last vs 5 days ago
+                const prev = vals.length >= 6 ? vals[vals.length - 6] : vals[0];
+                const delta = latest - (prev || 0);
+                const trendColor = delta > 3 ? "#4ade80" : delta < -3 ? "#f87171" : "#888";
+                const lineColor = latest >= 60 ? "#4ade80" : latest >= 40 ? "#fbbf24" : "#f87171";
+                const netColor = tb ? (tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#555") : "#555";
+
+                return (
+                  <div key={name} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0" }}>
+                    <span style={{ fontSize: 10, color: "#aaa", width: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>{name}</span>
+                    {vals.length > 1 ? (
+                      <svg width={sparkW} height={sparkH} style={{ flexShrink: 0 }}>
+                        {/* 50% reference line */}
+                        <line x1={0} y1={sparkH - ((50 - mn) / range) * sparkH} x2={sparkW} y2={sparkH - ((50 - mn) / range) * sparkH}
+                          stroke="#333" strokeWidth={0.5} strokeDasharray="2,2" />
+                        {/* Area fill */}
+                        <path d={areaD} fill={lineColor} opacity={0.1} />
+                        {/* Sparkline */}
+                        <path d={pathD} fill="none" stroke={lineColor} strokeWidth={1.5} />
+                        {/* Current dot */}
+                        <circle cx={sparkW} cy={sparkH - ((latest - mn) / range) * sparkH} r={2} fill={lineColor} />
+                      </svg>
+                    ) : (
+                      <div style={{ width: sparkW, height: sparkH, flexShrink: 0 }} />
+                    )}
+                    <span style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: lineColor, width: 30, textAlign: "right", flexShrink: 0 }}>{latest}%</span>
+                    <span style={{ fontSize: 9, fontFamily: "monospace", color: trendColor, width: 28, textAlign: "right", flexShrink: 0 }}>
+                      {delta >= 0 ? '+' : ''}{delta.toFixed(0)}
                     </span>
+                    {tb && (tb.up_4pct > 0 || tb.down_4pct > 0) && (
+                      <span style={{ fontSize: 9, fontFamily: "monospace", color: netColor, flexShrink: 0 }}>
+                        <span style={{ color: "#4ade80" }}>↑{tb.up_4pct}</span>
+                        <span style={{ color: "#555" }}>/</span>
+                        <span style={{ color: "#f87171" }}>↓{tb.down_4pct}</span>
+                      </span>
+                    )}
                   </div>
-                  <div style={{ height: 4, background: "#1a1a1a", borderRadius: 2, overflow: "hidden", display: "flex" }}>
-                    <div style={{ width: `${upPct}%`, background: "#22c55e60", transition: "width 0.3s" }} />
-                    <div style={{ width: `${100 - upPct}%`, background: "#ef444460", transition: "width 0.3s" }} />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

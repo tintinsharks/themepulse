@@ -1,21 +1,21 @@
 {
   "date": "2026-02-13",
-  "generated": "2026-02-15 20:50",
-  "total_stocks": 4853,
+  "generated": "2026-02-16 09:06",
+  "total_stocks": 4838,
   "current": {
     "date": "2026-02-13",
-    "up_4pct": 262,
-    "down_4pct": 99,
-    "up_25q": 710,
-    "down_25q": 671,
+    "up_4pct": 263,
+    "down_4pct": 98,
+    "up_25q": 709,
+    "down_25q": 672,
     "up_25m": 162,
     "down_25m": 519,
     "up_50m": 51,
     "down_50m": 81,
-    "up_13_34d": 1005,
-    "down_13_34d": 977,
-    "t2108": 56.5,
-    "total_stocks": 4853,
+    "up_13_34d": 1004,
+    "down_13_34d": 978,
+    "t2108": 56.4,
+    "total_stocks": 4838,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -253,28 +253,28 @@
   "history": [
     {
       "date": "2026-02-13",
-      "up_4pct": 262,
-      "down_4pct": 99,
-      "up_25q": 710,
-      "down_25q": 671,
+      "up_4pct": 263,
+      "down_4pct": 98,
+      "up_25q": 709,
+      "down_25q": 672,
       "up_25m": 162,
       "down_25m": 519,
       "up_50m": 51,
       "down_50m": 81,
-      "up_13_34d": 1005,
-      "down_13_34d": 977,
-      "t2108": 56.5,
-      "total_stocks": 4853,
-      "ratio_5d": 2.65,
-      "ratio_10d": 2.65
+      "up_13_34d": 1004,
+      "down_13_34d": 978,
+      "t2108": 56.4,
+      "total_stocks": 4838,
+      "ratio_5d": 2.68,
+      "ratio_10d": 2.68
     }
   ],
   "theme_breadth": [
     {
       "theme": "AI INFRASTRUCTURE",
-      "up_4pct": 10,
+      "up_4pct": 9,
       "down_4pct": 1,
-      "net": 9
+      "net": 8
     },
     {
       "theme": "ENERGY",
@@ -289,16 +289,16 @@
       "net": 5
     },
     {
+      "theme": "FINTECH",
+      "up_4pct": 9,
+      "down_4pct": 4,
+      "net": 5
+    },
+    {
       "theme": "SEMICONDUCTORS",
       "up_4pct": 6,
       "down_4pct": 1,
       "net": 5
-    },
-    {
-      "theme": "FINTECH",
-      "up_4pct": 9,
-      "down_4pct": 5,
-      "net": 4
     },
     {
       "theme": "INDUSTRIAL",
@@ -379,6 +379,140 @@
       "net": -1
     }
   ],
+  "theme_breadth_history": {
+    "FIBER OPTICS": [
+      {
+        "date": "2026-02-13",
+        "breadth": 100.0
+      }
+    ],
+    "COMMODITIES": [
+      {
+        "date": "2026-02-13",
+        "breadth": 93.0
+      }
+    ],
+    "SEMICONDUCTORS": [
+      {
+        "date": "2026-02-13",
+        "breadth": 85.0
+      }
+    ],
+    "ENERGY": [
+      {
+        "date": "2026-02-13",
+        "breadth": 91.0
+      }
+    ],
+    "INDUSTRIAL": [
+      {
+        "date": "2026-02-13",
+        "breadth": 82.0
+      }
+    ],
+    "TRANSPORT & LOGISTICS": [
+      {
+        "date": "2026-02-13",
+        "breadth": 72.0
+      }
+    ],
+    "AI INFRASTRUCTURE": [
+      {
+        "date": "2026-02-13",
+        "breadth": 71.0
+      }
+    ],
+    "TELECOM": [
+      {
+        "date": "2026-02-13",
+        "breadth": 80.0
+      }
+    ],
+    "DEFENSE": [
+      {
+        "date": "2026-02-13",
+        "breadth": 56.0
+      }
+    ],
+    "EV": [
+      {
+        "date": "2026-02-13",
+        "breadth": 81.0
+      }
+    ],
+    "OTHER": [
+      {
+        "date": "2026-02-13",
+        "breadth": 60.0
+      }
+    ],
+    "CONSUMER": [
+      {
+        "date": "2026-02-13",
+        "breadth": 79.0
+      }
+    ],
+    "REITS": [
+      {
+        "date": "2026-02-13",
+        "breadth": 79.0
+      }
+    ],
+    "HEALTHCARE": [
+      {
+        "date": "2026-02-13",
+        "breadth": 51.0
+      }
+    ],
+    "ROBOTICS": [
+      {
+        "date": "2026-02-13",
+        "breadth": 53.0
+      }
+    ],
+    "FINTECH": [
+      {
+        "date": "2026-02-13",
+        "breadth": 57.0
+      }
+    ],
+    "QUANTUM": [
+      {
+        "date": "2026-02-13",
+        "breadth": 40.0
+      }
+    ],
+    "DIGITAL ENTERTAINMENT": [
+      {
+        "date": "2026-02-13",
+        "breadth": 47.0
+      }
+    ],
+    "E-COMMERCE": [
+      {
+        "date": "2026-02-13",
+        "breadth": 39.0
+      }
+    ],
+    "VR/AR": [
+      {
+        "date": "2026-02-13",
+        "breadth": 50.0
+      }
+    ],
+    "SOFTWARE": [
+      {
+        "date": "2026-02-13",
+        "breadth": 19.0
+      }
+    ],
+    "CYBER": [
+      {
+        "date": "2026-02-13",
+        "breadth": 20.0
+      }
+    ]
+  },
   "indices": {
     "SPY": {
       "name": "S&P 500",
