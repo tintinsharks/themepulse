@@ -305,11 +305,12 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
   const [detailTheme, setDetailTheme] = useState(null); // full table view for a theme
   const [detailSort, setDetailSort] = useState("rs");
+  const [healthFilter, setHealthFilter] = useState(null); // null = all, or "ADD"/"REMOVE"/"LEADING" etc
   // Build theme breadth lookup from MM data
   const breadthMap = useMemo(() => {
     const m = {};
@@ -318,6 +319,14 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     }
     return m;
   }, [mmData]);
+  // Build theme health lookup
+  const healthMap = useMemo(() => {
+    const m = {};
+    if (themeHealth) {
+      themeHealth.forEach(h => { m[h.theme] = h; });
+    }
+    return m;
+  }, [themeHealth]);
   const list = useMemo(() => {
     let t = [...themes];
     if (filters.minRTS > 0) t = t.filter(x => x.rts >= filters.minRTS);
@@ -326,9 +335,25 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
       const q = filters.search.toUpperCase();
       t = t.filter(x => x.theme.toUpperCase().includes(q) || x.subthemes.some(s => s.tickers.some(tk => tk.includes(q))));
     }
-    t.sort((a, b) => (b[sort] || 0) - (a[sort] || 0));
+    if (healthFilter) {
+      t = t.filter(x => {
+        const h = healthMap[x.theme];
+        if (!h) return false;
+        if (healthFilter === "ADD" || healthFilter === "REMOVE") return h.signal === healthFilter;
+        return h.status === healthFilter;
+      });
+    }
+    const sorters = {
+      rts: (a, b) => (b.rts || 0) - (a.rts || 0),
+      return_1m: (a, b) => (b.return_1m || 0) - (a.return_1m || 0),
+      return_3m: (a, b) => (b.return_3m || 0) - (a.return_3m || 0),
+      breadth: (a, b) => (b.breadth || 0) - (a.breadth || 0),
+      a_grades: (a, b) => (b.a_grades || 0) - (a.a_grades || 0),
+      health: (a, b) => (healthMap[b.theme]?.composite || 0) - (healthMap[a.theme]?.composite || 0),
+    };
+    t.sort(sorters[sort] || sorters.rts);
     return t;
-  }, [themes, filters, sort]);
+  }, [themes, filters, sort, healthFilter, healthMap]);
   const toggle = (name) => setOpen(p => ({ ...p, [name]: !p[name] }));
 
   // Report visible ticker order to parent for keyboard nav
@@ -343,12 +368,21 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-        {[["rts","RTS"],["return_1m","1M"],["return_3m","3M"],["breadth","Brdth"],["a_grades","A's"]].map(([k, l]) => (
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        {[["rts","RTS"],["return_1m","1M"],["return_3m","3M"],["breadth","Brdth"],["a_grades","A's"],["health","Health"]].map(([k, l]) => (
           <button key={k} onClick={() => setSort(k)} style={{ padding: "4px 10px", borderRadius: 4,
             border: sort === k ? "1px solid #10b981" : "1px solid #333",
             background: sort === k ? "#10b98120" : "transparent", color: sort === k ? "#6ee7b7" : "#888", fontSize: 11, cursor: "pointer" }}>{l}</button>
         ))}
+        {Object.keys(healthMap).length > 0 && (<>
+          <span style={{ color: "#333", margin: "0 2px" }}>|</span>
+          {[["All", null],["★ ADD","ADD"],["✗ REMOVE","REMOVE"],["Leading","LEADING"],["Emerging","EMERGING"],["Weakening","WEAKENING"],["Lagging","LAGGING"]].map(([label, val]) => (
+            <button key={label} onClick={() => setHealthFilter(healthFilter === val ? null : val)} style={{ padding: "2px 7px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+              border: healthFilter === val ? "1px solid #10b981" : "1px solid #333",
+              background: healthFilter === val ? "#10b98120" : "transparent",
+              color: healthFilter === val ? "#6ee7b7" : val === "ADD" ? "#4ade80" : val === "REMOVE" ? "#f87171" : "#666" }}>{label}</button>
+          ))}
+        </>)}
       </div>
       {/* Legend */}
       <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
@@ -365,6 +399,10 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
         <span><b style={{ color: "#888" }}>4A</b> — Count of A+/A/A- graded stocks (top momentum names)</span>
         <span style={{ color: "#333" }}>|</span>
         <span><span style={{ color: "#4ade80" }}>4%↑2</span> <span style={{ color: "#f87171" }}>↓1</span> — Today's 4%+ movers on above-avg volume (green = buying, red = selling)</span>
+        {Object.keys(healthMap).length > 0 && (<>
+          <span style={{ color: "#333" }}>|</span>
+          <span><b style={{ color: "#4ade80" }}>★ ADD</b> / <b style={{ color: "#f87171" }}>✗ REMOVE</b> — Theme health signal (structure + momentum + breakouts + breadth composite)</span>
+        </>)}
       </div>
       {list.map(theme => {
         const quad = getQuad(theme.weekly_rs, theme.monthly_rs);
@@ -382,6 +420,18 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               <span style={{ color: "#888", fontSize: 11 }}>B:{theme.breadth}%</span>
               <Ret v={theme.return_1w} /><Ret v={theme.return_1m} /><Ret v={theme.return_3m} bold />
               <span style={{ color: "#888", fontSize: 11 }}>{theme.a_grades}A</span>
+              {(() => { const h = healthMap[theme.theme]; if (!h) return null;
+                const sc = { LEADING: { bg: "#22c55e18", border: "#22c55e50", color: "#4ade80" },
+                  EMERGING: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24" },
+                  HOLDING: { bg: "#88888812", border: "#88888830", color: "#888" },
+                  WEAKENING: { bg: "#f9731618", border: "#f9731640", color: "#f97316" },
+                  LAGGING: { bg: "#ef444418", border: "#ef444440", color: "#f87171" } }[h.status] || {};
+                const sig = h.signal === "ADD" ? "★" : h.signal === "REMOVE" ? "✗" : "";
+                return <span title={`Health: ${h.composite} | Struct: ${h.pillars.structure} | Mom: ${h.pillars.momentum} | Brk: ${h.pillars.breakouts} | Brdth: ${h.pillars.breadth}`}
+                  style={{ padding: "1px 6px", borderRadius: 3, fontSize: 8, fontWeight: 700,
+                    background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
+                  {sig}{sig ? " " : ""}{h.status} {h.composite}</span>;
+              })()}
               {(() => { const tb = breadthMap[theme.theme]; if (!tb || (tb.up_4pct === 0 && tb.down_4pct === 0)) return null;
                 return <span style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2,
                   background: tb.net > 0 ? "#22c55e15" : tb.net < 0 ? "#ef444415" : "#33333330",
@@ -429,6 +479,31 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                         color: detailTheme === theme.theme ? "#6ee7b7" : "#666" }}>
                       {detailTheme === theme.theme ? "Close Table" : "Detail Table"}</button>
                   </div>
+                  );
+                })()}
+
+                {/* Health pillar breakdown */}
+                {(() => { const h = healthMap[theme.theme]; if (!h) return null;
+                  const bars = [
+                    ["Structure", h.pillars.structure, `>20MA: ${h.detail.above_20}% | >50MA: ${h.detail.above_50}% | >200MA: ${h.detail.above_200}% | Stacked: ${h.detail.ma_stacked}%`],
+                    ["Momentum", h.pillars.momentum, `Avg RS: ${h.detail.avg_rs} | Accel: ${h.detail.accelerating ? "Yes" : "No"}`],
+                    ["Breakouts", h.pillars.breakouts, `<5% from high: ${h.detail.near_high_5}% | <10%: ${h.detail.near_high_10}% | A-density: ${h.detail.a_density}%`],
+                    ["Breadth", h.pillars.breadth, `Positive 1M: ${h.detail.positive_1m_pct}% | Dispersion: ${h.detail.ret_dispersion}`],
+                  ];
+                  return (
+                    <div style={{ display: "flex", gap: 10, padding: "4px 8px", marginBottom: 4, fontSize: 9, alignItems: "center" }}>
+                      <span style={{ color: "#555", fontSize: 8, minWidth: 45 }}>HEALTH</span>
+                      {bars.map(([label, val, tip]) => (
+                        <span key={label} title={tip} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <span style={{ color: "#666" }}>{label}</span>
+                          <span style={{ width: 40, height: 4, background: "#222", borderRadius: 2, overflow: "hidden", display: "inline-block" }}>
+                            <span style={{ width: `${val}%`, height: "100%", display: "block", borderRadius: 2,
+                              background: val >= 65 ? "#4ade80" : val >= 40 ? "#fbbf24" : "#f87171" }} />
+                          </span>
+                          <span style={{ color: val >= 65 ? "#4ade80" : val >= 40 ? "#fbbf24" : "#f87171", fontFamily: "monospace" }}>{Math.round(val)}</span>
+                        </span>
+                      ))}
+                    </div>
                   );
                 })()}
 
@@ -1392,7 +1467,7 @@ export default function App() {
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* Left: data views */}
         <div style={{ width: (chartOpen && view !== "mm") ? "50%" : view === "mm" ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
-          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} />}
+          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} />}
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
