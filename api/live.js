@@ -150,13 +150,38 @@ const INTRADAY_CUMULATIVE = [
 ];
 
 function getCumulativeWeight() {
-  // Current ET time
+  // Get current ET time using UTC offset
+  // ET is UTC-5 (EST) or UTC-4 (EDT)
   const now = new Date();
-  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const mins = et.getHours() * 60 + et.getMinutes(); // minutes since midnight
+  const utcMonth = now.getUTCMonth(); // 0-11
+  const utcDate = now.getUTCDate();
+  const utcDay = now.getUTCDay(); // 0=Sun
 
-  if (mins <= 570) return 0;       // before market open
-  if (mins >= 960) return 1.0;     // after market close
+  // Simple DST check: EDT is 2nd Sun Mar to 1st Sun Nov
+  // March: DST starts 2nd Sunday
+  // November: DST ends 1st Sunday
+  let isDST = false;
+  if (utcMonth > 2 && utcMonth < 10) {
+    isDST = true; // Apr-Oct always EDT
+  } else if (utcMonth === 2) {
+    // March: find 2nd Sunday
+    const firstDay = new Date(Date.UTC(now.getUTCFullYear(), 2, 1)).getUTCDay();
+    const secondSunday = firstDay === 0 ? 8 : (14 - firstDay + 1);
+    isDST = utcDate >= secondSunday;
+  } else if (utcMonth === 10) {
+    // November: find 1st Sunday
+    const firstDay = new Date(Date.UTC(now.getUTCFullYear(), 10, 1)).getUTCDay();
+    const firstSunday = firstDay === 0 ? 1 : (7 - firstDay + 1);
+    isDST = utcDate < firstSunday;
+  }
+
+  const etOffset = isDST ? -4 : -5;
+  const etHour = (now.getUTCHours() + etOffset + 24) % 24;
+  const etMinute = now.getUTCMinutes();
+  const mins = etHour * 60 + etMinute;
+
+  if (mins <= 570) return 0;       // before 9:30 ET
+  if (mins >= 960) return 1.0;     // after 4:00 ET
 
   // Interpolate between buckets
   for (let i = 1; i < INTRADAY_CUMULATIVE.length; i++) {
@@ -176,11 +201,14 @@ function calcZVR(volumeStr, avgVolumeStr) {
   if (!vol || !avgVol || avgVol === 0) return null;
 
   const cumWeight = getCumulativeWeight();
-  if (cumWeight <= 0.01) return null; // market not open yet
 
-  // Projected end-of-day volume using U-curve weight
+  // After market close or before open: use simple ratio
+  if (cumWeight >= 1.0 || cumWeight <= 0.01) {
+    return Math.round((vol / avgVol) * 100);
+  }
+
+  // During market hours: project end-of-day volume using U-curve
   const projectedVol = vol / cumWeight;
-  // ZVR as percentage of average daily volume
   return Math.round((projectedVol / avgVol) * 100);
 }
 
