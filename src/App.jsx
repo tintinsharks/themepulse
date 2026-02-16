@@ -292,6 +292,7 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
   const isActive = ticker === activeTicker;
   return (
     <span {...props}
+      ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
       onClick={(e) => { e.stopPropagation(); onClick(ticker); }}
       style={{ ...style, cursor: "pointer", transition: "all 0.15s",
         outline: isActive ? "2px solid #10b981" : "none",
@@ -304,9 +305,17 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
+  // Build theme breadth lookup from MM data
+  const breadthMap = useMemo(() => {
+    const m = {};
+    if (mmData?.theme_breadth) {
+      mmData.theme_breadth.forEach(tb => { m[tb.theme] = tb; });
+    }
+    return m;
+  }, [mmData]);
   const list = useMemo(() => {
     let t = [...themes];
     if (filters.minRTS > 0) t = t.filter(x => x.rts >= filters.minRTS);
@@ -345,6 +354,13 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker }) {
               <span style={{ color: "#888", fontSize: 11 }}>B:{theme.breadth}%</span>
               <Ret v={theme.return_1w} /><Ret v={theme.return_1m} /><Ret v={theme.return_3m} bold />
               <span style={{ color: "#888", fontSize: 11 }}>{theme.a_grades}A</span>
+              {(() => { const tb = breadthMap[theme.theme]; if (!tb || (tb.up_4pct === 0 && tb.down_4pct === 0)) return null;
+                return <span style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2,
+                  background: tb.net > 0 ? "#22c55e15" : tb.net < 0 ? "#ef444415" : "#33333330",
+                  border: `1px solid ${tb.net > 0 ? "#22c55e30" : tb.net < 0 ? "#ef444430" : "#33333340"}`,
+                  color: tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#666" }}>
+                  4%↑{tb.up_4pct} ↓{tb.down_4pct}</span>;
+              })()}
             </div>
             {isOpen && (
               <div style={{ background: "#0a0a0a", padding: "4px 8px" }}>
@@ -506,10 +522,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
     ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | RevQ/Q>25%"
     : "A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+";
 
+  // Column header config: [label, sortKey or null]
+  const columns = [
+    ["Action", null], ["Ticker", null], ["Grade", null], ["RS", "rs"], ["1M%", null], ["3M%", "ret3m"],
+    ["FrHi%", "fromhi"], ["ATR/50", "atr50"], ["VCS", "vcs"], ["ADR%", "adr"], ["EPS YoY", null], ["Rev YoY", null], ["Theme", null],
+  ];
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        {/* Scan mode toggle */}
         {[["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"]].map(([k, l]) => (
           <button key={k} onClick={() => setScanMode(k)} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
             border: scanMode === k ? "1px solid #10b981" : "1px solid #333",
@@ -518,22 +539,17 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
         <span style={{ color: "#555", fontSize: 10 }}>|</span>
         <span style={{ color: "#888", fontSize: 10 }}>{filterDesc}</span>
         <span style={{ color: "#4ade80", fontWeight: 700, fontSize: 11 }}>{candidates.length}</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}>
-        <span style={{ color: "#555", fontSize: 10 }}>Sort:</span>
-        {[["default","Default"],["rs","RS"],["ret3m","3M%"],["fromhi","Fr.High"],["atr50","ATR/50"],["vcs","VCS"],["adr","ADR%"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSortBy(k)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
-            border: sortBy === k ? "1px solid #10b981" : "1px solid #333",
-            background: sortBy === k ? "#10b98120" : "transparent", color: sortBy === k ? "#6ee7b7" : "#666" }}>{l}</button>
-        ))}
-        <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer", marginLeft: 8,
+        <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer", marginLeft: "auto",
           border: nearPivot ? "1px solid #c084fc" : "1px solid #333",
           background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#666" }}>Near Pivot (&lt;3%)</button>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
-          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","VCS","ADR%","EPS YoY","Rev YoY","Theme"].map(h => (
-            <th key={h} style={{ padding: "6px 8px", color: "#666", fontWeight: 700, textAlign: "center", fontSize: 10 }}>{h}</th>
+          {columns.map(([h, sk]) => (
+            <th key={h} onClick={sk ? () => setSortBy(prev => prev === sk ? "default" : sk) : undefined}
+              style={{ padding: "6px 8px", color: sortBy === sk ? "#6ee7b7" : "#666", fontWeight: 700, textAlign: "center", fontSize: 10,
+                cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+              {h}{sortBy === sk ? " ▼" : ""}</th>
           ))}
         </tr></thead>
         <tbody>{candidates.map(s => {
@@ -544,7 +560,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
           const theme = s.themes.find(t => leading.has(t.theme));
           const isActive = s.ticker === activeTicker;
           return (
-            <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+            <tr key={s.ticker} ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
+              onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer",
                 background: isActive ? "#10b98115" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><span style={{ background: ac, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{action}</span></td>
@@ -1056,7 +1073,7 @@ export default function App() {
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* Left: data views */}
         <div style={{ width: (chartOpen && view !== "mm") ? "50%" : view === "mm" ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
-          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} />}
+          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} />}
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} />}
