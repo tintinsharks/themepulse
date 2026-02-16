@@ -126,7 +126,13 @@ function num(v) {
 
 function parseVolume(v) {
   if (!v || v === "-") return null;
-  return parseFloat(String(v).replace(/,/g, ""));
+  const s = String(v).trim().replace(/,/g, "");
+  // Handle suffixes: K, M, B
+  const upper = s.toUpperCase();
+  if (upper.endsWith("B")) return parseFloat(s) * 1e9;
+  if (upper.endsWith("M")) return parseFloat(s) * 1e6;
+  if (upper.endsWith("K")) return parseFloat(s) * 1e3;
+  return parseFloat(s);
 }
 
 // ── Zanger Volume Ratio (ZVR) ──
@@ -180,7 +186,12 @@ function getCumulativeWeight() {
   const etMinute = now.getUTCMinutes();
   const mins = etHour * 60 + etMinute;
 
-  if (mins <= 570) return 0;       // before 9:30 ET
+  // Weekend check (in ET)
+  let etDay = now.getUTCDay();
+  if (now.getUTCHours() + etOffset < 0) etDay = (etDay + 6) % 7;
+  if (etDay === 0 || etDay === 6) return 1.0; // Sat/Sun
+
+  if (mins <= 570) return 1.0;     // before 9:30 ET — use simple ratio
   if (mins >= 960) return 1.0;     // after 4:00 ET
 
   // Interpolate between buckets
