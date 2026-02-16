@@ -524,12 +524,12 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {/* Detail table view */}
                 {detailTheme === theme.theme && (() => {
                   const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker",null],["Grade",null],["RS","rs"],["1M%",null],["3M%","ret3m"],["FrHi%","fromhi"],["ATR/50","atr50"],["VCS","vcs"],["ADR%","adr"],["RVol","rvol"],["Subtheme",null]];
+                  const cols = [["Ticker",null],["Grade",null],["RS","rs"],["1M%",null],["3M%","ret3m"],["FrHi%","fromhi"],["Vol","vol"],["VCS","vcs"],["ADR%","adr"],["RVol","rvol"],["Subtheme",null]];
                   const dSorters = {
                     rs: (a, b) => b.rs_rank - a.rs_rank,
                     ret3m: (a, b) => b.return_3m - a.return_3m,
                     fromhi: (a, b) => b.pct_from_high - a.pct_from_high,
-                    atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
+                    vol: (a, b) => (b.avg_dollar_vol_raw || 0) - (a.avg_dollar_vol_raw || 0),
                     vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
                     adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
                     rvol: (a, b) => (b.rel_volume || 0) - (a.rel_volume || 0),
@@ -563,7 +563,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: "#888", fontFamily: "monospace" }}>{s.atr_to_50}</td>
+                              {(() => { const v = s.avg_volume_raw; const fmt = v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : v != null ? `${v}` : '—';
+                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                  color: v >= 1e6 ? "#888" : v != null ? "#f97316" : "#333" }}>{fmt}</td>; })()}
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                                 color: s.vcs >= 80 ? "#4ade80" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#888" : "#333" }}>
                                 {s.vcs != null ? s.vcs : '—'}</td>
