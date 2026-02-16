@@ -24,6 +24,29 @@ const QC = {
   WEAK: { bg: "#450a0a", text: "#fca5a5", tag: "#dc2626" },
 };
 
+// ── TOOLTIP ──
+function Tip({ text, children, style }) {
+  const [show, setShow] = useState(false);
+  const ref = useRef(null);
+  return (
+    <span ref={ref} style={{ position: "relative", ...style }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      {children}
+      {show && (
+        <span style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
+          background: "#1a1a1a", border: "1px solid #444", borderRadius: 6, padding: "8px 12px",
+          fontSize: 10, color: "#ccc", lineHeight: 1.5, whiteSpace: "pre-line", zIndex: 999,
+          minWidth: 200, maxWidth: 300, pointerEvents: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+          textAlign: "left", fontWeight: 400, fontFamily: "system-ui" }}>
+          {text}
+          <span style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
+            borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "6px solid #444" }} />
+        </span>
+      )}
+    </span>
+  );
+}
+
 function Ret({ v, bold }) {
   if (v == null) return <span style={{ color: "#666" }}>—</span>;
   const c = v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#888";
@@ -361,19 +384,29 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
               <span style={{ color: "#fff", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, flex: 1 }}>{theme.theme}</span>
-              <span title="Quadrant: STRONG = Weekly & Monthly RS above 50. IMPROVING = Weekly rising. WEAKENING = Weekly falling. WEAK = Both below 50." style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "help" }}>{quad}</span>
-              <span title="Total number of stocks in this theme" style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.count}</span>
-              <span title="Relative Theme Strength (0-100). Composite score based on RS rankings, returns, and breadth of stocks in the theme. Higher = stronger theme momentum." style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace", cursor: "help" }}>{theme.rts}</span>
-              <span title={`Breadth: ${theme.breadth}% of stocks in this theme are above their 50-day moving average. Green ≥60% (healthy), Yellow ≥40% (mixed), Red <40% (weak participation).`} style={{ color: "#888", fontSize: 11, cursor: "help" }}>B:{theme.breadth}%</span>
+              <Tip text="Quadrant based on Weekly vs Monthly relative strength.&#10;STRONG = Both above 50 — buy these themes&#10;IMPROVING = Weekly rising — watch for breakout&#10;WEAKENING = Monthly strong, weekly fading — tighten stops&#10;WEAK = Both below 50 — avoid">
+                <span style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "help" }}>{quad}</span>
+              </Tip>
+              <Tip text="Total number of stocks in this theme">
+                <span style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.count}</span>
+              </Tip>
+              <Tip text={"Relative Theme Strength (0–100)\nComposite score based on RS rankings, returns, and breadth of stocks in the theme.\nHigher = stronger theme momentum.\n\n80+ = Leading theme\n50-80 = Above average\n<50 = Lagging"}>
+                <span style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace", cursor: "help" }}>{theme.rts}</span>
+              </Tip>
+              <Tip text={`Breadth: ${theme.breadth}% of stocks in this theme are above their 50-day moving average.\n\n≥60% = Healthy broad participation (green)\n40-60% = Mixed, selective (yellow)\n<40% = Weak, most stocks below 50MA (red)`}>
+                <span style={{ color: "#888", fontSize: 11, cursor: "help" }}>B:{theme.breadth}%</span>
+              </Tip>
               <Ret v={theme.return_1w} /><Ret v={theme.return_1m} /><Ret v={theme.return_3m} bold />
-              <span title={`A Grades: ${theme.a_grades} stocks in this theme have an A+, A, or A- RTS grade — the top-ranked momentum names. More A's = deeper bench of leaders.`} style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.a_grades}A</span>
+              <Tip text={`A Grades: ${theme.a_grades} stocks have A+, A, or A- RTS grade.\nThese are the top-ranked momentum names in this theme.\n\nMore A's = deeper bench of institutional-quality leaders.`}>
+                <span style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.a_grades}A</span>
+              </Tip>
               {(() => { const tb = breadthMap[theme.theme]; if (!tb || (tb.up_4pct === 0 && tb.down_4pct === 0)) return null;
-                return <span title={`Today's 4% movers in this theme:\n↑ ${tb.up_4pct} stocks up 4%+ on above-avg volume\n↓ ${tb.down_4pct} stocks down 4%+ on above-avg volume\nNet: ${tb.net >= 0 ? '+' : ''}${tb.net}\n\nPositive net = institutional buying pressure\nNegative net = distribution`}
-                  style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2, cursor: "help",
+                return <Tip text={`Today's 4% movers in this theme:\n\n↑ ${tb.up_4pct} stocks up 4%+ on above-avg volume\n↓ ${tb.down_4pct} stocks down 4%+ on above-avg volume\nNet: ${tb.net >= 0 ? '+' : ''}${tb.net}\n\nPositive net = institutional buying pressure\nNegative net = distribution / selling`}>
+                  <span style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2, cursor: "help",
                   background: tb.net > 0 ? "#22c55e15" : tb.net < 0 ? "#ef444415" : "#33333330",
                   border: `1px solid ${tb.net > 0 ? "#22c55e30" : tb.net < 0 ? "#ef444430" : "#33333340"}`,
                   color: tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#666" }}>
-                  4%↑{tb.up_4pct} ↓{tb.down_4pct}</span>;
+                  4%↑{tb.up_4pct} ↓{tb.down_4pct}</span></Tip>;
               })()}
             </div>
             {isOpen && (
