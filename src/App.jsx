@@ -373,12 +373,39 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
     if (onVisibleTickers) {
-      const tickers = list.flatMap(t => t.subthemes.flatMap(s =>
-        s.tickers.map(tk => stockMap[tk]).filter(Boolean).sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker)
-      )).filter((v, i, a) => a.indexOf(v) === i);
-      onVisibleTickers(tickers);
+      if (detailTheme) {
+        // Detail table is open — use that theme's sorted tickers
+        const theme = list.find(t => t.theme === detailTheme);
+        if (theme) {
+          const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
+          const safe = (fn) => (a, b) => {
+            const av = fn(a), bv = fn(b);
+            if (av == null && bv == null) return 0;
+            if (av == null) return 1;
+            if (bv == null) return -1;
+            return bv - av;
+          };
+          const GRADE_ORDER = {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1};
+          const dSorters = {
+            ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+            grade: safe(s => GRADE_ORDER[s.grade] ?? null),
+            rs: safe(s => s.rs_rank), ret1m: safe(s => s.return_1m), ret3m: safe(s => s.return_3m),
+            fromhi: safe(s => s.pct_from_high), vcs: safe(s => s.vcs), adr: safe(s => s.adr_pct),
+            vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
+            rvol: safe(s => s.rel_volume),
+          };
+          const sorted = [...allStocks].sort(dSorters[detailSort] || dSorters.rs);
+          onVisibleTickers(sorted.map(s => s.ticker));
+        }
+      } else {
+        // No detail table — global theme ticker list
+        const tickers = list.flatMap(t => t.subthemes.flatMap(s =>
+          s.tickers.map(tk => stockMap[tk]).filter(Boolean).sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker)
+        )).filter((v, i, a) => a.indexOf(v) === i);
+        onVisibleTickers(tickers);
+      }
     }
-  }, [list, onVisibleTickers, stockMap]);
+  }, [list, onVisibleTickers, stockMap, detailTheme, detailSort]);
 
   return (
     <div>
