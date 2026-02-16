@@ -805,12 +805,9 @@ function MarketMonitor({ mmData }) {
 }
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
-function IndexChart({ symbol, name }) {
+function IndexChart({ symbol, name, maData }) {
   const containerRef = useRef(null);
-  const [maStatus, setMaStatus] = useState(null);
 
-  // Fetch MA status via TradingView lightweight — we'll use a simple fetch from a free API
-  // For now, embed the TV widget and show MA badges that update from the widget data
   useEffect(() => {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
@@ -859,46 +856,6 @@ function IndexChart({ symbol, name }) {
     };
   }, [symbol]);
 
-  // Fetch MA data from a simple proxy — use Yahoo Finance chart endpoint
-  useEffect(() => {
-    const fetchMA = async () => {
-      try {
-        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=250d`);
-        if (!r.ok) return;
-        const d = await r.json();
-        const closes = d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-        if (!closes || closes.length < 200) return;
-
-        const valid = closes.filter(c => c != null);
-        const price = valid[valid.length - 1];
-
-        const ema = (data, len) => {
-          const k = 2 / (len + 1);
-          let e = data[0];
-          for (let i = 1; i < data.length; i++) {
-            if (data[i] != null) e = data[i] * k + e * (1 - k);
-          }
-          return e;
-        };
-        const sma = (data, len) => {
-          const s = data.filter(v => v != null).slice(-len);
-          return s.reduce((a, b) => a + b, 0) / s.length;
-        };
-
-        setMaStatus({
-          ema10: price > ema(valid, 10),
-          ema21: price > ema(valid, 21),
-          sma50: price > sma(valid, 50),
-          sma200: price > sma(valid, 200),
-          price: price.toFixed(2),
-        });
-      } catch {
-        // Yahoo CORS may block — fall back to no MA data
-      }
-    };
-    fetchMA();
-  }, [symbol]);
-
   const MaBadge = ({ label, above }) => (
     <span style={{
       padding: "2px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, fontFamily: "monospace",
@@ -913,14 +870,13 @@ function IndexChart({ symbol, name }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", background: "#111", flexShrink: 0, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, fontWeight: 900, color: "#fff" }}>{symbol}</span>
         <span style={{ fontSize: 9, color: "#666" }}>{name}</span>
-        {maStatus && <>
-          <span style={{ fontSize: 10, color: "#ccc", fontFamily: "monospace", marginLeft: "auto" }}>${maStatus.price}</span>
-          <MaBadge label="10E" above={maStatus.ema10} />
-          <MaBadge label="21E" above={maStatus.ema21} />
-          <MaBadge label="50S" above={maStatus.sma50} />
-          <MaBadge label="200S" above={maStatus.sma200} />
+        {maData && <>
+          <span style={{ fontSize: 10, color: "#ccc", fontFamily: "monospace", marginLeft: "auto" }}>${maData.price}</span>
+          <MaBadge label="10E" above={maData.above_ema10} />
+          <MaBadge label="21E" above={maData.above_ema21} />
+          <MaBadge label="50S" above={maData.above_sma50} />
+          <MaBadge label="200S" above={maData.above_sma200} />
         </>}
-        {!maStatus && <span style={{ fontSize: 9, color: "#444", marginLeft: "auto" }}>loading MAs...</span>}
       </div>
       <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
     </div>
@@ -1123,7 +1079,7 @@ export default function App() {
               { symbol: "IWM", name: "Russell 2000" },
               { symbol: "DIA", name: "Dow Jones" },
             ].map(idx => (
-              <IndexChart key={idx.symbol} symbol={idx.symbol} name={idx.name} />
+              <IndexChart key={idx.symbol} symbol={idx.symbol} name={idx.name} maData={mmData?.indices?.[idx.symbol]} />
             ))}
           </div>
         )}
