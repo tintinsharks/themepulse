@@ -24,23 +24,32 @@ const QC = {
   WEAK: { bg: "#450a0a", text: "#fca5a5", tag: "#dc2626" },
 };
 
-// ── TOOLTIP ──
+// ── INFO POPOVER (click to show) ──
 function Tip({ text, children, style }) {
   const [show, setShow] = useState(false);
   const ref = useRef(null);
+
+  useEffect(() => {
+    if (!show) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setShow(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [show]);
+
   return (
-    <span ref={ref} style={{ position: "relative", ...style }}
-      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      {children}
+    <span ref={ref} style={{ position: "relative", display: "inline-flex", alignItems: "center", ...style }}>
+      <span onClick={(e) => { e.stopPropagation(); setShow(p => !p); }} style={{ cursor: "help" }}>
+        {children}
+      </span>
       {show && (
-        <span style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)",
-          background: "#1a1a1a", border: "1px solid #444", borderRadius: 6, padding: "8px 12px",
-          fontSize: 10, color: "#ccc", lineHeight: 1.5, whiteSpace: "pre-line", zIndex: 999,
-          minWidth: 200, maxWidth: 300, pointerEvents: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+        <span onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          background: "#1e1e1e", border: "1px solid #555", borderRadius: 6, padding: "10px 14px",
+          fontSize: 11, color: "#ddd", lineHeight: 1.6, whiteSpace: "pre-line", zIndex: 9999,
+          minWidth: 220, maxWidth: 320, boxShadow: "0 4px 16px rgba(0,0,0,0.7)",
           textAlign: "left", fontWeight: 400, fontFamily: "system-ui" }}>
           {text}
           <span style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
-            borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "6px solid #444" }} />
+            borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "6px solid #555" }} />
         </span>
       )}
     </span>
