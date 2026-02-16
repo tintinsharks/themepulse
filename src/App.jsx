@@ -1434,7 +1434,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
-  const [vgSort, setVgSort] = useState("rel_volume");
+  const [vgSort, setVgSort] = useState("change");
 
   useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
@@ -1461,7 +1461,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
     if (!liveData || !onVisibleTickers) return;
     const tickers = [
       ...(liveData.watchlist || []).map(s => s.ticker),
-      ...(liveData.volume_gainers || []).slice(0, 30).map(s => s.ticker),
+      ...(liveData.top_gainers || []).slice(0, 30).map(s => s.ticker),
     ];
     onVisibleTickers(tickers);
   }, [liveData, onVisibleTickers]);
@@ -1565,7 +1565,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
   const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
-  const gainersMerged = useMemo(() => sortList((liveData?.volume_gainers || []).map(mergeGainer), vgSort), [liveData?.volume_gainers, mergeGainer, vgSort]);
+  const gainersMerged = useMemo(() => sortList((liveData?.top_gainers || []).map(mergeGainer), vgSort), [liveData?.top_gainers, mergeGainer, vgSort]);
 
   // ── Shared table components (mirrors Scan Watch) ──
   const columns = [
@@ -1703,20 +1703,20 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
         )}
       </div>
 
-      {/* ── 3. Volume Gainers ── */}
+      {/* ── 3. Top Gainers ── */}
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            Volume Gainers — Rel Volume &gt; 2x
+            Top Gainers
           </span>
-          <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length} stocks</span>
+          <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length} stocks | Mid cap+</span>
         </div>
         {gainersMerged.length > 0 ? (
           <SectionTable data={gainersMerged} sortKey={vgSort} setter={setVgSort}
             onAdd={(t) => { addToWatch(t); }} addLabel="+watch" />
         ) : (
           <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
-            {loading ? "Loading volume gainers..." : "No stocks with relative volume > 2x right now."}
+            {loading ? "Loading top gainers..." : "No top gainers right now (market may be closed)."}
           </div>
         )}
       </div>

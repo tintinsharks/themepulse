@@ -313,24 +313,24 @@ function parseQuotePage(ticker, html) {
   };
 }
 
-// ── Fetch volume gainers ──
-async function fetchVolumeGainers(cookies) {
-  // Screener: $1B+ market cap, relative volume > 2, sorted by relative volume desc
+// ── Fetch top gainers ──
+async function fetchTopGainers(cookies) {
+  // Finviz "Top Gainers" signal + mid cap and above
   const cols = "1,2,3,4,6,43,44,45,46,47,48,49,50,55,62,64";
-  const url = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,sh_relvol_o2&o=-relativevolume&c=${cols}`;
+  const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=cap_midover&o=-change&c=${cols}`;
 
   const resp = await fetch(url, {
     headers: { ...HEADERS, Cookie: cookies },
   });
 
   if (!resp.ok) {
-    console.error(`Volume gainers fetch failed: ${resp.status}`);
+    console.error(`Top gainers fetch failed: ${resp.status}`);
     return [];
   }
 
   const ct = resp.headers.get("content-type") || "";
   if (ct.includes("html")) {
-    console.error("Got HTML instead of CSV for volume gainers");
+    console.error("Got HTML instead of CSV for top gainers");
     return [];
   }
 
@@ -383,18 +383,18 @@ export default async function handler(req, res) {
       : [];
 
     // Fetch both in parallel
-    const [watchlist, volumeGainers] = await Promise.all([
+    const [watchlist, topGainers] = await Promise.all([
       watchlistTickers.length > 0
         ? fetchWatchlist(cookies, watchlistTickers)
         : Promise.resolve([]),
-      fetchVolumeGainers(cookies),
+      fetchTopGainers(cookies),
     ]);
 
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
       watchlist,
-      volume_gainers: volumeGainers,
+      top_gainers: topGainers,
     });
   } catch (err) {
     console.error("Live API error:", err);
