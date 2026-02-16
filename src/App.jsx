@@ -712,6 +712,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
       atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
       vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
       adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
+      eps: (a, b) => ((b.eps_yoy ?? b.eps_qq) ?? -999) - ((a.eps_yoy ?? a.eps_qq) ?? -999),
+      rev: (a, b) => ((b.sales_yoy ?? b.sales_qq) ?? -999) - ((a.sales_yoy ?? a.sales_qq) ?? -999),
+      pe: (a, b) => {
+        const ap = a.pe != null && a.pe > 0 ? a.pe : 9999;
+        const bp = b.pe != null && b.pe > 0 ? b.pe : 9999;
+        return ap - bp;
+      },
+      roe: (a, b) => (b.roe ?? -999) - (a.roe ?? -999),
+      margin: (a, b) => (b.profit_margin ?? -999) - (a.profit_margin ?? -999),
     };
     return list.sort(sorters[sortBy] || sorters.default);
   }, [stocks, leading, sortBy, nearPivot, scanMode]);
@@ -730,7 +739,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
   // Column header config: [label, sortKey or null]
   const columns = [
     ["Action", null], ["Ticker", null], ["Grade", null], ["RS", "rs"], ["1M%", null], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["ATR/50", "atr50"], ["VCS", "vcs"], ["ADR%", "adr"], ["EPS YoY", null], ["Rev YoY", null], ["Theme", null],
+    ["FrHi%", "fromhi"], ["ATR/50", "atr50"], ["VCS", "vcs"], ["ADR%", "adr"],
+    ["EPS", "eps"], ["Rev", "rev"], ["P/E", "pe"], ["ROE", "roe"], ["Mgn%", "margin"], ["Theme", null],
   ];
 
   return (
@@ -795,6 +805,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
                 color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
                 {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
               ); })()}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.pe != null && s.pe > 0 ? (s.pe < 20 ? "#4ade80" : s.pe < 40 ? "#888" : "#f97316") : "#333" }}>
+                {s.pe != null && s.pe > 0 ? s.pe.toFixed(0) : '—'}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.roe != null ? (s.roe > 20 ? "#4ade80" : s.roe > 10 ? "#888" : s.roe > 0 ? "#f97316" : "#f87171") : "#333" }}>
+                {s.roe != null ? `${s.roe}%` : '—'}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.profit_margin != null ? (s.profit_margin > 15 ? "#4ade80" : s.profit_margin > 5 ? "#888" : s.profit_margin > 0 ? "#f97316" : "#f87171") : "#333" }}>
+                {s.profit_margin != null ? `${s.profit_margin}%` : '—'}</td>
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
             </tr>
           );
