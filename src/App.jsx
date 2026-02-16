@@ -1398,30 +1398,35 @@ export default function App() {
 
   // Resizable split panel
   const [splitPct, setSplitPct] = useState(50);
-  const dragging = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef(null);
 
-  const onDividerMouseDown = useCallback((e) => {
-    e.preventDefault();
-    dragging.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+  useEffect(() => {
+    if (!isDragging) return;
     const onMove = (ev) => {
-      if (!dragging.current || !containerRef.current) return;
+      if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      setSplitPct(Math.max(20, Math.min(80, pct)));
+      setSplitPct(Math.max(15, Math.min(85, pct)));
     };
     const onUp = () => {
-      dragging.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+      setIsDragging(false);
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-  }, []);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    // Prevent iframe from stealing mouse events during drag
+    const iframes = document.querySelectorAll("iframe");
+    iframes.forEach(f => { f.style.pointerEvents = "none"; });
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      iframes.forEach(f => { f.style.pointerEvents = ""; });
+    };
+  }, [isDragging]);
 
   // Keyboard navigation: ↑↓ to cycle tickers, Esc to close chart
   useEffect(() => {
@@ -1523,13 +1528,11 @@ export default function App() {
 
         {/* Draggable divider */}
         {((chartOpen && view !== "mm") || view === "mm") && (
-          <div onMouseDown={onDividerMouseDown}
-            style={{ width: 5, cursor: "col-resize", background: "transparent", flexShrink: 0, position: "relative", zIndex: 10 }}>
-            <div style={{ position: "absolute", top: 0, bottom: 0, left: 2, width: 1, background: "#333" }} />
-            <div style={{ position: "absolute", top: "50%", left: -3, transform: "translateY(-50%)", width: 11, height: 32,
-              background: "#222", border: "1px solid #444", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#666", fontSize: 8, lineHeight: 1 }}>⋮</span>
-            </div>
+          <div
+            onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
+            style={{ width: 9, flexShrink: 0, cursor: "col-resize", position: "relative", zIndex: 10,
+              display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 1, height: "100%", background: isDragging ? "#10b981" : "#333", transition: "background 0.15s" }} />
           </div>
         )}
 
