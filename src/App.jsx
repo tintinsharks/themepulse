@@ -1756,6 +1756,88 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 }
 
 export default function App() {
+  // Auth state
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem("tp_auth_token") || null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Verify token on mount
+  useEffect(() => {
+    if (!authToken) { setAuthChecked(true); return; }
+    fetch("/api/userdata", { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => { if (!r.ok) { setAuthToken(null); localStorage.removeItem("tp_auth_token"); } })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  const handleLogin = useCallback(async (pin) => {
+    const resp = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    const data = await resp.json();
+    if (data.ok && data.token) {
+      localStorage.setItem("tp_auth_token", data.token);
+      setAuthToken(data.token);
+      return true;
+    }
+    return false;
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("tp_auth_token");
+    setAuthToken(null);
+  }, []);
+
+  if (!authChecked) {
+    return <div style={{ background: "#0a0a0a", color: "#555", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace" }}>Loading...</div>;
+  }
+
+  if (!authToken) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  return <AppMain authToken={authToken} onLogout={handleLogout} />;
+}
+
+function LoginScreen({ onLogin }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const submit = async () => {
+    if (!pin.trim()) return;
+    setLoading(true); setError(null);
+    const ok = await onLogin(pin.trim());
+    if (!ok) { setError("Invalid PIN"); setLoading(false); }
+  };
+
+  return (
+    <div style={{ background: "#0a0a0a", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace" }}>
+      <div style={{ background: "#111", border: "1px solid #222", borderRadius: 12, padding: "40px 48px", textAlign: "center", minWidth: 320 }}>
+        <div style={{ fontSize: 24, fontWeight: 900, color: "#10b981", marginBottom: 4, letterSpacing: 2 }}>THEMEPULSE</div>
+        <div style={{ fontSize: 11, color: "#555", marginBottom: 32 }}>Momentum Dashboard</div>
+        <input ref={inputRef} type="password" value={pin} onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="Enter PIN"
+          style={{ background: "#0a0a0a", border: "1px solid #333", borderRadius: 6, padding: "10px 16px",
+            fontSize: 16, color: "#fff", width: "100%", outline: "none", fontFamily: "monospace",
+            textAlign: "center", letterSpacing: 8, marginBottom: 16, boxSizing: "border-box" }} />
+        {error && <div style={{ color: "#f87171", fontSize: 11, marginBottom: 12 }}>{error}</div>}
+        <button onClick={submit} disabled={loading}
+          style={{ width: "100%", padding: "10px 0", borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: "pointer",
+            background: "#10b98130", border: "1px solid #10b981", color: "#10b981", fontFamily: "monospace",
+            opacity: loading ? 0.5 : 1 }}>
+          {loading ? "..." : "LOGIN"}</button>
+      </div>
+    </div>
+  );
+}
+
+function AppMain({ authToken, onLogout }) {
   const [data, setData] = useState(null);
   const [view, setView] = useState("leaders");
   const [filters, setFilters] = useState({ minRTS: 0, quad: null, search: "" });
@@ -1796,8 +1878,41 @@ export default function App() {
   const [watchlist, setWatchlist] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_watchlist") || "[]"); } catch { return []; }
   });
+  const [serverLoaded, setServerLoaded] = useState(false);
+
+  // Load from server on mount
+  useEffect(() => {
+    if (!authToken) return;
+    fetch("/api/userdata", { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.ok && d.data) {
+          if (d.data.portfolio?.length) setPortfolio(d.data.portfolio);
+          if (d.data.watchlist?.length) setWatchlist(d.data.watchlist);
+        }
+        setServerLoaded(true);
+      })
+      .catch(() => setServerLoaded(true));
+  }, [authToken]);
+
+  // Save to localStorage
   useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+
+  // Save to server (debounced)
+  const saveTimer = useRef(null);
+  useEffect(() => {
+    if (!authToken || !serverLoaded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      fetch("/api/userdata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ portfolio, watchlist }),
+      }).catch(() => {});
+    }, 2000);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [portfolio, watchlist, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
@@ -1923,6 +2038,8 @@ export default function App() {
         <input type="range" min={0} max={80} value={filters.minRTS} onChange={e => setFilters(p => ({ ...p, minRTS: +e.target.value }))}
           style={{ width: 80, accentColor: "#10b981" }} />
         <span style={{ fontSize: 10, color: "#888", fontFamily: "monospace" }}>{filters.minRTS}</span>
+        <button onClick={onLogout} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+          background: "transparent", border: "1px solid #333", color: "#555" }}>Logout</button>
       </div>
 
       {/* Main content: split layout when chart is open */}
