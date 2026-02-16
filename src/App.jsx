@@ -712,8 +712,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
       atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
       vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
       adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
-      eps: (a, b) => ((b.eps_yoy ?? b.eps_qq) ?? -999) - ((a.eps_yoy ?? a.eps_qq) ?? -999),
-      rev: (a, b) => ((b.sales_yoy ?? b.sales_qq) ?? -999) - ((a.sales_yoy ?? a.sales_qq) ?? -999),
+      eps: (a, b) => (b.eps_past_5y ?? -999) - (a.eps_past_5y ?? -999),
+      rev: (a, b) => (b.sales_past_5y ?? -999) - (a.sales_past_5y ?? -999),
       pe: (a, b) => {
         const ap = a.pe != null && a.pe > 0 ? a.pe : 9999;
         const bp = b.pe != null && b.pe > 0 ? b.pe : 9999;
@@ -740,7 +740,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
   const columns = [
     ["Action", null], ["Ticker", null], ["Grade", null], ["RS", "rs"], ["1M%", null], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["ATR/50", "atr50"], ["VCS", "vcs"], ["ADR%", "adr"],
-    ["EPS", "eps"], ["Rev", "rev"], ["P/E", "pe"], ["ROE", "roe"], ["Mgn%", "margin"], ["Theme", null],
+    ["EPS 5Y", "eps"], ["Rev 5Y", "rev"], ["P/E", "pe"], ["ROE", "roe"], ["Mgn%", "margin"], ["Theme", null],
   ];
 
   return (
@@ -795,12 +795,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-              {(() => { const v = s.eps_yoy ?? s.eps_qq; return (
+              {(() => { const v = s.eps_past_5y; return (
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
                 {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
               ); })()}
-              {(() => { const v = s.sales_yoy ?? s.sales_qq; return (
+              {(() => { const v = s.sales_past_5y; return (
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
                 {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
