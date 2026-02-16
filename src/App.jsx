@@ -961,17 +961,32 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
   const filtered = useMemo(() => {
     if (!epSignals || !epSignals.length) return [];
+    const sorters = {
+      ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+      grade: (a, b) => {
+        const go = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
+        return (go.indexOf(stockMap[a.ticker]?.grade || "G") - go.indexOf(stockMap[b.ticker]?.grade || "G"));
+      },
+      date: (a, b) => a.days_ago - b.days_ago,
+      days: (a, b) => a.days_ago - b.days_ago,
+      gap: (a, b) => b.gap_pct - a.gap_pct,
+      change: (a, b) => b.change_pct - a.change_pct,
+      vol: (a, b) => b.vol_ratio - a.vol_ratio,
+      clrng: (a, b) => b.close_range - a.close_range,
+      status: (a, b) => {
+        const order = { consolidating: 0, fresh: 1, basing: 2, holding: 3, extended_pullback: 4, failed: 5 };
+        return (order[a.consol?.status] ?? 9) - (order[b.consol?.status] ?? 9);
+      },
+      pb: (a, b) => (b.consol?.pullback_pct ?? -99) - (a.consol?.pullback_pct ?? -99),
+      volcon: (a, b) => (a.consol?.vol_contraction ?? 99) - (b.consol?.vol_contraction ?? 99),
+      rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
+      theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
+    };
     return epSignals
       .filter(ep => ep.gap_pct >= minGap && ep.vol_ratio >= minVol && ep.days_ago <= maxDays)
       .filter(ep => !statusFilter || ep.consol?.status === statusFilter)
-      .sort({
-        date: (a, b) => a.days_ago - b.days_ago,
-        gap: (a, b) => b.gap_pct - a.gap_pct,
-        vol: (a, b) => b.vol_ratio - a.vol_ratio,
-        change: (a, b) => b.change_pct - a.change_pct,
-        pb: (a, b) => (b.consol?.pullback_pct || -99) - (a.consol?.pullback_pct || -99),
-      }[sortBy] || ((a, b) => a.days_ago - b.days_ago));
-  }, [epSignals, sortBy, minGap, minVol, maxDays, statusFilter]);
+      .sort(sorters[sortBy] || sorters.date);
+  }, [epSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
 
   useEffect(() => {
     if (onVisibleTickers) onVisibleTickers(filtered.map(ep => ep.ticker));
@@ -987,9 +1002,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   };
 
   const columns = [
-    ["Ticker", null], ["Grade", null], ["Date", "date"], ["Days", null], ["Gap%", "gap"],
-    ["Chg%", "change"], ["VolX", "vol"], ["ClRng", null], ["Status", null],
-    ["PB%", "pb"], ["VolCon", null], ["RS", null], ["Theme", null],
+    ["Ticker", "ticker"], ["Grade", "grade"], ["Date", "date"], ["Days", "days"], ["Gap%", "gap"],
+    ["Chg%", "change"], ["VolX", "vol"], ["ClRng", "clrng"], ["Status", "status"],
+    ["PB%", "pb"], ["VolCon", "volcon"], ["RS", "rs"], ["Theme", "theme"],
   ];
 
   if (!epSignals || !epSignals.length) {
