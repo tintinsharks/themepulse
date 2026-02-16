@@ -1441,6 +1441,31 @@ export default function App() {
 
   // Layout: when chart is open, split view 50/50
   const chartOpen = chartTicker !== null;
+  const [splitPct, setSplitPct] = useState(50);
+  const dragging = useRef(false);
+  const containerRef = useRef(null);
+
+  const onDividerMouseDown = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (ev) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      setSplitPct(Math.max(20, Math.min(80, pct)));
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#ccc", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -1483,9 +1508,9 @@ export default function App() {
       </div>
 
       {/* Main content: split layout when chart is open */}
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+      <div ref={containerRef} style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
-        <div style={{ width: (chartOpen && view !== "mm") ? "50%" : view === "mm" ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
+        <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: dragging.current ? "none" : "width 0.2s" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} />}
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
@@ -1494,16 +1519,28 @@ export default function App() {
           {view === "mm" && <MarketMonitor mmData={mmData} />}
         </div>
 
+        {/* Draggable divider */}
+        {((chartOpen && view !== "mm") || view === "mm") && (
+          <div onMouseDown={onDividerMouseDown}
+            style={{ width: 5, cursor: "col-resize", background: "transparent", flexShrink: 0, position: "relative", zIndex: 10 }}>
+            <div style={{ position: "absolute", top: 0, bottom: 0, left: 2, width: 1, background: "#333" }} />
+            <div style={{ position: "absolute", top: "50%", left: -3, transform: "translateY(-50%)", width: 11, height: 32,
+              background: "#222", border: "1px solid #444", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#666", fontSize: 8, lineHeight: 1 }}>⋮</span>
+            </div>
+          </div>
+        )}
+
         {/* Right: chart panel (individual ticker) — NOT on MM tab */}
         {chartOpen && view !== "mm" && (
-          <div style={{ width: "50%", height: "100%" }}>
+          <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: dragging.current ? "none" : "width 0.2s" }}>
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} />
           </div>
         )}
 
         {/* Right: Index charts grid — MM tab only */}
         {view === "mm" && (
-          <div style={{ width: "50%", height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 0 }}>
+          <div style={{ width: `${100 - splitPct}%`, height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 0, transition: dragging.current ? "none" : "width 0.2s" }}>
             {[
               { symbol: "SPY", name: "S&P 500" },
               { symbol: "QQQ", name: "NASDAQ 100" },
