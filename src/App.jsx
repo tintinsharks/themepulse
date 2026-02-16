@@ -50,7 +50,7 @@ function StockStat({ label, value, color = "#888" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nS7up88o";
 
-function ChartPanel({ ticker, stock, onClose }) {
+function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
 
@@ -113,6 +113,20 @@ function ChartPanel({ ticker, stock, onClose }) {
         borderBottom: "1px solid #222", flexShrink: 0, background: "#111" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 16, fontWeight: 900, color: "#fff" }}>{ticker}</span>
+          {watchlist && (
+            watchlist.includes(ticker)
+              ? <button onClick={() => onRemoveWatchlist(ticker)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "#10b98120", border: "1px solid #10b98140", color: "#10b981" }}>✓ Watch</button>
+              : <button onClick={() => onAddWatchlist(ticker)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "transparent", border: "1px solid #333", color: "#666" }}>+ Watch</button>
+          )}
+          {portfolio && (
+            portfolio.includes(ticker)
+              ? <button onClick={() => onRemovePortfolio(ticker)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "#fbbf2420", border: "1px solid #fbbf2440", color: "#fbbf24" }}>✓ Portfolio</button>
+              : <button onClick={() => onAddPortfolio(ticker)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "transparent", border: "1px solid #333", color: "#666" }}>+ Portfolio</button>
+          )}
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#666", fontSize: 11 }}>RS:{stock.rs_rank}</span>
@@ -1419,25 +1433,16 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 }
 
 // ── LIVE VIEW ──
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [portfolio, setPortfolio] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("tp_portfolio") || "[]"); } catch { return []; }
-  });
-  const [watchlist, setWatchlist] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("tp_watchlist") || "[]"); } catch { return []; }
-  });
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
   const [vgSort, setVgSort] = useState("change");
-
-  useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
-  useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
 
   // Combine all tickers for API call
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -1532,12 +1537,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
     };
   }, [stockMap]);
 
-  const handleAddP = () => { const t = addTickerP.trim().toUpperCase(); if (t && !portfolio.includes(t)) setPortfolio(p => [...p, t]); setAddTickerP(""); };
-  const handleAddW = () => { const t = addTickerW.trim().toUpperCase(); if (t && !watchlist.includes(t)) setWatchlist(p => [...p, t]); setAddTickerW(""); };
-  const removeP = (t) => setPortfolio(p => p.filter(x => x !== t));
-  const removeW = (t) => setWatchlist(p => p.filter(x => x !== t));
-  const addToWatch = (t) => { if (!watchlist.includes(t)) setWatchlist(p => [...p, t]); };
-  const addToPortfolio = (t) => { if (!portfolio.includes(t)) setPortfolio(p => [...p, t]); };
+  const handleAddP = () => { const t = addTickerP.trim().toUpperCase(); if (t) addToPortfolio(t); setAddTickerP(""); };
+  const handleAddW = () => { const t = addTickerW.trim().toUpperCase(); if (t) addToWatchlist(t); setAddTickerW(""); };
 
   const sortFn = (key, desc = true) => (a, b) => {
     const av = a[key] ?? (desc ? -Infinity : Infinity);
@@ -1682,7 +1683,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
             Add your holdings above to track live.
           </div>
         ) : (
-          <SectionTable data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeP} />
+          <SectionTable data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} />
         )}
       </div>
 
@@ -1699,7 +1700,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
             Add tickers above or click <span style={{ color: "#10b981" }}>+watch</span> on volume gainers below.
           </div>
         ) : (
-          <SectionTable data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeW} />
+          <SectionTable data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} />
         )}
       </div>
 
@@ -1713,7 +1714,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
         </div>
         {gainersMerged.length > 0 ? (
           <SectionTable data={gainersMerged} sortKey={vgSort} setter={setVgSort}
-            onAdd={(t) => { addToWatch(t); }} addLabel="+watch" />
+            onAdd={(t) => { addToWatchlist(t); }} addLabel="+watch" />
         ) : (
           <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
             {loading ? "Loading top gainers..." : "No top gainers right now (market may be closed)."}
@@ -1757,6 +1758,20 @@ export default function App() {
   const stockMap = useMemo(() => { if (!data) return {}; const m = {}; data.stocks.forEach(s => { m[s.ticker] = s; }); return m; }, [data]);
   const openChart = useCallback((t) => setChartTicker(t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
+
+  // Watchlist + Portfolio state (hoisted for access from ChartPanel)
+  const [portfolio, setPortfolio] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_portfolio") || "[]"); } catch { return []; }
+  });
+  const [watchlist, setWatchlist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_watchlist") || "[]"); } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
+  useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+  const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
+  const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
+  const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
+  const removeFromPortfolio = useCallback((t) => setPortfolio(p => p.filter(x => x !== t)), []);
 
   // Visible ticker list — reported by whichever view is active
   const [visibleTickers, setVisibleTickers] = useState([]);
@@ -1890,7 +1905,10 @@ export default function App() {
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "mm" && <MarketMonitor mmData={mmData} />}
-          {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
+            portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
+            addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
+            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio} />}
         </div>
 
         {/* Draggable divider */}
@@ -1906,7 +1924,9 @@ export default function App() {
         {/* Right: chart panel (individual ticker) — NOT on MM tab */}
         {chartOpen && view !== "mm" && (
           <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
-            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} />
+            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart}
+              watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
+              portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio} />
           </div>
         )}
 
