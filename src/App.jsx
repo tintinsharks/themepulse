@@ -340,6 +340,17 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             background: sort === k ? "#10b98120" : "transparent", color: sort === k ? "#6ee7b7" : "#888", fontSize: 11, cursor: "pointer" }}>{l}</button>
         ))}
       </div>
+      {/* Legend */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#555", flexWrap: "wrap" }}>
+        <span style={{ color: "#666", fontWeight: 700 }}>LEGEND:</span>
+        <span>Quadrant</span><span style={{ color: "#444" }}>|</span>
+        <span>Count</span><span style={{ color: "#444" }}>|</span>
+        <span>RTS Score</span><span style={{ color: "#444" }}>|</span>
+        <span>B:Breadth%</span><span style={{ color: "#444" }}>|</span>
+        <span>1W% 1M% <b style={{ color: "#888" }}>3M%</b></span><span style={{ color: "#444" }}>|</span>
+        <span>A Grades</span><span style={{ color: "#444" }}>|</span>
+        <span>4% Movers</span>
+      </div>
       {list.map(theme => {
         const quad = getQuad(theme.weekly_rs, theme.monthly_rs);
         const qc = QC[quad]; const isOpen = open[theme.theme];
@@ -350,14 +361,15 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
               <span style={{ color: "#fff", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 13, flex: 1 }}>{theme.theme}</span>
-              <span style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{quad}</span>
-              <span style={{ color: "#888", fontSize: 11 }}>{theme.count}</span>
-              <span style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace" }}>{theme.rts}</span>
-              <span style={{ color: "#888", fontSize: 11 }}>B:{theme.breadth}%</span>
+              <span title="Quadrant: STRONG = Weekly & Monthly RS above 50. IMPROVING = Weekly rising. WEAKENING = Weekly falling. WEAK = Both below 50." style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, cursor: "help" }}>{quad}</span>
+              <span title="Total number of stocks in this theme" style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.count}</span>
+              <span title="Relative Theme Strength (0-100). Composite score based on RS rankings, returns, and breadth of stocks in the theme. Higher = stronger theme momentum." style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace", cursor: "help" }}>{theme.rts}</span>
+              <span title={`Breadth: ${theme.breadth}% of stocks in this theme are above their 50-day moving average. Green ≥60% (healthy), Yellow ≥40% (mixed), Red <40% (weak participation).`} style={{ color: "#888", fontSize: 11, cursor: "help" }}>B:{theme.breadth}%</span>
               <Ret v={theme.return_1w} /><Ret v={theme.return_1m} /><Ret v={theme.return_3m} bold />
-              <span style={{ color: "#888", fontSize: 11 }}>{theme.a_grades}A</span>
+              <span title={`A Grades: ${theme.a_grades} stocks in this theme have an A+, A, or A- RTS grade — the top-ranked momentum names. More A's = deeper bench of leaders.`} style={{ color: "#888", fontSize: 11, cursor: "help" }}>{theme.a_grades}A</span>
               {(() => { const tb = breadthMap[theme.theme]; if (!tb || (tb.up_4pct === 0 && tb.down_4pct === 0)) return null;
-                return <span style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2,
+                return <span title={`Today's 4% movers in this theme:\n↑ ${tb.up_4pct} stocks up 4%+ on above-avg volume\n↓ ${tb.down_4pct} stocks down 4%+ on above-avg volume\nNet: ${tb.net >= 0 ? '+' : ''}${tb.net}\n\nPositive net = institutional buying pressure\nNegative net = distribution`}
+                  style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2, cursor: "help",
                   background: tb.net > 0 ? "#22c55e15" : tb.net < 0 ? "#ef444415" : "#33333330",
                   border: `1px solid ${tb.net > 0 ? "#22c55e30" : tb.net < 0 ? "#ef444430" : "#33333340"}`,
                   color: tb.net > 0 ? "#4ade80" : tb.net < 0 ? "#f87171" : "#666" }}>
