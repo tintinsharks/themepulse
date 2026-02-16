@@ -213,24 +213,72 @@ function ChartPanel({ ticker, stock, onClose }) {
       )}
 
       {/* Fundamentals row */}
-      {stock && (stock.eps_qq != null || stock.sales_qq != null || stock.pe != null) && (
+      {stock && (stock.eps_yoy != null || stock.sales_yoy != null || stock.eps_qq != null || stock.pe != null) && (
         <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0, flexWrap: "wrap" }}>
-          {stock.eps_qq != null && <StockStat label="EPS Q/Q" value={`${stock.eps_qq > 0 ? '+' : ''}${stock.eps_qq}%`}
+          {/* YoY metrics (from FMP) — preferred */}
+          {stock.eps_yoy != null && <StockStat label="EPS YoY" value={`${stock.eps_yoy > 0 ? '+' : ''}${stock.eps_yoy}%`}
+            color={stock.eps_yoy > 25 ? "#4ade80" : stock.eps_yoy > 0 ? "#888" : "#f87171"} />}
+          {stock.sales_yoy != null && <StockStat label="Rev YoY" value={`${stock.sales_yoy > 0 ? '+' : ''}${stock.sales_yoy}%`}
+            color={stock.sales_yoy > 25 ? "#4ade80" : stock.sales_yoy > 0 ? "#888" : "#f87171"} />}
+          {/* Acceleration: compare current YoY to previous quarter YoY */}
+          {stock.eps_yoy != null && stock.eps_yoy_prev != null && (() => {
+            const accel = stock.eps_yoy > stock.eps_yoy_prev;
+            return <StockStat label="EPS Accel" value={accel ? "▲ Yes" : "▼ No"} color={accel ? "#4ade80" : "#f87171"} />;
+          })()}
+          {stock.sales_yoy != null && stock.sales_yoy_prev != null && (() => {
+            const accel = stock.sales_yoy > stock.sales_yoy_prev;
+            return <StockStat label="Rev Accel" value={accel ? "▲ Yes" : "▼ No"} color={accel ? "#4ade80" : "#f87171"} />;
+          })()}
+          {/* Fallback to Finviz Q/Q if no FMP data */}
+          {stock.eps_yoy == null && stock.eps_qq != null && <StockStat label="EPS Q/Q" value={`${stock.eps_qq > 0 ? '+' : ''}${stock.eps_qq}%`}
             color={stock.eps_qq > 25 ? "#4ade80" : stock.eps_qq > 0 ? "#888" : "#f87171"} />}
-          {stock.sales_qq != null && <StockStat label="Rev Q/Q" value={`${stock.sales_qq > 0 ? '+' : ''}${stock.sales_qq}%`}
+          {stock.sales_yoy == null && stock.sales_qq != null && <StockStat label="Rev Q/Q" value={`${stock.sales_qq > 0 ? '+' : ''}${stock.sales_qq}%`}
             color={stock.sales_qq > 25 ? "#4ade80" : stock.sales_qq > 0 ? "#888" : "#f87171"} />}
           {stock.eps_growth_y != null && <StockStat label="EPS Y" value={`${stock.eps_growth_y > 0 ? '+' : ''}${stock.eps_growth_y}%`}
             color={stock.eps_growth_y > 25 ? "#4ade80" : stock.eps_growth_y > 0 ? "#888" : "#f87171"} />}
-          {stock.eps_growth_ny != null && <StockStat label="EPS NY" value={`${stock.eps_growth_ny > 0 ? '+' : ''}${stock.eps_growth_ny}%`}
-            color={stock.eps_growth_ny > 15 ? "#4ade80" : stock.eps_growth_ny > 0 ? "#888" : "#f87171"} />}
           {stock.pe != null && <StockStat label="P/E" value={stock.pe} />}
           {stock.fwd_pe != null && <StockStat label="Fwd P/E" value={stock.fwd_pe} />}
           {stock.peg != null && <StockStat label="PEG" value={stock.peg}
             color={stock.peg > 0 && stock.peg < 1.5 ? "#4ade80" : stock.peg > 3 ? "#f87171" : "#888"} />}
           {stock.roe != null && <StockStat label="ROE" value={`${stock.roe}%`}
             color={stock.roe > 15 ? "#4ade80" : stock.roe > 0 ? "#888" : "#f87171"} />}
-          {stock.profit_margin != null && <StockStat label="Net Margin" value={`${stock.profit_margin}%`}
+          {stock.profit_margin != null && <StockStat label="Margin" value={`${stock.profit_margin}%`}
             color={stock.profit_margin > 10 ? "#4ade80" : stock.profit_margin > 0 ? "#888" : "#f87171"} />}
+        </div>
+      )}
+
+      {/* Quarterly earnings mini-table (from FMP) */}
+      {stock && stock.quarters && stock.quarters.length > 0 && (
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace" }}>
+            <thead><tr>
+              <td style={{ padding: "1px 6px", color: "#555", fontWeight: 700 }}>Quarterly</td>
+              {stock.quarters.map(q => (
+                <td key={q.label} style={{ padding: "1px 8px", color: "#888", textAlign: "center", fontWeight: 700 }}>{q.label}</td>
+              ))}
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: "1px 6px", color: "#555" }}>EPS ($)</td>
+                {stock.quarters.map(q => (
+                  <td key={q.label} style={{ padding: "1px 8px", textAlign: "center", color: q.eps > 0 ? "#ccc" : "#f87171" }}>{q.eps}</td>
+                ))}
+              </tr>
+              <tr>
+                <td style={{ padding: "1px 6px", color: "#555" }}>Sales ($)</td>
+                {stock.quarters.map(q => (
+                  <td key={q.label} style={{ padding: "1px 8px", textAlign: "center", color: "#ccc" }}>{q.revenue_fmt}</td>
+                ))}
+              </tr>
+              <tr>
+                <td style={{ padding: "1px 6px", color: "#555" }}>Margin %</td>
+                {stock.quarters.map(q => (
+                  <td key={q.label} style={{ padding: "1px 8px", textAlign: "center",
+                    color: q.net_margin > 10 ? "#4ade80" : q.net_margin > 0 ? "#888" : "#f87171" }}>{q.net_margin}%</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -423,13 +471,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
         const avgVol = s.avg_volume_raw || 0;
         const avgDolVol = s.avg_dollar_vol_raw || 0;
         const adr = s.adr_pct || 0;
-        const salesQQ = s.sales_qq;
+        const salesGrowth = s.sales_yoy ?? s.sales_qq;
         return price > 10
           && mcap >= 300000000
           && avgVol >= 1000000
           && avgDolVol >= 100000000
           && adr > 3
-          && salesQQ != null && salesQQ > 25;
+          && salesGrowth != null && salesGrowth > 25;
       });
     } else {
       // Original theme-based filter
@@ -484,7 +532,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
-          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","VCS","ADR%","EPS Q/Q","Rev Q/Q","Theme"].map(h => (
+          {["Action","Ticker","Grade","RS","1M%","3M%","FrHi%","ATR/50","VCS","ADR%","EPS YoY","Rev YoY","Theme"].map(h => (
             <th key={h} style={{ padding: "6px 8px", color: "#666", fontWeight: 700, textAlign: "center", fontSize: 10 }}>{h}</th>
           ))}
         </tr></thead>
@@ -515,12 +563,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker }) {
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              {(() => { const v = s.eps_yoy ?? s.eps_qq; return (
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.eps_qq > 25 ? "#4ade80" : s.eps_qq > 0 ? "#888" : s.eps_qq != null ? "#f87171" : "#333" }}>
-                {s.eps_qq != null ? `${s.eps_qq}%` : '—'}</td>
+                color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
+                {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
+              ); })()}
+              {(() => { const v = s.sales_yoy ?? s.sales_qq; return (
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.sales_qq > 25 ? "#4ade80" : s.sales_qq > 0 ? "#888" : s.sales_qq != null ? "#f87171" : "#333" }}>
-                {s.sales_qq != null ? `${s.sales_qq}%` : '—'}</td>
+                color: v > 25 ? "#4ade80" : v > 0 ? "#888" : v != null ? "#f87171" : "#333" }}>
+                {v != null ? `${v > 0 ? '+' : ''}${v}%` : '—'}</td>
+              ); })()}
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
             </tr>
           );
@@ -752,6 +804,129 @@ function MarketMonitor({ mmData }) {
   );
 }
 
+// ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
+function IndexChart({ symbol, name }) {
+  const containerRef = useRef(null);
+  const [maStatus, setMaStatus] = useState(null);
+
+  // Fetch MA status via TradingView lightweight — we'll use a simple fetch from a free API
+  // For now, embed the TV widget and show MA badges that update from the widget data
+  useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.innerHTML = "";
+
+    const widgetDiv = document.createElement("div");
+    widgetDiv.id = `tv_index_${symbol}`;
+    widgetDiv.style.height = "100%";
+    widgetDiv.style.width = "100%";
+    containerRef.current.appendChild(widgetDiv);
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/tv.js";
+    script.async = true;
+    script.onload = () => {
+      if (window.TradingView) {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: symbol,
+          interval: "D",
+          timezone: "America/New_York",
+          theme: "dark",
+          style: "1",
+          locale: "en",
+          toolbar_bg: "#0a0a0a",
+          enable_publishing: false,
+          allow_symbol_change: false,
+          save_image: false,
+          hide_top_toolbar: true,
+          hide_legend: true,
+          backgroundColor: "rgba(10, 10, 10, 1)",
+          gridColor: "rgba(20, 20, 20, 1)",
+          container_id: `tv_index_${symbol}`,
+          studies: [
+            { id: "MAExp@tv-basicstudies", inputs: { length: 10 } },
+            { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
+            { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
+            { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
+          ],
+        });
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+  }, [symbol]);
+
+  // Fetch MA data from a simple proxy — use Yahoo Finance chart endpoint
+  useEffect(() => {
+    const fetchMA = async () => {
+      try {
+        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=250d`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const closes = d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+        if (!closes || closes.length < 200) return;
+
+        const valid = closes.filter(c => c != null);
+        const price = valid[valid.length - 1];
+
+        const ema = (data, len) => {
+          const k = 2 / (len + 1);
+          let e = data[0];
+          for (let i = 1; i < data.length; i++) {
+            if (data[i] != null) e = data[i] * k + e * (1 - k);
+          }
+          return e;
+        };
+        const sma = (data, len) => {
+          const s = data.filter(v => v != null).slice(-len);
+          return s.reduce((a, b) => a + b, 0) / s.length;
+        };
+
+        setMaStatus({
+          ema10: price > ema(valid, 10),
+          ema21: price > ema(valid, 21),
+          sma50: price > sma(valid, 50),
+          sma200: price > sma(valid, 200),
+          price: price.toFixed(2),
+        });
+      } catch {
+        // Yahoo CORS may block — fall back to no MA data
+      }
+    };
+    fetchMA();
+  }, [symbol]);
+
+  const MaBadge = ({ label, above }) => (
+    <span style={{
+      padding: "2px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, fontFamily: "monospace",
+      background: above ? "#22c55e25" : "#ef444425",
+      color: above ? "#4ade80" : "#f87171",
+      border: `1px solid ${above ? "#22c55e40" : "#ef444440"}`,
+    }}>{label}</span>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid #222", borderRight: "1px solid #222", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", background: "#111", flexShrink: 0, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 900, color: "#fff" }}>{symbol}</span>
+        <span style={{ fontSize: 9, color: "#666" }}>{name}</span>
+        {maStatus && <>
+          <span style={{ fontSize: 10, color: "#ccc", fontFamily: "monospace", marginLeft: "auto" }}>${maStatus.price}</span>
+          <MaBadge label="10E" above={maStatus.ema10} />
+          <MaBadge label="21E" above={maStatus.ema21} />
+          <MaBadge label="50S" above={maStatus.sma50} />
+          <MaBadge label="200S" above={maStatus.sma200} />
+        </>}
+        {!maStatus && <span style={{ fontSize: 9, color: "#444", marginLeft: "auto" }}>loading MAs...</span>}
+      </div>
+      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+    </div>
+  );
+}
+
 function Grid({ stocks, onTickerClick, activeTicker }) {
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
   const groups = useMemo(() => {
@@ -924,7 +1099,7 @@ export default function App() {
       {/* Main content: split layout when chart is open */}
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* Left: data views */}
-        <div style={{ width: chartOpen ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
+        <div style={{ width: (chartOpen && view !== "mm") ? "50%" : view === "mm" ? "50%" : "100%", overflowY: "auto", padding: 16, transition: "width 0.2s" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} />}
           {view === "rotation" && <Rotation themes={data.themes} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} />}
@@ -932,10 +1107,24 @@ export default function App() {
           {view === "mm" && <MarketMonitor mmData={mmData} />}
         </div>
 
-        {/* Right: chart panel */}
-        {chartOpen && (
+        {/* Right: chart panel (individual ticker) — NOT on MM tab */}
+        {chartOpen && view !== "mm" && (
           <div style={{ width: "50%", height: "100%" }}>
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} />
+          </div>
+        )}
+
+        {/* Right: Index charts grid — MM tab only */}
+        {view === "mm" && (
+          <div style={{ width: "50%", height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 0 }}>
+            {[
+              { symbol: "SPY", name: "S&P 500" },
+              { symbol: "QQQ", name: "NASDAQ 100" },
+              { symbol: "IWM", name: "Russell 2000" },
+              { symbol: "DIA", name: "Dow Jones" },
+            ].map(idx => (
+              <IndexChart key={idx.symbol} symbol={idx.symbol} name={idx.name} />
+            ))}
           </div>
         )}
       </div>
