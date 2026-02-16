@@ -1,7 +1,7 @@
 {
   "date": "2026-02-13",
-  "generated": "2026-02-16 09:06",
-  "total_stocks": 4838,
+  "generated": "2026-02-16 10:07",
+  "total_stocks": 4839,
   "current": {
     "date": "2026-02-13",
     "up_4pct": 263,
@@ -15,7 +15,7 @@
     "up_13_34d": 1004,
     "down_13_34d": 978,
     "t2108": 56.4,
-    "total_stocks": 4838,
+    "total_stocks": 4839,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -264,7 +264,7 @@
       "up_13_34d": 1004,
       "down_13_34d": 978,
       "t2108": 56.4,
-      "total_stocks": 4838,
+      "total_stocks": 4839,
       "ratio_5d": 2.68,
       "ratio_10d": 2.68
     }
@@ -278,20 +278,14 @@
     },
     {
       "theme": "ENERGY",
-      "up_4pct": 9,
+      "up_4pct": 8,
       "down_4pct": 1,
-      "net": 8
+      "net": 7
     },
     {
       "theme": "E-COMMERCE",
       "up_4pct": 5,
       "down_4pct": 0,
-      "net": 5
-    },
-    {
-      "theme": "FINTECH",
-      "up_4pct": 9,
-      "down_4pct": 4,
       "net": 5
     },
     {
@@ -311,6 +305,12 @@
       "up_4pct": 7,
       "down_4pct": 3,
       "net": 4
+    },
+    {
+      "theme": "FINTECH",
+      "up_4pct": 7,
+      "down_4pct": 4,
+      "net": 3
     },
     {
       "theme": "QUANTUM",
@@ -401,7 +401,7 @@
     "ENERGY": [
       {
         "date": "2026-02-13",
-        "breadth": 91.0
+        "breadth": 92.0
       }
     ],
     "INDUSTRIAL": [
@@ -431,7 +431,7 @@
     "DEFENSE": [
       {
         "date": "2026-02-13",
-        "breadth": 56.0
+        "breadth": 57.0
       }
     ],
     "EV": [
@@ -455,7 +455,7 @@
     "REITS": [
       {
         "date": "2026-02-13",
-        "breadth": 79.0
+        "breadth": 78.0
       }
     ],
     "HEALTHCARE": [
@@ -485,13 +485,13 @@
     "DIGITAL ENTERTAINMENT": [
       {
         "date": "2026-02-13",
-        "breadth": 47.0
+        "breadth": 48.0
       }
     ],
     "E-COMMERCE": [
       {
         "date": "2026-02-13",
-        "breadth": 39.0
+        "breadth": 40.0
       }
     ],
     "VR/AR": [
@@ -503,7 +503,7 @@
     "SOFTWARE": [
       {
         "date": "2026-02-13",
-        "breadth": 19.0
+        "breadth": 18.0
       }
     ],
     "CYBER": [
