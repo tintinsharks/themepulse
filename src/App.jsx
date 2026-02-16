@@ -907,6 +907,30 @@ function Grid({ stocks, onTickerClick, activeTicker }) {
   }, [stocks]);
   return (
     <div style={{ overflowX: "auto" }}>
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 20, marginBottom: 10, padding: "8px 12px", background: "#111", borderRadius: 6, fontSize: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ color: "#888", fontWeight: 700 }}>COLUMN GRADE (RTS Score):</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#1B7A2B" }} /> <span style={{ color: "#aaa" }}>A+ to A- — Strongest momentum</span>
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#5CB85C" }} /> <span style={{ color: "#aaa" }}>B+ to B- — Above average</span>
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#CCF2CC" }} /> <span style={{ color: "#aaa" }}>C — Neutral</span>
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#e5e5e5" }} /> <span style={{ color: "#aaa" }}>D — Below average</span>
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#FF5050" }} /> <span style={{ color: "#aaa" }}>E to G — Weakest momentum</span>
+        </span>
+        <span style={{ color: "#333" }}>|</span>
+        <span style={{ color: "#888", fontWeight: 700 }}>TICKER TEXT:</span>
+        <span style={{ color: "#f87171", fontWeight: 700, fontFamily: "monospace" }}>Red</span><span style={{ color: "#aaa" }}> = ATR/50 ≥ 7x (extremely extended)</span>
+        <span style={{ color: "#c084fc", fontWeight: 700, fontFamily: "monospace" }}>Purple</span><span style={{ color: "#aaa" }}> = ATR/50 ≥ 5x (extended)</span>
+        <span style={{ color: "#bbb", fontFamily: "monospace" }}>Default</span><span style={{ color: "#aaa" }}> = Not extended</span>
+      </div>
       <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
         {grades.map(g => {
           const light = ["C+","C","C-","D+","D","D-"].includes(g);
