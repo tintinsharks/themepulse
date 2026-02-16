@@ -524,7 +524,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {/* Detail table view */}
                 {detailTheme === theme.theme && (() => {
                   const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker",null],["Grade",null],["RS","rs"],["1M%",null],["3M%","ret3m"],["FrHi%","fromhi"],["ATR/50","atr50"],["VCS","vcs"],["ADR%","adr"],["EPS","eps"],["Rev","rev"],["Subtheme",null]];
+                  const cols = [["Ticker",null],["Grade",null],["RS","rs"],["1M%",null],["3M%","ret3m"],["FrHi%","fromhi"],["ATR/50","atr50"],["VCS","vcs"],["ADR%","adr"],["RVol","rvol"],["Subtheme",null]];
                   const dSorters = {
                     rs: (a, b) => b.rs_rank - a.rs_rank,
                     ret3m: (a, b) => b.return_3m - a.return_3m,
@@ -532,8 +532,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     atr50: (a, b) => a.atr_to_50 - b.atr_to_50,
                     vcs: (a, b) => (b.vcs || 0) - (a.vcs || 0),
                     adr: (a, b) => (b.adr_pct || 0) - (a.adr_pct || 0),
-                    eps: (a, b) => (b.eps_yoy ?? b.eps_qq ?? -999) - (a.eps_yoy ?? a.eps_qq ?? -999),
-                    rev: (a, b) => (b.sales_yoy ?? b.sales_qq ?? -999) - (a.sales_yoy ?? a.sales_qq ?? -999),
+                    rvol: (a, b) => (b.rel_volume || 0) - (a.rel_volume || 0),
                   };
                   // Build ticker→subtheme map
                   const subMap = {};
@@ -553,8 +552,6 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                         <tbody>{sorted.map(s => {
                           const near = s.pct_from_high >= -5;
                           const isAct = s.ticker === activeTicker;
-                          const epsVal = s.eps_yoy ?? s.eps_qq;
-                          const revVal = s.sales_yoy ?? s.sales_qq;
                           return (
                             <tr key={s.ticker}
                               ref={isAct ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
@@ -574,11 +571,8 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: epsVal > 25 ? "#4ade80" : epsVal > 0 ? "#888" : epsVal != null ? "#f87171" : "#333" }}>
-                                {epsVal != null ? `${epsVal > 0 ? '+' : ''}${epsVal}%` : '—'}</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: revVal > 25 ? "#4ade80" : revVal > 0 ? "#888" : revVal != null ? "#f87171" : "#333" }}>
-                                {revVal != null ? `${revVal > 0 ? '+' : ''}${revVal}%` : '—'}</td>
+                                color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#555" : "#333" }}>
+                                {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
                               <td style={{ padding: "3px 6px", color: "#555", fontSize: 9 }}>{subMap[s.ticker]}</td>
                             </tr>
                           );
