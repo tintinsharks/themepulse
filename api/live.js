@@ -26,40 +26,75 @@ async function loginFinviz() {
     return cachedCookies;
   }
 
+  // Fallback: use raw FINVIZ_COOKIES if set
+  const rawCookies = process.env.FINVIZ_COOKIES;
+
   const email = process.env.FINVIZ_EMAIL;
   const password = process.env.FINVIZ_PASSWORD;
   if (!email || !password) {
+    if (rawCookies) {
+      console.log("No FINVIZ_EMAIL/PASSWORD, using FINVIZ_COOKIES fallback");
+      cachedCookies = rawCookies;
+      cookieExpiry = Date.now() + 10 * 60 * 1000;
+      return cachedCookies;
+    }
     throw new Error("FINVIZ_EMAIL and FINVIZ_PASSWORD env vars required");
   }
 
-  // Step 1: Hit screener to get initial cookies
-  const initResp = await fetch(FINVIZ_SCREENER_URL, {
-    headers: HEADERS,
-    redirect: "manual",
-  });
-  let cookies = extractCookies(initResp);
+  try {
+    // Step 1: Hit screener to get initial cookies
+    const initResp = await fetch(FINVIZ_SCREENER_URL, {
+      headers: HEADERS,
+      redirect: "manual",
+    });
+    let cookies = extractCookies(initResp);
+    console.log("Step 1 cookies:", cookies ? cookies.substring(0, 60) + "..." : "NONE");
 
-  // Step 2: Login
-  const body = new URLSearchParams({ email, password });
-  const loginResp = await fetch(FINVIZ_LOGIN_URL, {
-    method: "POST",
-    headers: {
-      ...HEADERS,
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookies,
-    },
-    body: body.toString(),
-    redirect: "manual",
-  });
+    // Step 2: Login
+    const body = new URLSearchParams({ email, password });
+    const loginResp = await fetch(FINVIZ_LOGIN_URL, {
+      method: "POST",
+      headers: {
+        ...HEADERS,
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: cookies,
+      },
+      body: body.toString(),
+      redirect: "manual",
+    });
 
-  // Merge cookies
-  const loginCookies = extractCookies(loginResp);
-  cookies = mergeCookies(cookies, loginCookies);
+    console.log("Login status:", loginResp.status, "Location:", loginResp.headers.get("location") || "none");
 
-  cachedCookies = cookies;
-  cookieExpiry = Date.now() + 10 * 60 * 1000; // 10 min
+    // Merge cookies
+    const loginCookies = extractCookies(loginResp);
+    console.log("Login cookies:", loginCookies ? loginCookies.substring(0, 60) + "..." : "NONE");
+    cookies = mergeCookies(cookies, loginCookies);
 
-  return cookies;
+    // Verify we got auth cookies (should contain "screenerUrl" or "usr" or similar)
+    if (!cookies.includes("usr") && !cookies.includes("screenerUrl")) {
+      console.error("Login may have failed — no auth cookies found. Cookies:", cookies.substring(0, 100));
+      // Fallback to raw cookies if available
+      if (rawCookies) {
+        console.log("Falling back to FINVIZ_COOKIES env var");
+        cookies = rawCookies;
+      }
+    }
+
+    cachedCookies = cookies;
+    cookieExpiry = Date.now() + 10 * 60 * 1000; // 10 min
+
+    return cookies;
+  } catch (e) {
+    console.error("Login error:", e.message);
+    // Fallback to raw cookies
+    if (rawCookies) {
+      console.log("Login failed, falling back to FINVIZ_COOKIES");
+      cachedCookies = rawCookies;
+      cookieExpiry = Date.now() + 10 * 60 * 1000;
+      return cachedCookies;
+    }
+    throw e;
+  }
 }
 
 function extractCookies(resp) {
