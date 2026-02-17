@@ -54,12 +54,22 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
+  const [news, setNews] = useState(null);
 
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
     if (!liveThemeData) return null;
     return liveThemeData.find(s => s.ticker === ticker) || null;
   }, [liveThemeData, ticker]);
+
+  // Fetch news when ticker changes
+  useEffect(() => {
+    setNews(null);
+    fetch(`/api/live?news=${ticker}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.ok && d.news) setNews(d.news); })
+      .catch(() => {});
+  }, [ticker]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
@@ -278,7 +288,9 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
         const annuals = stock.annual || [];
         return (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, overflowX: "auto", display: "flex", gap: 16 }}>
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, display: "flex", gap: 0 }}>
+          {/* Left: Earnings tables */}
+          <div style={{ flex: "0 0 auto", overflowX: "auto", display: "flex", gap: 16 }}>
           {/* Quarterly table */}
           <table style={{ borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace" }}>
             <thead><tr>
@@ -339,6 +351,39 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             </tbody>
           </table>
           )}
+          </div>
+          {/* Divider */}
+          <div style={{ width: 1, background: "#333", margin: "0 12px", flexShrink: 0 }} />
+          {/* Right: Recent news */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {news && news.length > 0 ? (
+              <table style={{ borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace", width: "100%" }}>
+                <thead><tr>
+                  <td style={{ padding: "2px 6px", color: "#555", fontWeight: 700 }}>Recent News</td>
+                </tr></thead>
+                <tbody>
+                  {news.map((n, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: "3px 6px", verticalAlign: "top" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <span style={{ color: "#555", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
+                          <a href={n.url} target="_blank" rel="noopener noreferrer"
+                            style={{ color: "#ccc", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            onMouseEnter={e => e.target.style.color = "#10b981"}
+                            onMouseLeave={e => e.target.style.color = "#ccc"}>
+                            {n.headline}
+                          </a>
+                          {n.source && <span style={{ color: "#444", whiteSpace: "nowrap", flexShrink: 0 }}>({n.source})</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <span style={{ color: "#333", fontSize: 9, padding: "2px 6px" }}>Loading news...</span>
+            )}
+          </div>
         </div>
         );
       })()}

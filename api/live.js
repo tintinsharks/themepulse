@@ -209,7 +209,7 @@ async function fetchWatchlist(cookies, tickers) {
     }
 
     const text = await resp.text();
-    const rows = parseCSV(text, "watchlist");
+    const rows = parseCSV(text);
 
     return rows.map((raw) => {
       const r = normalizeRow(raw);
@@ -221,7 +221,6 @@ async function fetchWatchlist(cookies, tickers) {
         market_cap: r["Market Cap"],
         price: num(r["Price"]),
         change: pct(r["Change"]),
-        change_open: pct(r["Change from Open"]),
         gap: pct(r["Gap"]),
         volume: r["Volume"],
         avg_volume: r["Avg Volume"],
@@ -273,7 +272,6 @@ function parseQuotePage(ticker, html) {
     industry: sectorMatch ? sectorMatch[2] : null,
     price: num(get("Price")),
     change: pct(get("Change")),
-    change_open: pct(get("Change from Open")),
     volume: get("Volume"),
     avg_volume: get("Avg Volume"),
     rel_volume: num(get("Rel Volume")),
@@ -445,7 +443,6 @@ async function fetchPremarketMovers(cookies) {
       market_cap: r["Market Cap"],
       price: num(r["Price"]),
       change: pct(r["Change"]),
-      change_open: pct(r["Change from Open"]),
       gap: pct(r["Gap"]),
       volume: r["Volume"],
       avg_volume: r["Avg Volume"],
@@ -457,67 +454,52 @@ async function fetchPremarketMovers(cookies) {
   });
 }
 
-// ── Fetch single ticker detail (open price, etc) from quote page ──
-async function fetchTickerDetail(cookies, ticker) {
+// ── Fetch ticker news from Finviz quote page ──
+async function fetchTickerNews(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) { console.error(`Detail page ${resp.status} for ${ticker}`); return null; }
+    if (!resp.ok) return [];
     const html = await resp.text();
     
-    // Find the snapshot/quote data table - search for Price label near actual price data
-    // Try multiple patterns to find the data section
-    const patterns = ['snapshot', 'quote-price', 'Price</td>', 'Price</b>', 'Price</', 'Prev Close', 'prev_close'];
-    patterns.forEach(p => {
-      const idx = html.indexOf(p);
-      if (idx >= 0) console.log(`Detail ${ticker}: '${p}' at ${idx}, snippet: ...${html.substring(idx - 30, idx + 100).replace(/[\n\r]/g, ' ')}...`);
-    });
+    // Finviz news table uses class "news-link-left" or id "news-table"
+    // Each row: <td>date/time</td><td><a href="url" class="tab-link-news">headline</a> source</td>
+    const news = [];
     
-    // Also try to find Open near price data (skip first 50000 chars of JS/CSS)
-    const dataSection = html.substring(50000);
-    const openIdx = dataSection.indexOf('Open');
-    if (openIdx >= 0) {
-      console.log(`Detail ${ticker}: 'Open' in data section at ${openIdx + 50000}, snippet: ...${dataSection.substring(openIdx - 50, openIdx + 100).replace(/[\n\r]/g, ' ')}...`);
-    } else {
-      console.log(`Detail ${ticker}: 'Open' NOT found after pos 50000`);
+    // Find the news table section
+    const newsTableIdx = html.indexOf('news-table');
+    if (newsTableIdx === -1) {
+      console.log(`News: no news-table found for ${ticker}`);
+      return [];
     }
     
-    // Parse key values from the quote page snapshot table
-    const extract = (label) => {
-      // Try multiple patterns for Finviz Elite quote page
-      const patterns = [
-        new RegExp(`>${label}</[^>]*>\\s*<[^>]*>([^<]+)<`, 'i'),
-        new RegExp(`">${label}</td>\\s*<td[^>]*>\\s*<[^>]*>([^<]+)<`, 'i'),
-        new RegExp(`>${label}</td>\\s*<td[^>]*>([^<]+)<`, 'i'),
-      ];
-      for (const regex of patterns) {
-        const m = html.match(regex);
-        if (m) return m[1].trim();
-      }
-      return null;
-    };
+    // Extract rows from the news table
+    const section = html.substring(newsTableIdx, newsTableIdx + 10000);
+    const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<\/tr>/gs;
+    let match;
+    while ((match = rowRegex.exec(section)) !== null && news.length < 3) {
+      const dateCell = match[1].replace(/<[^>]+>/g, '').trim();
+      const contentCell = match[2];
+      
+      // Extract URL and headline from anchor tag
+      const linkMatch = contentCell.match(/href="([^"]+)"[^>]*>([^<]+)<\/a>/);
+      if (!linkMatch) continue;
+      
+      const articleUrl = linkMatch[1];
+      const headline = linkMatch[2].trim();
+      
+      // Extract source (usually after the closing </a> tag)
+      const sourceMatch = contentCell.match(/<\/a>\s*(?:<[^>]+>)?\s*([^<]+)/);
+      const source = sourceMatch ? sourceMatch[1].trim().replace(/[()]/g, '') : '';
+      
+      news.push({ date: dateCell, headline, url: articleUrl, source });
+    }
     
-    const price = num(extract("Price"));
-    const open = num(extract("Open"));
-    const prevClose = num(extract("Prev Close"));
-    console.log(`Detail ${ticker}: price=${price}, open=${open}, prevClose=${prevClose}`);
-    const change_open = (price != null && open != null && open !== 0) 
-      ? Math.round((price - open) / open * 10000) / 100 
-      : null;
-    const change = (price != null && prevClose != null && prevClose !== 0)
-      ? Math.round((price - prevClose) / prevClose * 10000) / 100
-      : null;
-    
-    return {
-      ticker, price, open, prev_close: prevClose,
-      change, change_open,
-      volume: extract("Volume"),
-      avg_volume: extract("Avg Volume"),
-      rel_volume: num(extract("Rel Volume")),
-    };
+    console.log(`News for ${ticker}: ${news.length} items`);
+    return news;
   } catch (err) {
-    console.error(`Detail fetch error for ${ticker}:`, err.message);
-    return null;
+    console.error(`News fetch error for ${ticker}:`, err.message);
+    return [];
   }
 }
 
@@ -554,31 +536,31 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
-    // Single ticker detail (open price, change from open)
-    const detailTicker = (req.query.detail || "").trim().toUpperCase();
-
     // Fetch watchlist tickers
     const watchlist = watchlistTickers.length > 0
       ? await fetchWatchlist(cookies, watchlistTickers)
       : [];
-
-    // Fetch single ticker detail if requested
-    const detail = detailTicker 
-      ? await fetchTickerDetail(cookies, detailTicker)
-      : null;
 
     // Fetch theme universe (many batches, needs rate limit spacing)
     const themeUniverse = universeTickers.length > 0
       ? await fetchThemeUniverse(cookies, universeTickers)
       : [];
 
+    // Fetch theme universe (many batches, needs rate limit spacing)
+    const themeUniverse = universeTickers.length > 0
+      ? await fetchThemeUniverse(cookies, universeTickers)
+      : [];
+
+    // Fetch news for a single ticker if requested
+    const newsTicker = (req.query.news || "").trim().toUpperCase();
+    const news = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
+
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
       watchlist,
       theme_universe: themeUniverse,
-      detail,
-      _debug_headers: _lastHeaders,
+      news,
     });
   } catch (err) {
     console.error("Live API error:", err);
