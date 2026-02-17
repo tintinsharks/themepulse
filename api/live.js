@@ -347,8 +347,7 @@ async function fetchThemeUniverse(cookies, tickers) {
 
   async function fetchBatch(batch, attempt = 1) {
     const tickerStr = batch.join(",");
-    // v=111 = overview view — includes Open price for computing change from open
-    const url = `${FINVIZ_EXPORT_URL}?v=111&t=${tickerStr}`;
+    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
     try {
       const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
@@ -384,23 +383,12 @@ async function fetchThemeUniverse(cookies, tickers) {
       }
 
       const text = await resp.text();
-      const rows = parseCSV(text, "theme_universe");
-      if (rows.length > 0) {
-        const raw0 = rows[0];
-        console.log("Theme universe ALL keys:", Object.keys(raw0).join(" | "));
-        console.log("Theme universe row0:", Object.entries(raw0).map(([k,v]) => `${k}=${v}`).join(" | "));
-      }
+      const rows = parseCSV(text);
       return rows.map(raw => {
         const r = normalizeRow(raw);
-        const price = num(r["Price"]);
-        const open = num(r["Open"]);
-        const change_open = (price != null && open != null && open !== 0) 
-          ? Math.round((price - open) / open * 10000) / 100 
-          : null;
         return {
-          ticker: r["Ticker"], price, change: pct(r["Change"]),
-          change_open,
-          gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
+          ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
+          volume: r["Volume"], avg_volume: r["Avg Volume"],
           rel_volume: num(r["Rel Volume"]),
         };
       });
@@ -469,6 +457,45 @@ async function fetchPremarketMovers(cookies) {
   });
 }
 
+// ── Fetch single ticker detail (open price, etc) from quote page ──
+async function fetchTickerDetail(cookies, ticker) {
+  try {
+    const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
+    const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    
+    // Parse key values from the quote page snapshot table
+    const extract = (label) => {
+      // Finviz quote page has <td class="snapshot-td2-cp">Label</td><td>Value</td>
+      const regex = new RegExp(`>${label}</[^>]*>\\s*<[^>]*>([^<]+)<`, 'i');
+      const m = html.match(regex);
+      return m ? m[1].trim() : null;
+    };
+    
+    const price = num(extract("Price"));
+    const open = num(extract("Open"));
+    const prevClose = num(extract("Prev Close"));
+    const change_open = (price != null && open != null && open !== 0) 
+      ? Math.round((price - open) / open * 10000) / 100 
+      : null;
+    const change = (price != null && prevClose != null && prevClose !== 0)
+      ? Math.round((price - prevClose) / prevClose * 10000) / 100
+      : null;
+    
+    return {
+      ticker, price, open, prev_close: prevClose,
+      change, change_open,
+      volume: extract("Volume"),
+      avg_volume: extract("Avg Volume"),
+      rel_volume: num(extract("Rel Volume")),
+    };
+  } catch (err) {
+    console.error(`Detail fetch error for ${ticker}:`, err.message);
+    return null;
+  }
+}
+
 // ── Handler ──
 export default async function handler(req, res) {
   // CORS
@@ -502,10 +529,18 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
+    // Single ticker detail (open price, change from open)
+    const detailTicker = (req.query.detail || "").trim().toUpperCase();
+
     // Fetch watchlist tickers
     const watchlist = watchlistTickers.length > 0
       ? await fetchWatchlist(cookies, watchlistTickers)
       : [];
+
+    // Fetch single ticker detail if requested
+    const detail = detailTicker 
+      ? await fetchTickerDetail(cookies, detailTicker)
+      : null;
 
     // Fetch theme universe (many batches, needs rate limit spacing)
     const themeUniverse = universeTickers.length > 0
@@ -517,6 +552,7 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString(),
       watchlist,
       theme_universe: themeUniverse,
+      detail,
       _debug_headers: _lastHeaders,
     });
   } catch (err) {

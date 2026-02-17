@@ -53,12 +53,33 @@ const TV_LAYOUT = "nS7up88o";
 function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
+  const [tickerDetail, setTickerDetail] = useState(null);
 
-  // Live data for this ticker
+  // Live data for this ticker from theme universe
   const live = useMemo(() => {
     if (!liveThemeData) return null;
     return liveThemeData.find(s => s.ticker === ticker) || null;
   }, [liveThemeData, ticker]);
+
+  // Fetch single-ticker detail (open price, change from open) on ticker change
+  useEffect(() => {
+    setTickerDetail(null);
+    fetch(`/api/live?detail=${ticker}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.ok && d.detail) setTickerDetail(d.detail); })
+      .catch(() => {});
+  }, [ticker]);
+
+  // Merge: prefer detail (has change_open), fall back to theme universe data
+  const liveDisplay = useMemo(() => {
+    if (!tickerDetail && !live) return null;
+    return {
+      price: tickerDetail?.price ?? live?.price,
+      change: tickerDetail?.change ?? live?.change,
+      change_open: tickerDetail?.change_open ?? null,
+      rel_volume: tickerDetail?.rel_volume ?? live?.rel_volume,
+    };
+  }, [tickerDetail, live]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
@@ -225,37 +246,31 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
       )}
 
       {/* Live price & change */}
-      {live && (
+      {liveDisplay && (
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "6px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, background: "#0d0d0d" }}>
-          {live.price != null && (
+          {liveDisplay.price != null && (
             <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "monospace" }}>
-              ${live.price.toFixed(2)}
+              ${liveDisplay.price.toFixed(2)}
             </span>
           )}
-          {live.change != null && (
+          {liveDisplay.change != null && (
             <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "monospace",
-              color: live.change > 0 ? "#4ade80" : live.change < 0 ? "#f87171" : "#888" }}>
-              {live.change > 0 ? "+" : ""}{live.change.toFixed(2)}%
+              color: liveDisplay.change > 0 ? "#4ade80" : liveDisplay.change < 0 ? "#f87171" : "#888" }}>
+              {liveDisplay.change > 0 ? "+" : ""}{liveDisplay.change.toFixed(2)}%
             </span>
           )}
-          {(() => {
-            const cfo = live.change_open != null ? live.change_open
-              : (live.change != null && live.gap != null) ? live.change - live.gap
-              : null;
-            if (cfo == null) return null;
-            return (
-              <span style={{ fontSize: 13, fontFamily: "monospace" }}>
-                <span style={{ color: "#666" }}>frOpen </span>
-                <span style={{ color: cfo > 0 ? "#4ade80" : cfo < 0 ? "#f87171" : "#888", fontWeight: 700 }}>
-                  {cfo > 0 ? "+" : ""}{cfo.toFixed(2)}%
-                </span>
+          {liveDisplay.change_open != null && (
+            <span style={{ fontSize: 13, fontFamily: "monospace" }}>
+              <span style={{ color: "#666" }}>frOpen </span>
+              <span style={{ color: liveDisplay.change_open > 0 ? "#4ade80" : liveDisplay.change_open < 0 ? "#f87171" : "#888", fontWeight: 700 }}>
+                {liveDisplay.change_open > 0 ? "+" : ""}{liveDisplay.change_open.toFixed(2)}%
               </span>
-            );
-          })()}
-          {live.rel_volume != null && (
+            </span>
+          )}
+          {liveDisplay.rel_volume != null && (
             <span style={{ fontSize: 11, fontFamily: "monospace",
-              color: live.rel_volume >= 2 ? "#c084fc" : live.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
-              RVol: {live.rel_volume.toFixed(1)}x
+              color: liveDisplay.rel_volume >= 2 ? "#c084fc" : liveDisplay.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
+              RVol: {liveDisplay.rel_volume.toFixed(1)}x
             </span>
           )}
         </div>
