@@ -1728,6 +1728,8 @@ function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, ac
 // ── EARNINGS CALENDAR SLIDE-OUT ──
 function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
   const [range, setRange] = useState(14); // days to show
+  const [minRS, setMinRS] = useState(0);
+  const [minGrade, setMinGrade] = useState("all"); // "all", "A", "B", "C"
 
   // ESC to close
   useEffect(() => {
@@ -1770,6 +1772,12 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
       }
 
       if (days != null && days >= -1 && days <= range) {
+        // Apply RS filter
+        if (minRS > 0 && (s.rs_rank == null || s.rs_rank < minRS)) return;
+        // Apply grade filter
+        const GRADE_RANK = {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1};
+        const gradeThreshold = minGrade === "A" ? 10 : minGrade === "B" ? 7 : minGrade === "C" ? 4 : 0;
+        if (gradeThreshold > 0 && (GRADE_RANK[s.grade] || 0) < gradeThreshold) return;
         results.push({
           ticker: s.ticker,
           company: s.company || "",
@@ -1786,7 +1794,7 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
     });
 
     return results.sort((a, b) => a.days - b.days);
-  }, [stockMap, range]);
+  }, [stockMap, range, minRS, minGrade]);
 
   // Group by day
   const grouped = useMemo(() => {
@@ -1822,6 +1830,21 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
           <option value={30}>30 days</option>
         </select>
         <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#666", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button>
+      </div>
+
+      {/* Filters */}
+      <div style={{ padding: "8px 16px", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 9, color: "#666" }}>RS≥</span>
+        <input type="range" min={0} max={90} step={10} value={minRS} onChange={e => setMinRS(+e.target.value)}
+          style={{ width: 70, accentColor: "#c084fc" }} />
+        <span style={{ fontSize: 10, color: "#888", fontFamily: "monospace", width: 20 }}>{minRS || "—"}</span>
+        <span style={{ color: "#222" }}>|</span>
+        {["all", "A", "B", "C"].map(g => (
+          <button key={g} onClick={() => setMinGrade(g)} style={{ padding: "1px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+            border: minGrade === g ? "1px solid #c084fc" : "1px solid #222",
+            background: minGrade === g ? "#c084fc18" : "transparent",
+            color: minGrade === g ? "#c084fc" : "#555" }}>{g === "all" ? "All" : `${g}+`}</button>
+        ))}
       </div>
 
       {/* Scrollable content */}
