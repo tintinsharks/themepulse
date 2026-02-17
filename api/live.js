@@ -378,13 +378,9 @@ async function fetchTopGainers(cookies) {
 async function fetchThemeUniverse(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
 
-  // Finviz export with ticker filter: t=AAPL,NVDA,MSFT,...
-  // Columns: Ticker(1), Price(62), Change(64), Volume(48), Avg Volume(49), Rel Volume(50), Gap(60)
   const cols = "1,62,64,48,49,50,60";
-
-  // Finviz has a URL length limit, batch into groups of ~100 tickers
   const results = [];
-  const batchSize = 100;
+  const batchSize = 200; // Larger batches = fewer requests
 
   for (let i = 0; i < tickers.length; i += batchSize) {
     const batch = tickers.slice(i, i + batchSize);
@@ -392,12 +388,33 @@ async function fetchThemeUniverse(cookies, tickers) {
     const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=${cols}`;
 
     try {
+      // Delay between batches to avoid 429
+      if (i > 0) await new Promise(r => setTimeout(r, 500));
+
       const resp = await fetch(url, {
         headers: { ...HEADERS, Cookie: cookies },
       });
 
       if (!resp.ok) {
         console.error(`Theme universe batch ${i} fetch failed: ${resp.status}`);
+        if (resp.status === 429) {
+          // Wait longer and retry once
+          await new Promise(r => setTimeout(r, 2000));
+          const retry = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+          if (retry.ok) {
+            const ct = retry.headers.get("content-type") || "";
+            if (!ct.includes("html")) {
+              const text = await retry.text();
+              parseCSV(text).forEach(r => {
+                results.push({
+                  ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
+                  gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
+                  rel_volume: num(r["Rel Volume"]),
+                });
+              });
+            }
+          }
+        }
         continue;
       }
 
@@ -506,17 +523,19 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
-    // Fetch all in parallel
-    const [watchlist, topGainers, premarketMovers, themeUniverse] = await Promise.all([
+    // Fetch watchlist, gainers, premarket first
+    const [watchlist, topGainers, premarketMovers] = await Promise.all([
       watchlistTickers.length > 0
         ? fetchWatchlist(cookies, watchlistTickers)
         : Promise.resolve([]),
       fetchTopGainers(cookies),
       fetchPremarketMovers(cookies),
-      universeTickers.length > 0
-        ? fetchThemeUniverse(cookies, universeTickers)
-        : Promise.resolve([]),
     ]);
+
+    // Then fetch theme universe (many batches, needs rate limit spacing)
+    const themeUniverse = universeTickers.length > 0
+      ? await fetchThemeUniverse(cookies, universeTickers)
+      : [];
 
     return res.status(200).json({
       ok: true,
