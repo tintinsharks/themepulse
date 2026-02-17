@@ -464,7 +464,20 @@ async function fetchTickerDetail(cookies, ticker) {
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
     if (!resp.ok) { console.error(`Detail page ${resp.status} for ${ticker}`); return null; }
     const html = await resp.text();
-    console.log(`Detail page for ${ticker}: ${html.length} chars, contains 'Open': ${html.includes('>Open<')}`);
+    
+    // Debug: find any occurrence of "open" in the HTML to understand the structure
+    const openIdx = html.toLowerCase().indexOf('open');
+    if (openIdx >= 0) {
+      console.log(`Detail ${ticker}: found 'open' at idx ${openIdx}, snippet: ${html.substring(openIdx - 80, openIdx + 120).replace(/\n/g, ' ')}`);
+    } else {
+      console.log(`Detail ${ticker}: 'open' not found in ${html.length} chars`);
+    }
+    
+    // Also find "prev close" variant
+    const prevIdx = html.toLowerCase().indexOf('prev');
+    if (prevIdx >= 0) {
+      console.log(`Detail ${ticker}: found 'prev' at idx ${prevIdx}, snippet: ${html.substring(prevIdx - 80, prevIdx + 120).replace(/\n/g, ' ')}`);
+    }
     
     // Parse key values from the quote page snapshot table
     const extract = (label) => {
