@@ -1549,7 +1549,138 @@ function TickerInput({ value, setValue, onAdd, placeholder }) {
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio }) {
+function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth, themes, onTickerClick }) {
+  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
+  if (allTickers.length === 0) return null;
+
+  // Build live lookup
+  const liveLookup = useMemo(() => {
+    const m = {};
+    (liveData?.watchlist || []).forEach(s => { m[s.ticker] = s; });
+    return m;
+  }, [liveData]);
+
+  // 1. Gaps — tickers with significant change% (>3% or <-3%)
+  const gaps = useMemo(() => {
+    return allTickers.map(t => {
+      const live = liveLookup[t];
+      const chg = live?.change;
+      if (chg == null) return null;
+      return { ticker: t, change: chg };
+    }).filter(g => g && Math.abs(g.change) >= 3)
+      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+  }, [allTickers, liveLookup]);
+
+  // 2. Earnings in next 7 days
+  const earnings = useMemo(() => {
+    return allTickers.map(t => {
+      const s = stockMap?.[t];
+      if (!s) return null;
+      const days = s.earnings_days;
+      const date = s.earnings_display || s.earnings_date;
+      if (days == null || days < 0 || days > 7) return null;
+      return { ticker: t, days, date };
+    }).filter(Boolean).sort((a, b) => a.days - b.days);
+  }, [allTickers, stockMap]);
+
+  // 3. Theme rotation signals — build ticker→themes map, then find ADD/REMOVE themes
+  const rotation = useMemo(() => {
+    if (!themeHealth || !themes) return { add: [], remove: [], weakening: [] };
+    const healthMap = {};
+    themeHealth.forEach(h => { healthMap[h.theme] = h; });
+
+    // Get themes relevant to tracked tickers
+    const trackedThemes = new Set();
+    allTickers.forEach(t => {
+      const s = stockMap?.[t];
+      if (s?.themes) s.themes.forEach(th => trackedThemes.add(th.theme));
+    });
+
+    const add = [], remove = [], weakening = [];
+    themeHealth.forEach(h => {
+      if (h.action === "ADD") add.push(h.theme);
+      else if (h.action === "REMOVE") remove.push(h.theme);
+      else if (h.status === "WEAKENING" && trackedThemes.has(h.theme)) weakening.push(h.theme);
+    });
+    return { add, remove, weakening };
+  }, [themeHealth, themes, allTickers, stockMap]);
+
+  const hasContent = gaps.length > 0 || earnings.length > 0 || rotation.add.length > 0 || rotation.remove.length > 0 || rotation.weakening.length > 0;
+  if (!hasContent) return null;
+
+  const chipStyle = (bg, color) => ({
+    display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4,
+    fontSize: 10, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", background: bg, color
+  });
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #0f1a14 0%, #111318 50%, #15101a 100%)",
+      border: "1px solid #1a2a1f", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 900, color: "#10b981", letterSpacing: 1 }}>MORNING BRIEFING</span>
+        <span style={{ fontSize: 9, color: "#555" }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+      </div>
+
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        {/* Gaps */}
+        {gaps.length > 0 && (
+          <div style={{ minWidth: 140 }}>
+            <div style={{ fontSize: 9, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+              Gaps ({gaps.length})
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {gaps.map(g => (
+                <span key={g.ticker} onClick={() => onTickerClick(g.ticker)}
+                  style={chipStyle(g.change > 0 ? "#10b98118" : "#f8717118", g.change > 0 ? "#4ade80" : "#f87171")}>
+                  {g.ticker} <span style={{ fontSize: 9 }}>{g.change > 0 ? "+" : ""}{g.change.toFixed(1)}%</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Earnings */}
+        {earnings.length > 0 && (
+          <div style={{ minWidth: 140 }}>
+            <div style={{ fontSize: 9, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+              Earnings Next 7d ({earnings.length})
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {earnings.map(e => (
+                <span key={e.ticker} onClick={() => onTickerClick(e.ticker)}
+                  style={chipStyle(e.days <= 1 ? "#f8717118" : "#c084fc18", e.days <= 1 ? "#f87171" : "#c084fc")}>
+                  {e.ticker} <span style={{ fontSize: 9 }}>{e.days === 0 ? "TODAY" : e.days === 1 ? "TMR" : `${e.days}d`}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Theme Rotation */}
+        {(rotation.add.length > 0 || rotation.remove.length > 0 || rotation.weakening.length > 0) && (
+          <div style={{ minWidth: 140 }}>
+            <div style={{ fontSize: 9, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+              Theme Rotation
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {rotation.add.map(t => (
+                <span key={t} style={chipStyle("#10b98118", "#4ade80")}>★ {t}</span>
+              ))}
+              {rotation.remove.map(t => (
+                <span key={t} style={chipStyle("#f8717118", "#f87171")}>✕ {t}</span>
+              ))}
+              {rotation.weakening.map(t => (
+                <span key={t} style={chipStyle("#fbbf2418", "#fbbf24")}>↓ {t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, themeHealth, themes }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1704,6 +1835,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         </div>
         {error && <span style={{ fontSize: 10, color: "#f87171" }}>Error: {error}</span>}
       </div>
+
+      {/* Morning Briefing Banner */}
+      <MorningBriefing portfolio={portfolio} watchlist={watchlist} stockMap={stockMap}
+        liveData={liveData} themeHealth={themeHealth} themes={themes} onTickerClick={onTickerClick} />
 
       {/* ── 1. Portfolio ── */}
       <div style={{ marginBottom: 20 }}>
@@ -1877,7 +2012,7 @@ function AppMain({ authToken, onLogout }) {
   }, []);
 
   const stockMap = useMemo(() => { if (!data) return {}; const m = {}; data.stocks.forEach(s => { m[s.ticker] = s; }); return m; }, [data]);
-  const openChart = useCallback((t) => setChartTicker(t), []);
+  const openChart = useCallback((t) => setChartTicker(prev => prev === t ? null : t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
 
   // Watchlist + Portfolio state (hoisted for access from ChartPanel)
@@ -2073,7 +2208,8 @@ function AppMain({ authToken, onLogout }) {
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
-            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio} />}
+            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
+            themeHealth={data?.theme_health} themes={data?.themes} />}
         </div>
 
         {/* Draggable divider */}
