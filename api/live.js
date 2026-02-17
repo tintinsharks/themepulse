@@ -99,11 +99,16 @@ function mergeCookies(existing, fresh) {
 }
 
 // ── CSV parsing ──
+let _lastHeaders = [];
+
 function parseCSV(text, label) {
   const lines = text.trim().split("\n");
   if (lines.length < 2) return [];
   const headers = parseCSVLine(lines[0]);
-  if (label) console.log(`CSV headers [${label}]:`, headers.join(" | "));
+  if (label) {
+    _lastHeaders = headers;
+    console.log(`CSV headers [${label}]:`, headers.join(" | "));
+  }
   if (label && lines.length > 1) console.log(`CSV row 1 [${label}]:`, parseCSVLine(lines[1]).join(" | "));
   return lines.slice(1).map((line) => {
     const vals = parseCSVLine(line);
@@ -341,7 +346,9 @@ async function fetchThemeUniverse(cookies, tickers) {
 
   async function fetchBatch(batch, attempt = 1) {
     const tickerStr = batch.join(",");
-    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
+    // v=152 = technical view. Add custom columns to ensure Change from Open is included
+    // Column IDs: 1=Ticker, 65=Change, 84=Change from Open, 66=Volume, 82=Relative Volume, 67=Avg Volume
+    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=1,65,84,66,67,82`;
 
     try {
       const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
@@ -377,12 +384,11 @@ async function fetchThemeUniverse(cookies, tickers) {
       }
 
       const text = await resp.text();
-      const rows = parseCSV(text, attempt === 1 ? "theme_universe" : null);
-      if (attempt === 1 && rows.length > 0) {
-        const sample = rows[0];
-        const changeKeys = Object.keys(sample).filter(k => k.toLowerCase().includes("change") || k.toLowerCase().includes("open"));
-        console.log("Theme universe change-related keys:", changeKeys.join(", "));
-        console.log("Theme universe sample values:", changeKeys.map(k => `${k}=${sample[k]}`).join(", "));
+      const rows = parseCSV(text, "theme_universe");
+      if (rows.length > 0) {
+        const raw0 = rows[0];
+        console.log("Theme universe ALL keys:", Object.keys(raw0).join(" | "));
+        console.log("Theme universe row0:", Object.entries(raw0).map(([k,v]) => `${k}=${v}`).join(" | "));
       }
       return rows.map(raw => {
         const r = normalizeRow(raw);
@@ -506,6 +512,7 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString(),
       watchlist,
       theme_universe: themeUniverse,
+      _debug_headers: _lastHeaders,
     });
   } catch (err) {
     console.error("Live API error:", err);
