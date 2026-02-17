@@ -169,7 +169,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock.themes && stock.themes.length > 0 && (
             <span style={{ color: "#10b981" }}>{stock.themes.map(t => t.theme).join(", ")}</span>
           )}
-          <span style={{ color: "#888" }}>1W: <Ret v={stock.return_1w} /></span>
+          <span style={{ color: "#888" }}>3M: <Ret v={stock.return_3m} bold /></span>
           <span style={{ color: "#888" }}>6M: <Ret v={stock.return_6m} /></span>
           <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
         </div>
@@ -185,7 +185,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {/* Off 52W High: >= -25% green, else default */}
           {stock.off_52w_high != null && <StockStat label="Off 52W Hi" value={`${stock.off_52w_high}%`}
             color={stock.off_52w_high >= -25 ? "#4ade80" : "#f97316"} />}
-          {stock.above_52w_low != null && <StockStat label="Ab 52W Lo" value={`+${stock.above_52w_low}%`} />}
           {/* Earnings: <14 days red (matches Pine Script) */}
           {(stock.earnings_display || stock.earnings_date) && <StockStat
             label="Earnings"
@@ -200,7 +199,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {/* RS Rating: >90 green, else default */}
           {stock.rs_rank != null && <StockStat label="RS" value={stock.rs_rank}
             color={stock.rs_rank > 90 ? "#4ade80" : "#f97316"} />}
-          {stock.market_cap && <StockStat label="MCap" value={`$${stock.market_cap}`} />}
           {/* Float: <10M green, <25M yellow, else default */}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#4ade80" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
