@@ -1725,6 +1725,113 @@ function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, ac
   );
 }
 
+// ── EARNINGS CALENDAR SLIDE-OUT ──
+function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
+  const [range, setRange] = useState(14); // days to show
+
+  // ESC to close
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Build earnings list from entire stockMap
+  const earningsList = useMemo(() => {
+    if (!stockMap) return [];
+    return Object.values(stockMap)
+      .filter(s => s.earnings_days != null && s.earnings_days >= -1 && s.earnings_days <= range)
+      .map(s => ({
+        ticker: s.ticker,
+        company: s.company || "",
+        days: s.earnings_days,
+        date: s.earnings_display || s.earnings_date || "",
+        grade: s.grade,
+        rs_rank: s.rs_rank,
+        return_3m: s.return_3m,
+        pct_from_high: s.pct_from_high,
+        theme: s.themes?.[0]?.theme || "",
+        market_cap: s.market_cap || "",
+      }))
+      .sort((a, b) => a.days - b.days);
+  }, [stockMap, range]);
+
+  // Group by day
+  const grouped = useMemo(() => {
+    const g = {};
+    earningsList.forEach(e => {
+      const key = e.days <= 0 ? "Today" : e.days === 1 ? "Tomorrow" : `${e.days}d`;
+      if (!g[key]) g[key] = { label: key, days: e.days, items: [] };
+      g[key].items.push(e);
+    });
+    return Object.values(g).sort((a, b) => a.days - b.days);
+  }, [earningsList]);
+
+  const dayColor = (days) => days <= 0 ? "#f87171" : days <= 1 ? "#f59e0b" : days <= 3 ? "#c084fc" : "#555";
+
+  return (
+    <div style={{ position: "fixed", top: 0, right: 0, width: 380, height: "100vh", background: "#0a0a0a",
+      borderLeft: "1px solid #222", zIndex: 1000, display: "flex", flexDirection: "column",
+      boxShadow: "-4px 0 20px rgba(0,0,0,0.5)" }}>
+      {/* Header */}
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid #222", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#c084fc", letterSpacing: 1, flex: 1 }}>EARNINGS CALENDAR</span>
+        <span style={{ fontSize: 10, color: "#888" }}>{earningsList.length} reports</span>
+        <select value={range} onChange={e => setRange(+e.target.value)}
+          style={{ background: "#111", border: "1px solid #333", color: "#888", borderRadius: 4, fontSize: 10, padding: "2px 4px" }}>
+          <option value={7}>7 days</option>
+          <option value={14}>14 days</option>
+          <option value={21}>21 days</option>
+          <option value={30}>30 days</option>
+        </select>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#666", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>×</button>
+      </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
+        {grouped.length === 0 && (
+          <div style={{ color: "#555", fontSize: 11, padding: 20, textAlign: "center" }}>No upcoming earnings in the theme universe.</div>
+        )}
+        {grouped.map(group => (
+          <div key={group.label} style={{ marginBottom: 12 }}>
+            {/* Day header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, padding: "4px 0", borderBottom: "1px solid #1a1a1a" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: dayColor(group.days) }}>{group.label}</span>
+              {group.items[0]?.date && <span style={{ fontSize: 9, color: "#555" }}>{group.items[0].date}</span>}
+              <span style={{ fontSize: 9, color: "#444", background: "#111", padding: "1px 6px", borderRadius: 8 }}>{group.items.length}</span>
+            </div>
+            {/* Stocks */}
+            {group.items.map(e => (
+              <div key={e.ticker} onClick={() => onTickerClick(e.ticker)}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 4,
+                  cursor: "pointer", marginBottom: 1 }}
+                onMouseEnter={ev => ev.currentTarget.style.background = "#111"}
+                onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
+                <span style={{ fontWeight: 700, fontSize: 11, color: "#fff", width: 50 }}>{e.ticker}</span>
+                {e.grade && <Badge grade={e.grade} />}
+                <span style={{ fontSize: 10, color: "#888", fontFamily: "monospace", width: 28, textAlign: "right" }}>{e.rs_rank ?? '—'}</span>
+                <span style={{ fontSize: 10, fontFamily: "monospace", width: 45, textAlign: "right",
+                  color: e.return_3m > 0 ? "#4ade80" : e.return_3m < 0 ? "#f87171" : "#888" }}>
+                  {e.return_3m != null ? `${e.return_3m > 0 ? '+' : ''}${e.return_3m}%` : ''}</span>
+                <span style={{ fontSize: 10, fontFamily: "monospace", width: 40, textAlign: "right",
+                  color: e.pct_from_high >= -5 ? "#4ade80" : "#888" }}>
+                  {e.pct_from_high != null ? `${e.pct_from_high}%` : ''}</span>
+                <span style={{ flex: 1, fontSize: 9, color: "#555", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.theme}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer legend */}
+      <div style={{ padding: "8px 16px", borderTop: "1px solid #222", display: "flex", gap: 12, fontSize: 9, color: "#555" }}>
+        <span>RS | 3M% | FrHi% | Theme</span>
+        <span style={{ marginLeft: "auto" }}>Click ticker to chart</span>
+      </div>
+    </div>
+  );
+}
+
 function TickerInput({ value, setValue, onAdd, placeholder }) {
   return (
     <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
@@ -2259,6 +2366,8 @@ function AppMain({ authToken, onLogout }) {
   const [chartTicker, setChartTicker] = useState(null);
   const [mmData, setMmData] = useState(null);
   const [liveThemeData, setLiveThemeData] = useState(null);
+  const [showEarnings, setShowEarnings] = useState(false);
+  const [earningsOpen, setEarningsOpen] = useState(false);
 
   useEffect(() => {
     fetch("/dashboard_data.json").then(r => { if (!r.ok) throw new Error(); return r.json(); })
@@ -2461,7 +2570,10 @@ function AppMain({ authToken, onLogout }) {
         <input type="range" min={0} max={80} value={filters.minRTS} onChange={e => setFilters(p => ({ ...p, minRTS: +e.target.value }))}
           style={{ width: 80, accentColor: "#10b981" }} />
         <span style={{ fontSize: 10, color: "#888", fontFamily: "monospace" }}>{filters.minRTS}</span>
-        <button onClick={onLogout} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+        <button onClick={() => setShowEarnings(p => !p)} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+          background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #333",
+          color: showEarnings ? "#c084fc" : "#666" }}>Earnings</button>
+        <button onClick={onLogout} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 9, cursor: "pointer",
           background: "transparent", border: "1px solid #333", color: "#555" }}>Logout</button>
       </div>
 
@@ -2515,6 +2627,14 @@ function AppMain({ authToken, onLogout }) {
           </div>
         )}
       </div>
+
+      {/* Earnings Calendar slide-out */}
+      {showEarnings && data && (<>
+        <div onClick={() => setShowEarnings(false)}
+          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.3)", zIndex: 999 }} />
+        <EarningsCalendar stockMap={stockMap} onTickerClick={(t) => { openChart(t); }}
+          onClose={() => setShowEarnings(false)} />
+      </>)}
     </div>
   );
 }
