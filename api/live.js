@@ -142,104 +142,6 @@ function num(v) {
   return parseFloat(String(v).replace(/,/g, ""));
 }
 
-function parseVolume(v) {
-  if (!v || v === "-") return null;
-  const s = String(v).trim().replace(/,/g, "");
-  // Handle suffixes: K, M, B
-  const upper = s.toUpperCase();
-  if (upper.endsWith("B")) return parseFloat(s) * 1e9;
-  if (upper.endsWith("M")) return parseFloat(s) * 1e6;
-  if (upper.endsWith("K")) return parseFloat(s) * 1e3;
-  return parseFloat(s);
-}
-
-// ── Zanger Volume Ratio (ZVR) ──
-// U-shaped intraday volume curve: cumulative % of daily volume by time
-// Based on empirical US equity market patterns (30-min buckets, 9:30-4:00)
-const INTRADAY_CUMULATIVE = [
-  [570, 0.00],   // 9:30 — market open
-  [600, 0.12],   // 10:00
-  [630, 0.20],   // 10:30
-  [660, 0.26],   // 11:00
-  [690, 0.31],   // 11:30
-  [720, 0.35],   // 12:00
-  [750, 0.39],   // 12:30
-  [780, 0.42],   // 1:00
-  [810, 0.46],   // 1:30
-  [840, 0.49],   // 2:00
-  [870, 0.53],   // 2:30
-  [900, 0.58],   // 3:00
-  [930, 0.65],   // 3:30
-  [960, 1.00],   // 4:00 — market close
-];
-
-function getCumulativeWeight() {
-  // Get current ET time using UTC offset
-  // ET is UTC-5 (EST) or UTC-4 (EDT)
-  const now = new Date();
-  const utcMonth = now.getUTCMonth(); // 0-11
-  const utcDate = now.getUTCDate();
-  const utcDay = now.getUTCDay(); // 0=Sun
-
-  // Simple DST check: EDT is 2nd Sun Mar to 1st Sun Nov
-  // March: DST starts 2nd Sunday
-  // November: DST ends 1st Sunday
-  let isDST = false;
-  if (utcMonth > 2 && utcMonth < 10) {
-    isDST = true; // Apr-Oct always EDT
-  } else if (utcMonth === 2) {
-    // March: find 2nd Sunday
-    const firstDay = new Date(Date.UTC(now.getUTCFullYear(), 2, 1)).getUTCDay();
-    const secondSunday = firstDay === 0 ? 8 : (14 - firstDay + 1);
-    isDST = utcDate >= secondSunday;
-  } else if (utcMonth === 10) {
-    // November: find 1st Sunday
-    const firstDay = new Date(Date.UTC(now.getUTCFullYear(), 10, 1)).getUTCDay();
-    const firstSunday = firstDay === 0 ? 1 : (7 - firstDay + 1);
-    isDST = utcDate < firstSunday;
-  }
-
-  const etOffset = isDST ? -4 : -5;
-  const etHour = (now.getUTCHours() + etOffset + 24) % 24;
-  const etMinute = now.getUTCMinutes();
-  const mins = etHour * 60 + etMinute;
-
-  // Weekend check (in ET)
-  let etDay = now.getUTCDay();
-  if (now.getUTCHours() + etOffset < 0) etDay = (etDay + 6) % 7;
-  if (etDay === 0 || etDay === 6) return 1.0; // Sat/Sun
-
-  if (mins <= 570) return 1.0;     // before 9:30 ET — use simple ratio
-  if (mins >= 960) return 1.0;     // after 4:00 ET
-
-  // Interpolate between buckets
-  for (let i = 1; i < INTRADAY_CUMULATIVE.length; i++) {
-    const [t1, w1] = INTRADAY_CUMULATIVE[i - 1];
-    const [t2, w2] = INTRADAY_CUMULATIVE[i];
-    if (mins <= t2) {
-      const frac = (mins - t1) / (t2 - t1);
-      return w1 + frac * (w2 - w1);
-    }
-  }
-  return 1.0;
-}
-
-function calcZVR(volumeStr, avgVolumeStr) {
-  const vol = parseVolume(volumeStr);
-  const avgVol = parseVolume(avgVolumeStr);
-  if (!vol || !avgVol || avgVol === 0) return null;
-
-  const cumWeight = getCumulativeWeight();
-
-  // After market close or before open: use simple ratio
-  if (cumWeight >= 1.0 || cumWeight <= 0.01) {
-    return Math.round((vol / avgVol) * 100);
-  }
-
-  // During market hours: project end-of-day volume using U-curve
-  const projectedVol = vol / cumWeight;
-  return Math.round((projectedVol / avgVol) * 100);
-}
 
 // ── Normalize Finviz Elite CSV header names to short keys ──
 function normalizeRow(r) {
@@ -316,7 +218,6 @@ async function fetchWatchlist(cookies, tickers) {
         volume: r["Volume"],
         avg_volume: r["Avg Volume"],
         rel_volume: num(r["Rel Volume"]),
-        zvr: calcZVR(r["Volume"], r["Avg Volume"]),
         perf_week: pct(r["Perf Week"]),
         perf_month: pct(r["Perf Month"]),
         perf_quart: pct(r["Perf Quart"]),
@@ -367,7 +268,6 @@ function parseQuotePage(ticker, html) {
     volume: get("Volume"),
     avg_volume: get("Avg Volume"),
     rel_volume: num(get("Rel Volume")),
-    zvr: calcZVR(get("Volume"), get("Avg Volume")),
     perf_week: pct(get("Perf Week")),
     perf_month: pct(get("Perf Month")),
     perf_quart: pct(get("Perf Quarter")),
@@ -418,7 +318,6 @@ async function fetchTopGainers(cookies) {
       volume: r["Volume"],
       avg_volume: r["Avg Volume"],
       rel_volume: num(r["Rel Volume"]),
-      zvr: calcZVR(r["Volume"], r["Avg Volume"]),
       perf_week: pct(r["Perf Week"]),
       perf_month: pct(r["Perf Month"]),
       perf_quart: pct(r["Perf Quart"]),
@@ -536,7 +435,6 @@ async function fetchPremarketMovers(cookies) {
       volume: r["Volume"],
       avg_volume: r["Avg Volume"],
       rel_volume: num(r["Rel Volume"]),
-      zvr: calcZVR(r["Volume"], r["Avg Volume"]),
       high_52w: pct(r["52W High"]),
       rsi: num(r["RSI"]),
       atr: num(r["ATR"]),
@@ -577,13 +475,22 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
+    // Only fetch premarket movers outside market hours (before 9:30 AM ET or after 4:00 PM ET)
+    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const etHour = nowET.getHours();
+    const etMin = nowET.getMinutes();
+    const etTime = etHour * 60 + etMin;
+    const marketOpen = 9 * 60 + 30;  // 9:30 AM ET
+    const marketClose = 16 * 60;      // 4:00 PM ET
+    const isMarketHours = etTime >= marketOpen && etTime < marketClose;
+
     // Fetch watchlist, gainers, premarket first
     const [watchlist, topGainers, premarketMovers] = await Promise.all([
       watchlistTickers.length > 0
         ? fetchWatchlist(cookies, watchlistTickers)
         : Promise.resolve([]),
       fetchTopGainers(cookies),
-      fetchPremarketMovers(cookies),
+      isMarketHours ? Promise.resolve([]) : fetchPremarketMovers(cookies),
     ]);
 
     // Then fetch theme universe (many batches, needs rate limit spacing)

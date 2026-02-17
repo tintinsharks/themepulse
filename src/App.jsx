@@ -1680,7 +1680,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["RVol", "rel_volume"],
-  ["ZVR", "zvr"], ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
+  ["RVol", "rel_volume"], ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
   ["ROE", "roe"], ["Mgn%", "margin"],
 ];
 
@@ -1718,10 +1718,6 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
         {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, fontWeight: 700,
-        color: s.zvr >= 200 ? "#f43f5e" : s.zvr >= 150 ? "#c084fc" : s.zvr >= 120 ? "#60a5fa" : s.zvr != null ? "#555" : "#333" }}
-        title={s.zvr != null ? `Projected EOD volume: ${s.zvr}% of avg` : ''}>
-        {s.zvr != null ? `${s.zvr}%` : '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 11 }}>
@@ -2143,7 +2139,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       price: live.price ?? pipe.price,
       change: live.change,
       rel_volume: live.rel_volume ?? pipe.rel_volume,
-      zvr: live.zvr ?? null,
+
       grade: pipe.grade,
       rs_rank: pipe.rs_rank,
       return_1m: live.perf_month ?? pipe.return_1m,
@@ -2172,7 +2168,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       price: g.price,
       change: g.change,
       rel_volume: g.rel_volume,
-      zvr: g.zvr ?? null,
+
       grade: pipe.grade,
       rs_rank: pipe.rs_rank,
       return_1m: g.perf_month ?? pipe.return_1m,
@@ -2202,7 +2198,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       change: g.change,
       gap: g.gap,
       rel_volume: g.rel_volume,
-      zvr: g.zvr ?? null,
+
       grade: pipe.grade,
       rs_rank: pipe.rs_rank,
       return_1m: pipe.return_1m,
@@ -2236,7 +2232,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     eps: sortFn("eps_past_5y"), rev: sortFn("sales_past_5y"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
-    rel_volume: sortFn("rel_volume"), zvr: sortFn("zvr"), rsi: sortFn("rsi"), price: sortFn("price"),
+    rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
     gap: sortFn("gap"),
   });
 
