@@ -546,11 +546,6 @@ export default async function handler(req, res) {
       ? await fetchThemeUniverse(cookies, universeTickers)
       : [];
 
-    // Fetch theme universe (many batches, needs rate limit spacing)
-    const themeUniverse = universeTickers.length > 0
-      ? await fetchThemeUniverse(cookies, universeTickers)
-      : [];
-
     // Fetch news for a single ticker if requested
     const newsTicker = (req.query.news || "").trim().toUpperCase();
     const news = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
