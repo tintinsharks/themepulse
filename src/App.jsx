@@ -243,8 +243,10 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         });
         const yoyColor = (v) => v == null ? "#444" : v > 25 ? "#4ade80" : v > 0 ? "#888" : "#f87171";
         const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+        const annuals = stock.annual || [];
         return (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, overflowX: "auto" }}>
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, overflowX: "auto", display: "flex", gap: 16 }}>
+          {/* Quarterly table */}
           <table style={{ borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace" }}>
             <thead><tr>
               <td style={{ padding: "2px 6px", color: "#555", fontWeight: 700 }}>Quarterly</td>
@@ -253,7 +255,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               ))}
             </tr></thead>
             <tbody>
-              {/* EPS row: value + YoY% below */}
               <tr>
                 <td style={{ padding: "2px 6px", color: "#555" }}>EPS ($)</td>
                 {withYoY.map(q => (
@@ -263,7 +264,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                   </td>
                 ))}
               </tr>
-              {/* Sales row: value + YoY% below */}
               <tr>
                 <td style={{ padding: "2px 6px", color: "#555" }}>Sales ($)</td>
                 {withYoY.map(q => (
@@ -275,6 +275,37 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               </tr>
             </tbody>
           </table>
+          {/* Annual table */}
+          {annuals.length > 0 && (
+          <table style={{ borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace", borderLeft: "1px solid #333", paddingLeft: 8 }}>
+            <thead><tr>
+              <td style={{ padding: "2px 6px", color: "#555", fontWeight: 700 }}>Annual</td>
+              {annuals.map(a => (
+                <td key={a.year} style={{ padding: "2px 8px", color: "#888", textAlign: "center", fontWeight: 700 }}>{a.year}</td>
+              ))}
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: "2px 6px", color: "#555" }}>EPS ($)</td>
+                {annuals.map(a => (
+                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
+                    <div style={{ color: a.eps > 0 ? "#ccc" : "#f87171", fontWeight: 600 }}>{a.eps}</div>
+                    {a.eps_yoy != null && <div style={{ color: yoyColor(a.eps_yoy), fontSize: 8 }}>{fmtYoY(a.eps_yoy)}</div>}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td style={{ padding: "2px 6px", color: "#555" }}>Sales ($)</td>
+                {annuals.map(a => (
+                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
+                    <div style={{ color: "#ccc" }}>{a.revenue_fmt}</div>
+                    {a.sales_yoy != null && <div style={{ color: yoyColor(a.sales_yoy), fontSize: 8 }}>{fmtYoY(a.sales_yoy)}</div>}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+          )}
         </div>
         );
       })()}
@@ -931,7 +962,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
       rvol: safe(s => s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
-      gap: safe(s => liveLookup[s.ticker]?.gap),
     };
     return list.sort(sorters[sortBy] || sorters.default);
   }, [stocks, leading, sortBy, nearPivot, scanMode, liveLookup]);
@@ -950,7 +980,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   // Column header config: [label, sortKey or null]
   const columns = [
     ["Action", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
-    ...(liveOverlay && hasLive ? [["Chg%", "change"], ["Gap%", "gap"]] : []),
+    ...(liveOverlay && hasLive ? [["Chg%", "change"]] : []),
     ["1M%", "ret1m"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null],
   ];
@@ -1003,14 +1033,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {liveOverlay && hasLive && (() => {
                 const lv = liveLookup[s.ticker];
                 const chg = lv?.change;
-                const gap = lv?.gap;
                 const chgColor = chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888";
-                const gapColor = gap > 0 ? "#4ade80" : gap < 0 ? "#f87171" : "#888";
                 return (<>
                   <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 11, color: chg != null ? chgColor : "#333" }}>
                     {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>
-                  <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: gap != null ? gapColor : "#333" }}>
-                    {gap != null ? `${gap > 0 ? '+' : ''}${gap.toFixed(1)}%` : '—'}</td>
                 </>);
               })()}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
@@ -1653,7 +1679,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["Gap%", "gap"], ["RVol", "rel_volume"],
+  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["RVol", "rel_volume"],
   ["ZVR", "zvr"], ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
   ["ROE", "roe"], ["Mgn%", "margin"],
 ];
@@ -1689,8 +1715,6 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#ccc", fontFamily: "monospace", fontSize: 11 }}>{s.rs_rank ?? '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.gap), fontFamily: "monospace", fontSize: 11 }}>
-        {s.gap != null ? `${s.gap >= 0 ? '+' : ''}${s.gap.toFixed(1)}%` : '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
         {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
@@ -2061,7 +2085,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
   const [vgSort, setVgSort] = useState("change");
-  const [pmSort, setPmSort] = useState("gap");
+  const [pmSort, setPmSort] = useState("change");
 
   // Combine all tickers for API call
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
