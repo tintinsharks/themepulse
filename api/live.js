@@ -480,25 +480,12 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
-    // Only fetch premarket movers outside market hours (before 9:30 AM ET or after 4:00 PM ET)
-    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const etHour = nowET.getHours();
-    const etMin = nowET.getMinutes();
-    const etTime = etHour * 60 + etMin;
-    const marketOpen = 9 * 60 + 30;  // 9:30 AM ET
-    const marketClose = 16 * 60;      // 4:00 PM ET
-    const isMarketHours = etTime >= marketOpen && etTime < marketClose;
+    // Fetch watchlist tickers
+    const watchlist = watchlistTickers.length > 0
+      ? await fetchWatchlist(cookies, watchlistTickers)
+      : [];
 
-    // Fetch watchlist, gainers, premarket first
-    const [watchlist, topGainers, premarketMovers] = await Promise.all([
-      watchlistTickers.length > 0
-        ? fetchWatchlist(cookies, watchlistTickers)
-        : Promise.resolve([]),
-      fetchTopGainers(cookies),
-      isMarketHours ? Promise.resolve([]) : fetchPremarketMovers(cookies),
-    ]);
-
-    // Then fetch theme universe (many batches, needs rate limit spacing)
+    // Fetch theme universe (many batches, needs rate limit spacing)
     const themeUniverse = universeTickers.length > 0
       ? await fetchThemeUniverse(cookies, universeTickers)
       : [];
@@ -507,8 +494,6 @@ export default async function handler(req, res) {
       ok: true,
       timestamp: new Date().toISOString(),
       watchlist,
-      top_gainers: topGainers,
-      premarket_movers: premarketMovers,
       theme_universe: themeUniverse,
     });
   } catch (err) {

@@ -865,27 +865,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 
 function Rotation({ themes, liveThemeData, stockMap }) {
   const [liveMode, setLiveMode] = useState(false);
-  const [localLiveData, setLocalLiveData] = useState(null);
-  const [liveLoading, setLiveLoading] = useState(false);
 
-  // If we have data from LiveView, use that. Otherwise fetch our own.
-  const themeData = liveThemeData || localLiveData;
-
-  // Fetch live data independently when live mode is toggled on and no data exists
-  useEffect(() => {
-    if (!liveMode || themeData || !themes) return;
-    setLiveLoading(true);
-    const tickers = new Set();
-    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-    if (tickers.size === 0) { setLiveLoading(false); return; }
-    const params = new URLSearchParams();
-    params.set("universe", [...tickers].join(","));
-    fetch(`/api/live?${params}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
-      .catch(() => {})
-      .finally(() => setLiveLoading(false));
-  }, [liveMode, themeData, themes]);
+  // Only use data passed from LiveView/Leaders — no independent fetching
+  const themeData = liveThemeData;
 
   // Compute live theme performance from theme_universe data
   const liveThemePerf = useMemo(() => {
@@ -985,8 +967,7 @@ function Rotation({ themes, liveThemeData, stockMap }) {
             border: liveMode ? "1px solid #10b981" : "1px solid #333",
             background: liveMode ? "#10b98120" : "transparent", color: liveMode ? "#6ee7b7" : "#888" }}>
           {liveMode ? "● LIVE" : "○ Pipeline"}</button>
-        {liveMode && !hasLiveData && !liveLoading && <span style={{ fontSize: 10, color: "#f87171" }}>No live data — market may be closed</span>}
-        {liveMode && liveLoading && <span style={{ fontSize: 10, color: "#fbbf24" }}>Fetching live data...</span>}
+        {liveMode && !hasLiveData && <span style={{ fontSize: 10, color: "#f87171" }}>No live data — visit Live or Leaders tab first</span>}
         {liveMode && hasLiveData && <span style={{ fontSize: 10, color: "#555" }}>{Object.keys(liveThemePerf).length} themes tracked live</span>}
       </div>
 
@@ -1040,20 +1021,30 @@ function Rotation({ themes, liveThemeData, stockMap }) {
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
-  const [scanMode, setScanMode] = useState("theme"); // "theme" = original, "winners" = Best Winners, "liquid" = Liquid Leaders
-  const [liveOverlay, setLiveOverlay] = useState(false);
+  const [scanMode, setScanMode] = useState("theme");
+  const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
 
-  // Use data from LiveView if available, otherwise fetch our own
-  const themeData = liveThemeData || localLiveData;
+  // Use external data if available, otherwise use our own
+  const themeData = externalLiveData || localLiveData;
 
-  // Fetch live data independently when toggled on
+  // Merge new data with previous — keeps old entries if new fetch missed them
+  function mergeThemeData(prev, next) {
+    if (!prev || prev.length === 0) return next;
+    if (!next || next.length === 0) return prev;
+    const map = {};
+    prev.forEach(s => { map[s.ticker] = s; });
+    next.forEach(s => { map[s.ticker] = s; });
+    return Object.values(map);
+  }
+
+  // Auto-fetch theme universe when Scan tab is active
   useEffect(() => {
-    if (!liveOverlay || themeData || !themes) return;
+    if (themeData || !themes || liveLoading) return;
     setLiveLoading(true);
     const tickers = new Set();
     themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
@@ -1062,10 +1053,37 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     params.set("universe", [...tickers].join(","));
     fetch(`/api/live?${params}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+      .then(d => {
+        if (d?.ok && d.theme_universe) {
+          setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe));
+          if (onLiveThemeData) onLiveThemeData(d.theme_universe);
+        }
+      })
       .catch(() => {})
       .finally(() => setLiveLoading(false));
-  }, [liveOverlay, themeData, themes]);
+  }, [themeData, themes, liveLoading]);
+
+  // Auto-refresh every 60s when Scan tab is active
+  useEffect(() => {
+    if (!themes) return;
+    const iv = setInterval(() => {
+      const tickers = new Set();
+      themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+      if (tickers.size === 0) return;
+      const params = new URLSearchParams();
+      params.set("universe", [...tickers].join(","));
+      fetch(`/api/live?${params}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d?.ok && d.theme_universe) {
+            setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe));
+            if (onLiveThemeData) onLiveThemeData(d.theme_universe);
+          }
+        })
+        .catch(() => {});
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [themes]);
 
   // Build live lookup
   const liveLookup = useMemo(() => {
@@ -1183,7 +1201,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           border: liveOverlay ? "1px solid #10b981" : "1px solid #333",
           background: liveOverlay ? "#10b98120" : "transparent", color: liveOverlay ? "#6ee7b7" : "#666" }}>
           {liveOverlay ? "● LIVE" : "○ Live"}</button>
-        {liveOverlay && liveLoading && <span style={{ fontSize: 9, color: "#fbbf24" }}>Loading...</span>}
+        {liveOverlay && liveLoading && <span style={{ fontSize: 9, color: "#fbbf24" }}>Loading live data...</span>}
+        {liveOverlay && !hasLive && !liveLoading && <span style={{ fontSize: 9, color: "#f87171" }}>No live data — market may be closed</span>}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
@@ -2247,7 +2266,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, themeHealth, themes, onLiveThemeData }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -2256,48 +2275,30 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
-  const [vgSort, setVgSort] = useState("change");
-  const [pmSort, setPmSort] = useState("change");
 
-  // Combine all tickers for API call
+  // Combine all tickers for API call — watchlist + portfolio only
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
 
-  // Build theme universe ticker list for live rotation
-  const universeTickers = useMemo(() => {
-    if (!themes) return [];
-    const set = new Set();
-    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => set.add(tk))));
-    return [...set];
-  }, [themes]);
-
   const fetchLive = useCallback(async () => {
+    if (allTickers.length === 0) { setLoading(false); return; }
     try {
       const params = new URLSearchParams();
-      if (allTickers.length > 0) params.set("tickers", allTickers.join(","));
-      if (universeTickers.length > 0) params.set("universe", universeTickers.join(","));
-      const qs = params.toString();
-      const resp = await fetch(`/api/live${qs ? "?" + qs : ""}`);
+      params.set("tickers", allTickers.join(","));
+      const resp = await fetch(`/api/live?${params}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
       if (!json.ok) throw new Error(json.error || "API error");
       setLiveData(json);
       setLastUpdate(new Date());
       setError(null);
-      if (json.theme_universe && onLiveThemeData) onLiveThemeData(json.theme_universe);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [allTickers, universeTickers]);
+  }, [allTickers]);
 
-  // LiveView auto-refresh: only runs when Live tab is active (component unmounts on tab switch)
-  // Leaders/Scan/Rotation use cached liveThemeData from last Live tab visit, or fetch their own on-demand
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
   useEffect(() => {
     if (!liveData || !onVisibleTickers) return;
-    const tickers = [
-      ...(liveData.watchlist || []).map(s => s.ticker),
-      ...(liveData.top_gainers || []).slice(0, 30).map(s => s.ticker),
-      ...(liveData.premarket_movers || []).slice(0, 30).map(s => s.ticker),
-    ];
+    const tickers = (liveData.watchlist || []).map(s => s.ticker);
     onVisibleTickers(tickers);
   }, [liveData, onVisibleTickers]);
 
@@ -2339,60 +2340,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   }, [liveLookup, stockMap]);
 
   // Merge for volume gainers (no pipeline data typically)
-  const mergeGainer = useCallback((g) => {
-    const pipe = stockMap?.[g.ticker] || {};
-    return {
-      ticker: g.ticker,
-      price: g.price,
-      change: g.change,
-      rel_volume: g.rel_volume,
-
-      grade: pipe.grade,
-      rs_rank: pipe.rs_rank,
-      return_1m: g.perf_month ?? pipe.return_1m,
-      return_3m: g.perf_quart ?? pipe.return_3m,
-      pct_from_high: g.high_52w ?? pipe.pct_from_high,
-      atr_to_50: pipe.atr_to_50,
-      vcs: pipe.vcs,
-      vcs_detail: pipe.vcs_detail,
-      adr_pct: pipe.adr_pct,
-      eps_past_5y: pipe.eps_past_5y,
-      sales_past_5y: pipe.sales_past_5y,
-      pe: pipe.pe,
-      roe: pipe.roe,
-      profit_margin: pipe.profit_margin,
-      rsi: g.rsi ?? pipe.rsi,
-      theme: pipe.themes?.[0]?.theme || g.sector || "",
-      company: g.company || pipe.company || "",
-    };
-  }, [stockMap]);
-
-  // Merge for premarket/afterhours movers
-  const mergePremarket = useCallback((g) => {
-    const pipe = stockMap?.[g.ticker] || {};
-    return {
-      ticker: g.ticker,
-      price: g.price,
-      change: g.change,
-      gap: g.gap,
-      rel_volume: g.rel_volume,
-
-      grade: pipe.grade,
-      rs_rank: pipe.rs_rank,
-      return_1m: pipe.return_1m,
-      return_3m: pipe.return_3m,
-      pct_from_high: g.high_52w ?? pipe.pct_from_high,
-      vcs: pipe.vcs,
-      vcs_detail: pipe.vcs_detail,
-      adr_pct: pipe.adr_pct,
-      roe: pipe.roe,
-      profit_margin: pipe.profit_margin,
-      rsi: g.rsi ?? pipe.rsi,
-      theme: pipe.themes?.[0]?.theme || g.sector || "",
-      company: g.company || pipe.company || "",
-    };
-  }, [stockMap]);
-
   const handleAddP = () => { const t = addTickerP.trim().toUpperCase(); if (t) addToPortfolio(t); setAddTickerP(""); };
   const handleAddW = () => { const t = addTickerW.trim().toUpperCase(); if (t) addToWatchlist(t); setAddTickerW(""); };
 
@@ -2411,7 +2358,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
-    gap: sortFn("gap"),
   });
 
   const sortList = (list, sortKey) => {
@@ -2423,19 +2369,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
   const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
-  const [vgThemeOnly, setVgThemeOnly] = useState(true);
-  const gainersMerged = useMemo(() => {
-    const all = (liveData?.top_gainers || []).map(mergeGainer);
-    const filtered = vgThemeOnly ? all.filter(g => stockMap?.[g.ticker]) : all;
-    return sortList(filtered, vgSort);
-  }, [liveData?.top_gainers, mergeGainer, vgSort, vgThemeOnly, stockMap]);
-
-  const [pmThemeOnly, setPmThemeOnly] = useState(true);
-  const premarketMerged = useMemo(() => {
-    const all = (liveData?.premarket_movers || []).map(mergePremarket);
-    const filtered = pmThemeOnly ? all.filter(g => stockMap?.[g.ticker]) : all;
-    return sortList(filtered, pmSort);
-  }, [liveData?.premarket_movers, mergePremarket, pmSort, pmThemeOnly, stockMap]);
 
   return (
     <div>
@@ -2452,10 +2385,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         </div>
         {error && <span style={{ fontSize: 10, color: "#f87171" }}>Error: {error}</span>}
       </div>
-
-      {/* Morning Briefing Banner */}
-      <MorningBriefing portfolio={portfolio} watchlist={watchlist} stockMap={stockMap}
-        liveData={liveData} themeHealth={themeHealth} themes={themes} onTickerClick={onTickerClick} />
 
       {/* ── 1. Portfolio ── */}
       <div style={{ marginBottom: 20 }}>
@@ -2491,57 +2420,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
             <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} />
           </div>
         )}
-      </div>
-
-      {/* ── 3. Top Gainers + Premarket Movers (split) ── */}
-      <div style={{ display: "flex", gap: 12 }}>
-        {/* Left: Intraday Top Gainers */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-              Top Gainers
-            </span>
-            <button onClick={() => setVgThemeOnly(p => !p)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-              border: vgThemeOnly ? "1px solid #c084fc" : "1px solid #333",
-              background: vgThemeOnly ? "#c084fc20" : "transparent", color: vgThemeOnly ? "#c084fc" : "#666" }}>
-              {vgThemeOnly ? "Themes" : "All"}</button>
-            <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length}</span>
-          </div>
-          <div style={{ maxHeight: 400, overflowY: "auto", border: "1px solid #1a1a1a", borderRadius: 4 }}>
-            {gainersMerged.length > 0 ? (
-              <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={gainersMerged} sortKey={vgSort} setter={setVgSort}
-                onAdd={(t) => { addToWatchlist(t); }} addLabel="+watch" />
-            ) : (
-              <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
-                {loading ? "Loading..." : "No gainers right now."}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Premarket / After-Hours Movers */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ color: "#f59e0b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-              Pre/Post Mkt
-            </span>
-            <button onClick={() => setPmThemeOnly(p => !p)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-              border: pmThemeOnly ? "1px solid #f59e0b" : "1px solid #333",
-              background: pmThemeOnly ? "#f59e0b20" : "transparent", color: pmThemeOnly ? "#f59e0b" : "#666" }}>
-              {pmThemeOnly ? "Themes" : "All"}</button>
-            <span style={{ fontSize: 10, color: "#555" }}>{premarketMerged.length}</span>
-          </div>
-          <div style={{ maxHeight: 400, overflowY: "auto", border: "1px solid #1a1a1a", borderRadius: 4 }}>
-            {premarketMerged.length > 0 ? (
-              <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={premarketMerged} sortKey={pmSort} setter={setPmSort}
-                onAdd={(t) => { addToWatchlist(t); }} addLabel="+watch" />
-            ) : (
-              <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
-                {loading ? "Loading..." : "No premarket movers (market hours or no gaps >1%)."}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -2855,15 +2733,14 @@ function AppMain({ authToken, onLogout }) {
         <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData} />}
           {view === "rotation" && <Rotation themes={data.themes} liveThemeData={liveThemeData} stockMap={stockMap} />}
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "mm" && <MarketMonitor mmData={mmData} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
-            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            themeHealth={data?.theme_health} themes={data?.themes} onLiveThemeData={setLiveThemeData} />}
+            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio} />}
         </div>
 
         {/* Draggable divider */}
