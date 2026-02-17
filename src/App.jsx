@@ -140,6 +140,14 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#666", fontSize: 11 }}>RS:{stock.rs_rank}</span>
+            {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
+              return rv != null ? <span style={{ fontSize: 10, fontFamily: "monospace",
+                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#555" }}>RV:{Number(rv).toFixed(1)}x</span> : null;
+            })()}
+            {stock.vcs != null && (
+              <span style={{ fontSize: 10, fontFamily: "monospace",
+                color: stock.vcs >= 80 ? "#4ade80" : stock.vcs >= 60 ? "#60a5fa" : "#f97316" }}>VCS:{stock.vcs}</span>
+            )}
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#10b981", fontSize: 10 }}>{stock.themes.map(t => t.theme).join(", ")}</span>
             )}
@@ -180,12 +188,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace",
               color: live.change > 0 ? "#4ade80" : live.change < 0 ? "#f87171" : "#888" }}>
               {live.change > 0 ? "+" : ""}{live.change.toFixed(2)}%
-            </span>
-          )}
-          {live && live.rel_volume != null && (
-            <span style={{ fontSize: 10, fontFamily: "monospace",
-              color: live.rel_volume >= 2 ? "#c084fc" : live.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
-              RVol: {live.rel_volume.toFixed(1)}x
             </span>
           )}
           <span style={{ color: "#333", margin: "0 2px" }}>|</span>
@@ -250,10 +252,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
           {stock.vcs != null && <StockStat label="VCS" value={stock.vcs}
             color={stock.vcs >= 80 ? "#4ade80" : stock.vcs >= 60 ? "#60a5fa" : "#f97316"} />}
-          {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
-            return rv != null ? <StockStat label="RVol" value={`${Number(rv).toFixed(1)}x`}
-              color={rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : undefined} /> : null;
-          })()}
           {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_50sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
