@@ -243,43 +243,59 @@ function calcZVR(volumeStr, avgVolumeStr) {
 async function fetchWatchlist(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
 
-  // Finviz export with ticker filter
-  // Use custom view with key columns
-  const cols = "1,2,3,4,6,7,43,44,45,46,47,48,49,50,55,57,58,59,62,64";
-  // Ticker,Company,Sector,Industry,MarketCap,P/E,Price,Change,Volume,AvgVolume,RelVolume,
-  // PerfWeek,PerfMonth,PerfQuart,ATR,SMA20,SMA50,SMA200,52WHigh,RSI
+  // Use export URL with ticker filter — same as top gainers but filtered to specific tickers
+  const cols = "1,2,3,4,6,43,44,45,46,47,48,49,50,55,57,58,59,60,62,64,67";
+  const tickerStr = tickers.join(",");
+  const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=${cols}`;
 
-  // Finviz doesn't have a direct ticker filter in export — use the screener page
-  // For watchlist, fetch individual stock pages or use the full export and filter
-  // Most efficient: fetch full export once, filter client-side
-  // But for small watchlists, we can use the quote page
-
-  // Use bulk approach: fetch quote data for each ticker via finviz quote API
-  const results = [];
-  const batchSize = 20;
-
-  for (let i = 0; i < tickers.length; i += batchSize) {
-    const batch = tickers.slice(i, i + batchSize);
-    const promises = batch.map(async (ticker) => {
-      try {
-        const resp = await fetch(
-          `https://elite.finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`,
-          {
-            headers: { ...HEADERS, Cookie: cookies },
-          }
-        );
-        if (!resp.ok) return null;
-        const html = await resp.text();
-        return parseQuotePage(ticker, html);
-      } catch {
-        return null;
-      }
+  try {
+    const resp = await fetch(url, {
+      headers: { ...HEADERS, Cookie: cookies },
     });
-    const batchResults = await Promise.all(promises);
-    results.push(...batchResults.filter(Boolean));
-  }
 
-  return results;
+    if (!resp.ok) {
+      console.error(`Watchlist fetch failed: ${resp.status}`);
+      return [];
+    }
+
+    const ct = resp.headers.get("content-type") || "";
+    if (ct.includes("html")) {
+      console.error("Got HTML instead of CSV for watchlist");
+      return [];
+    }
+
+    const text = await resp.text();
+    const rows = parseCSV(text);
+
+    return rows.map((r) => ({
+      ticker: r["Ticker"],
+      company: r["Company"],
+      sector: r["Sector"],
+      industry: r["Industry"],
+      market_cap: r["Market Cap"],
+      price: num(r["Price"]),
+      change: pct(r["Change"]),
+      gap: pct(r["Gap"]),
+      volume: r["Volume"],
+      avg_volume: r["Avg Volume"],
+      rel_volume: num(r["Rel Volume"]),
+      zvr: calcZVR(r["Volume"], r["Avg Volume"]),
+      perf_week: pct(r["Perf Week"]),
+      perf_month: pct(r["Perf Month"]),
+      perf_quart: pct(r["Perf Quart"]),
+      atr: num(r["ATR"]),
+      rsi: num(r["RSI"]),
+      sma20: pct(r["SMA20"]),
+      sma50: pct(r["SMA50"]),
+      sma200: pct(r["SMA200"]),
+      high_52w: pct(r["52W High"]),
+      pe: num(r["P/E"]),
+      earnings: r["Earnings Date"],
+    }));
+  } catch (err) {
+    console.error("Watchlist fetch error:", err.message);
+    return [];
+  }
 }
 
 function parseQuotePage(ticker, html) {
