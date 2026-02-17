@@ -155,7 +155,8 @@ function normalizeRow(r) {
     "P/E": r["P/E"],
     // Price/Change - try both old and new names
     "Price": r["Price"] || r["Current Price"],
-    "Change": r["Change"] || r["Change from Open"] || r["Change (%)"],
+    "Change": r["Change"] || r["Change (%)"],
+    "Change from Open": r["Change from Open"],
     "Gap": r["Gap"] || r["Gap (%)"],
     "Volume": r["Volume"],
     "Avg Volume": r["Avg Volume"] || r["Average Volume"],
@@ -214,6 +215,7 @@ async function fetchWatchlist(cookies, tickers) {
         market_cap: r["Market Cap"],
         price: num(r["Price"]),
         change: pct(r["Change"]),
+        change_open: pct(r["Change from Open"]),
         gap: pct(r["Gap"]),
         volume: r["Volume"],
         avg_volume: r["Avg Volume"],
@@ -265,6 +267,7 @@ function parseQuotePage(ticker, html) {
     industry: sectorMatch ? sectorMatch[2] : null,
     price: num(get("Price")),
     change: pct(get("Change")),
+    change_open: pct(get("Change from Open")),
     volume: get("Volume"),
     avg_volume: get("Avg Volume"),
     rel_volume: num(get("Rel Volume")),
@@ -379,6 +382,7 @@ async function fetchThemeUniverse(cookies, tickers) {
         const r = normalizeRow(raw);
         return {
           ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
+          change_open: pct(r["Change from Open"]),
           gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
           rel_volume: num(r["Rel Volume"]),
         };
@@ -436,6 +440,7 @@ async function fetchPremarketMovers(cookies) {
       market_cap: r["Market Cap"],
       price: num(r["Price"]),
       change: pct(r["Change"]),
+      change_open: pct(r["Change from Open"]),
       gap: pct(r["Gap"]),
       volume: r["Volume"],
       avg_volume: r["Avg Volume"],

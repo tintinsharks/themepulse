@@ -50,9 +50,15 @@ function StockStat({ label, value, color = "#888" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nS7up88o";
 
-function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio }) {
+function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
+
+  // Live data for this ticker
+  const live = useMemo(() => {
+    if (!liveThemeData) return null;
+    return liveThemeData.find(s => s.ticker === ticker) || null;
+  }, [liveThemeData, ticker]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
@@ -217,6 +223,36 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
+        </div>
+      )}
+
+      {/* Live price & change */}
+      {live && (
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "6px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, background: "#0d0d0d" }}>
+          {live.price != null && (
+            <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "monospace" }}>
+              ${live.price.toFixed(2)}
+            </span>
+          )}
+          {live.change != null && (
+            <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "monospace",
+              color: live.change > 0 ? "#4ade80" : live.change < 0 ? "#f87171" : "#888" }}>
+              {live.change > 0 ? "+" : ""}{live.change.toFixed(2)}%
+            </span>
+          )}
+          {live.change_open != null && (
+            <span style={{ fontSize: 12, fontFamily: "monospace", color: "#888" }}>
+              Open: <span style={{ color: live.change_open > 0 ? "#4ade80" : live.change_open < 0 ? "#f87171" : "#888", fontWeight: 700 }}>
+                {live.change_open > 0 ? "+" : ""}{live.change_open.toFixed(2)}%
+              </span>
+            </span>
+          )}
+          {live.rel_volume != null && (
+            <span style={{ fontSize: 11, fontFamily: "monospace",
+              color: live.rel_volume >= 2 ? "#c084fc" : live.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
+              RVol: {live.rel_volume.toFixed(1)}x
+            </span>
+          )}
         </div>
       )}
 
@@ -2758,7 +2794,8 @@ function AppMain({ authToken, onLogout }) {
           <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart}
               watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
-              portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio} />
+              portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+              liveThemeData={liveThemeData} />
           </div>
         )}
 
