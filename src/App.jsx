@@ -222,9 +222,17 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
 
       {/* Quarterly earnings mini-table */}
       {stock && stock.quarters && stock.quarters.length > 0 && (() => {
+        // Build lookup from displayed quarters AND hidden yoy_lookup
         const qMap = {};
         stock.quarters.forEach(q => { qMap[`${q.period}_${q.year}`] = q; });
-        const withYoY = stock.quarters.map(q => {
+        // Merge in yoy_lookup (older quarters not displayed but available for YoY)
+        if (stock.yoy_lookup) {
+          Object.entries(stock.yoy_lookup).forEach(([key, val]) => {
+            if (!qMap[key]) qMap[key] = val;
+          });
+        }
+        const qs = stock.quarters;
+        const withYoY = qs.map((q) => {
           const prior = qMap[`${q.period}_${q.year - 1}`];
           let epsYoY = null, salesYoY = null;
           if (prior) {
