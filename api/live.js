@@ -8,8 +8,8 @@
 //   FINVIZ_PASSWORD
 
 const FINVIZ_LOGIN_URL = "https://finviz.com/login_submit.ashx";
-const FINVIZ_SCREENER_URL = "https://finviz.com/screener.ashx";
-const FINVIZ_EXPORT_URL = "https://finviz.com/export.ashx";
+const FINVIZ_SCREENER_URL = "https://elite.finviz.com/screener.ashx";
+const FINVIZ_EXPORT_URL = "https://elite.finviz.com/export.ashx";
 
 const HEADERS = {
   "User-Agent":
@@ -263,7 +263,7 @@ async function fetchWatchlist(cookies, tickers) {
     const promises = batch.map(async (ticker) => {
       try {
         const resp = await fetch(
-          `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`,
+          `https://elite.finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`,
           {
             headers: { ...HEADERS, Cookie: cookies },
           }
