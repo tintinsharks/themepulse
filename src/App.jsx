@@ -568,7 +568,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", color: "#888", fontSize: 10 }}>
                         <span style={{ color: "#4ade80" }}>{t.live.up}</span>/<span style={{ color: "#666" }}>{t.live.total}</span></td>
                       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: rvol >= 1.5 ? 700 : 400,
-                        color: rvol >= 2 ? "#c084fc" : rvol >= 1.5 ? "#a78bfa" : rvol >= 1.0 ? "#888" : rvol != null ? "#f97316" : "#333" }}>
+                        color: rvol == null ? "#333" : rvol < 1.0 ? "#555" :
+                          chg > 0 ? (rvol >= 2 ? "#22c55e" : rvol >= 1.5 ? "#4ade80" : "#4ade8088") :
+                          chg < 0 ? (rvol >= 2 ? "#ef4444" : rvol >= 1.5 ? "#f87171" : "#f8717188") : "#888" }}>
                         {rvol != null ? `${rvol.toFixed(1)}x` : '—'}</td>
                       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", color: qc.text, fontWeight: 700 }}>
                         {t.rts}</td>
