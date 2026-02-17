@@ -1280,7 +1280,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null],
+    ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
   ];
 
   return (
@@ -1355,6 +1355,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#555" : "#333" }}>
                 {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
+              <td style={{ padding: "4px 8px", color: "#555", fontSize: 9 }}>{theme?.subtheme}</td>
             </tr>
           );
         })}</tbody>
