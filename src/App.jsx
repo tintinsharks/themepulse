@@ -1984,6 +1984,8 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   if (allTickers.length === 0) return null;
   const hasAlerts = gaps.length > 0 || earnings.length > 0 || rotation.add.length > 0 || rotation.remove.length > 0 || rotation.weakening.length > 0;
 
+  const [collapsed, setCollapsed] = useState(false);
+
   const chipStyle = (bg, color) => ({
     display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4,
     fontSize: 10, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", background: bg, color
@@ -1991,16 +1993,21 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
 
   return (
     <div style={{ background: "linear-gradient(135deg, #0f1a14 0%, #111318 50%, #15101a 100%)",
-      border: "1px solid #1a2a1f", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: hasAlerts ? 10 : 0 }}>
+      border: "1px solid #1a2a1f", borderRadius: 8, padding: collapsed ? "8px 16px" : "12px 16px", marginBottom: 16 }}>
+      <div onClick={() => setCollapsed(p => !p)}
+        style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 10, color: "#555" }}>{collapsed ? "▸" : "▾"}</span>
         <span style={{ fontSize: 12, fontWeight: 900, color: "#10b981", letterSpacing: 1 }}>MORNING BRIEFING</span>
         <span style={{ fontSize: 9, color: "#555" }}>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
         <span style={{ fontSize: 9, color: "#555" }}>|</span>
         <span style={{ fontSize: 9, color: "#888" }}>Tracking {allTickers.length} tickers</span>
         {!hasAlerts && <span style={{ fontSize: 9, color: "#555" }}>— No alerts right now</span>}
+        {hasAlerts && collapsed && <span style={{ fontSize: 9, color: "#10b981" }}>
+          {gaps.length > 0 ? `${gaps.length} gaps` : ""}{gaps.length > 0 && earnings.length > 0 ? " · " : ""}{earnings.length > 0 ? `${earnings.length} earnings` : ""}
+        </span>}
       </div>
 
-      {hasAlerts && (
+      {!collapsed && hasAlerts && (
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         {/* Gaps */}
         {gaps.length > 0 && (
