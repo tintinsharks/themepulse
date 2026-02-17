@@ -53,33 +53,13 @@ const TV_LAYOUT = "nS7up88o";
 function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
-  const [tickerDetail, setTickerDetail] = useState(null);
+  const [showDetails, setShowDetails] = useState(true);
 
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
     if (!liveThemeData) return null;
     return liveThemeData.find(s => s.ticker === ticker) || null;
   }, [liveThemeData, ticker]);
-
-  // Fetch single-ticker detail (open price, change from open) on ticker change
-  useEffect(() => {
-    setTickerDetail(null);
-    fetch(`/api/live?detail=${ticker}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.detail) setTickerDetail(d.detail); })
-      .catch(() => {});
-  }, [ticker]);
-
-  // Merge: prefer detail (has change_open), fall back to theme universe data
-  const liveDisplay = useMemo(() => {
-    if (!tickerDetail && !live) return null;
-    return {
-      price: tickerDetail?.price ?? live?.price,
-      change: tickerDetail?.change ?? live?.change,
-      change_open: tickerDetail?.change_open ?? null,
-      rel_volume: tickerDetail?.rel_volume ?? live?.rel_volume,
-    };
-  }, [tickerDetail, live]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
@@ -113,8 +93,10 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           locale: "en",
           toolbar_bg: "#0a0a0a",
           enable_publishing: false,
-          allow_symbol_change: true,
+          allow_symbol_change: false,
           save_image: false,
+          hide_top_toolbar: true,
+          hide_legend: false,
           backgroundColor: "rgba(10, 10, 10, 1)",
           gridColor: "rgba(30, 30, 30, 1)",
           container_id: "tv_chart_container",
@@ -136,6 +118,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", borderLeft: "1px solid #222", background: "#0a0a0a" }}>
+      {/* Always visible: Ticker, Watch/Portfolio, Grade, RS, Theme, Close */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
         borderBottom: "1px solid #222", flexShrink: 0, background: "#111" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -157,13 +140,43 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#666", fontSize: 11 }}>RS:{stock.rs_rank}</span>
-            <Ret v={stock.return_1m} />
-            <Ret v={stock.return_3m} bold />
-            <span style={{ color: stock.pct_from_high >= -5 ? "#4ade80" : "#888", fontSize: 10, fontFamily: "monospace" }}>FrHi:{stock.pct_from_high}%</span>
-            <span style={{ color: "#666", fontSize: 10, fontFamily: "monospace" }}>ATR/50:{stock.atr_to_50}</span>
+            {stock.themes && stock.themes.length > 0 && (
+              <span style={{ color: "#10b981", fontSize: 10 }}>{stock.themes.map(t => t.theme).join(", ")}</span>
+            )}
           </>)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <a href={tvLayoutUrl} target="_blank" rel="noopener noreferrer"
+            style={{ color: "#10b981", fontSize: 11, textDecoration: "none", padding: "4px 12px", border: "1px solid #10b98140",
+              borderRadius: 4, fontWeight: 700 }}>
+            Full Chart ↗</a>
+          <button onClick={onClose} style={{ background: "none", border: "1px solid #444", borderRadius: 4, color: "#666", fontSize: 14,
+            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        </div>
+      </div>
+
+      {/* Toggle bar: price, change, timeframes, details toggle */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px",
+        borderBottom: "1px solid #1a1a1a", flexShrink: 0, background: "#0d0d0d" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {live && live.price != null && (
+            <span style={{ fontSize: 16, fontWeight: 900, color: "#fff", fontFamily: "monospace" }}>
+              ${live.price.toFixed(2)}
+            </span>
+          )}
+          {live && live.change != null && (
+            <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace",
+              color: live.change > 0 ? "#4ade80" : live.change < 0 ? "#f87171" : "#888" }}>
+              {live.change > 0 ? "+" : ""}{live.change.toFixed(2)}%
+            </span>
+          )}
+          {live && live.rel_volume != null && (
+            <span style={{ fontSize: 10, fontFamily: "monospace",
+              color: live.rel_volume >= 2 ? "#c084fc" : live.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
+              RVol: {live.rel_volume.toFixed(1)}x
+            </span>
+          )}
+          <span style={{ color: "#333", margin: "0 2px" }}>|</span>
           {tfOptions.map(([val, label]) => (
             <button key={val} onClick={() => setTf(val)}
               style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
@@ -173,25 +186,27 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               {label}
             </button>
           ))}
-          <a href={tvLayoutUrl} target="_blank" rel="noopener noreferrer"
-            style={{ color: "#10b981", fontSize: 11, textDecoration: "none", padding: "4px 12px", border: "1px solid #10b98140",
-              borderRadius: 4, fontWeight: 700, marginLeft: 4 }}>
-            Full Chart ↗</a>
-          <button onClick={onClose} style={{ background: "none", border: "1px solid #444", borderRadius: 4, color: "#666", fontSize: 14,
-            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: 4 }}>×</button>
         </div>
+        <span onClick={() => setShowDetails(p => !p)}
+          style={{ color: "#555", fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>
+          {showDetails ? "▾ details" : "▸ details"}
+        </span>
       </div>
+
+      {/* Collapsible: company, sector, stats, earnings */}
+      {showDetails && (<>
 
       {stock && (
         <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0 }}>
           <span style={{ color: "#888" }}>{stock.company}</span>
           <span style={{ color: "#666" }}>{stock.sector}</span>
           <span style={{ color: "#666" }}>{stock.industry}</span>
-          {stock.themes && stock.themes.length > 0 && (
-            <span style={{ color: "#10b981" }}>{stock.themes.map(t => t.theme).join(", ")}</span>
-          )}
-          <span style={{ color: "#888" }}>3M: <Ret v={stock.return_3m} bold /></span>
-          <span style={{ color: "#888" }}>6M: <Ret v={stock.return_6m} /></span>
+          <Ret v={stock.return_1m} />
+          <Ret v={stock.return_3m} bold />
+          <span style={{ color: stock.pct_from_high >= -5 ? "#4ade80" : "#888", fontSize: 10, fontFamily: "monospace" }}>FrHi:{stock.pct_from_high}%</span>
+          <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
+        </div>
+      )}
           <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
         </div>
       )}
@@ -242,37 +257,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
-        </div>
-      )}
-
-      {/* Live price & change */}
-      {liveDisplay && (
-        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "6px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, background: "#0d0d0d" }}>
-          {liveDisplay.price != null && (
-            <span style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "monospace" }}>
-              ${liveDisplay.price.toFixed(2)}
-            </span>
-          )}
-          {liveDisplay.change != null && (
-            <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "monospace",
-              color: liveDisplay.change > 0 ? "#4ade80" : liveDisplay.change < 0 ? "#f87171" : "#888" }}>
-              {liveDisplay.change > 0 ? "+" : ""}{liveDisplay.change.toFixed(2)}%
-            </span>
-          )}
-          {liveDisplay.change_open != null && (
-            <span style={{ fontSize: 13, fontFamily: "monospace" }}>
-              <span style={{ color: "#666" }}>frOpen </span>
-              <span style={{ color: liveDisplay.change_open > 0 ? "#4ade80" : liveDisplay.change_open < 0 ? "#f87171" : "#888", fontWeight: 700 }}>
-                {liveDisplay.change_open > 0 ? "+" : ""}{liveDisplay.change_open.toFixed(2)}%
-              </span>
-            </span>
-          )}
-          {liveDisplay.rel_volume != null && (
-            <span style={{ fontSize: 11, fontFamily: "monospace",
-              color: liveDisplay.rel_volume >= 2 ? "#c084fc" : liveDisplay.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
-              RVol: {liveDisplay.rel_volume.toFixed(1)}x
-            </span>
-          )}
         </div>
       )}
 
@@ -365,6 +349,8 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         </div>
         );
       })()}
+
+      </>)}
 
       <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
     </div>
