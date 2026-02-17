@@ -238,13 +238,20 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               {live.change > 0 ? "+" : ""}{live.change.toFixed(2)}%
             </span>
           )}
-          {live.change_open != null && (
-            <span style={{ fontSize: 12, fontFamily: "monospace", color: "#888" }}>
-              Open: <span style={{ color: live.change_open > 0 ? "#4ade80" : live.change_open < 0 ? "#f87171" : "#888", fontWeight: 700 }}>
-                {live.change_open > 0 ? "+" : ""}{live.change_open.toFixed(2)}%
+          {(() => {
+            const cfo = live.change_open != null ? live.change_open
+              : (live.change != null && live.gap != null) ? live.change - live.gap
+              : null;
+            if (cfo == null) return null;
+            return (
+              <span style={{ fontSize: 13, fontFamily: "monospace" }}>
+                <span style={{ color: "#666" }}>frOpen </span>
+                <span style={{ color: cfo > 0 ? "#4ade80" : cfo < 0 ? "#f87171" : "#888", fontWeight: 700 }}>
+                  {cfo > 0 ? "+" : ""}{cfo.toFixed(2)}%
+                </span>
               </span>
-            </span>
-          )}
+            );
+          })()}
           {live.rel_volume != null && (
             <span style={{ fontSize: 11, fontFamily: "monospace",
               color: live.rel_volume >= 2 ? "#c084fc" : live.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
