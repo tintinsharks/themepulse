@@ -99,10 +99,12 @@ function mergeCookies(existing, fresh) {
 }
 
 // ── CSV parsing ──
-function parseCSV(text) {
+function parseCSV(text, label) {
   const lines = text.trim().split("\n");
   if (lines.length < 2) return [];
   const headers = parseCSVLine(lines[0]);
+  if (label) console.log(`CSV headers [${label}]:`, headers.join(" | "));
+  if (label && lines.length > 1) console.log(`CSV row 1 [${label}]:`, parseCSVLine(lines[1]).join(" | "));
   return lines.slice(1).map((line) => {
     const vals = parseCSVLine(line);
     const obj = {};
@@ -265,7 +267,7 @@ async function fetchWatchlist(cookies, tickers) {
     }
 
     const text = await resp.text();
-    const rows = parseCSV(text);
+    const rows = parseCSV(text, "watchlist");
 
     return rows.map((r) => ({
       ticker: r["Ticker"],
