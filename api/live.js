@@ -462,20 +462,29 @@ async function fetchTickerDetail(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) return null;
+    if (!resp.ok) { console.error(`Detail page ${resp.status} for ${ticker}`); return null; }
     const html = await resp.text();
+    console.log(`Detail page for ${ticker}: ${html.length} chars, contains 'Open': ${html.includes('>Open<')}`);
     
     // Parse key values from the quote page snapshot table
     const extract = (label) => {
-      // Finviz quote page has <td class="snapshot-td2-cp">Label</td><td>Value</td>
-      const regex = new RegExp(`>${label}</[^>]*>\\s*<[^>]*>([^<]+)<`, 'i');
-      const m = html.match(regex);
-      return m ? m[1].trim() : null;
+      // Try multiple patterns for Finviz Elite quote page
+      const patterns = [
+        new RegExp(`>${label}</[^>]*>\\s*<[^>]*>([^<]+)<`, 'i'),
+        new RegExp(`">${label}</td>\\s*<td[^>]*>\\s*<[^>]*>([^<]+)<`, 'i'),
+        new RegExp(`>${label}</td>\\s*<td[^>]*>([^<]+)<`, 'i'),
+      ];
+      for (const regex of patterns) {
+        const m = html.match(regex);
+        if (m) return m[1].trim();
+      }
+      return null;
     };
     
     const price = num(extract("Price"));
     const open = num(extract("Open"));
     const prevClose = num(extract("Prev Close"));
+    console.log(`Detail ${ticker}: price=${price}, open=${open}, prevClose=${prevClose}`);
     const change_open = (price != null && open != null && open !== 0) 
       ? Math.round((price - open) / open * 10000) / 100 
       : null;
