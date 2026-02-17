@@ -225,33 +225,20 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
       {/* Stock detail row — matches Swing Data Pine Script color thresholds */}
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0, flexWrap: "wrap" }}>
-          {/* ADR%: >8% teal, >5% green, >3% yellow, else default */}
-          {stock.adr_pct != null && <StockStat label="ADR%" value={`${stock.adr_pct}%`}
-            color={stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#4ade80" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316"} />}
           {stock.atr != null && <StockStat label="ATR" value={stock.atr} />}
           {/* Off 52W High: >= -25% green, else default */}
           {stock.off_52w_high != null && <StockStat label="Off 52W Hi" value={`${stock.off_52w_high}%`}
             color={stock.off_52w_high >= -25 ? "#4ade80" : "#f97316"} />}
-          {/* Earnings: <14 days red (matches Pine Script) */}
-          {(stock.earnings_display || stock.earnings_date) && <StockStat
-            label="Earnings"
-            value={stock.earnings_display || stock.earnings_date}
-            color={stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc"} />}
           {/* Avg $ Vol: >20M green, >10M yellow, else default */}
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#4ade80" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
           {/* Avg Vol: >1M green, else default */}
           {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
             color={stock.avg_volume_raw > 1000000 ? "#4ade80" : "#f97316"} />}
-          {/* RS Rating: >90 green, else default */}
-          {stock.rs_rank != null && <StockStat label="RS" value={stock.rs_rank}
-            color={stock.rs_rank > 90 ? "#4ade80" : "#f97316"} />}
           {/* Float: <10M green, <25M yellow, else default */}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#4ade80" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
-          {stock.vcs != null && <StockStat label="VCS" value={stock.vcs}
-            color={stock.vcs >= 80 ? "#4ade80" : stock.vcs >= 60 ? "#60a5fa" : "#f97316"} />}
           {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_50sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
