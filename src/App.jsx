@@ -1802,9 +1802,9 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
   const dayColor = (days) => days <= 0 ? "#f87171" : days <= 1 ? "#f59e0b" : days <= 3 ? "#c084fc" : "#555";
 
   return (
-    <div style={{ position: "fixed", top: 0, right: 0, width: 380, height: "100vh", background: "#0a0a0a",
-      borderLeft: "1px solid #222", zIndex: 1000, display: "flex", flexDirection: "column",
-      boxShadow: "-4px 0 20px rgba(0,0,0,0.5)" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, width: 380, height: "100vh", background: "#0a0a0a",
+      borderRight: "1px solid #222", zIndex: 1000, display: "flex", flexDirection: "column",
+      boxShadow: "4px 0 20px rgba(0,0,0,0.5)" }}>
       {/* Header */}
       <div style={{ padding: "12px 16px", borderBottom: "1px solid #222", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#c084fc", letterSpacing: 1, flex: 1 }}>EARNINGS CALENDAR</span>
