@@ -1198,20 +1198,21 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       });
     } else if (scanMode === "liquid") {
       // Liquid Leaders filter — high-quality liquid institutional names
-      // Revenue Growth Q/Q > 25%, Price > $10, MCap > $300M, AvgVol > 1M, Avg$Vol > $100M, ADR > 3%
+      // EPS growth > 20%, Price > $10, MCap > $300M, AvgVol > 1M, Avg$Vol > $100M, ADR > 3%
       list = stocks.filter(s => {
         const price = s.price || 0;
         const mcap = s.market_cap_raw || 0;
         const avgVol = s.avg_volume_raw || 0;
         const avgDolVol = s.avg_dollar_vol_raw || 0;
         const adr = s.adr_pct || 0;
-        const salesGrowth = s.sales_yoy ?? s.sales_qq;
+        const epsGrowth = s.eps_this_y ?? s.eps_past_5y;
+        const salesGrowth = s.sales_past_5y;
         return price > 10
           && mcap >= 300000000
           && avgVol >= 1000000
           && avgDolVol >= 100000000
           && adr > 3
-          && salesGrowth != null && salesGrowth > 25;
+          && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
       });
     } else if (scanMode === "early") {
       // Early Stage 2 / Turnaround — just crossing above 50MA with improving RS
@@ -1271,7 +1272,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const filterDesc = scanMode === "winners"
     ? "Price>$1 | ADR>4.5% | Ab52WLo≥70% | Avg$Vol>$7M | >20SMA | >50SMA"
     : scanMode === "liquid"
-    ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | RevQ/Q>25%"
+    ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | EPS>20% or Sales5Y>15%"
     : scanMode === "early"
     ? "Price>$5 | >50SMA(<10%) | >200SMA | RS:50-85 | ADR>2% | FrHi<-10% | Avg$Vol>$5M"
     : "A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+";
