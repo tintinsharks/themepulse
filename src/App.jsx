@@ -333,7 +333,7 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData: externalLiveData }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
   const [detailTheme, setDetailTheme] = useState(null);
@@ -341,6 +341,45 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   const [healthFilter, setHealthFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
   const [showIntraday, setShowIntraday] = useState(true);
+  const [intradaySort, setIntradaySort] = useState("chg");
+  const [localLiveData, setLocalLiveData] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  // Use external data from LiveView if available, otherwise fetch our own
+  const liveThemeData = externalLiveData || localLiveData;
+
+  // Auto-fetch theme universe when Leaders tab is active and no data exists
+  useEffect(() => {
+    if (liveThemeData || !themes || liveLoading) return;
+    setLiveLoading(true);
+    const tickers = new Set();
+    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    if (tickers.size === 0) { setLiveLoading(false); return; }
+    const params = new URLSearchParams();
+    params.set("universe", [...tickers].join(","));
+    fetch(`/api/live?${params}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+      .catch(() => {})
+      .finally(() => setLiveLoading(false));
+  }, [liveThemeData, themes, liveLoading]);
+
+  // Auto-refresh every 60s when Leaders tab is active
+  useEffect(() => {
+    if (!themes) return;
+    const iv = setInterval(() => {
+      const tickers = new Set();
+      themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+      if (tickers.size === 0) return;
+      const params = new URLSearchParams();
+      params.set("universe", [...tickers].join(","));
+      fetch(`/api/live?${params}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+        .catch(() => {});
+    }, 60000);
+    return () => clearInterval(iv);
+  }, [themes]);
 
   // Build liveLookup from liveThemeData (ticker → {change, rel_volume, ...})
   const liveLookup = useMemo(() => {
@@ -353,16 +392,22 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   // Compute live theme performance
   const liveThemePerf = useMemo(() => {
     if (!liveThemeData || liveThemeData.length === 0 || !themes) return {};
-    const changeLookup = {};
-    liveThemeData.forEach(s => { if (s.change != null) changeLookup[s.ticker] = s.change; });
+    const lookup = {};
+    liveThemeData.forEach(s => { lookup[s.ticker] = s; });
     const perf = {};
     themes.forEach(t => {
       const tickers = t.subthemes?.flatMap(s => s.tickers || []) || [];
-      const changes = tickers.map(tk => changeLookup[tk]).filter(v => v != null);
+      const changes = [], rvols = [];
+      tickers.forEach(tk => {
+        const s = lookup[tk];
+        if (s?.change != null) changes.push(s.change);
+        if (s?.rel_volume != null && s.rel_volume > 0) rvols.push(s.rel_volume);
+      });
       if (changes.length === 0) return;
       const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
       const up = changes.filter(c => c > 0).length;
-      perf[t.theme] = { avg, up, total: changes.length, breadth: Math.round(up / changes.length * 100) };
+      const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
+      perf[t.theme] = { avg, up, total: changes.length, breadth: Math.round(up / changes.length * 100), avgRvol };
     });
     return perf;
   }, [liveThemeData, themes]);
@@ -387,11 +432,19 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   // Intraday ranked themes
   const liveRanked = useMemo(() => {
     if (!hasLive) return [];
-    return themes
+    const ranked = themes
       .map(t => ({ ...t, live: liveThemePerf[t.theme] }))
-      .filter(t => t.live)
-      .sort((a, b) => b.live.avg - a.live.avg);
-  }, [themes, liveThemePerf, hasLive]);
+      .filter(t => t.live);
+    const sorters = {
+      chg: (a, b) => b.live.avg - a.live.avg,
+      breadth: (a, b) => b.live.breadth - a.live.breadth,
+      rvol: (a, b) => (b.live.avgRvol ?? 0) - (a.live.avgRvol ?? 0),
+      rts: (a, b) => b.rts - a.rts,
+      ret3m: (a, b) => (b.return_3m ?? 0) - (a.return_3m ?? 0),
+    };
+    ranked.sort(sorters[intradaySort] || sorters.chg);
+    return ranked;
+  }, [themes, liveThemePerf, hasLive, intradaySort]);
 
   const list = useMemo(() => {
     let t = [...themes];
@@ -464,7 +517,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 
   return (
     <div>
-      {/* Intraday Theme Rotation Panel */}
+      {/* Intraday Theme Rotation Table */}
       {hasLive && (
         <div style={{ marginBottom: 12 }}>
           <div onClick={() => setShowIntraday(p => !p)}
@@ -475,40 +528,55 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               Intraday Theme Rotation
             </span>
             <span style={{ color: "#555", fontSize: 10 }}>{liveRanked.length} themes</span>
+            {liveLoading && <span style={{ color: "#fbbf24", fontSize: 10 }}>Loading...</span>}
             <span style={{ marginLeft: "auto", color: "#555", fontSize: 12 }}>{showIntraday ? "▾" : "▸"}</span>
           </div>
           {showIntraday && (
-            <div style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "8px 12px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-                {liveRanked.map((t, i) => {
+            <div style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "4px 0" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead><tr style={{ borderBottom: "2px solid #333" }}>
+                  {[["#", null],["Theme", null],["Quad", null],["Chg%", "chg"],["Breadth", "breadth"],["↑/Total", null],["RVol", "rvol"],["RTS", "rts"],["3M%", "ret3m"]].map(([h, sk]) => (
+                    <th key={h} onClick={sk ? () => setIntradaySort(prev => prev === sk ? "chg" : sk) : undefined}
+                      style={{ padding: "4px 6px", color: intradaySort === sk ? "#6ee7b7" : "#666", fontWeight: 700, textAlign: "center", fontSize: 9,
+                        cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+                      {h}{intradaySort === sk ? " ▼" : ""}</th>
+                  ))}
+                </tr></thead>
+                <tbody>{liveRanked.map((t, i) => {
                   const quad = getQuad(t.weekly_rs, t.monthly_rs);
                   const qc = QC[quad];
                   const chg = t.live.avg;
-                  const isSelected = detailTheme === t.theme && open[t.theme];
+                  const brdth = t.live.breadth;
+                  const rvol = t.live.avgRvol;
+                  const isSelected = detailTheme === t.theme;
                   return (
-                    <div key={t.theme} onClick={() => toggle(t.theme)}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 4,
-                        cursor: "pointer", borderLeft: `3px solid ${qc.tag}`,
-                        background: isSelected ? "#10b98118" : "transparent",
-                        border: isSelected ? "1px solid #10b98140" : "1px solid transparent",
-                        borderLeft: `3px solid ${qc.tag}` }}>
-                      <span style={{ color: "#555", fontSize: 9, fontFamily: "monospace", width: 16 }}>{i + 1}</span>
-                      <span style={{ flex: 1, fontSize: 11, fontWeight: isSelected ? 700 : 500, color: isSelected ? "#10b981" : "#ccc",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {t.theme}
-                      </span>
-                      <span style={{ fontSize: 9, color: t.live.breadth >= 60 ? "#4ade80" : t.live.breadth >= 40 ? "#fbbf24" : "#f87171",
-                        fontFamily: "monospace" }}>
-                        {t.live.up}/{t.live.total}
-                      </span>
-                      <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 11, width: 55, textAlign: "right",
+                    <tr key={t.theme} onClick={() => toggle(t.theme)}
+                      style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer",
+                        background: isSelected ? "#10b98115" : "transparent" }}>
+                      <td style={{ padding: "4px 6px", textAlign: "center", color: "#555", fontFamily: "monospace", fontSize: 9, width: 20 }}>{i + 1}</td>
+                      <td style={{ padding: "4px 8px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#10b981" : "#ccc",
+                        maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
+                        {t.theme}</td>
+                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                        <span style={{ background: qc.tag, color: "#fff", padding: "1px 5px", borderRadius: 8, fontSize: 8, fontWeight: 700 }}>{quad.slice(0, 4)}</span></td>
+                      <td style={{ padding: "4px 6px", textAlign: "center", fontWeight: 700, fontFamily: "monospace",
                         color: chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888" }}>
-                        {chg > 0 ? "+" : ""}{chg.toFixed(2)}%
-                      </span>
-                    </div>
+                        {chg > 0 ? "+" : ""}{chg.toFixed(2)}%</td>
+                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                        color: brdth >= 70 ? "#4ade80" : brdth >= 50 ? "#fbbf24" : "#f87171" }}>
+                        {brdth}%</td>
+                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", color: "#888", fontSize: 10 }}>
+                        <span style={{ color: "#4ade80" }}>{t.live.up}</span>/<span style={{ color: "#666" }}>{t.live.total}</span></td>
+                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: rvol >= 1.5 ? 700 : 400,
+                        color: rvol >= 2 ? "#c084fc" : rvol >= 1.5 ? "#a78bfa" : rvol >= 1.0 ? "#888" : rvol != null ? "#f97316" : "#333" }}>
+                        {rvol != null ? `${rvol.toFixed(1)}x` : '—'}</td>
+                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", color: qc.text, fontWeight: 700 }}>
+                        {t.rts}</td>
+                      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={t.return_3m} bold /></td>
+                    </tr>
                   );
-                })}
-              </div>
+                })}</tbody>
+              </table>
             </div>
           )}
         </div>
@@ -2207,6 +2275,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, [allTickers, universeTickers]);
 
+  // LiveView auto-refresh: only runs when Live tab is active (component unmounts on tab switch)
+  // Leaders/Scan/Rotation use cached liveThemeData from last Live tab visit, or fetch their own on-demand
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
   useEffect(() => {
