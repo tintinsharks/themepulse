@@ -837,10 +837,43 @@ function Rotation({ themes, liveThemeData, stockMap }) {
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [scanMode, setScanMode] = useState("theme"); // "theme" = original, "winners" = Best Winners, "liquid" = Liquid Leaders
+  const [liveOverlay, setLiveOverlay] = useState(false);
+  const [localLiveData, setLocalLiveData] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  // Use data from LiveView if available, otherwise fetch our own
+  const themeData = liveThemeData || localLiveData;
+
+  // Fetch live data independently when toggled on
+  useEffect(() => {
+    if (!liveOverlay || themeData || !themes) return;
+    setLiveLoading(true);
+    const tickers = new Set();
+    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    if (tickers.size === 0) { setLiveLoading(false); return; }
+    const params = new URLSearchParams();
+    params.set("universe", [...tickers].join(","));
+    fetch(`/api/live?${params}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+      .catch(() => {})
+      .finally(() => setLiveLoading(false));
+  }, [liveOverlay, themeData, themes]);
+
+  // Build live lookup
+  const liveLookup = useMemo(() => {
+    if (!themeData) return {};
+    const m = {};
+    themeData.forEach(s => { m[s.ticker] = s; });
+    return m;
+  }, [themeData]);
+
+  const hasLive = Object.keys(liveLookup).length > 0;
+
   const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
   const candidates = useMemo(() => {
     let list;
@@ -906,9 +939,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
       adr: safe(s => s.adr_pct),
       vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
       rvol: safe(s => s.rel_volume),
+      change: safe(s => liveLookup[s.ticker]?.change),
+      gap: safe(s => liveLookup[s.ticker]?.gap),
     };
     return list.sort(sorters[sortBy] || sorters.default);
-  }, [stocks, leading, sortBy, nearPivot, scanMode]);
+  }, [stocks, leading, sortBy, nearPivot, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -923,7 +958,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
 
   // Column header config: [label, sortKey or null]
   const columns = [
-    ["Action", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"], ["1M%", "ret1m"], ["3M%", "ret3m"],
+    ["Action", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
+    ...(liveOverlay && hasLive ? [["Chg%", "change"], ["Gap%", "gap"]] : []),
+    ["1M%", "ret1m"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null],
   ];
 
@@ -941,6 +978,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
         <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer", marginLeft: "auto",
           border: nearPivot ? "1px solid #c084fc" : "1px solid #333",
           background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#666" }}>Near Pivot (&lt;3%)</button>
+        <button onClick={() => setLiveOverlay(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+          border: liveOverlay ? "1px solid #10b981" : "1px solid #333",
+          background: liveOverlay ? "#10b98120" : "transparent", color: liveOverlay ? "#6ee7b7" : "#666" }}>
+          {liveOverlay ? "● LIVE" : "○ Live"}</button>
+        {liveOverlay && liveLoading && <span style={{ fontSize: 9, color: "#fbbf24" }}>Loading...</span>}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
         <thead><tr style={{ borderBottom: "2px solid #333" }}>
@@ -967,6 +1009,19 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers })
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#10b981" : "#fff", fontWeight: 700 }}>{s.ticker}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s.rs_rank}</td>
+              {liveOverlay && hasLive && (() => {
+                const lv = liveLookup[s.ticker];
+                const chg = lv?.change;
+                const gap = lv?.gap;
+                const chgColor = chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888";
+                const gapColor = gap > 0 ? "#4ade80" : gap < 0 ? "#f87171" : "#888";
+                return (<>
+                  <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 11, color: chg != null ? chgColor : "#333" }}>
+                    {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>
+                  <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: gap != null ? gapColor : "#333" }}>
+                    {gap != null ? `${gap > 0 ? '+' : ''}${gap.toFixed(1)}%` : '—'}</td>
+                </>);
+              })()}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
@@ -2416,7 +2471,7 @@ function AppMain({ authToken, onLogout }) {
         <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} />}
           {view === "rotation" && <Rotation themes={data.themes} liveThemeData={liveThemeData} stockMap={stockMap} />}
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "mm" && <MarketMonitor mmData={mmData} />}
