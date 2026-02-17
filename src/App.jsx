@@ -333,13 +333,40 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
   const [detailTheme, setDetailTheme] = useState(null);
   const [detailSort, setDetailSort] = useState("rs");
   const [healthFilter, setHealthFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [showIntraday, setShowIntraday] = useState(true);
+
+  // Build liveLookup from liveThemeData (ticker → {change, rel_volume, ...})
+  const liveLookup = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => { m[s.ticker] = s; });
+    return m;
+  }, [liveThemeData]);
+  const hasLive = Object.keys(liveLookup).length > 0;
+
+  // Compute live theme performance
+  const liveThemePerf = useMemo(() => {
+    if (!liveThemeData || liveThemeData.length === 0 || !themes) return {};
+    const changeLookup = {};
+    liveThemeData.forEach(s => { if (s.change != null) changeLookup[s.ticker] = s.change; });
+    const perf = {};
+    themes.forEach(t => {
+      const tickers = t.subthemes?.flatMap(s => s.tickers || []) || [];
+      const changes = tickers.map(tk => changeLookup[tk]).filter(v => v != null);
+      if (changes.length === 0) return;
+      const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
+      const up = changes.filter(c => c > 0).length;
+      perf[t.theme] = { avg, up, total: changes.length, breadth: Math.round(up / changes.length * 100) };
+    });
+    return perf;
+  }, [liveThemeData, themes]);
+
   // Build theme breadth lookup from MM data
   const breadthMap = useMemo(() => {
     const m = {};
@@ -356,6 +383,16 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     }
     return m;
   }, [themeHealth]);
+
+  // Intraday ranked themes
+  const liveRanked = useMemo(() => {
+    if (!hasLive) return [];
+    return themes
+      .map(t => ({ ...t, live: liveThemePerf[t.theme] }))
+      .filter(t => t.live)
+      .sort((a, b) => b.live.avg - a.live.avg);
+  }, [themes, liveThemePerf, hasLive]);
+
   const list = useMemo(() => {
     let t = [...themes];
     if (filters.minRTS > 0) t = t.filter(x => x.rts >= filters.minRTS);
@@ -374,7 +411,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     }
     const sorters = {
       rts: (a, b) => (b.rts || 0) - (a.rts || 0),
-      return_1m: (a, b) => (b.return_1m || 0) - (a.return_1m || 0),
+      live_change: (a, b) => (liveThemePerf[b.theme]?.avg ?? -999) - (liveThemePerf[a.theme]?.avg ?? -999),
       return_3m: (a, b) => (b.return_3m || 0) - (a.return_3m || 0),
       breadth: (a, b) => (b.breadth || 0) - (a.breadth || 0),
       a_grades: (a, b) => (b.a_grades || 0) - (a.a_grades || 0),
@@ -382,14 +419,16 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     };
     t.sort(sorters[sort] || sorters.rts);
     return t;
-  }, [themes, filters, sort, healthFilter, healthMap]);
-  const toggle = (name) => setOpen(p => ({ ...p, [name]: !p[name] }));
+  }, [themes, filters, sort, healthFilter, healthMap, liveThemePerf]);
+  const toggle = (name) => {
+    setOpen(p => ({ ...p, [name]: !p[name] }));
+    setDetailTheme(name);
+  };
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
     if (onVisibleTickers) {
       if (detailTheme) {
-        // Detail table is open — use that theme's sorted tickers
         const theme = list.find(t => t.theme === detailTheme);
         if (theme) {
           const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
@@ -404,7 +443,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
           const dSorters = {
             ticker: (a, b) => a.ticker.localeCompare(b.ticker),
             grade: safe(s => GRADE_ORDER[s.grade] ?? null),
-            rs: safe(s => s.rs_rank), ret1m: safe(s => s.return_1m), ret3m: safe(s => s.return_3m),
+            rs: safe(s => s.rs_rank),
+            change: safe(s => liveLookup[s.ticker]?.change),
+            ret3m: safe(s => s.return_3m),
             fromhi: safe(s => s.pct_from_high), vcs: safe(s => s.vcs), adr: safe(s => s.adr_pct),
             vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
             rvol: safe(s => s.rel_volume),
@@ -413,19 +454,71 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
           onVisibleTickers(sorted.map(s => s.ticker));
         }
       } else {
-        // No detail table — global theme ticker list
         const tickers = list.flatMap(t => t.subthemes.flatMap(s =>
           s.tickers.map(tk => stockMap[tk]).filter(Boolean).sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker)
         )).filter((v, i, a) => a.indexOf(v) === i);
         onVisibleTickers(tickers);
       }
     }
-  }, [list, onVisibleTickers, stockMap, detailTheme, detailSort]);
+  }, [list, onVisibleTickers, stockMap, detailTheme, detailSort, liveLookup]);
 
   return (
     <div>
+      {/* Intraday Theme Rotation Panel */}
+      {hasLive && (
+        <div style={{ marginBottom: 12 }}>
+          <div onClick={() => setShowIntraday(p => !p)}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer",
+              background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: showIntraday ? "8px 8px 0 0" : 8 }}>
+            <span style={{ color: "#10b981", fontSize: 10 }}>●</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: 1 }}>
+              Intraday Theme Rotation
+            </span>
+            <span style={{ color: "#555", fontSize: 10 }}>{liveRanked.length} themes</span>
+            <span style={{ marginLeft: "auto", color: "#555", fontSize: 12 }}>{showIntraday ? "▾" : "▸"}</span>
+          </div>
+          {showIntraday && (
+            <div style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "8px 12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+                {liveRanked.map((t, i) => {
+                  const quad = getQuad(t.weekly_rs, t.monthly_rs);
+                  const qc = QC[quad];
+                  const chg = t.live.avg;
+                  const isSelected = detailTheme === t.theme && open[t.theme];
+                  return (
+                    <div key={t.theme} onClick={() => toggle(t.theme)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 4,
+                        cursor: "pointer", borderLeft: `3px solid ${qc.tag}`,
+                        background: isSelected ? "#10b98118" : "transparent",
+                        border: isSelected ? "1px solid #10b98140" : "1px solid transparent",
+                        borderLeft: `3px solid ${qc.tag}` }}>
+                      <span style={{ color: "#555", fontSize: 9, fontFamily: "monospace", width: 16 }}>{i + 1}</span>
+                      <span style={{ flex: 1, fontSize: 11, fontWeight: isSelected ? 700 : 500, color: isSelected ? "#10b981" : "#ccc",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {t.theme}
+                      </span>
+                      <span style={{ fontSize: 9, color: t.live.breadth >= 60 ? "#4ade80" : t.live.breadth >= 40 ? "#fbbf24" : "#f87171",
+                        fontFamily: "monospace" }}>
+                        {t.live.up}/{t.live.total}
+                      </span>
+                      <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 11, width: 55, textAlign: "right",
+                        color: chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888" }}>
+                        {chg > 0 ? "+" : ""}{chg.toFixed(2)}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sort buttons */}
       <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-        {[["rts","RTS"],["return_1m","1M"],["return_3m","3M"],["breadth","Brdth"],["a_grades","A's"],["health","Health"]].map(([k, l]) => (
+        {[["rts","RTS"],
+          ...(hasLive ? [["live_change","Chg%"]] : []),
+          ["return_3m","3M"],["breadth","Brdth"],["a_grades","A's"],["health","Health"]].map(([k, l]) => (
           <button key={k} onClick={() => setSort(k)} style={{ padding: "4px 10px", borderRadius: 4,
             border: sort === k ? "1px solid #10b981" : "1px solid #333",
             background: sort === k ? "#10b98120" : "transparent", color: sort === k ? "#6ee7b7" : "#888", fontSize: 11, cursor: "pointer" }}>{l}</button>
@@ -480,8 +573,14 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               <span style={{ background: qc.tag, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{quad}</span>
               <span style={{ color: "#888", fontSize: 11 }}>{theme.count}</span>
               <span style={{ color: qc.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace" }}>{theme.rts}</span>
+              {(() => { const lp = liveThemePerf[theme.theme]; if (!lp) return null;
+                return <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 12,
+                  color: lp.avg > 0 ? "#4ade80" : lp.avg < 0 ? "#f87171" : "#888" }}>
+                  {lp.avg > 0 ? "+" : ""}{lp.avg.toFixed(2)}%
+                </span>;
+              })()}
               <span style={{ color: "#888", fontSize: 11 }}>B:{theme.breadth}%</span>
-              <Ret v={theme.return_1w} /><Ret v={theme.return_1m} /><Ret v={theme.return_3m} bold />
+              <Ret v={theme.return_3m} bold />
               <span style={{ color: "#888", fontSize: 11 }}>{theme.a_grades}A</span>
               {(() => { const h = healthMap[theme.theme]; if (!h) return null;
                 const sc = { LEADING: { bg: "#22c55e18", border: "#22c55e50", color: "#4ade80" },
@@ -573,7 +672,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {/* Detail table view */}
                 {detailTheme === theme.theme && (() => {
                   const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["1M%","ret1m"],["3M%","ret3m"],["FrHi%","fromhi"],["VCS","vcs"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
+                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["VCS","vcs"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
                   const safe = (fn) => (a, b) => {
                     const av = fn(a), bv = fn(b);
                     if (av == null && bv == null) return 0;
@@ -586,7 +685,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     ticker: (a, b) => a.ticker.localeCompare(b.ticker),
                     grade: safe(s => GRADE_ORDER[s.grade] ?? null),
                     rs: safe(s => s.rs_rank),
-                    ret1m: safe(s => s.return_1m),
+                    change: safe(s => liveLookup[s.ticker]?.change),
                     ret3m: safe(s => s.return_3m),
                     fromhi: safe(s => s.pct_from_high),
                     vcs: safe(s => s.vcs),
@@ -620,7 +719,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                               <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#10b981" : "#fff", fontWeight: 700 }}>{s.ticker}</td>
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s.rs_rank}</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
+                              {(() => { const chg = liveLookup[s.ticker]?.change; const c = chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888";
+                                return <td style={{ padding: "3px 6px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 10, color: chg != null ? c : "#333" }}>
+                                  {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>; })()}
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
@@ -980,8 +1081,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   // Column header config: [label, sortKey or null]
   const columns = [
     ["Action", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
-    ...(liveOverlay && hasLive ? [["Chg%", "change"]] : []),
-    ["1M%", "ret1m"], ["3M%", "ret3m"],
+    ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null],
   ];
 
@@ -1030,16 +1130,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#10b981" : "#fff", fontWeight: 700 }}>{s.ticker}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s.rs_rank}</td>
-              {liveOverlay && hasLive && (() => {
+              {(() => {
                 const lv = liveLookup[s.ticker];
                 const chg = lv?.change;
                 const chgColor = chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888";
-                return (<>
-                  <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 11, color: chg != null ? chgColor : "#333" }}>
-                    {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>
-                </>);
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 11, color: chg != null ? chgColor : "#333" }}>
+                  {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>;
               })()}
-              <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
@@ -1679,8 +1776,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["RVol", "rel_volume"],
-  ["RVol", "rel_volume"], ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
+  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
+  ["RVol", "rel_volume"], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
   ["ROE", "roe"], ["Mgn%", "margin"],
 ];
 
@@ -1718,7 +1815,6 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
         {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_1m} /></td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#4ade80" : "#888", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 11 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
@@ -2675,7 +2771,7 @@ function AppMain({ authToken, onLogout }) {
       <div ref={containerRef} style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
         <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
-          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} />}
+          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData} />}
           {view === "rotation" && <Rotation themes={data.themes} liveThemeData={liveThemeData} stockMap={stockMap} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
