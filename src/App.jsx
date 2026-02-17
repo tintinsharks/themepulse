@@ -1806,8 +1806,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 }
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
-function IndexChart({ symbol, name, maData }) {
+function IndexChart({ symbol, name, maData, liveThemeData }) {
   const containerRef = useRef(null);
+
+  const live = useMemo(() => {
+    if (!liveThemeData) return null;
+    return liveThemeData.find(s => s.ticker === symbol) || null;
+  }, [liveThemeData, symbol]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1872,7 +1877,14 @@ function IndexChart({ symbol, name, maData }) {
         <span style={{ fontSize: 12, fontWeight: 900, color: "#fff" }}>{symbol}</span>
         <span style={{ fontSize: 9, color: "#666" }}>{name}</span>
         {maData && <>
-          <span style={{ fontSize: 10, color: "#ccc", fontFamily: "monospace", marginLeft: "auto" }}>${maData.price}</span>
+          <span style={{ fontSize: 10, color: "#ccc", fontFamily: "monospace", marginLeft: "auto" }}>${live?.price ?? maData.price}</span>
+          {(() => {
+            const chg = live?.change ?? maData.change;
+            if (chg == null) return null;
+            return <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "monospace",
+              color: chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888" }}>
+              {chg > 0 ? "+" : ""}{Number(chg).toFixed(2)}%</span>;
+          })()}
           <MaBadge label="10E" above={maData.above_ema10} />
           <MaBadge label="21E" above={maData.above_ema21} />
           <MaBadge label="50S" above={maData.above_sma50} />
@@ -2855,7 +2867,7 @@ function AppMain({ authToken, onLogout }) {
               { symbol: "IWM", name: "Russell 2000" },
               { symbol: "DIA", name: "Dow Jones" },
             ].map(idx => (
-              <IndexChart key={idx.symbol} symbol={idx.symbol} name={idx.name} maData={mmData?.indices?.[idx.symbol]} />
+              <IndexChart key={idx.symbol} symbol={idx.symbol} name={idx.name} maData={mmData?.indices?.[idx.symbol]} liveThemeData={liveThemeData} />
             ))}
           </div>
         )}
