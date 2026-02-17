@@ -207,9 +207,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
         </div>
       )}
-          <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
-        </div>
-      )}
 
       {/* Stock detail row — matches Swing Data Pine Script color thresholds */}
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
