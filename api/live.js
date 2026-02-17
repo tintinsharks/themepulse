@@ -358,6 +358,61 @@ async function fetchTopGainers(cookies) {
   }));
 }
 
+// ── Fetch theme universe bulk change% ──
+async function fetchThemeUniverse(cookies, tickers) {
+  if (!tickers || tickers.length === 0) return [];
+
+  // Finviz export with ticker filter: t=AAPL,NVDA,MSFT,...
+  // Columns: Ticker(1), Price(62), Change(64), Volume(48), Avg Volume(49), Rel Volume(50), Gap(60)
+  const cols = "1,62,64,48,49,50,60";
+
+  // Finviz has a URL length limit, batch into groups of ~100 tickers
+  const results = [];
+  const batchSize = 100;
+
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    const tickerStr = batch.join(",");
+    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=${cols}`;
+
+    try {
+      const resp = await fetch(url, {
+        headers: { ...HEADERS, Cookie: cookies },
+      });
+
+      if (!resp.ok) {
+        console.error(`Theme universe batch ${i} fetch failed: ${resp.status}`);
+        continue;
+      }
+
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("html")) {
+        console.error("Got HTML instead of CSV for theme universe batch");
+        continue;
+      }
+
+      const text = await resp.text();
+      const rows = parseCSV(text);
+
+      rows.forEach((r) => {
+        results.push({
+          ticker: r["Ticker"],
+          price: num(r["Price"]),
+          change: pct(r["Change"]),
+          gap: pct(r["Gap"]),
+          volume: r["Volume"],
+          avg_volume: r["Avg Volume"],
+          rel_volume: num(r["Rel Volume"]),
+        });
+      });
+    } catch (err) {
+      console.error(`Theme universe batch ${i} error:`, err.message);
+    }
+  }
+
+  return results;
+}
+
 // ── Fetch premarket/afterhours movers ──
 async function fetchPremarketMovers(cookies) {
   // Finviz screener sorted by gap%, mid cap+, gap up > 1%
@@ -426,13 +481,25 @@ export default async function handler(req, res) {
           .slice(0, 30) // cap at 30
       : [];
 
+    // Parse theme universe tickers (for live rotation)
+    const universeParam = req.query.universe || "";
+    const universeTickers = universeParam
+      ? universeParam
+          .split(",")
+          .map((t) => t.trim().toUpperCase())
+          .filter(Boolean)
+      : [];
+
     // Fetch all in parallel
-    const [watchlist, topGainers, premarketMovers] = await Promise.all([
+    const [watchlist, topGainers, premarketMovers, themeUniverse] = await Promise.all([
       watchlistTickers.length > 0
         ? fetchWatchlist(cookies, watchlistTickers)
         : Promise.resolve([]),
       fetchTopGainers(cookies),
       fetchPremarketMovers(cookies),
+      universeTickers.length > 0
+        ? fetchThemeUniverse(cookies, universeTickers)
+        : Promise.resolve([]),
     ]);
 
     return res.status(200).json({
@@ -441,6 +508,7 @@ export default async function handler(req, res) {
       watchlist,
       top_gainers: topGainers,
       premarket_movers: premarketMovers,
+      theme_universe: themeUniverse,
     });
   } catch (err) {
     console.error("Live API error:", err);

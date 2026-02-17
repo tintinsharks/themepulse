@@ -660,13 +660,64 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   );
 }
 
-function Rotation({ themes }) {
+function Rotation({ themes, liveThemeData, stockMap }) {
+  const [liveMode, setLiveMode] = useState(false);
+
+  // Compute live theme performance from theme_universe data
+  const liveThemePerf = useMemo(() => {
+    if (!liveThemeData || liveThemeData.length === 0 || !themes) return {};
+    // Build ticker → change% lookup
+    const changeLookup = {};
+    liveThemeData.forEach(s => { if (s.change != null) changeLookup[s.ticker] = s.change; });
+
+    const perf = {};
+    themes.forEach(t => {
+      const tickers = t.subthemes?.flatMap(s => s.tickers || []) || [];
+      const changes = tickers.map(tk => changeLookup[tk]).filter(v => v != null);
+      if (changes.length === 0) return;
+      const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
+      const up = changes.filter(c => c > 0).length;
+      const down = changes.filter(c => c < 0).length;
+      perf[t.theme] = { avg, up, down, total: changes.length, breadth: Math.round(up / changes.length * 100) };
+    });
+    return perf;
+  }, [liveThemeData, themes]);
+
+  const hasLiveData = Object.keys(liveThemePerf).length > 0;
+
+  // Build enriched themes list with live data
+  const enrichedThemes = useMemo(() => {
+    return themes.map(t => ({
+      ...t,
+      live_change: liveThemePerf[t.theme]?.avg ?? null,
+      live_breadth: liveThemePerf[t.theme]?.breadth ?? null,
+      live_up: liveThemePerf[t.theme]?.up ?? 0,
+      live_down: liveThemePerf[t.theme]?.down ?? 0,
+      live_total: liveThemePerf[t.theme]?.total ?? 0,
+    }));
+  }, [themes, liveThemePerf]);
+
   const quads = useMemo(() => {
     const q = { STRONG: [], IMPROVING: [], WEAKENING: [], WEAK: [] };
-    themes.forEach(t => q[getQuad(t.weekly_rs, t.monthly_rs)].push(t));
-    Object.keys(q).forEach(k => q[k].sort((a, b) => b.rts - a.rts));
+    enrichedThemes.forEach(t => q[getQuad(t.weekly_rs, t.monthly_rs)].push(t));
+    Object.keys(q).forEach(k => {
+      if (liveMode && hasLiveData) {
+        q[k].sort((a, b) => (b.live_change ?? -999) - (a.live_change ?? -999));
+      } else {
+        q[k].sort((a, b) => b.rts - a.rts);
+      }
+    });
     return q;
-  }, [themes]);
+  }, [enrichedThemes, liveMode, hasLiveData]);
+
+  // Sorted flat list for live view
+  const liveRanked = useMemo(() => {
+    if (!liveMode || !hasLiveData) return [];
+    return [...enrichedThemes]
+      .filter(t => t.live_change != null)
+      .sort((a, b) => b.live_change - a.live_change);
+  }, [enrichedThemes, liveMode, hasLiveData]);
+
   const QuadBox = ({ quad, title, desc, items }) => {
     const qc = QC[quad];
     return (
@@ -678,9 +729,21 @@ function Rotation({ themes }) {
         <div style={{ color: qc.text + "88", fontSize: 10, marginBottom: 8 }}>{desc}</div>
         {items.map(t => (
           <div key={t.theme} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", borderRadius: 4, marginBottom: 2, background: qc.bg + "80" }}>
-            <span style={{ color: qc.text, fontWeight: 600, fontSize: 12, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.theme}</span>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ color: qc.text, fontSize: 11, fontFamily: "monospace" }}>RTS {t.rts}</span>
+            <span style={{ color: qc.text, fontWeight: 600, fontSize: 12, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.theme}</span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {liveMode && t.live_change != null && (
+                <span style={{ color: t.live_change > 0 ? "#4ade80" : t.live_change < 0 ? "#f87171" : "#888",
+                  fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>
+                  {t.live_change > 0 ? "+" : ""}{t.live_change.toFixed(2)}%
+                </span>
+              )}
+              {liveMode && t.live_breadth != null && (
+                <span style={{ fontSize: 9, color: t.live_breadth >= 60 ? "#4ade80" : t.live_breadth >= 40 ? "#fbbf24" : "#f87171",
+                  fontFamily: "monospace" }}>
+                  {t.live_breadth}%↑
+                </span>
+              )}
+              {!liveMode && <span style={{ color: qc.text, fontSize: 11, fontFamily: "monospace" }}>RTS {t.rts}</span>}
               <Ret v={t.return_1m} /><Ret v={t.return_3m} />
             </div>
           </div>
@@ -688,8 +751,56 @@ function Rotation({ themes }) {
       </div>
     );
   };
+
   return (
     <div>
+      {/* Live toggle */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <button onClick={() => setLiveMode(p => !p)}
+          style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer",
+            border: liveMode ? "1px solid #10b981" : "1px solid #333",
+            background: liveMode ? "#10b98120" : "transparent", color: liveMode ? "#6ee7b7" : "#888" }}>
+          {liveMode ? "● LIVE" : "○ Pipeline"}</button>
+        {liveMode && !hasLiveData && <span style={{ fontSize: 10, color: "#f87171" }}>No live data yet — waiting for API</span>}
+        {liveMode && hasLiveData && <span style={{ fontSize: 10, color: "#555" }}>{Object.keys(liveThemePerf).length} themes tracked live</span>}
+      </div>
+
+      {/* Live ranked list */}
+      {liveMode && hasLiveData && (
+        <div style={{ marginBottom: 16, background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 8, padding: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+            Intraday Theme Ranking
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+            {liveRanked.map((t, i) => {
+              const quad = getQuad(t.weekly_rs, t.monthly_rs);
+              const qc = QC[quad];
+              const chg = t.live_change;
+              const diverging = (quad === "WEAK" && chg > 1) || (quad === "STRONG" && chg < -1);
+              return (
+                <div key={t.theme} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 8px", borderRadius: 4,
+                  background: diverging ? "#fbbf2410" : "transparent", borderLeft: `3px solid ${qc.tag}` }}>
+                  <span style={{ color: "#555", fontSize: 9, fontFamily: "monospace", width: 16 }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t.theme}
+                  </span>
+                  <span style={{ fontSize: 10, color: t.live_breadth >= 60 ? "#4ade80" : t.live_breadth >= 40 ? "#fbbf24" : "#f87171",
+                    fontFamily: "monospace" }}>
+                    {t.live_up}/{t.live_total}
+                  </span>
+                  <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 11, width: 55, textAlign: "right",
+                    color: chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : "#888" }}>
+                    {chg > 0 ? "+" : ""}{chg.toFixed(2)}%
+                  </span>
+                  {diverging && <span style={{ fontSize: 9, color: "#fbbf24" }} title="Diverging from trend">⚡</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Quad chart */}
       <div style={{ textAlign: "center", color: "#666", fontSize: 11, marginBottom: 8 }}>↑ MONTHLY RS STRONG</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <QuadBox quad="WEAKENING" title="WEAKENING" desc="Monthly strong, Weekly fading — tighten stops" items={quads.WEAKENING} />
@@ -1682,7 +1793,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, themeHealth, themes }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, themeHealth, themes, onLiveThemeData }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1697,18 +1808,30 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   // Combine all tickers for API call
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
 
+  // Build theme universe ticker list for live rotation
+  const universeTickers = useMemo(() => {
+    if (!themes) return [];
+    const set = new Set();
+    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => set.add(tk))));
+    return [...set];
+  }, [themes]);
+
   const fetchLive = useCallback(async () => {
     try {
-      const tickerParam = allTickers.length > 0 ? `?tickers=${allTickers.join(",")}` : "";
-      const resp = await fetch(`/api/live${tickerParam}`);
+      const params = new URLSearchParams();
+      if (allTickers.length > 0) params.set("tickers", allTickers.join(","));
+      if (universeTickers.length > 0) params.set("universe", universeTickers.join(","));
+      const qs = params.toString();
+      const resp = await fetch(`/api/live${qs ? "?" + qs : ""}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
       if (!json.ok) throw new Error(json.error || "API error");
       setLiveData(json);
       setLastUpdate(new Date());
       setError(null);
+      if (json.theme_universe && onLiveThemeData) onLiveThemeData(json.theme_universe);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [allTickers]);
+  }, [allTickers, universeTickers]);
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
@@ -2058,6 +2181,7 @@ function AppMain({ authToken, onLogout }) {
   const [error, setError] = useState(null);
   const [chartTicker, setChartTicker] = useState(null);
   const [mmData, setMmData] = useState(null);
+  const [liveThemeData, setLiveThemeData] = useState(null);
 
   useEffect(() => {
     fetch("/dashboard_data.json").then(r => { if (!r.ok) throw new Error(); return r.json(); })
@@ -2269,7 +2393,7 @@ function AppMain({ authToken, onLogout }) {
         {/* Left: data views */}
         <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} />}
-          {view === "rotation" && <Rotation themes={data.themes} />}
+          {view === "rotation" && <Rotation themes={data.themes} liveThemeData={liveThemeData} stockMap={stockMap} />}
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
@@ -2278,7 +2402,7 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            themeHealth={data?.theme_health} themes={data?.themes} />}
+            themeHealth={data?.theme_health} themes={data?.themes} onLiveThemeData={setLiveThemeData} />}
         </div>
 
         {/* Draggable divider */}
