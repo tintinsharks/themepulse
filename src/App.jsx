@@ -662,13 +662,34 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 
 function Rotation({ themes, liveThemeData, stockMap }) {
   const [liveMode, setLiveMode] = useState(false);
+  const [localLiveData, setLocalLiveData] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  // If we have data from LiveView, use that. Otherwise fetch our own.
+  const themeData = liveThemeData || localLiveData;
+
+  // Fetch live data independently when live mode is toggled on and no data exists
+  useEffect(() => {
+    if (!liveMode || themeData || !themes) return;
+    setLiveLoading(true);
+    const tickers = new Set();
+    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    if (tickers.size === 0) { setLiveLoading(false); return; }
+    const params = new URLSearchParams();
+    params.set("universe", [...tickers].join(","));
+    fetch(`/api/live?${params}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+      .catch(() => {})
+      .finally(() => setLiveLoading(false));
+  }, [liveMode, themeData, themes]);
 
   // Compute live theme performance from theme_universe data
   const liveThemePerf = useMemo(() => {
-    if (!liveThemeData || liveThemeData.length === 0 || !themes) return {};
+    if (!themeData || themeData.length === 0 || !themes) return {};
     // Build ticker → change% lookup
     const changeLookup = {};
-    liveThemeData.forEach(s => { if (s.change != null) changeLookup[s.ticker] = s.change; });
+    themeData.forEach(s => { if (s.change != null) changeLookup[s.ticker] = s.change; });
 
     const perf = {};
     themes.forEach(t => {
@@ -681,7 +702,7 @@ function Rotation({ themes, liveThemeData, stockMap }) {
       perf[t.theme] = { avg, up, down, total: changes.length, breadth: Math.round(up / changes.length * 100) };
     });
     return perf;
-  }, [liveThemeData, themes]);
+  }, [themeData, themes]);
 
   const hasLiveData = Object.keys(liveThemePerf).length > 0;
 
@@ -761,7 +782,8 @@ function Rotation({ themes, liveThemeData, stockMap }) {
             border: liveMode ? "1px solid #10b981" : "1px solid #333",
             background: liveMode ? "#10b98120" : "transparent", color: liveMode ? "#6ee7b7" : "#888" }}>
           {liveMode ? "● LIVE" : "○ Pipeline"}</button>
-        {liveMode && !hasLiveData && <span style={{ fontSize: 10, color: "#f87171" }}>No live data yet — waiting for API</span>}
+        {liveMode && !hasLiveData && !liveLoading && <span style={{ fontSize: 10, color: "#f87171" }}>No live data — market may be closed</span>}
+        {liveMode && liveLoading && <span style={{ fontSize: 10, color: "#fbbf24" }}>Fetching live data...</span>}
         {liveMode && hasLiveData && <span style={{ fontSize: 10, color: "#555" }}>{Object.keys(liveThemePerf).length} themes tracked live</span>}
       </div>
 
