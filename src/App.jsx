@@ -1458,7 +1458,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["RVol", "rel_volume"],
+  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"], ["Gap%", "gap"], ["RVol", "rel_volume"],
   ["ZVR", "zvr"], ["1M%", null], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
   ["ROE", "roe"], ["Mgn%", "margin"],
 ];
@@ -1494,6 +1494,8 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#ccc", fontFamily: "monospace", fontSize: 11 }}>{s.rs_rank ?? '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.gap), fontFamily: "monospace", fontSize: 11 }}>
+        {s.gap != null ? `${s.gap >= 0 ? '+' : ''}${s.gap.toFixed(1)}%` : '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#555" }}>
         {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
@@ -1690,6 +1692,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
   const [vgSort, setVgSort] = useState("change");
+  const [pmSort, setPmSort] = useState("gap");
 
   // Combine all tickers for API call
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -1714,6 +1717,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     const tickers = [
       ...(liveData.watchlist || []).map(s => s.ticker),
       ...(liveData.top_gainers || []).slice(0, 30).map(s => s.ticker),
+      ...(liveData.premarket_movers || []).slice(0, 30).map(s => s.ticker),
     ];
     onVisibleTickers(tickers);
   }, [liveData, onVisibleTickers]);
@@ -1784,6 +1788,32 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     };
   }, [stockMap]);
 
+  // Merge for premarket/afterhours movers
+  const mergePremarket = useCallback((g) => {
+    const pipe = stockMap?.[g.ticker] || {};
+    return {
+      ticker: g.ticker,
+      price: g.price,
+      change: g.change,
+      gap: g.gap,
+      rel_volume: g.rel_volume,
+      zvr: g.zvr ?? null,
+      grade: pipe.grade,
+      rs_rank: pipe.rs_rank,
+      return_1m: pipe.return_1m,
+      return_3m: pipe.return_3m,
+      pct_from_high: g.high_52w ?? pipe.pct_from_high,
+      vcs: pipe.vcs,
+      vcs_detail: pipe.vcs_detail,
+      adr_pct: pipe.adr_pct,
+      roe: pipe.roe,
+      profit_margin: pipe.profit_margin,
+      rsi: g.rsi ?? pipe.rsi,
+      theme: pipe.themes?.[0]?.theme || g.sector || "",
+      company: g.company || pipe.company || "",
+    };
+  }, [stockMap]);
+
   const handleAddP = () => { const t = addTickerP.trim().toUpperCase(); if (t) addToPortfolio(t); setAddTickerP(""); };
   const handleAddW = () => { const t = addTickerW.trim().toUpperCase(); if (t) addToWatchlist(t); setAddTickerW(""); };
 
@@ -1802,6 +1832,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rel_volume: sortFn("rel_volume"), zvr: sortFn("zvr"), rsi: sortFn("rsi"), price: sortFn("price"),
+    gap: sortFn("gap"),
   });
 
   const sortList = (list, sortKey) => {
@@ -1819,6 +1850,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     const filtered = vgThemeOnly ? all.filter(g => stockMap?.[g.ticker]) : all;
     return sortList(filtered, vgSort);
   }, [liveData?.top_gainers, mergeGainer, vgSort, vgThemeOnly, stockMap]);
+
+  const [pmThemeOnly, setPmThemeOnly] = useState(true);
+  const premarketMerged = useMemo(() => {
+    const all = (liveData?.premarket_movers || []).map(mergePremarket);
+    const filtered = pmThemeOnly ? all.filter(g => stockMap?.[g.ticker]) : all;
+    return sortList(filtered, pmSort);
+  }, [liveData?.premarket_movers, mergePremarket, pmSort, pmThemeOnly, stockMap]);
 
   return (
     <div>
@@ -1876,26 +1914,55 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         )}
       </div>
 
-      {/* ── 3. Top Gainers ── */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            Top Gainers
-          </span>
-          <button onClick={() => setVgThemeOnly(p => !p)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-            border: vgThemeOnly ? "1px solid #c084fc" : "1px solid #333",
-            background: vgThemeOnly ? "#c084fc20" : "transparent", color: vgThemeOnly ? "#c084fc" : "#666" }}>
-            {vgThemeOnly ? "Theme Universe" : "All Stocks"}</button>
-          <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length} stocks</span>
-        </div>
-        {gainersMerged.length > 0 ? (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={gainersMerged} sortKey={vgSort} setter={setVgSort}
-            onAdd={(t) => { addToWatchlist(t); }} addLabel="+watch" />
-        ) : (
-          <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
-            {loading ? "Loading top gainers..." : "No top gainers right now (market may be closed)."}
+      {/* ── 3. Top Gainers + Premarket Movers (split) ── */}
+      <div style={{ display: "flex", gap: 12 }}>
+        {/* Left: Intraday Top Gainers */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+              Top Gainers
+            </span>
+            <button onClick={() => setVgThemeOnly(p => !p)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+              border: vgThemeOnly ? "1px solid #c084fc" : "1px solid #333",
+              background: vgThemeOnly ? "#c084fc20" : "transparent", color: vgThemeOnly ? "#c084fc" : "#666" }}>
+              {vgThemeOnly ? "Themes" : "All"}</button>
+            <span style={{ fontSize: 10, color: "#555" }}>{gainersMerged.length}</span>
           </div>
-        )}
+          <div style={{ maxHeight: 400, overflowY: "auto", border: "1px solid #1a1a1a", borderRadius: 4 }}>
+            {gainersMerged.length > 0 ? (
+              <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={gainersMerged} sortKey={vgSort} setter={setVgSort}
+                onAdd={(t) => { addToWatchlist(t); }} addLabel="+watch" />
+            ) : (
+              <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
+                {loading ? "Loading..." : "No gainers right now."}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Premarket / After-Hours Movers */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ color: "#f59e0b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+              Pre/Post Mkt
+            </span>
+            <button onClick={() => setPmThemeOnly(p => !p)} style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+              border: pmThemeOnly ? "1px solid #f59e0b" : "1px solid #333",
+              background: pmThemeOnly ? "#f59e0b20" : "transparent", color: pmThemeOnly ? "#f59e0b" : "#666" }}>
+              {pmThemeOnly ? "Themes" : "All"}</button>
+            <span style={{ fontSize: 10, color: "#555" }}>{premarketMerged.length}</span>
+          </div>
+          <div style={{ maxHeight: 400, overflowY: "auto", border: "1px solid #1a1a1a", borderRadius: 4 }}>
+            {premarketMerged.length > 0 ? (
+              <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={premarketMerged} sortKey={pmSort} setter={setPmSort}
+                onAdd={(t) => { addToWatchlist(t); }} addLabel="+watch" />
+            ) : (
+              <div style={{ color: "#555", fontSize: 11, padding: 10 }}>
+                {loading ? "Loading..." : "No premarket movers (market hours or no gaps >1%)."}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

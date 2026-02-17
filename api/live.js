@@ -358,6 +358,50 @@ async function fetchTopGainers(cookies) {
   }));
 }
 
+// ── Fetch premarket/afterhours movers ──
+async function fetchPremarketMovers(cookies) {
+  // Finviz screener sorted by gap%, mid cap+, gap up > 1%
+  // Columns: Ticker(1), Company(2), Sector(3), Industry(4), Market Cap(6), Price(62), Change(64), Gap(60), Volume(48), Avg Volume(49), Rel Volume(50), ATR(55), 52W High(46), RSI(43)
+  const cols = "1,2,3,4,6,62,64,60,48,49,50,55,46,43";
+  const url = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,ta_gap_u1&o=-gap&c=${cols}`;
+
+  const resp = await fetch(url, {
+    headers: { ...HEADERS, Cookie: cookies },
+  });
+
+  if (!resp.ok) {
+    console.error(`Premarket movers fetch failed: ${resp.status}`);
+    return [];
+  }
+
+  const ct = resp.headers.get("content-type") || "";
+  if (ct.includes("html")) {
+    console.error("Got HTML instead of CSV for premarket movers");
+    return [];
+  }
+
+  const text = await resp.text();
+  const rows = parseCSV(text);
+
+  return rows.slice(0, 30).map((r) => ({
+    ticker: r["Ticker"],
+    company: r["Company"],
+    sector: r["Sector"],
+    industry: r["Industry"],
+    market_cap: r["Market Cap"],
+    price: num(r["Price"]),
+    change: pct(r["Change"]),
+    gap: pct(r["Gap"]),
+    volume: r["Volume"],
+    avg_volume: r["Avg Volume"],
+    rel_volume: num(r["Rel Volume"]),
+    zvr: calcZVR(r["Volume"], r["Avg Volume"]),
+    high_52w: pct(r["52W High"]),
+    rsi: num(r["RSI"]),
+    atr: num(r["ATR"]),
+  }));
+}
+
 // ── Handler ──
 export default async function handler(req, res) {
   // CORS
@@ -382,12 +426,13 @@ export default async function handler(req, res) {
           .slice(0, 30) // cap at 30
       : [];
 
-    // Fetch both in parallel
-    const [watchlist, topGainers] = await Promise.all([
+    // Fetch all in parallel
+    const [watchlist, topGainers, premarketMovers] = await Promise.all([
       watchlistTickers.length > 0
         ? fetchWatchlist(cookies, watchlistTickers)
         : Promise.resolve([]),
       fetchTopGainers(cookies),
+      fetchPremarketMovers(cookies),
     ]);
 
     return res.status(200).json({
@@ -395,6 +440,7 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString(),
       watchlist,
       top_gainers: topGainers,
+      premarket_movers: premarketMovers,
     });
   } catch (err) {
     console.error("Live API error:", err);
