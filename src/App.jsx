@@ -322,9 +322,10 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
-  const [detailTheme, setDetailTheme] = useState(null); // full table view for a theme
+  const [detailTheme, setDetailTheme] = useState(null);
   const [detailSort, setDetailSort] = useState("rs");
-  const [healthFilter, setHealthFilter] = useState(null); // null = all, or "ADD"/"REMOVE"/"LEADING" etc
+  const [healthFilter, setHealthFilter] = useState(null);
+  const [showLegend, setShowLegend] = useState(false);
   // Build theme breadth lookup from MM data
   const breadthMap = useMemo(() => {
     const m = {};
@@ -426,7 +427,14 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
         </>)}
       </div>
       {/* Legend */}
-      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
+      <div onClick={() => setShowLegend(p => !p)}
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 6, background: "#111",
+          borderRadius: showLegend ? "4px 4px 0 0" : 4, fontSize: 9, color: "#666", cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 10 }}>{showLegend ? "▾" : "▸"}</span>
+        <span style={{ fontWeight: 700 }}>LEGEND</span>
+      </div>
+      {showLegend && (
+      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: "0 0 4px 4px", fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
         <span><b style={{ color: "#059669" }}>STRONG</b>/<b style={{ color: "#d97706" }}>IMPROVING</b>/<b style={{ color: "#ea580c" }}>WEAKENING</b>/<b style={{ color: "#dc2626" }}>WEAK</b> — Quadrant (Weekly vs Monthly RS)</span>
         <span style={{ color: "#333" }}>|</span>
         <span><b style={{ color: "#888" }}>11</b> — Stock count</span>
@@ -444,7 +452,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
           <span style={{ color: "#333" }}>|</span>
           <span><b style={{ color: "#4ade80" }}>★ ADD</b> / <b style={{ color: "#f87171" }}>✗ REMOVE</b> — Theme health signal (structure + momentum + breakouts + breadth composite)</span>
         </>)}
-      </div>
+      </div>)}
       {list.map(theme => {
         const quad = getQuad(theme.weekly_rs, theme.monthly_rs);
         const qc = QC[quad]; const isOpen = open[theme.theme];
@@ -1337,7 +1345,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(3);
   const [maxDays, setMaxDays] = useState(60);
-  const [statusFilter, setStatusFilter] = useState(null); // null = all
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [showLegend, setShowLegend] = useState(false);
 
   const filtered = useMemo(() => {
     if (!epSignals || !epSignals.length) return [];
@@ -1404,13 +1413,20 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   return (
     <div>
       {/* Legend */}
-      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: 4, fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
+      <div onClick={() => setShowLegend(p => !p)}
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 6, background: "#111",
+          borderRadius: showLegend ? "4px 4px 0 0" : 4, fontSize: 9, color: "#666", cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 10 }}>{showLegend ? "▾" : "▸"}</span>
+        <span style={{ fontWeight: 700 }}>LEGEND</span>
+      </div>
+      {showLegend && (
+      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#111", borderRadius: "0 0 4px 4px", fontSize: 9, color: "#666", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8, marginTop: -1 }}>
         <span style={{ color: "#fbbf24", fontWeight: 700 }}>EPISODIC PIVOT</span>
         <span>Gap ≥8% on open, Volume ≥3x 50d avg, Close in upper 40% of range</span>
         <span style={{ color: "#333" }}>|</span>
         <span style={{ color: "#fbbf24", fontWeight: 700 }}>★ CONSOLIDATING</span>
         <span>= Delayed entry (Bonde): 3+ days after EP, pullback ≤10%, volume contracting ≤70% of EP day, gap held</span>
-      </div>
+      </div>)}
 
       {/* Filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
@@ -1581,6 +1597,7 @@ function IndexChart({ symbol, name, maData }) {
 }
 
 function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
+  const [showLegend, setShowLegend] = useState(false);
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
   const groups = useMemo(() => {
     const g = {}; grades.forEach(gr => { g[gr] = stocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
@@ -1596,7 +1613,14 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   return (
     <div style={{ overflowX: "auto" }}>
       {/* Legend */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 10, padding: "8px 12px", background: "#111", borderRadius: 6, fontSize: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <div onClick={() => setShowLegend(p => !p)}
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 10, background: "#111",
+          borderRadius: showLegend ? "6px 6px 0 0" : 6, fontSize: 10, color: "#666", cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 10 }}>{showLegend ? "▾" : "▸"}</span>
+        <span style={{ fontWeight: 700, fontSize: 9 }}>LEGEND</span>
+      </div>
+      {showLegend && (
+      <div style={{ display: "flex", gap: 20, marginBottom: 10, padding: "8px 12px", background: "#111", borderRadius: "0 0 6px 6px", fontSize: 10, flexWrap: "wrap", alignItems: "center", marginTop: -1 }}>
         <span style={{ color: "#888", fontWeight: 700 }}>COLUMN GRADE (RTS Score):</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: "#1B7A2B" }} /> <span style={{ color: "#aaa" }}>A+ to A- — Strongest momentum</span>
@@ -1618,7 +1642,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
         <span style={{ color: "#f87171", fontWeight: 700, fontFamily: "monospace" }}>Red</span><span style={{ color: "#aaa" }}> = ATR/50 ≥ 7x (extremely extended)</span>
         <span style={{ color: "#c084fc", fontWeight: 700, fontFamily: "monospace" }}>Purple</span><span style={{ color: "#aaa" }}> = ATR/50 ≥ 5x (extended)</span>
         <span style={{ color: "#bbb", fontFamily: "monospace" }}>Default</span><span style={{ color: "#aaa" }}> = Not extended</span>
-      </div>
+      </div>)}
       <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
         {grades.map(g => {
           const light = ["C+","C","C-","D+","D","D-"].includes(g);
