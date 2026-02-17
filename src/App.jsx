@@ -235,15 +235,15 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#4ade80" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
+          {stock.sma20_pct != null && stock.dist_20dma_atrx != null && (() => {
+            const atrx = Math.abs(stock.dist_20dma_atrx);
+            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
+            return <StockStat label="Dist 20 SMA" value={`${stock.sma20_pct > 0 ? '+' : ''}${stock.sma20_pct}% / ${stock.dist_20dma_atrx}x`} color={col} />;
+          })()}
           {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_50sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 50 SMA" value={`${stock.sma50_pct > 0 ? '+' : ''}${stock.sma50_pct}% / ${stock.dist_50sma_atrx}x`} color={col} />;
-          })()}
-          {stock.sma20_pct != null && stock.dist_20dma_atrx != null && (() => {
-            const atrx = Math.abs(stock.dist_20dma_atrx);
-            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="Dist 20 DMA" value={`${stock.sma20_pct > 0 ? '+' : ''}${stock.sma20_pct}% / ${stock.dist_20dma_atrx}x`} color={col} />;
           })()}
           {stock.sma200_pct != null && stock.dist_200sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_200sma_atrx);
@@ -1215,7 +1215,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   // Column header config: [label, sortKey or null]
   const columns = [
-    ["Action", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
+    ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null],
   ];
@@ -1262,7 +1262,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #1a1a1a", cursor: "pointer",
                 background: isActive ? "#10b98115" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center" }}><span style={{ background: ac, color: "#fff", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{action}</span></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#10b981" : "#fff", fontWeight: 700 }}>{s.ticker}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#ccc", fontFamily: "monospace" }}>{s.rs_rank}</td>
