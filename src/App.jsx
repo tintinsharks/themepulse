@@ -1848,7 +1848,7 @@ function LoginScreen({ onLogin }) {
 
 function AppMain({ authToken, onLogout }) {
   const [data, setData] = useState(null);
-  const [view, setView] = useState("leaders");
+  const [view, setView] = useState("live");
   const [filters, setFilters] = useState({ minRTS: 0, quad: null, search: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -2036,7 +2036,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
-        {[["leaders","Theme Leaders"],["rotation","Rotation"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"],["mm","Mkt Monitor"],["live","Live"]].map(([id, label]) => (
+        {[["live","Live"],["leaders","Theme Leaders"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"],["rotation","Rotation"],["mm","Mkt Monitor"]].map(([id, label]) => (
           <button key={id} onClick={() => setView(id)} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #10b98150" : "1px solid transparent",
             background: view === id ? "#10b98115" : "transparent", color: view === id ? "#6ee7b7" : "#666" }}>{label}</button>
