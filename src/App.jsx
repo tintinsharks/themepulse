@@ -1870,7 +1870,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
             Add tickers above or click <span style={{ color: "#10b981" }}>+watch</span> on volume gainers below.
           </div>
         ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} />
+          <div style={{ maxHeight: 310, overflowY: "auto", border: "1px solid #1a1a1a", borderRadius: 4 }}>
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} />
+          </div>
         )}
       </div>
 
