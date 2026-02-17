@@ -202,12 +202,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock.vcs != null && <StockStat label="VCS" value={stock.vcs}
             color={stock.vcs >= 80 ? "#4ade80" : stock.vcs >= 60 ? "#60a5fa" : "#f97316"} />}
           {stock.rel_volume != null && <StockStat label="RVol" value={`${stock.rel_volume}x`} />}
-        </div>
-      )}
-
-      {/* ATRX Pro style MA distances — matches Pine Script color thresholds */}
-      {stock && (stock.dist_50sma_atrx != null || stock.dist_20dma_atrx != null) && (
-        <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0 }}>
           {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_50sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
@@ -223,41 +217,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
-        </div>
-      )}
-
-      {/* Fundamentals row */}
-      {stock && (stock.eps_yoy != null || stock.sales_yoy != null || stock.eps_qq != null || stock.pe != null) && (
-        <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0, flexWrap: "wrap" }}>
-          {/* YoY metrics (from FMP) — preferred */}
-          {stock.eps_yoy != null && <StockStat label="EPS YoY" value={`${stock.eps_yoy > 0 ? '+' : ''}${stock.eps_yoy}%`}
-            color={stock.eps_yoy > 25 ? "#4ade80" : stock.eps_yoy > 0 ? "#888" : "#f87171"} />}
-          {stock.sales_yoy != null && <StockStat label="Rev YoY" value={`${stock.sales_yoy > 0 ? '+' : ''}${stock.sales_yoy}%`}
-            color={stock.sales_yoy > 25 ? "#4ade80" : stock.sales_yoy > 0 ? "#888" : "#f87171"} />}
-          {/* Acceleration: compare current YoY to previous quarter YoY */}
-          {stock.eps_yoy != null && stock.eps_yoy_prev != null && (() => {
-            const accel = stock.eps_yoy > stock.eps_yoy_prev;
-            return <StockStat label="EPS Accel" value={accel ? "▲ Yes" : "▼ No"} color={accel ? "#4ade80" : "#f87171"} />;
-          })()}
-          {stock.sales_yoy != null && stock.sales_yoy_prev != null && (() => {
-            const accel = stock.sales_yoy > stock.sales_yoy_prev;
-            return <StockStat label="Rev Accel" value={accel ? "▲ Yes" : "▼ No"} color={accel ? "#4ade80" : "#f87171"} />;
-          })()}
-          {/* Fallback to Finviz Q/Q if no FMP data */}
-          {stock.eps_yoy == null && stock.eps_qq != null && <StockStat label="EPS Q/Q" value={`${stock.eps_qq > 0 ? '+' : ''}${stock.eps_qq}%`}
-            color={stock.eps_qq > 25 ? "#4ade80" : stock.eps_qq > 0 ? "#888" : "#f87171"} />}
-          {stock.sales_yoy == null && stock.sales_qq != null && <StockStat label="Rev Q/Q" value={`${stock.sales_qq > 0 ? '+' : ''}${stock.sales_qq}%`}
-            color={stock.sales_qq > 25 ? "#4ade80" : stock.sales_qq > 0 ? "#888" : "#f87171"} />}
-          {stock.eps_growth_y != null && <StockStat label="EPS Y" value={`${stock.eps_growth_y > 0 ? '+' : ''}${stock.eps_growth_y}%`}
-            color={stock.eps_growth_y > 25 ? "#4ade80" : stock.eps_growth_y > 0 ? "#888" : "#f87171"} />}
-          {stock.pe != null && <StockStat label="P/E" value={stock.pe} />}
-          {stock.fwd_pe != null && <StockStat label="Fwd P/E" value={stock.fwd_pe} />}
-          {stock.peg != null && <StockStat label="PEG" value={stock.peg}
-            color={stock.peg > 0 && stock.peg < 1.5 ? "#4ade80" : stock.peg > 3 ? "#f87171" : "#888"} />}
-          {stock.roe != null && <StockStat label="ROE" value={`${stock.roe}%`}
-            color={stock.roe > 15 ? "#4ade80" : stock.roe > 0 ? "#888" : "#f87171"} />}
-          {stock.profit_margin != null && <StockStat label="Margin" value={`${stock.profit_margin}%`}
-            color={stock.profit_margin > 10 ? "#4ade80" : stock.profit_margin > 0 ? "#888" : "#f87171"} />}
         </div>
       )}
 
@@ -304,14 +263,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                     <div style={{ color: "#ccc" }}>{q.revenue_fmt}</div>
                     {q.sales_yoy != null && <div style={{ color: yoyColor(q.sales_yoy), fontSize: 8 }}>{fmtYoY(q.sales_yoy)}</div>}
                   </td>
-                ))}
-              </tr>
-              {/* Net Margin row */}
-              <tr>
-                <td style={{ padding: "2px 6px", color: "#555" }}>Net Margin %</td>
-                {withYoY.map(q => (
-                  <td key={q.label} style={{ padding: "2px 8px", textAlign: "center",
-                    color: q.net_margin > 10 ? "#4ade80" : q.net_margin > 0 ? "#888" : "#f87171" }}>{q.net_margin}%</td>
                 ))}
               </tr>
             </tbody>
