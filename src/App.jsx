@@ -1739,21 +1739,53 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
   // Build earnings list from entire stockMap
   const earningsList = useMemo(() => {
     if (!stockMap) return [];
-    return Object.values(stockMap)
-      .filter(s => s.earnings_days != null && s.earnings_days >= -1 && s.earnings_days <= range)
-      .map(s => ({
-        ticker: s.ticker,
-        company: s.company || "",
-        days: s.earnings_days,
-        date: s.earnings_display || s.earnings_date || "",
-        grade: s.grade,
-        rs_rank: s.rs_rank,
-        return_3m: s.return_3m,
-        pct_from_high: s.pct_from_high,
-        theme: s.themes?.[0]?.theme || "",
-        market_cap: s.market_cap || "",
-      }))
-      .sort((a, b) => a.days - b.days);
+    const now = new Date();
+    const results = [];
+
+    Object.values(stockMap).forEach(s => {
+      let days = s.earnings_days;
+      let dateStr = s.earnings_display || s.earnings_date || "";
+
+      // If earnings_days not set but earnings_date exists, parse it
+      if (days == null && s.earnings_date) {
+        try {
+          const raw = s.earnings_date.replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
+          const parts = raw.split(/\s+/);
+          if (parts.length >= 2) {
+            const year = now.getFullYear();
+            // Try current year, then next year
+            for (const y of [year, year + 1]) {
+              const parsed = new Date(`${parts[0]} ${parts[1]}, ${y}`);
+              if (!isNaN(parsed)) {
+                const diff = Math.floor((parsed - now) / 86400000);
+                if (diff >= -1) {
+                  days = diff;
+                  dateStr = s.earnings_date + (s.earnings_display ? "" : ` (${diff}d)`);
+                  break;
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (days != null && days >= -1 && days <= range) {
+        results.push({
+          ticker: s.ticker,
+          company: s.company || "",
+          days,
+          date: dateStr,
+          grade: s.grade,
+          rs_rank: s.rs_rank,
+          return_3m: s.return_3m,
+          pct_from_high: s.pct_from_high,
+          theme: s.themes?.[0]?.theme || "",
+          market_cap: s.market_cap || "",
+        });
+      }
+    });
+
+    return results.sort((a, b) => a.days - b.days);
   }, [stockMap, range]);
 
   // Group by day
@@ -1777,6 +1809,11 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
       <div style={{ padding: "12px 16px", borderBottom: "1px solid #222", display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#c084fc", letterSpacing: 1, flex: 1 }}>EARNINGS CALENDAR</span>
         <span style={{ fontSize: 10, color: "#888" }}>{earningsList.length} reports</span>
+        {earningsList.length === 0 && stockMap && (
+          <span style={{ fontSize: 9, color: "#555" }}>
+            ({Object.values(stockMap).filter(s => s.earnings_date).length} have dates)
+          </span>
+        )}
         <select value={range} onChange={e => setRange(+e.target.value)}
           style={{ background: "#111", border: "1px solid #333", color: "#888", borderRadius: 4, fontSize: 10, padding: "2px 4px" }}>
           <option value={7}>7 days</option>
