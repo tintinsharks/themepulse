@@ -156,7 +156,7 @@ function normalizeRow(r) {
     // Price/Change - try both old and new names
     "Price": r["Price"] || r["Current Price"],
     "Change": r["Change"] || r["Change (%)"],
-    "Change from Open": r["Change from Open"],
+    "Change from Open": r["Change from Open"] || r["Change From Open"] || r["Change from Open (%)"] || r["From Open"] || r["Open Change"],
     "Gap": r["Gap"] || r["Gap (%)"],
     "Volume": r["Volume"],
     "Avg Volume": r["Avg Volume"] || r["Average Volume"],
@@ -377,7 +377,13 @@ async function fetchThemeUniverse(cookies, tickers) {
       }
 
       const text = await resp.text();
-      const rows = parseCSV(text);
+      const rows = parseCSV(text, attempt === 1 ? "theme_universe" : null);
+      if (attempt === 1 && rows.length > 0) {
+        const sample = rows[0];
+        const changeKeys = Object.keys(sample).filter(k => k.toLowerCase().includes("change") || k.toLowerCase().includes("open"));
+        console.log("Theme universe change-related keys:", changeKeys.join(", "));
+        console.log("Theme universe sample values:", changeKeys.map(k => `${k}=${sample[k]}`).join(", "));
+      }
       return rows.map(raw => {
         const r = normalizeRow(raw);
         return {
