@@ -160,6 +160,7 @@ function normalizeRow(r) {
     "P/E": r["P/E"],
     // Price/Change - try both old and new names
     "Price": r["Price"] || r["Current Price"],
+    "Open": r["Open"] || r["Open Price"],
     "Change": r["Change"] || r["Change (%)"],
     "Change from Open": r["Change from Open"] || r["Change From Open"] || r["Change from Open (%)"] || r["From Open"] || r["Open Change"],
     "Gap": r["Gap"] || r["Gap (%)"],
@@ -346,9 +347,8 @@ async function fetchThemeUniverse(cookies, tickers) {
 
   async function fetchBatch(batch, attempt = 1) {
     const tickerStr = batch.join(",");
-    // v=152 = technical view. Add custom columns to ensure Change from Open is included
-    // Column IDs: 1=Ticker, 65=Change, 84=Change from Open, 66=Volume, 82=Relative Volume, 67=Avg Volume
-    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=1,65,84,66,67,82`;
+    // v=111 = overview view — includes Open price for computing change from open
+    const url = `${FINVIZ_EXPORT_URL}?v=111&t=${tickerStr}`;
 
     try {
       const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
@@ -392,9 +392,14 @@ async function fetchThemeUniverse(cookies, tickers) {
       }
       return rows.map(raw => {
         const r = normalizeRow(raw);
+        const price = num(r["Price"]);
+        const open = num(r["Open"]);
+        const change_open = (price != null && open != null && open !== 0) 
+          ? Math.round((price - open) / open * 10000) / 100 
+          : null;
         return {
-          ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
-          change_open: pct(r["Change from Open"]),
+          ticker: r["Ticker"], price, change: pct(r["Change"]),
+          change_open,
           gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
           rel_volume: num(r["Rel Volume"]),
         };
