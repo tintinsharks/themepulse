@@ -1213,6 +1213,22 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           && adr > 3
           && salesGrowth != null && salesGrowth > 25;
       });
+    } else if (scanMode === "early") {
+      // Early Stage 2 / Turnaround — just crossing above 50MA with improving RS
+      list = stocks.filter(s => {
+        const sma50 = s.sma50_pct;
+        const sma200 = s.sma200_pct;
+        const rs = s.rs_rank;
+        const avgDolVol = s.avg_dollar_vol_raw || 0;
+        const price = s.price || 0;
+        return price > 5
+          && avgDolVol >= 5000000
+          && sma50 != null && sma50 > 0 && sma50 < 10
+          && sma200 != null && sma200 > 0
+          && rs != null && rs >= 50 && rs < 85
+          && s.adr_pct > 2
+          && s.pct_from_high < -10;
+      });
     } else {
       // Original theme-based filter
       list = stocks.filter(s => {
@@ -1256,6 +1272,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     ? "Price>$1 | ADR>4.5% | Ab52WLo≥70% | Avg$Vol>$7M | >20SMA | >50SMA"
     : scanMode === "liquid"
     ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | RevQ/Q>25%"
+    : scanMode === "early"
+    ? "Price>$5 | >50SMA(<10%) | >200SMA | RS:50-85 | ADR>2% | FrHi<-10% | Avg$Vol>$5M"
     : "A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+";
 
   // Column header config: [label, sortKey or null]
@@ -1268,7 +1286,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        {[["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"]].map(([k, l]) => (
+        {[["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"],["early","Early Stage 2"]].map(([k, l]) => (
           <button key={k} onClick={() => setScanMode(k)} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer",
             border: scanMode === k ? "1px solid #10b981" : "1px solid #333",
             background: scanMode === k ? "#10b98118" : "transparent", color: scanMode === k ? "#6ee7b7" : "#666" }}>{l}</button>
