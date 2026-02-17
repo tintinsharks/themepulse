@@ -1,21 +1,21 @@
 {
   "date": "2026-02-13",
-  "generated": "2026-02-16 10:07",
-  "total_stocks": 4839,
+  "generated": "2026-02-17 14:57",
+  "total_stocks": 4830,
   "current": {
     "date": "2026-02-13",
-    "up_4pct": 263,
-    "down_4pct": 98,
+    "up_4pct": 261,
+    "down_4pct": 99,
     "up_25q": 709,
-    "down_25q": 672,
+    "down_25q": 669,
     "up_25m": 162,
-    "down_25m": 519,
+    "down_25m": 517,
     "up_50m": 51,
     "down_50m": 81,
-    "up_13_34d": 1004,
-    "down_13_34d": 978,
+    "up_13_34d": 1001,
+    "down_13_34d": 979,
     "t2108": 56.4,
-    "total_stocks": 4839,
+    "total_stocks": 4830,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -253,20 +253,20 @@
   "history": [
     {
       "date": "2026-02-13",
-      "up_4pct": 263,
-      "down_4pct": 98,
+      "up_4pct": 261,
+      "down_4pct": 99,
       "up_25q": 709,
-      "down_25q": 672,
+      "down_25q": 669,
       "up_25m": 162,
-      "down_25m": 519,
+      "down_25m": 517,
       "up_50m": 51,
       "down_50m": 81,
-      "up_13_34d": 1004,
-      "down_13_34d": 978,
+      "up_13_34d": 1001,
+      "down_13_34d": 979,
       "t2108": 56.4,
-      "total_stocks": 4839,
-      "ratio_5d": 2.68,
-      "ratio_10d": 2.68
+      "total_stocks": 4830,
+      "ratio_5d": 2.64,
+      "ratio_10d": 2.64
     }
   ],
   "theme_breadth": [
@@ -278,9 +278,9 @@
     },
     {
       "theme": "ENERGY",
-      "up_4pct": 8,
+      "up_4pct": 7,
       "down_4pct": 1,
-      "net": 7
+      "net": 6
     },
     {
       "theme": "E-COMMERCE",
@@ -431,7 +431,7 @@
     "DEFENSE": [
       {
         "date": "2026-02-13",
-        "breadth": 57.0
+        "breadth": 56.0
       }
     ],
     "EV": [
@@ -516,11 +516,11 @@
   "indices": {
     "SPY": {
       "name": "S&P 500",
-      "price": 681.75,
-      "ema10": 687.55,
-      "ema21": 688.39,
-      "sma50": 686.87,
-      "sma200": 646.0,
+      "price": 682.85,
+      "ema10": 686.7,
+      "ema21": 687.89,
+      "sma50": 686.89,
+      "sma200": 646.66,
       "above_ema10": false,
       "above_ema21": false,
       "above_sma50": false,
@@ -528,11 +528,11 @@
     },
     "QQQ": {
       "name": "NASDAQ 100",
-      "price": 601.92,
-      "ema10": 609.81,
-      "ema21": 614.02,
-      "sma50": 618.35,
-      "sma200": 580.24,
+      "price": 601.3,
+      "ema10": 608.26,
+      "ema21": 612.86,
+      "sma50": 617.92,
+      "sma200": 580.87,
       "above_ema10": false,
       "above_ema21": false,
       "above_sma50": false,
@@ -540,11 +540,11 @@
     },
     "IWM": {
       "name": "Russell 2000",
-      "price": 262.96,
-      "ema10": 262.95,
-      "ema21": 262.05,
-      "sma50": 257.43,
-      "sma200": 233.93,
+      "price": 263.04,
+      "ema10": 262.96,
+      "ema21": 262.14,
+      "sma50": 257.71,
+      "sma200": 234.28,
       "above_ema10": true,
       "above_ema21": true,
       "above_sma50": true,
@@ -552,11 +552,11 @@
     },
     "DIA": {
       "name": "Dow Jones",
-      "price": 495.28,
-      "ema10": 496.31,
-      "ema21": 494.08,
-      "sma50": 488.42,
-      "sma200": 455.96,
+      "price": 495.85,
+      "ema10": 496.22,
+      "ema21": 494.24,
+      "sma50": 488.77,
+      "sma200": 456.43,
       "above_ema10": false,
       "above_ema21": true,
       "above_sma50": true,
