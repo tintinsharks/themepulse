@@ -241,14 +241,47 @@ function calcZVR(volumeStr, avgVolumeStr) {
   return Math.round((projectedVol / avgVol) * 100);
 }
 
+// ── Normalize Finviz Elite CSV header names to short keys ──
+function normalizeRow(r) {
+  return {
+    // Direct mappings
+    "Ticker": r["Ticker"],
+    "Company": r["Company"],
+    "Sector": r["Sector"],
+    "Industry": r["Industry"],
+    "Market Cap": r["Market Cap"],
+    "P/E": r["P/E"],
+    // Price/Change - try both old and new names
+    "Price": r["Price"] || r["Current Price"],
+    "Change": r["Change"] || r["Change from Open"] || r["Change (%)"],
+    "Gap": r["Gap"] || r["Gap (%)"],
+    "Volume": r["Volume"],
+    "Avg Volume": r["Avg Volume"] || r["Average Volume"],
+    "Rel Volume": r["Rel Volume"] || r["Relative Volume"],
+    // Performance
+    "Perf Week": r["Perf Week"] || r["Performance (Week)"],
+    "Perf Month": r["Perf Month"] || r["Performance (Month)"],
+    "Perf Quart": r["Perf Quart"] || r["Performance (Quarter)"] || r["Performance (Quart)"],
+    // Technicals
+    "ATR": r["ATR"] || r["Average True Range"],
+    "RSI": r["RSI"] || r["Relative Strength Index (14)"] || r["RSI (14)"],
+    "SMA20": r["SMA20"] || r["20-Day Simple Moving Average"],
+    "SMA50": r["SMA50"] || r["50-Day Simple Moving Average"],
+    "SMA200": r["SMA200"] || r["200-Day Simple Moving Average"],
+    "52W High": r["52W High"] || r["52-Week High"],
+    "52W Low": r["52W Low"] || r["52-Week Low"],
+    "50D High": r["50D High"] || r["50-Day High"],
+    "Earnings Date": r["Earnings Date"] || r["Earnings"],
+  };
+}
+
 // ── Fetch watchlist quotes ──
 async function fetchWatchlist(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
 
-  // Use export URL with ticker filter — same as top gainers but filtered to specific tickers
-  const cols = "1,2,3,4,6,43,44,45,46,47,48,49,50,55,57,58,59,60,62,64,67";
+  // Don't specify columns — let Finviz return defaults, we'll map by name
   const tickerStr = tickers.join(",");
-  const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=${cols}`;
+  const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
   try {
     const resp = await fetch(url, {
@@ -269,31 +302,34 @@ async function fetchWatchlist(cookies, tickers) {
     const text = await resp.text();
     const rows = parseCSV(text, "watchlist");
 
-    return rows.map((r) => ({
-      ticker: r["Ticker"],
-      company: r["Company"],
-      sector: r["Sector"],
-      industry: r["Industry"],
-      market_cap: r["Market Cap"],
-      price: num(r["Price"]),
-      change: pct(r["Change"]),
-      gap: pct(r["Gap"]),
-      volume: r["Volume"],
-      avg_volume: r["Avg Volume"],
-      rel_volume: num(r["Rel Volume"]),
-      zvr: calcZVR(r["Volume"], r["Avg Volume"]),
-      perf_week: pct(r["Perf Week"]),
-      perf_month: pct(r["Perf Month"]),
-      perf_quart: pct(r["Perf Quart"]),
-      atr: num(r["ATR"]),
-      rsi: num(r["RSI"]),
-      sma20: pct(r["SMA20"]),
-      sma50: pct(r["SMA50"]),
-      sma200: pct(r["SMA200"]),
-      high_52w: pct(r["52W High"]),
-      pe: num(r["P/E"]),
-      earnings: r["Earnings Date"],
-    }));
+    return rows.map((raw) => {
+      const r = normalizeRow(raw);
+      return {
+        ticker: r["Ticker"],
+        company: r["Company"],
+        sector: r["Sector"],
+        industry: r["Industry"],
+        market_cap: r["Market Cap"],
+        price: num(r["Price"]),
+        change: pct(r["Change"]),
+        gap: pct(r["Gap"]),
+        volume: r["Volume"],
+        avg_volume: r["Avg Volume"],
+        rel_volume: num(r["Rel Volume"]),
+        zvr: calcZVR(r["Volume"], r["Avg Volume"]),
+        perf_week: pct(r["Perf Week"]),
+        perf_month: pct(r["Perf Month"]),
+        perf_quart: pct(r["Perf Quart"]),
+        atr: num(r["ATR"]),
+        rsi: num(r["RSI"]),
+        sma20: pct(r["SMA20"]),
+        sma50: pct(r["SMA50"]),
+        sma200: pct(r["SMA200"]),
+        high_52w: pct(r["52W High"]),
+        pe: num(r["P/E"]),
+        earnings: r["Earnings Date"],
+      };
+    });
   } catch (err) {
     console.error("Watchlist fetch error:", err.message);
     return [];
@@ -349,9 +385,7 @@ function parseQuotePage(ticker, html) {
 
 // ── Fetch top gainers ──
 async function fetchTopGainers(cookies) {
-  // Finviz "Top Gainers" signal + mid cap and above
-  const cols = "1,2,3,4,6,43,44,45,46,47,48,49,50,55,62,64";
-  const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=cap_midover&o=-change&c=${cols}`;
+  const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=cap_midover&o=-change`;
 
   const resp = await fetch(url, {
     headers: { ...HEADERS, Cookie: cookies },
@@ -371,42 +405,43 @@ async function fetchTopGainers(cookies) {
   const text = await resp.text();
   const rows = parseCSV(text);
 
-  return rows.slice(0, 50).map((r) => ({
-    ticker: r["Ticker"],
-    company: r["Company"],
-    sector: r["Sector"],
-    industry: r["Industry"],
-    market_cap: r["Market Cap"],
-    price: num(r["Price"]),
-    change: pct(r["Change"]),
-    volume: r["Volume"],
-    avg_volume: r["Avg Volume"],
-    rel_volume: num(r["Rel Volume"]),
-    zvr: calcZVR(r["Volume"], r["Avg Volume"]),
-    perf_week: pct(r["Perf Week"]),
-    perf_month: pct(r["Perf Month"]),
-    perf_quart: pct(r["Perf Quart"]),
-    atr: num(r["ATR"]),
-    high_52w: pct(r["52W High"]),
-    rsi: num(r["RSI"]),
-  }));
+  return rows.slice(0, 50).map((raw) => {
+    const r = normalizeRow(raw);
+    return {
+      ticker: r["Ticker"],
+      company: r["Company"],
+      sector: r["Sector"],
+      industry: r["Industry"],
+      market_cap: r["Market Cap"],
+      price: num(r["Price"]),
+      change: pct(r["Change"]),
+      volume: r["Volume"],
+      avg_volume: r["Avg Volume"],
+      rel_volume: num(r["Rel Volume"]),
+      zvr: calcZVR(r["Volume"], r["Avg Volume"]),
+      perf_week: pct(r["Perf Week"]),
+      perf_month: pct(r["Perf Month"]),
+      perf_quart: pct(r["Perf Quart"]),
+      atr: num(r["ATR"]),
+      high_52w: pct(r["52W High"]),
+      rsi: num(r["RSI"]),
+    };
+  });
 }
 
 // ── Fetch theme universe bulk change% ──
 async function fetchThemeUniverse(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
 
-  const cols = "1,62,64,48,49,50,60";
   const results = [];
-  const batchSize = 200; // Larger batches = fewer requests
+  const batchSize = 200;
 
   for (let i = 0; i < tickers.length; i += batchSize) {
     const batch = tickers.slice(i, i + batchSize);
     const tickerStr = batch.join(",");
-    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}&c=${cols}`;
+    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
     try {
-      // Delay between batches to avoid 429
       if (i > 0) await new Promise(r => setTimeout(r, 500));
 
       const resp = await fetch(url, {
@@ -416,14 +451,14 @@ async function fetchThemeUniverse(cookies, tickers) {
       if (!resp.ok) {
         console.error(`Theme universe batch ${i} fetch failed: ${resp.status}`);
         if (resp.status === 429) {
-          // Wait longer and retry once
           await new Promise(r => setTimeout(r, 2000));
           const retry = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
           if (retry.ok) {
             const ct = retry.headers.get("content-type") || "";
             if (!ct.includes("html")) {
               const text = await retry.text();
-              parseCSV(text).forEach(r => {
+              parseCSV(text).forEach(raw => {
+                const r = normalizeRow(raw);
                 results.push({
                   ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
                   gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
@@ -445,7 +480,8 @@ async function fetchThemeUniverse(cookies, tickers) {
       const text = await resp.text();
       const rows = parseCSV(text);
 
-      rows.forEach((r) => {
+      rows.forEach((raw) => {
+        const r = normalizeRow(raw);
         results.push({
           ticker: r["Ticker"],
           price: num(r["Price"]),
@@ -466,10 +502,7 @@ async function fetchThemeUniverse(cookies, tickers) {
 
 // ── Fetch premarket/afterhours movers ──
 async function fetchPremarketMovers(cookies) {
-  // Finviz screener sorted by gap%, mid cap+, gap up > 1%
-  // Columns: Ticker(1), Company(2), Sector(3), Industry(4), Market Cap(6), Price(62), Change(64), Gap(60), Volume(48), Avg Volume(49), Rel Volume(50), ATR(55), 52W High(46), RSI(43)
-  const cols = "1,2,3,4,6,62,64,60,48,49,50,55,46,43";
-  const url = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,ta_gap_u1&o=-gap&c=${cols}`;
+  const url = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,ta_gap_u1&o=-gap`;
 
   const resp = await fetch(url, {
     headers: { ...HEADERS, Cookie: cookies },
@@ -489,23 +522,26 @@ async function fetchPremarketMovers(cookies) {
   const text = await resp.text();
   const rows = parseCSV(text);
 
-  return rows.slice(0, 30).map((r) => ({
-    ticker: r["Ticker"],
-    company: r["Company"],
-    sector: r["Sector"],
-    industry: r["Industry"],
-    market_cap: r["Market Cap"],
-    price: num(r["Price"]),
-    change: pct(r["Change"]),
-    gap: pct(r["Gap"]),
-    volume: r["Volume"],
-    avg_volume: r["Avg Volume"],
-    rel_volume: num(r["Rel Volume"]),
-    zvr: calcZVR(r["Volume"], r["Avg Volume"]),
-    high_52w: pct(r["52W High"]),
-    rsi: num(r["RSI"]),
-    atr: num(r["ATR"]),
-  }));
+  return rows.slice(0, 30).map((raw) => {
+    const r = normalizeRow(raw);
+    return {
+      ticker: r["Ticker"],
+      company: r["Company"],
+      sector: r["Sector"],
+      industry: r["Industry"],
+      market_cap: r["Market Cap"],
+      price: num(r["Price"]),
+      change: pct(r["Change"]),
+      gap: pct(r["Gap"]),
+      volume: r["Volume"],
+      avg_volume: r["Avg Volume"],
+      rel_volume: num(r["Rel Volume"]),
+      zvr: calcZVR(r["Volume"], r["Avg Volume"]),
+      high_52w: pct(r["52W High"]),
+      rsi: num(r["RSI"]),
+      atr: num(r["ATR"]),
+    };
+  });
 }
 
 // ── Handler ──
