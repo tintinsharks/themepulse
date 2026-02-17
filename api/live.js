@@ -334,68 +334,73 @@ async function fetchThemeUniverse(cookies, tickers) {
 
   const results = [];
   const batchSize = 200;
+  const MAX_RETRIES = 3;
 
-  for (let i = 0; i < tickers.length; i += batchSize) {
-    const batch = tickers.slice(i, i + batchSize);
+  async function fetchBatch(batch, attempt = 1) {
     const tickerStr = batch.join(",");
     const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
     try {
-      if (i > 0) await new Promise(r => setTimeout(r, 500));
+      const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
 
-      const resp = await fetch(url, {
-        headers: { ...HEADERS, Cookie: cookies },
-      });
+      if (resp.status === 429) {
+        if (attempt <= MAX_RETRIES) {
+          const wait = 2000 * attempt;
+          console.log(`Theme batch 429, retry ${attempt}/${MAX_RETRIES} after ${wait}ms`);
+          await new Promise(r => setTimeout(r, wait));
+          return fetchBatch(batch, attempt + 1);
+        }
+        console.error(`Theme batch failed after ${MAX_RETRIES} retries (429)`);
+        return [];
+      }
 
       if (!resp.ok) {
-        console.error(`Theme universe batch ${i} fetch failed: ${resp.status}`);
-        if (resp.status === 429) {
-          await new Promise(r => setTimeout(r, 2000));
-          const retry = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-          if (retry.ok) {
-            const ct = retry.headers.get("content-type") || "";
-            if (!ct.includes("html")) {
-              const text = await retry.text();
-              parseCSV(text).forEach(raw => {
-                const r = normalizeRow(raw);
-                results.push({
-                  ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
-                  gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
-                  rel_volume: num(r["Rel Volume"]),
-                });
-              });
-            }
-          }
+        if (attempt <= MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+          return fetchBatch(batch, attempt + 1);
         }
-        continue;
+        console.error(`Theme batch failed: ${resp.status}`);
+        return [];
       }
 
       const ct = resp.headers.get("content-type") || "";
       if (ct.includes("html")) {
-        console.error("Got HTML instead of CSV for theme universe batch");
-        continue;
+        if (attempt <= MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+          return fetchBatch(batch, attempt + 1);
+        }
+        console.error("Theme batch returned HTML after retries");
+        return [];
       }
 
       const text = await resp.text();
       const rows = parseCSV(text);
-
-      rows.forEach((raw) => {
+      return rows.map(raw => {
         const r = normalizeRow(raw);
-        results.push({
-          ticker: r["Ticker"],
-          price: num(r["Price"]),
-          change: pct(r["Change"]),
-          gap: pct(r["Gap"]),
-          volume: r["Volume"],
-          avg_volume: r["Avg Volume"],
+        return {
+          ticker: r["Ticker"], price: num(r["Price"]), change: pct(r["Change"]),
+          gap: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
           rel_volume: num(r["Rel Volume"]),
-        });
+        };
       });
     } catch (err) {
-      console.error(`Theme universe batch ${i} error:`, err.message);
+      if (attempt <= MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        return fetchBatch(batch, attempt + 1);
+      }
+      console.error(`Theme batch error after retries:`, err.message);
+      return [];
     }
   }
 
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    if (i > 0) await new Promise(r => setTimeout(r, 600));
+    const batchResults = await fetchBatch(batch);
+    results.push(...batchResults);
+  }
+
+  console.log(`Theme universe: ${results.length}/${tickers.length} tickers fetched`);
   return results;
 }
 

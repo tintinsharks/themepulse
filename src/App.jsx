@@ -359,10 +359,20 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     params.set("universe", [...tickers].join(","));
     fetch(`/api/live?${params}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe)); })
       .catch(() => {})
       .finally(() => setLiveLoading(false));
   }, [liveThemeData, themes, liveLoading]);
+
+  // Merge new data with previous — keeps old entries if new fetch missed them
+  function mergeThemeData(prev, next) {
+    if (!prev || prev.length === 0) return next;
+    if (!next || next.length === 0) return prev;
+    const map = {};
+    prev.forEach(s => { map[s.ticker] = s; });
+    next.forEach(s => { map[s.ticker] = s; }); // new overwrites old
+    return Object.values(map);
+  }
 
   // Auto-refresh every 60s when Leaders tab is active
   useEffect(() => {
@@ -375,7 +385,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
       params.set("universe", [...tickers].join(","));
       fetch(`/api/live?${params}`)
         .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(d.theme_universe); })
+        .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe)); })
         .catch(() => {});
     }, 60000);
     return () => clearInterval(iv);
