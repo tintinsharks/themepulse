@@ -143,6 +143,18 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#10b981", fontSize: 10 }}>{stock.themes.map(t => t.theme).join(", ")}</span>
             )}
+            {stock.adr_pct != null && (
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#4ade80" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                ADR:{stock.adr_pct}%</span>
+            )}
+            {stock.off_52w_high != null && (
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#4ade80" : "#f97316" }}>
+                Hi:{stock.off_52w_high}%</span>
+            )}
+            {(stock.earnings_display || stock.earnings_date) && (
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>
+                ER:{stock.earnings_display || stock.earnings_date}</span>
+            )}
           </>)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -238,7 +250,10 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
           {stock.vcs != null && <StockStat label="VCS" value={stock.vcs}
             color={stock.vcs >= 80 ? "#4ade80" : stock.vcs >= 60 ? "#60a5fa" : "#f97316"} />}
-          {stock.rel_volume != null && <StockStat label="RVol" value={`${stock.rel_volume}x`} />}
+          {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
+            return rv != null ? <StockStat label="RVol" value={`${Number(rv).toFixed(1)}x`}
+              color={rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : undefined} /> : null;
+          })()}
           {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_50sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
@@ -549,8 +564,8 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             change: safe(s => liveLookup[s.ticker]?.change),
             ret3m: safe(s => s.return_3m),
             fromhi: safe(s => s.pct_from_high), vcs: safe(s => s.vcs), adr: safe(s => s.adr_pct),
-            vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
-            rvol: safe(s => s.rel_volume),
+            vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
+            rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
           };
           const sorted = [...allStocks].sort(dSorters[detailSort] || dSorters.rs);
           onVisibleTickers(sorted.map(s => s.ticker));
@@ -849,13 +864,15 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-                              {(() => { const v = s.avg_volume_raw && s.rel_volume ? Math.round(s.avg_volume_raw * s.rel_volume) : null;
+                              {(() => { const lv = liveLookup[s.ticker]; const rv = lv?.rel_volume ?? s.rel_volume;
+                                const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
                                 const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
                                 return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                                   color: v >= 1e6 ? "#888" : v != null ? "#f97316" : "#333" }}>{fmt}</td>; })()}
-                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#555" : "#333" }}>
-                                {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
+                              {(() => { const lv = liveLookup[s.ticker]; const rv = lv?.rel_volume ?? s.rel_volume;
+                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#555" : "#333" }}>
+                                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
                               <td style={{ padding: "3px 6px", color: "#555", fontSize: 9 }}>{subMap[s.ticker]}</td>
                             </tr>
                           );
@@ -1197,8 +1214,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       fromhi: safe(s => s.pct_from_high),
       vcs: safe(s => s.vcs),
       adr: safe(s => s.adr_pct),
-      vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
-      rvol: safe(s => s.rel_volume),
+      vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
+      rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || sorters.default);
@@ -1285,13 +1302,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#4ade80" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-              {(() => { const v = s.avg_volume_raw && s.rel_volume ? Math.round(s.avg_volume_raw * s.rel_volume) : null;
+              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
+                const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
                 const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                   color: v >= 1e6 ? "#888" : v != null ? "#f97316" : "#333" }}>{fmt}</td>; })()}
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#555" : "#333" }}>
-                {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
+              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#555" : "#333" }}>
+                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
               <td style={{ padding: "4px 8px", color: "#666", fontSize: 10 }}>{theme?.theme}</td>
             </tr>
           );
