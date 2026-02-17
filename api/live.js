@@ -465,18 +465,21 @@ async function fetchTickerDetail(cookies, ticker) {
     if (!resp.ok) { console.error(`Detail page ${resp.status} for ${ticker}`); return null; }
     const html = await resp.text();
     
-    // Debug: find any occurrence of "open" in the HTML to understand the structure
-    const openIdx = html.toLowerCase().indexOf('open');
-    if (openIdx >= 0) {
-      console.log(`Detail ${ticker}: found 'open' at idx ${openIdx}, snippet: ${html.substring(openIdx - 80, openIdx + 120).replace(/\n/g, ' ')}`);
-    } else {
-      console.log(`Detail ${ticker}: 'open' not found in ${html.length} chars`);
-    }
+    // Find the snapshot/quote data table - search for Price label near actual price data
+    // Try multiple patterns to find the data section
+    const patterns = ['snapshot', 'quote-price', 'Price</td>', 'Price</b>', 'Price</', 'Prev Close', 'prev_close'];
+    patterns.forEach(p => {
+      const idx = html.indexOf(p);
+      if (idx >= 0) console.log(`Detail ${ticker}: '${p}' at ${idx}, snippet: ...${html.substring(idx - 30, idx + 100).replace(/[\n\r]/g, ' ')}...`);
+    });
     
-    // Also find "prev close" variant
-    const prevIdx = html.toLowerCase().indexOf('prev');
-    if (prevIdx >= 0) {
-      console.log(`Detail ${ticker}: found 'prev' at idx ${prevIdx}, snippet: ${html.substring(prevIdx - 80, prevIdx + 120).replace(/\n/g, ' ')}`);
+    // Also try to find Open near price data (skip first 50000 chars of JS/CSS)
+    const dataSection = html.substring(50000);
+    const openIdx = dataSection.indexOf('Open');
+    if (openIdx >= 0) {
+      console.log(`Detail ${ticker}: 'Open' in data section at ${openIdx + 50000}, snippet: ...${dataSection.substring(openIdx - 50, openIdx + 100).replace(/[\n\r]/g, ' ')}...`);
+    } else {
+      console.log(`Detail ${ticker}: 'Open' NOT found after pos 50000`);
     }
     
     // Parse key values from the quote page snapshot table
