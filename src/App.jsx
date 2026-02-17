@@ -2753,7 +2753,7 @@ function AppMain({ authToken, onLogout }) {
   // Keyboard navigation: ↑↓ to cycle tickers, Esc to close chart
   useEffect(() => {
     const handler = (e) => {
-      if (e.target.tagName === "INPUT") return; // don't hijack search box
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
       if (e.key === "Escape") { closeChart(); return; }
       if ((e.key === "ArrowDown" || e.key === "ArrowUp") && visibleTickers.length > 0) {
         e.preventDefault();
@@ -2815,7 +2815,7 @@ function AppMain({ authToken, onLogout }) {
       {/* Nav + filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #1a1a1a", flexShrink: 0 }}>
         {[["live","Live"],["leaders","Theme Leaders"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"],["rotation","Rotation"],["mm","Mkt Monitor"]].map(([id, label]) => (
-          <button key={id} onClick={() => setView(id)} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
+          <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #10b98150" : "1px solid transparent",
             background: view === id ? "#10b98115" : "transparent", color: view === id ? "#6ee7b7" : "#666" }}>{label}</button>
         ))}
