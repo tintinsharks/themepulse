@@ -261,40 +261,64 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         </div>
       )}
 
-      {/* Quarterly earnings mini-table (from FMP) */}
-      {stock && stock.quarters && stock.quarters.length > 0 && (
+      {/* Quarterly earnings mini-table */}
+      {stock && stock.quarters && stock.quarters.length > 0 && (() => {
+        const qMap = {};
+        stock.quarters.forEach(q => { qMap[`${q.period}_${q.year}`] = q; });
+        const withYoY = stock.quarters.map(q => {
+          const prior = qMap[`${q.period}_${q.year - 1}`];
+          let epsYoY = null, salesYoY = null;
+          if (prior) {
+            if (prior.eps && prior.eps !== 0) epsYoY = ((q.eps - prior.eps) / Math.abs(prior.eps) * 100);
+            if (prior.revenue && prior.revenue !== 0) salesYoY = ((q.revenue - prior.revenue) / Math.abs(prior.revenue) * 100);
+          }
+          return { ...q, eps_yoy: epsYoY, sales_yoy: salesYoY };
+        });
+        const yoyColor = (v) => v == null ? "#444" : v > 25 ? "#4ade80" : v > 0 ? "#888" : "#f87171";
+        const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+        return (
         <div style={{ padding: "4px 12px", borderBottom: "1px solid #1a1a1a", flexShrink: 0, overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace" }}>
             <thead><tr>
-              <td style={{ padding: "1px 6px", color: "#555", fontWeight: 700 }}>Quarterly</td>
-              {stock.quarters.map(q => (
-                <td key={q.label} style={{ padding: "1px 8px", color: "#888", textAlign: "center", fontWeight: 700 }}>{q.label}</td>
+              <td style={{ padding: "2px 6px", color: "#555", fontWeight: 700 }}>Quarterly</td>
+              {withYoY.map(q => (
+                <td key={q.label} style={{ padding: "2px 8px", color: "#888", textAlign: "center", fontWeight: 700 }}>{q.label}</td>
               ))}
             </tr></thead>
             <tbody>
+              {/* EPS row: value + YoY% below */}
               <tr>
-                <td style={{ padding: "1px 6px", color: "#555" }}>EPS ($)</td>
-                {stock.quarters.map(q => (
-                  <td key={q.label} style={{ padding: "1px 8px", textAlign: "center", color: q.eps > 0 ? "#ccc" : "#f87171" }}>{q.eps}</td>
+                <td style={{ padding: "2px 6px", color: "#555" }}>EPS ($)</td>
+                {withYoY.map(q => (
+                  <td key={q.label} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
+                    <div style={{ color: q.eps > 0 ? "#ccc" : "#f87171", fontWeight: 600 }}>{q.eps}</div>
+                    {q.eps_yoy != null && <div style={{ color: yoyColor(q.eps_yoy), fontSize: 8 }}>{fmtYoY(q.eps_yoy)}</div>}
+                  </td>
                 ))}
               </tr>
+              {/* Sales row: value + YoY% below */}
               <tr>
-                <td style={{ padding: "1px 6px", color: "#555" }}>Sales ($)</td>
-                {stock.quarters.map(q => (
-                  <td key={q.label} style={{ padding: "1px 8px", textAlign: "center", color: "#ccc" }}>{q.revenue_fmt}</td>
+                <td style={{ padding: "2px 6px", color: "#555" }}>Sales ($)</td>
+                {withYoY.map(q => (
+                  <td key={q.label} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
+                    <div style={{ color: "#ccc" }}>{q.revenue_fmt}</div>
+                    {q.sales_yoy != null && <div style={{ color: yoyColor(q.sales_yoy), fontSize: 8 }}>{fmtYoY(q.sales_yoy)}</div>}
+                  </td>
                 ))}
               </tr>
+              {/* Net Margin row */}
               <tr>
-                <td style={{ padding: "1px 6px", color: "#555" }}>Margin %</td>
-                {stock.quarters.map(q => (
-                  <td key={q.label} style={{ padding: "1px 8px", textAlign: "center",
+                <td style={{ padding: "2px 6px", color: "#555" }}>Net Margin %</td>
+                {withYoY.map(q => (
+                  <td key={q.label} style={{ padding: "2px 8px", textAlign: "center",
                     color: q.net_margin > 10 ? "#4ade80" : q.net_margin > 0 ? "#888" : "#f87171" }}>{q.net_margin}%</td>
                 ))}
               </tr>
             </tbody>
           </table>
         </div>
-      )}
+        );
+      })()}
 
       <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
     </div>
