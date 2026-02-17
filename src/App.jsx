@@ -1980,11 +1980,11 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
     return { add, remove, weakening };
   }, [themeHealth, themes, allTickers, stockMap]);
 
+  const [collapsed, setCollapsed] = useState(false);
+
   // All hooks called — now safe to return early
   if (allTickers.length === 0) return null;
   const hasAlerts = gaps.length > 0 || earnings.length > 0 || rotation.add.length > 0 || rotation.remove.length > 0 || rotation.weakening.length > 0;
-
-  const [collapsed, setCollapsed] = useState(false);
 
   const chipStyle = (bg, color) => ({
     display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4,
