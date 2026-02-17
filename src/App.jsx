@@ -157,7 +157,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             )}
             {stock.off_52w_high != null && (
               <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#4ade80" : "#f97316" }}>
-                Hi:{stock.off_52w_high}%</span>
+                Off 52W Hi:{stock.off_52w_high}%</span>
             )}
             {(stock.earnings_display || stock.earnings_date) && (
               <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>
@@ -217,7 +217,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           <span style={{ color: "#666" }}>{stock.industry}</span>
           <Ret v={stock.return_1m} />
           <Ret v={stock.return_3m} bold />
-          <span style={{ color: stock.pct_from_high >= -5 ? "#4ade80" : "#888", fontSize: 10, fontFamily: "monospace" }}>FrHi:{stock.pct_from_high}%</span>
           <span style={{ color: "#888" }}>1Y: <Ret v={stock.return_1y} /></span>
         </div>
       )}
@@ -226,9 +225,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #1a1a1a", fontSize: 10, flexShrink: 0, flexWrap: "wrap" }}>
           {stock.atr != null && <StockStat label="ATR" value={stock.atr} />}
-          {/* Off 52W High: >= -25% green, else default */}
-          {stock.off_52w_high != null && <StockStat label="Off 52W Hi" value={`${stock.off_52w_high}%`}
-            color={stock.off_52w_high >= -25 ? "#4ade80" : "#f97316"} />}
           {/* Avg $ Vol: >20M green, >10M yellow, else default */}
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#4ade80" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
