@@ -1551,7 +1551,6 @@ function TickerInput({ value, setValue, onAdd, placeholder }) {
 
 function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth, themes, onTickerClick }) {
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
-  if (allTickers.length === 0) return null;
 
   // Build live lookup
   const liveLookup = useMemo(() => {
@@ -1583,19 +1582,14 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
     }).filter(Boolean).sort((a, b) => a.days - b.days);
   }, [allTickers, stockMap]);
 
-  // 3. Theme rotation signals — build ticker→themes map, then find ADD/REMOVE themes
+  // 3. Theme rotation signals
   const rotation = useMemo(() => {
     if (!themeHealth || !themes) return { add: [], remove: [], weakening: [] };
-    const healthMap = {};
-    themeHealth.forEach(h => { healthMap[h.theme] = h; });
-
-    // Get themes relevant to tracked tickers
     const trackedThemes = new Set();
     allTickers.forEach(t => {
       const s = stockMap?.[t];
       if (s?.themes) s.themes.forEach(th => trackedThemes.add(th.theme));
     });
-
     const add = [], remove = [], weakening = [];
     themeHealth.forEach(h => {
       if (h.action === "ADD") add.push(h.theme);
@@ -1605,6 +1599,8 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
     return { add, remove, weakening };
   }, [themeHealth, themes, allTickers, stockMap]);
 
+  // All hooks called — now safe to return early
+  if (allTickers.length === 0) return null;
   const hasContent = gaps.length > 0 || earnings.length > 0 || rotation.add.length > 0 || rotation.remove.length > 0 || rotation.weakening.length > 0;
   if (!hasContent) return null;
 
