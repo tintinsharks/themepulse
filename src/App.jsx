@@ -466,22 +466,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     return Object.values(map);
   }
 
-  // Auto-refresh every 60s when Leaders tab is active
-  useEffect(() => {
-    if (!themes) return;
-    const iv = setInterval(() => {
-      const tickers = new Set();
-      themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-      if (tickers.size === 0) return;
-      const params = new URLSearchParams();
-      params.set("universe", [...tickers].join(","));
-      fetch(`/api/live?${params}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe)); })
-        .catch(() => {});
-    }, 60000);
-    return () => clearInterval(iv);
-  }, [themes]);
+  // Auto-refresh removed — parent now handles global theme universe refresh every 30s
 
   // Build liveLookup from liveThemeData (ticker → {change, rel_volume, ...})
   const liveLookup = useMemo(() => {
@@ -1098,27 +1083,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       .finally(() => setLiveLoading(false));
   }, [themeData, themes, liveLoading]);
 
-  // Auto-refresh every 10s when Scan tab is active
-  useEffect(() => {
-    if (!themes) return;
-    const iv = setInterval(() => {
-      const tickers = new Set();
-      themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-      if (tickers.size === 0) return;
-      const params = new URLSearchParams();
-      params.set("universe", [...tickers].join(","));
-      fetch(`/api/live?${params}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d?.ok && d.theme_universe) {
-            setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe));
-            if (onLiveThemeData) onLiveThemeData(d.theme_universe);
-          }
-        })
-        .catch(() => {});
-    }, 30000);
-    return () => clearInterval(iv);
-  }, [themes]);
+  // Auto-fetch removed — parent now handles global theme universe refresh every 30s
 
   // Build live lookup
   const liveLookup = useMemo(() => {
@@ -2373,7 +2338,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -2413,12 +2378,15 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 30000); return () => clearInterval(iv); }, [fetchLive]);
 
-  // Build merged lookup: live data + pipeline stockMap
+  // Build merged lookup: live data + theme universe data + pipeline stockMap
   const liveLookup = useMemo(() => {
     const m = {};
-    (liveData?.watchlist || []).forEach(s => { m[s.ticker] = s; });
+    // Theme universe data as base (has change/rel_volume for all ~2012 tickers)
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = s; });
+    // Watchlist-specific data overwrites (has more fields like perf_month, pe, etc.)
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
     return m;
-  }, [liveData?.watchlist]);
+  }, [liveData?.watchlist, liveThemeData]);
 
   // Merge live + pipeline data for a ticker
   const mergeStock = useCallback((ticker) => {
@@ -2751,6 +2719,35 @@ function AppMain({ authToken, onLogout }) {
     fetch("/market_monitor.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setMmData(d); }).catch(() => {});
   }, []);
 
+  // Global theme universe live data fetch — runs on load + every 30s
+  useEffect(() => {
+    if (!data?.themes) return;
+    const tickers = new Set();
+    data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    if (tickers.size === 0) return;
+    const fetchUniverse = () => {
+      const params = new URLSearchParams();
+      params.set("universe", [...tickers].join(","));
+      fetch(`/api/live?${params}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d?.ok && d.theme_universe) {
+            setLiveThemeData(prev => {
+              if (!prev || prev.length === 0) return d.theme_universe;
+              const map = {};
+              prev.forEach(s => { map[s.ticker] = s; });
+              d.theme_universe.forEach(s => { map[s.ticker] = s; });
+              return Object.values(map);
+            });
+          }
+        })
+        .catch(() => {});
+    };
+    fetchUniverse();
+    const iv = setInterval(fetchUniverse, 30000);
+    return () => clearInterval(iv);
+  }, [data?.themes]);
+
   const handleFile = useCallback((e) => {
     const file = e.target.files?.[0]; if (!file) return;
     setLoading(true); setError(null);
@@ -2999,7 +2996,8 @@ function AppMain({ authToken, onLogout }) {
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
-            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio} />}
+            addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
+            liveThemeData={liveThemeData} />}
         </div>
 
         {/* Draggable divider */}
