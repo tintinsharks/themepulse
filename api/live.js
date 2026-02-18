@@ -477,7 +477,7 @@ async function fetchTickerNews(cookies, ticker) {
     const section = html.substring(newsTableIdx, newsTableIdx + 10000);
     const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<\/tr>/gs;
     let match;
-    while ((match = rowRegex.exec(section)) !== null && news.length < 3) {
+    while ((match = rowRegex.exec(section)) !== null && news.length < 5) {
       const dateCell = match[1].replace(/<[^>]+>/g, '').trim();
       const contentCell = match[2];
       
