@@ -156,10 +156,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#787888", fontSize: 12 }}>RS:{stock.rs_rank}</span>
-            {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
-              return rv != null ? <span style={{ fontSize: 11, fontFamily: "monospace",
-                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878" }}>RV:{Number(rv).toFixed(1)}x</span> : null;
-            })()}
             {stock.vcs != null && (
               <span style={{ fontSize: 11, fontFamily: "monospace",
                 color: stock.vcs >= 80 ? "#2bb886" : stock.vcs >= 60 ? "#60a5fa" : "#f97316" }}>VCS:{stock.vcs}</span>
@@ -167,17 +163,9 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.theme).join(", ")}</span>
             )}
-            {stock.adr_pct != null && (
-              <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
-                ADR:{stock.adr_pct}%</span>
-            )}
             {stock.off_52w_high != null && (
               <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
                 Off 52W Hi:{stock.off_52w_high}%</span>
-            )}
-            {(stock.earnings_display || stock.earnings_date) && (
-              <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>
-                ER:{stock.earnings_display || stock.earnings_date}</span>
             )}
           </>)}
         </div>
@@ -231,9 +219,11 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           <span style={{ color: "#9090a0" }}>{stock.company}</span>
           <span style={{ color: "#787888" }}>{stock.sector}</span>
           <span style={{ color: "#787888" }}>{stock.industry}</span>
+          {stock.adr_pct != null && <span style={{ fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
           <span style={{ color: "#9090a0" }}>1M: <Ret v={stock.return_1m} /></span>
           <span style={{ color: "#9090a0" }}>3M: <Ret v={stock.return_3m} bold /></span>
-          <span style={{ color: "#9090a0" }}>1Y: <Ret v={stock.return_1y} /></span>
+          <span style={{ color: "#9090a0" }}>6M: <Ret v={stock.return_6m} /></span>
+          {(stock.earnings_display || stock.earnings_date) && <span style={{ fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>ER:{stock.earnings_display || stock.earnings_date}</span>}
         </div>
       )}
 
@@ -248,6 +238,10 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             color={stock.avg_volume_raw > 1000000 ? "#2bb886" : "#f97316"} />}
           {stock.volume != null && <StockStat label="Vol" value={(() => { const v = stock.volume; if (v >= 1e9) return (v/1e9).toFixed(2)+"B"; if (v >= 1e6) return (v/1e6).toFixed(2)+"M"; if (v >= 1e3) return (v/1e3).toFixed(0)+"K"; return v; })()}
             color={stock.avg_volume_raw && stock.volume > stock.avg_volume_raw ? "#2bb886" : "#f97316"} />}
+          {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
+            return rv != null ? <StockStat label="RVol" value={`${Number(rv).toFixed(1)}x`}
+              color={rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878"} /> : null;
+          })()}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#2bb886" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
