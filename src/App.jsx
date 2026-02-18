@@ -425,7 +425,7 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData: externalLiveData }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData: externalLiveData, onThemeDrillDown }) {
   const [open, setOpen] = useState({});
   const [sort, setSort] = useState("rts");
   const [detailTheme, setDetailTheme] = useState(null);
@@ -823,7 +823,15 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             <div onClick={() => toggle(theme.theme)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer",
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
               <span style={{ color: "#d4d4e0", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
-              <span style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 13, flex: 1 }}>{theme.theme}</span>
+              <span style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 13, flex: 1 }}>
+                {theme.theme}
+                {onThemeDrillDown && <span onClick={(e) => { e.stopPropagation(); onThemeDrillDown(theme.theme); }}
+                  title={`View ${theme.theme} in Scan Watch`}
+                  style={{ marginLeft: 6, fontSize: 10, color: "#686878", cursor: "pointer", padding: "1px 4px", borderRadius: 3,
+                    border: "1px solid #3a3a4a" }}
+                  onMouseEnter={e => { e.target.style.color = "#4aad8c"; e.target.style.borderColor = "#0d9163"; }}
+                  onMouseLeave={e => { e.target.style.color = "#686878"; e.target.style.borderColor = "#3a3a4a"; }}>⇢ Scan</span>}
+              </span>
               <span style={{ background: qc.tag, color: "#d4d4e0", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{quad}</span>
               <span style={{ color: "#9090a0", fontSize: 12 }}>{theme.count}</span>
               <span style={{ color: qc.text, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{theme.rts}</span>
@@ -1039,7 +1047,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(true);
@@ -1047,6 +1055,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [scanMode, setScanMode] = useState("master");
   const [activeTheme, setActiveTheme] = useState(null);
   const [activeSubtheme, setActiveSubtheme] = useState(null);
+
+  // Apply theme filter from Leaders drill-down
+  useEffect(() => {
+    if (initialThemeFilter) {
+      setActiveTheme(initialThemeFilter);
+      setActiveSubtheme(null);
+      if (onConsumeThemeFilter) onConsumeThemeFilter();
+    }
+  }, [initialThemeFilter]);
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -1641,7 +1658,18 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
         {onAdd && <span onClick={(e) => { e.stopPropagation(); onAdd(s.ticker); }}
           style={{ color: "#0d9163", cursor: "pointer", fontSize: 11 }}>{addLabel || "+watch"}</span>}
       </td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700, fontSize: 12 }}>{s.ticker}</td>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700, fontSize: 12 }}>
+        <span>{s.ticker}</span>
+        {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
+          <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
+            style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
+              color: s.earnings_days <= 1 ? "#fff" : "#f87171",
+              background: s.earnings_days <= 1 ? "#dc2626" : "#f8717120",
+              border: `1px solid ${s.earnings_days <= 1 ? "#dc2626" : "#f8717130"}` }}>
+            ER{s.earnings_days === 0 ? "" : s.earnings_days}
+          </span>
+        )}
+      </td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>
@@ -2441,6 +2469,7 @@ function LoginScreen({ onLogin }) {
 function AppMain({ authToken, onLogout }) {
   const [data, setData] = useState(null);
   const [view, setView] = useState("live");
+  const [scanThemeFilter, setScanThemeFilter] = useState(null);
   const [filters, setFilters] = useState({ minRTS: 0, quad: null, search: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -2727,9 +2756,10 @@ function AppMain({ authToken, onLogout }) {
       <div ref={containerRef} style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
         <div style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
-          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData} />}
+          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData}
+            onThemeDrillDown={(themeName) => { setScanThemeFilter(themeName); setView("scan"); }} />}
 
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
