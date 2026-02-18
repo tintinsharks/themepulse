@@ -83,53 +83,56 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
+  const tfOptions = [
+    ["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"],
+    ["D", "D"], ["W", "W"], ["M", "M"],
+  ];
+
   useEffect(() => {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
 
     const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container";
+    widgetDiv.id = "tv_chart_container";
     widgetDiv.style.height = "100%";
     widgetDiv.style.width = "100%";
-    const innerDiv = document.createElement("div");
-    innerDiv.className = "tradingview-widget-container__widget";
-    innerDiv.style.height = "100%";
-    innerDiv.style.width = "100%";
-    widgetDiv.appendChild(innerDiv);
     containerRef.current.appendChild(widgetDiv);
 
     const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.src = "https://s3.tradingview.com/tv.js";
     script.async = true;
-    script.type = "text/javascript";
-    script.textContent = JSON.stringify({
-      autosize: true,
-      symbol: ticker,
-      interval: tf,
-      timezone: "America/New_York",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      backgroundColor: "rgba(10, 10, 10, 1)",
-      gridColor: "rgba(30, 30, 30, 1)",
-      allow_symbol_change: false,
-      save_image: false,
-      hide_legend: false,
-      hide_top_toolbar: false,
-      hide_side_toolbar: false,
-      calendar: false,
-      support_host: "https://www.tradingview.com",
-      studies: [
-        "MAExp@tv-basicstudies",
-        "MAExp@tv-basicstudies",
-        "MASimple@tv-basicstudies",
-        "MASimple@tv-basicstudies",
-      ],
-    });
-    widgetDiv.appendChild(script);
+    script.onload = () => {
+      if (window.TradingView) {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: ticker,
+          interval: tf,
+          timezone: "America/New_York",
+          theme: "dark",
+          style: "1",
+          locale: "en",
+          toolbar_bg: "#121218",
+          enable_publishing: false,
+          allow_symbol_change: false,
+          save_image: false,
+          hide_top_toolbar: true,
+          hide_legend: false,
+          backgroundColor: "rgba(10, 10, 10, 1)",
+          gridColor: "rgba(30, 30, 30, 1)",
+          container_id: "tv_chart_container",
+          studies: [
+            { id: "MAExp@tv-basicstudies", inputs: { length: 8 } },
+            { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
+            { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
+            { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
+          ],
+        });
+      }
+    };
+    document.head.appendChild(script);
 
     return () => {
-      if (containerRef.current) containerRef.current.innerHTML = "";
+      if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, [ticker, tf]);
 
@@ -192,7 +195,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </span>
           )}
           <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
-          {[["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"], ["D", "D"], ["W", "W"], ["M", "M"]].map(([val, label]) => (
+          {tfOptions.map(([val, label]) => (
             <button key={val} onClick={() => setTf(val)}
               style={{ padding: "2px 6px", borderRadius: 3, fontSize: 11, cursor: "pointer",
                 border: tf === val ? "1px solid #0d9163" : "1px solid #3a3a4a",
