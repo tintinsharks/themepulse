@@ -638,32 +638,47 @@ async function fetchHomepage(cookies) {
     
     // ── MARKET STATS (Advancing/Declining, New High/Low, SMA50, SMA200) ──
     const market_stats = {};
-    // Pattern: "Advancing  XX.X% (NNNN)  Declining  (NNNN) XX.X%"
-    const advMatch = html.match(/Advancing\s+(\d+\.?\d*)%\s*\((\d+)\)\s*Declining\s*\((\d+)\)\s*(\d+\.?\d*)%/);
-    if (advMatch) {
-      market_stats.advancing = { pct: parseFloat(advMatch[1]), count: parseInt(advMatch[2]) };
-      market_stats.declining = { pct: parseFloat(advMatch[4]), count: parseInt(advMatch[3]) };
-    }
-    // Pattern: "New High  XX.X% (NNN)  New Low  (NNN) XX.X%"
-    const nhMatch = html.match(/New High\s+(\d+\.?\d*)%\s*\((\d+)\)\s*New Low\s*\((\d+)\)\s*(\d+\.?\d*)%/);
-    if (nhMatch) {
-      market_stats.new_high = { pct: parseFloat(nhMatch[1]), count: parseInt(nhMatch[2]) };
-      market_stats.new_low = { pct: parseFloat(nhMatch[4]), count: parseInt(nhMatch[3]) };
-    }
-    // Pattern: "Above  XX.X% (NNNN) SMA50 Below  (NNNN) XX.X%"
-    const sma50Match = html.match(/Above\s+(\d+\.?\d*)%\s*\((\d+)\)\s*SMA50\s*Below\s*\((\d+)\)\s*(\d+\.?\d*)%/);
-    if (sma50Match) {
-      market_stats.sma50_above = { pct: parseFloat(sma50Match[1]), count: parseInt(sma50Match[2]) };
-      market_stats.sma50_below = { pct: parseFloat(sma50Match[4]), count: parseInt(sma50Match[3]) };
-    }
-    // Pattern: "Above  XX.X% (NNNN) SMA200 Below  (NNNN) XX.X%"
-    const sma200Match = html.match(/Above\s+(\d+\.?\d*)%\s*\((\d+)\)\s*SMA200\s*Below\s*\((\d+)\)\s*(\d+\.?\d*)%/);
-    if (sma200Match) {
-      market_stats.sma200_above = { pct: parseFloat(sma200Match[1]), count: parseInt(sma200Match[2]) };
-      market_stats.sma200_below = { pct: parseFloat(sma200Match[4]), count: parseInt(sma200Match[3]) };
+    
+    // Strip HTML tags to get plain text, then parse
+    const plainText = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+    
+    // Debug: log area around "Advancing"
+    const advIdx = plainText.indexOf('Advancing');
+    if (advIdx !== -1) {
+      console.log("Market stats raw:", plainText.substring(advIdx, advIdx + 300));
+    } else {
+      console.log("Market stats: 'Advancing' not found in plain text");
+      // Try alternate search
+      const sma50Idx = plainText.indexOf('SMA50');
+      console.log("SMA50 found:", sma50Idx !== -1 ? plainText.substring(sma50Idx - 100, sma50Idx + 100) : "NOT FOUND");
     }
     
-    console.log(`Homepage: ${futures.length} futures, ${earnings.length} earnings rows, ${major_news.length} major news, market_stats keys: ${Object.keys(market_stats).join(",")}`);
+    // Pattern: "Advancing XX.X% (NNNN) Declining (NNNN) XX.X%"
+    const advMatch = plainText.match(/Advancing\s+([\d.]+)%\s*\((\d[\d,]*)\)\s*Declining\s*\((\d[\d,]*)\)\s*([\d.]+)%/);
+    if (advMatch) {
+      market_stats.advancing = { pct: parseFloat(advMatch[1]), count: parseInt(advMatch[2].replace(/,/g, '')) };
+      market_stats.declining = { pct: parseFloat(advMatch[4]), count: parseInt(advMatch[3].replace(/,/g, '')) };
+    }
+    // Pattern: "New High XX.X% (NNN) New Low (NNN) XX.X%"
+    const nhMatch = plainText.match(/New High\s+([\d.]+)%\s*\((\d[\d,]*)\)\s*New Low\s*\((\d[\d,]*)\)\s*([\d.]+)%/);
+    if (nhMatch) {
+      market_stats.new_high = { pct: parseFloat(nhMatch[1]), count: parseInt(nhMatch[2].replace(/,/g, '')) };
+      market_stats.new_low = { pct: parseFloat(nhMatch[4]), count: parseInt(nhMatch[3].replace(/,/g, '')) };
+    }
+    // Pattern: "Above XX.X% (NNNN) SMA50 Below (NNNN) XX.X%"  
+    const sma50Match = plainText.match(/Above\s+([\d.]+)%\s*\((\d[\d,]*)\)\s*SMA50\s*Below\s*\((\d[\d,]*)\)\s*([\d.]+)%/);
+    if (sma50Match) {
+      market_stats.sma50_above = { pct: parseFloat(sma50Match[1]), count: parseInt(sma50Match[2].replace(/,/g, '')) };
+      market_stats.sma50_below = { pct: parseFloat(sma50Match[4]), count: parseInt(sma50Match[3].replace(/,/g, '')) };
+    }
+    // Pattern: "Above XX.X% (NNNN) SMA200 Below (NNNN) XX.X%"
+    const sma200Match = plainText.match(/Above\s+([\d.]+)%\s*\((\d[\d,]*)\)\s*SMA200\s*Below\s*\((\d[\d,]*)\)\s*([\d.]+)%/);
+    if (sma200Match) {
+      market_stats.sma200_above = { pct: parseFloat(sma200Match[1]), count: parseInt(sma200Match[2].replace(/,/g, '')) };
+      market_stats.sma200_below = { pct: parseFloat(sma200Match[4]), count: parseInt(sma200Match[3].replace(/,/g, '')) };
+    }
+    
+    console.log(`Homepage: ${futures.length} futures, ${earnings.length} earnings rows, ${major_news.length} major news, market_stats keys: ${Object.keys(market_stats).join(",") || "NONE"}`);
     return { futures, earnings, major_news, market_stats };
   } catch (err) {
     console.error("Homepage fetch error:", err.message);
