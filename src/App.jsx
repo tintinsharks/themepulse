@@ -2537,6 +2537,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
   const [homepage, setHomepage] = useState(null);
+  const [marketOpen, setMarketOpen] = useState(true);
 
   // Combine all tickers for API call — watchlist + portfolio only
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -2658,7 +2659,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
       {/* ── Homepage: Futures, Earnings, Major News ── */}
       {homepage && (
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <div style={{ marginBottom: 16 }}>
+          <div onClick={() => setMarketOpen(p => !p)}
+            style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", marginBottom: marketOpen ? 8 : 0, userSelect: "none" }}>
+            <span style={{ color: "#505060", fontSize: 10, transition: "transform 0.2s", transform: marketOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>Market Overview</span>
+          </div>
+          {marketOpen && (
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
           {/* Futures */}
           <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Futures</div>
@@ -2741,6 +2749,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
               </div>
             ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading major news...</span>}
           </div>
+          </div>
+          )}
         </div>
       )}
 
