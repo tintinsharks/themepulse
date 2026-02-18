@@ -34,7 +34,7 @@ function Badge({ grade }) {
   if (!grade) return null;
   const bg = GRADE_COLORS[grade] || "#505060";
   const light = ["C+","C","C-","D+","D","D-"].includes(grade);
-  return <span style={{ background: bg, color: light ? "#2a2a38" : "#f0f0f5", padding: "1px 5px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
+  return <span style={{ background: bg, color: light ? "#2a2a38" : "#d4d4e0", padding: "1px 5px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
 }
 
 // ── STOCK STAT (label: value pair for chart panel) ──
@@ -132,7 +132,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
         borderBottom: "1px solid #2a2a38", flexShrink: 0, background: "#1a1a24" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: "#f0f0f5" }}>{ticker}</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}>{ticker}</span>
           {watchlist && (
             watchlist.includes(ticker)
               ? <button onClick={() => onRemoveWatchlist(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
@@ -190,7 +190,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         borderBottom: "1px solid #222230", flexShrink: 0, background: "#141420" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {live && live.price != null && (
-            <span style={{ fontSize: 16, fontWeight: 900, color: "#f0f0f5", fontFamily: "monospace" }}>
+            <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0", fontFamily: "monospace" }}>
               ${live.price.toFixed(2)}
             </span>
           )}
@@ -304,7 +304,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                 <td style={{ padding: "2px 6px", color: "#686878" }}>EPS ($)</td>
                 {withYoY.map(q => (
                   <td key={q.label} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
-                    <div style={{ color: q.eps > 0 ? "#d0d0dc" : "#f87171", fontWeight: 600 }}>{q.eps}</div>
+                    <div style={{ color: q.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{q.eps}</div>
                     {q.eps_yoy != null && <div style={{ color: yoyColor(q.eps_yoy), fontSize: 10 }}>{fmtYoY(q.eps_yoy)}</div>}
                   </td>
                 ))}
@@ -313,7 +313,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                 <td style={{ padding: "2px 6px", color: "#686878" }}>Sales ($)</td>
                 {withYoY.map(q => (
                   <td key={q.label} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
-                    <div style={{ color: "#d0d0dc" }}>{q.revenue_fmt}</div>
+                    <div style={{ color: "#b8b8c8" }}>{q.revenue_fmt}</div>
                     {q.sales_yoy != null && <div style={{ color: yoyColor(q.sales_yoy), fontSize: 10 }}>{fmtYoY(q.sales_yoy)}</div>}
                   </td>
                 ))}
@@ -334,7 +334,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                 <td style={{ padding: "2px 6px", color: "#686878" }}>EPS ($)</td>
                 {annuals.map(a => (
                   <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
-                    <div style={{ color: a.eps > 0 ? "#d0d0dc" : "#f87171", fontWeight: 600 }}>{a.eps}</div>
+                    <div style={{ color: a.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{a.eps}</div>
                     {a.eps_yoy != null && <div style={{ color: yoyColor(a.eps_yoy), fontSize: 10 }}>{fmtYoY(a.eps_yoy)}</div>}
                   </td>
                 ))}
@@ -343,7 +343,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                 <td style={{ padding: "2px 6px", color: "#686878" }}>Sales ($)</td>
                 {annuals.map(a => (
                   <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
-                    <div style={{ color: "#d0d0dc" }}>{a.revenue_fmt}</div>
+                    <div style={{ color: "#b8b8c8" }}>{a.revenue_fmt}</div>
                     {a.sales_yoy != null && <div style={{ color: yoyColor(a.sales_yoy), fontSize: 10 }}>{fmtYoY(a.sales_yoy)}</div>}
                   </td>
                 ))}
@@ -368,9 +368,9 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                         <div style={{ display: "flex", gap: 6 }}>
                           <span style={{ color: "#686878", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
                           <a href={n.url} target="_blank" rel="noopener noreferrer"
-                            style={{ color: "#d0d0dc", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                             onMouseEnter={e => e.target.style.color = "#0d9163"}
-                            onMouseLeave={e => e.target.style.color = "#d0d0dc"}>
+                            onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
                             {n.headline}
                           </a>
                           {n.source && <span style={{ color: "#505060", whiteSpace: "nowrap", flexShrink: 0 }}>({n.source})</span>}
@@ -644,11 +644,11 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                       style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                         background: isSelected ? "#0d916315" : "transparent" }}>
                       <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontFamily: "monospace", fontSize: 10, width: 20 }}>{i + 1}</td>
-                      <td style={{ padding: "4px 8px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#0d9163" : "#d0d0dc",
+                      <td style={{ padding: "4px 8px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#0d9163" : "#b8b8c8",
                         maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
                         {t.theme}</td>
                       <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                        <span style={{ background: qc.tag, color: "#f0f0f5", padding: "1px 5px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>{quad.slice(0, 4)}</span></td>
+                        <span style={{ background: qc.tag, color: "#d4d4e0", padding: "1px 5px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>{quad.slice(0, 4)}</span></td>
                       <td style={{ padding: "4px 6px", textAlign: "center", fontWeight: 700, fontFamily: "monospace",
                         color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0" }}>
                         {chg > 0 ? "+" : ""}{chg.toFixed(2)}%</td>
@@ -710,7 +710,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
         <span style={{ color: "#3a3a4a" }}>|</span>
         <span><b style={{ color: "#9090a0" }}>B:100%</b> — Breadth (% of stocks above 50MA; <span style={{ color: "#2bb886" }}>≥60%</span> healthy, <span style={{ color: "#fbbf24" }}>≥40%</span> mixed, <span style={{ color: "#f87171" }}>&lt;40%</span> weak)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><b style={{ color: "#9090a0" }}>1W% 1M%</b> <b style={{ color: "#d0d0dc" }}>3M%</b> — Returns (bold = 3 month)</span>
+        <span><b style={{ color: "#9090a0" }}>1W% 1M%</b> <b style={{ color: "#b8b8c8" }}>3M%</b> — Returns (bold = 3 month)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
         <span><b style={{ color: "#9090a0" }}>4A</b> — Count of A+/A/A- graded stocks (top momentum names)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
@@ -728,9 +728,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
           <div key={theme.theme} style={{ marginBottom: 4, borderRadius: 6, border: "1px solid #3a3a4a", overflow: "hidden" }}>
             <div onClick={() => toggle(theme.theme)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer",
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
-              <span style={{ color: "#f0f0f5", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
-              <span style={{ color: "#f0f0f5", fontWeight: 700, fontSize: 13, flex: 1 }}>{theme.theme}</span>
-              <span style={{ background: qc.tag, color: "#f0f0f5", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{quad}</span>
+              <span style={{ color: "#d4d4e0", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
+              <span style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 13, flex: 1 }}>{theme.theme}</span>
+              <span style={{ background: qc.tag, color: "#d4d4e0", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{quad}</span>
               <span style={{ color: "#9090a0", fontSize: 12 }}>{theme.count}</span>
               <span style={{ color: qc.text, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{theme.rts}</span>
               {(() => { const lp = liveThemePerf[theme.theme]; if (!lp) return null;
@@ -776,10 +776,10 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                   const total = allStocks.length || 1;
                   return (
                   <div style={{ display: "flex", gap: 16, padding: "6px 8px", marginBottom: 6, background: "#1a1a24", borderRadius: 4, fontSize: 11, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ color: "#9090a0" }}>Stocks: <b style={{ color: "#f0f0f5" }}>{theme.count}</b></span>
+                    <span style={{ color: "#9090a0" }}>Stocks: <b style={{ color: "#d4d4e0" }}>{theme.count}</b></span>
                     <span style={{ color: "#9090a0" }}>A grades: <b style={{ color: "#2bb886" }}>{theme.a_grades}</b></span>
                     <span style={{ color: "#9090a0" }}>Breadth: <b style={{ color: theme.breadth >= 60 ? "#2bb886" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</b></span>
-                    <span style={{ color: "#9090a0" }}>Avg RS: <b style={{ color: "#d0d0dc" }}>{Math.round(allStocks.reduce((a, s) => a + (s.rs_rank || 0), 0) / total)}</b></span>
+                    <span style={{ color: "#9090a0" }}>Avg RS: <b style={{ color: "#b8b8c8" }}>{Math.round(allStocks.reduce((a, s) => a + (s.rs_rank || 0), 0) / total)}</b></span>
                     {(() => { const best = [...allStocks].sort((a, b) => b.return_3m - a.return_3m)[0];
                       return best ? <span style={{ color: "#9090a0" }}>Top 3M: <b style={{ color: "#2bb886" }}>{best.ticker}</b> <Ret v={best.return_3m} bold /></span> : null;
                     })()}
@@ -876,9 +876,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                               ref={isAct ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
                               onClick={() => onTickerClick(s.ticker)}
                               style={{ borderBottom: "1px solid #222230", cursor: "pointer", background: isAct ? "#0d916315" : "transparent" }}>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#0d9163" : "#f0f0f5", fontWeight: 700 }}>{s.ticker}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>{s.ticker}</td>
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: "#d0d0dc", fontFamily: "monospace" }}>{s.rs_rank}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
                               {(() => { const chg = liveLookup[s.ticker]?.change; const c = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
                                 return <td style={{ padding: "3px 6px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 11, color: chg != null ? c : "#3a3a4a" }}>
                                   {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>; })()}
@@ -912,7 +912,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {detailTheme !== theme.theme && theme.subthemes.map(sub => (
                   <div key={sub.name} style={{ marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderBottom: "1px solid #222230", fontSize: 12 }}>
-                      <span style={{ color: "#d0d0dc", fontWeight: 600, width: 160, textAlign: "left" }}>{sub.name}</span>
+                      <span style={{ color: "#b8b8c8", fontWeight: 600, width: 160, textAlign: "left" }}>{sub.name}</span>
                       <span style={{ color: "#787888", width: 24, textAlign: "center" }}>{sub.count}</span>
                       <span style={{ color: sub.rts >= 65 ? "#2bb886" : sub.rts >= 50 ? "#60a5fa" : "#fbbf24", fontWeight: 700, fontFamily: "monospace", width: 32 }}>{sub.rts}</span>
                       <Ret v={sub.return_1m} /><Ret v={sub.return_3m} bold />
@@ -1012,7 +1012,7 @@ function Rotation({ themes, liveThemeData, stockMap }) {
       <div style={{ background: qc.bg, border: `1px solid ${qc.tag}40`, borderRadius: 8, padding: 12, minHeight: 200 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
           <span style={{ color: qc.text, fontWeight: 700, fontSize: 14 }}>{title}</span>
-          <span style={{ background: qc.tag, color: "#f0f0f5", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>{items.length}</span>
+          <span style={{ background: qc.tag, color: "#d4d4e0", padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 700 }}>{items.length}</span>
         </div>
         <div style={{ color: qc.text + "88", fontSize: 11, marginBottom: 8 }}>{desc}</div>
         {items.map(t => (
@@ -1069,7 +1069,7 @@ function Rotation({ themes, liveThemeData, stockMap }) {
                 <div key={t.theme} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 8px", borderRadius: 4,
                   background: diverging ? "#fbbf2410" : "transparent", borderLeft: `3px solid ${qc.tag}` }}>
                   <span style={{ color: "#686878", fontSize: 10, fontFamily: "monospace", width: 16 }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#d0d0dc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#b8b8c8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {t.theme}
                   </span>
                   <span style={{ fontSize: 11, color: t.live_breadth >= 60 ? "#2bb886" : t.live_breadth >= 40 ? "#fbbf24" : "#f87171",
@@ -1326,9 +1326,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 background: isActive ? "#0d916315" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#f0f0f5", fontWeight: 700 }}>{s.ticker}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>{s.ticker}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#d0d0dc", fontFamily: "monospace" }}>{s.rs_rank}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
                 const lv = liveLookup[s.ticker];
                 const chg = lv?.change;
@@ -1421,7 +1421,7 @@ function MarketMonitor({ mmData }) {
   if (!mmData) {
     return (
       <div style={{ textAlign: "center", padding: 40 }}>
-        <div style={{ fontSize: 24, fontWeight: 900, color: "#f0f0f5", marginBottom: 8 }}>MARKET MONITOR</div>
+        <div style={{ fontSize: 24, fontWeight: 900, color: "#d4d4e0", marginBottom: 8 }}>MARKET MONITOR</div>
         <div style={{ color: "#787888", fontSize: 13, marginBottom: 24 }}>Stockbee-style Breadth Tracker</div>
         <div style={{ color: "#9090a0", fontSize: 13, padding: 20, border: "1px dashed #3a3a4a", borderRadius: 8, maxWidth: 400, margin: "0 auto" }}>
           No market monitor data found. Run <code style={{ color: "#0d9163" }}>10_market_monitor.py</code> to generate data, then copy <code style={{ color: "#0d9163" }}>market_monitor.json</code> to your themepulse/public/ folder.
@@ -1450,7 +1450,7 @@ function MarketMonitor({ mmData }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ fontSize: 20, fontWeight: 900, color: "#f0f0f5" }}>MARKET MONITOR</span>
+        <span style={{ fontSize: 20, fontWeight: 900, color: "#d4d4e0" }}>MARKET MONITOR</span>
         <span style={{ color: "#787888", fontSize: 12 }}>{mmData.date}</span>
         <span style={{ color: "#686878", fontSize: 11 }}>{c.total_stocks} stocks scanned</span>
       </div>
@@ -1530,7 +1530,7 @@ function MarketMonitor({ mmData }) {
                 };
                 return (
                   <tr key={row.date} style={{ borderBottom: "1px solid #222230", background: i === 0 ? "#0d916308" : "transparent" }}>
-                    <td style={{ padding: "3px 6px", color: i === 0 ? "#f0f0f5" : "#787888", fontWeight: i === 0 ? 700 : 400, whiteSpace: "nowrap" }}>{row.date}</td>
+                    <td style={{ padding: "3px 6px", color: i === 0 ? "#d4d4e0" : "#787888", fontWeight: i === 0 ? 700 : 400, whiteSpace: "nowrap" }}>{row.date}</td>
                     <td style={cc(row.up_4pct, "up_4pct")}>{cv(row.up_4pct, "up_4pct")}</td>
                     <td style={cc(row.down_4pct, "down_4pct")}>{cv(row.down_4pct, "down_4pct")}</td>
                     <td style={cc(row.up_25q, "up_25q")}>{cv(row.up_25q, "up_25q")}</td>
@@ -1785,7 +1785,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               style={{ borderBottom: `1px solid ${isConsol ? "#fbbf2425" : "#222230"}`, cursor: "pointer",
                 background: isActive ? "#fbbf2415" : isConsol ? "#fbbf2408" : "transparent" }}>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                <span style={{ color: isActive ? "#fbbf24" : "#f0f0f5", fontWeight: 700 }}>{isConsol && "★ "}{ep.ticker}</span>
+                <span style={{ color: isActive ? "#fbbf24" : "#d4d4e0", fontWeight: 700 }}>{isConsol && "★ "}{ep.ticker}</span>
               </td>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>{s ? <Badge grade={s.grade} /> : "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center", color: ep.days_ago <= 5 ? "#fbbf24" : "#9090a0", fontSize: 11 }}>{ep.date}</td>
@@ -1810,7 +1810,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: c.vol_contraction <= 0.5 ? "#2bb886" : c.vol_contraction <= 0.7 ? "#60a5fa" : "#9090a0" }}>
                 {c.vol_contraction ? `${c.vol_contraction}x` : "—"}</td>
-              <td style={{ padding: "4px 6px", textAlign: "center", color: "#d0d0dc", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
+              <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
               <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10 }}>{s?.themes?.[0]?.theme || "—"}</td>
             </tr>
           );
@@ -1894,10 +1894,10 @@ function IndexChart({ symbol, name, maData, liveThemeData }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid #2a2a38", borderRight: "1px solid #2a2a38", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", background: "#1a1a24", flexShrink: 0, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 900, color: "#f0f0f5" }}>{symbol}</span>
+        <span style={{ fontSize: 13, fontWeight: 900, color: "#d4d4e0" }}>{symbol}</span>
         <span style={{ fontSize: 10, color: "#787888" }}>{name}</span>
         {maData && <>
-          <span style={{ fontSize: 11, color: "#d0d0dc", fontFamily: "monospace", marginLeft: "auto" }}>${live?.price ?? maData.price}</span>
+          <span style={{ fontSize: 11, color: "#b8b8c8", fontFamily: "monospace", marginLeft: "auto" }}>${live?.price ?? maData.price}</span>
           {(() => {
             const chg = live?.change ?? maData.change;
             if (chg == null) return null;
@@ -1968,7 +1968,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           const light = ["C+","C","C-","D+","D","D-"].includes(g);
           return (
             <div key={g} style={{ width: 64, flexShrink: 0 }}>
-              <div style={{ background: GRADE_COLORS[g], color: light ? "#2a2a38" : "#f0f0f5", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 12, fontWeight: 700 }}>
+              <div style={{ background: GRADE_COLORS[g], color: light ? "#2a2a38" : "#d4d4e0", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 12, fontWeight: 700 }}>
                 {g}<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{groups[g].length}</span></div>
               <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
                 {groups[g].slice(0, 60).map(s => (
@@ -2021,9 +2021,9 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
         {onAdd && <span onClick={(e) => { e.stopPropagation(); onAdd(s.ticker); }}
           style={{ color: "#0d9163", cursor: "pointer", fontSize: 11 }}>{addLabel || "+watch"}</span>}
       </td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#f0f0f5", fontWeight: 700, fontSize: 12 }}>{s.ticker}</td>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700, fontSize: 12 }}>{s.ticker}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: "#d0d0dc", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
@@ -2204,7 +2204,7 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
                   cursor: "pointer", marginBottom: 1 }}
                 onMouseEnter={ev => ev.currentTarget.style.background = "#1a1a24"}
                 onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
-                <span style={{ fontWeight: 700, fontSize: 12, color: "#f0f0f5", width: 50 }}>{e.ticker}</span>
+                <span style={{ fontWeight: 700, fontSize: 12, color: "#d4d4e0", width: 50 }}>{e.ticker}</span>
                 {e.grade && <Badge grade={e.grade} />}
                 <span style={{ fontSize: 11, color: "#9090a0", fontFamily: "monospace", width: 28, textAlign: "right" }}>{e.rs_rank ?? '—'}</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", width: 45, textAlign: "right",
@@ -2236,7 +2236,7 @@ function TickerInput({ value, setValue, onAdd, placeholder }) {
         onKeyDown={e => e.key === "Enter" && onAdd()}
         placeholder={placeholder || "Add ticker..."}
         style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 4, padding: "3px 8px",
-          fontSize: 12, color: "#f0f0f5", width: 80, outline: "none", fontFamily: "monospace" }} />
+          fontSize: 12, color: "#d4d4e0", width: 80, outline: "none", fontFamily: "monospace" }} />
       <button onClick={onAdd} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 4, cursor: "pointer",
         background: "#0d916320", border: "1px solid #0d916340", color: "#0d9163" }}>+</button>
     </span>
@@ -2609,7 +2609,7 @@ function LoginScreen({ onLogin }) {
           onKeyDown={e => e.key === "Enter" && submit()}
           placeholder="Enter PIN"
           style={{ background: "#121218", border: "1px solid #3a3a4a", borderRadius: 6, padding: "10px 16px",
-            fontSize: 16, color: "#f0f0f5", width: "100%", outline: "none", fontFamily: "monospace",
+            fontSize: 16, color: "#d4d4e0", width: "100%", outline: "none", fontFamily: "monospace",
             textAlign: "center", letterSpacing: 8, marginBottom: 16, boxSizing: "border-box" }} />
         {error && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 12 }}>{error}</div>}
         <button onClick={submit} disabled={loading}
@@ -2775,7 +2775,7 @@ function AppMain({ authToken, onLogout }) {
     return (
       <div style={{ minHeight: "100vh", background: "#121218", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", maxWidth: 400 }}>
-          <div style={{ fontSize: 40, fontWeight: 900, color: "#f0f0f5", letterSpacing: -2, marginBottom: 4 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></div>
+          <div style={{ fontSize: 40, fontWeight: 900, color: "#d4d4e0", letterSpacing: -2, marginBottom: 4 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></div>
           <div style={{ color: "#787888", marginBottom: 32, fontSize: 14 }}>Leading Stocks in Leading Themes</div>
           {error && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 16, padding: 12, background: "#450a0a", borderRadius: 8 }}>{error}</div>}
           <div style={{ border: "2px dashed #3a3a4a", borderRadius: 12, padding: 40 }}>
@@ -2798,15 +2798,15 @@ function AppMain({ authToken, onLogout }) {
   const chartOpen = chartTicker !== null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#121218", color: "#d0d0dc", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#121218", color: "#b8b8c8", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #2a2a38", background: "#1a1a24", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 900, color: "#f0f0f5", letterSpacing: -1 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></span>
+          <span style={{ fontSize: 18, fontWeight: 900, color: "#d4d4e0", letterSpacing: -1 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></span>
           <span style={{ color: "#686878", fontSize: 12 }}>{data.date}</span>
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-          <span style={{ color: "#787888" }}>Stocks: <b style={{ color: "#f0f0f5" }}>{data.total_stocks}</b></span>
+          <span style={{ color: "#787888" }}>Stocks: <b style={{ color: "#d4d4e0" }}>{data.total_stocks}</b></span>
           <span style={{ color: "#787888" }}>Strong: <b style={{ color: "#2bb886" }}>{strongC}</b></span>
           <span style={{ color: "#787888" }}>A Grades: <b style={{ color: "#2bb886" }}>{aCount}</b></span>
           <span style={{ color: "#787888" }}>Breadth: <b style={{ color: breadth >= 60 ? "#2bb886" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</b></span>
@@ -2822,7 +2822,7 @@ function AppMain({ authToken, onLogout }) {
         ))}
         <div style={{ flex: 1 }} />
         <input type="text" placeholder="Search..." value={filters.search} onChange={e => setFilters(p => ({ ...p, search: e.target.value }))}
-          style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 6, padding: "4px 10px", fontSize: 12, color: "#f0f0f5", width: 120, outline: "none" }} />
+          style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 6, padding: "4px 10px", fontSize: 12, color: "#d4d4e0", width: 120, outline: "none" }} />
         <div style={{ display: "flex", gap: 4 }}>
           {[null,"STRONG","IMPROVING","WEAKENING","WEAK"].map(q => (
             <button key={q||"all"} onClick={() => setFilters(p => ({ ...p, quad: q }))}
