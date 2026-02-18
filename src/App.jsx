@@ -1058,6 +1058,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
+  const [minRS, setMinRS] = useState(0);
   const [scanMode, setScanMode] = useState("theme");
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
@@ -1195,6 +1196,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     }
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
+    if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1219,7 +1221,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, scanMode, liveLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1262,6 +1264,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <button onClick={() => setGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           border: greenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
           background: greenOnly ? "#2bb88620" : "transparent", color: greenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 700, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
+          <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
+            style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+        </div>
         <button onClick={() => setLiveOverlay(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           border: liveOverlay ? "1px solid #0d9163" : "1px solid #3a3a4a",
           background: liveOverlay ? "#0d916320" : "transparent", color: liveOverlay ? "#4aad8c" : "#787888" }}>
