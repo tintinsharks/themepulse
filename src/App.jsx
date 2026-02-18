@@ -1274,7 +1274,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : inPortfolio ? "rgba(96, 165, 250, 0.07)" : inWatchlist ? "rgba(43, 184, 134, 0.07)" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>
                 <span>{s.ticker}</span>
-                {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 5 && (
+                {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
                     style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
                       color: s.earnings_days <= 1 ? "#fff" : "#f87171",
