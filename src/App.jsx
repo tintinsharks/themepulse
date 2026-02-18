@@ -2281,15 +2281,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
-  useEffect(() => {
-    if (!onVisibleTickers) return;
-    // Report displayed order: portfolio (sorted) then watchlist (sorted)
-    const pTickers = portfolioMerged.map(s => s.ticker);
-    const wTickers = watchlistMerged.map(s => s.ticker);
-    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t))];
-    onVisibleTickers(combined);
-  }, [pSort, wlSort, portfolio, watchlist, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Build merged lookup: live data + pipeline stockMap
   const liveLookup = useMemo(() => {
     const m = {};
@@ -2357,6 +2348,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
   const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
+
+  useEffect(() => {
+    if (!onVisibleTickers) return;
+    const pTickers = portfolioMerged.map(s => s.ticker);
+    const wTickers = watchlistMerged.map(s => s.ticker);
+    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t))];
+    onVisibleTickers(combined);
+  }, [pSort, wlSort, portfolio, watchlist, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
