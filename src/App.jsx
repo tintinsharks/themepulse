@@ -2481,6 +2481,16 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
             <span style={{ fontSize: 11, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>Market Overview</span>
           </div>
           {marketOpen && (
+          <div>
+          {/* Finviz market breadth charts */}
+          {homepage.charts && homepage.charts.length > 0 && (
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", justifyContent: "center" }}>
+              {homepage.charts.map((url, i) => (
+                <img key={i} src={url} alt="" style={{ height: 40, borderRadius: 4, border: "1px solid #222230" }}
+                  onError={e => { e.target.style.display = "none"; }} />
+              ))}
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
           {/* Futures */}
           <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
@@ -2563,6 +2573,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                 })}
               </div>
             ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading major news...</span>}
+          </div>
           </div>
           </div>
           )}
@@ -2961,15 +2972,6 @@ function AppMain({ authToken, onLogout }) {
             );
           })()}
         </div>
-        {/* Market breadth charts from Finviz */}
-        {homepage?.charts?.length > 0 && (
-          <div style={{ display: "flex", gap: 4, alignItems: "center", overflow: "hidden" }}>
-            {homepage.charts.slice(0, 6).map((url, i) => (
-              <img key={i} src={url} alt="" style={{ height: 28, borderRadius: 3, opacity: 0.9 }}
-                onError={e => { e.target.style.display = "none"; }} />
-            ))}
-          </div>
-        )}
         <button onClick={() => setShowEarnings(p => !p)} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #3a3a4a",
           color: showEarnings ? "#c084fc" : "#787888" }}>Earnings</button>
