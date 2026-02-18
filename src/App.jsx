@@ -231,9 +231,11 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         </div>
       )}
 
-      {/* Stock detail row — matches Swing Data Pine Script color thresholds */}
+      {/* Stock detail row — metrics left, news right */}
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
-        <div style={{ display: "flex", gap: 16, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
+          {/* Left: metrics */}
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 0 auto" }}>
           {stock.atr != null && <StockStat label="ATR" value={stock.atr} />}
           {/* Avg $ Vol: >20M green, >10M yellow, else default */}
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
@@ -260,6 +262,30 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
+          </div>
+          {/* Divider */}
+          <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0 }} />
+          {/* Right: news */}
+          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+            {news && news.length > 0 ? (
+              <div style={{ fontSize: 10, fontFamily: "monospace" }}>
+                <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>News</div>
+                {news.map((n, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, padding: "1px 0" }}>
+                    <span style={{ color: "#686878", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
+                    <a href={n.url} target="_blank" rel="noopener noreferrer"
+                      style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      onMouseEnter={e => e.target.style.color = "#0d9163"}
+                      onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
+                      {n.headline}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span style={{ color: "#505060", fontSize: 10 }}>Loading news...</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -387,41 +413,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         </div>
         );
       })()}
-
-      {/* News section — show independently even without earnings data */}
-      {stock && !(stock.quarters && stock.quarters.length > 0) && (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-          <div style={{ minWidth: 0 }}>
-            {news && news.length > 0 ? (
-              <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace", width: "100%" }}>
-                <thead><tr>
-                  <td style={{ padding: "2px 6px", color: "#686878", fontWeight: 700 }}>Recent News</td>
-                </tr></thead>
-                <tbody>
-                  {news.map((n, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: "3px 6px", verticalAlign: "top" }}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <span style={{ color: "#686878", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
-                          <a href={n.url} target="_blank" rel="noopener noreferrer"
-                            style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                            onMouseEnter={e => e.target.style.color = "#0d9163"}
-                            onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
-                            {n.headline}
-                          </a>
-                          {n.source && <span style={{ color: "#505060", whiteSpace: "nowrap", flexShrink: 0 }}>({n.source})</span>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <span style={{ color: "#3a3a4a", fontSize: 10, padding: "2px 6px" }}>Loading news...</span>
-            )}
-          </div>
-        </div>
-      )}
 
       </>)}
 
