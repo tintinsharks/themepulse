@@ -1131,64 +1131,67 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
   const candidates = useMemo(() => {
+    // Individual scan filters
+    const winnersFilter = s => {
+      const price = s.price || 0;
+      const adr = s.adr_pct || 0;
+      const aboveLow = s.above_52w_low || 0;
+      const avgDolVol = s.avg_dollar_vol_raw || 0;
+      const sma20 = s.sma20_pct;
+      const sma50 = s.sma50_pct;
+      return price > 1 && adr > 4.5 && aboveLow >= 70 && avgDolVol >= 7000000
+        && sma20 != null && sma20 > 0 && sma50 != null && sma50 > 0;
+    };
+    const liquidFilter = s => {
+      const price = s.price || 0;
+      const mcap = s.market_cap_raw || 0;
+      const avgVol = s.avg_volume_raw || 0;
+      const avgDolVol = s.avg_dollar_vol_raw || 0;
+      const adr = s.adr_pct || 0;
+      const epsGrowth = s.eps_this_y ?? s.eps_past_5y;
+      const salesGrowth = s.sales_past_5y;
+      return price > 10 && mcap >= 300000000 && avgVol >= 1000000 && avgDolVol >= 100000000
+        && adr > 3 && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
+    };
+    const earlyFilter = s => {
+      const sma50 = s.sma50_pct;
+      const sma200 = s.sma200_pct;
+      const rs = s.rs_rank;
+      const avgDolVol = s.avg_dollar_vol_raw || 0;
+      const price = s.price || 0;
+      return price > 5 && avgDolVol >= 5000000
+        && sma50 != null && sma50 > 0 && sma50 < 10
+        && sma200 != null && sma200 > 0
+        && rs != null && rs >= 50 && rs < 85
+        && s.adr_pct > 2 && s.pct_from_high < -10;
+    };
+    const themeFilter = s => {
+      const good = ["A+","A","A-","B+"].includes(s.grade);
+      const inLead = s.themes.some(t => leading.has(t.theme));
+      return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
+    };
+
     let list;
-    if (scanMode === "winners") {
-      // Best Winners filter
-      list = stocks.filter(s => {
-        const price = s.price || 0;
-        const adr = s.adr_pct || 0;
-        const aboveLow = s.above_52w_low || 0;
-        const avgDolVol = s.avg_dollar_vol_raw || 0;
-        const sma20 = s.sma20_pct;
-        const sma50 = s.sma50_pct;
-        return price > 1
-          && adr > 4.5
-          && aboveLow >= 70
-          && avgDolVol >= 7000000
-          && sma20 != null && sma20 > 0
-          && sma50 != null && sma50 > 0;
+    if (scanMode === "master") {
+      // Union of all scans — deduplicated, with hit count
+      const hitMap = {};
+      stocks.forEach(s => {
+        const hits = [];
+        if (themeFilter(s)) hits.push("T");
+        if (winnersFilter(s)) hits.push("W");
+        if (liquidFilter(s)) hits.push("L");
+        if (earlyFilter(s)) hits.push("E");
+        if (hits.length > 0) hitMap[s.ticker] = hits;
       });
+      list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
+    } else if (scanMode === "winners") {
+      list = stocks.filter(winnersFilter);
     } else if (scanMode === "liquid") {
-      // Liquid Leaders filter — high-quality liquid institutional names
-      // EPS growth > 20%, Price > $10, MCap > $300M, AvgVol > 1M, Avg$Vol > $100M, ADR > 3%
-      list = stocks.filter(s => {
-        const price = s.price || 0;
-        const mcap = s.market_cap_raw || 0;
-        const avgVol = s.avg_volume_raw || 0;
-        const avgDolVol = s.avg_dollar_vol_raw || 0;
-        const adr = s.adr_pct || 0;
-        const epsGrowth = s.eps_this_y ?? s.eps_past_5y;
-        const salesGrowth = s.sales_past_5y;
-        return price > 10
-          && mcap >= 300000000
-          && avgVol >= 1000000
-          && avgDolVol >= 100000000
-          && adr > 3
-          && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
-      });
+      list = stocks.filter(liquidFilter);
     } else if (scanMode === "early") {
-      // Early Stage 2 / Turnaround — just crossing above 50MA with improving RS
-      list = stocks.filter(s => {
-        const sma50 = s.sma50_pct;
-        const sma200 = s.sma200_pct;
-        const rs = s.rs_rank;
-        const avgDolVol = s.avg_dollar_vol_raw || 0;
-        const price = s.price || 0;
-        return price > 5
-          && avgDolVol >= 5000000
-          && sma50 != null && sma50 > 0 && sma50 < 10
-          && sma200 != null && sma200 > 0
-          && rs != null && rs >= 50 && rs < 85
-          && s.adr_pct > 2
-          && s.pct_from_high < -10;
-      });
+      list = stocks.filter(earlyFilter);
     } else {
-      // Original theme-based filter
-      list = stocks.filter(s => {
-        const good = ["A+","A","A-","B+"].includes(s.grade);
-        const inLead = s.themes.some(t => leading.has(t.theme));
-        return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
-      });
+      list = stocks.filter(themeFilter);
     }
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
@@ -1202,6 +1205,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const GRADE_ORDER = {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1};
     const sorters = {
       default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
+      hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || (b.rs_rank - a.rs_rank),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: safe(s => GRADE_ORDER[s.grade] ?? null),
       rs: safe(s => s.rs_rank),
@@ -1214,7 +1218,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
     };
-    return list.sort(sorters[sortBy] || sorters.default);
+    return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
   }, [stocks, leading, sortBy, nearPivot, greenOnly, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
@@ -1222,7 +1226,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (onVisibleTickers) onVisibleTickers(candidates.map(s => s.ticker));
   }, [candidates, onVisibleTickers]);
 
-  const filterDesc = scanMode === "winners"
+  const filterDesc = scanMode === "master"
+    ? "Union of all scans — multi-hit = higher conviction"
+    : scanMode === "winners"
     ? "Price>$1 | ADR>4.5% | Ab52WLo≥70% | Avg$Vol>$7M | >20SMA | >50SMA"
     : scanMode === "liquid"
     ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | EPS>20% or Sales5Y>15%"
@@ -1232,7 +1238,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   // Column header config: [label, sortKey or null]
   const columns = [
-    ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"],
+    ["Ticker", "ticker"],
+    ...(scanMode === "master" ? [["Hits", "hits"]] : []),
+    ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
   ];
@@ -1240,7 +1248,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        {[["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"],["early","Early Stage 2"]].map(([k, l]) => (
+        {[["master","★ Master"],["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"],["early","Early Stage 2"]].map(([k, l]) => (
           <button key={k} onClick={() => setScanMode(k)} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer",
             border: scanMode === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
             background: scanMode === k ? "#0d916318" : "transparent", color: scanMode === k ? "#4aad8c" : "#787888" }}>{l}</button>
@@ -1283,6 +1291,18 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 background: isActive ? "#0d916315" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>{s.ticker}</td>
+              {scanMode === "master" && (
+                <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                  <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+                    {(s._scanHits || []).map(h => {
+                      const hc = { T: { bg: "#05966920", color: "#2bb886", label: "T" }, W: { bg: "#c084fc20", color: "#c084fc", label: "W" },
+                        L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" } }[h];
+                      return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
+                        color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
+                    })}
+                  </div>
+                </td>
+              )}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
