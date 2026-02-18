@@ -1337,287 +1337,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   );
 }
 
-// ── BAR GAUGE COMPONENT ──
-function Gauge({ value, min, max, label, zones, unit = "" }) {
-  const pct = max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0;
-  
-  let zoneColor = "#787888";
-  if (zones) {
-    if (zones.green && value >= zones.green[0] && value <= zones.green[1]) zoneColor = "#22a06a";
-    else if (zones.yellow && value >= zones.yellow[0] && value <= zones.yellow[1]) zoneColor = "#eab308";
-    else if (zones.yellow_low && value >= zones.yellow_low[0] && value <= zones.yellow_low[1]) zoneColor = "#eab308";
-    else if (zones.yellow_high && value >= zones.yellow_high[0] && value <= zones.yellow_high[1]) zoneColor = "#eab308";
-    else if (zones.red && value >= zones.red[0] && value <= zones.red[1]) zoneColor = "#ef4444";
-    else if (zones.red_low && value >= zones.red_low[0] && value <= zones.red_low[1]) zoneColor = "#ef4444";
-    else if (zones.red_high && value >= zones.red_high[0] && value <= zones.red_high[1]) zoneColor = "#ef4444";
-    else zoneColor = "#eab308";
-  }
-  
-  const displayVal = typeof value === 'number' ? (Number.isInteger(value) ? value : value.toFixed(1)) : value;
-  
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
-        <span style={{ fontSize: 11, color: "#9090a0" }}>{label}</span>
-        <span style={{ fontSize: 14, fontWeight: 900, fontFamily: "monospace", color: zoneColor }}>{displayVal}{unit}</span>
-      </div>
-      <div style={{ height: 6, background: "#222230", borderRadius: 3, overflow: "hidden", position: "relative" }}>
-        {/* Zone background segments */}
-        {zones && (() => {
-          const segs = [];
-          const allZones = [
-            { key: "red_low", color: "#ef444425" }, { key: "red", color: "#ef444425" },
-            { key: "yellow_low", color: "#eab30820" }, { key: "yellow", color: "#eab30820" },
-            { key: "green", color: "#22a06a20" },
-            { key: "yellow_high", color: "#eab30820" },
-            { key: "red_high", color: "#ef444425" },
-          ];
-          allZones.forEach(({ key, color }) => {
-            if (zones[key]) {
-              const left = Math.max(0, (zones[key][0] - min) / (max - min) * 100);
-              const right = Math.min(100, (zones[key][1] - min) / (max - min) * 100);
-              if (right > left) segs.push(<div key={key} style={{ position: "absolute", left: `${left}%`, width: `${right - left}%`, height: "100%", background: color }} />);
-            }
-          });
-          return segs;
-        })()}
-        {/* Value bar */}
-        <div style={{ height: "100%", width: `${pct}%`, background: zoneColor, borderRadius: 3, position: "relative", transition: "width 0.3s" }} />
-      </div>
-    </div>
-  );
-}
-
-// ── MARKET MONITOR ──
-function MarketMonitor({ mmData }) {
-  if (!mmData) {
-    return (
-      <div style={{ textAlign: "center", padding: 40 }}>
-        <div style={{ fontSize: 24, fontWeight: 900, color: "#d4d4e0", marginBottom: 8 }}>MARKET MONITOR</div>
-        <div style={{ color: "#787888", fontSize: 13, marginBottom: 24 }}>Stockbee-style Breadth Tracker</div>
-        <div style={{ color: "#9090a0", fontSize: 13, padding: 20, border: "1px dashed #3a3a4a", borderRadius: 8, maxWidth: 400, margin: "0 auto" }}>
-          No market monitor data found. Run <code style={{ color: "#0d9163" }}>10_market_monitor.py</code> to generate data, then copy <code style={{ color: "#0d9163" }}>market_monitor.json</code> to your themepulse/public/ folder.
-        </div>
-      </div>
-    );
-  }
-
-  const c = mmData.current;
-  const gauges = mmData.gauges;
-  const history = mmData.history || [];
-  
-  // Ratios might be in history but not in current (calculated after append)
-  const lastHist = history.length > 0 ? history[history.length - 1] : {};
-  const ratio5d = c.ratio_5d || lastHist.ratio_5d || 0;
-  const ratio10d = c.ratio_10d || lastHist.ratio_10d || 0;
-  
-  // Helper to get gauge zones from config
-  const gz = (key) => gauges[key] || {};
-  
-  // Determine max values for gauges dynamically
-  const maxUp4 = Math.max(1000, c.up_4pct, ...history.map(h => h.up_4pct || 0));
-  const maxDn4 = Math.max(1000, c.down_4pct, ...history.map(h => h.down_4pct || 0));
-  const maxQ = Math.max(2000, c.up_25q, c.down_25q, ...history.map(h => Math.max(h.up_25q || 0, h.down_25q || 0)));
-
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ fontSize: 20, fontWeight: 900, color: "#d4d4e0" }}>MARKET MONITOR</span>
-        <span style={{ color: "#787888", fontSize: 12 }}>{mmData.date}</span>
-        <span style={{ color: "#686878", fontSize: 11 }}>{c.total_stocks} stocks scanned</span>
-      </div>
-
-      {/* PRIMARY INDICATORS */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ color: "#0d9163", fontSize: 12, fontWeight: 700, marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>Primary Indicators</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", maxWidth: 700 }}>
-          <Gauge value={c.up_4pct} min={0} max={maxUp4} label="Up 4%+ Today" zones={gz("up_4pct")} />
-          <Gauge value={c.down_4pct} min={0} max={maxDn4} label="Down 4%+ Today" zones={gz("down_4pct")} />
-          <Gauge value={c.up_25q} min={0} max={maxQ} label="Up 25%+ Qtr" zones={gz("up_25q")} />
-          <Gauge value={c.down_25q} min={0} max={maxQ} label="Down 25%+ Qtr" zones={gz("down_25q")} />
-          <Gauge value={ratio5d} min={0} max={5} label="5-Day Ratio" zones={gz("ratio_5d")} />
-          <Gauge value={ratio10d} min={0} max={5} label="10-Day Ratio" zones={gz("ratio_10d")} />
-        </div>
-      </div>
-
-      {/* SECONDARY INDICATORS */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700, marginBottom: 12, textTransform: "uppercase", letterSpacing: 1 }}>Secondary Indicators</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", maxWidth: 700 }}>
-          <Gauge value={c.up_25m} min={0} max={Math.max(500, c.up_25m)} label="Up 25%+ Mo" zones={gz("up_25m")} />
-          <Gauge value={c.down_25m} min={0} max={Math.max(500, c.down_25m)} label="Down 25%+ Mo" zones={gz("down_25m")} />
-          <Gauge value={c.up_50m} min={0} max={Math.max(100, c.up_50m)} label="Up 50%+ Mo" zones={gz("up_50m")} />
-          <Gauge value={c.down_50m} min={0} max={Math.max(100, c.down_50m)} label="Down 50%+ Mo" zones={gz("down_50m")} />
-          <Gauge value={c.up_13_34d} min={0} max={Math.max(800, c.up_13_34d)} label="Up 13%+ 34d" zones={gz("up_13_34d")} />
-          <Gauge value={c.down_13_34d} min={0} max={Math.max(800, c.down_13_34d)} label="Down 13%+ 34d" zones={gz("down_13_34d")} />
-          <Gauge value={c.t2108} min={0} max={100} label="T2108 (% > 40MA)" zones={gz("t2108")} unit="%" />
-        </div>
-      </div>
-
-      {/* HISTORY TABLE */}
-      {history.length > 0 && (
-        <div>
-          <div style={{ color: "#9090a0", fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>History</div>
-          <div style={{ overflowX: "auto", maxHeight: "40vh", overflowY: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead><tr style={{ position: "sticky", top: 0, background: "#1a1a24", borderBottom: "2px solid #3a3a4a", zIndex: 1 }}>
-                {["Date","4%↑","4%↓","25%Q↑","25%Q↓","5dR","10dR","25%M↑","25%M↓","50%M↑","50%M↓","13%/34↑","13%/34↓","T2108"].map(h => (
-                  <th key={h} style={{ padding: "4px 6px", color: "#787888", fontWeight: 700, textAlign: "center", whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>{[...history].reverse().map((row, i, arr) => {
-                const prev = arr[i + 1]; // previous day (next in reversed array)
-                const cellColor = (val, key) => {
-                  const g = gauges[key];
-                  if (!g) return "#9090a0";
-                  if (g.green && val >= g.green[0] && val <= g.green[1]) return "#2bb886";
-                  if (g.red && val >= g.red[0] && val <= g.red[1]) return "#f87171";
-                  if (g.red_low && val >= g.red_low[0] && val <= g.red_low[1]) return "#f87171";
-                  if (g.red_high && val >= g.red_high[0] && val <= g.red_high[1]) return "#f87171";
-                  if (g.yellow && val >= g.yellow[0] && val <= g.yellow[1]) return "#fbbf24";
-                  if (g.yellow_low && val >= g.yellow_low[0] && val <= g.yellow_low[1]) return "#fbbf24";
-                  if (g.yellow_high && val >= g.yellow_high[0] && val <= g.yellow_high[1]) return "#fbbf24";
-                  return "#9090a0";
-                };
-                const delta = (val, prevVal) => {
-                  if (prev == null || prevVal == null || val == null) return "";
-                  const d = val - prevVal;
-                  if (d > 0) return " ▲";
-                  if (d < 0) return " ▼";
-                  return "";
-                };
-                const deltaCol = (val, prevVal) => {
-                  if (prev == null || prevVal == null || val == null) return undefined;
-                  const d = val - prevVal;
-                  if (d > 0) return "#2bb88660";
-                  if (d < 0) return "#f8717160";
-                  return undefined;
-                };
-                const cc = (val, key, prevVal) => ({ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", color: cellColor(val, key), fontWeight: i === 0 ? 700 : 400 });
-                const cv = (val, key, prevKey) => {
-                  const pv = prev ? prev[prevKey || key] : null;
-                  const d = delta(val, pv);
-                  const fmt = typeof val === 'number' && !Number.isInteger(val) ? val?.toFixed(1) : val;
-                  return <>{fmt}<span style={{ fontSize: 9, color: d.includes("▲") ? "#2bb886" : "#f87171" }}>{d}</span></>;
-                };
-                return (
-                  <tr key={row.date} style={{ borderBottom: "1px solid #222230", background: i === 0 ? "#0d916308" : "transparent" }}>
-                    <td style={{ padding: "3px 6px", color: i === 0 ? "#d4d4e0" : "#787888", fontWeight: i === 0 ? 700 : 400, whiteSpace: "nowrap" }}>{row.date}</td>
-                    <td style={cc(row.up_4pct, "up_4pct")}>{cv(row.up_4pct, "up_4pct")}</td>
-                    <td style={cc(row.down_4pct, "down_4pct")}>{cv(row.down_4pct, "down_4pct")}</td>
-                    <td style={cc(row.up_25q, "up_25q")}>{cv(row.up_25q, "up_25q")}</td>
-                    <td style={cc(row.down_25q, "down_25q")}>{cv(row.down_25q, "down_25q")}</td>
-                    <td style={cc(row.ratio_5d, "ratio_5d")}>{cv(row.ratio_5d, "ratio_5d")}</td>
-                    <td style={cc(row.ratio_10d, "ratio_10d")}>{cv(row.ratio_10d, "ratio_10d")}</td>
-                    <td style={cc(row.up_25m, "up_25m")}>{cv(row.up_25m, "up_25m")}</td>
-                    <td style={cc(row.down_25m, "down_25m")}>{cv(row.down_25m, "down_25m")}</td>
-                    <td style={cc(row.up_50m, "up_50m")}>{cv(row.up_50m, "up_50m")}</td>
-                    <td style={cc(row.down_50m, "down_50m")}>{cv(row.down_50m, "down_50m")}</td>
-                    <td style={cc(row.up_13_34d, "up_13_34d")}>{cv(row.up_13_34d, "up_13_34d")}</td>
-                    <td style={cc(row.down_13_34d, "down_13_34d")}>{cv(row.down_13_34d, "down_13_34d")}</td>
-                    <td style={cc(row.t2108, "t2108")}>{cv(row.t2108, "t2108")}</td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* THEME BREADTH — 4% movers by theme */}
-      {/* Theme Breadth Sparklines */}
-      {(() => {
-        const hist = mmData.theme_breadth_history;
-        const todayBreadth = mmData.theme_breadth || [];
-        // Get all themes that have either sparkline history or today's 4% movers
-        const allThemes = new Set([
-          ...(hist ? Object.keys(hist) : []),
-          ...todayBreadth.map(tb => tb.theme),
-        ]);
-        if (allThemes.size === 0) return null;
-
-        // Build lookup for today's 4% movers
-        const todayMap = {};
-        todayBreadth.forEach(tb => { todayMap[tb.theme] = tb; });
-
-        // Build theme list with current breadth, sort by latest breadth desc
-        const themes = [...allThemes].map(name => {
-          const points = hist?.[name] || [];
-          const latest = points.length > 0 ? points[points.length - 1].breadth : 0;
-          const tb = todayMap[name];
-          return { name, points, latest, tb };
-        }).sort((a, b) => b.latest - a.latest);
-
-        return (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ color: "#c084fc", fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>
-              Theme Breadth — % Above 50MA (30-day trend)
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", maxWidth: 800 }}>
-              {themes.map(({ name, points, latest, tb }) => {
-                const vals = points.map(p => p.breadth);
-                const sparkW = 80, sparkH = 20;
-                const mn = Math.min(0, ...vals);
-                const mx = Math.max(100, ...vals);
-                const range = mx - mn || 1;
-                // Build SVG path
-                let pathD = "";
-                let areaD = "";
-                if (vals.length > 1) {
-                  const pts = vals.map((v, i) => {
-                    const x = (i / (vals.length - 1)) * sparkW;
-                    const y = sparkH - ((v - mn) / range) * sparkH;
-                    return [x, y];
-                  });
-                  pathD = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
-                  areaD = pathD + ` L${sparkW},${sparkH} L0,${sparkH} Z`;
-                }
-                // Trend: compare last vs 5 days ago
-                const prev = vals.length >= 6 ? vals[vals.length - 6] : vals[0];
-                const delta = latest - (prev || 0);
-                const trendColor = delta > 3 ? "#2bb886" : delta < -3 ? "#f87171" : "#9090a0";
-                const lineColor = latest >= 60 ? "#2bb886" : latest >= 40 ? "#fbbf24" : "#f87171";
-                const netColor = tb ? (tb.net > 0 ? "#2bb886" : tb.net < 0 ? "#f87171" : "#686878") : "#686878";
-
-                return (
-                  <div key={name} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0" }}>
-                    <span style={{ fontSize: 11, color: "#b0b0be", width: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>{name}</span>
-                    {vals.length > 1 ? (
-                      <svg width={sparkW} height={sparkH} style={{ flexShrink: 0 }}>
-                        {/* 50% reference line */}
-                        <line x1={0} y1={sparkH - ((50 - mn) / range) * sparkH} x2={sparkW} y2={sparkH - ((50 - mn) / range) * sparkH}
-                          stroke="#3a3a4a" strokeWidth={0.5} strokeDasharray="2,2" />
-                        {/* Area fill */}
-                        <path d={areaD} fill={lineColor} opacity={0.1} />
-                        {/* Sparkline */}
-                        <path d={pathD} fill="none" stroke={lineColor} strokeWidth={1.5} />
-                        {/* Current dot */}
-                        <circle cx={sparkW} cy={sparkH - ((latest - mn) / range) * sparkH} r={2} fill={lineColor} />
-                      </svg>
-                    ) : (
-                      <div style={{ width: sparkW, height: sparkH, flexShrink: 0 }} />
-                    )}
-                    <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: lineColor, width: 30, textAlign: "right", flexShrink: 0 }}>{latest}%</span>
-                    <span style={{ fontSize: 10, fontFamily: "monospace", color: trendColor, width: 28, textAlign: "right", flexShrink: 0 }}>
-                      {delta >= 0 ? '+' : ''}{delta.toFixed(0)}
-                    </span>
-                    {tb && (tb.up_4pct > 0 || tb.down_4pct > 0) && (
-                      <span style={{ fontSize: 10, fontFamily: "monospace", color: netColor, flexShrink: 0 }}>
-                        <span style={{ color: "#2bb886" }}>↑{tb.up_4pct}</span>
-                        <span style={{ color: "#686878" }}>/</span>
-                        <span style={{ color: "#f87171" }}>↓{tb.down_4pct}</span>
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-    </div>
-  );
-}
 
 // ── EPISODIC PIVOTS ──
 function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
@@ -1798,95 +1517,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 }
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
-function IndexChart({ symbol, name, maData, liveThemeData }) {
-  const containerRef = useRef(null);
-
-  const live = useMemo(() => {
-    if (!liveThemeData) return null;
-    return liveThemeData.find(s => s.ticker === symbol) || null;
-  }, [liveThemeData, symbol]);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.id = `tv_index_${symbol}`;
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    containerRef.current.appendChild(widgetDiv);
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/tv.js";
-    script.async = true;
-    script.onload = () => {
-      if (window.TradingView) {
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: symbol,
-          interval: "D",
-          timezone: "America/New_York",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          toolbar_bg: "#121218",
-          enable_publishing: false,
-          allow_symbol_change: false,
-          save_image: false,
-          hide_top_toolbar: true,
-          hide_legend: true,
-          backgroundColor: "rgba(10, 10, 10, 1)",
-          gridColor: "rgba(20, 20, 20, 1)",
-          container_id: `tv_index_${symbol}`,
-          studies: [
-            { id: "MAExp@tv-basicstudies", inputs: { length: 10 } },
-            { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
-            { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
-            { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
-          ],
-        });
-      }
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      if (script.parentNode) script.parentNode.removeChild(script);
-    };
-  }, [symbol]);
-
-  const MaBadge = ({ label, above }) => (
-    <span style={{
-      padding: "2px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700, fontFamily: "monospace",
-      background: above ? "#22a06a25" : "#ef444425",
-      color: above ? "#2bb886" : "#f87171",
-      border: `1px solid ${above ? "#22a06a40" : "#ef444440"}`,
-    }}>{label}</span>
-  );
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid #2a2a38", borderRight: "1px solid #2a2a38", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", background: "#1a1a24", flexShrink: 0, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 900, color: "#d4d4e0" }}>{symbol}</span>
-        <span style={{ fontSize: 10, color: "#787888" }}>{name}</span>
-        {maData && <>
-          <span style={{ fontSize: 11, color: "#b8b8c8", fontFamily: "monospace", marginLeft: "auto" }}>${live?.price ?? maData.price}</span>
-          {(() => {
-            const chg = live?.change ?? maData.change;
-            if (chg == null) return null;
-            return <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace",
-              color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0" }}>
-              {chg > 0 ? "+" : ""}{Number(chg).toFixed(2)}%</span>;
-          })()}
-          <MaBadge label="10E" above={maData.above_ema10} />
-          <MaBadge label="21E" above={maData.above_ema21} />
-          <MaBadge label="50S" above={maData.above_sma50} />
-          <MaBadge label="200S" above={maData.above_sma200} />
-        </>}
-      </div>
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
-    </div>
-  );
-}
 
 function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const [showLegend, setShowLegend] = useState(false);
@@ -3025,7 +2655,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["leaders","Theme Leaders"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"],["mm","Mkt Monitor"]].map(([id, label]) => (
+        {[["live","Live"],["leaders","Theme Leaders"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -3078,13 +2708,12 @@ function AppMain({ authToken, onLogout }) {
       {/* Main content: split layout when chart is open */}
       <div ref={containerRef} style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
-        <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
+        <div style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData} />}
 
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
-          {view === "mm" && <MarketMonitor mmData={mmData} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
@@ -3093,7 +2722,7 @@ function AppMain({ authToken, onLogout }) {
         </div>
 
         {/* Draggable divider */}
-        {((chartOpen && view !== "mm") || view === "mm") && (
+        {chartOpen && (
           <div
             onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
             style={{ width: 9, flexShrink: 0, cursor: "col-resize", position: "relative", zIndex: 10,
@@ -3102,8 +2731,8 @@ function AppMain({ authToken, onLogout }) {
           </div>
         )}
 
-        {/* Right: chart panel (individual ticker) — NOT on MM tab */}
-        {chartOpen && view !== "mm" && (
+        {/* Right: chart panel */}
+        {chartOpen && (
           <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
               watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
@@ -3112,19 +2741,6 @@ function AppMain({ authToken, onLogout }) {
           </div>
         )}
 
-        {/* Right: Index charts grid — MM tab only */}
-        {view === "mm" && (
-          <div style={{ width: `${100 - splitPct}%`, height: "100%", borderLeft: "1px solid #2a2a38", background: "#121218", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 0, transition: "none" }}>
-            {[
-              { symbol: "SPY", name: "S&P 500" },
-              { symbol: "QQQ", name: "NASDAQ 100" },
-              { symbol: "IWM", name: "Russell 2000" },
-              { symbol: "DIA", name: "Dow Jones" },
-            ].map(idx => (
-              <IndexChart key={idx.symbol} symbol={idx.symbol} name={idx.name} maData={mmData?.indices?.[idx.symbol]} liveThemeData={liveThemeData} />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Earnings Calendar slide-out */}
