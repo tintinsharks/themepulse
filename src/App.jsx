@@ -50,7 +50,7 @@ function StockStat({ label, value, color = "#9090a0" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nS7up88o";
 
-function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
+function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
@@ -294,7 +294,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid #3a3a4a", fontSize: 10, fontFamily: "monospace", display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ color: "#686878", fontWeight: 700 }}>Peers:</span>
                 {peers.map(p => (
-                  <span key={p} onClick={() => { if (typeof onClose === 'function') {} }}
+                  <span key={p} onClick={() => { if (onTickerClick) onTickerClick(p); }}
                     style={{ color: "#9090a0", cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: "#222230" }}
                     onMouseEnter={e => { e.target.style.color = "#0d9163"; e.target.style.background = "#0d916318"; }}
                     onMouseLeave={e => { e.target.style.color = "#9090a0"; e.target.style.background = "#222230"; }}>
@@ -2833,8 +2833,43 @@ function AppMain({ authToken, onLogout }) {
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
         ))}
         <div style={{ flex: 1 }} />
-        <input type="text" placeholder="Search..." value={filters.search} onChange={e => setFilters(p => ({ ...p, search: e.target.value }))}
-          style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 6, padding: "4px 10px", fontSize: 12, color: "#d4d4e0", width: 120, outline: "none" }} />
+        <div style={{ position: "relative" }}>
+          <input type="text" placeholder="Ticker..." value={filters.search}
+            onChange={e => setFilters(p => ({ ...p, search: e.target.value.toUpperCase() }))}
+            onKeyDown={e => {
+              if (e.key === "Enter" && filters.search.trim()) {
+                const q = filters.search.trim().toUpperCase();
+                // Exact match first, then partial
+                const exact = Object.keys(stockMap).find(t => t === q);
+                if (exact) { openChart(exact); setFilters(p => ({ ...p, search: "" })); }
+                else {
+                  const partial = Object.keys(stockMap).filter(t => t.startsWith(q));
+                  if (partial.length > 0) { openChart(partial[0]); setFilters(p => ({ ...p, search: "" })); }
+                  else { openChart(q); setFilters(p => ({ ...p, search: "" })); }
+                }
+              }
+              if (e.key === "Escape") setFilters(p => ({ ...p, search: "" }));
+            }}
+            style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 6, padding: "4px 10px", fontSize: 12, color: "#d4d4e0", width: 140, outline: "none", fontFamily: "monospace" }} />
+          {filters.search.length >= 1 && (() => {
+            const q = filters.search.toUpperCase();
+            const matches = Object.keys(stockMap).filter(t => t.startsWith(q)).slice(0, 8);
+            if (matches.length === 0) return null;
+            return (
+              <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 2, background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, zIndex: 9999, minWidth: 200, maxHeight: 240, overflow: "auto" }}>
+                {matches.map(t => (
+                  <div key={t} onClick={() => { openChart(t); setFilters(p => ({ ...p, search: "" })); }}
+                    style={{ padding: "5px 10px", cursor: "pointer", fontSize: 12, fontFamily: "monospace", display: "flex", justifyContent: "space-between", gap: 12 }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#0d916318"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <span style={{ color: "#d4d4e0", fontWeight: 700 }}>{t}</span>
+                    <span style={{ color: "#686878", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stockMap[t]?.company || ""}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
         <div style={{ display: "flex", gap: 4 }}>
           {[null,"STRONG","IMPROVING","WEAKENING","WEAK"].map(q => (
             <button key={q||"all"} onClick={() => setFilters(p => ({ ...p, quad: q }))}
@@ -2883,7 +2918,7 @@ function AppMain({ authToken, onLogout }) {
         {/* Right: chart panel (individual ticker) — NOT on MM tab */}
         {chartOpen && view !== "mm" && (
           <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
-            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart}
+            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
               watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
               portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
               liveThemeData={liveThemeData} />
