@@ -1045,7 +1045,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [greenOnly, setGreenOnly] = useState(true);
   const [minRS, setMinRS] = useState(75);
   const [scanMode, setScanMode] = useState("master");
-  const [themeFilter, setThemeFilter] = useState(null);
+  const [activeTheme, setActiveTheme] = useState(null);
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -1163,7 +1163,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
-    if (themeFilter) list = list.filter(s => s.themes?.some(t => t.theme === themeFilter));
+    if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1188,7 +1188,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, themeFilter, scanMode, liveLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1236,10 +1236,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
         </div>
-        {themeFilter && (
-          <button onClick={() => setThemeFilter(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+        {activeTheme && (
+          <button onClick={() => setActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
             border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
-            {themeFilter} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
+            {activeTheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
           </button>
         )}
         <button onClick={() => setLiveOverlay(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
@@ -1325,7 +1325,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
                 {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
               <td style={{ padding: "4px 8px", color: "#787888", fontSize: 11, cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); setThemeFilter(theme?.theme || null); }}
+                onClick={(e) => { e.stopPropagation(); setActiveTheme(theme?.theme || null); }}
                 onMouseEnter={e => e.target.style.color = "#4aad8c"}
                 onMouseLeave={e => e.target.style.color = "#787888"}>{theme?.theme}</td>
               <td style={{ padding: "4px 8px", color: "#686878", fontSize: 10 }}>{theme?.subtheme}</td>
