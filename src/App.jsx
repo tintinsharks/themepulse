@@ -1045,6 +1045,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [greenOnly, setGreenOnly] = useState(true);
   const [minRS, setMinRS] = useState(75);
   const [scanMode, setScanMode] = useState("master");
+  const [themeFilter, setThemeFilter] = useState(null);
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -1162,6 +1163,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
+    if (themeFilter) list = list.filter(s => s.themes?.some(t => t.theme === themeFilter));
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1186,7 +1188,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, scanMode, liveLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, themeFilter, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1234,6 +1236,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
         </div>
+        {themeFilter && (
+          <button onClick={() => setThemeFilter(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
+            {themeFilter} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
+          </button>
+        )}
         <button onClick={() => setLiveOverlay(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           border: liveOverlay ? "1px solid #0d9163" : "1px solid #3a3a4a",
           background: liveOverlay ? "#0d916320" : "transparent", color: liveOverlay ? "#4aad8c" : "#787888" }}>
@@ -1264,7 +1272,18 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : inPortfolio ? "rgba(96, 165, 250, 0.07)" : inWatchlist ? "rgba(43, 184, 134, 0.07)" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>{s.ticker}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>
+                <span>{s.ticker}</span>
+                {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 5 && (
+                  <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
+                    style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
+                      color: s.earnings_days <= 1 ? "#fff" : "#f87171",
+                      background: s.earnings_days <= 1 ? "#dc2626" : "#f8717120",
+                      border: `1px solid ${s.earnings_days <= 1 ? "#dc2626" : "#f8717130"}` }}>
+                    ER{s.earnings_days === 0 ? "" : s.earnings_days}
+                  </span>
+                )}
+              </td>
               {scanMode === "master" && (
                 <td style={{ padding: "4px 6px", textAlign: "center" }}>
                   <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
@@ -1305,7 +1324,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
                 {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
-              <td style={{ padding: "4px 8px", color: "#787888", fontSize: 11 }}>{theme?.theme}</td>
+              <td style={{ padding: "4px 8px", color: "#787888", fontSize: 11, cursor: "pointer" }}
+                onClick={(e) => { e.stopPropagation(); setThemeFilter(theme?.theme || null); }}
+                onMouseEnter={e => e.target.style.color = "#4aad8c"}
+                onMouseLeave={e => e.target.style.color = "#787888"}>{theme?.theme}</td>
               <td style={{ padding: "4px 8px", color: "#686878", fontSize: 10 }}>{theme?.subtheme}</td>
             </tr>
           );
@@ -2787,11 +2809,16 @@ function AppMain({ authToken, onLogout }) {
       .catch(() => setLoading(false));
     // Also load market monitor data (optional, won't block)
     fetch("/market_monitor.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setMmData(d); }).catch(() => {});
-    // Fetch Finviz homepage data (futures, earnings, major news, charts)
-    fetch("/api/live?homepage=1")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.homepage) setHomepage(d.homepage); })
-      .catch(() => {});
+    // Fetch Finviz homepage data (futures, earnings, major news, market stats) + refresh every 60s
+    const fetchHomepage = () => {
+      fetch("/api/live?homepage=1")
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.ok && d.homepage) setHomepage(d.homepage); })
+        .catch(() => {});
+    };
+    fetchHomepage();
+    const hpIv = setInterval(fetchHomepage, 60000);
+    return () => clearInterval(hpIv);
   }, []);
 
   // Global theme universe live data fetch — runs on load + every 30s
