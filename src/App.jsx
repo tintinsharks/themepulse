@@ -116,7 +116,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           allow_symbol_change: false,
           save_image: false,
           hide_top_toolbar: true,
-          hide_legend: false,
+          hide_legend: true,
           backgroundColor: "rgba(10, 10, 10, 1)",
           gridColor: "rgba(30, 30, 30, 1)",
           container_id: "tv_chart_container",
