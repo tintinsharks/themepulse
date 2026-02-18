@@ -48,10 +48,9 @@ function StockStat({ label, value, color = "#9090a0" }) {
 }
 
 // ── PERSISTENT CHART PANEL (right side) ──
-const TV_LAYOUT = "nS7up88o";
+const TV_LAYOUT = "nkNPuLqj";
 
 function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
-  const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
@@ -81,60 +80,9 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       .catch(() => { setNews([]); setPeers([]); });
   }, [ticker]);
 
-  const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
+  const tfMap = { "1": "1", "5": "5", "15": "15", "60": "60", "D": "D", "W": "W", "M": "M" };
 
-  const tfOptions = [
-    ["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"],
-    ["D", "D"], ["W", "W"], ["M", "M"],
-  ];
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.id = "tv_chart_container";
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    containerRef.current.appendChild(widgetDiv);
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/tv.js";
-    script.async = true;
-    script.onload = () => {
-      if (window.TradingView) {
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: ticker,
-          interval: tf,
-          timezone: "America/New_York",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          toolbar_bg: "#121218",
-          enable_publishing: false,
-          allow_symbol_change: false,
-          save_image: false,
-          hide_top_toolbar: true,
-          hide_legend: true,
-          backgroundColor: "rgba(10, 10, 10, 1)",
-          gridColor: "rgba(30, 30, 30, 1)",
-          container_id: "tv_chart_container",
-          studies: [
-            { id: "MAExp@tv-basicstudies", inputs: { length: 8 } },
-            { id: "MAExp@tv-basicstudies", inputs: { length: 21 } },
-            { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
-            { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
-          ],
-        });
-      }
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      if (script.parentNode) script.parentNode.removeChild(script);
-    };
-  }, [ticker, tf]);
+  const chartUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}&interval=${tfMap[tf] || "D"}`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", borderLeft: "1px solid #2a2a38", background: "#121218" }}>
@@ -170,7 +118,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </>)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <a href={tvLayoutUrl} target="_blank" rel="noopener noreferrer"
+          <a href={chartUrl} target="_blank" rel="noopener noreferrer"
             style={{ color: "#0d9163", fontSize: 12, textDecoration: "none", padding: "4px 12px", border: "1px solid #0d916340",
               borderRadius: 4, fontWeight: 700 }}>
             Full Chart ↗</a>
@@ -195,7 +143,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </span>
           )}
           <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
-          {tfOptions.map(([val, label]) => (
+          {[["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"], ["D", "D"], ["W", "W"], ["M", "M"]].map(([val, label]) => (
             <button key={val} onClick={() => setTf(val)}
               style={{ padding: "2px 6px", borderRadius: 3, fontSize: 11, cursor: "pointer",
                 border: tf === val ? "1px solid #0d9163" : "1px solid #3a3a4a",
@@ -402,7 +350,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       </>)}
 
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+      <iframe
+        key={`${ticker}-${tf}`}
+        src={chartUrl}
+        style={{ flex: 1, minHeight: 0, width: "100%", border: "none", background: "#0a0a0a" }}
+        allow="fullscreen"
+      />
     </div>
   );
 }
