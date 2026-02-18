@@ -66,9 +66,15 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
   useEffect(() => {
     setNews(null);
     fetch(`/api/live?news=${ticker}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.news) setNews(d.news); })
-      .catch(() => {});
+      .then(r => {
+        if (!r.ok) { setNews([]); return null; }
+        return r.json();
+      })
+      .then(d => {
+        if (d?.ok && d.news && d.news.length > 0) setNews(d.news);
+        else setNews([]);
+      })
+      .catch(() => setNews([]));
   }, [ticker]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
@@ -267,7 +273,9 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0 }} />
           {/* Right: news */}
           <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-            {news && news.length > 0 ? (
+            {news === null ? (
+              <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>Loading news...</span>
+            ) : news.length > 0 ? (
               <div style={{ fontSize: 10, fontFamily: "monospace" }}>
                 <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>News</div>
                 {news.map((n, i) => (
@@ -283,7 +291,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
                 ))}
               </div>
             ) : (
-              <span style={{ color: "#505060", fontSize: 10 }}>Loading news...</span>
+              <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>No news found</span>
             )}
           </div>
         </div>
@@ -377,38 +385,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             </tbody>
           </table>
           )}
-          </div>
-          {/* Divider */}
-          <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0 }} />
-          {/* Right: Recent news */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {news && news.length > 0 ? (
-              <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace", width: "100%" }}>
-                <thead><tr>
-                  <td style={{ padding: "2px 6px", color: "#686878", fontWeight: 700 }}>Recent News</td>
-                </tr></thead>
-                <tbody>
-                  {news.map((n, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: "3px 6px", verticalAlign: "top" }}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <span style={{ color: "#686878", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
-                          <a href={n.url} target="_blank" rel="noopener noreferrer"
-                            style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                            onMouseEnter={e => e.target.style.color = "#0d9163"}
-                            onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
-                            {n.headline}
-                          </a>
-                          {n.source && <span style={{ color: "#505060", whiteSpace: "nowrap", flexShrink: 0 }}>({n.source})</span>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <span style={{ color: "#3a3a4a", fontSize: 10, padding: "2px 6px" }}>Loading news...</span>
-            )}
           </div>
         </div>
         );
