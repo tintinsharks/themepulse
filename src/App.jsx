@@ -2156,10 +2156,16 @@ function LiveSortHeader({ setter, current }) {
 
 function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) {
   const isActive = s.ticker === activeTicker;
+  const rowRef = React.useRef(null);
+  React.useEffect(() => {
+    if (isActive && rowRef.current) {
+      rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isActive]);
   const near = s.pct_from_high != null && s.pct_from_high >= -5;
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
   return (
-    <tr onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+    <tr ref={rowRef} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
       background: isActive ? "#0d916315" : "transparent" }}>
       <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
         {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
@@ -2568,10 +2574,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
   useEffect(() => {
-    if (!liveData || !onVisibleTickers) return;
-    const tickers = (liveData.watchlist || []).map(s => s.ticker);
-    onVisibleTickers(tickers);
-  }, [liveData, onVisibleTickers]);
+    if (!onVisibleTickers) return;
+    const tickers = [
+      ...portfolioMerged.map(s => s.ticker),
+      ...watchlistMerged.map(s => s.ticker),
+    ];
+    // Dedupe while preserving order
+    onVisibleTickers([...new Set(tickers)]);
+  }, [portfolioMerged, watchlistMerged, onVisibleTickers]);
 
   // Build merged lookup: live data + pipeline stockMap
   const liveLookup = useMemo(() => {
