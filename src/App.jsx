@@ -1098,7 +1098,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       .finally(() => setLiveLoading(false));
   }, [themeData, themes, liveLoading]);
 
-  // Auto-refresh every 60s when Scan tab is active
+  // Auto-refresh every 10s when Scan tab is active
   useEffect(() => {
     if (!themes) return;
     const iv = setInterval(() => {
@@ -1116,7 +1116,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           }
         })
         .catch(() => {});
-    }, 60000);
+    }, 30000);
     return () => clearInterval(iv);
   }, [themes]);
 
