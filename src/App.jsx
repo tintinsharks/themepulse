@@ -2338,7 +2338,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -2347,7 +2347,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
-  const [homepage, setHomepage] = useState(null);
   const [marketOpen, setMarketOpen] = useState(true);
 
   // Combine all tickers for API call — watchlist + portfolio only
@@ -2367,14 +2366,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       setError(null);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, [allTickers]);
-
-  // Fetch homepage data (futures, earnings, major news)
-  useEffect(() => {
-    fetch("/api/live?homepage=1")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.homepage) setHomepage(d.homepage); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 30000); return () => clearInterval(iv); }, [fetchLive]);
 
@@ -2710,6 +2701,7 @@ function AppMain({ authToken, onLogout }) {
   const [liveThemeData, setLiveThemeData] = useState(null);
   const [showEarnings, setShowEarnings] = useState(false);
   const [earningsOpen, setEarningsOpen] = useState(false);
+  const [homepage, setHomepage] = useState(null);
 
   useEffect(() => {
     fetch("/dashboard_data.json").then(r => { if (!r.ok) throw new Error(); return r.json(); })
@@ -2717,6 +2709,11 @@ function AppMain({ authToken, onLogout }) {
       .catch(() => setLoading(false));
     // Also load market monitor data (optional, won't block)
     fetch("/market_monitor.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setMmData(d); }).catch(() => {});
+    // Fetch Finviz homepage data (futures, earnings, major news, charts)
+    fetch("/api/live?homepage=1")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.ok && d.homepage) setHomepage(d.homepage); })
+      .catch(() => {});
   }, []);
 
   // Global theme universe live data fetch — runs on load + every 30s
@@ -2964,18 +2961,15 @@ function AppMain({ authToken, onLogout }) {
             );
           })()}
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {[null,"STRONG","IMPROVING","WEAKENING","WEAK"].map(q => (
-            <button key={q||"all"} onClick={() => setFilters(p => ({ ...p, quad: q }))}
-              style={{ padding: "3px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer",
-                border: filters.quad === q ? "1px solid #0d9163" : "1px solid #3a3a4a",
-                background: filters.quad === q ? "#0d916320" : "transparent", color: filters.quad === q ? "#4aad8c" : "#787888" }}>{q||"All"}</button>
-          ))}
-        </div>
-        <span style={{ fontSize: 11, color: "#787888" }}>RTS≥</span>
-        <input type="range" min={0} max={80} value={filters.minRTS} onChange={e => setFilters(p => ({ ...p, minRTS: +e.target.value }))}
-          style={{ width: 80, accentColor: "#0d9163" }} />
-        <span style={{ fontSize: 11, color: "#9090a0", fontFamily: "monospace" }}>{filters.minRTS}</span>
+        {/* Market breadth charts from Finviz */}
+        {homepage?.charts?.length > 0 && (
+          <div style={{ display: "flex", gap: 4, alignItems: "center", overflow: "hidden" }}>
+            {homepage.charts.slice(0, 6).map((url, i) => (
+              <img key={i} src={url} alt="" style={{ height: 28, borderRadius: 3, opacity: 0.9 }}
+                onError={e => { e.target.style.display = "none"; }} />
+            ))}
+          </div>
+        )}
         <button onClick={() => setShowEarnings(p => !p)} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #3a3a4a",
           color: showEarnings ? "#c084fc" : "#787888" }}>Earnings</button>
@@ -2997,7 +2991,7 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            liveThemeData={liveThemeData} />}
+            liveThemeData={liveThemeData} homepage={homepage} />}
         </div>
 
         {/* Draggable divider */}

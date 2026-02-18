@@ -636,8 +636,30 @@ async function fetchHomepage(cookies) {
       }
     }
     
-    console.log(`Homepage: ${futures.length} futures, ${earnings.length} earnings rows, ${major_news.length} major news`);
-    return { futures, earnings, major_news };
+    // ── MARKET INDICATOR CHARTS (breadth images from homepage) ──
+    const charts = [];
+    // Grab all img src URLs from the page
+    const allImgRegex = /<img[^>]+src="([^"]+)"/gi;
+    const allImgs = [];
+    let cm;
+    while ((cm = allImgRegex.exec(html)) !== null) {
+      let src = cm[1];
+      if (src.startsWith("/")) {
+        const base = cookies ? "https://elite.finviz.com" : "https://finviz.com";
+        src = base + src;
+      }
+      allImgs.push(src);
+    }
+    // Filter for chart-like images (exclude tiny icons, logos, ads)
+    const chartImgs = allImgs.filter(u => 
+      (u.includes("chart") || u.includes("image") || u.includes("graph") || u.includes(".png") || u.includes("ashx"))
+      && !u.includes("logo") && !u.includes("icon") && !u.includes("favicon") && !u.includes("ad_")
+      && !u.includes("1x1") && !u.includes("pixel")
+    );
+    console.log(`Homepage images: ${allImgs.length} total, ${chartImgs.length} chart-like`);
+    console.log(`Chart URLs:`, chartImgs.slice(0, 15).join("\n"));
+    
+    return { futures, earnings, major_news, charts: chartImgs };
   } catch (err) {
     console.error("Homepage fetch error:", err.message);
     return { futures: [], earnings: [], major_news: [] };
