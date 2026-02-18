@@ -231,8 +231,8 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           <span style={{ color: "#9090a0" }}>{stock.company}</span>
           <span style={{ color: "#787888" }}>{stock.sector}</span>
           <span style={{ color: "#787888" }}>{stock.industry}</span>
-          <Ret v={stock.return_1m} />
-          <Ret v={stock.return_3m} bold />
+          <span style={{ color: "#9090a0" }}>1M: <Ret v={stock.return_1m} /></span>
+          <span style={{ color: "#9090a0" }}>3M: <Ret v={stock.return_3m} bold /></span>
           <span style={{ color: "#9090a0" }}>1Y: <Ret v={stock.return_1y} /></span>
         </div>
       )}
@@ -241,12 +241,13 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 50%", minWidth: 0 }}>
-          {stock.atr != null && <StockStat label="ATR" value={stock.atr} />}
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 45%", minWidth: 0 }}>
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
           {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
             color={stock.avg_volume_raw > 1000000 ? "#2bb886" : "#f97316"} />}
+          {stock.volume != null && <StockStat label="Vol" value={(() => { const v = stock.volume; if (v >= 1e9) return (v/1e9).toFixed(2)+"B"; if (v >= 1e6) return (v/1e6).toFixed(2)+"M"; if (v >= 1e3) return (v/1e3).toFixed(0)+"K"; return v; })()}
+            color={stock.avg_volume_raw && stock.volume > stock.avg_volume_raw ? "#2bb886" : "#f97316"} />}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#2bb886" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
@@ -269,7 +270,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           {/* Divider */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
           {/* Right: news */}
-          <div style={{ flex: "1 1 50%", minWidth: 200, overflow: "hidden" }}>
+          <div style={{ flex: "1 1 55%", minWidth: 200, overflow: "hidden" }}>
             {news === null ? (
               <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>Loading news...</span>
             ) : news.length > 0 ? (
