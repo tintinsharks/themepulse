@@ -958,10 +958,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 }
 
 function Rotation({ themes, liveThemeData, stockMap }) {
-  const [mode, setMode] = useState("subtheme"); // "quad", "live", "subtheme"
-  const [subSort, setSubSort] = useState("rts");
-  const [subQuadFilter, setSubQuadFilter] = useState(null);
-  const [expandedTheme, setExpandedTheme] = useState(null);
+  const [mode, setMode] = useState("scanner"); // "scanner", "quad", "live"
+  const [themeSort, setThemeSort] = useState("rts");
+  const [themeQuadFilter, setThemeQuadFilter] = useState(null);
 
   // Only use data passed from LiveView/Leaders — no independent fetching
   const themeData = liveThemeData;
@@ -985,24 +984,32 @@ function Rotation({ themes, liveThemeData, stockMap }) {
     return perf;
   }, [themeData, themes]);
 
-  // Compute live subtheme performance
-  const liveSubPerf = useMemo(() => {
-    if (!themeData || themeData.length === 0 || !themes) return {};
-    const changeLookup = {};
-    themeData.forEach(s => { if (s.change != null) changeLookup[s.ticker] = s.change; });
-    const perf = {};
-    themes.forEach(t => {
-      t.subthemes?.forEach(sub => {
-        const key = `${t.theme}::${sub.name}`;
-        const changes = (sub.tickers || []).map(tk => changeLookup[tk]).filter(v => v != null);
-        if (changes.length === 0) return;
-        const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
-        const up = changes.filter(c => c > 0).length;
-        perf[key] = { avg, up, total: changes.length, breadth: Math.round(up / changes.length * 100) };
-      });
-    });
-    return perf;
-  }, [themeData, themes]);
+  // ── Theme scanner data ──
+  const themeQuadCounts = useMemo(() => {
+    const c = { STRONG: 0, IMPROVING: 0, WEAKENING: 0, WEAK: 0 };
+    enrichedThemes.forEach(t => c[getQuad(t.weekly_rs, t.monthly_rs)]++);
+    return c;
+  }, [enrichedThemes]);
+
+  const filteredThemes = useMemo(() => {
+    let list = [...enrichedThemes];
+    if (themeQuadFilter) list = list.filter(t => getQuad(t.weekly_rs, t.monthly_rs) === themeQuadFilter);
+    const sortFns = {
+      rts: (a, b) => (b.rts ?? 0) - (a.rts ?? 0),
+      breadth: (a, b) => (b.breadth ?? 0) - (a.breadth ?? 0),
+      ret1w: (a, b) => (b.return_1w ?? 0) - (a.return_1w ?? 0),
+      ret1m: (a, b) => (b.return_1m ?? 0) - (a.return_1m ?? 0),
+      ret3m: (a, b) => (b.return_3m ?? 0) - (a.return_3m ?? 0),
+      ret6m: (a, b) => (b.return_6m ?? 0) - (a.return_6m ?? 0),
+      fromhi: (a, b) => (b.from_high ?? -999) - (a.from_high ?? -999),
+      live: (a, b) => (b.live_change ?? -999) - (a.live_change ?? -999),
+      rs: (a, b) => (b.rs ?? 0) - (a.rs ?? 0),
+      agrades: (a, b) => (b.a_grades ?? 0) - (a.a_grades ?? 0),
+      count: (a, b) => (b.count ?? 0) - (a.count ?? 0),
+    };
+    list.sort(sortFns[themeSort] || sortFns.rts);
+    return list;
+  }, [enrichedThemes, themeQuadFilter, themeSort]);
 
   const hasLiveData = Object.keys(liveThemePerf).length > 0;
 
@@ -1040,50 +1047,6 @@ function Rotation({ themes, liveThemeData, stockMap }) {
   }, [enrichedThemes, mode, hasLiveData]);
 
   // ── Subtheme scanner data ──
-  const allSubthemes = useMemo(() => {
-    const subs = [];
-    themes.forEach(t => {
-      t.subthemes?.forEach(sub => {
-        const key = `${t.theme}::${sub.name}`;
-        const lp = liveSubPerf[key];
-        const quad = (sub.weekly_rs != null && sub.monthly_rs != null) ? getQuad(sub.weekly_rs, sub.monthly_rs) : null;
-        subs.push({
-          ...sub,
-          parent_theme: sub.parent_theme || t.theme,
-          quad,
-          live_change: lp?.avg ?? null,
-          live_breadth: lp?.breadth ?? null,
-          live_up: lp?.up ?? 0,
-          live_total: lp?.total ?? 0,
-        });
-      });
-    });
-    return subs;
-  }, [themes, liveSubPerf]);
-
-  const filteredSubs = useMemo(() => {
-    let list = [...allSubthemes];
-    if (subQuadFilter) list = list.filter(s => s.quad === subQuadFilter);
-    const sortFns = {
-      rts: (a, b) => (b.rts ?? 0) - (a.rts ?? 0),
-      breadth: (a, b) => (b.breadth ?? 0) - (a.breadth ?? 0),
-      ret1w: (a, b) => (b.return_1w ?? 0) - (a.return_1w ?? 0),
-      ret1m: (a, b) => (b.return_1m ?? 0) - (a.return_1m ?? 0),
-      ret3m: (a, b) => (b.return_3m ?? 0) - (a.return_3m ?? 0),
-      fromhi: (a, b) => (b.from_high ?? -999) - (a.from_high ?? -999),
-      live: (a, b) => (b.live_change ?? -999) - (a.live_change ?? -999),
-      rs: (a, b) => (b.rs ?? 0) - (a.rs ?? 0),
-    };
-    list.sort(sortFns[subSort] || sortFns.rts);
-    return list;
-  }, [allSubthemes, subQuadFilter, subSort]);
-
-  // Quad counts for subthemes
-  const subQuadCounts = useMemo(() => {
-    const c = { STRONG: 0, IMPROVING: 0, WEAKENING: 0, WEAK: 0, NONE: 0 };
-    allSubthemes.forEach(s => { if (s.quad) c[s.quad]++; else c.NONE++; });
-    return c;
-  }, [allSubthemes]);
 
   const QuadBox = ({ quad, title, desc, items }) => {
     const qc = QC[quad];
@@ -1123,7 +1086,7 @@ function Rotation({ themes, liveThemeData, stockMap }) {
     <div>
       {/* Mode selector */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        {[["subtheme","Subtheme Scanner"],["quad","Theme Quads"],["live","● Live"]].map(([id, label]) => (
+        {[["scanner","Theme Scanner"],["quad","Theme Quads"],["live","● Live"]].map(([id, label]) => (
           <button key={id} onClick={() => setMode(id)}
             style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: "pointer",
               border: mode === id ? "1px solid #0d9163" : "1px solid #3a3a4a",
@@ -1132,110 +1095,95 @@ function Rotation({ themes, liveThemeData, stockMap }) {
         ))}
         {mode === "live" && !hasLiveData && <span style={{ fontSize: 11, color: "#f87171" }}>No live data — visit Live or Leaders tab first</span>}
         {mode === "live" && hasLiveData && <span style={{ fontSize: 11, color: "#686878" }}>{Object.keys(liveThemePerf).length} themes tracked live</span>}
-        {mode === "subtheme" && <span style={{ fontSize: 11, color: "#686878" }}>{allSubthemes.length} subthemes across {themes.length} themes</span>}
+        {mode === "scanner" && <span style={{ fontSize: 11, color: "#686878" }}>{themes.length} themes</span>}
       </div>
 
-      {/* ══════ SUBTHEME SCANNER ══════ */}
-      {mode === "subtheme" && (
+      {/* ══════ THEME SCANNER ══════ */}
+      {mode === "scanner" && (
         <div>
           {/* Quad filter + sort controls */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             <span style={{ color: "#686878", fontSize: 11 }}>Filter:</span>
             {[null,"STRONG","IMPROVING","WEAKENING","WEAK"].map(q => {
-              const cnt = q ? subQuadCounts[q] : allSubthemes.length;
+              const cnt = q ? themeQuadCounts[q] : enrichedThemes.length;
               const qc = q ? QC[q] : null;
               return (
-                <button key={q||"all"} onClick={() => setSubQuadFilter(q)}
+                <button key={q||"all"} onClick={() => setThemeQuadFilter(q)}
                   style={{ padding: "3px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer",
-                    border: subQuadFilter === q ? `1px solid ${qc?.tag || "#0d9163"}` : "1px solid #3a3a4a",
-                    background: subQuadFilter === q ? (qc?.bg || "#0d916320") : "transparent",
-                    color: subQuadFilter === q ? (qc?.text || "#4aad8c") : "#787888" }}>
+                    border: themeQuadFilter === q ? `1px solid ${qc?.tag || "#0d9163"}` : "1px solid #3a3a4a",
+                    background: themeQuadFilter === q ? (qc?.bg || "#0d916320") : "transparent",
+                    color: themeQuadFilter === q ? (qc?.text || "#4aad8c") : "#787888" }}>
                   {q || "All"} ({cnt})
                 </button>
               );
             })}
             <div style={{ flex: 1 }} />
             <span style={{ color: "#686878", fontSize: 11 }}>Sort:</span>
-            {[["rts","RTS"],["breadth","Breadth"],["ret1w","1W%"],["ret1m","1M%"],["ret3m","3M%"],["fromhi","FrHi"],["rs","RS"],
+            {[["rts","RTS"],["breadth","Brdth"],["ret1w","1W%"],["ret1m","1M%"],["ret3m","3M%"],["ret6m","6M%"],["fromhi","FrHi"],["rs","RS"],["agrades","A's"],["count","N"],
               ...(hasLiveData ? [["live","Live%"]] : [])].map(([k, l]) => (
-              <button key={k} onClick={() => setSubSort(k)}
+              <button key={k} onClick={() => setThemeSort(k)}
                 style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
-                  border: subSort === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
-                  background: subSort === k ? "#0d916320" : "transparent", color: subSort === k ? "#4aad8c" : "#686878" }}>
+                  border: themeSort === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
+                  background: themeSort === k ? "#0d916320" : "transparent", color: themeSort === k ? "#4aad8c" : "#686878" }}>
                 {l}</button>
             ))}
           </div>
 
-          {/* Subtheme table */}
+          {/* Theme table */}
           <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #3a3a4a" }}>
-                  <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, width: 24 }}>#</th>
-                  <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600 }}>Subtheme</th>
-                  <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, width: 100 }}>Theme</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 50 }}>Quad</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 35 }}>N</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 40 }}>RTS</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 40 }}>RS</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 50 }}>Brdth</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 50 }}>1W%</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 50 }}>1M%</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 50 }}>3M%</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 50 }}>FrHi</th>
-                  <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 30 }}>A's</th>
-                  {hasLiveData && <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 55 }}>Live%</th>}
+                  {[["#",24],["Theme",null],["Quad",55],["N",35],["RTS",45],["RS",40],["Brdth",50],["A's",35],["1W%",55],["1M%",55],["3M%",55],["6M%",55],["FrHi",50]].map(([h, w]) => (
+                    <th key={h} style={{ padding: "6px 8px", textAlign: h === "Theme" ? "left" : "center", color: "#686878", fontWeight: 600, ...(w ? { width: w } : {}) }}>{h}</th>
+                  ))}
+                  {hasLiveData && <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, width: 60 }}>Live%</th>}
                 </tr>
               </thead>
               <tbody>
-                {filteredSubs.map((sub, i) => {
-                  const qc = sub.quad ? QC[sub.quad] : null;
+                {filteredThemes.map((t, i) => {
+                  const quad = getQuad(t.weekly_rs, t.monthly_rs);
+                  const qc = QC[quad];
                   return (
-                    <tr key={`${sub.parent_theme}-${sub.name}`}
-                      style={{ borderBottom: "1px solid #1a1a24",
-                        background: i % 2 === 0 ? "transparent" : "#1a1a2408" }}
+                    <tr key={t.theme}
+                      style={{ borderBottom: "1px solid #1a1a24", background: i % 2 === 0 ? "transparent" : "#1a1a2408" }}
                       onMouseEnter={e => e.currentTarget.style.background = "#0d916310"}
                       onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#1a1a2408"}>
                       <td style={{ padding: "5px 8px", color: "#505060", fontSize: 10 }}>{i + 1}</td>
-                      <td style={{ padding: "5px 8px", color: "#d4d4e0", fontWeight: 600, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {sub.name}
-                      </td>
-                      <td style={{ padding: "5px 8px", color: "#787888", fontSize: 10, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {sub.parent_theme}
-                      </td>
+                      <td style={{ padding: "5px 8px", color: "#d4d4e0", fontWeight: 600 }}>{t.theme}</td>
                       <td style={{ padding: "5px 8px", textAlign: "center" }}>
-                        {qc ? <span style={{ background: qc.tag + "30", color: qc.text, padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
-                          {sub.quad.slice(0,1)}
-                        </span> : <span style={{ color: "#3a3a4a" }}>—</span>}
-                      </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center", color: "#9090a0" }}>{sub.count}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700,
-                        color: sub.rts >= 70 ? "#2bb886" : sub.rts >= 50 ? "#fbbf24" : "#f87171" }}>
-                        {sub.rts?.toFixed(0)}
-                      </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center",
-                        color: sub.rs >= 70 ? "#2bb886" : sub.rs >= 50 ? "#fbbf24" : "#f87171" }}>
-                        {sub.rs?.toFixed(0)}
-                      </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center" }}>
-                        <span style={{ color: sub.breadth >= 70 ? "#2bb886" : sub.breadth >= 50 ? "#fbbf24" : "#f87171" }}>
-                          {sub.breadth?.toFixed(0)}%
+                        <span style={{ background: qc.tag + "30", color: qc.text, padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
+                          {quad.slice(0, 3)}
                         </span>
                       </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={sub.return_1w} /></td>
-                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={sub.return_1m} /></td>
-                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={sub.return_3m} /></td>
-                      <td style={{ padding: "5px 8px", textAlign: "center",
-                        color: sub.from_high >= -10 ? "#2bb886" : sub.from_high >= -25 ? "#fbbf24" : "#f87171" }}>
-                        {sub.from_high != null ? `${sub.from_high.toFixed(0)}%` : "—"}
+                      <td style={{ padding: "5px 8px", textAlign: "center", color: "#9090a0" }}>{t.count}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700,
+                        color: t.rts >= 70 ? "#2bb886" : t.rts >= 50 ? "#fbbf24" : "#f87171" }}>
+                        {t.rts?.toFixed(0)}
                       </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center", color: sub.a_grades > 0 ? "#2bb886" : "#3a3a4a", fontWeight: sub.a_grades > 0 ? 700 : 400 }}>
-                        {sub.a_grades}
+                      <td style={{ padding: "5px 8px", textAlign: "center",
+                        color: t.rs >= 70 ? "#2bb886" : t.rs >= 50 ? "#fbbf24" : "#f87171" }}>
+                        {t.rs?.toFixed(0)}
+                      </td>
+                      <td style={{ padding: "5px 8px", textAlign: "center",
+                        color: t.breadth >= 70 ? "#2bb886" : t.breadth >= 50 ? "#fbbf24" : "#f87171" }}>
+                        {t.breadth?.toFixed(0)}%
+                      </td>
+                      <td style={{ padding: "5px 8px", textAlign: "center", color: t.a_grades > 0 ? "#2bb886" : "#3a3a4a", fontWeight: t.a_grades > 0 ? 700 : 400 }}>
+                        {t.a_grades}
+                      </td>
+                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={t.return_1w} /></td>
+                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={t.return_1m} /></td>
+                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={t.return_3m} bold /></td>
+                      <td style={{ padding: "5px 8px", textAlign: "center" }}><Ret v={t.return_6m} /></td>
+                      <td style={{ padding: "5px 8px", textAlign: "center",
+                        color: t.from_high >= -10 ? "#2bb886" : t.from_high >= -25 ? "#fbbf24" : "#f87171" }}>
+                        {t.from_high != null ? `${t.from_high.toFixed(0)}%` : "—"}
                       </td>
                       {hasLiveData && (
                         <td style={{ padding: "5px 8px", textAlign: "center", fontWeight: 700,
-                          color: sub.live_change > 0 ? "#2bb886" : sub.live_change < 0 ? "#f87171" : "#9090a0" }}>
-                          {sub.live_change != null ? `${sub.live_change > 0 ? "+" : ""}${sub.live_change.toFixed(2)}%` : "—"}
+                          color: t.live_change > 0 ? "#2bb886" : t.live_change < 0 ? "#f87171" : "#9090a0" }}>
+                          {t.live_change != null ? `${t.live_change > 0 ? "+" : ""}${t.live_change.toFixed(2)}%` : "—"}
                         </td>
                       )}
                     </tr>
@@ -1243,40 +1191,6 @@ function Rotation({ themes, liveThemeData, stockMap }) {
                 })}
               </tbody>
             </table>
-          </div>
-
-          {/* Summary cards: top movers */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
-            {/* Highest RTS subthemes */}
-            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#2bb886", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Top RTS</div>
-              {allSubthemes.sort((a, b) => (b.rts ?? 0) - (a.rts ?? 0)).slice(0, 5).map(sub => (
-                <div key={`${sub.parent_theme}-${sub.name}`} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 }}>
-                  <span style={{ color: "#b8b8c8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{sub.name}</span>
-                  <span style={{ color: "#2bb886", fontFamily: "monospace", fontWeight: 700 }}>{sub.rts?.toFixed(0)}</span>
-                </div>
-              ))}
-            </div>
-            {/* Best 1W movers */}
-            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Best Week</div>
-              {[...allSubthemes].sort((a, b) => (b.return_1w ?? -999) - (a.return_1w ?? -999)).slice(0, 5).map(sub => (
-                <div key={`${sub.parent_theme}-${sub.name}`} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 }}>
-                  <span style={{ color: "#b8b8c8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{sub.name}</span>
-                  <Ret v={sub.return_1w} bold />
-                </div>
-              ))}
-            </div>
-            {/* Highest breadth */}
-            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#fbbf24", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Best Breadth</div>
-              {[...allSubthemes].sort((a, b) => (b.breadth ?? 0) - (a.breadth ?? 0)).slice(0, 5).map(sub => (
-                <div key={`${sub.parent_theme}-${sub.name}`} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 }}>
-                  <span style={{ color: "#b8b8c8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{sub.name}</span>
-                  <span style={{ color: sub.breadth >= 70 ? "#2bb886" : "#fbbf24", fontFamily: "monospace", fontWeight: 700 }}>{sub.breadth?.toFixed(0)}%</span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
