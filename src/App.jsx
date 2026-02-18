@@ -51,6 +51,7 @@ function StockStat({ label, value, color = "#9090a0" }) {
 const TV_LAYOUT = "nkNPuLqj";
 
 function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
+  const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
@@ -80,9 +81,57 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       .catch(() => { setNews([]); setPeers([]); });
   }, [ticker]);
 
-  const tfMap = { "1": "1", "5": "5", "15": "15", "60": "60", "D": "D", "W": "W", "M": "M" };
+  const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
-  const chartUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}&interval=${tfMap[tf] || "D"}`;
+  useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.innerHTML = "";
+
+    const widgetDiv = document.createElement("div");
+    widgetDiv.className = "tradingview-widget-container";
+    widgetDiv.style.height = "100%";
+    widgetDiv.style.width = "100%";
+    const innerDiv = document.createElement("div");
+    innerDiv.className = "tradingview-widget-container__widget";
+    innerDiv.style.height = "100%";
+    innerDiv.style.width = "100%";
+    widgetDiv.appendChild(innerDiv);
+    containerRef.current.appendChild(widgetDiv);
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.async = true;
+    script.type = "text/javascript";
+    script.textContent = JSON.stringify({
+      autosize: true,
+      symbol: ticker,
+      interval: tf,
+      timezone: "America/New_York",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      backgroundColor: "rgba(10, 10, 10, 1)",
+      gridColor: "rgba(30, 30, 30, 1)",
+      allow_symbol_change: false,
+      save_image: false,
+      hide_legend: false,
+      hide_top_toolbar: false,
+      hide_side_toolbar: false,
+      calendar: false,
+      support_host: "https://www.tradingview.com",
+      studies: [
+        "MAExp@tv-basicstudies",
+        "MAExp@tv-basicstudies",
+        "MASimple@tv-basicstudies",
+        "MASimple@tv-basicstudies",
+      ],
+    });
+    widgetDiv.appendChild(script);
+
+    return () => {
+      if (containerRef.current) containerRef.current.innerHTML = "";
+    };
+  }, [ticker, tf]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", borderLeft: "1px solid #2a2a38", background: "#121218" }}>
@@ -118,7 +167,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </>)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <a href={chartUrl} target="_blank" rel="noopener noreferrer"
+          <a href={tvLayoutUrl} target="_blank" rel="noopener noreferrer"
             style={{ color: "#0d9163", fontSize: 12, textDecoration: "none", padding: "4px 12px", border: "1px solid #0d916340",
               borderRadius: 4, fontWeight: 700 }}>
             Full Chart ↗</a>
@@ -350,12 +399,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       </>)}
 
-      <iframe
-        key={`${ticker}-${tf}`}
-        src={chartUrl}
-        style={{ flex: 1, minHeight: 0, width: "100%", border: "none", background: "#0a0a0a" }}
-        allow="fullscreen"
-      />
+      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
     </div>
   );
 }
