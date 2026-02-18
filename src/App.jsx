@@ -2482,11 +2482,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         ];
         const lookup = {};
         liveThemeData.forEach(s => { lookup[s.ticker] = s; });
+        const found = indices.filter(idx => lookup[idx.ticker]);
+        if (found.length === 0) return null;
         return (
           <div style={{ display: "flex", gap: 16, marginBottom: 10, padding: "6px 12px", background: "#141420", borderRadius: 6, border: "1px solid #222230", alignItems: "center", flexWrap: "wrap" }}>
-            {indices.map(idx => {
+            {found.map(idx => {
               const d = lookup[idx.ticker];
-              if (!d) return null;
               const chg = d.change;
               const isPos = chg > 0;
               const isNeg = chg < 0;
@@ -2798,6 +2799,8 @@ function AppMain({ authToken, onLogout }) {
     if (!data?.themes) return;
     const tickers = new Set();
     data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    // Add index ETFs so they're always available
+    ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
     if (tickers.size === 0) return;
     const fetchUniverse = () => {
       const params = new URLSearchParams();
