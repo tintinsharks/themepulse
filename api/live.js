@@ -459,47 +459,77 @@ async function fetchTickerNews(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) return [];
+    if (!resp.ok) return { news: [], peers: [] };
     const html = await resp.text();
     
-    // Finviz news table uses class "news-link-left" or id "news-table"
-    // Each row: <td>date/time</td><td><a href="url" class="tab-link-news">headline</a> source</td>
+    // ── NEWS ──
     const news = [];
-    
-    // Find the news table section
     const newsTableIdx = html.indexOf('news-table');
-    if (newsTableIdx === -1) {
-      console.log(`News: no news-table found for ${ticker}`);
-      return [];
+    if (newsTableIdx !== -1) {
+      const section = html.substring(newsTableIdx, newsTableIdx + 15000);
+      const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<\/tr>/gs;
+      let match;
+      while ((match = rowRegex.exec(section)) !== null && news.length < 5) {
+        const dateCell = match[1].replace(/<[^>]+>/g, '').trim();
+        const contentCell = match[2];
+        const linkMatch = contentCell.match(/href="([^"]+)"[^>]*>([^<]+)<\/a>/);
+        if (!linkMatch) continue;
+        const articleUrl = linkMatch[1];
+        const headline = linkMatch[2].trim();
+        const sourceMatch = contentCell.match(/<\/a>\s*(?:<[^>]+>)?\s*([^<]+)/);
+        const source = sourceMatch ? sourceMatch[1].trim().replace(/[()]/g, '') : '';
+        news.push({ date: dateCell, headline, url: articleUrl, source });
+      }
     }
     
-    // Extract rows from the news table
-    const section = html.substring(newsTableIdx, newsTableIdx + 10000);
-    const rowRegex = /<tr[^>]*>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<\/tr>/gs;
-    let match;
-    while ((match = rowRegex.exec(section)) !== null && news.length < 5) {
-      const dateCell = match[1].replace(/<[^>]+>/g, '').trim();
-      const contentCell = match[2];
-      
-      // Extract URL and headline from anchor tag
-      const linkMatch = contentCell.match(/href="([^"]+)"[^>]*>([^<]+)<\/a>/);
-      if (!linkMatch) continue;
-      
-      const articleUrl = linkMatch[1];
-      const headline = linkMatch[2].trim();
-      
-      // Extract source (usually after the closing </a> tag)
-      const sourceMatch = contentCell.match(/<\/a>\s*(?:<[^>]+>)?\s*([^<]+)/);
-      const source = sourceMatch ? sourceMatch[1].trim().replace(/[()]/g, '') : '';
-      
-      news.push({ date: dateCell, headline, url: articleUrl, source });
+    // ── PEERS ──
+    // Finviz peers section: links with class "tab-link" near text "Peers" or in a peers row
+    // Pattern: <td class="body-table-rating-col">Peers</td> ... <a href="quote.ashx?t=TICKER" class="tab-link">TICKER</a>
+    const peers = [];
+    const peersIdx = html.indexOf('>Peers<');
+    if (peersIdx !== -1) {
+      const peersSection = html.substring(peersIdx, peersIdx + 2000);
+      const peerRegex = /quote\.ashx\?t=([A-Z]+)[^>]*class="tab-link"[^>]*>([A-Z]+)<\/a>/g;
+      let peerMatch;
+      while ((peerMatch = peerRegex.exec(peersSection)) !== null) {
+        const peerTicker = peerMatch[2].trim();
+        if (peerTicker !== ticker && !peers.includes(peerTicker)) {
+          peers.push(peerTicker);
+        }
+      }
+    }
+    // Fallback: try alternate pattern where class comes before href
+    if (peers.length === 0) {
+      const peersIdx2 = html.indexOf('Peers');
+      if (peersIdx2 !== -1) {
+        const peersSection2 = html.substring(peersIdx2, peersIdx2 + 2000);
+        const peerRegex2 = /class="tab-link"[^>]*href="quote\.ashx\?t=([A-Z]+)"[^>]*>([A-Z]+)<\/a>/g;
+        let pm2;
+        while ((pm2 = peerRegex2.exec(peersSection2)) !== null) {
+          const pt = pm2[2].trim();
+          if (pt !== ticker && !peers.includes(pt)) peers.push(pt);
+        }
+      }
+    }
+    // Fallback 2: just grab all tickers after "Peers" text
+    if (peers.length === 0) {
+      const pi3 = html.indexOf('Peers');
+      if (pi3 !== -1) {
+        const ps3 = html.substring(pi3, pi3 + 2000);
+        const pr3 = /t=([A-Z]{1,5})"[^>]*>([A-Z]{1,5})<\/a>/g;
+        let pm3;
+        while ((pm3 = pr3.exec(ps3)) !== null) {
+          const pt = pm3[2].trim();
+          if (pt !== ticker && !peers.includes(pt) && pt.length <= 5) peers.push(pt);
+        }
+      }
     }
     
-    console.log(`News for ${ticker}: ${news.length} items`);
-    return news;
+    console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}`);
+    return { news, peers };
   } catch (err) {
-    console.error(`News fetch error for ${ticker}:`, err.message);
-    return [];
+    console.error(`News/peers fetch error for ${ticker}:`, err.message);
+    return { news: [], peers: [] };
   }
 }
 
@@ -546,16 +576,17 @@ export default async function handler(req, res) {
       ? await fetchThemeUniverse(cookies, universeTickers)
       : [];
 
-    // Fetch news for a single ticker if requested
+    // Fetch news and peers for a single ticker if requested
     const newsTicker = (req.query.news || "").trim().toUpperCase();
-    const news = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
+    const tickerData = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
 
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
       watchlist,
       theme_universe: themeUniverse,
-      news,
+      news: tickerData?.news || null,
+      peers: tickerData?.peers || null,
     });
   } catch (err) {
     console.error("Live API error:", err);

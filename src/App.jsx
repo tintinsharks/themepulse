@@ -55,6 +55,7 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
+  const [peers, setPeers] = useState(null);
 
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
@@ -62,19 +63,22 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
     return liveThemeData.find(s => s.ticker === ticker) || null;
   }, [liveThemeData, ticker]);
 
-  // Fetch news when ticker changes
+  // Fetch news and peers when ticker changes
   useEffect(() => {
     setNews(null);
+    setPeers(null);
     fetch(`/api/live?news=${ticker}`)
       .then(r => {
-        if (!r.ok) { setNews([]); return null; }
+        if (!r.ok) { setNews([]); setPeers([]); return null; }
         return r.json();
       })
       .then(d => {
-        if (d?.ok && d.news && d.news.length > 0) setNews(d.news);
-        else setNews([]);
+        if (d?.ok) {
+          setNews(d.news && d.news.length > 0 ? d.news : []);
+          setPeers(d.peers && d.peers.length > 0 ? d.peers : []);
+        } else { setNews([]); setPeers([]); }
       })
-      .catch(() => setNews([]));
+      .catch(() => { setNews([]); setPeers([]); });
   }, [ticker]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
@@ -285,6 +289,19 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               </div>
             ) : (
               <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>No news found</span>
+            )}
+            {peers && peers.length > 0 && (
+              <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid #3a3a4a", fontSize: 10, fontFamily: "monospace", display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ color: "#686878", fontWeight: 700 }}>Peers:</span>
+                {peers.map(p => (
+                  <span key={p} onClick={() => { if (typeof onClose === 'function') {} }}
+                    style={{ color: "#9090a0", cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: "#222230" }}
+                    onMouseEnter={e => { e.target.style.color = "#0d9163"; e.target.style.background = "#0d916318"; }}
+                    onMouseLeave={e => { e.target.style.color = "#9090a0"; e.target.style.background = "#222230"; }}>
+                    {p}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </div>
