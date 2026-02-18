@@ -2658,7 +2658,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
       {/* ── Homepage: Futures, Earnings, Major News ── */}
       {homepage && (
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
           {/* Futures */}
           <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Futures</div>
