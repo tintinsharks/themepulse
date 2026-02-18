@@ -2472,6 +2472,81 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         {error && <span style={{ fontSize: 11, color: "#f87171" }}>Error: {error}</span>}
       </div>
 
+      {/* Index ETF Strip — real-time from theme universe */}
+      {liveThemeData && liveThemeData.length > 0 && (() => {
+        const indices = [
+          { ticker: "DIA", name: "DOW" },
+          { ticker: "QQQ", name: "NASDAQ" },
+          { ticker: "SPY", name: "S&P 500" },
+          { ticker: "IWM", name: "RUSSELL" },
+        ];
+        const lookup = {};
+        liveThemeData.forEach(s => { lookup[s.ticker] = s; });
+        return (
+          <div style={{ display: "flex", gap: 16, marginBottom: 10, padding: "6px 12px", background: "#141420", borderRadius: 6, border: "1px solid #222230", alignItems: "center", flexWrap: "wrap" }}>
+            {indices.map(idx => {
+              const d = lookup[idx.ticker];
+              if (!d) return null;
+              const chg = d.change;
+              const isPos = chg > 0;
+              const isNeg = chg < 0;
+              return (
+                <div key={idx.ticker} style={{ display: "flex", alignItems: "baseline", gap: 6, cursor: "pointer" }}
+                  onClick={() => onTickerClick(idx.ticker)}>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: "#d4d4e0" }}>{idx.name}</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#9090a0" }}>{d.price?.toFixed(2)}</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700,
+                    color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>
+                    {chg != null ? `${isPos ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Market Stats Breadth Bars */}
+      {homepage?.market_stats && Object.keys(homepage.market_stats).length > 0 && (() => {
+        const ms = homepage.market_stats;
+        const StatBox = ({ leftLabel, leftPct, leftCount, rightLabel, rightPct, rightCount, midLabel }) => (
+          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, padding: "6px 10px", flex: 1, minWidth: 160 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 }}>
+              <span style={{ color: "#9090a0" }}>{leftLabel}</span>
+              {midLabel && <span style={{ color: "#686878", fontWeight: 700 }}>{midLabel}</span>}
+              <span style={{ color: "#9090a0" }}>{rightLabel}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "monospace", marginBottom: 3 }}>
+              <span style={{ color: "#2bb886", fontWeight: 700 }}>{leftPct}% <span style={{ color: "#505060", fontWeight: 400 }}>({leftCount})</span></span>
+              <span style={{ color: "#f87171", fontWeight: 700 }}><span style={{ color: "#505060", fontWeight: 400 }}>({rightCount})</span> {rightPct}%</span>
+            </div>
+            <div style={{ height: 3, borderRadius: 2, background: "#f87171", overflow: "hidden" }}>
+              <div style={{ width: `${leftPct}%`, height: "100%", background: "#2bb886", borderRadius: 2 }} />
+            </div>
+          </div>
+        );
+        return (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {ms.advancing && ms.declining && (
+              <StatBox leftLabel="Advancing" leftPct={ms.advancing.pct} leftCount={ms.advancing.count}
+                rightLabel="Declining" rightPct={ms.declining.pct} rightCount={ms.declining.count} />
+            )}
+            {ms.new_high && ms.new_low && (
+              <StatBox leftLabel="New High" leftPct={ms.new_high.pct} leftCount={ms.new_high.count}
+                rightLabel="New Low" rightPct={ms.new_low.pct} rightCount={ms.new_low.count} />
+            )}
+            {ms.sma50_above && ms.sma50_below && (
+              <StatBox leftLabel="Above" leftPct={ms.sma50_above.pct} leftCount={ms.sma50_above.count}
+                midLabel="SMA50" rightLabel="Below" rightPct={ms.sma50_below.pct} rightCount={ms.sma50_below.count} />
+            )}
+            {ms.sma200_above && ms.sma200_below && (
+              <StatBox leftLabel="Above" leftPct={ms.sma200_above.pct} leftCount={ms.sma200_above.count}
+                midLabel="SMA200" rightLabel="Below" rightPct={ms.sma200_below.pct} rightCount={ms.sma200_below.count} />
+            )}
+          </div>
+        );
+      })()}
+
       {/* ── Homepage: Futures, Earnings, Major News ── */}
       {homepage && (
         <div style={{ marginBottom: 16 }}>
@@ -2482,46 +2557,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           </div>
           {marketOpen && (
           <div>
-          {/* Market Stats Bar */}
-          {homepage.market_stats && Object.keys(homepage.market_stats).length > 0 && (() => {
-            const ms = homepage.market_stats;
-            const StatBox = ({ leftLabel, leftPct, leftCount, rightLabel, rightPct, rightCount, midLabel }) => (
-              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, padding: "6px 10px", flex: 1, minWidth: 180 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 4 }}>
-                  <span style={{ color: "#9090a0" }}>{leftLabel}</span>
-                  {midLabel && <span style={{ color: "#686878", fontWeight: 700 }}>{midLabel}</span>}
-                  <span style={{ color: "#9090a0" }}>{rightLabel}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "monospace", marginBottom: 4 }}>
-                  <span style={{ color: "#2bb886", fontWeight: 700 }}>{leftPct}% <span style={{ color: "#686878", fontWeight: 400 }}>({leftCount})</span></span>
-                  <span style={{ color: "#f87171", fontWeight: 700 }}><span style={{ color: "#686878", fontWeight: 400 }}>({rightCount})</span> {rightPct}%</span>
-                </div>
-                <div style={{ height: 3, borderRadius: 2, background: "#f87171", overflow: "hidden" }}>
-                  <div style={{ width: `${leftPct}%`, height: "100%", background: "#2bb886", borderRadius: 2 }} />
-                </div>
-              </div>
-            );
-            return (
-              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                {ms.advancing && ms.declining && (
-                  <StatBox leftLabel="Advancing" leftPct={ms.advancing.pct} leftCount={ms.advancing.count}
-                    rightLabel="Declining" rightPct={ms.declining.pct} rightCount={ms.declining.count} />
-                )}
-                {ms.new_high && ms.new_low && (
-                  <StatBox leftLabel="New High" leftPct={ms.new_high.pct} leftCount={ms.new_high.count}
-                    rightLabel="New Low" rightPct={ms.new_low.pct} rightCount={ms.new_low.count} />
-                )}
-                {ms.sma50_above && ms.sma50_below && (
-                  <StatBox leftLabel="Above" leftPct={ms.sma50_above.pct} leftCount={ms.sma50_above.count}
-                    midLabel="SMA50" rightLabel="Below" rightPct={ms.sma50_below.pct} rightCount={ms.sma50_below.count} />
-                )}
-                {ms.sma200_above && ms.sma200_below && (
-                  <StatBox leftLabel="Above" leftPct={ms.sma200_above.pct} leftCount={ms.sma200_above.count}
-                    midLabel="SMA200" rightLabel="Below" rightPct={ms.sma200_below.pct} rightCount={ms.sma200_below.count} />
-                )}
-              </div>
-            );
-          })()}
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
           {/* Futures */}
           <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
