@@ -163,10 +163,6 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.theme).join(", ")}</span>
             )}
-            {stock.off_52w_high != null && (
-              <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
-                Off 52W Hi:{stock.off_52w_high}%</span>
-            )}
           </>)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -204,6 +200,11 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
               {label}
             </button>
           ))}
+          {stock && stock.off_52w_high != null && (<>
+            <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
+            <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
+              Off 52W Hi:{stock.off_52w_high}%</span>
+          </>)}
         </div>
         <span onClick={() => setShowDetails(p => !p)}
           style={{ color: "#686878", fontSize: 11, cursor: "pointer", padding: "2px 6px" }}>
