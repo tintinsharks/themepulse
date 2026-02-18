@@ -1057,6 +1057,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
+  const [greenOnly, setGreenOnly] = useState(false);
   const [scanMode, setScanMode] = useState("theme");
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
@@ -1190,6 +1191,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       });
     }
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
+    if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1213,7 +1215,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || sorters.default);
-  }, [stocks, leading, sortBy, nearPivot, scanMode, liveLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1249,6 +1251,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: "auto",
           border: nearPivot ? "1px solid #c084fc" : "1px solid #3a3a4a",
           background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#787888" }}>Near Pivot (&lt;3%)</button>
+        <button onClick={() => setGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: greenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
+          background: greenOnly ? "#2bb88620" : "transparent", color: greenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
         <button onClick={() => setLiveOverlay(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           border: liveOverlay ? "1px solid #0d9163" : "1px solid #3a3a4a",
           background: liveOverlay ? "#0d916320" : "transparent", color: liveOverlay ? "#4aad8c" : "#787888" }}>
