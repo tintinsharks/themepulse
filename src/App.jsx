@@ -1279,7 +1279,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             <tr key={s.ticker} ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-                background: isActive ? "rgba(251, 191, 36, 0.10)" : inPortfolio ? "rgba(96, 165, 250, 0.07)" : inWatchlist ? "rgba(43, 184, 134, 0.07)" : "transparent" }}>
+                borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
+                background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
