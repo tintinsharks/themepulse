@@ -636,30 +636,35 @@ async function fetchHomepage(cookies) {
       }
     }
     
-    // ── MARKET INDICATOR CHARTS (breadth images from homepage) ──
-    const charts = [];
-    // Grab all img src URLs from the page
-    const allImgRegex = /<img[^>]+src="([^"]+)"/gi;
-    const allImgs = [];
-    let cm;
-    while ((cm = allImgRegex.exec(html)) !== null) {
-      let src = cm[1];
-      if (src.startsWith("/")) {
-        const base = cookies ? "https://elite.finviz.com" : "https://finviz.com";
-        src = base + src;
-      }
-      allImgs.push(src);
+    // ── MARKET STATS (Advancing/Declining, New High/Low, SMA50, SMA200) ──
+    const market_stats = {};
+    // Pattern: "Advancing  XX.X% (NNNN)  Declining  (NNNN) XX.X%"
+    const advMatch = html.match(/Advancing\s+(\d+\.?\d*)%\s*\((\d+)\)\s*Declining\s*\((\d+)\)\s*(\d+\.?\d*)%/);
+    if (advMatch) {
+      market_stats.advancing = { pct: parseFloat(advMatch[1]), count: parseInt(advMatch[2]) };
+      market_stats.declining = { pct: parseFloat(advMatch[4]), count: parseInt(advMatch[3]) };
     }
-    // Filter for chart-like images (exclude tiny icons, logos, ads)
-    const chartImgs = allImgs.filter(u => 
-      (u.includes("chart") || u.includes("image") || u.includes("graph") || u.includes(".png") || u.includes("ashx"))
-      && !u.includes("logo") && !u.includes("icon") && !u.includes("favicon") && !u.includes("ad_")
-      && !u.includes("1x1") && !u.includes("pixel")
-    );
-    console.log(`Homepage images: ${allImgs.length} total, ${chartImgs.length} chart-like`);
-    console.log(`Chart URLs:`, chartImgs.slice(0, 15).join("\n"));
+    // Pattern: "New High  XX.X% (NNN)  New Low  (NNN) XX.X%"
+    const nhMatch = html.match(/New High\s+(\d+\.?\d*)%\s*\((\d+)\)\s*New Low\s*\((\d+)\)\s*(\d+\.?\d*)%/);
+    if (nhMatch) {
+      market_stats.new_high = { pct: parseFloat(nhMatch[1]), count: parseInt(nhMatch[2]) };
+      market_stats.new_low = { pct: parseFloat(nhMatch[4]), count: parseInt(nhMatch[3]) };
+    }
+    // Pattern: "Above  XX.X% (NNNN) SMA50 Below  (NNNN) XX.X%"
+    const sma50Match = html.match(/Above\s+(\d+\.?\d*)%\s*\((\d+)\)\s*SMA50\s*Below\s*\((\d+)\)\s*(\d+\.?\d*)%/);
+    if (sma50Match) {
+      market_stats.sma50_above = { pct: parseFloat(sma50Match[1]), count: parseInt(sma50Match[2]) };
+      market_stats.sma50_below = { pct: parseFloat(sma50Match[4]), count: parseInt(sma50Match[3]) };
+    }
+    // Pattern: "Above  XX.X% (NNNN) SMA200 Below  (NNNN) XX.X%"
+    const sma200Match = html.match(/Above\s+(\d+\.?\d*)%\s*\((\d+)\)\s*SMA200\s*Below\s*\((\d+)\)\s*(\d+\.?\d*)%/);
+    if (sma200Match) {
+      market_stats.sma200_above = { pct: parseFloat(sma200Match[1]), count: parseInt(sma200Match[2]) };
+      market_stats.sma200_below = { pct: parseFloat(sma200Match[4]), count: parseInt(sma200Match[3]) };
+    }
     
-    return { futures, earnings, major_news, charts: chartImgs };
+    console.log(`Homepage: ${futures.length} futures, ${earnings.length} earnings rows, ${major_news.length} major news, market_stats keys: ${Object.keys(market_stats).join(",")}`);
+    return { futures, earnings, major_news, market_stats };
   } catch (err) {
     console.error("Homepage fetch error:", err.message);
     return { futures: [], earnings: [], major_news: [] };

@@ -2482,15 +2482,46 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           </div>
           {marketOpen && (
           <div>
-          {/* Finviz market breadth charts */}
-          {homepage.charts && homepage.charts.length > 0 && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", justifyContent: "center" }}>
-              {homepage.charts.map((url, i) => (
-                <img key={i} src={url} alt="" style={{ height: 40, borderRadius: 4, border: "1px solid #222230" }}
-                  onError={e => { e.target.style.display = "none"; }} />
-              ))}
-            </div>
-          )}
+          {/* Market Stats Bar */}
+          {homepage.market_stats && Object.keys(homepage.market_stats).length > 0 && (() => {
+            const ms = homepage.market_stats;
+            const StatBox = ({ leftLabel, leftPct, leftCount, rightLabel, rightPct, rightCount, midLabel }) => (
+              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, padding: "6px 10px", flex: 1, minWidth: 180 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 4 }}>
+                  <span style={{ color: "#9090a0" }}>{leftLabel}</span>
+                  {midLabel && <span style={{ color: "#686878", fontWeight: 700 }}>{midLabel}</span>}
+                  <span style={{ color: "#9090a0" }}>{rightLabel}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "monospace", marginBottom: 4 }}>
+                  <span style={{ color: "#2bb886", fontWeight: 700 }}>{leftPct}% <span style={{ color: "#686878", fontWeight: 400 }}>({leftCount})</span></span>
+                  <span style={{ color: "#f87171", fontWeight: 700 }}><span style={{ color: "#686878", fontWeight: 400 }}>({rightCount})</span> {rightPct}%</span>
+                </div>
+                <div style={{ height: 3, borderRadius: 2, background: "#f87171", overflow: "hidden" }}>
+                  <div style={{ width: `${leftPct}%`, height: "100%", background: "#2bb886", borderRadius: 2 }} />
+                </div>
+              </div>
+            );
+            return (
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                {ms.advancing && ms.declining && (
+                  <StatBox leftLabel="Advancing" leftPct={ms.advancing.pct} leftCount={ms.advancing.count}
+                    rightLabel="Declining" rightPct={ms.declining.pct} rightCount={ms.declining.count} />
+                )}
+                {ms.new_high && ms.new_low && (
+                  <StatBox leftLabel="New High" leftPct={ms.new_high.pct} leftCount={ms.new_high.count}
+                    rightLabel="New Low" rightPct={ms.new_low.pct} rightCount={ms.new_low.count} />
+                )}
+                {ms.sma50_above && ms.sma50_below && (
+                  <StatBox leftLabel="Above" leftPct={ms.sma50_above.pct} leftCount={ms.sma50_above.count}
+                    midLabel="SMA50" rightLabel="Below" rightPct={ms.sma50_below.pct} rightCount={ms.sma50_below.count} />
+                )}
+                {ms.sma200_above && ms.sma200_below && (
+                  <StatBox leftLabel="Above" leftPct={ms.sma200_above.pct} leftCount={ms.sma200_above.count}
+                    midLabel="SMA200" rightLabel="Below" rightPct={ms.sma200_below.pct} rightCount={ms.sma200_below.count} />
+                )}
+              </div>
+            );
+          })()}
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
           {/* Futures */}
           <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
