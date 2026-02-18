@@ -554,23 +554,21 @@ async function fetchHomepage(cookies) {
     const earnings = [];
     const earningsIdx = html.indexOf('Earnings Release');
     if (earningsIdx !== -1) {
-      const eSection = html.substring(earningsIdx, earningsIdx + 15000);
-      // Each row has a date cell then ticker links
-      const eRowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
-      let em;
-      while ((em = eRowRegex.exec(eSection)) !== null && earnings.length < 10) {
-        const row = em[1];
-        // Extract date - look for text like "Feb 17/a" or "Feb 18/b" or "Feb 19"
-        const dateMatch = row.match(/>(\w{3}\s+\d+[^<]*?)</);
+      const eSection = html.substring(earningsIdx, earningsIdx + 20000);
+      // Split by <tr to get rows
+      const rows = eSection.split(/<tr\s/);
+      for (const row of rows) {
+        if (earnings.length >= 10) break;
+        // Date: <a ...>Feb 17/a</a>
+        const dateMatch = row.match(/>((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+[^<]*)<\/a>/);
         if (!dateMatch) continue;
         const date = dateMatch[1].trim();
-        if (!date.match(/\w{3}\s+\d/)) continue;
-        // Extract tickers from quote links
+        // Tickers: <a href="quote.ashx?t=PANW" class="tab-link">PANW</a>
         const tickers = [];
-        const tickerRegex = /quote\.ashx\?t=([A-Z.]+)[^>]*>([A-Z.]+)<\/a>/g;
+        const tickerRegex = /class="tab-link">([A-Z.]+)<\/a>/g;
         let tm;
         while ((tm = tickerRegex.exec(row)) !== null) {
-          tickers.push(tm[2]);
+          tickers.push(tm[1]);
         }
         if (tickers.length > 0) {
           earnings.push({ date, tickers });
@@ -578,17 +576,16 @@ async function fetchHomepage(cookies) {
       }
     }
     
-    // ── MAJOR NEWS (top movers with change%) ──
+    // ── MAJOR NEWS ──
+    // Pattern: <a href="quote.ashx?t=NVDA" class="tab-link">NVDA</a> <span class="...fv-label...">+2.15%</span>
     const major_news = [];
     const newsIdx = html.indexOf('Major News');
     if (newsIdx !== -1) {
-      const nSection = html.substring(newsIdx, newsIdx + 10000);
-      // Pattern: quote link followed by span with change%
-      // <a href="quote.ashx?t=NVDA"...>NVDA</a> <span class="color-text is-positive">+2.23%</span>
-      const mnRegex = /quote\.ashx\?t=([A-Z.]+)[^>]*>([A-Z.]+)<\/a>\s*<span[^>]*class="[^"]*color-text[^"]*"[^>]*>([^<]+)<\/span>/g;
+      const nSection = html.substring(newsIdx, newsIdx + 15000);
+      const mnRegex = /class="tab-link">([A-Z.]+)<\/a>\s*<span[^>]*class="[^"]*fv-label[^"]*"[^>]*>([^<]+)<\/span>/g;
       let mn;
       while ((mn = mnRegex.exec(nSection)) !== null && major_news.length < 30) {
-        major_news.push({ ticker: mn[2].trim(), change: mn[3].trim() });
+        major_news.push({ ticker: mn[1].trim(), change: mn[2].trim() });
       }
     }
     
