@@ -1054,12 +1054,12 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
-  const [greenOnly, setGreenOnly] = useState(false);
-  const [minRS, setMinRS] = useState(0);
-  const [scanMode, setScanMode] = useState("theme");
+  const [greenOnly, setGreenOnly] = useState(true);
+  const [minRS, setMinRS] = useState(75);
+  const [scanMode, setScanMode] = useState("master");
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -1292,11 +1292,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const ac = near ? "#059669" : pb ? "#d97706" : "#686878";
           const theme = s.themes.find(t => leading.has(t.theme));
           const isActive = s.ticker === activeTicker;
+          const inPortfolio = portfolio?.includes(s.ticker);
+          const inWatchlist = watchlist?.includes(s.ticker);
           return (
             <tr key={s.ticker} ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-                background: isActive ? "#0d916315" : "transparent" }}>
+                background: isActive ? "rgba(251, 191, 36, 0.10)" : inPortfolio ? "rgba(96, 165, 250, 0.07)" : inWatchlist ? "rgba(43, 184, 134, 0.07)" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>{s.ticker}</td>
               {scanMode === "master" && (
                 <td style={{ padding: "4px 6px", textAlign: "center" }}>
@@ -2981,7 +2983,7 @@ function AppMain({ authToken, onLogout }) {
         <div style={{ width: (chartOpen && view !== "mm") ? `${splitPct}%` : view === "mm" ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData} />}
 
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "mm" && <MarketMonitor mmData={mmData} />}
