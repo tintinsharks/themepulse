@@ -577,12 +577,12 @@ async function fetchHomepage(cookies) {
     }
     
     // ── MAJOR NEWS ──
-    // Pattern: <a href="quote.ashx?t=NVDA" class="tab-link">NVDA</a> <span class="...fv-label...">+2.15%</span>
+    // Pattern: <div class="hp_label-container..."><a...class="tab-link">NVDA</a> <span class="...fv-label...">+2.15%</span></div>
     const major_news = [];
     const newsIdx = html.indexOf('Major News');
     if (newsIdx !== -1) {
       const nSection = html.substring(newsIdx, newsIdx + 15000);
-      const mnRegex = /class="tab-link">([A-Z.]+)<\/a>\s*<span[^>]*class="[^"]*fv-label[^"]*"[^>]*>([^<]+)<\/span>/g;
+      const mnRegex = /class="tab-link">([A-Z.]{1,5})<\/a>\s*<span[^>]*>([+-][\d.]+%)<\/span>/g;
       let mn;
       while ((mn = mnRegex.exec(nSection)) !== null && major_news.length < 30) {
         major_news.push({ ticker: mn[1].trim(), change: mn[2].trim() });
