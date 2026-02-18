@@ -491,7 +491,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   }, [liveThemeData]);
   const hasLive = Object.keys(liveLookup).length > 0;
 
-  // Compute live theme performance
+  // Compute live theme performance + rotation score
   const liveThemePerf = useMemo(() => {
     if (!liveThemeData || liveThemeData.length === 0 || !themes) return {};
     const lookup = {};
@@ -508,8 +508,20 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
       if (changes.length === 0) return;
       const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
       const up = changes.filter(c => c > 0).length;
+      const liveBreadth = Math.round(up / changes.length * 100);
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
-      perf[t.theme] = { avg, up, total: changes.length, breadth: Math.round(up / changes.length * 100), avgRvol };
+      // Δ Breadth: live intraday breadth vs pipeline daily breadth (above 50MA %)
+      const pipelineBreadth = t.breadth ?? 50;
+      const deltaBreadth = liveBreadth - pipelineBreadth;
+      // Rotation Score: composite of breadth, RVol, and Δ breadth (0-100 scale)
+      // Breadth component: 0-40 pts (high % green = money flowing in)
+      const breadthScore = Math.min(40, (liveBreadth / 100) * 40);
+      // RVol component: 0-35 pts (institutional participation)
+      const rvolScore = avgRvol != null ? Math.min(35, ((Math.min(avgRvol, 3) - 0.5) / 2.5) * 35) : 0;
+      // Δ Breadth component: 0-25 pts (acceleration — live breadth gaining vs daily)
+      const deltaScore = Math.max(0, Math.min(25, ((deltaBreadth + 30) / 60) * 25));
+      const rotationScore = Math.round(Math.max(0, breadthScore + rvolScore + deltaScore));
+      perf[t.theme] = { avg, up, total: changes.length, breadth: liveBreadth, avgRvol, deltaBreadth, rotationScore };
     });
     return perf;
   }, [liveThemeData, themes]);
@@ -543,6 +555,9 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
       rvol: (a, b) => (b.live.avgRvol ?? 0) - (a.live.avgRvol ?? 0),
       rts: (a, b) => b.rts - a.rts,
       ret3m: (a, b) => (b.return_3m ?? 0) - (a.return_3m ?? 0),
+      rotScore: (a, b) => (b.live.rotationScore ?? 0) - (a.live.rotationScore ?? 0),
+      delta: (a, b) => (b.live.deltaBreadth ?? 0) - (a.live.deltaBreadth ?? 0),
+      ret1w: (a, b) => (b.return_1w ?? 0) - (a.return_1w ?? 0),
     };
     ranked.sort(sorters[intradaySort] || sorters.chg);
     return ranked;
@@ -627,7 +642,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
               background: "#141420", border: "1px solid #222230", borderRadius: showIntraday ? "8px 8px 0 0" : 8 }}>
             <span style={{ color: "#0d9163", fontSize: 11 }}>●</span>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#0d9163", textTransform: "uppercase", letterSpacing: 1 }}>
-              Intraday Theme Rotation
+              Theme Rotation
             </span>
             <span style={{ color: "#686878", fontSize: 11 }}>{liveRanked.length} themes</span>
             {liveLoading && <span style={{ color: "#fbbf24", fontSize: 11 }}>Loading...</span>}
@@ -635,48 +650,129 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
           </div>
           {showIntraday && (
             <div style={{ background: "#141420", border: "1px solid #222230", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "4px 0" }}>
+              {/* Rotation matrix legend */}
+              <div style={{ display: "flex", gap: 10, padding: "4px 12px 6px", fontSize: 10, color: "#686878", flexWrap: "wrap", borderBottom: "1px solid #1a1a2a" }}>
+                <span style={{ color: "#787888", fontWeight: 700, marginRight: 2 }}>SIGNAL:</span>
+                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#059669", marginRight: 3, verticalAlign: "middle" }}></span>Confirmed Leader</span>
+                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#0d916340", border: "1px solid #0d9163", marginRight: 3, verticalAlign: "middle" }}></span>Resting</span>
+                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#fbbf24", marginRight: 3, verticalAlign: "middle" }}></span>Rotation In</span>
+                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#dc2626", marginRight: 3, verticalAlign: "middle" }}></span>Avoid</span>
+                <span style={{ marginLeft: "auto", color: "#4a4a5a" }}>ROT = Breadth×0.4 + RVol×0.35 + ΔBrdth×0.25</span>
+              </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                  {[["#", null],["Theme", null],["Quad", null],["Chg%", "chg"],["Breadth", "breadth"],["↑/Total", null],["RVol", "rvol"],["RTS", "rts"],["3M%", "ret3m"]].map(([h, sk]) => (
-                    <th key={h} onClick={sk ? () => setIntradaySort(prev => prev === sk ? "chg" : sk) : undefined}
-                      style={{ padding: "4px 6px", color: intradaySort === sk ? "#4aad8c" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 10,
-                        cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
-                      {h}{intradaySort === sk ? " ▼" : ""}</th>
-                  ))}
-                </tr></thead>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                    {[
+                      ["#", null, 24],
+                      ["Theme", null, null],
+                      ["Quad", null, 52],
+                      ["ROT", "rotScore", 44],
+                      ["Chg%", "chg", 56],
+                      ["Breadth", "breadth", 64],
+                      ["↑/Tot", null, 50],
+                      ["RVol", "rvol", 44],
+                      ["ΔBrdth", "delta", 52],
+                      ["1W%", "ret1w", 48],
+                      ["RTS", "rts", 36],
+                      ["3M%", "ret3m", 48],
+                    ].map(([h, sk, w]) => (
+                      <th key={h} onClick={sk ? () => setIntradaySort(prev => prev === sk ? "chg" : sk) : undefined}
+                        style={{ padding: "4px 4px", color: intradaySort === sk ? "#4aad8c" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 10,
+                          cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap", width: w || undefined }}>
+                        {h}{intradaySort === sk ? " ▼" : ""}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>{liveRanked.map((t, i) => {
                   const quad = getQuad(t.weekly_rs, t.monthly_rs);
                   const qc = QC[quad];
                   const chg = t.live.avg;
                   const brdth = t.live.breadth;
                   const rvol = t.live.avgRvol;
+                  const delta = t.live.deltaBreadth;
+                  const rotScore = t.live.rotationScore;
                   const isSelected = detailTheme === t.theme;
+                  // Rotation signal classification
+                  const isStructurallyStrong = quad === "STRONG" || quad === "IMPROVING";
+                  const isTacticallyHot = brdth >= 60 && (rvol == null || rvol >= 1.0);
+                  let signal, sigColor, rowGlow;
+                  if (isStructurallyStrong && isTacticallyHot) {
+                    signal = "●"; sigColor = "#059669"; rowGlow = "#05966910";  // Confirmed leader
+                  } else if (isStructurallyStrong && !isTacticallyHot) {
+                    signal = "◐"; sigColor = "#0d916380"; rowGlow = "transparent"; // Resting
+                  } else if (!isStructurallyStrong && isTacticallyHot) {
+                    signal = "◆"; sigColor = "#fbbf24"; rowGlow = "#fbbf2408"; // Rotation candidate
+                  } else {
+                    signal = "○"; sigColor = "#dc262660"; rowGlow = "transparent"; // Avoid
+                  }
+                  // Rotation score bar color
+                  const rotBarColor = rotScore >= 70 ? "#059669" : rotScore >= 50 ? "#2bb886" : rotScore >= 35 ? "#fbbf24" : "#686878";
                   return (
                     <tr key={t.theme} onClick={() => toggle(t.theme)}
                       style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-                        background: isSelected ? "#0d916315" : "transparent" }}>
-                      <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontFamily: "monospace", fontSize: 10, width: 20 }}>{i + 1}</td>
-                      <td style={{ padding: "4px 8px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#0d9163" : "#b8b8c8",
+                        background: isSelected ? "#0d916315" : rowGlow }}>
+                      {/* # */}
+                      <td style={{ padding: "4px 4px", textAlign: "center", color: "#686878", fontFamily: "monospace", fontSize: 10, width: 24 }}>{i + 1}</td>
+                      {/* Theme + signal dot */}
+                      <td style={{ padding: "4px 6px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#0d9163" : "#b8b8c8",
                         maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
-                        {t.theme}</td>
-                      <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                        <span style={{ background: qc.tag, color: "#d4d4e0", padding: "1px 5px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>{quad.slice(0, 4)}</span></td>
-                      <td style={{ padding: "4px 6px", textAlign: "center", fontWeight: 700, fontFamily: "monospace",
+                        <span style={{ color: sigColor, fontSize: 10, marginRight: 5 }}>{signal}</span>
+                        {t.theme}
+                      </td>
+                      {/* Quad */}
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                        <span style={{ background: qc.tag, color: "#d4d4e0", padding: "1px 5px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>{quad.slice(0, 4)}</span>
+                      </td>
+                      {/* Rotation Score — bar + number */}
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }}>
+                          <div style={{ width: 22, height: 6, background: "#1a1a2a", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${rotScore}%`, height: "100%", background: rotBarColor, borderRadius: 3 }}></div>
+                          </div>
+                          <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 11, color: rotBarColor }}>{rotScore}</span>
+                        </div>
+                      </td>
+                      {/* Chg% */}
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, fontFamily: "monospace",
                         color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0" }}>
-                        {chg > 0 ? "+" : ""}{chg.toFixed(2)}%</td>
-                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
-                        color: brdth >= 70 ? "#2bb886" : brdth >= 50 ? "#fbbf24" : "#f87171" }}>
-                        {brdth}%</td>
-                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0", fontSize: 11 }}>
-                        <span style={{ color: "#2bb886" }}>{t.live.up}</span>/<span style={{ color: "#787888" }}>{t.live.total}</span></td>
-                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: rvol >= 1.5 ? 700 : 400,
+                        {chg > 0 ? "+" : ""}{chg.toFixed(2)}%
+                      </td>
+                      {/* Breadth — bar + % */}
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }}>
+                          <div style={{ width: 28, height: 6, background: "#1a1a2a", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ width: `${brdth}%`, height: "100%", borderRadius: 3,
+                              background: brdth >= 70 ? "#2bb886" : brdth >= 50 ? "#fbbf24" : "#f87171" }}></div>
+                          </div>
+                          <span style={{ fontFamily: "monospace", fontSize: 11,
+                            color: brdth >= 70 ? "#2bb886" : brdth >= 50 ? "#fbbf24" : "#f87171" }}>{brdth}%</span>
+                        </div>
+                      </td>
+                      {/* ↑/Total */}
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: "#9090a0", fontSize: 11 }}>
+                        <span style={{ color: "#2bb886" }}>{t.live.up}</span>/<span style={{ color: "#787888" }}>{t.live.total}</span>
+                      </td>
+                      {/* RVol */}
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontWeight: rvol >= 1.5 ? 700 : 400,
                         color: rvol == null ? "#3a3a4a" : rvol < 1.0 ? "#686878" :
                           chg > 0 ? (rvol >= 2 ? "#22a06a" : rvol >= 1.5 ? "#2bb886" : "#2bb88688") :
                           chg < 0 ? (rvol >= 2 ? "#ef4444" : rvol >= 1.5 ? "#f87171" : "#f8717188") : "#9090a0" }}>
-                        {rvol != null ? `${rvol.toFixed(1)}x` : '—'}</td>
-                      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", color: qc.text, fontWeight: 700 }}>
-                        {t.rts}</td>
-                      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={t.return_3m} bold /></td>
+                        {rvol != null ? `${rvol.toFixed(1)}x` : '—'}
+                      </td>
+                      {/* Δ Breadth */}
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontWeight: Math.abs(delta) >= 15 ? 700 : 400,
+                        color: delta > 15 ? "#22a06a" : delta > 5 ? "#2bb886" : delta > 0 ? "#2bb88688" : delta < -15 ? "#ef4444" : delta < -5 ? "#f87171" : delta < 0 ? "#f8717188" : "#686878" }}>
+                        {delta > 0 ? "+" : ""}{delta}%
+                      </td>
+                      {/* 1W% */}
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}><Ret v={t.return_1w} bold /></td>
+                      {/* RTS */}
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: qc.text, fontWeight: 700 }}>
+                        {t.rts}
+                      </td>
+                      {/* 3M% */}
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}><Ret v={t.return_3m} bold /></td>
                     </tr>
                   );
                 })}</tbody>
