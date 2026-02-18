@@ -1864,8 +1864,8 @@ function LiveSortHeader({ setter, current }) {
 
 function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) {
   const isActive = s.ticker === activeTicker;
-  const rowRef = React.useRef(null);
-  React.useEffect(() => {
+  const rowRef = useRef(null);
+  useEffect(() => {
     if (isActive && rowRef.current) {
       rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
