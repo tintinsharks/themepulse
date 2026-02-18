@@ -1976,8 +1976,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
-  ["RVol", "rel_volume"], ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
-  ["ROE", "roe"], ["Mgn%", "margin"],
+  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
+  ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
 
 function LiveSortHeader({ setter, current }) {
@@ -2005,7 +2005,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
   return (
     <tr ref={rowRef} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-      background: isActive ? "#0d916315" : "transparent" }}>
+      background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
       <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
         {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
           style={{ color: "#686878", cursor: "pointer", fontSize: 11, marginRight: 2 }}>✕</span>}
@@ -2017,9 +2017,6 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878" }}>
-        {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 12 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
@@ -2031,12 +2028,16 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
         {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+      {(() => { const rv = s.rel_volume;
+        const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
+        const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
+        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+          color: v >= 1e6 ? "#9090a0" : v != null ? "#f97316" : "#3a3a4a" }}>{fmt}</td>; })()}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.roe != null ? (s.roe > 20 ? "#2bb886" : s.roe > 10 ? "#9090a0" : s.roe > 0 ? "#f97316" : "#f87171") : "#3a3a4a" }}>
-        {s.roe != null ? `${s.roe}%` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.profit_margin != null ? (s.profit_margin > 15 ? "#2bb886" : s.profit_margin > 5 ? "#9090a0" : s.profit_margin > 0 ? "#f97316" : "#f87171") : "#3a3a4a" }}>
-        {s.profit_margin != null ? `${s.profit_margin}%` : '—'}</td>
+        color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
+        {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
+      <td style={{ padding: "4px 6px", color: "#787888", fontSize: 11 }}>{s.themes?.[0]?.theme || '—'}</td>
+      <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10 }}>{s.themes?.[0]?.subtheme || '—'}</td>
     </tr>
   );
 }
@@ -2410,7 +2411,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       .catch(() => {});
   }, []);
 
-  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
+  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 30000); return () => clearInterval(iv); }, [fetchLive]);
 
   // Build merged lookup: live data + pipeline stockMap
   const liveLookup = useMemo(() => {
@@ -2428,6 +2429,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       price: live.price ?? pipe.price,
       change: live.change,
       rel_volume: live.rel_volume ?? pipe.rel_volume,
+      avg_volume_raw: pipe.avg_volume_raw,
 
       grade: pipe.grade,
       rs_rank: pipe.rs_rank,
@@ -2444,6 +2446,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       roe: pipe.roe,
       profit_margin: pipe.profit_margin,
       rsi: live.rsi ?? pipe.rsi,
+      themes: pipe.themes || [],
       theme: pipe.themes?.[0]?.theme || live.sector || "",
       company: live.company || pipe.company || "",
     };
@@ -2464,6 +2467,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
     fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
     atr50: sortFn("atr_to_50"), vcs: sortFn("vcs"), adr: sortFn("adr_pct"),
+    vol: (a, b) => {
+      const av = a.avg_volume_raw && a.rel_volume ? a.avg_volume_raw * a.rel_volume : 0;
+      const bv = b.avg_volume_raw && b.rel_volume ? b.avg_volume_raw * b.rel_volume : 0;
+      return bv - av;
+    },
+    rel_volume: sortFn("rel_volume"),
     eps: sortFn("eps_past_5y"), rev: sortFn("sales_past_5y"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
@@ -2497,7 +2506,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           <span style={{ fontSize: 12, color: "#9090a0" }}>
             {loading ? "Loading..." : lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString()}` : ""}
           </span>
-          <span style={{ fontSize: 11, color: "#686878" }}>Auto-refresh 60s</span>
+          <span style={{ fontSize: 11, color: "#686878" }}>Auto-refresh 30s</span>
           <button onClick={fetchLive} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
             background: "#222230", border: "1px solid #3a3a4a", color: "#9090a0" }}>↻ Refresh</button>
         </div>
