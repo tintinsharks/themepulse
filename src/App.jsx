@@ -650,14 +650,13 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
           </div>
           {showIntraday && (
             <div style={{ background: "#141420", border: "1px solid #222230", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "4px 0" }}>
-              {/* Rotation matrix legend */}
-              <div style={{ display: "flex", gap: 10, padding: "4px 12px 6px", fontSize: 10, color: "#686878", flexWrap: "wrap", borderBottom: "1px solid #1a1a2a" }}>
-                <span style={{ color: "#787888", fontWeight: 700, marginRight: 2 }}>SIGNAL:</span>
-                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#059669", marginRight: 3, verticalAlign: "middle" }}></span>Confirmed Leader</span>
-                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#0d916340", border: "1px solid #0d9163", marginRight: 3, verticalAlign: "middle" }}></span>Resting</span>
-                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#fbbf24", marginRight: 3, verticalAlign: "middle" }}></span>Rotation In</span>
-                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "#dc2626", marginRight: 3, verticalAlign: "middle" }}></span>Avoid</span>
-                <span style={{ marginLeft: "auto", color: "#4a4a5a" }}>ROT = Breadth×0.4 + RVol×0.35 + ΔBrdth×0.25</span>
+              <div style={{ display: "flex", gap: 12, padding: "4px 12px 6px", fontSize: 10, color: "#686878", flexWrap: "wrap", borderBottom: "1px solid #1a1a2a", alignItems: "center" }}>
+                <span style={{ color: "#787888", fontWeight: 700 }}>SIGNAL:</span>
+                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#2bb886", background: "#05966925", border: "1px solid #2bb88630", marginRight: 3, verticalAlign: "middle" }}>LEAD</span>Confirmed leader</span>
+                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#0d916390", background: "#0d916312", border: "1px solid #0d916320", marginRight: 3, verticalAlign: "middle" }}>REST</span>Strong but quiet</span>
+                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#fbbf24", background: "#fbbf2418", border: "1px solid #fbbf2430", marginRight: 3, verticalAlign: "middle" }}>ROT↑</span>Rotation in</span>
+                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#dc262670", background: "#dc262610", border: "1px solid #dc262620", marginRight: 3, verticalAlign: "middle" }}>SKIP</span>Avoid</span>
+                <span style={{ marginLeft: "auto", color: "#4a4a5a" }}>ROT = Breadth×.4 + RVol×.35 + ΔBrdth×.25</span>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
@@ -696,15 +695,15 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                   // Rotation signal classification
                   const isStructurallyStrong = quad === "STRONG" || quad === "IMPROVING";
                   const isTacticallyHot = brdth >= 60 && (rvol == null || rvol >= 1.0);
-                  let signal, sigColor, rowGlow;
+                  let sigLabel, sigColor, sigBg, rowGlow;
                   if (isStructurallyStrong && isTacticallyHot) {
-                    signal = "●"; sigColor = "#059669"; rowGlow = "#05966910";  // Confirmed leader
+                    sigLabel = "LEAD"; sigColor = "#2bb886"; sigBg = "#05966925"; rowGlow = "#05966910";
                   } else if (isStructurallyStrong && !isTacticallyHot) {
-                    signal = "◐"; sigColor = "#0d916380"; rowGlow = "transparent"; // Resting
+                    sigLabel = "REST"; sigColor = "#0d916390"; sigBg = "#0d916312"; rowGlow = "transparent";
                   } else if (!isStructurallyStrong && isTacticallyHot) {
-                    signal = "◆"; sigColor = "#fbbf24"; rowGlow = "#fbbf2408"; // Rotation candidate
+                    sigLabel = "ROT↑"; sigColor = "#fbbf24"; sigBg = "#fbbf2418"; rowGlow = "#fbbf2408";
                   } else {
-                    signal = "○"; sigColor = "#dc262660"; rowGlow = "transparent"; // Avoid
+                    sigLabel = "SKIP"; sigColor = "#dc262670"; sigBg = "#dc262610"; rowGlow = "transparent";
                   }
                   // Rotation score bar color
                   const rotBarColor = rotScore >= 70 ? "#059669" : rotScore >= 50 ? "#2bb886" : rotScore >= 35 ? "#fbbf24" : "#686878";
@@ -714,10 +713,12 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                         background: isSelected ? "#0d916315" : rowGlow }}>
                       {/* # */}
                       <td style={{ padding: "4px 4px", textAlign: "center", color: "#686878", fontFamily: "monospace", fontSize: 10, width: 24 }}>{i + 1}</td>
-                      {/* Theme + signal dot */}
+                      {/* Theme + signal tag */}
                       <td style={{ padding: "4px 6px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#0d9163" : "#b8b8c8",
-                        maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
-                        <span style={{ color: sigColor, fontSize: 10, marginRight: 5 }}>{signal}</span>
+                        maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
+                        <span style={{ display: "inline-block", padding: "1px 4px", borderRadius: 3, fontSize: 8, fontWeight: 700,
+                          color: sigColor, background: sigBg, border: `1px solid ${sigColor}30`, marginRight: 5, verticalAlign: "middle",
+                          letterSpacing: 0.5, lineHeight: "14px" }}>{sigLabel}</span>
                         {t.theme}
                       </td>
                       {/* Quad */}
