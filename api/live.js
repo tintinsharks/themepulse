@@ -533,6 +533,112 @@ async function fetchTickerNews(cookies, ticker) {
   }
 }
 
+// ── Fetch Finviz homepage data: futures, earnings, major news ──
+async function fetchHomepage(cookies) {
+  try {
+    const url = cookies ? "https://elite.finviz.com/" : "https://finviz.com/";
+    const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+    if (!resp.ok) return { futures: [], earnings: [], major_news: [] };
+    const html = await resp.text();
+    
+    // ── FUTURES ──
+    const futures = [];
+    // Pattern: futures table rows with label, last, change, change%
+    const futuresIdx = html.indexOf('hp_table');
+    if (futuresIdx !== -1) {
+      const fSection = html.substring(futuresIdx, futuresIdx + 5000);
+      // Each row: <td>Label</td><td>Last</td><td><span>Change</span></td><td><span>Change%</span></td>
+      const fRowRegex = /<td[^>]*class="hp_table-row_label[^"]*"[^>]*>([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<td[^>]*><span[^>]*>([^<]+)<\/span><\/td>\s*<td[^>]*><span[^>]*>([^<]+)<\/span>/g;
+      let fm;
+      while ((fm = fRowRegex.exec(fSection)) !== null && futures.length < 10) {
+        futures.push({ label: fm[1].trim(), last: fm[2].trim(), change: fm[3].trim(), change_pct: fm[4].trim() });
+      }
+    }
+    // Fallback: try simpler pattern
+    if (futures.length === 0) {
+      const futIdx2 = html.indexOf('Futures');
+      if (futIdx2 !== -1) {
+        const fs2 = html.substring(futIdx2, futIdx2 + 8000);
+        // Try to find table rows with numeric data
+        const labels = ["Crude Oil", "Natural Gas", "Gold", "Dow", "S&P 500", "Nasdaq 100", "Russell 2000", "10-Year Bond", "VIX"];
+        for (const label of labels) {
+          const li = fs2.indexOf(label);
+          if (li === -1) continue;
+          const chunk = fs2.substring(li, li + 500);
+          // Find numbers after the label
+          const nums = chunk.match(/>([+-]?\d[\d,.]*%?)<\/(?:td|span)/g);
+          if (nums && nums.length >= 3) {
+            const clean = nums.map(n => n.replace(/<[^>]+>/g, '').trim());
+            futures.push({ label, last: clean[0], change: clean[1], change_pct: clean[2] });
+          }
+        }
+      }
+    }
+    
+    // ── EARNINGS ──
+    const earnings = [];
+    const earningsIdx = html.indexOf('Earnings Release');
+    if (earningsIdx === -1) {
+      // Try alternate
+      const eIdx2 = html.indexOf('earnings_');
+      if (eIdx2 !== -1) {
+        // parse from there
+      }
+    }
+    if (earningsIdx !== -1) {
+      const eSection = html.substring(earningsIdx, earningsIdx + 10000);
+      // Each earnings row: date cell then ticker links
+      const eRowRegex = /<tr[^>]*>(.*?)<\/tr>/gs;
+      let em;
+      while ((em = eRowRegex.exec(eSection)) !== null && earnings.length < 10) {
+        const row = em[1];
+        // Extract date
+        const dateMatch = row.match(/>(\w{3}\s+\d+[^<]*)</);
+        if (!dateMatch) continue;
+        const date = dateMatch[1].trim();
+        // Extract tickers
+        const tickers = [];
+        const tickerRegex = /quote\.ashx\?t=([A-Z]+)[^>]*>([A-Z]+)<\/a>/g;
+        let tm;
+        while ((tm = tickerRegex.exec(row)) !== null) {
+          tickers.push(tm[2]);
+        }
+        if (tickers.length > 0) {
+          earnings.push({ date, tickers });
+        }
+      }
+    }
+    
+    // ── MAJOR NEWS (top movers with change%) ──
+    const major_news = [];
+    const newsIdx = html.indexOf('Major News');
+    if (newsIdx !== -1) {
+      const nSection = html.substring(newsIdx, newsIdx + 8000);
+      // Pattern: ticker link followed by change% span
+      const mnRegex = /quote\.ashx\?t=([A-Z]+)[^>]*>([A-Z]+)<\/a>\s*(?:<[^>]*>)?\s*<span[^>]*class="[^"]*(?:is-positive|is-negative|hp_table-row[^"]*)"[^>]*>([^<]+)<\/span>/g;
+      let mn;
+      while ((mn = mnRegex.exec(nSection)) !== null && major_news.length < 30) {
+        major_news.push({ ticker: mn[2].trim(), change: mn[3].trim() });
+      }
+    }
+    // Fallback: simpler pattern
+    if (major_news.length === 0 && newsIdx !== -1) {
+      const nSection = html.substring(newsIdx, newsIdx + 8000);
+      const mnRegex2 = />([A-Z]{1,5})<\/a>[^<]*<span[^>]*>([+-]?\d+\.?\d*%)<\/span>/g;
+      let mn2;
+      while ((mn2 = mnRegex2.exec(nSection)) !== null && major_news.length < 30) {
+        major_news.push({ ticker: mn2[1].trim(), change: mn2[2].trim() });
+      }
+    }
+    
+    console.log(`Homepage: ${futures.length} futures, ${earnings.length} earnings rows, ${major_news.length} major news`);
+    return { futures, earnings, major_news };
+  } catch (err) {
+    console.error("Homepage fetch error:", err.message);
+    return { futures: [], earnings: [], major_news: [] };
+  }
+}
+
 // ── Handler ──
 export default async function handler(req, res) {
   // CORS
@@ -580,6 +686,10 @@ export default async function handler(req, res) {
     const newsTicker = (req.query.news || "").trim().toUpperCase();
     const tickerData = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
 
+    // Fetch homepage data (futures, earnings, major news) if requested
+    const wantHomepage = req.query.homepage === "1";
+    const homepage = wantHomepage ? await fetchHomepage(cookies) : null;
+
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -587,6 +697,7 @@ export default async function handler(req, res) {
       theme_universe: themeUniverse,
       news: tickerData?.news || null,
       peers: tickerData?.peers || null,
+      homepage,
     });
   } catch (err) {
     console.error("Live API error:", err);
