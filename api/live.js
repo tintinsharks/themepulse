@@ -188,60 +188,107 @@ function normalizeRow(r) {
 async function fetchWatchlist(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
 
-  // Don't specify columns — let Finviz return defaults, we'll map by name
-  const tickerStr = tickers.join(",");
-  const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
+  const results = [];
+  const batchSize = 50;
+  const MAX_RETRIES = 3;
 
-  try {
-    const resp = await fetch(url, {
-      headers: { ...HEADERS, Cookie: cookies },
-    });
+  async function fetchBatch(batch, attempt = 1) {
+    const tickerStr = batch.join(",");
+    const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
-    if (!resp.ok) {
-      console.error(`Watchlist fetch failed: ${resp.status}`);
+    try {
+      const resp = await fetch(url, {
+        headers: { ...HEADERS, Cookie: cookies },
+      });
+
+      if (resp.status === 429) {
+        if (attempt <= MAX_RETRIES) {
+          const wait = 2000 * attempt;
+          console.log(`Watchlist batch 429, retry ${attempt}/${MAX_RETRIES} after ${wait}ms`);
+          await new Promise(r => setTimeout(r, wait));
+          return fetchBatch(batch, attempt + 1);
+        }
+        console.error(`Watchlist batch failed after ${MAX_RETRIES} retries (429)`);
+        return [];
+      }
+
+      if (!resp.ok) {
+        console.error(`Watchlist fetch failed: ${resp.status}`);
+        if (attempt <= MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+          return fetchBatch(batch, attempt + 1);
+        }
+        return [];
+      }
+
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("html")) {
+        console.error("Got HTML instead of CSV for watchlist");
+        if (attempt <= MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+          return fetchBatch(batch, attempt + 1);
+        }
+        return [];
+      }
+
+      const text = await resp.text();
+      const rows = parseCSV(text, attempt === 1 && results.length === 0 ? "watchlist" : null);
+      
+      const parsed = rows.map((raw) => {
+        const r = normalizeRow(raw);
+        return {
+          ticker: r["Ticker"],
+          company: r["Company"],
+          sector: r["Sector"],
+          industry: r["Industry"],
+          market_cap: r["Market Cap"],
+          price: num(r["Price"]),
+          change: pct(r["Change"]),
+          gap: pct(r["Gap"]),
+          volume: r["Volume"],
+          avg_volume: r["Avg Volume"],
+          rel_volume: num(r["Rel Volume"]),
+          perf_week: pct(r["Perf Week"]),
+          perf_month: pct(r["Perf Month"]),
+          perf_quart: pct(r["Perf Quart"]),
+          atr: num(r["ATR"]),
+          rsi: num(r["RSI"]),
+          sma20: pct(r["SMA20"]),
+          sma50: pct(r["SMA50"]),
+          sma200: pct(r["SMA200"]),
+          high_52w: pct(r["52W High"]),
+          pe: num(r["P/E"]),
+          earnings: r["Earnings Date"],
+        };
+      });
+      
+      // Log missing tickers
+      const returned = new Set(parsed.map(p => p.ticker));
+      const missing = batch.filter(t => !returned.has(t));
+      if (missing.length > 0) {
+        console.log(`Watchlist batch: ${missing.length} tickers missing from response: ${missing.join(",")}`);
+      }
+      
+      return parsed;
+    } catch (err) {
+      console.error("Watchlist fetch error:", err.message);
+      if (attempt <= MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        return fetchBatch(batch, attempt + 1);
+      }
       return [];
     }
-
-    const ct = resp.headers.get("content-type") || "";
-    if (ct.includes("html")) {
-      console.error("Got HTML instead of CSV for watchlist");
-      return [];
-    }
-
-    const text = await resp.text();
-    const rows = parseCSV(text);
-
-    return rows.map((raw) => {
-      const r = normalizeRow(raw);
-      return {
-        ticker: r["Ticker"],
-        company: r["Company"],
-        sector: r["Sector"],
-        industry: r["Industry"],
-        market_cap: r["Market Cap"],
-        price: num(r["Price"]),
-        change: pct(r["Change"]),
-        gap: pct(r["Gap"]),
-        volume: r["Volume"],
-        avg_volume: r["Avg Volume"],
-        rel_volume: num(r["Rel Volume"]),
-        perf_week: pct(r["Perf Week"]),
-        perf_month: pct(r["Perf Month"]),
-        perf_quart: pct(r["Perf Quart"]),
-        atr: num(r["ATR"]),
-        rsi: num(r["RSI"]),
-        sma20: pct(r["SMA20"]),
-        sma50: pct(r["SMA50"]),
-        sma200: pct(r["SMA200"]),
-        high_52w: pct(r["52W High"]),
-        pe: num(r["P/E"]),
-        earnings: r["Earnings Date"],
-      };
-    });
-  } catch (err) {
-    console.error("Watchlist fetch error:", err.message);
-    return [];
   }
+
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    if (i > 0) await new Promise(r => setTimeout(r, 600));
+    const batchResults = await fetchBatch(batch);
+    results.push(...batchResults);
+  }
+
+  console.log(`Watchlist: ${results.length}/${tickers.length} tickers fetched, ${results.filter(r => r.change != null).length} with change data`);
+  return results;
 }
 
 function parseQuotePage(ticker, html) {
