@@ -388,6 +388,41 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
         );
       })()}
 
+      {/* News section — show independently even without earnings data */}
+      {stock && !(stock.quarters && stock.quarters.length > 0) && (
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
+          <div style={{ minWidth: 0 }}>
+            {news && news.length > 0 ? (
+              <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace", width: "100%" }}>
+                <thead><tr>
+                  <td style={{ padding: "2px 6px", color: "#686878", fontWeight: 700 }}>Recent News</td>
+                </tr></thead>
+                <tbody>
+                  {news.map((n, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: "3px 6px", verticalAlign: "top" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <span style={{ color: "#686878", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
+                          <a href={n.url} target="_blank" rel="noopener noreferrer"
+                            style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            onMouseEnter={e => e.target.style.color = "#0d9163"}
+                            onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
+                            {n.headline}
+                          </a>
+                          {n.source && <span style={{ color: "#505060", whiteSpace: "nowrap", flexShrink: 0 }}>({n.source})</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <span style={{ color: "#3a3a4a", fontSize: 10, padding: "2px 6px" }}>Loading news...</span>
+            )}
+          </div>
+        </div>
+      )}
+
       </>)}
 
       <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
