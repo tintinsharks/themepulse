@@ -2283,13 +2283,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   useEffect(() => {
     if (!onVisibleTickers) return;
-    const tickers = [
-      ...portfolioMerged.map(s => s.ticker),
-      ...watchlistMerged.map(s => s.ticker),
-    ];
-    // Dedupe while preserving order
-    onVisibleTickers([...new Set(tickers)]);
-  }, [portfolioMerged, watchlistMerged, onVisibleTickers]);
+    // Report displayed order: portfolio (sorted) then watchlist (sorted)
+    const pTickers = portfolioMerged.map(s => s.ticker);
+    const wTickers = watchlistMerged.map(s => s.ticker);
+    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t))];
+    onVisibleTickers(combined);
+  }, [pSort, wlSort, portfolio, watchlist, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build merged lookup: live data + pipeline stockMap
   const liveLookup = useMemo(() => {
