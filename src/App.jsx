@@ -241,15 +241,12 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 0 auto" }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 50%", minWidth: 0 }}>
           {stock.atr != null && <StockStat label="ATR" value={stock.atr} />}
-          {/* Avg $ Vol: >20M green, >10M yellow, else default */}
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
-          {/* Avg Vol: >1M green, else default */}
           {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
             color={stock.avg_volume_raw > 1000000 ? "#2bb886" : "#f97316"} />}
-          {/* Float: <10M green, <25M yellow, else default */}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#2bb886" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
@@ -270,9 +267,9 @@ function ChartPanel({ ticker, stock, onClose, watchlist, onAddWatchlist, onRemov
           })()}
           </div>
           {/* Divider */}
-          <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0 }} />
+          <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
           {/* Right: news */}
-          <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+          <div style={{ flex: "1 1 50%", minWidth: 200, overflow: "hidden" }}>
             {news === null ? (
               <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>Loading news...</span>
             ) : news.length > 0 ? (
