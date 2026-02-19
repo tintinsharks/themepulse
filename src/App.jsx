@@ -2438,6 +2438,7 @@ function MobileApp({ authToken, onLogout }) {
   const [sort, setSort] = useState("change");
   const [tab, setTab] = useState("portfolio");
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [greenOnly, setGreenOnly] = useState(true);
 
   // Load dashboard data
   useEffect(() => {
@@ -2539,14 +2540,82 @@ function MobileApp({ authToken, onLogout }) {
       const g = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
       return (g.indexOf(a.grade) === -1 ? 99 : g.indexOf(a.grade)) - (g.indexOf(b.grade) === -1 ? 99 : g.indexOf(b.grade));
     },
+    hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
   };
 
-  const list = tab === "portfolio" ? portfolio : watchlist;
+  // Leading themes for scan filter
+  const leading = useMemo(() => {
+    if (!data?.themes) return new Set();
+    return new Set(data.themes.filter(t => t.rts >= 50).map(t => t.theme));
+  }, [data]);
+
+  // Master scan composite
+  const scanList = useMemo(() => {
+    if (!data?.stocks || tab !== "scan") return [];
+    const stocks = data.stocks;
+    const winnersFilter = s => {
+      const price = s.price || 0;
+      const adr = s.adr_pct || 0;
+      const aboveLow = s.above_52w_low || 0;
+      const avgDolVol = s.avg_dollar_vol_raw || 0;
+      const sma20 = s.sma20_pct;
+      const sma50 = s.sma50_pct;
+      return price > 1 && adr > 4.5 && aboveLow >= 70 && avgDolVol >= 7000000
+        && sma20 != null && sma20 > 0 && sma50 != null && sma50 > 0;
+    };
+    const liquidFilter = s => {
+      const price = s.price || 0;
+      const mcap = s.market_cap_raw || 0;
+      const avgVol = s.avg_volume_raw || 0;
+      const avgDolVol = s.avg_dollar_vol_raw || 0;
+      const adr = s.adr_pct || 0;
+      const epsGrowth = s.eps_this_y ?? s.eps_past_5y;
+      const salesGrowth = s.sales_past_5y;
+      return price > 10 && mcap >= 300000000 && avgVol >= 1000000 && avgDolVol >= 100000000
+        && adr > 3 && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
+    };
+    const earlyFilter = s => {
+      const sma50 = s.sma50_pct;
+      const sma200 = s.sma200_pct;
+      const rs = s.rs_rank;
+      const avgDolVol = s.avg_dollar_vol_raw || 0;
+      const price = s.price || 0;
+      return price > 5 && avgDolVol >= 5000000
+        && sma50 != null && sma50 > 0 && sma50 < 10
+        && sma200 != null && sma200 > 0
+        && rs != null && rs >= 50 && rs < 85
+        && s.adr_pct > 2 && s.pct_from_high < -10;
+    };
+    const themeFilter = s => {
+      const good = ["A+","A","A-","B+"].includes(s.grade);
+      const inLead = s.themes.some(t => leading.has(t.theme));
+      return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
+    };
+
+    const hitMap = {};
+    stocks.forEach(s => {
+      const hits = [];
+      if (themeFilter(s)) hits.push("T");
+      if (winnersFilter(s)) hits.push("W");
+      if (liquidFilter(s)) hits.push("L");
+      if (earlyFilter(s)) hits.push("E");
+      if (hits.length > 0) hitMap[s.ticker] = hits;
+    });
+    let list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
+    if (greenOnly) list = list.filter(s => { const c = liveLookup[s.ticker]?.change; return c != null && c > 0; });
+    return list;
+  }, [data, tab, leading, greenOnly, liveLookup]);
+
+  const list = tab === "scan" ? scanList : (tab === "portfolio" ? portfolio.map(mergeStock) : watchlist.map(mergeStock));
   const merged = useMemo(() => {
-    const arr = list.map(mergeStock);
-    if (sorters[sort]) arr.sort(sorters[sort]);
+    let arr = tab === "scan" ? scanList.map(s => {
+      const live = liveLookup[s.ticker] || {};
+      return { ...s, change: live.change ?? s.change, price: live.price ?? s.price, rel_volume: live.rel_volume ?? s.rel_volume };
+    }) : (tab === "portfolio" ? portfolio : watchlist).map(mergeStock);
+    const sortKey = tab === "scan" && sort === "change" ? "hits" : sort;
+    if (sorters[sortKey]) arr.sort(sorters[sortKey]);
     return arr;
-  }, [list, mergeStock, sort]);
+  }, [tab, scanList, portfolio, watchlist, mergeStock, sort, liveLookup]);
 
   // Index ETFs
   const indices = useMemo(() => {
@@ -2583,9 +2652,9 @@ function MobileApp({ authToken, onLogout }) {
 
         {/* Tab bar */}
         <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3a4a" }}>
-          {[["portfolio", `Portfolio (${portfolio.length})`], ["watchlist", `Watchlist (${watchlist.length})`]].map(([id, label]) => (
-            <button key={id} onClick={() => { setTab(id); setChartTicker(null); }}
-              style={{ flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none",
+          {[["portfolio", `Port (${portfolio.length})`], ["watchlist", `Watch (${watchlist.length})`], ["scan", `Scan${tab === "scan" ? ` (${merged.length})` : ""}`]].map(([id, label]) => (
+            <button key={id} onClick={() => { setTab(id); setChartTicker(null); if (id === "scan") setSort("hits"); }}
+              style={{ flex: 1, padding: "8px 0", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
                 background: tab === id ? "#0d916330" : "#1a1a24", color: tab === id ? "#4aad8c" : "#686878" }}>
               {label}
             </button>
@@ -2594,7 +2663,10 @@ function MobileApp({ authToken, onLogout }) {
 
         {/* Sort bar */}
         <div style={{ display: "flex", gap: 4, marginTop: 6, paddingBottom: 2 }}>
-          {[["change","Chg%"],["rs","RS"],["grade","Grade"],["ticker","A-Z"]].map(([k,label]) => (
+          {(tab === "scan"
+            ? [["hits","Hits"],["change","Chg%"],["rs","RS"],["grade","Grade"]]
+            : [["change","Chg%"],["rs","RS"],["grade","Grade"],["ticker","A-Z"]]
+          ).map(([k,label]) => (
             <button key={k} onClick={() => setSort(k)}
               style={{ flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, cursor: "pointer", borderRadius: 4,
                 background: sort === k ? "#0d916320" : "transparent", border: sort === k ? "1px solid #0d9163" : "1px solid #2a2a38",
@@ -2602,6 +2674,14 @@ function MobileApp({ authToken, onLogout }) {
               {label}
             </button>
           ))}
+          {tab === "scan" && (
+            <button onClick={() => setGreenOnly(g => !g)}
+              style={{ padding: "4px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", borderRadius: 4,
+                background: greenOnly ? "#05966920" : "transparent", border: greenOnly ? "1px solid #059669" : "1px solid #2a2a38",
+                color: greenOnly ? "#2bb886" : "#686878" }}>
+              🟢
+            </button>
+          )}
         </div>
       </div>
 
@@ -2609,16 +2689,18 @@ function MobileApp({ authToken, onLogout }) {
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: chartTicker ? 300 : 20 }}>
         {merged.length === 0 && (
           <div style={{ padding: 24, textAlign: "center", color: "#505060", fontSize: 13 }}>
-            {tab === "portfolio" ? "No portfolio tickers" : "No watchlist tickers"}. Add from desktop.
+            {tab === "scan" ? "No scan results" : tab === "portfolio" ? "No portfolio tickers" : "No watchlist tickers"}{tab !== "scan" ? ". Add from desktop." : ""}
           </div>
         )}
         {merged.map(s => {
           const isActive = s.ticker === chartTicker;
+          const inPort = portfolio.includes(s.ticker);
+          const inWatch = watchlist.includes(s.ticker);
           return (
             <div key={s.ticker} onClick={() => setChartTicker(isActive ? null : s.ticker)}
               style={{ display: "flex", alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #1a1a24",
                 background: isActive ? "rgba(251, 191, 36, 0.08)" : "transparent",
-                borderLeft: tab === "portfolio" ? "3px solid #fbbf24" : "3px solid #60a5fa" }}>
+                borderLeft: inPort ? "3px solid #fbbf24" : inWatch ? "3px solid #60a5fa" : tab === "scan" ? "3px solid transparent" : tab === "portfolio" ? "3px solid #fbbf24" : "3px solid #60a5fa" }}>
 
               {/* Left: ticker + grade */}
               <div style={{ flex: "0 0 70px" }}>
@@ -2632,7 +2714,14 @@ function MobileApp({ authToken, onLogout }) {
                     </span>
                   )}
                 </div>
-                {s.grade && <Badge grade={s.grade} />}
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  {s.grade && <Badge grade={s.grade} />}
+                  {tab === "scan" && s._scanHits && (
+                    <span style={{ fontSize: 8, fontWeight: 700, color: "#fbbf24", letterSpacing: 1 }}>
+                      {s._scanHits.join("")}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Center: change + price */}
@@ -2645,18 +2734,24 @@ function MobileApp({ authToken, onLogout }) {
                 </div>
               </div>
 
-              {/* Right: RS + RVol */}
+              {/* Right: RS + RVol (or theme for scan) */}
               <div style={{ flex: "0 0 65px", textAlign: "right" }}>
                 <div style={{ fontSize: 11, fontFamily: "monospace" }}>
                   <span style={{ color: "#686878" }}>RS </span>
                   <span style={{ color: "#b8b8c8", fontWeight: 700 }}>{s.rs_rank ?? "—"}</span>
                 </div>
-                <div style={{ fontSize: 11, fontFamily: "monospace" }}>
-                  <span style={{ color: "#686878" }}>RV </span>
-                  <span style={{ color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878", fontWeight: s.rel_volume >= 1.5 ? 700 : 400 }}>
-                    {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
-                  </span>
-                </div>
+                {tab === "scan" ? (
+                  <div style={{ fontSize: 9, color: "#505060", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 65 }}>
+                    {s.themes?.[0]?.theme || ""}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, fontFamily: "monospace" }}>
+                    <span style={{ color: "#686878" }}>RV </span>
+                    <span style={{ color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878", fontWeight: s.rel_volume >= 1.5 ? 700 : 400 }}>
+                      {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           );
