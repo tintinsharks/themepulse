@@ -506,7 +506,7 @@ async function fetchTickerNews(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) return { news: [], peers: [], description: "" };
+    if (!resp.ok) return { news: [], peers: [], description: "", earningsData: {}, quarters: [] };
     const html = await resp.text();
     
     // ── NEWS ──
@@ -611,10 +611,57 @@ async function fetchTickerNews(cookies, ticker) {
       }
     }
     
-    return { news, peers, description };
+    // ── QUARTERLY EPS from Finviz snapshot table ──
+    // Finviz has EPS (ttm), EPS this Y, EPS next Q, EPS this Q, etc.
+    // But the real quarterly data is in the "financial highlights" or earnings estimate table
+    // Pattern: rows like "EPS this Y" -> value, "EPS next Y" -> value
+    const earningsData = {};
+    const epsGet = (label) => {
+      const re = new RegExp(`<td[^>]*>\\s*${label}\\s*</td>\\s*<td[^>]*><b[^>]*>([^<]*)</b>`, 'i');
+      const m = html.match(re);
+      return m ? m[1].trim() : null;
+    };
+    earningsData.eps_ttm = epsGet('EPS \\(ttm\\)');
+    earningsData.eps_this_y = epsGet('EPS this Y');
+    earningsData.eps_next_y = epsGet('EPS next Y');
+    earningsData.eps_next_5y = epsGet('EPS next 5Y');
+    earningsData.eps_past_5y = epsGet('EPS past 5Y');
+    earningsData.sales_past_5y = epsGet('Sales past 5Y');
+    earningsData.sales_qq = epsGet('Sales Q/Q');
+    earningsData.eps_qq = epsGet('EPS Q/Q');
+    
+    // ── QUARTERLY EPS HISTORY from FactSet widget / earnings table ──
+    const quarters = [];
+    
+    // Debug: find earnings-related table sections
+    const debugPatterns = ['earnings-history', 'earningshistory', 'quarterly-results', 'income-statement', 
+      'financial-highlights', 'financials-table', 'snapshot-table', 'analyst-estimates'];
+    const foundSections = [];
+    for (const pat of debugPatterns) {
+      const idx = html.indexOf(pat);
+      if (idx !== -1) foundSections.push({ pattern: pat, index: idx });
+    }
+    
+    // Try to find and parse any table with quarterly EPS data
+    // Look for EPS estimate vs actual pattern common on Finviz
+    const epsTablePatterns = [
+      // Pattern: rows with quarter labels and EPS values
+      /class="[^"]*snapshot-table2[^"]*"[\s\S]*?<\/table>/i,
+    ];
+    
+    // Extract raw HTML snippet near any earnings section for debugging
+    let earningsHtmlSnippet = '';
+    if (foundSections.length > 0) {
+      const idx = foundSections[0].index;
+      earningsHtmlSnippet = html.substring(Math.max(0, idx - 200), idx + 3000)
+        .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
+    }
+
+    console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}, EPS Q/Q: ${earningsData.eps_qq}, Sections: ${foundSections.map(s => s.pattern).join(',') || 'none'}`);
+    return { news, peers, description, earningsData, quarters, earningsHtmlSnippet };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
-    return { news: [], peers: [], description: "" };
+    return { news: [], peers: [], description: "", earningsData: {}, quarters: [] };
   }
 }
 
@@ -783,6 +830,9 @@ export default async function handler(req, res) {
       news: tickerData?.news || null,
       peers: tickerData?.peers || null,
       description: tickerData?.description || null,
+      earningsData: tickerData?.earningsData || null,
+      finvizQuarters: tickerData?.quarters || null,
+      earningsHtmlSnippet: tickerData?.earningsHtmlSnippet || null,
       homepage,
     });
   } catch (err) {
