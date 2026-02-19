@@ -1240,8 +1240,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(true);
   const [minRS, setMinRS] = useState(75);
-  const [scanMode, setScanMode] = useState("master");
+  const [scanFilters, setScanFilters] = useState(new Set());
   const [activeTheme, setActiveTheme] = useState(null);
+  const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
+  const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
 
   // Build EP ticker lookup: ticker → most recent EP signal (pipeline + manual)
   const epLookup = useMemo(() => {
@@ -1376,72 +1378,47 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
 
     let list;
-    if (scanMode === "master") {
-      // Union of all scans — deduplicated, with hit count
-      const hitMap = {};
-      stocks.forEach(s => {
-        const hits = [];
-        if (themeFilter(s)) hits.push("T");
-        if (winnersFilter(s)) hits.push("W");
-        if (liquidFilter(s)) hits.push("L");
-        if (earlyFilter(s)) hits.push("E");
-        if (epLookup[s.ticker]) hits.push("EP");
+    // Always run master scan — union of all filters with tag tracking
+    const hitMap = {};
+    stocks.forEach(s => {
+      const hits = [];
+      if (themeFilter(s)) hits.push("T");
+      if (winnersFilter(s)) hits.push("W");
+      if (liquidFilter(s)) hits.push("L");
+      if (earlyFilter(s)) hits.push("E");
+      if (epLookup[s.ticker]) hits.push("EP");
 
-        // ── CANSLIM tag: C (EPS ≥40%), A (annual ≥25%), N (new highs), S (supply/demand), L (leader) ──
-        const epsG = s.eps_this_y ?? s.eps_past_5y;
-        const salesG = s.sales_qq ?? s.sales_past_5y;
-        const csC = (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);  // C+A: strong earnings
-        const csN = s.pct_from_high != null && s.pct_from_high >= -10;                      // N: near new highs
-        const csS = s.shares_float_raw != null && s.shares_float_raw <= 100_000_000;        // S: reasonable supply
-        const csL = s.rs_rank >= 80;                                                         // L: leader
-        const csInst = s.inst_own == null || s.inst_own <= 70;                               // I: room for new buyers
-        const csSales = salesG != null && salesG >= 25;                                      // Sales ≥25%
-        if (csC && csN && csL && (csSales || csS) && csInst) hits.push("CS");
+      // ── CANSLIM tag ──
+      const epsG = s.eps_this_y ?? s.eps_past_5y;
+      const salesG = s.sales_qq ?? s.sales_past_5y;
+      const csC = (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);
+      const csN = s.pct_from_high != null && s.pct_from_high >= -10;
+      const csS = s.shares_float_raw != null && s.shares_float_raw <= 100_000_000;
+      const csL = s.rs_rank >= 80;
+      const csInst = s.inst_own == null || s.inst_own <= 70;
+      const csSales = salesG != null && salesG >= 25;
+      if (csC && csN && csL && (csSales || csS) && csInst) hits.push("CS");
 
-        // ── Zanger/MB tag: strong group + volume behavior + pattern quality ──
-        const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
-        const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
-        const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
-        const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
-        const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
-        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) hits.push("ZM");
+      // ── Zanger/MB tag ──
+      const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
+      const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
+      const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
+      const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
+      const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
+      if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) hits.push("ZM");
 
-        if (hits.length > 0) hitMap[s.ticker] = hits;
-      });
-      list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
-    } else if (scanMode === "winners") {
-      list = stocks.filter(winnersFilter);
-    } else if (scanMode === "liquid") {
-      list = stocks.filter(liquidFilter);
-    } else if (scanMode === "early") {
-      list = stocks.filter(earlyFilter);
-    } else {
-      list = stocks.filter(themeFilter);
-    }
+      if (hits.length > 0) hitMap[s.ticker] = hits;
+    });
+    list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
 
-    // Apply methodology tags to non-master modes
-    if (scanMode !== "master") {
-      list = list.map(s => {
-        const tags = [];
-        const epsG = s.eps_this_y ?? s.eps_past_5y;
-        const salesG = s.sales_qq ?? s.sales_past_5y;
-        const csC = (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);
-        const csN = s.pct_from_high != null && s.pct_from_high >= -10;
-        const csL = s.rs_rank >= 80;
-        const csInst = s.inst_own == null || s.inst_own <= 70;
-        const csSales = salesG != null && salesG >= 25;
-        const csS = s.shares_float_raw != null && s.shares_float_raw <= 100_000_000;
-        if (csC && csN && csL && (csSales || csS) && csInst) tags.push("CS");
-
-        const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
-        const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
-        const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
-        const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
-        const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
-        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) tags.push("ZM");
-
-        if (epLookup[s.ticker]) tags.push("EP");
-        return tags.length > 0 ? { ...s, _scanHits: [...(s._scanHits || []), ...tags] } : s;
+    // Apply tag filters (AND logic) — stock must have ALL selected tags
+    if (scanFilters.size > 0) {
+      list = list.filter(s => {
+        const hits = new Set(s._scanHits || []);
+        for (const f of scanFilters) {
+          if (!hits.has(f)) return false;
+        }
+        return true;
       });
     }
 
@@ -1455,6 +1432,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (greenOnly && hasLive) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
+    if (mcapFilter === "mid") list = list.filter(s => (s.market_cap_raw || 0) >= 2_000_000_000);
+    if (mcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
+    if (volFilter > 0) list = list.filter(s => (s.avg_volume_raw || 0) >= volFilter);
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1478,25 +1458,20 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
     };
-    return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanMode, liveLookup, epLookup]);
+    return list.sort(sorters[sortBy] || sorters.hits);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup, epLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
     if (onVisibleTickers) onVisibleTickers(candidates.map(s => s.ticker));
   }, [candidates, onVisibleTickers]);
 
-  const filterDesc = scanMode === "master"
-    ? "Union of all scans — multi-hit = higher conviction"
-    : scanMode === "winners"
-    ? "Price>$1 | ADR>4.5% | Ab52WLo≥70% | Avg$Vol>$7M | >20SMA | >50SMA"
-    : scanMode === "liquid"
-    ? "Price>$10 | MCap>$300M | AvgVol>1M | Avg$Vol>$100M | ADR>3% | EPS>20% or Sales5Y>15%"
-    : scanMode === "early"
-    ? "Price>$5 | >50SMA(<10%) | >200SMA | RS:50-85 | ADR>2% | FrHi<-10% | Avg$Vol>$5M"
-    : "A/B+ | Leading theme | 21%+ 3M | Above 50MA | Not 7x+";
+  const tagCounts = useMemo(() => {
+    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0 };
+    candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
+    return counts;
+  }, [candidates]);
 
-  // Column header config: [label, sortKey or null]
   const columns = [
     ["Ticker", "ticker"],
     ["Tags", "hits"],
@@ -1508,14 +1483,31 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        {[["master","★ Master"],["theme","Theme Scan"],["winners","Best Winners"],["liquid","Liquid Leaders"],["early","Early Stage 2"]].map(([k, l]) => (
-          <button key={k} onClick={() => setScanMode(k)} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer",
-            border: scanMode === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
-            background: scanMode === k ? "#0d916318" : "transparent", color: scanMode === k ? "#4aad8c" : "#787888" }}>{l}</button>
-        ))}
-        <span style={{ color: "#686878", fontSize: 11 }}>|</span>
-        <span style={{ color: "#9090a0", fontSize: 11 }}>{filterDesc}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        {/* Tag filter toggles */}
+        {[
+          ["T", "Theme", "#2bb886"], ["W", "Winners", "#c084fc"], ["L", "Liquid", "#60a5fa"],
+          ["E", "Early", "#fbbf24"], ["EP", "EP", "#f97316"], ["CS", "CANSLIM", "#22d3ee"], ["ZM", "Zanger", "#a78bfa"]
+        ].map(([tag, label, color]) => {
+          const active = scanFilters.has(tag);
+          return (
+            <button key={tag} onClick={() => setScanFilters(prev => {
+              const next = new Set(prev);
+              if (next.has(tag)) next.delete(tag); else next.add(tag);
+              return next;
+            })} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer",
+              border: `1px solid ${active ? color : "#3a3a4a"}`,
+              background: active ? `${color}20` : "transparent",
+              color: active ? color : "#686878", display: "flex", alignItems: "center", gap: 3 }}>
+              {label}
+            </button>
+          );
+        })}
+        {scanFilters.size > 0 && (
+          <button onClick={() => setScanFilters(new Set())} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+            border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
+        )}
+        <span style={{ color: "#3a3a4a" }}>|</span>
         <span style={{ color: "#2bb886", fontWeight: 700, fontSize: 12 }}>{candidates.length}</span>
         <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: "auto",
           border: nearPivot ? "1px solid #c084fc" : "1px solid #3a3a4a",
@@ -1528,6 +1520,18 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
         </div>
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        {[["small", "Small+"], ["mid", "Mid+"], ["large", "Large"]].map(([k, l]) => (
+          <button key={k} onClick={() => setMcapFilter(k)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
+            border: mcapFilter === k ? "1px solid #60a5fa" : "1px solid #3a3a4a",
+            background: mcapFilter === k ? "#60a5fa20" : "transparent", color: mcapFilter === k ? "#60a5fa" : "#686878" }}>{l}</button>
+        ))}
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        {[[0, "All Vol"], [50000, ">50K"], [100000, ">100K"]].map(([v, l]) => (
+          <button key={v} onClick={() => setVolFilter(v)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
+            border: volFilter === v ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+            background: volFilter === v ? "#fbbf2420" : "transparent", color: volFilter === v ? "#fbbf24" : "#686878" }}>{l}</button>
+        ))}
         {activeTheme && (
           <button onClick={() => setActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
             border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
