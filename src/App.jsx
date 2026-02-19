@@ -50,7 +50,7 @@ function StockStat({ label, value, color = "#9090a0" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
 
-function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, liveThemeData }) {
+function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, manualEPs, onAddEP, onRemoveEP, liveThemeData }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
@@ -162,6 +162,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   background: "#fbbf2420", border: "1px solid #fbbf2440", color: "#fbbf24" }}>✓ Portfolio</button>
               : <button onClick={() => onAddPortfolio(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
                   background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ Portfolio</button>
+          )}
+          {manualEPs && (
+            manualEPs.some(e => e.ticker === ticker)
+              ? <button onClick={() => onRemoveEP(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "#f9731620", border: "1px solid #f9731640", color: "#f97316" }}>✓ EP</button>
+              : <button onClick={() => onAddEP(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ EP</button>
           )}
           {stock && (<>
             <Badge grade={stock.grade} />
@@ -1074,13 +1081,33 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(true);
   const [minRS, setMinRS] = useState(75);
   const [scanMode, setScanMode] = useState("master");
   const [activeTheme, setActiveTheme] = useState(null);
+
+  // Build EP ticker lookup: ticker → most recent EP signal (pipeline + manual)
+  const epLookup = useMemo(() => {
+    const m = {};
+    if (epSignals) {
+      epSignals.forEach(ep => {
+        if (!m[ep.ticker] || ep.days_ago < m[ep.ticker].days_ago) m[ep.ticker] = ep;
+      });
+    }
+    // Manual EPs override / supplement — update days_ago based on current date
+    if (manualEPs) {
+      const today = new Date();
+      manualEPs.forEach(ep => {
+        const daysAgo = ep.date ? Math.round((today - new Date(ep.date)) / 86400000) : 0;
+        const entry = { ...ep, days_ago: daysAgo, consol: ep.consol || { status: daysAgo <= 1 ? "fresh" : "holding" }, manual: true };
+        if (!m[ep.ticker] || daysAgo < m[ep.ticker].days_ago) m[ep.ticker] = entry;
+      });
+    }
+    return m;
+  }, [epSignals, manualEPs]);
 
   // Apply theme filter from Leaders drill-down
   useEffect(() => {
@@ -1327,6 +1354,19 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     ER{s.earnings_days === 0 ? "" : s.earnings_days}
                   </span>
                 )}
+                {epLookup[s.ticker] && (() => {
+                  const ep = epLookup[s.ticker];
+                  const isToday = ep.days_ago === 0;
+                  const isRecent = ep.days_ago <= 5;
+                  const isConsol = ep.consol?.status === "consolidating";
+                  return <span title={`EP ${ep.date}: Gap +${ep.gap_pct}% Vol ${ep.vol_ratio}x${isConsol ? " ★ CONSOLIDATING" : ""}`}
+                    style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
+                      color: isConsol ? "#fbbf24" : isToday ? "#fff" : isRecent ? "#fbbf24" : "#f97316",
+                      background: isConsol ? "#fbbf2425" : isToday ? "#f97316" : isRecent ? "#fbbf2420" : "#f9731615",
+                      border: `1px solid ${isConsol ? "#fbbf2450" : isToday ? "#f97316" : "#fbbf2430"}` }}>
+                    {isConsol ? "★EP" : "EP"}{isToday ? "" : ep.days_ago + "d"}
+                  </span>;
+                })()}
               </td>
               {scanMode === "master" && (
                 <td style={{ padding: "4px 6px", textAlign: "center" }}>
@@ -1383,7 +1423,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs }) {
   const [sortBy, setSortBy] = useState("date");
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(4);
@@ -1411,10 +1451,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
   useEffect(() => { fetchLiveEPs(); }, [fetchLiveEPs]);
 
-  // Merge: live EPs (today) + pipeline EPs (historical with consolidation data)
+  // Merge: live EPs (today) + pipeline EPs (historical) + manual EPs
   const mergedSignals = useMemo(() => {
     const all = [];
     const seen = new Set();
+    const today = new Date();
     // Live EPs first (today's fresh signals)
     if (liveEPs) {
       liveEPs.forEach(ep => {
@@ -1429,8 +1470,21 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         if (!seen.has(key)) { seen.add(key); all.push(ep); }
       });
     }
+    // Manual EPs
+    if (manualEPs) {
+      manualEPs.forEach(ep => {
+        const key = `${ep.ticker}_${ep.date}`;
+        if (!seen.has(key)) {
+          const daysAgo = ep.date ? Math.round((today - new Date(ep.date)) / 86400000) : 0;
+          seen.add(key);
+          all.push({ ...ep, days_ago: daysAgo, gap_pct: ep.gap_pct || 0, change_pct: ep.change_pct || 0,
+            vol_ratio: ep.vol_ratio || 0, close_range: 0, manual: true,
+            consol: ep.consol || { status: daysAgo <= 1 ? "fresh" : "holding" } });
+        }
+      });
+    }
     return all;
-  }, [liveEPs, epSignals]);
+  }, [liveEPs, epSignals, manualEPs]);
 
   const filtered = useMemo(() => {
     if (!mergedSignals || !mergedSignals.length) return [];
@@ -1457,7 +1511,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
     return mergedSignals
-      .filter(ep => ep.gap_pct >= minGap && ep.vol_ratio >= minVol && ep.days_ago <= maxDays)
+      .filter(ep => ep.manual || (ep.gap_pct >= minGap && ep.vol_ratio >= minVol))
+      .filter(ep => ep.days_ago <= maxDays)
       .filter(ep => !statusFilter || ep.consol?.status === statusFilter)
       .sort(sorters[sortBy] || sorters.date);
   }, [mergedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
@@ -2644,12 +2699,15 @@ function AppMain({ authToken, onLogout }) {
   const openChart = useCallback((t) => setChartTicker(prev => prev === t ? null : t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
 
-  // Watchlist + Portfolio state (hoisted for access from ChartPanel)
+  // Watchlist + Portfolio + Manual EPs state (hoisted for access from ChartPanel)
   const [portfolio, setPortfolio] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_portfolio") || "[]"); } catch { return []; }
   });
   const [watchlist, setWatchlist] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_watchlist") || "[]"); } catch { return []; }
+  });
+  const [manualEPs, setManualEPs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_manual_eps") || "[]"); } catch { return []; }
   });
   const [serverLoaded, setServerLoaded] = useState(false);
 
@@ -2666,6 +2724,7 @@ function AppMain({ authToken, onLogout }) {
           // Server data takes priority over localStorage
           setPortfolio(d.data.portfolio || []);
           setWatchlist(d.data.watchlist || []);
+          if (d.data.manualEPs) setManualEPs(d.data.manualEPs);
           console.log("Loaded from server:", d.data);
         }
       })
@@ -2676,6 +2735,7 @@ function AppMain({ authToken, onLogout }) {
   // Save to localStorage
   useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+  useEffect(() => { localStorage.setItem("tp_manual_eps", JSON.stringify(manualEPs)); }, [manualEPs]);
 
   // Save to server (debounced)
   const saveTimer = useRef(null);
@@ -2687,7 +2747,7 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist }),
+        body: JSON.stringify({ portfolio, watchlist, manualEPs }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
@@ -2699,6 +2759,15 @@ function AppMain({ authToken, onLogout }) {
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
   const removeFromPortfolio = useCallback((t) => setPortfolio(p => p.filter(x => x !== t)), []);
+  const addToEP = useCallback((t) => {
+    const u = t.toUpperCase();
+    const today = new Date().toISOString().split("T")[0];
+    setManualEPs(p => {
+      if (p.some(e => e.ticker === u)) return p;
+      return [...p, { ticker: u, date: today, days_ago: 0, manual: true }];
+    });
+  }, []);
+  const removeFromEP = useCallback((t) => setManualEPs(p => p.filter(e => e.ticker !== t)), []);
 
   // Visible ticker list — reported by whichever view is active
   const [visibleTickers, setVisibleTickers] = useState([]);
@@ -2859,9 +2928,9 @@ function AppMain({ authToken, onLogout }) {
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData}
             onThemeDrillDown={(themeName) => { setScanThemeFilter(themeName); setView("scan"); }} />}
 
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
@@ -2885,6 +2954,7 @@ function AppMain({ authToken, onLogout }) {
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
               watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
               portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+              manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
               liveThemeData={liveThemeData} />
           </div>
         )}
