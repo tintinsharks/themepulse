@@ -173,10 +173,11 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#787888", fontSize: 12 }}>RS:{stock.rs_rank}</span>
-            {stock.vcs != null && (
+            {(() => { const eps = computeEPSScore(stock); return eps.score != null ? (
               <span style={{ fontSize: 11, fontFamily: "monospace",
-                color: stock.vcs >= 80 ? "#2bb886" : stock.vcs >= 60 ? "#60a5fa" : "#f97316" }}>VCS:{stock.vcs}</span>
-            )}
+                color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : "#f87171" }}
+                title={eps.factors.join(" ")}>EPS:{eps.score}</span>
+            ) : null; })()}
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.subtheme ? `${t.theme} › ${t.subtheme}` : t.theme).join(", ")}</span>
             )}
@@ -635,7 +636,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             rs: safe(s => s.rs_rank),
             change: safe(s => liveLookup[s.ticker]?.change),
             ret3m: safe(s => s.return_3m),
-            fromhi: safe(s => s.pct_from_high), vcs: safe(s => s.vcs), adr: safe(s => s.adr_pct),
+            fromhi: safe(s => s.pct_from_high), eps: safe(s => computeEPSScore(s).score), adr: safe(s => s.adr_pct),
             vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
             rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
           };
@@ -968,7 +969,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {/* Detail table view */}
                 {detailTheme === theme.theme && (() => {
                   const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["VCS","vcs"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
+                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["EPS","eps"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
                   const safe = (fn) => (a, b) => {
                     const av = fn(a), bv = fn(b);
                     if (av == null && bv == null) return 0;
@@ -984,7 +985,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     change: safe(s => liveLookup[s.ticker]?.change),
                     ret3m: safe(s => s.return_3m),
                     fromhi: safe(s => s.pct_from_high),
-                    vcs: safe(s => s.vcs),
+                    eps: safe(s => computeEPSScore(s).score),
                     adr: safe(s => s.adr_pct),
                     vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
                     rvol: safe(s => s.rel_volume),
@@ -1020,9 +1021,13 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                                   {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>; })()}
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#9090a0" : "#3a3a4a" }}>
-                                {s.vcs != null ? s.vcs : '—'}</td>
+                              {(() => {
+                                const eps = computeEPSScore(s);
+                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
+                                  color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
+                                  title={eps.factors.join(" ")}>
+                                  {eps.score != null ? eps.score : '—'}</td>;
+                              })()}
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
@@ -1084,34 +1089,88 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 // ── Shared Stock Quality Score (0-100) ──
 // Multi-framework: CANSLIM (earnings, new highs, leader, supply) + MAGNA53 (neglect, squeeze, cap) + Zanger (group, resistance) + MB (VCS)
 // Used by Scan, Watchlist, EP (as base score before EP-specific bonuses)
+// EPS Score (0-100): O'Neil/Zanger weighted — quarterly is primary, annual confirms
+// C (quarterly Q/Q ≥40%) is the inflection signal, A (annual ≥25%) confirms sustained growth
+// Sales validates revenue-driven growth, acceleration is the real edge
+function computeEPSScore(s) {
+  if (!s) return { score: null, label: "", factors: [] };
+  let score = 0;
+  let maxScore = 0;
+  const factors = [];
+
+  // CANSLIM C: Current quarterly EPS Q/Q — THE primary signal (40pts max)
+  const epsQQ = s.eps_qq;
+  maxScore += 40;
+  if (epsQQ != null) {
+    if (epsQQ >= 100) { score += 40; factors.push("C↑↑"); }
+    else if (epsQQ >= 40) { score += 30; factors.push("C↑"); }
+    else if (epsQQ >= 20) { score += 15; }
+    else if (epsQQ >= 0) { score += 5; }
+    else { score -= 5; factors.push("C↓"); }
+  }
+
+  // CANSLIM A: Annual earnings — confirms it's sustained (25pts max)
+  const epsAnn = s.eps_this_y ?? s.eps_past_5y;
+  maxScore += 25;
+  if (epsAnn != null) {
+    if (epsAnn >= 100) { score += 25; factors.push("A↑↑"); }
+    else if (epsAnn >= 40) { score += 20; factors.push("A↑"); }
+    else if (epsAnn >= 25) { score += 12; }
+    else if (epsAnn >= 0) { score += 5; }
+    else { score -= 5; factors.push("A↓"); }
+  }
+
+  // Sales Q/Q — proves revenue-driven, not cost-cutting (20pts max)
+  const salesQQ = s.sales_qq;
+  const salesAnn = s.sales_past_5y;
+  maxScore += 20;
+  if (salesQQ != null) {
+    if (salesQQ >= 40) { score += 20; factors.push("S↑↑"); }
+    else if (salesQQ >= 25) { score += 15; factors.push("S↑"); }
+    else if (salesQQ >= 10) { score += 8; }
+    else if (salesQQ < -10) { score -= 5; }
+  } else if (salesAnn != null) {
+    if (salesAnn >= 25) { score += 12; factors.push("S↑"); }
+    else if (salesAnn >= 10) { score += 5; }
+  }
+
+  // Acceleration bonus: if both quarterly and annual are strong, acceleration is implied (15pts max)
+  maxScore += 15;
+  if (epsQQ != null && epsAnn != null && epsQQ > epsAnn && epsQQ >= 40) {
+    score += 15; factors.push("Acc");  // quarterly > annual = accelerating
+  } else if (epsQQ != null && epsAnn != null && epsQQ > epsAnn && epsQQ >= 20) {
+    score += 8;
+  }
+
+  if (maxScore === 0) return { score: null, label: "", factors: [] };
+  const normalized = Math.min(100, Math.max(0, Math.round(score / maxScore * 100)));
+
+  // Label for quick read
+  let label;
+  if (normalized >= 80) label = "A+";
+  else if (normalized >= 65) label = "A";
+  else if (normalized >= 50) label = "B";
+  else if (normalized >= 35) label = "C";
+  else if (normalized >= 20) label = "D";
+  else label = "F";
+
+  return { score: normalized, label, factors };
+}
+
 function computeStockQuality(s, leadingThemes) {
   if (!s) return { quality: 0, q_factors: [] };
   let q = 30;  // base for non-EP stocks
   const factors = [];
 
-  // CANSLIM C: Current quarterly EPS
-  const epsQQ = s.eps_qq;
-  if (epsQQ != null) {
-    if (epsQQ >= 100) { q += 8; factors.push("C↑↑"); }
-    else if (epsQQ >= 40) { q += 5; factors.push("C↑"); }
-    else if (epsQQ < -10) { q -= 3; }
+  // EPS Score (reweighted: quarterly is primary signal per O'Neil/Zanger)
+  const eps = computeEPSScore(s);
+  if (eps.score != null) {
+    // Map EPS score (0-100) to quality bonus: max +18
+    if (eps.score >= 80) { q += 18; factors.push(...eps.factors.slice(0, 2)); }
+    else if (eps.score >= 60) { q += 12; factors.push(...eps.factors.slice(0, 1)); }
+    else if (eps.score >= 40) { q += 6; }
+    else if (eps.score < 20) { q -= 5; if (eps.factors.includes("C↓") || eps.factors.includes("A↓")) factors.push("EPS↓"); }
   }
-
-  // CANSLIM A: Annual earnings growth
-  const epsAnn = s.eps_this_y ?? s.eps_past_5y;
-  if (epsAnn != null) {
-    if (epsAnn >= 100) { q += 10; factors.push("A↑↑"); }
-    else if (epsAnn >= 40) { q += 7; factors.push("A↑"); }
-    else if (epsAnn >= 25) { q += 3; }
-    else if (epsAnn < 0) { q -= 5; factors.push("A↓"); }
-  }
-
-  // Sales growth
-  const salesQQ = s.sales_qq;
-  const salesAnn = s.sales_past_5y;
-  if (salesQQ != null && salesQQ >= 25) { q += 4; factors.push("S↑"); }
-  else if (salesAnn != null && salesAnn >= 25) { q += 3; factors.push("S↑"); }
-  if (salesQQ != null && salesQQ < -10) { q -= 2; }
 
   // CANSLIM N: New highs
   if (s.pct_from_high != null) {
@@ -1162,9 +1221,6 @@ function computeStockQuality(s, leadingThemes) {
 
   // Zanger: Leading theme/group
   if (leadingThemes && s.themes?.some(t => leadingThemes.has(t.theme))) { q += 5; factors.push("TH"); }
-
-  // MB Lynch: VCS
-  if (s.vcs != null && s.vcs >= 70) { q += 5; factors.push("VCS"); }
 
   // ADR%
   if (s.adr_pct != null && s.adr_pct >= 5) { q += 3; }
@@ -1333,11 +1389,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         // ── Zanger/MB tag: strong group + volume behavior + pattern quality ──
         const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
         const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
-        const volContract = s.vcs != null && s.vcs >= 55;
         const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
         const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
         const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
-        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && (volContract || s.atr_to_50 < 5)) hits.push("ZM");
+        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) hits.push("ZM");
 
         if (hits.length > 0) hitMap[s.ticker] = hits;
       });
@@ -1368,11 +1423,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
         const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
         const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
-        const volContract = s.vcs != null && s.vcs >= 55;
         const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
         const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
         const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
-        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && (volContract || s.atr_to_50 < 5)) tags.push("ZM");
+        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) tags.push("ZM");
 
         if (epLookup[s.ticker]) tags.push("EP");
         return tags.length > 0 ? { ...s, _scanHits: [...(s._scanHits || []), ...tags] } : s;
@@ -1407,9 +1461,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       ret1m: safe(s => s.return_1m),
       ret3m: safe(s => s.return_3m),
       fromhi: safe(s => s.pct_from_high),
-      vcs: safe(s => s.vcs),
+      eps: safe(s => computeEPSScore(s).score),
       adr: safe(s => s.adr_pct),
-      eps: safe(s => s.eps_this_y ?? s.eps_past_5y),
       vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
@@ -1439,7 +1492,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     ["Q", "quality"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["EPS", "eps"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
+    ["FrHi%", "fromhi"], ["EPS", "eps"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
   ];
 
   return (
@@ -1548,7 +1601,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
                     "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
                     "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
-                    "VCS": "Vol contraction", "Gr": "A-grade", "Deep": "Deep off highs" };
+                    "Gr": "A-grade", "Deep": "Deep off highs" };
                   return labels[f] || f; }).join("\n") : ""}>
                 {s._quality ?? "—"}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
@@ -1562,21 +1615,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               })()}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#9090a0" : "#3a3a4a",
-                fontWeight: s.vcs >= 60 ? 700 : 400 }}
-                title={s.vcs_detail ? `ATR:${s.vcs_detail.atr ?? '-'} Vol:${s.vcs_detail.vol ?? '-'} Cons:${s.vcs_detail.cons ?? '-'} Struc:${s.vcs_detail.struc ?? '-'}` : ''}>
-                {s.vcs != null ? s.vcs : '—'}</td>
+              {(() => {
+                const eps = computeEPSScore(s);
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
+                  color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
+                  title={eps.factors.length ? `${eps.factors.join(" ")}\nQ/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}% | Sales Q/Q: ${s.sales_qq ?? '—'}%` : `Q/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}%`}>
+                  {eps.score != null ? eps.score : '—'}</td>;
+              })()}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-              {(() => {
-                const epsVal = s.eps_this_y ?? s.eps_past_5y;
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                  color: epsVal != null && epsVal >= 40 ? "#2bb886" : epsVal != null && epsVal >= 20 ? "#60a5fa" : epsVal != null && epsVal < 0 ? "#f87171" : "#9090a0" }}
-                  title={`EPS This Y: ${s.eps_this_y ?? '—'}% | EPS 5Y: ${s.eps_past_5y ?? '—'}% | Sales 5Y: ${s.sales_past_5y ?? '—'}%`}>
-                  {epsVal != null ? `${epsVal > 0 ? "+" : ""}${epsVal}%` : '—'}</td>;
-              })()}
               {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
                 const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
                 const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
@@ -1716,7 +1764,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       volcon: (a, b) => (a.consol?.vol_contraction ?? 99) - (b.consol?.vol_contraction ?? 99),
       rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
       fromhi: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
-      eps: (a, b) => ((stockMap[b.ticker]?.eps_this_y ?? stockMap[b.ticker]?.eps_past_5y ?? -999) - (stockMap[a.ticker]?.eps_this_y ?? stockMap[a.ticker]?.eps_past_5y ?? -999)),
+      eps: (a, b) => (computeEPSScore(stockMap[b.ticker]).score ?? -1) - (computeEPSScore(stockMap[a.ticker]).score ?? -1),
       quality: (a, b) => (b.quality ?? 0) - (a.quality ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
@@ -1800,7 +1848,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Status</span><span>Post-EP behavior: Fresh (≤1d), Basing (holding, not contracting), ★ Consolidating (delayed entry), Failed (gap filled), Deep PB (pullback &gt;15%).</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>PB%</span><span>Max pullback from EP close. Green ≥-3%, gray ≥-7%, red &gt;-7%. Zanger: if stock "goes to sleep" = exit signal.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>VolCon</span><span>Avg volume since EP ÷ EP day volume. ≤0.5x = strong dry-up (bullish). ≤0.7x = good contraction.</span>
-          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>FrHi%</span><span>Distance from 52-week high. Near 0% = broke through resistance (Zanger: "surpass the majority of resistance").</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>FrHi%</span><span>Distance from 52-week high. Near 0% = broke through resistance (Zanger).</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>EPS</span><span>EPS Score (0-100). Quarterly Q/Q is primary signal (O'Neil C=40%), annual confirms (A=25%), sales validates, acceleration bonuses. Hover for breakdown.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>RS</span><span>Relative Strength rank (0-99). ≥80 = leader. CANSLIM L: buy leaders, not laggards.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Theme</span><span>Primary theme/group. Zanger: "I focus on the strongest stocks in the strongest groups."</span>
         </div>
@@ -1820,7 +1869,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <span style={{ color: "#a78bfa", fontWeight: 700 }}>SR</span><span>Short ratio ≥5d</span>
           <span style={{ color: "#a78bfa", fontWeight: 700 }}>SC</span><span>Small cap &lt;$2B</span>
           <span style={{ color: "#a78bfa", fontWeight: 700 }}>IPO</span><span>Young IPO &lt;3yr</span>
-          <span style={{ color: "#a78bfa", fontWeight: 700 }}>VCS</span><span>Vol contraction</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>Acc</span><span>EPS accelerating</span>
           <span style={{ color: "#2bb886", fontWeight: 700 }}>Gr</span><span>A-grade struct</span>
           <span style={{ color: "#2bb886", fontWeight: 700 }}>TH</span><span>Leading theme</span>
           <span style={{ color: "#fbbf24", fontWeight: 700 }}>★C</span><span>EP consolidating</span>
@@ -1893,7 +1942,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     "S↑": "Sales growth ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
                     "NI": "Low inst own <30%", "SR": "Short ratio ≥5d", "SQ": "Short squeeze ≥15%",
                     "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO <3yr",
-                    "VCS": "Vol contraction", "Gr": "A-grade structure", "Deep": "Deep off highs",
+                    "Gr": "A-grade structure", "Deep": "Deep off highs",
                     "TH": "Leading theme", "★C": "EP consolidating", "Fail": "EP gap filled" };
                   return labels[f] || f; }).join("\n") : "No factors"}>
                 {ep.quality ?? "—"}</td>
@@ -1927,11 +1976,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   {frhi != null ? `${frhi}%` : "—"}</td>;
               })()}
               {(() => {
-                const epsVal = s?.eps_this_y ?? s?.eps_past_5y;
-                return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
-                  color: epsVal != null && epsVal >= 40 ? "#2bb886" : epsVal != null && epsVal >= 20 ? "#60a5fa" : epsVal != null && epsVal < 0 ? "#f87171" : "#9090a0" }}
-                  title={s ? `EPS This Y: ${s.eps_this_y ?? '—'} | EPS 5Y: ${s.eps_past_5y ?? '—'} | Sales 5Y: ${s.sales_past_5y ?? '—'}` : ""}>
-                  {epsVal != null ? `${epsVal > 0 ? "+" : ""}${epsVal}%` : "—"}</td>;
+                const eps = computeEPSScore(s);
+                return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
+                  color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
+                  title={eps.factors.length ? `${eps.factors.join(" ")}\nQ/Q: ${s?.eps_qq ?? '—'}% | Annual: ${s?.eps_this_y ?? s?.eps_past_5y ?? '—'}% | Sales Q/Q: ${s?.sales_qq ?? '—'}%` : ""}>
+                  {eps.score != null ? eps.score : "—"}</td>;
               })()}
               <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
               <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10 }}>{s?.themes?.[0]?.theme || "—"}</td>
@@ -2025,8 +2074,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Q", "quality"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
-  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
-  ["EPS", "eps"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
+  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["EPS", "eps"], ["ADR%", "adr"],
+  ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
 
 function LiveSortHeader({ setter, current }) {
@@ -2080,7 +2129,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
             "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
             "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
             "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
-            "VCS": "Vol contraction", "Gr": "A-grade", "Deep": "Deep off highs" };
+            "Gr": "A-grade", "Deep": "Deep off highs" };
           return labels[f] || f; }).join("\n") : ""}>
         {s._quality ?? "—"}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
@@ -2090,21 +2139,16 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 12 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#60a5fa" : s.vcs != null ? "#9090a0" : "#3a3a4a",
-        fontWeight: s.vcs >= 60 ? 700 : 400 }}
-        title={s.vcs_detail ? `ATR:${s.vcs_detail.atr ?? '-'} Vol:${s.vcs_detail.vol ?? '-'} Cons:${s.vcs_detail.cons ?? '-'} Struc:${s.vcs_detail.struc ?? '-'}` : ''}>
-        {s.vcs != null ? s.vcs : '—'}</td>
+      {(() => {
+        const eps = computeEPSScore(s);
+        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12, fontWeight: 700,
+          color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
+          title={eps.factors.length ? `${eps.factors.join(" ")}\nQ/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}% | Sales Q/Q: ${s.sales_qq ?? '—'}%` : `Q/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}%`}>
+          {eps.score != null ? eps.score : '—'}</td>;
+      })()}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
         {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-      {(() => {
-        const epsVal = s.eps_past_5y;
-        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-          color: epsVal != null && epsVal >= 40 ? "#2bb886" : epsVal != null && epsVal >= 20 ? "#60a5fa" : epsVal != null && epsVal < 0 ? "#f87171" : "#9090a0" }}
-          title={`EPS Past 5Y: ${epsVal ?? '—'}% | Sales Past 5Y: ${s.sales_past_5y ?? '—'}%`}>
-          {epsVal != null ? `${epsVal > 0 ? "+" : ""}${epsVal}%` : '—'}</td>;
-      })()}
       {(() => { const rv = s.rel_volume;
         const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
         const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
@@ -2508,8 +2552,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       return_3m: live.perf_quart ?? pipe.return_3m,
       pct_from_high: live.high_52w ?? pipe.pct_from_high,
       atr_to_50: pipe.atr_to_50,
-      vcs: pipe.vcs,
-      vcs_detail: pipe.vcs_detail,
       adr_pct: pipe.adr_pct,
       eps_past_5y: pipe.eps_past_5y,
       sales_past_5y: pipe.sales_past_5y,
@@ -2542,14 +2584,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     quality: sortFn("_quality"),
     change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
     fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
-    atr50: sortFn("atr_to_50"), vcs: sortFn("vcs"), adr: sortFn("adr_pct"),
+    atr50: sortFn("atr_to_50"), adr: sortFn("adr_pct"),
     vol: (a, b) => {
       const av = a.avg_volume_raw && a.rel_volume ? a.avg_volume_raw * a.rel_volume : 0;
       const bv = b.avg_volume_raw && b.rel_volume ? b.avg_volume_raw * b.rel_volume : 0;
       return bv - av;
     },
     rel_volume: sortFn("rel_volume"),
-    eps: sortFn("eps_past_5y"), rev: sortFn("sales_past_5y"),
+    eps: (a, b) => (computeEPSScore(b).score ?? -1) - (computeEPSScore(a).score ?? -1),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
