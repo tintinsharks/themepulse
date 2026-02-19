@@ -312,10 +312,9 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       {/* Quarterly earnings mini-table */}
       {stock && stock.quarters && stock.quarters.length > 0 && (() => {
-        // Build lookup from displayed quarters AND hidden yoy_lookup
+        // Use pre-computed YoY from pipeline, fall back to computing from yoy_lookup
         const qMap = {};
         stock.quarters.forEach(q => { qMap[`${q.period}_${q.year}`] = q; });
-        // Merge in yoy_lookup (older quarters not displayed but available for YoY)
         if (stock.yoy_lookup) {
           Object.entries(stock.yoy_lookup).forEach(([key, val]) => {
             if (!qMap[key]) qMap[key] = val;
@@ -323,11 +322,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         }
         const qs = stock.quarters;
         const withYoY = qs.map((q) => {
-          const prior = qMap[`${q.period}_${q.year - 1}`];
-          let epsYoY = null, salesYoY = null;
-          if (prior) {
-            if (prior.eps && prior.eps !== 0) epsYoY = ((q.eps - prior.eps) / Math.abs(prior.eps) * 100);
-            if (prior.revenue && prior.revenue !== 0) salesYoY = ((q.revenue - prior.revenue) / Math.abs(prior.revenue) * 100);
+          let epsYoY = q.eps_yoy ?? null;
+          let salesYoY = q.sales_yoy ?? null;
+          // Fallback: compute from lookup if not pre-computed
+          if (epsYoY == null || salesYoY == null) {
+            const prior = qMap[`${q.period}_${q.year - 1}`];
+            if (prior) {
+              if (epsYoY == null && prior.eps && prior.eps !== 0 && q.eps != null) epsYoY = ((q.eps - prior.eps) / Math.abs(prior.eps) * 100);
+              if (salesYoY == null && prior.revenue && prior.revenue !== 0 && q.revenue) salesYoY = ((q.revenue - prior.revenue) / Math.abs(prior.revenue) * 100);
+            }
           }
           return { ...q, eps_yoy: epsYoY, sales_yoy: salesYoY };
         });
