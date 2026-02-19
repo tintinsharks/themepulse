@@ -602,6 +602,15 @@ async function fetchTickerNews(cookies, ticker) {
       }
     }
     
+    // Trim last sentence (usually boilerplate like "The company was founded/incorporated/headquartered...")
+    if (description) {
+      const sentences = description.split(/(?<=\.)\s+/);
+      if (sentences.length > 1) {
+        sentences.pop();
+        description = sentences.join(' ');
+      }
+    }
+    
     return { news, peers, description };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
