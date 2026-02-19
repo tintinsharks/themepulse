@@ -171,7 +171,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 color: stock.vcs >= 80 ? "#2bb886" : stock.vcs >= 60 ? "#60a5fa" : "#f97316" }}>VCS:{stock.vcs}</span>
             )}
             {stock.themes && stock.themes.length > 0 && (
-              <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.theme).join(", ")}</span>
+              <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.subtheme ? `${t.theme} › ${t.subtheme}` : t.theme).join(", ")}</span>
             )}
           </>)}
         </div>
