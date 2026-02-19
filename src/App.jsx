@@ -2475,7 +2475,7 @@ function AppMain({ authToken, onLogout }) {
       @media (max-width: 768px) {
         .tp-topbar { flex-wrap: wrap; padding: 6px 10px !important; }
         .tp-topbar .tp-stats { display: none !important; }
-        .tp-nav { overflow-x: auto; padding: 6px 8px !important; gap: 4px !important; -webkit-overflow-scrolling: touch; }
+        .tp-nav { overflow-x: auto; padding: 6px 8px !important; gap: 4px !important; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
         .tp-nav button { padding: 5px 10px !important; font-size: 11px !important; white-space: nowrap; flex-shrink: 0; }
         .tp-nav .tp-search { width: 90px !important; font-size: 11px !important; }
         .tp-nav .tp-right-btns { display: none !important; }
@@ -2484,8 +2484,10 @@ function AppMain({ authToken, onLogout }) {
         .tp-divider { display: none !important; }
         .tp-chart-panel { 
           position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-          width: 100% !important; height: 100% !important; z-index: 100 !important; background: #121218 !important;
+          width: 100vw !important; height: 100vh !important; z-index: 100 !important; background: #121218 !important;
+          border-left: none !important;
         }
+        .tp-chart-panel > div { height: 100% !important; }
         .tp-chart-close { width: 36px !important; height: 36px !important; font-size: 24px !important; }
         table { font-size: 10px !important; }
         td, th { padding: 3px 4px !important; }
