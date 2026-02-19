@@ -1302,6 +1302,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       fromhi: safe(s => s.pct_from_high),
       vcs: safe(s => s.vcs),
       adr: safe(s => s.adr_pct),
+      eps: safe(s => s.eps_this_y ?? s.eps_past_5y),
       vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
@@ -1330,7 +1331,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     ["Tags", "hits"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
+    ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["EPS", "eps"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
   ];
 
   return (
@@ -1451,6 +1452,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              {(() => {
+                const epsVal = s.eps_this_y ?? s.eps_past_5y;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                  color: epsVal != null && epsVal >= 40 ? "#2bb886" : epsVal != null && epsVal >= 20 ? "#60a5fa" : epsVal != null && epsVal < 0 ? "#f87171" : "#9090a0" }}
+                  title={`EPS This Y: ${s.eps_this_y ?? '—'}% | EPS 5Y: ${s.eps_past_5y ?? '—'}% | Sales 5Y: ${s.sales_past_5y ?? '—'}%`}>
+                  {epsVal != null ? `${epsVal > 0 ? "+" : ""}${epsVal}%` : '—'}</td>;
+              })()}
               {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
                 const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
                 const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
@@ -1664,6 +1672,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       pb: (a, b) => (b.consol?.pullback_pct ?? -99) - (a.consol?.pullback_pct ?? -99),
       volcon: (a, b) => (a.consol?.vol_contraction ?? 99) - (b.consol?.vol_contraction ?? 99),
       rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
+      fromhi: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
+      eps: (a, b) => ((stockMap[b.ticker]?.eps_this_y ?? stockMap[b.ticker]?.eps_past_5y ?? -999) - (stockMap[a.ticker]?.eps_this_y ?? stockMap[a.ticker]?.eps_past_5y ?? -999)),
       quality: (a, b) => (b.quality ?? 0) - (a.quality ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
@@ -1690,7 +1700,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const columns = [
     ["Ticker", "ticker"], ["Q", "quality"], ["Grade", "grade"], ["Date", "date"], ["Days", "days"], ["Gap%", "gap"],
     ["Chg%", "change"], ["VolX", "vol"], ["ClRng", "clrng"], ["Status", "status"],
-    ["PB%", "pb"], ["VolCon", "volcon"], ["RS", "rs"], ["Theme", "theme"],
+    ["PB%", "pb"], ["VolCon", "volcon"], ["FrHi%", "fromhi"], ["EPS", "eps"], ["RS", "rs"], ["Theme", "theme"],
   ];
 
   if (!enhancedSignals || (!enhancedSignals.length && !liveLoading)) {
@@ -1717,15 +1727,61 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 6, background: "#1a1a24",
           borderRadius: showLegend ? "4px 4px 0 0" : 4, fontSize: 10, color: "#787888", cursor: "pointer", userSelect: "none" }}>
         <span style={{ fontSize: 11 }}>{showLegend ? "▾" : "▸"}</span>
-        <span style={{ fontWeight: 700 }}>LEGEND</span>
+        <span style={{ fontWeight: 700 }}>LEGEND & COLUMNS</span>
       </div>
       {showLegend && (
-      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#1a1a24", borderRadius: "0 0 4px 4px", fontSize: 10, color: "#787888", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8, marginTop: -1 }}>
-        <span style={{ color: "#fbbf24", fontWeight: 700 }}>EPISODIC PIVOT</span>
-        <span>Gap ≥8% on open, Volume ≥3x 50d avg, Close in upper 40% of range</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span style={{ color: "#fbbf24", fontWeight: 700 }}>★ CONSOLIDATING</span>
-        <span>= Delayed entry (Bonde): 3+ days after EP, pullback ≤10%, volume contracting ≤70% of EP day, gap held</span>
+      <div style={{ padding: "8px 12px", marginBottom: 6, background: "#1a1a24", borderRadius: "0 0 4px 4px", fontSize: 10, color: "#787888", lineHeight: 1.9, marginTop: -1 }}>
+        {/* What is an EP */}
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ color: "#fbbf24", fontWeight: 700 }}>EPISODIC PIVOT</span>
+          <span> — A stock gaps up ≥4% on ≥4x avg volume, driven by a catalyst (earnings, guidance, contract). The Gap% + VolX confirm institutional conviction.</span>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <span style={{ color: "#fbbf24", fontWeight: 700 }}>★ CONSOLIDATING (Delayed Entry)</span>
+          <span> — Pradeep Bonde method: 3+ days after EP, pullback ≤10%, volume contracting to ≤70% of EP day, gap held. This is the ideal re-entry for those who missed the initial move.</span>
+        </div>
+        {/* Column explanations */}
+        <div style={{ borderTop: "1px solid #2a2a38", paddingTop: 6, marginBottom: 6 }}>
+          <span style={{ color: "#9090a0", fontWeight: 700 }}>COLUMNS</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "60px 1fr", gap: "2px 8px" }}>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Ticker</span><span>Stock symbol. 📊 = near earnings catalyst. ★ = consolidating.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Q</span><span>Quality score (0-100). Multi-framework: CANSLIM earnings + Zanger resistance/group + MAGNA53 neglect/squeeze. Hover for breakdown.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Grade</span><span>RTS composite grade (RS + Trend Strength). A+ = top percentile momentum + structure.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Date</span><span>Date the EP signal triggered.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Days</span><span>Trading days since the EP. TODAY = just happened. Gold = fresh ≤5 days.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Gap%</span><span>Opening gap vs previous close. ≥15% = exceptional institutional demand.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Chg%</span><span>Total close-to-close change on EP day. Gap + intraday follow-through.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>VolX</span><span>Volume / 50-day avg. 4x+ = institutional, 8x+ = extreme. Qullamaggie minimum: 4x.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>ClRng</span><span>Close position in day's range (0=low, 100=high). ≥70% = strong close, no selling into the gap.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Status</span><span>Post-EP behavior: Fresh (≤1d), Basing (holding, not contracting), ★ Consolidating (delayed entry), Failed (gap filled), Deep PB (pullback &gt;15%).</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>PB%</span><span>Max pullback from EP close. Green ≥-3%, gray ≥-7%, red &gt;-7%. Zanger: if stock "goes to sleep" = exit signal.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>VolCon</span><span>Avg volume since EP ÷ EP day volume. ≤0.5x = strong dry-up (bullish). ≤0.7x = good contraction.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>FrHi%</span><span>Distance from 52-week high. Near 0% = broke through resistance (Zanger: "surpass the majority of resistance").</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>RS</span><span>Relative Strength rank (0-99). ≥80 = leader. CANSLIM L: buy leaders, not laggards.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Theme</span><span>Primary theme/group. Zanger: "I focus on the strongest stocks in the strongest groups."</span>
+        </div>
+        {/* Quality factor key */}
+        <div style={{ borderTop: "1px solid #2a2a38", paddingTop: 6, marginTop: 6, marginBottom: 4 }}>
+          <span style={{ color: "#9090a0", fontWeight: 700 }}>QUALITY FACTOR KEY</span><span style={{ color: "#686878" }}> — hover Q score to see which factors apply</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 40px 1fr)", gap: "2px 6px" }}>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>C↑</span><span>EPS Q/Q ≥40%</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>A↑</span><span>Annual EPS ≥40%</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>S↑</span><span>Sales ≥25%</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>NH</span><span>Near 52W high</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>L</span><span>RS leader ≥90</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>NI</span><span>Low inst &lt;30%</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>LF</span><span>Low float &lt;15M</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>SQ</span><span>Short ≥15%</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>SR</span><span>Short ratio ≥5d</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>SC</span><span>Small cap &lt;$2B</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>IPO</span><span>Young IPO &lt;3yr</span>
+          <span style={{ color: "#a78bfa", fontWeight: 700 }}>VCS</span><span>Vol contraction</span>
+          <span style={{ color: "#2bb886", fontWeight: 700 }}>Gr</span><span>A-grade struct</span>
+          <span style={{ color: "#f87171", fontWeight: 700 }}>A↓</span><span>Neg annual EPS</span>
+          <span style={{ color: "#f87171", fontWeight: 700 }}>Deep</span><span>Deep off highs</span>
+        </div>
       </div>)}
 
       {/* Filters */}
@@ -1817,6 +1873,19 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: c.vol_contraction <= 0.5 ? "#2bb886" : c.vol_contraction <= 0.7 ? "#60a5fa" : "#9090a0" }}>
                 {c.vol_contraction ? `${c.vol_contraction}x` : "—"}</td>
+              {(() => {
+                const frhi = s?.pct_from_high;
+                return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                  color: frhi != null && frhi >= -3 ? "#2bb886" : frhi != null && frhi >= -10 ? "#60a5fa" : "#9090a0" }}>
+                  {frhi != null ? `${frhi}%` : "—"}</td>;
+              })()}
+              {(() => {
+                const epsVal = s?.eps_this_y ?? s?.eps_past_5y;
+                return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
+                  color: epsVal != null && epsVal >= 40 ? "#2bb886" : epsVal != null && epsVal >= 20 ? "#60a5fa" : epsVal != null && epsVal < 0 ? "#f87171" : "#9090a0" }}
+                  title={s ? `EPS This Y: ${s.eps_this_y ?? '—'} | EPS 5Y: ${s.eps_past_5y ?? '—'} | Sales 5Y: ${s.sales_past_5y ?? '—'}` : ""}>
+                  {epsVal != null ? `${epsVal > 0 ? "+" : ""}${epsVal}%` : "—"}</td>;
+              })()}
               <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
               <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10 }}>{s?.themes?.[0]?.theme || "—"}</td>
             </tr>
@@ -1910,7 +1979,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
-  ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
+  ["EPS", "eps"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
 
 function LiveSortHeader({ setter, current }) {
@@ -1972,6 +2041,13 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
         {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+      {(() => {
+        const epsVal = s.eps_past_5y;
+        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+          color: epsVal != null && epsVal >= 40 ? "#2bb886" : epsVal != null && epsVal >= 20 ? "#60a5fa" : epsVal != null && epsVal < 0 ? "#f87171" : "#9090a0" }}
+          title={`EPS Past 5Y: ${epsVal ?? '—'}% | Sales Past 5Y: ${s.sales_past_5y ?? '—'}%`}>
+          {epsVal != null ? `${epsVal > 0 ? "+" : ""}${epsVal}%` : '—'}</td>;
+      })()}
       {(() => { const rv = s.rel_volume;
         const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
         const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
