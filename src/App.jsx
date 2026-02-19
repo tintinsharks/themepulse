@@ -1081,6 +1081,105 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   );
 }
 
+// ── Shared Stock Quality Score (0-100) ──
+// Multi-framework: CANSLIM (earnings, new highs, leader, supply) + MAGNA53 (neglect, squeeze, cap) + Zanger (group, resistance) + MB (VCS)
+// Used by Scan, Watchlist, EP (as base score before EP-specific bonuses)
+function computeStockQuality(s, leadingThemes) {
+  if (!s) return { quality: 0, q_factors: [] };
+  let q = 30;  // base for non-EP stocks
+  const factors = [];
+
+  // CANSLIM C: Current quarterly EPS
+  const epsQQ = s.eps_qq;
+  if (epsQQ != null) {
+    if (epsQQ >= 100) { q += 8; factors.push("C↑↑"); }
+    else if (epsQQ >= 40) { q += 5; factors.push("C↑"); }
+    else if (epsQQ < -10) { q -= 3; }
+  }
+
+  // CANSLIM A: Annual earnings growth
+  const epsAnn = s.eps_this_y ?? s.eps_past_5y;
+  if (epsAnn != null) {
+    if (epsAnn >= 100) { q += 10; factors.push("A↑↑"); }
+    else if (epsAnn >= 40) { q += 7; factors.push("A↑"); }
+    else if (epsAnn >= 25) { q += 3; }
+    else if (epsAnn < 0) { q -= 5; factors.push("A↓"); }
+  }
+
+  // Sales growth
+  const salesQQ = s.sales_qq;
+  const salesAnn = s.sales_past_5y;
+  if (salesQQ != null && salesQQ >= 25) { q += 4; factors.push("S↑"); }
+  else if (salesAnn != null && salesAnn >= 25) { q += 3; factors.push("S↑"); }
+  if (salesQQ != null && salesQQ < -10) { q -= 2; }
+
+  // CANSLIM N: New highs
+  if (s.pct_from_high != null) {
+    if (s.pct_from_high >= -3) { q += 10; factors.push("NH"); }
+    else if (s.pct_from_high >= -10) { q += 5; }
+    else if (s.pct_from_high < -30) { q -= 8; factors.push("Deep"); }
+  }
+
+  // CANSLIM S: Low float
+  const floatRaw = s.shares_float_raw;
+  if (floatRaw != null) {
+    if (floatRaw <= 15_000_000) { q += 8; factors.push("LF"); }
+    else if (floatRaw <= 50_000_000) { q += 4; factors.push("MF"); }
+  }
+
+  // CANSLIM L: Leader
+  if (s.rs_rank >= 90) { q += 5; factors.push("L"); }
+  else if (s.rs_rank >= 80) { q += 3; }
+
+  // MAGNA53 N: Neglect — low institutional ownership
+  if (s.inst_own != null) {
+    if (s.inst_own <= 30) { q += 6; factors.push("NI"); }
+    else if (s.inst_own <= 50) { q += 3; }
+    else if (s.inst_own >= 90) { q -= 3; }
+  }
+
+  // MAGNA53 5: Short squeeze fuel
+  const shortRatio = s.short_ratio;
+  if (shortRatio != null && shortRatio >= 5) { q += 5; factors.push("SR"); }
+  if (s.short_float != null && s.short_float >= 15) { q += 6; factors.push("SQ"); }
+  else if (s.short_float != null && s.short_float >= 8) { q += 3; }
+
+  // MAGNA53 CAP: Small/mid-cap
+  const mcap = s.market_cap_raw;
+  if (mcap != null) {
+    if (mcap <= 2_000_000_000) { q += 5; factors.push("SC"); }
+    else if (mcap <= 10_000_000_000) { q += 3; factors.push("MC"); }
+  }
+
+  // MAGNA53 CAP: Young IPO
+  if (s.ipo_date) {
+    try {
+      const ipoAge = (new Date() - new Date(s.ipo_date)) / (365.25 * 86400000);
+      if (ipoAge <= 3) { q += 5; factors.push("IPO"); }
+      else if (ipoAge <= 10) { q += 2; }
+    } catch(e) {}
+  }
+
+  // Zanger: Leading theme/group
+  if (leadingThemes && s.themes?.some(t => leadingThemes.has(t.theme))) { q += 5; factors.push("TH"); }
+
+  // MB Lynch: VCS
+  if (s.vcs != null && s.vcs >= 70) { q += 5; factors.push("VCS"); }
+
+  // ADR%
+  if (s.adr_pct != null && s.adr_pct >= 5) { q += 3; }
+
+  // Grade
+  if (["A+","A","A-"].includes(s.grade)) { q += 5; factors.push("Gr"); }
+  else if (["B+","B"].includes(s.grade)) { q += 2; }
+
+  // RSI penalty
+  if (s.rsi != null && s.rsi > 85) { q -= 5; }
+
+  q = Math.min(100, Math.max(0, q));
+  return { quality: q, q_factors: factors };
+}
+
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
@@ -1279,6 +1378,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         return tags.length > 0 ? { ...s, _scanHits: [...(s._scanHits || []), ...tags] } : s;
       });
     }
+
+    // Compute stock quality score for each candidate
+    list = list.map(s => {
+      const { quality, q_factors } = computeStockQuality(s, leading);
+      return { ...s, _quality: quality, _q_factors: q_factors };
+    });
+
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
@@ -1294,6 +1400,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const sorters = {
       default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || (b.rs_rank - a.rs_rank),
+      quality: safe(s => s._quality),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: safe(s => GRADE_ORDER[s.grade] ?? null),
       rs: safe(s => s.rs_rank),
@@ -1329,6 +1436,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"],
     ["Tags", "hits"],
+    ["Q", "quality"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["EPS", "eps"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
@@ -1433,6 +1541,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   })}
                 </div>
               </td>
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
+                title={s._q_factors?.length ? s._q_factors.map(f => {
+                  const labels = { "C↑↑": "EPS Q/Q ≥100%", "C↑": "EPS Q/Q ≥40%", "A↑↑": "Annual EPS ≥100%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
+                    "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
+                    "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
+                    "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
+                    "VCS": "Vol contraction", "Gr": "A-grade", "Deep": "Deep off highs" };
+                  return labels[f] || f; }).join("\n") : ""}>
+                {s._quality ?? "—"}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
@@ -1546,105 +1664,30 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return all;
   }, [liveEPs, epSignals, manualEPs]);
 
-  // Enhance quality scores with multi-framework criteria from stockMap:
-  // CANSLIM: C (EPS YoY ≥40%), A (annual growth 25%+), S (low float + volume), L (leader), N (new highs)
-  // MAGNA53: M (massive EPS accel), N (neglect/low coverage), G (gap+vol), 5 (short squeeze fuel), CAP (small cap)
-  // Zanger: Strong group, near 52W high (resistance cleared), volume behavior, earnings growth
-  // MB Lynch: VCS (volatility contraction), consolidation quality
+  // Enhance quality scores: shared stock quality (fundamentals + structure) + EP-specific bonuses (gap, volume, catalyst)
   const enhancedSignals = useMemo(() => {
     if (!mergedSignals) return [];
     return mergedSignals.map(ep => {
       const s = stockMap[ep.ticker];
-      if (!s) return ep;
+      const base = computeStockQuality(s);
       
-      let q = ep.quality || 50;
-      const factors = [];
+      // Start with shared stock quality, then add EP-specific bonuses
+      let q = base.quality;
+      const factors = [...base.q_factors];
       
-      // ── CANSLIM C: Current quarterly EPS ≥40% YoY ──
-      const epsQQ = s.eps_qq;  // sequential Q/Q from Finviz snapshot
-      if (epsQQ != null) {
-        if (epsQQ >= 100) { q += 8; factors.push("C↑↑"); }
-        else if (epsQQ >= 40) { q += 5; factors.push("C↑"); }
-        else if (epsQQ < -10) { q -= 3; }
-      }
+      // EP-specific: live scanner already scored gap/vol into ep.quality (base 50)
+      // Add the delta from live scanner's EP-specific scoring
+      const liveBonus = (ep.quality || 0) - 50;  // extract just the EP-specific part
+      if (liveBonus > 0) q += liveBonus;
       
-      // ── CANSLIM A: Annual earnings growth ──
-      const epsAnn = s.eps_this_y ?? s.eps_past_5y;
-      if (epsAnn != null) {
-        if (epsAnn >= 100) { q += 10; factors.push("A↑↑"); }
-        else if (epsAnn >= 40) { q += 7; factors.push("A↑"); }
-        else if (epsAnn >= 25) { q += 3; }
-        else if (epsAnn < 0) { q -= 5; factors.push("A↓"); }
-      }
+      // EP-specific: consolidation quality (Bonde delayed entry)
+      const c = ep.consol || {};
+      if (c.status === "consolidating") { q += 8; factors.push("★C"); }
+      else if (c.status === "fresh") { q += 3; }
+      else if (c.status === "failed") { q -= 10; factors.push("Fail"); }
       
-      // ── CANSLIM A: Sales growth confirms real growth (not cost-cutting) ──
-      const salesQQ = s.sales_qq;
-      const salesAnn = s.sales_past_5y;
-      if (salesQQ != null && salesQQ >= 25) { q += 4; factors.push("S↑"); }
-      else if (salesAnn != null && salesAnn >= 25) { q += 3; factors.push("S↑"); }
-      if (salesQQ != null && salesQQ < -10) { q -= 2; }
-      
-      // ── CANSLIM N: New highs = broke through overhead supply ──
-      if (s.pct_from_high != null) {
-        if (s.pct_from_high >= -3) { q += 10; factors.push("NH"); }
-        else if (s.pct_from_high >= -10) { q += 5; }
-        else if (s.pct_from_high < -30) { q -= 8; factors.push("Deep"); }
-      }
-      
-      // ── CANSLIM S: Supply — low float = more explosive ──
-      const floatRaw = s.shares_float_raw;
-      if (floatRaw != null) {
-        if (floatRaw <= 15_000_000) { q += 8; factors.push("LF"); }       // <15M float
-        else if (floatRaw <= 50_000_000) { q += 4; factors.push("MF"); }   // <50M
-      }
-      
-      // ── CANSLIM L: Leader — top RS rank ──
-      if (s.rs_rank >= 90) { q += 5; factors.push("L"); }
-      else if (s.rs_rank >= 80) { q += 3; }
-      
-      // ── MAGNA53 N: Neglect — low institutional ownership = surprise potential ──
-      if (s.inst_own != null) {
-        if (s.inst_own <= 30) { q += 6; factors.push("NI"); }      // <30% inst = under-owned
-        else if (s.inst_own <= 50) { q += 3; }
-        // >90% inst = fully discovered, less upside surprise
-        else if (s.inst_own >= 90) { q -= 3; }
-      }
-      
-      // ── MAGNA53 5: Short squeeze fuel — short ratio ≥5 days ──
-      const shortRatio = s.short_ratio;
-      if (shortRatio != null && shortRatio >= 5) { q += 5; factors.push("SR"); }
-      if (s.short_float != null && s.short_float >= 15) { q += 6; factors.push("SQ"); }
-      else if (s.short_float != null && s.short_float >= 8) { q += 3; }
-      
-      // ── MAGNA53 CAP: Small/mid-cap preference (<$10B) ──
-      const mcap = s.market_cap_raw;
-      if (mcap != null) {
-        if (mcap <= 2_000_000_000) { q += 5; factors.push("SC"); }         // small cap
-        else if (mcap <= 10_000_000_000) { q += 3; factors.push("MC"); }    // mid cap
-        // mega caps get no bonus — less room for explosive moves
-      }
-      
-      // ── MAGNA53 CAP: Young IPO (<10 years) = less institutional saturation ──
-      if (s.ipo_date) {
-        try {
-          const ipoAge = (new Date() - new Date(s.ipo_date)) / (365.25 * 86400000);
-          if (ipoAge <= 3) { q += 5; factors.push("IPO"); }
-          else if (ipoAge <= 10) { q += 2; }
-        } catch(e) {}
-      }
-      
-      // ── MB Lynch: VCS — volatility contraction = coiled spring ──
-      if (s.vcs != null && s.vcs >= 70) { q += 5; factors.push("VCS"); }
-      
-      // ── Zanger: ADR% — higher = more explosive potential ──
-      if (s.adr_pct != null && s.adr_pct >= 5) { q += 3; }
-      
-      // ── Grade bonus: A-tier stocks have best structure ──
-      if (["A+","A","A-"].includes(s.grade)) { q += 5; factors.push("Gr"); }
-      else if (["B+","B"].includes(s.grade)) { q += 2; }
-      
-      // ── Penalty: RSI >85 = already extended, chasing risk ──
-      if (s.rsi != null && s.rsi > 85) { q -= 5; }
+      // EP-specific: close range shows conviction
+      if (ep.close_range >= 80) { q += 3; }
       
       q = Math.min(100, Math.max(0, q));
       return { ...ep, quality: q, q_factors: factors };
@@ -1779,8 +1822,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <span style={{ color: "#a78bfa", fontWeight: 700 }}>IPO</span><span>Young IPO &lt;3yr</span>
           <span style={{ color: "#a78bfa", fontWeight: 700 }}>VCS</span><span>Vol contraction</span>
           <span style={{ color: "#2bb886", fontWeight: 700 }}>Gr</span><span>A-grade struct</span>
+          <span style={{ color: "#2bb886", fontWeight: 700 }}>TH</span><span>Leading theme</span>
+          <span style={{ color: "#fbbf24", fontWeight: 700 }}>★C</span><span>EP consolidating</span>
           <span style={{ color: "#f87171", fontWeight: 700 }}>A↓</span><span>Neg annual EPS</span>
           <span style={{ color: "#f87171", fontWeight: 700 }}>Deep</span><span>Deep off highs</span>
+          <span style={{ color: "#f87171", fontWeight: 700 }}>Fail</span><span>EP gap filled</span>
         </div>
       </div>)}
 
@@ -1847,7 +1893,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     "S↑": "Sales growth ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
                     "NI": "Low inst own <30%", "SR": "Short ratio ≥5d", "SQ": "Short squeeze ≥15%",
                     "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO <3yr",
-                    "VCS": "Vol contraction", "Gr": "A-grade structure", "Deep": "Deep off highs" };
+                    "VCS": "Vol contraction", "Gr": "A-grade structure", "Deep": "Deep off highs",
+                    "TH": "Leading theme", "★C": "EP consolidating", "Fail": "EP gap filled" };
                   return labels[f] || f; }).join("\n") : "No factors"}>
                 {ep.quality ?? "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>{s ? <Badge grade={s.grade} /> : "—"}</td>
@@ -1977,7 +2024,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
+  ["", null], ["Ticker", "ticker"], ["Q", "quality"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
   ["EPS", "eps"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
@@ -2026,6 +2073,16 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
           </span>
         )}
       </td>
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
+        title={s._q_factors?.length ? s._q_factors.map(f => {
+          const labels = { "C↑↑": "EPS Q/Q ≥100%", "C↑": "EPS Q/Q ≥40%", "A↑↑": "Annual EPS ≥100%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
+            "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
+            "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
+            "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
+            "VCS": "Vol contraction", "Gr": "A-grade", "Deep": "Deep off highs" };
+          return labels[f] || f; }).join("\n") : ""}>
+        {s._quality ?? "—"}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>
@@ -2464,6 +2521,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       theme: pipe.themes?.[0]?.theme || live.sector || "",
       company: live.company || pipe.company || "",
     };
+    const { quality, q_factors } = computeStockQuality(pipe);
+    merged._quality = quality;
+    merged._q_factors = q_factors;
+    return merged;
   }, [liveLookup, stockMap]);
 
   // Merge for volume gainers (no pipeline data typically)
@@ -2478,6 +2539,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   const makeSorters = () => ({
     ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+    quality: sortFn("_quality"),
     change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
     fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
     atr50: sortFn("atr_to_50"), vcs: sortFn("vcs"), adr: sortFn("adr_pct"),
