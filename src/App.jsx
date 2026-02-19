@@ -178,7 +178,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               borderRadius: 4, fontWeight: 700 }}>
             Full Chart ↗</a>
           <button onClick={onClose} style={{ background: "none", border: "1px solid #505060", borderRadius: 4, color: "#787888", fontSize: 14,
-            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} className="tp-chart-close">×</button>
         </div>
       </div>
 
@@ -2418,378 +2418,7 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  // Route: #/mobile → MobileApp, otherwise → AppMain
-  const isMobile = window.location.hash === "#/mobile" || window.location.hash.startsWith("#/mobile");
-  if (isMobile) {
-    return <MobileApp authToken={authToken} onLogout={handleLogout} />;
-  }
-
   return <AppMain authToken={authToken} onLogout={handleLogout} />;
-}
-
-// ── MOBILE APP ──
-function MobileApp({ authToken, onLogout }) {
-  const [data, setData] = useState(null);
-  const [portfolio, setPortfolio] = useState([]);
-  const [watchlist, setWatchlist] = useState([]);
-  const [liveData, setLiveData] = useState(null);
-  const [liveThemeData, setLiveThemeData] = useState(null);
-  const [chartTicker, setChartTicker] = useState(null);
-  const [sort, setSort] = useState("change");
-  const [tab, setTab] = useState("portfolio");
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const [greenOnly, setGreenOnly] = useState(true);
-
-  // Load dashboard data
-  useEffect(() => {
-    fetch("/dashboard_data.json").then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.stocks) setData(d); })
-      .catch(() => {});
-  }, []);
-
-  // Load portfolio/watchlist from server
-  useEffect(() => {
-    if (!authToken) return;
-    fetch("/api/userdata", { headers: { Authorization: `Bearer ${authToken}` } })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.ok && d.data) {
-          setPortfolio(d.data.portfolio || []);
-          setWatchlist(d.data.watchlist || []);
-        }
-      }).catch(() => {});
-  }, [authToken]);
-
-  const stockMap = useMemo(() => {
-    if (!data) return {};
-    const m = {};
-    data.stocks.forEach(s => { m[s.ticker] = s; });
-    return m;
-  }, [data]);
-
-  // Fetch theme universe for live data
-  useEffect(() => {
-    if (!data?.themes) return;
-    const tickers = new Set();
-    data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-    ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
-    const arr = [...tickers];
-    const fetchUniverse = () => {
-      const params = new URLSearchParams();
-      params.set("universe", arr.join(","));
-      fetch(`/api/live?${params}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.ok && d.theme_universe) setLiveThemeData(d.theme_universe); })
-        .catch(() => {});
-    };
-    fetchUniverse();
-    const iv = setInterval(fetchUniverse, 30000);
-    return () => clearInterval(iv);
-  }, [data]);
-
-  // Fetch watchlist-specific live data
-  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
-  useEffect(() => {
-    if (allTickers.length === 0) return;
-    const fetchLive = () => {
-      const params = new URLSearchParams();
-      params.set("tickers", allTickers.join(","));
-      fetch(`/api/live?${params}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.ok) { setLiveData(d); setLastUpdate(new Date()); } })
-        .catch(() => {});
-    };
-    fetchLive();
-    const iv = setInterval(fetchLive, 30000);
-    return () => clearInterval(iv);
-  }, [allTickers]);
-
-  // Merge live + pipeline data
-  const liveLookup = useMemo(() => {
-    const m = {};
-    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = s; });
-    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
-    return m;
-  }, [liveData, liveThemeData]);
-
-  const mergeStock = useCallback((ticker) => {
-    const live = liveLookup[ticker] || {};
-    const pipe = stockMap[ticker] || {};
-    return {
-      ticker,
-      price: live.price ?? pipe.price,
-      change: live.change,
-      rel_volume: live.rel_volume ?? pipe.rel_volume,
-      grade: pipe.grade,
-      rs_rank: pipe.rs_rank,
-      return_3m: live.perf_quart ?? pipe.return_3m,
-      pct_from_high: live.high_52w ?? pipe.pct_from_high,
-      vcs: pipe.vcs,
-      adr_pct: pipe.adr_pct,
-      themes: pipe.themes || [],
-      company: live.company || pipe.company || "",
-      earnings_days: pipe.earnings_days,
-      earnings_display: pipe.earnings_display,
-    };
-  }, [liveLookup, stockMap]);
-
-  const sortFn = (key) => (a, b) => (b[key] ?? -Infinity) - (a[key] ?? -Infinity);
-  const sorters = {
-    ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-    change: sortFn("change"), rs: sortFn("rs_rank"), grade: (a, b) => {
-      const g = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
-      return (g.indexOf(a.grade) === -1 ? 99 : g.indexOf(a.grade)) - (g.indexOf(b.grade) === -1 ? 99 : g.indexOf(b.grade));
-    },
-    hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
-  };
-
-  // Leading themes for scan filter
-  const leading = useMemo(() => {
-    if (!data?.themes) return new Set();
-    return new Set(data.themes.filter(t => t.rts >= 50).map(t => t.theme));
-  }, [data]);
-
-  // Master scan composite
-  const scanList = useMemo(() => {
-    if (!data?.stocks || tab !== "scan") return [];
-    const stocks = data.stocks;
-    const winnersFilter = s => {
-      const price = s.price || 0;
-      const adr = s.adr_pct || 0;
-      const aboveLow = s.above_52w_low || 0;
-      const avgDolVol = s.avg_dollar_vol_raw || 0;
-      const sma20 = s.sma20_pct;
-      const sma50 = s.sma50_pct;
-      return price > 1 && adr > 4.5 && aboveLow >= 70 && avgDolVol >= 7000000
-        && sma20 != null && sma20 > 0 && sma50 != null && sma50 > 0;
-    };
-    const liquidFilter = s => {
-      const price = s.price || 0;
-      const mcap = s.market_cap_raw || 0;
-      const avgVol = s.avg_volume_raw || 0;
-      const avgDolVol = s.avg_dollar_vol_raw || 0;
-      const adr = s.adr_pct || 0;
-      const epsGrowth = s.eps_this_y ?? s.eps_past_5y;
-      const salesGrowth = s.sales_past_5y;
-      return price > 10 && mcap >= 300000000 && avgVol >= 1000000 && avgDolVol >= 100000000
-        && adr > 3 && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
-    };
-    const earlyFilter = s => {
-      const sma50 = s.sma50_pct;
-      const sma200 = s.sma200_pct;
-      const rs = s.rs_rank;
-      const avgDolVol = s.avg_dollar_vol_raw || 0;
-      const price = s.price || 0;
-      return price > 5 && avgDolVol >= 5000000
-        && sma50 != null && sma50 > 0 && sma50 < 10
-        && sma200 != null && sma200 > 0
-        && rs != null && rs >= 50 && rs < 85
-        && s.adr_pct > 2 && s.pct_from_high < -10;
-    };
-    const themeFilter = s => {
-      const good = ["A+","A","A-","B+"].includes(s.grade);
-      const inLead = s.themes.some(t => leading.has(t.theme));
-      return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
-    };
-
-    const hitMap = {};
-    stocks.forEach(s => {
-      const hits = [];
-      if (themeFilter(s)) hits.push("T");
-      if (winnersFilter(s)) hits.push("W");
-      if (liquidFilter(s)) hits.push("L");
-      if (earlyFilter(s)) hits.push("E");
-      if (hits.length > 0) hitMap[s.ticker] = hits;
-    });
-    let list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
-    if (greenOnly) list = list.filter(s => { const c = liveLookup[s.ticker]?.change; return c != null && c > 0; });
-    return list;
-  }, [data, tab, leading, greenOnly, liveLookup]);
-
-  const list = tab === "scan" ? scanList : (tab === "portfolio" ? portfolio.map(mergeStock) : watchlist.map(mergeStock));
-  const merged = useMemo(() => {
-    let arr = tab === "scan" ? scanList.map(s => {
-      const live = liveLookup[s.ticker] || {};
-      return { ...s, change: live.change ?? s.change, price: live.price ?? s.price, rel_volume: live.rel_volume ?? s.rel_volume };
-    }) : (tab === "portfolio" ? portfolio : watchlist).map(mergeStock);
-    const sortKey = tab === "scan" && sort === "change" ? "hits" : sort;
-    if (sorters[sortKey]) arr.sort(sorters[sortKey]);
-    return arr;
-  }, [tab, scanList, portfolio, watchlist, mergeStock, sort, liveLookup]);
-
-  // Index ETFs
-  const indices = useMemo(() => {
-    return ["SPY","QQQ","DIA","IWM"].map(t => {
-      const d = liveLookup[t];
-      return { ticker: t, name: t === "SPY" ? "S&P" : t === "QQQ" ? "NAS" : t === "DIA" ? "DOW" : "RUS", price: d?.price, change: d?.change };
-    });
-  }, [liveLookup]);
-
-  const chg = (v) => v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
-
-  return (
-    <div style={{ background: "#121218", color: "#d4d4e0", minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, monospace",
-      display: "flex", flexDirection: "column", maxWidth: 500, margin: "0 auto", WebkitTapHighlightColor: "transparent" }}>
-
-      {/* Header */}
-      <div style={{ padding: "10px 12px 6px", borderBottom: "1px solid #2a2a38", position: "sticky", top: 0, background: "#121218", zIndex: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 1 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></span>
-          <span style={{ fontSize: 9, color: "#505060" }}>{lastUpdate ? lastUpdate.toLocaleTimeString() : "..."}</span>
-        </div>
-
-        {/* Index strip */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-          {indices.map(idx => (
-            <div key={idx.ticker} style={{ flex: 1, background: "#1a1a24", borderRadius: 6, padding: "4px 6px", textAlign: "center" }}>
-              <div style={{ fontSize: 9, color: "#686878", fontWeight: 700 }}>{idx.name}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: chg(idx.change), fontFamily: "monospace" }}>
-                {idx.change != null ? `${idx.change >= 0 ? "+" : ""}${idx.change.toFixed(2)}%` : "—"}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tab bar */}
-        <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3a4a" }}>
-          {[["portfolio", `Port (${portfolio.length})`], ["watchlist", `Watch (${watchlist.length})`], ["scan", `Scan${tab === "scan" ? ` (${merged.length})` : ""}`]].map(([id, label]) => (
-            <button key={id} onClick={() => { setTab(id); setChartTicker(null); if (id === "scan") setSort("hits"); }}
-              style={{ flex: 1, padding: "8px 0", fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
-                background: tab === id ? "#0d916330" : "#1a1a24", color: tab === id ? "#4aad8c" : "#686878" }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Sort bar */}
-        <div style={{ display: "flex", gap: 4, marginTop: 6, paddingBottom: 2 }}>
-          {(tab === "scan"
-            ? [["hits","Hits"],["change","Chg%"],["rs","RS"],["grade","Grade"]]
-            : [["change","Chg%"],["rs","RS"],["grade","Grade"],["ticker","A-Z"]]
-          ).map(([k,label]) => (
-            <button key={k} onClick={() => setSort(k)}
-              style={{ flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, cursor: "pointer", borderRadius: 4,
-                background: sort === k ? "#0d916320" : "transparent", border: sort === k ? "1px solid #0d9163" : "1px solid #2a2a38",
-                color: sort === k ? "#4aad8c" : "#686878" }}>
-              {label}
-            </button>
-          ))}
-          {tab === "scan" && (
-            <button onClick={() => setGreenOnly(g => !g)}
-              style={{ padding: "4px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer", borderRadius: 4,
-                background: greenOnly ? "#05966920" : "transparent", border: greenOnly ? "1px solid #059669" : "1px solid #2a2a38",
-                color: greenOnly ? "#2bb886" : "#686878" }}>
-              🟢
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Stock list */}
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: chartTicker ? 300 : 20 }}>
-        {merged.length === 0 && (
-          <div style={{ padding: 24, textAlign: "center", color: "#505060", fontSize: 13 }}>
-            {tab === "scan" ? "No scan results" : tab === "portfolio" ? "No portfolio tickers" : "No watchlist tickers"}{tab !== "scan" ? ". Add from desktop." : ""}
-          </div>
-        )}
-        {merged.map(s => {
-          const isActive = s.ticker === chartTicker;
-          const inPort = portfolio.includes(s.ticker);
-          const inWatch = watchlist.includes(s.ticker);
-          return (
-            <div key={s.ticker} onClick={() => setChartTicker(isActive ? null : s.ticker)}
-              style={{ display: "flex", alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #1a1a24",
-                background: isActive ? "rgba(251, 191, 36, 0.08)" : "transparent",
-                borderLeft: inPort ? "3px solid #fbbf24" : inWatch ? "3px solid #60a5fa" : tab === "scan" ? "3px solid transparent" : tab === "portfolio" ? "3px solid #fbbf24" : "3px solid #60a5fa" }}>
-
-              {/* Left: ticker + grade */}
-              <div style={{ flex: "0 0 70px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: isActive ? "#0d9163" : "#d4d4e0" }}>{s.ticker}</span>
-                  {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
-                    <span style={{ fontSize: 7, fontWeight: 700, padding: "0px 3px", borderRadius: 2, verticalAlign: "super",
-                      color: s.earnings_days <= 1 ? "#fff" : "#f87171",
-                      background: s.earnings_days <= 1 ? "#dc2626" : "#f8717120" }}>
-                      ER{s.earnings_days === 0 ? "" : s.earnings_days}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  {s.grade && <Badge grade={s.grade} />}
-                  {tab === "scan" && s._scanHits && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: "#fbbf24", letterSpacing: 1 }}>
-                      {s._scanHits.join("")}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Center: change + price */}
-              <div style={{ flex: 1, textAlign: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: chg(s.change) }}>
-                  {s.change != null ? `${s.change >= 0 ? "+" : ""}${s.change.toFixed(2)}%` : "—"}
-                </div>
-                <div style={{ fontSize: 11, color: "#686878", fontFamily: "monospace" }}>
-                  {s.price != null ? `$${s.price.toFixed(2)}` : ""}
-                </div>
-              </div>
-
-              {/* Right: RS + RVol (or theme for scan) */}
-              <div style={{ flex: "0 0 65px", textAlign: "right" }}>
-                <div style={{ fontSize: 11, fontFamily: "monospace" }}>
-                  <span style={{ color: "#686878" }}>RS </span>
-                  <span style={{ color: "#b8b8c8", fontWeight: 700 }}>{s.rs_rank ?? "—"}</span>
-                </div>
-                {tab === "scan" ? (
-                  <div style={{ fontSize: 9, color: "#505060", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 65 }}>
-                    {s.themes?.[0]?.theme || ""}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, fontFamily: "monospace" }}>
-                    <span style={{ color: "#686878" }}>RV </span>
-                    <span style={{ color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878", fontWeight: s.rel_volume >= 1.5 ? 700 : 400 }}>
-                      {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Bottom chart panel */}
-      {chartTicker && (() => {
-        const s = mergeStock(chartTicker);
-        return (
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 300, background: "#121218",
-            borderTop: "2px solid #0d9163", zIndex: 30, display: "flex", flexDirection: "column" }}>
-            {/* Chart header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px",
-              background: "#1a1a24", borderBottom: "1px solid #2a2a38" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: "#d4d4e0" }}>{chartTicker}</span>
-                {s.grade && <Badge grade={s.grade} />}
-                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: chg(s.change) }}>
-                  {s.change != null ? `${s.change >= 0 ? "+" : ""}${s.change.toFixed(2)}%` : ""}
-                </span>
-              </div>
-              <button onClick={() => setChartTicker(null)}
-                style={{ background: "none", border: "none", color: "#686878", fontSize: 20, cursor: "pointer", padding: "0 4px" }}>×</button>
-            </div>
-            {/* TradingView chart */}
-            <div style={{ flex: 1 }}>
-              <iframe
-                src={`https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(chartTicker)}&interval=D&theme=dark&style=1&hide_top_toolbar=1&hide_legend=1&save_image=0&hide_volume=0&backgroundColor=121218&allow_symbol_change=0`}
-                style={{ width: "100%", height: "100%", border: "none" }}
-                title="chart"
-              />
-            </div>
-          </div>
-        );
-      })()}
-    </div>
-  );
 }
 
 function LoginScreen({ onLogin }) {
@@ -2830,6 +2459,40 @@ function LoginScreen({ onLogin }) {
 }
 
 function AppMain({ authToken, onLogout }) {
+  // Inject responsive CSS and viewport meta once
+  useEffect(() => {
+    if (document.getElementById("tp-responsive")) return;
+    // Viewport meta for mobile
+    if (!document.querySelector('meta[name="viewport"]')) {
+      const meta = document.createElement("meta");
+      meta.name = "viewport";
+      meta.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+      document.head.appendChild(meta);
+    }
+    const style = document.createElement("style");
+    style.id = "tp-responsive";
+    style.textContent = `
+      @media (max-width: 768px) {
+        .tp-topbar { flex-wrap: wrap; padding: 6px 10px !important; }
+        .tp-topbar .tp-stats { display: none !important; }
+        .tp-nav { overflow-x: auto; padding: 6px 8px !important; gap: 4px !important; -webkit-overflow-scrolling: touch; }
+        .tp-nav button { padding: 5px 10px !important; font-size: 11px !important; white-space: nowrap; flex-shrink: 0; }
+        .tp-nav .tp-search { width: 90px !important; font-size: 11px !important; }
+        .tp-nav .tp-right-btns { display: none !important; }
+        .tp-main { flex-direction: column !important; }
+        .tp-data-panel { width: 100% !important; padding: 8px !important; }
+        .tp-divider { display: none !important; }
+        .tp-chart-panel { 
+          position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+          width: 100% !important; height: 100% !important; z-index: 100 !important; background: #121218 !important;
+        }
+        .tp-chart-close { width: 36px !important; height: 36px !important; font-size: 24px !important; }
+        table { font-size: 10px !important; }
+        td, th { padding: 3px 4px !important; }
+      }
+    `;
+    document.head.appendChild(style);
+  }, []);
   const [data, setData] = useState(null);
   const [view, setView] = useState("live");
   const [scanThemeFilter, setScanThemeFilter] = useState(null);
@@ -3050,12 +2713,12 @@ function AppMain({ authToken, onLogout }) {
   return (
     <div style={{ minHeight: "100vh", background: "#121218", color: "#b8b8c8", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #2a2a38", background: "#1a1a24", flexShrink: 0 }}>
+      <div className="tp-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #2a2a38", background: "#1a1a24", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ fontSize: 18, fontWeight: 900, color: "#d4d4e0", letterSpacing: -1 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></span>
           <span style={{ color: "#686878", fontSize: 12 }}>{data.date}</span>
         </div>
-        <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+        <div className="tp-stats" style={{ display: "flex", gap: 16, fontSize: 12 }}>
           <span style={{ color: "#787888" }}>Stocks: <b style={{ color: "#d4d4e0" }}>{data.total_stocks}</b></span>
           <span style={{ color: "#787888" }}>Strong: <b style={{ color: "#2bb886" }}>{strongC}</b></span>
           <span style={{ color: "#787888" }}>A Grades: <b style={{ color: "#2bb886" }}>{aCount}</b></span>
@@ -3064,7 +2727,7 @@ function AppMain({ authToken, onLogout }) {
       </div>
 
       {/* Nav + filters */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
+      <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
         {[["live","Live"],["leaders","Theme Leaders"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
@@ -3088,7 +2751,7 @@ function AppMain({ authToken, onLogout }) {
               }
               if (e.key === "Escape") setFilters(p => ({ ...p, search: "" }));
             }}
-            style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 6, padding: "4px 10px", fontSize: 12, color: "#d4d4e0", width: 140, outline: "none", fontFamily: "monospace" }} />
+            style={{ background: "#222230", border: "1px solid #3a3a4a", borderRadius: 6, padding: "4px 10px", fontSize: 12, color: "#d4d4e0", width: 140, outline: "none", fontFamily: "monospace" }} className="tp-search" />
           {filters.search.length >= 1 && (() => {
             const q = filters.search.toUpperCase();
             const matches = Object.keys(stockMap).filter(t => t.startsWith(q)).slice(0, 8);
@@ -3108,17 +2771,19 @@ function AppMain({ authToken, onLogout }) {
             );
           })()}
         </div>
+        <div className="tp-right-btns" style={{ display: "flex", gap: 4 }}>
         <button onClick={() => setShowEarnings(p => !p)} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #3a3a4a",
           color: showEarnings ? "#c084fc" : "#787888" }}>Earnings</button>
         <button onClick={onLogout} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: "transparent", border: "1px solid #3a3a4a", color: "#686878" }}>Logout</button>
+        </div>
       </div>
 
       {/* Main content: split layout when chart is open */}
-      <div ref={containerRef} style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
+      <div ref={containerRef} className="tp-main" style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
-        <div style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
+        <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData}
             onThemeDrillDown={(themeName) => { setScanThemeFilter(themeName); setView("scan"); }} />}
 
@@ -3134,7 +2799,7 @@ function AppMain({ authToken, onLogout }) {
 
         {/* Draggable divider */}
         {chartOpen && (
-          <div
+          <div className="tp-divider"
             onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
             style={{ width: 9, flexShrink: 0, cursor: "col-resize", position: "relative", zIndex: 10,
               display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -3144,7 +2809,7 @@ function AppMain({ authToken, onLogout }) {
 
         {/* Right: chart panel */}
         {chartOpen && (
-          <div style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
+          <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
             <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
               watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
               portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
