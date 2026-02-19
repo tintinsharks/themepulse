@@ -173,11 +173,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#787888", fontSize: 12 }}>RS:{stock.rs_rank}</span>
-            {(() => { const eps = computeEPSScore(stock); return eps.score != null ? (
-              <span style={{ fontSize: 11, fontFamily: "monospace",
-                color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : "#f87171" }}
-                title={eps.factors.join(" ")}>EPS:{eps.score}</span>
-            ) : null; })()}
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.subtheme ? `${t.theme} › ${t.subtheme}` : t.theme).join(", ")}</span>
             )}
@@ -189,7 +184,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               borderRadius: 4, fontWeight: 700 }}>
             Full Chart ↗</a>
           <button onClick={onClose} style={{ background: "none", border: "1px solid #505060", borderRadius: 4, color: "#787888", fontSize: 14,
-            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} className="tp-chart-close">×</button>
+            width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
         </div>
       </div>
 
@@ -482,13 +477,25 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     const tickers = new Set();
     themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
     if (tickers.size === 0) { setLiveLoading(false); return; }
-    const params = new URLSearchParams();
-    params.set("universe", [...tickers].join(","));
-    fetch(`/api/live?${params}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.ok && d.theme_universe) setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe)); })
-      .catch(() => {})
-      .finally(() => setLiveLoading(false));
+    const allTickers = [...tickers];
+    const BATCH = 500;
+    (async () => {
+      try {
+        const results = [];
+        for (let i = 0; i < allTickers.length; i += BATCH) {
+          const batch = allTickers.slice(i, i + BATCH);
+          const params = new URLSearchParams();
+          params.set("universe", batch.join(","));
+          const resp = await fetch(`/api/live?${params}`);
+          if (resp.ok) {
+            const d = await resp.json();
+            if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
+          }
+        }
+        if (results.length > 0) setLocalLiveData(prev => mergeThemeData(prev, results));
+      } catch (e) {}
+      finally { setLiveLoading(false); }
+    })();
   }, [liveThemeData, themes, liveLoading]);
 
   // Merge new data with previous — keeps old entries if new fetch missed them
@@ -636,7 +643,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             rs: safe(s => s.rs_rank),
             change: safe(s => liveLookup[s.ticker]?.change),
             ret3m: safe(s => s.return_3m),
-            fromhi: safe(s => s.pct_from_high), eps: safe(s => computeEPSScore(s).score), adr: safe(s => s.adr_pct),
+            fromhi: safe(s => s.pct_from_high), adr: safe(s => s.adr_pct),
             vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
             rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
           };
@@ -969,7 +976,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {/* Detail table view */}
                 {detailTheme === theme.theme && (() => {
                   const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["EPS","eps"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
+                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
                   const safe = (fn) => (a, b) => {
                     const av = fn(a), bv = fn(b);
                     if (av == null && bv == null) return 0;
@@ -985,7 +992,6 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     change: safe(s => liveLookup[s.ticker]?.change),
                     ret3m: safe(s => s.return_3m),
                     fromhi: safe(s => s.pct_from_high),
-                    eps: safe(s => computeEPSScore(s).score),
                     adr: safe(s => s.adr_pct),
                     vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
                     rvol: safe(s => s.rel_volume),
@@ -1021,13 +1027,6 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                                   {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>; })()}
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-                              {(() => {
-                                const eps = computeEPSScore(s);
-                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
-                                  color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-                                  title={eps.factors.join(" ")}>
-                                  {eps.score != null ? eps.score : '—'}</td>;
-                              })()}
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
@@ -1093,7 +1092,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 // Works with available Finviz data: eps_this_y, eps_past_5y, sales_past_5y
 // When eps_qq/sales_qq available (yfinance/FMP later), they boost as primary signals
 function computeEPSScore(s) {
-  if (!s) return { score: null, label: "", factors: [] };
+  if (!s) return { score: null, factors: [] };
   let score = 0;
   const factors = [];
   let hasAnyData = false;
@@ -1149,20 +1148,12 @@ function computeEPSScore(s) {
     score += 10; factors.push("Acc");
   }
 
-  if (!hasAnyData) return { score: null, label: "", factors: [] };
+  if (!hasAnyData) return { score: null, factors: [] };
 
   // Normalize: max realistic score ~100 (35+20+15+15+10=95 best case with all data)
   const normalized = Math.min(100, Math.max(0, score));
 
-  let label;
-  if (normalized >= 80) label = "A+";
-  else if (normalized >= 65) label = "A";
-  else if (normalized >= 50) label = "B";
-  else if (normalized >= 35) label = "C";
-  else if (normalized >= 20) label = "D";
-  else label = "F";
-
-  return { score: normalized, label, factors };
+  return { score: normalized, factors };
 }
 
 function computeStockQuality(s, leadingThemes) {
@@ -1296,26 +1287,64 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     return Object.values(map);
   }
 
-  // Auto-fetch theme universe when Scan tab is active
+  // Pre-compute master scan tickers for live data fetch (same filters as master scan)
+  const preFilteredTickers = useMemo(() => {
+    const winnersFilter = s => {
+      const price = s.price || 0; const adr = s.adr_pct || 0; const aboveLow = s.above_52w_low || 0;
+      const avgDolVol = s.avg_dollar_vol_raw || 0; const sma20 = s.sma20_pct; const sma50 = s.sma50_pct;
+      return price > 1 && adr > 4.5 && aboveLow >= 70 && avgDolVol >= 7000000 && sma20 != null && sma20 > 0 && sma50 != null && sma50 > 0;
+    };
+    const liquidFilter = s => {
+      const price = s.price || 0; const mcap = s.market_cap_raw || 0; const avgVol = s.avg_volume_raw || 0;
+      const avgDolVol = s.avg_dollar_vol_raw || 0; const adr = s.adr_pct || 0;
+      const epsGrowth = s.eps_this_y ?? s.eps_past_5y; const salesGrowth = s.sales_past_5y;
+      return price > 10 && mcap >= 300000000 && avgVol >= 1000000 && avgDolVol >= 100000000
+        && adr > 3 && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
+    };
+    const earlyFilter = s => {
+      const sma50 = s.sma50_pct; const sma200 = s.sma200_pct; const rs = s.rs_rank;
+      const avgDolVol = s.avg_dollar_vol_raw || 0; const price = s.price || 0;
+      return price > 5 && avgDolVol >= 5000000 && sma50 != null && sma50 > 0 && sma50 < 10
+        && sma200 != null && sma200 > 0 && rs != null && rs >= 50 && rs < 85 && s.adr_pct > 2 && s.pct_from_high < -10;
+    };
+    const themeFilter = s => {
+      const good = ["A+","A","A-","B+"].includes(s.grade);
+      const inLead = s.themes.some(t => leading.has(t.theme));
+      return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
+    };
+    const tickers = [];
+    stocks.forEach(s => {
+      if (winnersFilter(s) || liquidFilter(s) || earlyFilter(s) || themeFilter(s) || epLookup[s.ticker]) tickers.push(s.ticker);
+    });
+    return tickers;
+  }, [stocks, leading, epLookup]);
+
+  const liveFetchKeyRef = useRef("");
   useEffect(() => {
-    if (themeData || !themes || liveLoading) return;
+    const key = preFilteredTickers.length + ":" + preFilteredTickers.slice(0, 10).join(",");
+    if (!preFilteredTickers.length || liveLoading || key === liveFetchKeyRef.current) return;
+    liveFetchKeyRef.current = key;
     setLiveLoading(true);
-    const tickers = new Set();
-    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-    if (tickers.size === 0) { setLiveLoading(false); return; }
-    const params = new URLSearchParams();
-    params.set("universe", [...tickers].join(","));
-    fetch(`/api/live?${params}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.ok && d.theme_universe) {
-          setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe));
-          if (onLiveThemeData) onLiveThemeData(d.theme_universe);
+    const BATCH = 500;
+    (async () => {
+      try {
+        for (let i = 0; i < preFilteredTickers.length; i += BATCH) {
+          const batch = preFilteredTickers.slice(i, i + BATCH);
+          const params = new URLSearchParams();
+          params.set("universe", batch.join(","));
+          const resp = await fetch(`/api/live?${params}`);
+          if (resp.ok) {
+            const d = await resp.json();
+            if (d?.ok && d.theme_universe) {
+              setLocalLiveData(prev => mergeThemeData(prev, d.theme_universe));
+              if (onLiveThemeData) onLiveThemeData(d.theme_universe);
+            }
+          }
         }
-      })
-      .catch(() => {})
-      .finally(() => setLiveLoading(false));
-  }, [themeData, themes, liveLoading]);
+      } catch (e) {}
+      finally { setLiveLoading(false); }
+    })();
+  }, [preFilteredTickers, liveLoading]);
 
   // Auto-fetch removed — parent now handles global theme universe refresh every 30s
 
@@ -1469,7 +1498,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       ret1m: safe(s => s.return_1m),
       ret3m: safe(s => s.return_3m),
       fromhi: safe(s => s.pct_from_high),
-      eps: safe(s => computeEPSScore(s).score),
       adr: safe(s => s.adr_pct),
       vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
@@ -1500,7 +1528,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     ["Q", "quality"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["EPS", "eps"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
+    ["FrHi%", "fromhi"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
   ];
 
   return (
@@ -1573,19 +1601,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     ER{s.earnings_days === 0 ? "" : s.earnings_days}
                   </span>
                 )}
-                {epLookup[s.ticker] && (() => {
-                  const ep = epLookup[s.ticker];
-                  const isToday = ep.days_ago === 0;
-                  const isRecent = ep.days_ago <= 5;
-                  const isConsol = ep.consol?.status === "consolidating";
-                  return <span title={`EP ${ep.date}: Gap +${ep.gap_pct}% Vol ${ep.vol_ratio}x${isConsol ? " ★ CONSOLIDATING" : ""}`}
-                    style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
-                      color: isConsol ? "#fbbf24" : isToday ? "#fff" : isRecent ? "#fbbf24" : "#f97316",
-                      background: isConsol ? "#fbbf2425" : isToday ? "#f97316" : isRecent ? "#fbbf2420" : "#f9731615",
-                      border: `1px solid ${isConsol ? "#fbbf2450" : isToday ? "#f97316" : "#fbbf2430"}` }}>
-                    {isConsol ? "★EP" : "EP"}{isToday ? "" : ep.days_ago + "d"}
-                  </span>;
-                })()}
               </td>
               {/* Tags: scan hits + methodology tags */}
               <td style={{ padding: "4px 6px", textAlign: "center" }}>
@@ -1623,13 +1638,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               })()}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-              {(() => {
-                const eps = computeEPSScore(s);
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
-                  color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-                  title={eps.factors.length ? `${eps.factors.join(" ")}\nThis Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}% | Sales: ${s.sales_past_5y ?? '—'}%` : `This Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}%`}>
-                  {eps.score != null ? eps.score : '—'}</td>;
-              })()}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
@@ -1772,7 +1780,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       volcon: (a, b) => (a.consol?.vol_contraction ?? 99) - (b.consol?.vol_contraction ?? 99),
       rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
       fromhi: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
-      eps: (a, b) => (computeEPSScore(stockMap[b.ticker]).score ?? -1) - (computeEPSScore(stockMap[a.ticker]).score ?? -1),
       quality: (a, b) => (b.quality ?? 0) - (a.quality ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
@@ -1799,7 +1806,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const columns = [
     ["Ticker", "ticker"], ["Q", "quality"], ["Grade", "grade"], ["Date", "date"], ["Days", "days"], ["Gap%", "gap"],
     ["Chg%", "change"], ["VolX", "vol"], ["ClRng", "clrng"], ["Status", "status"],
-    ["PB%", "pb"], ["VolCon", "volcon"], ["FrHi%", "fromhi"], ["EPS", "eps"], ["RS", "rs"], ["Theme", "theme"],
+    ["PB%", "pb"], ["VolCon", "volcon"], ["FrHi%", "fromhi"], ["RS", "rs"], ["Theme", "theme"],
   ];
 
   if (!enhancedSignals || (!enhancedSignals.length && !liveLoading)) {
@@ -1983,13 +1990,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   color: frhi != null && frhi >= -3 ? "#2bb886" : frhi != null && frhi >= -10 ? "#60a5fa" : "#9090a0" }}>
                   {frhi != null ? `${frhi}%` : "—"}</td>;
               })()}
-              {(() => {
-                const eps = computeEPSScore(s);
-                return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
-                  color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-                  title={eps.factors.length ? `${eps.factors.join(" ")}\nThis Y: ${s?.eps_this_y ?? '—'}% | 5Y: ${s?.eps_past_5y ?? '—'}% | Sales: ${s?.sales_past_5y ?? '—'}%` : ""}>
-                  {eps.score != null ? eps.score : "—"}</td>;
-              })()}
               <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
               <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10 }}>{s?.themes?.[0]?.theme || "—"}</td>
             </tr>
@@ -2082,7 +2082,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Q", "quality"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
-  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["EPS", "eps"], ["ADR%", "adr"],
+  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["ADR%", "adr"],
   ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
 
@@ -2147,13 +2147,6 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 12 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
-      {(() => {
-        const eps = computeEPSScore(s);
-        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12, fontWeight: 700,
-          color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-          title={eps.factors.length ? `${eps.factors.join(" ")}\nThis Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}% | Sales: ${s.sales_past_5y ?? '—'}%` : `This Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}%`}>
-          {eps.score != null ? eps.score : '—'}</td>;
-      })()}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
         {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
@@ -2602,7 +2595,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       return bv - av;
     },
     rel_volume: sortFn("rel_volume"),
-    eps: (a, b) => (computeEPSScore(b).score ?? -1) - (computeEPSScore(a).score ?? -1),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
@@ -3006,31 +2998,39 @@ function AppMain({ authToken, onLogout }) {
     return () => clearInterval(hpIv);
   }, []);
 
-  // Global theme universe live data fetch — runs on load + every 30s
+  // Global theme universe live data fetch — batched for large universes, runs on load + every 30s
   useEffect(() => {
     if (!data?.themes) return;
     const tickers = new Set();
     data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-    // Add index ETFs so they're always available
     ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
     if (tickers.size === 0) return;
-    const fetchUniverse = () => {
-      const params = new URLSearchParams();
-      params.set("universe", [...tickers].join(","));
-      fetch(`/api/live?${params}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d?.ok && d.theme_universe) {
-            setLiveThemeData(prev => {
-              if (!prev || prev.length === 0) return d.theme_universe;
-              const map = {};
-              prev.forEach(s => { map[s.ticker] = s; });
-              d.theme_universe.forEach(s => { map[s.ticker] = s; });
-              return Object.values(map);
-            });
+    const allTickers = [...tickers];
+    const BATCH = 500;
+
+    const fetchUniverse = async () => {
+      try {
+        const results = [];
+        for (let i = 0; i < allTickers.length; i += BATCH) {
+          const batch = allTickers.slice(i, i + BATCH);
+          const params = new URLSearchParams();
+          params.set("universe", batch.join(","));
+          const resp = await fetch(`/api/live?${params}`);
+          if (resp.ok) {
+            const d = await resp.json();
+            if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
           }
-        })
-        .catch(() => {});
+        }
+        if (results.length > 0) {
+          setLiveThemeData(prev => {
+            if (!prev || prev.length === 0) return results;
+            const map = {};
+            prev.forEach(s => { map[s.ticker] = s; });
+            results.forEach(s => { map[s.ticker] = s; });
+            return Object.values(map);
+          });
+        }
+      } catch (e) { console.error("Theme universe fetch error:", e); }
     };
     fetchUniverse();
     const iv = setInterval(fetchUniverse, 30000);
