@@ -57,6 +57,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
   const [description, setDescription] = useState(null);
+  const [finvizQuarters, setFinvizQuarters] = useState(null);
 
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
@@ -64,11 +65,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     return liveThemeData.find(s => s.ticker === ticker) || null;
   }, [liveThemeData, ticker]);
 
-  // Fetch news, peers, and description when ticker changes
+  // Fetch news, peers, description, and FactSet quarters when ticker changes
   useEffect(() => {
     setNews(null);
     setPeers(null);
     setDescription(null);
+    setFinvizQuarters(null);
     fetch(`/api/live?news=${ticker}`)
       .then(r => {
         if (!r.ok) { setNews([]); setPeers([]); setDescription(''); return null; }
@@ -79,6 +81,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           setNews(d.news && d.news.length > 0 ? d.news : []);
           setPeers(d.peers && d.peers.length > 0 ? d.peers : []);
           setDescription(d.description || '');
+          setFinvizQuarters(d.finvizQuarters && d.finvizQuarters.length > 0 ? d.finvizQuarters : null);
         } else { setNews([]); setPeers([]); setDescription(''); }
       })
       .catch(() => { setNews([]); setPeers([]); setDescription(''); });
@@ -312,7 +315,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       {/* Quarterly earnings mini-table */}
       {stock && stock.quarters && stock.quarters.length > 0 && (() => {
-        // Use pre-computed YoY from pipeline, fall back to computing from yoy_lookup
+        // Build FactSet lookup by period key for YoY overlay
+        const fqMap = {};
+        if (finvizQuarters) {
+          finvizQuarters.forEach(q => { fqMap[`${q.period}_${q.year}`] = q; });
+        }
+        // Use pre-computed YoY from pipeline, overlay FactSet YoY, fall back to computing from yoy_lookup
         const qMap = {};
         stock.quarters.forEach(q => { qMap[`${q.period}_${q.year}`] = q; });
         if (stock.yoy_lookup) {
@@ -322,17 +330,23 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         }
         const qs = stock.quarters;
         const withYoY = qs.map((q) => {
-          let epsYoY = q.eps_yoy ?? null;
-          let salesYoY = q.sales_yoy ?? null;
-          // Fallback: compute from lookup if not pre-computed
+          const fq = fqMap[`${q.period}_${q.year}`];
+          // Priority: FactSet YoY > pipeline pre-computed > computed from lookup
+          let epsYoY = fq?.eps_yoy ?? q.eps_yoy ?? null;
+          let salesYoY = fq?.revenue_yoy ?? q.sales_yoy ?? null;
+          // Use FactSet EPS/revenue if pipeline is missing
+          let eps = q.eps ?? fq?.eps ?? null;
+          let revenue = q.revenue ?? fq?.revenue;
+          let revenue_fmt = q.revenue_fmt ?? fq?.revenue_fmt;
+          // Fallback: compute from lookup if still null
           if (epsYoY == null || salesYoY == null) {
             const prior = qMap[`${q.period}_${q.year - 1}`];
             if (prior) {
-              if (epsYoY == null && prior.eps && prior.eps !== 0 && q.eps != null) epsYoY = ((q.eps - prior.eps) / Math.abs(prior.eps) * 100);
-              if (salesYoY == null && prior.revenue && prior.revenue !== 0 && q.revenue) salesYoY = ((q.revenue - prior.revenue) / Math.abs(prior.revenue) * 100);
+              if (epsYoY == null && prior.eps && prior.eps !== 0 && eps != null) epsYoY = ((eps - prior.eps) / Math.abs(prior.eps) * 100);
+              if (salesYoY == null && prior.revenue && prior.revenue !== 0 && revenue) salesYoY = ((revenue - prior.revenue) / Math.abs(prior.revenue) * 100);
             }
           }
-          return { ...q, eps_yoy: epsYoY, sales_yoy: salesYoY };
+          return { ...q, eps, revenue, revenue_fmt, eps_yoy: epsYoY, sales_yoy: salesYoY };
         });
         const yoyColor = (v) => v == null ? "#505060" : v > 25 ? "#2bb886" : v > 0 ? "#9090a0" : "#f87171";
         const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;

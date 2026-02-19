@@ -630,35 +630,89 @@ async function fetchTickerNews(cookies, ticker) {
     earningsData.sales_qq = epsGet('Sales Q/Q');
     earningsData.eps_qq = epsGet('EPS Q/Q');
     
-    // ── QUARTERLY EPS HISTORY from FactSet widget / earnings table ──
+    // ── QUARTERLY INCOME STATEMENT from FactSet table ──
+    // Table class="quote_statements-table" with rows: Total Revenue, EPS (Diluted), etc.
+    // Each data cell: <span>value</span> and <span class="...">YoY%</span>
     const quarters = [];
-    
-    // Debug: find earnings-related table sections
-    const debugPatterns = ['earnings-history', 'earningshistory', 'quarterly-results', 'income-statement', 
-      'financial-highlights', 'financials-table', 'snapshot-table', 'analyst-estimates'];
-    const foundSections = [];
-    for (const pat of debugPatterns) {
-      const idx = html.indexOf(pat);
-      if (idx !== -1) foundSections.push({ pattern: pat, index: idx });
-    }
-    
-    // Try to find and parse any table with quarterly EPS data
-    // Look for EPS estimate vs actual pattern common on Finviz
-    const epsTablePatterns = [
-      // Pattern: rows with quarter labels and EPS values
-      /class="[^"]*snapshot-table2[^"]*"[\s\S]*?<\/table>/i,
-    ];
-    
-    // Extract raw HTML snippet near any earnings section for debugging
-    let earningsHtmlSnippet = '';
-    if (foundSections.length > 0) {
-      const idx = foundSections[0].index;
-      earningsHtmlSnippet = html.substring(Math.max(0, idx - 200), idx + 3000)
-        .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
+    const statementsIdx = html.indexOf('quote_statements-table');
+    if (statementsIdx !== -1) {
+      const statementsSection = html.substring(statementsIdx, statementsIdx + 80000);
+      
+      // Extract period headers (Q4 2025, Q3 2025, etc.)
+      const periodLabels = [];
+      const periodRow = statementsSection.match(/first-row[\s\S]*?<\/tr>/);
+      if (periodRow) {
+        const periodRe = />(Q[1-4]\s*\d{4})</g;
+        let pm;
+        while ((pm = periodRe.exec(periodRow[0])) !== null) {
+          periodLabels.push(pm[1]);
+        }
+      }
+      
+      if (periodLabels.length >= 4) {
+        // Parse a row by label pattern — extract value + yoy from each cell
+        const parseRow = (labelPattern) => {
+          const re = new RegExp(labelPattern + '[\\s\\S]*?<\\/tr>', 'i');
+          const rowMatch = statementsSection.match(re);
+          if (!rowMatch) return null;
+          const rowHtml = rowMatch[0];
+          const cellRe = /<td[^>]*align="right"[^>]*>([\s\S]*?)<\/td>/g;
+          const values = [];
+          let cm;
+          while ((cm = cellRe.exec(rowHtml)) !== null) {
+            const cellContent = cm[1];
+            const spans = [];
+            const spanRe = /<span[^>]*>([^<]*)<\/span>/g;
+            let sm;
+            while ((sm = spanRe.exec(cellContent)) !== null) {
+              const v = sm[1].trim();
+              if (v) spans.push(v);
+            }
+            if (spans.length === 0) {
+              const raw = cellContent.replace(/<[^>]+>/g, '').trim();
+              if (raw) spans.push(raw);
+            }
+            values.push({ value: spans[0] || null, yoy: spans.length > 1 ? spans[1] : null });
+          }
+          return values;
+        };
+        
+        const revenueData = parseRow('Total Revenue');
+        const epsData = parseRow('EPS \\(Diluted\\)');
+        
+        const parseVal = (v) => {
+          if (!v || v === '—' || v === '——') return null;
+          return parseFloat(v.replace(/,/g, ''));
+        };
+        const parsePct = (v) => {
+          if (!v || v === '—' || v === '——') return null;
+          return parseFloat(v.replace(/,/g, '').replace('%', ''));
+        };
+        
+        for (let i = 0; i < periodLabels.length && i < 8; i++) {
+          const parts = periodLabels[i].match(/Q(\d)\s*(\d{4})/);
+          if (!parts) continue;
+          const q = {
+            label: `Q${parts[1]}-${parts[2].slice(2)}`,
+            period: `Q${parts[1]}`,
+            year: parseInt(parts[2]),
+          };
+          if (revenueData && revenueData[i]) {
+            q.revenue = parseVal(revenueData[i].value);
+            q.revenue_yoy = parsePct(revenueData[i].yoy);
+            if (q.revenue) q.revenue_fmt = q.revenue >= 1000 ? `${(q.revenue/1000).toFixed(1)}B` : `${Math.round(q.revenue)}M`;
+          }
+          if (epsData && epsData[i]) {
+            q.eps = parseVal(epsData[i].value);
+            q.eps_yoy = parsePct(epsData[i].yoy);
+          }
+          quarters.push(q);
+        }
+      }
     }
 
-    console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}, EPS Q/Q: ${earningsData.eps_qq}, Sections: ${foundSections.map(s => s.pattern).join(',') || 'none'}`);
-    return { news, peers, description, earningsData, quarters, earningsHtmlSnippet };
+    console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}, FactSet quarters: ${quarters.length}`);
+    return { news, peers, description, earningsData, quarters };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
     return { news: [], peers: [], description: "", earningsData: {}, quarters: [] };
@@ -832,7 +886,6 @@ export default async function handler(req, res) {
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
       finvizQuarters: tickerData?.quarters || null,
-      earningsHtmlSnippet: tickerData?.earningsHtmlSnippet || null,
       homepage,
     });
   } catch (err) {
