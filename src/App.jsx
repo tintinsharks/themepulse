@@ -1089,63 +1089,71 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 // ── Shared Stock Quality Score (0-100) ──
 // Multi-framework: CANSLIM (earnings, new highs, leader, supply) + MAGNA53 (neglect, squeeze, cap) + Zanger (group, resistance) + MB (VCS)
 // Used by Scan, Watchlist, EP (as base score before EP-specific bonuses)
-// EPS Score (0-100): O'Neil/Zanger weighted — quarterly is primary, annual confirms
-// C (quarterly Q/Q ≥40%) is the inflection signal, A (annual ≥25%) confirms sustained growth
-// Sales validates revenue-driven growth, acceleration is the real edge
+// EPS Score (0-100): O'Neil/Zanger weighted
+// Works with available Finviz data: eps_this_y, eps_past_5y, sales_past_5y
+// When eps_qq/sales_qq available (yfinance/FMP later), they boost as primary signals
 function computeEPSScore(s) {
   if (!s) return { score: null, label: "", factors: [] };
   let score = 0;
-  let maxScore = 0;
   const factors = [];
+  let hasAnyData = false;
 
-  // CANSLIM C: Current quarterly EPS Q/Q — THE primary signal (40pts max)
-  const epsQQ = s.eps_qq;
-  maxScore += 40;
-  if (epsQQ != null) {
-    if (epsQQ >= 100) { score += 40; factors.push("C↑↑"); }
-    else if (epsQQ >= 40) { score += 30; factors.push("C↑"); }
-    else if (epsQQ >= 20) { score += 15; }
-    else if (epsQQ >= 0) { score += 5; }
-    else { score -= 5; factors.push("C↓"); }
+  // ── Current Year EPS (primary available signal) — Zanger: 40%+ minimum ──
+  const epsThisY = s.eps_this_y;
+  if (epsThisY != null) {
+    hasAnyData = true;
+    if (epsThisY >= 100) { score += 35; factors.push("C↑↑"); }       // Monster growth
+    else if (epsThisY >= 40) { score += 25; factors.push("C↑"); }    // Zanger minimum
+    else if (epsThisY >= 25) { score += 15; }                         // O'Neil A minimum
+    else if (epsThisY >= 10) { score += 5; }
+    else if (epsThisY < 0) { score -= 10; factors.push("C↓"); }
   }
 
-  // CANSLIM A: Annual earnings — confirms it's sustained (25pts max)
-  const epsAnn = s.eps_this_y ?? s.eps_past_5y;
-  maxScore += 25;
-  if (epsAnn != null) {
-    if (epsAnn >= 100) { score += 25; factors.push("A↑↑"); }
-    else if (epsAnn >= 40) { score += 20; factors.push("A↑"); }
-    else if (epsAnn >= 25) { score += 12; }
-    else if (epsAnn >= 0) { score += 5; }
-    else { score -= 5; factors.push("A↓"); }
+  // ── Long-term EPS (confirms sustained growth) ──
+  const eps5Y = s.eps_past_5y;
+  if (eps5Y != null) {
+    hasAnyData = true;
+    if (eps5Y >= 40) { score += 20; factors.push("A↑"); }
+    else if (eps5Y >= 25) { score += 12; }
+    else if (eps5Y >= 10) { score += 5; }
+    else if (eps5Y < 0) { score -= 8; factors.push("A↓"); }
   }
 
-  // Sales Q/Q — proves revenue-driven, not cost-cutting (20pts max)
-  const salesQQ = s.sales_qq;
+  // ── Sales growth (proves revenue-driven, not cost-cutting) ──
   const salesAnn = s.sales_past_5y;
-  maxScore += 20;
+  const salesQQ = s.sales_qq;  // null until yfinance/FMP added
   if (salesQQ != null) {
+    hasAnyData = true;
     if (salesQQ >= 40) { score += 20; factors.push("S↑↑"); }
     else if (salesQQ >= 25) { score += 15; factors.push("S↑"); }
     else if (salesQQ >= 10) { score += 8; }
     else if (salesQQ < -10) { score -= 5; }
   } else if (salesAnn != null) {
-    if (salesAnn >= 25) { score += 12; factors.push("S↑"); }
-    else if (salesAnn >= 10) { score += 5; }
+    hasAnyData = true;
+    if (salesAnn >= 25) { score += 15; factors.push("S↑"); }
+    else if (salesAnn >= 10) { score += 8; }
+    else if (salesAnn < 0) { score -= 5; factors.push("S↓"); }
   }
 
-  // Acceleration bonus: if both quarterly and annual are strong, acceleration is implied (15pts max)
-  maxScore += 15;
-  if (epsQQ != null && epsAnn != null && epsQQ > epsAnn && epsQQ >= 40) {
-    score += 15; factors.push("Acc");  // quarterly > annual = accelerating
-  } else if (epsQQ != null && epsAnn != null && epsQQ > epsAnn && epsQQ >= 20) {
-    score += 8;
+  // ── Quarterly EPS Q/Q boost (when available from yfinance/FMP) ──
+  const epsQQ = s.eps_qq;
+  if (epsQQ != null) {
+    hasAnyData = true;
+    if (epsQQ >= 100) { score += 15; factors.push("QQ↑↑"); }
+    else if (epsQQ >= 40) { score += 10; factors.push("QQ↑"); }
+    else if (epsQQ < 0) { score -= 5; }
   }
 
-  if (maxScore === 0) return { score: null, label: "", factors: [] };
-  const normalized = Math.min(100, Math.max(0, Math.round(score / maxScore * 100)));
+  // ── Acceleration: this year > 5-year avg = growth speeding up ──
+  if (epsThisY != null && eps5Y != null && epsThisY > eps5Y && epsThisY >= 25) {
+    score += 10; factors.push("Acc");
+  }
 
-  // Label for quick read
+  if (!hasAnyData) return { score: null, label: "", factors: [] };
+
+  // Normalize: max realistic score ~100 (35+20+15+15+10=95 best case with all data)
+  const normalized = Math.min(100, Math.max(0, score));
+
   let label;
   if (normalized >= 80) label = "A+";
   else if (normalized >= 65) label = "A";
@@ -1597,11 +1605,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
                 title={s._q_factors?.length ? s._q_factors.map(f => {
-                  const labels = { "C↑↑": "EPS Q/Q ≥100%", "C↑": "EPS Q/Q ≥40%", "A↑↑": "Annual EPS ≥100%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
+                  const labels = { "C↑↑": "EPS This Y ≥100%", "C↑": "EPS This Y ≥40%", "A↑": "EPS 5Y ≥40%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
                     "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
                     "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
                     "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
-                    "Gr": "A-grade", "Deep": "Deep off highs" };
+                    "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
                   return labels[f] || f; }).join("\n") : ""}>
                 {s._quality ?? "—"}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
@@ -1619,7 +1627,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 const eps = computeEPSScore(s);
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
                   color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-                  title={eps.factors.length ? `${eps.factors.join(" ")}\nQ/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}% | Sales Q/Q: ${s.sales_qq ?? '—'}%` : `Q/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}%`}>
+                  title={eps.factors.length ? `${eps.factors.join(" ")}\nThis Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}% | Sales: ${s.sales_past_5y ?? '—'}%` : `This Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}%`}>
                   {eps.score != null ? eps.score : '—'}</td>;
               })()}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
@@ -1849,7 +1857,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>PB%</span><span>Max pullback from EP close. Green ≥-3%, gray ≥-7%, red &gt;-7%. Zanger: if stock "goes to sleep" = exit signal.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>VolCon</span><span>Avg volume since EP ÷ EP day volume. ≤0.5x = strong dry-up (bullish). ≤0.7x = good contraction.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>FrHi%</span><span>Distance from 52-week high. Near 0% = broke through resistance (Zanger).</span>
-          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>EPS</span><span>EPS Score (0-100). Quarterly Q/Q is primary signal (O'Neil C=40%), annual confirms (A=25%), sales validates, acceleration bonuses. Hover for breakdown.</span>
+          <span style={{ color: "#d4d4e0", fontWeight: 700 }}>EPS</span><span>EPS Score (0-100). Current year EPS is primary (Zanger ≥40%), 5Y confirms, sales validates, acceleration bonuses. Hover for breakdown.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>RS</span><span>Relative Strength rank (0-99). ≥80 = leader. CANSLIM L: buy leaders, not laggards.</span>
           <span style={{ color: "#d4d4e0", fontWeight: 700 }}>Theme</span><span>Primary theme/group. Zanger: "I focus on the strongest stocks in the strongest groups."</span>
         </div>
@@ -1858,8 +1866,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <span style={{ color: "#9090a0", fontWeight: 700 }}>QUALITY FACTOR KEY</span><span style={{ color: "#686878" }}> — hover Q score to see which factors apply</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 40px 1fr)", gap: "2px 6px" }}>
-          <span style={{ color: "#22d3ee", fontWeight: 700 }}>C↑</span><span>EPS Q/Q ≥40%</span>
-          <span style={{ color: "#22d3ee", fontWeight: 700 }}>A↑</span><span>Annual EPS ≥40%</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>C↑</span><span>EPS This Y ≥40%</span>
+          <span style={{ color: "#22d3ee", fontWeight: 700 }}>A↑</span><span>EPS 5Y ≥40%</span>
           <span style={{ color: "#22d3ee", fontWeight: 700 }}>S↑</span><span>Sales ≥25%</span>
           <span style={{ color: "#22d3ee", fontWeight: 700 }}>NH</span><span>Near 52W high</span>
           <span style={{ color: "#22d3ee", fontWeight: 700 }}>L</span><span>RS leader ≥90</span>
@@ -1938,11 +1946,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: ep.quality >= 80 ? "#2bb886" : ep.quality >= 60 ? "#60a5fa" : "#9090a0" }}
                 title={ep.q_factors?.length ? ep.q_factors.map(f => {
-                  const labels = { "C↑↑": "EPS Q/Q ≥100%", "C↑": "EPS Q/Q ≥40%", "A↑↑": "Annual EPS ≥100%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
+                  const labels = { "C↑↑": "EPS This Y ≥100%", "C↑": "EPS This Y ≥40%", "A↑": "EPS 5Y ≥40%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
                     "S↑": "Sales growth ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
                     "NI": "Low inst own <30%", "SR": "Short ratio ≥5d", "SQ": "Short squeeze ≥15%",
                     "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO <3yr",
-                    "Gr": "A-grade structure", "Deep": "Deep off highs",
+                    "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade structure", "Deep": "Deep off highs",
                     "TH": "Leading theme", "★C": "EP consolidating", "Fail": "EP gap filled" };
                   return labels[f] || f; }).join("\n") : "No factors"}>
                 {ep.quality ?? "—"}</td>
@@ -1979,7 +1987,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 const eps = computeEPSScore(s);
                 return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700, fontSize: 11,
                   color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-                  title={eps.factors.length ? `${eps.factors.join(" ")}\nQ/Q: ${s?.eps_qq ?? '—'}% | Annual: ${s?.eps_this_y ?? s?.eps_past_5y ?? '—'}% | Sales Q/Q: ${s?.sales_qq ?? '—'}%` : ""}>
+                  title={eps.factors.length ? `${eps.factors.join(" ")}\nThis Y: ${s?.eps_this_y ?? '—'}% | 5Y: ${s?.eps_past_5y ?? '—'}% | Sales: ${s?.sales_past_5y ?? '—'}%` : ""}>
                   {eps.score != null ? eps.score : "—"}</td>;
               })()}
               <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s?.rs_rank || "—"}</td>
@@ -2125,11 +2133,11 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
         title={s._q_factors?.length ? s._q_factors.map(f => {
-          const labels = { "C↑↑": "EPS Q/Q ≥100%", "C↑": "EPS Q/Q ≥40%", "A↑↑": "Annual EPS ≥100%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
+          const labels = { "C↑↑": "EPS This Y ≥100%", "C↑": "EPS This Y ≥40%", "A↑": "EPS 5Y ≥40%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
             "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
             "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
             "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
-            "Gr": "A-grade", "Deep": "Deep off highs" };
+            "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
           return labels[f] || f; }).join("\n") : ""}>
         {s._quality ?? "—"}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
@@ -2143,7 +2151,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
         const eps = computeEPSScore(s);
         return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12, fontWeight: 700,
           color: eps.score >= 70 ? "#2bb886" : eps.score >= 50 ? "#60a5fa" : eps.score >= 30 ? "#9090a0" : eps.score != null ? "#f87171" : "#3a3a4a" }}
-          title={eps.factors.length ? `${eps.factors.join(" ")}\nQ/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}% | Sales Q/Q: ${s.sales_qq ?? '—'}%` : `Q/Q: ${s.eps_qq ?? '—'}% | Annual: ${s.eps_this_y ?? s.eps_past_5y ?? '—'}%`}>
+          title={eps.factors.length ? `${eps.factors.join(" ")}\nThis Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}% | Sales: ${s.sales_past_5y ?? '—'}%` : `This Y: ${s.eps_this_y ?? '—'}% | 5Y: ${s.eps_past_5y ?? '—'}%`}>
           {eps.score != null ? eps.score : '—'}</td>;
       })()}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
