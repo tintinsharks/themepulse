@@ -1273,8 +1273,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [liveOverlay, setLiveOverlay] = useState(true);
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
-
-  // Use external data if available, otherwise use our own
+  const [liveProg, setLiveProg] = useState({ done: 0, total: 0 });
   const themeData = externalLiveData || localLiveData;
 
   // Merge new data with previous — keeps old entries if new fetch missed them
@@ -1298,8 +1297,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (tickers.size === 0) { setLiveLoading(false); return; }
     const allTickers = [...tickers];
     const BATCH = 500;
+    const totalBatches = Math.ceil(allTickers.length / BATCH);
+    setLiveProg({ done: 0, total: totalBatches });
     (async () => {
       try {
+        let batchDone = 0;
         for (let i = 0; i < allTickers.length; i += BATCH) {
           const batch = allTickers.slice(i, i + BATCH);
           const params = new URLSearchParams();
@@ -1312,9 +1314,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               if (onLiveThemeData) onLiveThemeData(d.theme_universe);
             }
           }
+          batchDone++;
+          setLiveProg({ done: batchDone, total: totalBatches });
         }
       } catch (e) {}
-      finally { setLiveLoading(false); }
+      finally { setLiveLoading(false); setLiveProg({ done: 0, total: 0 }); }
     })();
   }, [themeData, themes, liveLoading]);
 
@@ -1534,7 +1538,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           border: liveOverlay ? "1px solid #0d9163" : "1px solid #3a3a4a",
           background: liveOverlay ? "#0d916320" : "transparent", color: liveOverlay ? "#4aad8c" : "#787888" }}>
           {liveOverlay ? "● LIVE" : "○ Live"}</button>
-        {liveOverlay && liveLoading && <span style={{ fontSize: 10, color: "#fbbf24" }}>Loading live data...</span>}
+        {liveOverlay && liveLoading && liveProg.total > 0 && (
+          <span style={{ fontSize: 10, color: "#fbbf24", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 60, height: 4, background: "#3a3a4a", borderRadius: 2, overflow: "hidden" }}>
+              <span style={{ display: "block", height: "100%", width: `${(liveProg.done / liveProg.total) * 100}%`, background: "#fbbf24", borderRadius: 2, transition: "width 0.3s" }} />
+            </span>
+            {liveProg.done}/{liveProg.total}
+          </span>
+        )}
+        {liveOverlay && liveLoading && liveProg.total === 0 && <span style={{ fontSize: 10, color: "#fbbf24" }}>Loading live data...</span>}
         {liveOverlay && !hasLive && !liveLoading && <span style={{ fontSize: 10, color: "#f87171" }}>No live data — market may be closed</span>}
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
