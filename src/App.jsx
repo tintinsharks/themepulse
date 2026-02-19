@@ -1486,8 +1486,67 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return all;
   }, [liveEPs, epSignals, manualEPs]);
 
+  // Enhance quality scores with Zanger criteria from stockMap:
+  // - EPS YoY ≥40% = strong earnings growth (Zanger's minimum)
+  // - Strong theme (LEADING/EMERGING) = right group
+  // - Low float / high ADR = explosive potential
+  // - Near 52W high = broke through resistance
+  // - Volume contraction pre-EP (high VCS) = coiled spring
+  const enhancedSignals = useMemo(() => {
+    if (!mergedSignals) return [];
+    return mergedSignals.map(ep => {
+      const s = stockMap[ep.ticker];
+      if (!s) return ep;
+      
+      let q = ep.quality || 50;
+      const factors = [];
+      
+      // Zanger #1: Earnings growth — 40%+ YoY is his minimum
+      const epsYoY = s.eps_yoy;
+      if (epsYoY != null) {
+        if (epsYoY >= 100) { q += 15; factors.push("EPS↑↑"); }
+        else if (epsYoY >= 40) { q += 10; factors.push("EPS↑"); }
+        else if (epsYoY >= 20) { q += 3; }
+        else if (epsYoY < 0) { q -= 5; factors.push("EPS↓"); }
+      }
+      
+      // Sales growth — confirms earnings aren't just cost-cutting
+      const salesYoY = s.sales_yoy;
+      if (salesYoY != null) {
+        if (salesYoY >= 40) { q += 5; factors.push("Rev↑"); }
+        else if (salesYoY < 0) { q -= 3; }
+      }
+      
+      // Zanger #2: Strong group/theme
+      // Check if stock's theme is LEADING or EMERGING (from theme_health)
+      // We don't have theme_health in stockMap directly, but RS rank serves as proxy
+      if (s.rs_rank >= 90) { q += 5; factors.push("RS90+"); }
+      else if (s.rs_rank >= 80) { q += 3; }
+      
+      // Zanger #3: Near 52W high = broke through overhead supply
+      if (s.pct_from_high != null) {
+        if (s.pct_from_high >= -3) { q += 10; factors.push("ATH"); }
+        else if (s.pct_from_high >= -10) { q += 5; }
+        else if (s.pct_from_high < -30) { q -= 10; factors.push("Deep"); }
+      }
+      
+      // VCS: high = coiled spring, volatility contracted pre-EP
+      if (s.vcs != null && s.vcs >= 70) { q += 5; factors.push("VCS"); }
+      
+      // ADR%: higher = more explosive potential
+      if (s.adr_pct != null && s.adr_pct >= 5) { q += 3; }
+      
+      // Grade bonus: A-tier stocks have best structure
+      if (["A+","A","A-"].includes(s.grade)) { q += 5; factors.push("A"); }
+      else if (["B+","B"].includes(s.grade)) { q += 2; }
+      
+      q = Math.min(100, Math.max(0, q));
+      return { ...ep, quality: q, q_factors: factors };
+    });
+  }, [mergedSignals, stockMap]);
+
   const filtered = useMemo(() => {
-    if (!mergedSignals || !mergedSignals.length) return [];
+    if (!enhancedSignals || !enhancedSignals.length) return [];
     const sorters = {
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: (a, b) => {
@@ -1510,12 +1569,12 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       quality: (a, b) => (b.quality ?? 0) - (a.quality ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
-    return mergedSignals
+    return enhancedSignals
       .filter(ep => ep.manual || (ep.gap_pct >= minGap && ep.vol_ratio >= minVol))
       .filter(ep => ep.days_ago <= maxDays)
       .filter(ep => !statusFilter || ep.consol?.status === statusFilter)
       .sort(sorters[sortBy] || sorters.date);
-  }, [mergedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
+  }, [enhancedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
 
   useEffect(() => {
     if (onVisibleTickers) onVisibleTickers(filtered.map(ep => ep.ticker));
@@ -1536,7 +1595,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     ["PB%", "pb"], ["VolCon", "volcon"], ["RS", "rs"], ["Theme", "theme"],
   ];
 
-  if (!mergedSignals || (!mergedSignals.length && !liveLoading)) {
+  if (!enhancedSignals || (!enhancedSignals.length && !liveLoading)) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <div style={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Episodic Pivots</div>
@@ -1551,7 +1610,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     );
   }
 
-  const consolCount = mergedSignals.filter(ep => ep.consol?.status === "consolidating").length;
+  const consolCount = enhancedSignals.filter(ep => ep.consol?.status === "consolidating").length;
 
   return (
     <div>
@@ -1628,7 +1687,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 {ep.near_earnings && <span title="Near earnings" style={{ marginLeft: 3, fontSize: 9, color: "#fbbf24" }}>📊</span>}
               </td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-                color: ep.quality >= 80 ? "#2bb886" : ep.quality >= 60 ? "#60a5fa" : "#9090a0" }}>
+                color: ep.quality >= 80 ? "#2bb886" : ep.quality >= 60 ? "#60a5fa" : "#9090a0" }}
+                title={ep.q_factors?.length ? `Quality: ${ep.q_factors.join(" ")}` : ""}>
                 {ep.quality ?? "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>{s ? <Badge grade={s.grade} /> : "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center", color: ep.days_ago <= 5 ? "#fbbf24" : "#9090a0", fontSize: 11 }}>{ep.date}</td>
