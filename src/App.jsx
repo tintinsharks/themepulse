@@ -1289,49 +1289,19 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
 
-  // Pre-compute master scan tickers for live data fetch (same filters as master scan)
-  const preFilteredTickers = useMemo(() => {
-    const winnersFilter = s => {
-      const price = s.price || 0; const adr = s.adr_pct || 0; const aboveLow = s.above_52w_low || 0;
-      const avgDolVol = s.avg_dollar_vol_raw || 0; const sma20 = s.sma20_pct; const sma50 = s.sma50_pct;
-      return price > 1 && adr > 4.5 && aboveLow >= 70 && avgDolVol >= 7000000 && sma20 != null && sma20 > 0 && sma50 != null && sma50 > 0;
-    };
-    const liquidFilter = s => {
-      const price = s.price || 0; const mcap = s.market_cap_raw || 0; const avgVol = s.avg_volume_raw || 0;
-      const avgDolVol = s.avg_dollar_vol_raw || 0; const adr = s.adr_pct || 0;
-      const epsGrowth = s.eps_this_y ?? s.eps_past_5y; const salesGrowth = s.sales_past_5y;
-      return price > 10 && mcap >= 300000000 && avgVol >= 1000000 && avgDolVol >= 100000000
-        && adr > 3 && ((epsGrowth != null && epsGrowth > 20) || (salesGrowth != null && salesGrowth > 15));
-    };
-    const earlyFilter = s => {
-      const sma50 = s.sma50_pct; const sma200 = s.sma200_pct; const rs = s.rs_rank;
-      const avgDolVol = s.avg_dollar_vol_raw || 0; const price = s.price || 0;
-      return price > 5 && avgDolVol >= 5000000 && sma50 != null && sma50 > 0 && sma50 < 10
-        && sma200 != null && sma200 > 0 && rs != null && rs >= 50 && rs < 85 && s.adr_pct > 2 && s.pct_from_high < -10;
-    };
-    const themeFilter = s => {
-      const good = ["A+","A","A-","B+"].includes(s.grade);
-      const inLead = s.themes.some(t => leading.has(t.theme));
-      return good && inLead && s.atr_to_50 > 0 && s.atr_to_50 < 7 && s.above_50ma && s.return_3m >= 21;
-    };
-    const tickers = [];
-    stocks.forEach(s => {
-      if (winnersFilter(s) || liquidFilter(s) || earlyFilter(s) || themeFilter(s) || epLookup[s.ticker]) tickers.push(s.ticker);
-    });
-    return tickers;
-  }, [stocks, leading, epLookup]);
-
-  const liveFetchKeyRef = useRef("");
+  // Fetch live data for full theme universe (batched 500 at a time)
   useEffect(() => {
-    const key = preFilteredTickers.length + ":" + preFilteredTickers.slice(0, 10).join(",");
-    if (!preFilteredTickers.length || liveLoading || key === liveFetchKeyRef.current) return;
-    liveFetchKeyRef.current = key;
+    if (themeData || !themes || liveLoading) return;
     setLiveLoading(true);
+    const tickers = new Set();
+    themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    if (tickers.size === 0) { setLiveLoading(false); return; }
+    const allTickers = [...tickers];
     const BATCH = 500;
     (async () => {
       try {
-        for (let i = 0; i < preFilteredTickers.length; i += BATCH) {
-          const batch = preFilteredTickers.slice(i, i + BATCH);
+        for (let i = 0; i < allTickers.length; i += BATCH) {
+          const batch = allTickers.slice(i, i + BATCH);
           const params = new URLSearchParams();
           params.set("universe", batch.join(","));
           const resp = await fetch(`/api/live?${params}`);
@@ -1346,7 +1316,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       } catch (e) {}
       finally { setLiveLoading(false); }
     })();
-  }, [preFilteredTickers, liveLoading]);
+  }, [themeData, themes, liveLoading]);
 
   // Auto-fetch removed — parent now handles global theme universe refresh every 30s
 
