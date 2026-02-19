@@ -341,25 +341,25 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {/* Quarterly table */}
           <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace" }}>
             <thead><tr>
-              <td style={{ padding: "2px 4px", color: "#686878", fontWeight: 700 }}>Qtr</td>
+              <td style={{ padding: "2px 3px", color: "#686878", fontWeight: 700 }}>Qtr</td>
               {withYoY.map(q => (
-                <td key={q.label} style={{ padding: "2px 5px", color: "#9090a0", textAlign: "center", fontWeight: 700 }}>{q.label}</td>
+                <td key={q.label} style={{ padding: "2px 4px", color: "#9090a0", textAlign: "center", fontWeight: 700 }}>{q.label}</td>
               ))}
             </tr></thead>
             <tbody>
               <tr>
-                <td style={{ padding: "2px 4px", color: "#686878" }}>EPS ($)</td>
+                <td style={{ padding: "2px 3px", color: "#686878" }}>EPS ($)</td>
                 {withYoY.map(q => (
-                  <td key={q.label} style={{ padding: "2px 5px", textAlign: "center", verticalAlign: "top" }}>
+                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top" }}>
                     <div style={{ color: q.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{q.eps}</div>
                     {q.eps_yoy != null && <div style={{ color: yoyColor(q.eps_yoy), fontSize: 10 }}>{fmtYoY(q.eps_yoy)}</div>}
                   </td>
                 ))}
               </tr>
               <tr>
-                <td style={{ padding: "2px 4px", color: "#686878" }}>Sales ($)</td>
+                <td style={{ padding: "2px 3px", color: "#686878" }}>Sales ($)</td>
                 {withYoY.map(q => (
-                  <td key={q.label} style={{ padding: "2px 5px", textAlign: "center", verticalAlign: "top" }}>
+                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top" }}>
                     <div style={{ color: "#b8b8c8" }}>{q.revenue_fmt}</div>
                     {q.sales_yoy != null && <div style={{ color: yoyColor(q.sales_yoy), fontSize: 10 }}>{fmtYoY(q.sales_yoy)}</div>}
                   </td>
