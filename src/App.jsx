@@ -2418,7 +2418,283 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
+  // Route: #/mobile → MobileApp, otherwise → AppMain
+  const isMobile = window.location.hash === "#/mobile" || window.location.hash.startsWith("#/mobile");
+  if (isMobile) {
+    return <MobileApp authToken={authToken} onLogout={handleLogout} />;
+  }
+
   return <AppMain authToken={authToken} onLogout={handleLogout} />;
+}
+
+// ── MOBILE APP ──
+function MobileApp({ authToken, onLogout }) {
+  const [data, setData] = useState(null);
+  const [portfolio, setPortfolio] = useState([]);
+  const [watchlist, setWatchlist] = useState([]);
+  const [liveData, setLiveData] = useState(null);
+  const [liveThemeData, setLiveThemeData] = useState(null);
+  const [chartTicker, setChartTicker] = useState(null);
+  const [sort, setSort] = useState("change");
+  const [tab, setTab] = useState("portfolio");
+  const [lastUpdate, setLastUpdate] = useState(null);
+
+  // Load dashboard data
+  useEffect(() => {
+    fetch("/dashboard_data.json").then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.stocks) setData(d); })
+      .catch(() => {});
+  }, []);
+
+  // Load portfolio/watchlist from server
+  useEffect(() => {
+    if (!authToken) return;
+    fetch("/api/userdata", { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.ok && d.data) {
+          setPortfolio(d.data.portfolio || []);
+          setWatchlist(d.data.watchlist || []);
+        }
+      }).catch(() => {});
+  }, [authToken]);
+
+  const stockMap = useMemo(() => {
+    if (!data) return {};
+    const m = {};
+    data.stocks.forEach(s => { m[s.ticker] = s; });
+    return m;
+  }, [data]);
+
+  // Fetch theme universe for live data
+  useEffect(() => {
+    if (!data?.themes) return;
+    const tickers = new Set();
+    data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
+    const arr = [...tickers];
+    const fetchUniverse = () => {
+      const params = new URLSearchParams();
+      params.set("universe", arr.join(","));
+      fetch(`/api/live?${params}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.ok && d.theme_universe) setLiveThemeData(d.theme_universe); })
+        .catch(() => {});
+    };
+    fetchUniverse();
+    const iv = setInterval(fetchUniverse, 30000);
+    return () => clearInterval(iv);
+  }, [data]);
+
+  // Fetch watchlist-specific live data
+  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
+  useEffect(() => {
+    if (allTickers.length === 0) return;
+    const fetchLive = () => {
+      const params = new URLSearchParams();
+      params.set("tickers", allTickers.join(","));
+      fetch(`/api/live?${params}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.ok) { setLiveData(d); setLastUpdate(new Date()); } })
+        .catch(() => {});
+    };
+    fetchLive();
+    const iv = setInterval(fetchLive, 30000);
+    return () => clearInterval(iv);
+  }, [allTickers]);
+
+  // Merge live + pipeline data
+  const liveLookup = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = s; });
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
+    return m;
+  }, [liveData, liveThemeData]);
+
+  const mergeStock = useCallback((ticker) => {
+    const live = liveLookup[ticker] || {};
+    const pipe = stockMap[ticker] || {};
+    return {
+      ticker,
+      price: live.price ?? pipe.price,
+      change: live.change,
+      rel_volume: live.rel_volume ?? pipe.rel_volume,
+      grade: pipe.grade,
+      rs_rank: pipe.rs_rank,
+      return_3m: live.perf_quart ?? pipe.return_3m,
+      pct_from_high: live.high_52w ?? pipe.pct_from_high,
+      vcs: pipe.vcs,
+      adr_pct: pipe.adr_pct,
+      themes: pipe.themes || [],
+      company: live.company || pipe.company || "",
+      earnings_days: pipe.earnings_days,
+      earnings_display: pipe.earnings_display,
+    };
+  }, [liveLookup, stockMap]);
+
+  const sortFn = (key) => (a, b) => (b[key] ?? -Infinity) - (a[key] ?? -Infinity);
+  const sorters = {
+    ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+    change: sortFn("change"), rs: sortFn("rs_rank"), grade: (a, b) => {
+      const g = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
+      return (g.indexOf(a.grade) === -1 ? 99 : g.indexOf(a.grade)) - (g.indexOf(b.grade) === -1 ? 99 : g.indexOf(b.grade));
+    },
+  };
+
+  const list = tab === "portfolio" ? portfolio : watchlist;
+  const merged = useMemo(() => {
+    const arr = list.map(mergeStock);
+    if (sorters[sort]) arr.sort(sorters[sort]);
+    return arr;
+  }, [list, mergeStock, sort]);
+
+  // Index ETFs
+  const indices = useMemo(() => {
+    return ["SPY","QQQ","DIA","IWM"].map(t => {
+      const d = liveLookup[t];
+      return { ticker: t, name: t === "SPY" ? "S&P" : t === "QQQ" ? "NAS" : t === "DIA" ? "DOW" : "RUS", price: d?.price, change: d?.change };
+    });
+  }, [liveLookup]);
+
+  const chg = (v) => v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
+
+  return (
+    <div style={{ background: "#121218", color: "#d4d4e0", minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, monospace",
+      display: "flex", flexDirection: "column", maxWidth: 500, margin: "0 auto", WebkitTapHighlightColor: "transparent" }}>
+
+      {/* Header */}
+      <div style={{ padding: "10px 12px 6px", borderBottom: "1px solid #2a2a38", position: "sticky", top: 0, background: "#121218", zIndex: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 16, fontWeight: 900, letterSpacing: 1 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></span>
+          <span style={{ fontSize: 9, color: "#505060" }}>{lastUpdate ? lastUpdate.toLocaleTimeString() : "..."}</span>
+        </div>
+
+        {/* Index strip */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+          {indices.map(idx => (
+            <div key={idx.ticker} style={{ flex: 1, background: "#1a1a24", borderRadius: 6, padding: "4px 6px", textAlign: "center" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 700 }}>{idx.name}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: chg(idx.change), fontFamily: "monospace" }}>
+                {idx.change != null ? `${idx.change >= 0 ? "+" : ""}${idx.change.toFixed(2)}%` : "—"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tab bar */}
+        <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3a4a" }}>
+          {[["portfolio", `Portfolio (${portfolio.length})`], ["watchlist", `Watchlist (${watchlist.length})`]].map(([id, label]) => (
+            <button key={id} onClick={() => { setTab(id); setChartTicker(null); }}
+              style={{ flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none",
+                background: tab === id ? "#0d916330" : "#1a1a24", color: tab === id ? "#4aad8c" : "#686878" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort bar */}
+        <div style={{ display: "flex", gap: 4, marginTop: 6, paddingBottom: 2 }}>
+          {[["change","Chg%"],["rs","RS"],["grade","Grade"],["ticker","A-Z"]].map(([k,label]) => (
+            <button key={k} onClick={() => setSort(k)}
+              style={{ flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, cursor: "pointer", borderRadius: 4,
+                background: sort === k ? "#0d916320" : "transparent", border: sort === k ? "1px solid #0d9163" : "1px solid #2a2a38",
+                color: sort === k ? "#4aad8c" : "#686878" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stock list */}
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: chartTicker ? 300 : 20 }}>
+        {merged.length === 0 && (
+          <div style={{ padding: 24, textAlign: "center", color: "#505060", fontSize: 13 }}>
+            {tab === "portfolio" ? "No portfolio tickers" : "No watchlist tickers"}. Add from desktop.
+          </div>
+        )}
+        {merged.map(s => {
+          const isActive = s.ticker === chartTicker;
+          return (
+            <div key={s.ticker} onClick={() => setChartTicker(isActive ? null : s.ticker)}
+              style={{ display: "flex", alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #1a1a24",
+                background: isActive ? "rgba(251, 191, 36, 0.08)" : "transparent",
+                borderLeft: tab === "portfolio" ? "3px solid #fbbf24" : "3px solid #60a5fa" }}>
+
+              {/* Left: ticker + grade */}
+              <div style={{ flex: "0 0 70px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: isActive ? "#0d9163" : "#d4d4e0" }}>{s.ticker}</span>
+                  {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
+                    <span style={{ fontSize: 7, fontWeight: 700, padding: "0px 3px", borderRadius: 2, verticalAlign: "super",
+                      color: s.earnings_days <= 1 ? "#fff" : "#f87171",
+                      background: s.earnings_days <= 1 ? "#dc2626" : "#f8717120" }}>
+                      ER{s.earnings_days === 0 ? "" : s.earnings_days}
+                    </span>
+                  )}
+                </div>
+                {s.grade && <Badge grade={s.grade} />}
+              </div>
+
+              {/* Center: change + price */}
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace", color: chg(s.change) }}>
+                  {s.change != null ? `${s.change >= 0 ? "+" : ""}${s.change.toFixed(2)}%` : "—"}
+                </div>
+                <div style={{ fontSize: 11, color: "#686878", fontFamily: "monospace" }}>
+                  {s.price != null ? `$${s.price.toFixed(2)}` : ""}
+                </div>
+              </div>
+
+              {/* Right: RS + RVol */}
+              <div style={{ flex: "0 0 65px", textAlign: "right" }}>
+                <div style={{ fontSize: 11, fontFamily: "monospace" }}>
+                  <span style={{ color: "#686878" }}>RS </span>
+                  <span style={{ color: "#b8b8c8", fontWeight: 700 }}>{s.rs_rank ?? "—"}</span>
+                </div>
+                <div style={{ fontSize: 11, fontFamily: "monospace" }}>
+                  <span style={{ color: "#686878" }}>RV </span>
+                  <span style={{ color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878", fontWeight: s.rel_volume >= 1.5 ? 700 : 400 }}>
+                    {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom chart panel */}
+      {chartTicker && (() => {
+        const s = mergeStock(chartTicker);
+        return (
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 300, background: "#121218",
+            borderTop: "2px solid #0d9163", zIndex: 30, display: "flex", flexDirection: "column" }}>
+            {/* Chart header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px",
+              background: "#1a1a24", borderBottom: "1px solid #2a2a38" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: "#d4d4e0" }}>{chartTicker}</span>
+                {s.grade && <Badge grade={s.grade} />}
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: chg(s.change) }}>
+                  {s.change != null ? `${s.change >= 0 ? "+" : ""}${s.change.toFixed(2)}%` : ""}
+                </span>
+              </div>
+              <button onClick={() => setChartTicker(null)}
+                style={{ background: "none", border: "none", color: "#686878", fontSize: 20, cursor: "pointer", padding: "0 4px" }}>×</button>
+            </div>
+            {/* TradingView chart */}
+            <div style={{ flex: 1 }}>
+              <iframe
+                src={`https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(chartTicker)}&interval=D&theme=dark&style=1&hide_top_toolbar=1&hide_legend=1&save_image=0&hide_volume=0&backgroundColor=121218&allow_symbol_change=0`}
+                style={{ width: "100%", height: "100%", border: "none" }}
+                title="chart"
+              />
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
 }
 
 function LoginScreen({ onLogin }) {
