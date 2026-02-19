@@ -1218,6 +1218,28 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         if (winnersFilter(s)) hits.push("W");
         if (liquidFilter(s)) hits.push("L");
         if (earlyFilter(s)) hits.push("E");
+        if (epLookup[s.ticker]) hits.push("EP");
+
+        // ── CANSLIM tag: C (EPS ≥40%), A (annual ≥25%), N (new highs), S (supply/demand), L (leader) ──
+        const epsG = s.eps_this_y ?? s.eps_past_5y;
+        const salesG = s.sales_qq ?? s.sales_past_5y;
+        const csC = (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);  // C+A: strong earnings
+        const csN = s.pct_from_high != null && s.pct_from_high >= -10;                      // N: near new highs
+        const csS = s.shares_float_raw != null && s.shares_float_raw <= 100_000_000;        // S: reasonable supply
+        const csL = s.rs_rank >= 80;                                                         // L: leader
+        const csInst = s.inst_own == null || s.inst_own <= 70;                               // I: room for new buyers
+        const csSales = salesG != null && salesG >= 25;                                      // Sales ≥25%
+        if (csC && csN && csL && (csSales || csS) && csInst) hits.push("CS");
+
+        // ── Zanger/MB tag: strong group + volume behavior + pattern quality ──
+        const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
+        const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
+        const volContract = s.vcs != null && s.vcs >= 55;
+        const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
+        const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
+        const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
+        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && (volContract || s.atr_to_50 < 5)) hits.push("ZM");
+
         if (hits.length > 0) hitMap[s.ticker] = hits;
       });
       list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
@@ -1229,6 +1251,33 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       list = stocks.filter(earlyFilter);
     } else {
       list = stocks.filter(themeFilter);
+    }
+
+    // Apply methodology tags to non-master modes
+    if (scanMode !== "master") {
+      list = list.map(s => {
+        const tags = [];
+        const epsG = s.eps_this_y ?? s.eps_past_5y;
+        const salesG = s.sales_qq ?? s.sales_past_5y;
+        const csC = (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);
+        const csN = s.pct_from_high != null && s.pct_from_high >= -10;
+        const csL = s.rs_rank >= 80;
+        const csInst = s.inst_own == null || s.inst_own <= 70;
+        const csSales = salesG != null && salesG >= 25;
+        const csS = s.shares_float_raw != null && s.shares_float_raw <= 100_000_000;
+        if (csC && csN && csL && (csSales || csS) && csInst) tags.push("CS");
+
+        const inLeadTheme = s.themes?.some(t => leading.has(t.theme));
+        const aboveMAs = s.above_50ma && s.sma20_pct != null && s.sma20_pct >= 0;
+        const volContract = s.vcs != null && s.vcs >= 55;
+        const nearHigh = s.pct_from_high != null && s.pct_from_high >= -15;
+        const goodGrade = ["A+","A","A-","B+","B"].includes(s.grade);
+        const hasVolume = (s.avg_dollar_vol_raw || 0) >= 20_000_000;
+        if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && (volContract || s.atr_to_50 < 5)) tags.push("ZM");
+
+        if (epLookup[s.ticker]) tags.push("EP");
+        return tags.length > 0 ? { ...s, _scanHits: [...(s._scanHits || []), ...tags] } : s;
+      });
     }
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
@@ -1258,7 +1307,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanMode, liveLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanMode, liveLookup, epLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1278,7 +1327,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   // Column header config: [label, sortKey or null]
   const columns = [
     ["Ticker", "ticker"],
-    ...(scanMode === "master" ? [["Hits", "hits"]] : []),
+    ["Tags", "hits"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
@@ -1368,18 +1417,21 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   </span>;
                 })()}
               </td>
-              {scanMode === "master" && (
-                <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                  <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                    {(s._scanHits || []).map(h => {
-                      const hc = { T: { bg: "#05966920", color: "#2bb886", label: "T" }, W: { bg: "#c084fc20", color: "#c084fc", label: "W" },
-                        L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" } }[h];
-                      return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
-                        color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
-                    })}
-                  </div>
-                </td>
-              )}
+              {/* Tags: scan hits + methodology tags */}
+              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                <div style={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
+                  {(s._scanHits || []).map(h => {
+                    const hc = { T: { bg: "#05966920", color: "#2bb886", label: "T" }, W: { bg: "#c084fc20", color: "#c084fc", label: "W" },
+                      L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" },
+                      EP: { bg: "#f9731620", color: "#f97316", label: "EP" },
+                      CS: { bg: "#22d3ee20", color: "#22d3ee", label: "CS" },
+                      ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" } }[h];
+                    if (!hc) return null;
+                    return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
+                      color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
+                  })}
+                </div>
+              </td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
@@ -1486,12 +1538,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return all;
   }, [liveEPs, epSignals, manualEPs]);
 
-  // Enhance quality scores with Zanger criteria from stockMap:
-  // - EPS YoY ≥40% = strong earnings growth (Zanger's minimum)
-  // - Strong theme (LEADING/EMERGING) = right group
-  // - Low float / high ADR = explosive potential
-  // - Near 52W high = broke through resistance
-  // - Volume contraction pre-EP (high VCS) = coiled spring
+  // Enhance quality scores with multi-framework criteria from stockMap:
+  // CANSLIM: C (EPS YoY ≥40%), A (annual growth 25%+), S (low float + volume), L (leader), N (new highs)
+  // MAGNA53: M (massive EPS accel), N (neglect/low coverage), G (gap+vol), 5 (short squeeze fuel), CAP (small cap)
+  // Zanger: Strong group, near 52W high (resistance cleared), volume behavior, earnings growth
+  // MB Lynch: VCS (volatility contraction), consolidation quality
   const enhancedSignals = useMemo(() => {
     if (!mergedSignals) return [];
     return mergedSignals.map(ep => {
@@ -1501,44 +1552,91 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       let q = ep.quality || 50;
       const factors = [];
       
-      // Zanger #1: Earnings growth — 40%+ YoY is his minimum
-      const epsYoY = s.eps_yoy;
-      if (epsYoY != null) {
-        if (epsYoY >= 100) { q += 15; factors.push("EPS↑↑"); }
-        else if (epsYoY >= 40) { q += 10; factors.push("EPS↑"); }
-        else if (epsYoY >= 20) { q += 3; }
-        else if (epsYoY < 0) { q -= 5; factors.push("EPS↓"); }
+      // ── CANSLIM C: Current quarterly EPS ≥40% YoY ──
+      const epsQQ = s.eps_qq;  // sequential Q/Q from Finviz snapshot
+      if (epsQQ != null) {
+        if (epsQQ >= 100) { q += 8; factors.push("C↑↑"); }
+        else if (epsQQ >= 40) { q += 5; factors.push("C↑"); }
+        else if (epsQQ < -10) { q -= 3; }
       }
       
-      // Sales growth — confirms earnings aren't just cost-cutting
-      const salesYoY = s.sales_yoy;
-      if (salesYoY != null) {
-        if (salesYoY >= 40) { q += 5; factors.push("Rev↑"); }
-        else if (salesYoY < 0) { q -= 3; }
+      // ── CANSLIM A: Annual earnings growth ──
+      const epsAnn = s.eps_this_y ?? s.eps_past_5y;
+      if (epsAnn != null) {
+        if (epsAnn >= 100) { q += 10; factors.push("A↑↑"); }
+        else if (epsAnn >= 40) { q += 7; factors.push("A↑"); }
+        else if (epsAnn >= 25) { q += 3; }
+        else if (epsAnn < 0) { q -= 5; factors.push("A↓"); }
       }
       
-      // Zanger #2: Strong group/theme
-      // Check if stock's theme is LEADING or EMERGING (from theme_health)
-      // We don't have theme_health in stockMap directly, but RS rank serves as proxy
-      if (s.rs_rank >= 90) { q += 5; factors.push("RS90+"); }
+      // ── CANSLIM A: Sales growth confirms real growth (not cost-cutting) ──
+      const salesQQ = s.sales_qq;
+      const salesAnn = s.sales_past_5y;
+      if (salesQQ != null && salesQQ >= 25) { q += 4; factors.push("S↑"); }
+      else if (salesAnn != null && salesAnn >= 25) { q += 3; factors.push("S↑"); }
+      if (salesQQ != null && salesQQ < -10) { q -= 2; }
+      
+      // ── CANSLIM N: New highs = broke through overhead supply ──
+      if (s.pct_from_high != null) {
+        if (s.pct_from_high >= -3) { q += 10; factors.push("NH"); }
+        else if (s.pct_from_high >= -10) { q += 5; }
+        else if (s.pct_from_high < -30) { q -= 8; factors.push("Deep"); }
+      }
+      
+      // ── CANSLIM S: Supply — low float = more explosive ──
+      const floatRaw = s.shares_float_raw;
+      if (floatRaw != null) {
+        if (floatRaw <= 15_000_000) { q += 8; factors.push("LF"); }       // <15M float
+        else if (floatRaw <= 50_000_000) { q += 4; factors.push("MF"); }   // <50M
+      }
+      
+      // ── CANSLIM L: Leader — top RS rank ──
+      if (s.rs_rank >= 90) { q += 5; factors.push("L"); }
       else if (s.rs_rank >= 80) { q += 3; }
       
-      // Zanger #3: Near 52W high = broke through overhead supply
-      if (s.pct_from_high != null) {
-        if (s.pct_from_high >= -3) { q += 10; factors.push("ATH"); }
-        else if (s.pct_from_high >= -10) { q += 5; }
-        else if (s.pct_from_high < -30) { q -= 10; factors.push("Deep"); }
+      // ── MAGNA53 N: Neglect — low institutional ownership = surprise potential ──
+      if (s.inst_own != null) {
+        if (s.inst_own <= 30) { q += 6; factors.push("NI"); }      // <30% inst = under-owned
+        else if (s.inst_own <= 50) { q += 3; }
+        // >90% inst = fully discovered, less upside surprise
+        else if (s.inst_own >= 90) { q -= 3; }
       }
       
-      // VCS: high = coiled spring, volatility contracted pre-EP
+      // ── MAGNA53 5: Short squeeze fuel — short ratio ≥5 days ──
+      const shortRatio = s.short_ratio;
+      if (shortRatio != null && shortRatio >= 5) { q += 5; factors.push("SR"); }
+      if (s.short_float != null && s.short_float >= 15) { q += 6; factors.push("SQ"); }
+      else if (s.short_float != null && s.short_float >= 8) { q += 3; }
+      
+      // ── MAGNA53 CAP: Small/mid-cap preference (<$10B) ──
+      const mcap = s.market_cap_raw;
+      if (mcap != null) {
+        if (mcap <= 2_000_000_000) { q += 5; factors.push("SC"); }         // small cap
+        else if (mcap <= 10_000_000_000) { q += 3; factors.push("MC"); }    // mid cap
+        // mega caps get no bonus — less room for explosive moves
+      }
+      
+      // ── MAGNA53 CAP: Young IPO (<10 years) = less institutional saturation ──
+      if (s.ipo_date) {
+        try {
+          const ipoAge = (new Date() - new Date(s.ipo_date)) / (365.25 * 86400000);
+          if (ipoAge <= 3) { q += 5; factors.push("IPO"); }
+          else if (ipoAge <= 10) { q += 2; }
+        } catch(e) {}
+      }
+      
+      // ── MB Lynch: VCS — volatility contraction = coiled spring ──
       if (s.vcs != null && s.vcs >= 70) { q += 5; factors.push("VCS"); }
       
-      // ADR%: higher = more explosive potential
+      // ── Zanger: ADR% — higher = more explosive potential ──
       if (s.adr_pct != null && s.adr_pct >= 5) { q += 3; }
       
-      // Grade bonus: A-tier stocks have best structure
-      if (["A+","A","A-"].includes(s.grade)) { q += 5; factors.push("A"); }
+      // ── Grade bonus: A-tier stocks have best structure ──
+      if (["A+","A","A-"].includes(s.grade)) { q += 5; factors.push("Gr"); }
       else if (["B+","B"].includes(s.grade)) { q += 2; }
+      
+      // ── Penalty: RSI >85 = already extended, chasing risk ──
+      if (s.rsi != null && s.rsi > 85) { q -= 5; }
       
       q = Math.min(100, Math.max(0, q));
       return { ...ep, quality: q, q_factors: factors };
@@ -1688,7 +1786,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               </td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: ep.quality >= 80 ? "#2bb886" : ep.quality >= 60 ? "#60a5fa" : "#9090a0" }}
-                title={ep.q_factors?.length ? `Quality: ${ep.q_factors.join(" ")}` : ""}>
+                title={ep.q_factors?.length ? ep.q_factors.map(f => {
+                  const labels = { "C↑↑": "EPS Q/Q ≥100%", "C↑": "EPS Q/Q ≥40%", "A↑↑": "Annual EPS ≥100%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
+                    "S↑": "Sales growth ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
+                    "NI": "Low inst own <30%", "SR": "Short ratio ≥5d", "SQ": "Short squeeze ≥15%",
+                    "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO <3yr",
+                    "VCS": "Vol contraction", "Gr": "A-grade structure", "Deep": "Deep off highs" };
+                  return labels[f] || f; }).join("\n") : "No factors"}>
                 {ep.quality ?? "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>{s ? <Badge grade={s.grade} /> : "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center", color: ep.days_ago <= 5 ? "#fbbf24" : "#9090a0", fontSize: 11 }}>{ep.date}</td>
