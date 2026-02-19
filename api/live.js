@@ -506,7 +506,7 @@ async function fetchTickerNews(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) return { news: [], peers: [] };
+    if (!resp.ok) return { news: [], peers: [], description: "" };
     const html = await resp.text();
     
     // ── NEWS ──
@@ -573,10 +573,39 @@ async function fetchTickerNews(cookies, ticker) {
     }
     
     console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}`);
-    return { news, peers };
+    
+    // ── PROFILE DESCRIPTION ──
+    let description = '';
+    // Finviz profile description is in a td with class containing "profile" or in the fullview-profile div
+    const profilePatterns = [
+      /class="[^"]*profile[^"]*"[^>]*>([\s\S]*?)<\/td>/i,
+      /id="[^"]*profile[^"]*"[^>]*>([\s\S]*?)<\/(?:td|div)>/i,
+      /class="body-table-profile"[^>]*>([\s\S]*?)<\/td>/i,
+    ];
+    for (const pat of profilePatterns) {
+      const m = html.match(pat);
+      if (m && m[1]) {
+        description = m[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        if (description.length > 20) break;
+        description = '';
+      }
+    }
+    // Fallback: look for long text block near "Description" or company profile area
+    if (!description) {
+      const descIdx = html.indexOf('fullview-profile');
+      if (descIdx !== -1) {
+        const descSection = html.substring(descIdx, descIdx + 5000);
+        const tdMatch = descSection.match(/<td[^>]*>([\s\S]{100,2000}?)<\/td>/);
+        if (tdMatch) {
+          description = tdMatch[1].replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+      }
+    }
+    
+    return { news, peers, description };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
-    return { news: [], peers: [] };
+    return { news: [], peers: [], description: "" };
   }
 }
 
@@ -744,6 +773,7 @@ export default async function handler(req, res) {
       theme_universe: themeUniverse,
       news: tickerData?.news || null,
       peers: tickerData?.peers || null,
+      description: tickerData?.description || null,
       homepage,
     });
   } catch (err) {

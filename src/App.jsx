@@ -56,6 +56,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
+  const [description, setDescription] = useState(null);
 
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
@@ -63,22 +64,24 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     return liveThemeData.find(s => s.ticker === ticker) || null;
   }, [liveThemeData, ticker]);
 
-  // Fetch news and peers when ticker changes
+  // Fetch news, peers, and description when ticker changes
   useEffect(() => {
     setNews(null);
     setPeers(null);
+    setDescription(null);
     fetch(`/api/live?news=${ticker}`)
       .then(r => {
-        if (!r.ok) { setNews([]); setPeers([]); return null; }
+        if (!r.ok) { setNews([]); setPeers([]); setDescription(''); return null; }
         return r.json();
       })
       .then(d => {
         if (d?.ok) {
           setNews(d.news && d.news.length > 0 ? d.news : []);
           setPeers(d.peers && d.peers.length > 0 ? d.peers : []);
-        } else { setNews([]); setPeers([]); }
+          setDescription(d.description || '');
+        } else { setNews([]); setPeers([]); setDescription(''); }
       })
-      .catch(() => { setNews([]); setPeers([]); });
+      .catch(() => { setNews([]); setPeers([]); setDescription(''); });
   }, [ticker]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
@@ -396,6 +399,14 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </table>
           )}
           </div>
+          {/* Profile Description */}
+          {description && (
+            <div style={{ flex: 1, minWidth: 180, maxHeight: 80, overflowY: "auto", borderLeft: "1px solid #3a3a4a", 
+              padding: "4px 10px", fontSize: 10, color: "#9090a0", lineHeight: 1.4 }}>
+              <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>Profile</div>
+              {description}
+            </div>
+          )}
         </div>
         );
       })()}
