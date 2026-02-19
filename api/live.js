@@ -825,6 +825,130 @@ async function fetchHomepage(cookies) {
   }
 }
 
+// ── Live Episodic Pivot Scanner ──
+// Refined EP criteria per Qullamaggie methodology:
+//   - Volume ≥4x avg (400% RVol) — serious institutional interest
+//   - Gap ≥4% AND change ≥8%, OR power move change ≥10%
+//   - Mid-cap+ ($500M-$200B ideal)
+//   - Near earnings = strongest catalyst (flagged)
+//   - Checks: not already extended (ATR to 50MA), resistance clearance
+async function fetchEpisodicPivots(cookies) {
+  const results = [];
+  
+  // Pass 1: Gap-and-go — gap up ≥4%, mid-cap+
+  const gapUrl = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,ta_gap_u4&o=-gap`;
+  
+  // Pass 2: Power moves — top gainers ≥8% change
+  const powerUrl = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,ta_changeup_u8&o=-change`;
+  
+  const seen = new Set();
+  
+  for (const [label, url] of [["gap", gapUrl], ["power", powerUrl]]) {
+    try {
+      const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+      if (!resp.ok) continue;
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("html")) continue;
+      
+      const text = await resp.text();
+      const rows = parseCSV(text);
+      
+      for (const raw of rows) {
+        const r = normalizeRow(raw);
+        const ticker = r["Ticker"];
+        if (!ticker || seen.has(ticker)) continue;
+        seen.add(ticker);
+        
+        const price = num(r["Price"]);
+        const change = pct(r["Change"]);
+        const gap = pct(r["Gap"]);
+        const relVol = num(r["Rel Volume"]);
+        const volume = r["Volume"];
+        const avgVol = r["Avg Volume"];
+        const high52w = pct(r["52W High"]);  // % off 52W high (negative = below)
+        const rsi = num(r["RSI"]);
+        const atr = num(r["ATR"]);
+        const earnings = r["Earnings Date"] || r["Earnings"] || "";
+        
+        // Core EP criteria
+        const isGapAndGo = gap >= 4 && change >= 8;
+        const isPowerMove = change >= 10;
+        const meetsVol = relVol >= 4.0;  // 400% RVol per Qullamaggie
+        
+        if (!(isGapAndGo || isPowerMove) || !meetsVol) continue;
+        
+        // Quality scoring (0-100)
+        let quality = 50;  // base
+        
+        // Volume strength: 4x=base, 8x+=excellent
+        if (relVol >= 8) quality += 15;
+        else if (relVol >= 6) quality += 10;
+        else if (relVol >= 4) quality += 5;
+        
+        // Gap + change magnitude
+        if (gap >= 15) quality += 10;
+        else if (gap >= 10) quality += 7;
+        else if (gap >= 6) quality += 3;
+        
+        // Resistance clearance: near or above 52W high = broke through supply
+        if (high52w !== null && high52w >= -5) quality += 15;  // within 5% of 52W high
+        else if (high52w !== null && high52w >= -15) quality += 5;
+        
+        // Earnings proximity = strongest catalyst
+        let nearEarnings = false;
+        if (earnings) {
+          // Check if earnings is within ±3 days
+          try {
+            const parts = earnings.replace(/[ab]$/i, '').trim().split(/\s+/);
+            if (parts.length >= 2) {
+              const y = new Date().getFullYear();
+              const ed = new Date(`${parts[0]} ${parts[1]} ${y}`);
+              const daysDiff = Math.abs(Math.round((ed - new Date()) / 86400000));
+              if (daysDiff <= 3) { nearEarnings = true; quality += 10; }
+            }
+          } catch(e) {}
+        }
+        
+        // Penalty: very high RSI (>85) = already extended, may be chasing
+        if (rsi > 85) quality -= 10;
+        
+        quality = Math.min(100, Math.max(0, quality));
+        
+        results.push({
+          ticker,
+          company: r["Company"],
+          sector: r["Sector"],
+          industry: r["Industry"],
+          date: new Date().toISOString().split("T")[0],
+          days_ago: 0,
+          ep_type: isGapAndGo ? "gap" : "power",
+          gap_pct: Math.round(gap * 10) / 10,
+          change_pct: Math.round(change * 10) / 10,
+          vol_ratio: Math.round(relVol * 10) / 10,
+          close_range: 0,
+          close: price,
+          volume,
+          avg_vol: avgVol,
+          market_cap: r["Market Cap"],
+          rsi,
+          high_52w: high52w,
+          atr,
+          near_earnings: nearEarnings,
+          quality,
+          consol: { status: "fresh", days_since: 0, pullback_pct: 0, vol_contraction: 0, held_gap: true },
+        });
+      }
+    } catch (err) {
+      console.error(`EP scan ${label} error:`, err.message);
+    }
+  }
+  
+  // Sort: quality desc, then gap desc
+  results.sort((a, b) => b.quality - a.quality || b.gap_pct - a.gap_pct);
+  console.log(`EP scan: ${results.length} live pivots found`);
+  return results;
+}
+
 // ── Handler ──
 export default async function handler(req, res) {
   // CORS
@@ -876,6 +1000,10 @@ export default async function handler(req, res) {
     const wantHomepage = req.query.homepage === "1";
     const homepage = wantHomepage ? await fetchHomepage(cookies) : null;
 
+    // Fetch live episodic pivots if requested
+    const wantEP = req.query.ep === "scan";
+    const epSignals = wantEP ? await fetchEpisodicPivots(cookies) : null;
+
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -887,6 +1015,7 @@ export default async function handler(req, res) {
       earningsData: tickerData?.earningsData || null,
       finvizQuarters: tickerData?.quarters || null,
       homepage,
+      ep_signals: epSignals,
     });
   } catch (err) {
     console.error("Live API error:", err);

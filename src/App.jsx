@@ -1386,13 +1386,54 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
   const [sortBy, setSortBy] = useState("date");
   const [minGap, setMinGap] = useState(8);
-  const [minVol, setMinVol] = useState(3);
+  const [minVol, setMinVol] = useState(4);
   const [maxDays, setMaxDays] = useState(60);
   const [statusFilter, setStatusFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [liveEPs, setLiveEPs] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [lastScan, setLastScan] = useState(null);
+
+  // Fetch live EPs on mount and on manual refresh
+  const fetchLiveEPs = useCallback(() => {
+    setLiveLoading(true);
+    fetch('/api/live?ep=scan')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.ok && d.ep_signals) {
+          setLiveEPs(d.ep_signals);
+          setLastScan(new Date().toLocaleTimeString());
+        }
+        setLiveLoading(false);
+      })
+      .catch(() => setLiveLoading(false));
+  }, []);
+
+  useEffect(() => { fetchLiveEPs(); }, [fetchLiveEPs]);
+
+  // Merge: live EPs (today) + pipeline EPs (historical with consolidation data)
+  const mergedSignals = useMemo(() => {
+    const all = [];
+    const seen = new Set();
+    // Live EPs first (today's fresh signals)
+    if (liveEPs) {
+      liveEPs.forEach(ep => {
+        const key = `${ep.ticker}_${ep.date}`;
+        if (!seen.has(key)) { seen.add(key); all.push(ep); }
+      });
+    }
+    // Pipeline EPs (historical with consolidation status)
+    if (epSignals) {
+      epSignals.forEach(ep => {
+        const key = `${ep.ticker}_${ep.date}`;
+        if (!seen.has(key)) { seen.add(key); all.push(ep); }
+      });
+    }
+    return all;
+  }, [liveEPs, epSignals]);
 
   const filtered = useMemo(() => {
-    if (!epSignals || !epSignals.length) return [];
+    if (!mergedSignals || !mergedSignals.length) return [];
     const sorters = {
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: (a, b) => {
@@ -1412,13 +1453,14 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       pb: (a, b) => (b.consol?.pullback_pct ?? -99) - (a.consol?.pullback_pct ?? -99),
       volcon: (a, b) => (a.consol?.vol_contraction ?? 99) - (b.consol?.vol_contraction ?? 99),
       rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
+      quality: (a, b) => (b.quality ?? 0) - (a.quality ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
-    return epSignals
+    return mergedSignals
       .filter(ep => ep.gap_pct >= minGap && ep.vol_ratio >= minVol && ep.days_ago <= maxDays)
       .filter(ep => !statusFilter || ep.consol?.status === statusFilter)
       .sort(sorters[sortBy] || sorters.date);
-  }, [epSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
+  }, [mergedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
 
   useEffect(() => {
     if (onVisibleTickers) onVisibleTickers(filtered.map(ep => ep.ticker));
@@ -1434,24 +1476,27 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   };
 
   const columns = [
-    ["Ticker", "ticker"], ["Grade", "grade"], ["Date", "date"], ["Days", "days"], ["Gap%", "gap"],
+    ["Ticker", "ticker"], ["Q", "quality"], ["Grade", "grade"], ["Date", "date"], ["Days", "days"], ["Gap%", "gap"],
     ["Chg%", "change"], ["VolX", "vol"], ["ClRng", "clrng"], ["Status", "status"],
     ["PB%", "pb"], ["VolCon", "volcon"], ["RS", "rs"], ["Theme", "theme"],
   ];
 
-  if (!epSignals || !epSignals.length) {
+  if (!mergedSignals || (!mergedSignals.length && !liveLoading)) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <div style={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Episodic Pivots</div>
-        <div style={{ color: "#787888", fontSize: 13, marginBottom: 20 }}>No EP data yet. Run the scanner to populate:</div>
-        <code style={{ color: "#0d9163", fontSize: 12, background: "#1a1a24", padding: "8px 16px", borderRadius: 6 }}>
-          python3 -u scripts/09d_episodic_pivots.py
-        </code>
+        <div style={{ color: "#787888", fontSize: 13, marginBottom: 20 }}>
+          {liveLoading ? "Scanning Finviz for today's EPs..." : "No EP signals found. Market may be closed."}
+        </div>
+        <button onClick={fetchLiveEPs} style={{ padding: "6px 16px", borderRadius: 4, border: "1px solid #fbbf24",
+          background: "#fbbf2420", color: "#fbbf24", cursor: "pointer", fontSize: 12 }}>
+          {liveLoading ? "Scanning..." : "Scan Now"}
+        </button>
       </div>
     );
   }
 
-  const consolCount = epSignals.filter(ep => ep.consol?.status === "consolidating").length;
+  const consolCount = mergedSignals.filter(ep => ep.consol?.status === "consolidating").length;
 
   return (
     <div>
@@ -1474,6 +1519,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       {/* Filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: 13 }}>{filtered.length} EPs</span>
+        {liveEPs && <span style={{ color: "#2bb886", fontSize: 10, background: "#2bb88618", padding: "1px 6px", borderRadius: 8 }}>LIVE{lastScan ? ` ${lastScan}` : ""}</span>}
+        <button onClick={fetchLiveEPs} disabled={liveLoading} style={{ padding: "1px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: "1px solid #fbbf2450", background: liveLoading ? "#fbbf2410" : "transparent", color: "#fbbf24" }}>
+          {liveLoading ? "⟳" : "↻ Scan"}</button>
         {consolCount > 0 && <span style={{ color: "#fbbf24", fontSize: 11, background: "#fbbf2418", border: "1px solid #fbbf2440", padding: "1px 8px", borderRadius: 10 }}>★ {consolCount} consolidating</span>}
         <span style={{ color: "#686878", fontSize: 11 }}>Gap≥</span>
         <input type="range" min={5} max={25} value={minGap} onChange={e => setMinGap(+e.target.value)}
@@ -1521,7 +1570,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 background: isActive ? "#fbbf2415" : isConsol ? "#fbbf2408" : "transparent" }}>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>
                 <span style={{ color: isActive ? "#fbbf24" : "#d4d4e0", fontWeight: 700 }}>{isConsol && "★ "}{ep.ticker}</span>
+                {ep.near_earnings && <span title="Near earnings" style={{ marginLeft: 3, fontSize: 9, color: "#fbbf24" }}>📊</span>}
               </td>
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: ep.quality >= 80 ? "#2bb886" : ep.quality >= 60 ? "#60a5fa" : "#9090a0" }}>
+                {ep.quality ?? "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>{s ? <Badge grade={s.grade} /> : "—"}</td>
               <td style={{ padding: "4px 6px", textAlign: "center", color: ep.days_ago <= 5 ? "#fbbf24" : "#9090a0", fontSize: 11 }}>{ep.date}</td>
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
