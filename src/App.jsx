@@ -1054,13 +1054,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [minRS, setMinRS] = useState(75);
   const [scanMode, setScanMode] = useState("master");
   const [activeTheme, setActiveTheme] = useState(null);
-  const [activeSubtheme, setActiveSubtheme] = useState(null);
 
   // Apply theme filter from Leaders drill-down
   useEffect(() => {
     if (initialThemeFilter) {
       setActiveTheme(initialThemeFilter);
-      setActiveSubtheme(null);
       if (onConsumeThemeFilter) onConsumeThemeFilter();
     }
   }, [initialThemeFilter]);
@@ -1182,7 +1180,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
-    if (activeSubtheme) list = list.filter(s => s.themes?.some(t => t.subtheme === activeSubtheme));
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1207,7 +1204,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => liveLookup[s.ticker]?.change),
     };
     return list.sort(sorters[sortBy] || (scanMode === "master" ? sorters.hits : sorters.default));
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, activeSubtheme, scanMode, liveLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanMode, liveLookup]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1259,12 +1256,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           <button onClick={() => setActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
             border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
             {activeTheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
-          </button>
-        )}
-        {activeSubtheme && (
-          <button onClick={() => setActiveSubtheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-            border: "1px solid #c084fc", background: "#c084fc20", color: "#c084fc", display: "flex", alignItems: "center", gap: 3 }}>
-            {activeSubtheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
           </button>
         )}
         <button onClick={() => setLiveOverlay(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
@@ -1354,10 +1345,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 onClick={(e) => { e.stopPropagation(); setActiveTheme(theme?.theme || null); }}
                 onMouseEnter={e => e.target.style.color = "#4aad8c"}
                 onMouseLeave={e => e.target.style.color = "#787888"}>{theme?.theme}</td>
-              <td style={{ padding: "4px 8px", color: "#686878", fontSize: 10, cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); setActiveSubtheme(theme?.subtheme || null); }}
-                onMouseEnter={e => e.target.style.color = "#4aad8c"}
-                onMouseLeave={e => e.target.style.color = "#686878"}>{theme?.subtheme}</td>
+              <td style={{ padding: "4px 8px", color: "#686878", fontSize: 10 }}>{theme?.subtheme}</td>
             </tr>
           );
         })}</tbody>
@@ -1621,9 +1609,9 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Grade", "grade"], ["RS", "rs"], ["Chg%", "change"],
+  ["", null], ["Ticker", "ticker"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["VCS", "vcs"], ["ADR%", "adr"],
-  ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", "theme"], ["Subtheme", "subtheme"],
+  ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
 
 function LiveSortHeader({ setter, current }) {
@@ -2127,13 +2115,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     eps: sortFn("eps_past_5y"), rev: sortFn("sales_past_5y"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
-    rsi: sortFn("rsi"), price: sortFn("price"),
-    grade: (a, b) => {
-      const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
-      return (grades.indexOf(a.grade) === -1 ? 99 : grades.indexOf(a.grade)) - (grades.indexOf(b.grade) === -1 ? 99 : grades.indexOf(b.grade));
-    },
-    theme: (a, b) => (a.themes?.[0]?.theme || "zzz").localeCompare(b.themes?.[0]?.theme || "zzz"),
-    subtheme: (a, b) => (a.themes?.[0]?.subtheme || "zzz").localeCompare(b.themes?.[0]?.subtheme || "zzz"),
+    rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
   });
 
   const sortList = (list, sortKey) => {
