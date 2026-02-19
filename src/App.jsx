@@ -1287,6 +1287,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     return Object.values(map);
   }
 
+  const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
+
   // Pre-compute master scan tickers for live data fetch (same filters as master scan)
   const preFilteredTickers = useMemo(() => {
     const winnersFilter = s => {
@@ -1358,7 +1360,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const hasLive = Object.keys(liveLookup).length > 0;
 
-  const leading = useMemo(() => new Set(themes.filter(t => t.rts >= 50).map(t => t.theme)), [themes]);
   const candidates = useMemo(() => {
     // Individual scan filters
     const winnersFilter = s => {
@@ -1477,7 +1478,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     });
 
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
-    if (greenOnly) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
+    if (greenOnly && hasLive) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
     const safe = (fn) => (a, b) => {
