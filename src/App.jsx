@@ -241,7 +241,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {showDetails && (<>
 
       {/* Stock detail row — metrics left, news right */}
-      {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
+      {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0, lineHeight: 1.1 }}>
@@ -2969,6 +2969,7 @@ function AppMain({ authToken, onLogout }) {
   const [mmData, setMmData] = useState(null);
   const [liveThemeData, setLiveThemeData] = useState(null);
   const [showEarnings, setShowEarnings] = useState(false);
+  const [showPipeline, setShowPipeline] = useState(false);
   const [earningsOpen, setEarningsOpen] = useState(false);
   const [homepage, setHomepage] = useState(null);
 
@@ -3264,36 +3265,32 @@ function AppMain({ authToken, onLogout }) {
           background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #3a3a4a",
           color: showEarnings ? "#c084fc" : "#787888" }}>Earnings</button>
         {/* Pipeline run button */}
-        {(() => {
-          const [showCmd, setShowCmd] = React.useState(false);
-          const cmd = `cd ~/Claude\\ Theme/stock-pipeline && bash scripts/daily.sh`;
-          const cmdForce = `cd ~/Claude\\ Theme/stock-pipeline && bash scripts/daily.sh --force`;
-          return (<>
-            <button onClick={() => setShowCmd(p => !p)} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-              background: showCmd ? "#f9731620" : "transparent", border: showCmd ? "1px solid #f97316" : "1px solid #3a3a4a",
-              color: showCmd ? "#f97316" : "#686878" }}>▶ Pipeline</button>
-            {showCmd && (
+        <div style={{ position: "relative" }}>
+            <button onClick={() => setShowPipeline(p => !p)} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+              background: showPipeline ? "#f9731620" : "transparent", border: showPipeline ? "1px solid #f97316" : "1px solid #3a3a4a",
+              color: showPipeline ? "#f97316" : "#686878" }}>▶ Pipeline</button>
+            {showPipeline && (
               <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 8, padding: 12, zIndex: 9999, minWidth: 340, fontSize: 11 }}>
                 <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6 }}>Daily Pipeline</div>
                 <div style={{ background: "#0a0a0f", borderRadius: 4, padding: "8px 10px", fontFamily: "monospace", fontSize: 10, color: "#d4d4e0", cursor: "pointer", marginBottom: 6, border: "1px solid #2a2a38" }}
-                  onClick={() => { navigator.clipboard.writeText(cmd); }}
+                  onClick={() => { navigator.clipboard.writeText(`cd ~/Claude\\ Theme/stock-pipeline && bash scripts/daily.sh`); }}
                   title="Click to copy">
-                  {cmd}
-                  <span style={{ color: "#0d9163", marginLeft: 8, fontSize: 9 }}>📋 click to copy</span>
+                  {"cd ~/Claude\\ Theme/stock-pipeline && bash scripts/daily.sh"}
+                  <span style={{ color: "#0d9163", marginLeft: 8, fontSize: 9 }}>📋 copy</span>
                 </div>
                 <div style={{ background: "#0a0a0f", borderRadius: 4, padding: "8px 10px", fontFamily: "monospace", fontSize: 10, color: "#f97316", cursor: "pointer", border: "1px solid #2a2a38" }}
-                  onClick={() => { navigator.clipboard.writeText(cmdForce); }}
-                  title="Click to copy (force re-fetch all)">
-                  {cmdForce}
-                  <span style={{ color: "#0d9163", marginLeft: 8, fontSize: 9 }}>📋 force</span>
+                  onClick={() => { navigator.clipboard.writeText(`cd ~/Claude\\ Theme/stock-pipeline && bash scripts/weekly.sh --force`); }}
+                  title="Click to copy (weekly force)">
+                  {"cd ~/Claude\\ Theme/stock-pipeline && bash scripts/weekly.sh --force"}
+                  <span style={{ color: "#0d9163", marginLeft: 8, fontSize: 9 }}>📋 weekly</span>
                 </div>
                 <div style={{ marginTop: 6, color: "#505060", fontSize: 9, lineHeight: 1.4 }}>
-                  Steps: export → finviz → earnings → EP → VCS
+                  Daily: export → finviz → earnings(reporters) → EP → VCS<br/>
+                  Weekly: + full earnings + institutional
                 </div>
               </div>
             )}
-          </>);
-        })()}
+        </div>
         <button onClick={onLogout} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: "transparent", border: "1px solid #3a3a4a", color: "#686878" }}>Logout</button>
         </div>
