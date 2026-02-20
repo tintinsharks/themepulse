@@ -1448,6 +1448,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || (b.rs_rank - a.rs_rank),
       quality: safe(s => s._quality),
+      vcs: safe(s => s.vcs),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: safe(s => GRADE_ORDER[s.grade] ?? null),
       rs: safe(s => s.rs_rank),
@@ -1476,7 +1477,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"],
     ["Tags", "hits"],
-    ["Q", "quality"],
+    ["Q", "quality"], ["VCS", "vcs"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
@@ -1615,6 +1616,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
                   return labels[f] || f; }).join("\n") : ""}>
                 {s._quality ?? "—"}</td>
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
+                title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
+                {s.vcs ?? "—"}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
