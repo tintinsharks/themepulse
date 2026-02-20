@@ -257,7 +257,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 45%", minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 35%", minWidth: 0 }}>
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
           {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
@@ -286,6 +286,31 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
+          </div>
+          {/* Earnings Timeline */}
+          <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
+          <div style={{ flex: "0 0 auto", minWidth: 100, fontSize: 10, fontFamily: "monospace" }}>
+            <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>Earnings</div>
+            {/* Next earnings */}
+            {(stock.earnings_display || stock.earnings_date) && (
+              <div style={{ padding: "1px 0" }}>
+                <span style={{ color: stock.earnings_days != null && stock.earnings_days <= 7 ? "#f87171" : stock.earnings_days != null && stock.earnings_days <= 14 ? "#fbbf24" : "#c084fc" }}>
+                  ▶ {stock.earnings_display || stock.earnings_date}
+                </span>
+                {stock.earnings_days != null && stock.earnings_days >= 0 && (
+                  <span style={{ color: "#686878", marginLeft: 4 }}>({stock.earnings_days}d)</span>
+                )}
+              </div>
+            )}
+            {/* Past earnings from quarterly data */}
+            {stock.quarters && stock.quarters.length > 0 && stock.quarters.map((q, i) => (
+              <div key={i} style={{ padding: "1px 0", color: "#505060" }}>
+                <span>● {q.label}</span>
+                {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", marginLeft: 4 }}>
+                  EPS:{q.eps}{q.eps_yoy != null ? ` (${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%)` : ""}
+                </span>}
+              </div>
+            ))}
           </div>
           {/* Divider */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
