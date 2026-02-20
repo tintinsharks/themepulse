@@ -286,6 +286,27 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
+          {stock.inst_quarters && stock.inst_quarters.length > 0 && (
+            <div style={{ width: "100%", borderTop: "1px solid #2a2a38", paddingTop: 2, marginTop: 2 }}>
+              <span style={{ color: "#686878", fontWeight: 700, fontSize: 10 }}>Funds </span>
+              {stock.inst_quarters.slice(0, 4).map((iq, i) => {
+                const prev = stock.inst_quarters[i + 1];
+                const delta = prev ? iq.holders - prev.holders : null;
+                const deltaColor = delta > 0 ? "#2bb886" : delta < 0 ? "#f87171" : "#686878";
+                return (
+                  <span key={i} style={{ fontSize: 10, marginRight: 6 }}>
+                    <span style={{ color: "#505060" }}>{iq.label}:</span>
+                    <span style={{ color: "#b8b8c8", marginLeft: 2 }}>{iq.holders}</span>
+                    {delta != null && delta !== 0 && (
+                      <span style={{ color: deltaColor, fontSize: 9 }}>
+                        ({delta > 0 ? "+" : ""}{delta})
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          )}
           </div>
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
@@ -3228,6 +3249,37 @@ function AppMain({ authToken, onLogout }) {
         <button onClick={() => setShowEarnings(p => !p)} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #3a3a4a",
           color: showEarnings ? "#c084fc" : "#787888" }}>Earnings</button>
+        {/* Pipeline run button */}
+        {(() => {
+          const [showCmd, setShowCmd] = React.useState(false);
+          const cmd = `cd ~/Claude\\ Theme/stock-pipeline && bash scripts/daily.sh`;
+          const cmdForce = `cd ~/Claude\\ Theme/stock-pipeline && bash scripts/daily.sh --force`;
+          return (<>
+            <button onClick={() => setShowCmd(p => !p)} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+              background: showCmd ? "#f9731620" : "transparent", border: showCmd ? "1px solid #f97316" : "1px solid #3a3a4a",
+              color: showCmd ? "#f97316" : "#686878" }}>▶ Pipeline</button>
+            {showCmd && (
+              <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 8, padding: 12, zIndex: 9999, minWidth: 340, fontSize: 11 }}>
+                <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6 }}>Daily Pipeline</div>
+                <div style={{ background: "#0a0a0f", borderRadius: 4, padding: "8px 10px", fontFamily: "monospace", fontSize: 10, color: "#d4d4e0", cursor: "pointer", marginBottom: 6, border: "1px solid #2a2a38" }}
+                  onClick={() => { navigator.clipboard.writeText(cmd); }}
+                  title="Click to copy">
+                  {cmd}
+                  <span style={{ color: "#0d9163", marginLeft: 8, fontSize: 9 }}>📋 click to copy</span>
+                </div>
+                <div style={{ background: "#0a0a0f", borderRadius: 4, padding: "8px 10px", fontFamily: "monospace", fontSize: 10, color: "#f97316", cursor: "pointer", border: "1px solid #2a2a38" }}
+                  onClick={() => { navigator.clipboard.writeText(cmdForce); }}
+                  title="Click to copy (force re-fetch all)">
+                  {cmdForce}
+                  <span style={{ color: "#0d9163", marginLeft: 8, fontSize: 9 }}>📋 force</span>
+                </div>
+                <div style={{ marginTop: 6, color: "#505060", fontSize: 9, lineHeight: 1.4 }}>
+                  Steps: export → finviz → earnings → EP → VCS
+                </div>
+              </div>
+            )}
+          </>);
+        })()}
         <button onClick={onLogout} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           background: "transparent", border: "1px solid #3a3a4a", color: "#686878" }}>Logout</button>
         </div>
