@@ -219,6 +219,17 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
               Off 52W Hi:{stock.off_52w_high}%</span>
           </>)}
+          {stock && stock.hv52_vol != null && (<>
+            <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
+            <span style={{ fontSize: 10, fontFamily: "monospace", color: "#60a5fa" }}
+              title={`Highest Volume 52W: ${stock.hv52_date}`}>
+              HV52:{stock.hv52_date?.slice(5)} {stock.hv52_vol >= 1e9 ? (stock.hv52_vol/1e9).toFixed(1)+"B" : stock.hv52_vol >= 1e6 ? (stock.hv52_vol/1e6).toFixed(1)+"M" : stock.hv52_vol >= 1e3 ? (stock.hv52_vol/1e3).toFixed(0)+"K" : stock.hv52_vol}</span>
+          </>)}
+          {stock && stock.hvq_vol != null && (<>
+            <span style={{ fontSize: 10, fontFamily: "monospace", color: "#a78bfa", marginLeft: 4 }}
+              title={`Highest Volume Quarter: ${stock.hvq_date}`}>
+              HVQ:{stock.hvq_date?.slice(5)} {stock.hvq_vol >= 1e9 ? (stock.hvq_vol/1e9).toFixed(1)+"B" : stock.hvq_vol >= 1e6 ? (stock.hvq_vol/1e6).toFixed(1)+"M" : stock.hvq_vol >= 1e3 ? (stock.hvq_vol/1e3).toFixed(0)+"K" : stock.hvq_vol}</span>
+          </>)}
         </div>
         <span onClick={() => setShowDetails(p => !p)}
           style={{ color: "#686878", fontSize: 11, cursor: "pointer", padding: "2px 6px" }}>
