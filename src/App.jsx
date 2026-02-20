@@ -1511,6 +1511,22 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         )}
         <span style={{ color: "#3a3a4a" }}>|</span>
         <span style={{ color: "#2bb886", fontWeight: 700, fontSize: 12 }}>{candidates.length}</span>
+        {scanFilters.size > 0 && (
+          <span style={{ color: "#9090a0", fontSize: 9, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {(() => {
+              const descs = { T: "A/B+ grade, leading theme, 3M≥21%, >50MA",
+                W: "ADR>4.5%, ab52WL≥70%, $Vol>7M, >20/50MA",
+                L: "MCap>300M, AvgVol>1M, $Vol>100M, ADR>3%, EPS>20%",
+                E: ">50MA(<10%), >200MA, RS:50-85, FrHi<-10%",
+                EP: "Gap + volume surge on earnings/news",
+                CS: "EPS≥40%, near highs, RS≥80, supply/demand",
+                ZM: "Leading theme, >MAs, near highs, tight to 50MA" };
+              const active = [...scanFilters];
+              if (active.length === 1) return descs[active[0]] || "";
+              return active.map(f => f).join(" + ");
+            })()}
+          </span>
+        )}
         <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: "auto",
           border: nearPivot ? "1px solid #c084fc" : "1px solid #3a3a4a",
           background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#787888" }}>Near Pivot (&lt;3%)</button>
@@ -3319,4 +3335,3 @@ function AppMain({ authToken, onLogout }) {
     </div>
   );
 }
-
