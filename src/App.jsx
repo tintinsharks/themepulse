@@ -52,7 +52,10 @@ const TV_LAYOUT = "nkNPuLqj";
 
 function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, manualEPs, onAddEP, onRemoveEP, liveThemeData }) {
   const containerRef = useRef(null);
+  const volPanelRef = useRef(null);
+  const volChartRef = useRef(null);
   const [tf, setTf] = useState("D");
+  const [showVolPanel, setShowVolPanel] = useState(true);
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
@@ -141,6 +144,177 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, [ticker, tf]);
+
+  // ── Volume Analysis Panel (Lightweight Charts) ──
+  useEffect(() => {
+    if (!volPanelRef.current || !showVolPanel) return;
+    volPanelRef.current.innerHTML = "";
+
+    // Only load for daily timeframe
+    if (tf !== "D") {
+      volPanelRef.current.innerHTML = '<div style="color:#505060;font-size:10px;padding:4px;text-align:center">Volume analysis available on daily timeframe</div>';
+      return;
+    }
+
+    const loadChart = () => {
+      if (!window.LightweightCharts || !volPanelRef.current) return;
+
+      const chart = window.LightweightCharts.createChart(volPanelRef.current, {
+        height: volPanelRef.current.clientHeight || 80,
+        autoSize: true,
+        layout: { background: { type: "solid", color: "#0a0a0f" }, textColor: "#505060", fontSize: 9 },
+        grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a1a" } },
+        crosshair: { mode: 0, vertLine: { color: "#3a3a4a40" }, horzLine: { color: "#3a3a4a40" } },
+        rightPriceScale: { borderColor: "#1a1a24", scaleMargins: { top: 0.05, bottom: 0.02 } },
+        timeScale: { borderColor: "#1a1a24", timeVisible: false, visible: true },
+        handleScroll: true,
+        handleScale: true,
+      });
+      volChartRef.current = chart;
+
+      const volSeries = chart.addHistogramSeries({
+        priceFormat: { type: "volume" },
+      });
+
+      // 50-day avg volume line
+      const avgVolLine = chart.addLineSeries({
+        color: "#fbbf2450", lineWidth: 1, lineStyle: 2,
+        priceLineVisible: false, lastValueVisible: false,
+      });
+
+      // Fetch OHLC
+      const fromDate = new Date(Date.now() - 365 * 86400000).toISOString().split("T")[0];
+      const toDate = new Date().toISOString().split("T")[0];
+
+      fetch(`/api/ohlc?symbol=${ticker}&from=${fromDate}&to=${toDate}`)
+        .then(r => r.json())
+        .then(raw => {
+          if (!Array.isArray(raw) || raw.length === 0) {
+            volPanelRef.current.innerHTML = '<div style="color:#505060;font-size:10px;padding:4px;text-align:center">No OHLC data</div>';
+            return;
+          }
+
+          const bars = raw.sort((a, b) => a.date.localeCompare(b.date));
+
+          // Classifications:
+          // Blue   = Pocket Pivot: up-day vol > highest down-day vol of last 10 bars
+          // Green  = High Up Vol: up-day vol > 50d avg
+          // Red    = High Down Vol: down-day vol > 50d avg
+          // Bright Green = HVU: up-day RVol > 100% (vol > 2x 50d avg)
+          // Bright Red   = HVD: down-day RVol > 100% (vol > 2x 50d avg)
+          // Orange = Dry Vol: vol < 50d avg / 5 (80%+ drop)
+          // Gray   = Noise
+
+          const PP_LOOKBACK = 10;
+          const AVG_LEN = 50;
+
+          const isUp = bars.map(b => b.close >= b.open);
+          const volData = [];
+          const avgVolData = [];
+          const markers = [];
+          let ppCount = 0, dryCount = 0, hvuCount = 0, hvdCount = 0;
+
+          for (let i = 0; i < bars.length; i++) {
+            // 50-day avg volume
+            let avgVol = null;
+            if (i >= AVG_LEN) {
+              let sum = 0;
+              for (let j = i - AVG_LEN; j < i; j++) sum += bars[j].volume;
+              avgVol = sum / AVG_LEN;
+              avgVolData.push({ time: bars[i].date, value: avgVol });
+            }
+
+            // Pocket Pivot: up-day vol > highest down-day vol in last 10 bars
+            let maxDownVol = 0;
+            if (i >= PP_LOOKBACK && isUp[i]) {
+              for (let j = i - PP_LOOKBACK; j < i; j++) {
+                if (!isUp[j] && bars[j].volume > maxDownVol) maxDownVol = bars[j].volume;
+              }
+            }
+            const isPP = isUp[i] && maxDownVol > 0 && bars[i].volume > maxDownVol;
+
+            // RVol (relative to 50d avg)
+            const rvol = avgVol ? bars[i].volume / avgVol : 0;
+
+            // Dry volume: vol < 50d avg / 5
+            const isDry = avgVol != null && bars[i].volume < avgVol / 5;
+
+            // Classify & color
+            let color, label = null;
+            if (isPP) {
+              color = "#2196F3";  // Blue — Pocket Pivot
+              ppCount++;
+              markers.push({ time: bars[i].date, position: "aboveBar", color: "#2196F3", shape: "circle", text: "PP" });
+            } else if (isDry) {
+              color = "#ff9800";  // Orange — Dry Volume
+              dryCount++;
+            } else if (isUp[i] && rvol >= 2) {
+              color = "#00c853";  // Bright green — HVU (RVol > 100%)
+              hvuCount++;
+            } else if (!isUp[i] && rvol >= 2) {
+              color = "#ff1744";  // Bright red — HVD (RVol > 100%)
+              hvdCount++;
+            } else if (isUp[i] && avgVol && bars[i].volume > avgVol) {
+              color = "#4caf50a0";  // Green — High Up Volume (> 50d avg)
+            } else if (!isUp[i] && avgVol && bars[i].volume > avgVol) {
+              color = "#ef5350a0";  // Red — High Down Volume (> 50d avg)
+            } else {
+              color = "#333338";  // Dark gray — Noise
+            }
+
+            volData.push({ time: bars[i].date, value: bars[i].volume, color });
+          }
+
+          volSeries.setData(volData);
+          avgVolLine.setData(avgVolData);
+
+          if (markers.length > 0) {
+            volSeries.setMarkers(markers.slice(-15));
+          }
+
+          chart.timeScale().fitContent();
+
+          // Legend
+          const legend = document.createElement("div");
+          legend.style.cssText = "position:absolute;top:2px;left:6px;display:flex;gap:8px;font-size:9px;z-index:10;pointer-events:none;";
+          legend.innerHTML = `
+            <span style="color:#2196F3">■ PP(${ppCount})</span>
+            <span style="color:#4caf50">■ HiUp</span>
+            <span style="color:#ef5350">■ HiDn</span>
+            <span style="color:#00c853">■ HVU(${hvuCount})</span>
+            <span style="color:#ff1744">■ HVD(${hvdCount})</span>
+            <span style="color:#ff9800">■ Dry(${dryCount})</span>
+            <span style="color:#fbbf24;opacity:0.5">─ 50d</span>
+          `;
+          volPanelRef.current.style.position = "relative";
+          volPanelRef.current.appendChild(legend);
+        })
+        .catch(err => {
+          console.error("Vol panel fetch error:", err);
+          if (volPanelRef.current) {
+            volPanelRef.current.innerHTML = '<div style="color:#f87171;font-size:10px;padding:4px;text-align:center">OHLC fetch failed — add FMP_API_KEY to Vercel env</div>';
+          }
+        });
+    };
+
+    // Load lightweight-charts if not already loaded
+    if (window.LightweightCharts) {
+      loadChart();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js";
+      script.async = true;
+      script.onload = loadChart;
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      if (volChartRef.current) {
+        try { volChartRef.current.remove(); } catch {}
+        volChartRef.current = null;
+      }
+    };
+  }, [ticker, tf, showVolPanel]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", borderLeft: "1px solid #2a2a38", background: "#121218" }}>
@@ -452,7 +626,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       </>)}
 
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+      <div ref={containerRef} style={{ flex: showVolPanel ? "1 1 75%" : "1 1 100%", minHeight: 0 }} />
+      {/* Volume Analysis Panel */}
+      <div style={{ display: "flex", alignItems: "center", background: "#0d0d14", borderTop: "1px solid #2a2a38", borderBottom: showVolPanel ? "1px solid #1a1a24" : "none", padding: "1px 8px", flexShrink: 0 }}>
+        <button onClick={() => setShowVolPanel(p => !p)} style={{ fontSize: 9, color: showVolPanel ? "#00e676" : "#505060", background: "transparent", border: "none", cursor: "pointer", padding: "1px 4px" }}>
+          {showVolPanel ? "▾" : "▸"} Vol Analysis
+        </button>
+        {showVolPanel && <span style={{ fontSize: 8, color: "#505060", marginLeft: 8 }}>Pocket Pivots · Volume Dry-ups · 50d Avg</span>}
+      </div>
+      {showVolPanel && <div ref={volPanelRef} style={{ height: 90, flexShrink: 0, background: "#0a0a0f" }} />}
     </div>
   );
 }
