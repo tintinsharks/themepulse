@@ -240,20 +240,33 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {/* Collapsible: company, sector, stats, earnings */}
       {showDetails && (<>
 
+      {stock && (
+        <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, alignItems: "center" }}>
+          <span style={{ color: "#9090a0" }}>{stock.company}</span>
+          <span style={{ color: "#505060", fontSize: 10 }}>{stock.sector} · {stock.industry}</span>
+          <span style={{ flex: 1 }} />
+          {(stock.earnings_display || stock.earnings_date) && <span style={{ fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>ER:{stock.earnings_display || stock.earnings_date}</span>}
+        </div>
+      )}
+
       {/* Stock detail row — metrics left, news right */}
       {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0, lineHeight: 1.1 }}>
-          {/* Company info header */}
-          <div style={{ width: "100%", display: "flex", gap: 8, alignItems: "center", marginBottom: 1 }}>
-            <span style={{ color: "#787888", fontSize: 10 }}>{stock.company}</span>
-            <span style={{ color: "#505060", fontSize: 9 }}>{stock.sector} · {stock.industry}</span>
-            <span style={{ flex: 1 }} />
-            {stock.adr_pct != null && <span style={{ fontFamily: "monospace", fontSize: 10, color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
-            <span style={{ fontSize: 10 }}>1M:<Ret v={stock.return_1m} /></span>
-            <span style={{ fontSize: 10 }}>3M:<Ret v={stock.return_3m} /></span>
-            <span style={{ fontSize: 10 }}>6M:<Ret v={stock.return_6m} /></span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4 }}>
+          {/* ADR | RVol */}
+          <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
+            {stock.adr_pct != null && <span style={{ color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
+            {stock.adr_pct != null && <span style={{ color: "#3a3a4a", margin: "0 6px" }}>│</span>}
+            {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
+              return rv != null ? <span style={{ color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878" }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
+            })()}
+          </div>
+          {/* 1M / 3M / 6M */}
+          <div style={{ width: "100%", display: "flex", gap: 8 }}>
+            <span>1M:<Ret v={stock.return_1m} /></span>
+            <span>3M:<Ret v={stock.return_3m} /></span>
+            <span>6M:<Ret v={stock.return_6m} /></span>
           </div>
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : stock.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171"} />}
@@ -261,10 +274,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             color={stock.avg_volume_raw > 1000000 ? "#2bb886" : "#f97316"} />}
           {stock.volume != null && <StockStat label="Vol" value={(() => { const v = stock.volume; if (v >= 1e9) return (v/1e9).toFixed(2)+"B"; if (v >= 1e6) return (v/1e6).toFixed(2)+"M"; if (v >= 1e3) return (v/1e3).toFixed(0)+"K"; return v; })()}
             color={stock.avg_volume_raw && stock.volume > stock.avg_volume_raw ? "#2bb886" : "#f97316"} />}
-          {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
-            return rv != null ? <StockStat label="RVol" value={`${Number(rv).toFixed(1)}x`}
-              color={rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878"} /> : null;
-          })()}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#2bb886" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
