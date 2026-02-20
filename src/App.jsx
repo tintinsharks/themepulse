@@ -27,7 +27,7 @@ const QC = {
 function Ret({ v, bold }) {
   if (v == null) return <span style={{ color: "#787888" }}>—</span>;
   const c = v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
-  return <span style={{ color: c, fontWeight: bold ? 700 : 400, fontFamily: "monospace" }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
+  return <span style={{ color: c, fontWeight: 400, fontFamily: "monospace" }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
 }
 
 function Badge({ grade }) {
@@ -808,22 +808,22 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
       </div>
       {showLegend && (
       <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#1a1a24", borderRadius: "0 0 4px 4px", fontSize: 10, color: "#787888", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
-        <span><b style={{ color: "#059669" }}>STRONG</b>/<b style={{ color: "#d97706" }}>IMPROVING</b>/<b style={{ color: "#ea580c" }}>WEAKENING</b>/<b style={{ color: "#dc2626" }}>WEAK</b> — Quadrant (Weekly vs Monthly RS)</span>
+        <span><span style={{ color: "#059669" }}>STRONG</span>/<span style={{ color: "#d97706" }}>IMPROVING</span>/<span style={{ color: "#ea580c" }}>WEAKENING</span>/<span style={{ color: "#dc2626" }}>WEAK</span> — Quadrant (Weekly vs Monthly RS)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><b style={{ color: "#9090a0" }}>11</b> — Stock count</span>
+        <span><span style={{ color: "#9090a0" }}>11</span> — Stock count</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><b style={{ color: "#4aad8c" }}>78.5</b> — RTS Score (0-100, composite theme momentum)</span>
+        <span><span style={{ color: "#4aad8c" }}>78.5</span> — RTS Score (0-100, composite theme momentum)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><b style={{ color: "#9090a0" }}>B:100%</b> — Breadth (% of stocks above 50MA; <span style={{ color: "#2bb886" }}>≥60%</span> healthy, <span style={{ color: "#fbbf24" }}>≥40%</span> mixed, <span style={{ color: "#f87171" }}>&lt;40%</span> weak)</span>
+        <span><span style={{ color: "#9090a0" }}>B:100%</span> — Breadth (% of stocks above 50MA; <span style={{ color: "#2bb886" }}>≥60%</span> healthy, <span style={{ color: "#fbbf24" }}>≥40%</span> mixed, <span style={{ color: "#f87171" }}>&lt;40%</span> weak)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><b style={{ color: "#9090a0" }}>1W% 1M%</b> <b style={{ color: "#b8b8c8" }}>3M%</b> — Returns (bold = 3 month)</span>
+        <span><span style={{ color: "#9090a0" }}>1W% 1M%</span> <span style={{ color: "#b8b8c8" }}>3M%</span> — Returns</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><b style={{ color: "#9090a0" }}>4A</b> — Count of A+/A/A- graded stocks (top momentum names)</span>
+        <span><span style={{ color: "#9090a0" }}>4A</span> — Count of A+/A/A- graded stocks (top momentum names)</span>
         <span style={{ color: "#3a3a4a" }}>|</span>
         <span><span style={{ color: "#2bb886" }}>4%↑2</span> <span style={{ color: "#f87171" }}>↓1</span> — Today's 4%+ movers on above-avg volume (green = buying, red = selling)</span>
         {Object.keys(healthMap).length > 0 && (<>
           <span style={{ color: "#3a3a4a" }}>|</span>
-          <span><b style={{ color: "#2bb886" }}>★ ADD</b> / <b style={{ color: "#f87171" }}>✗ REMOVE</b> — Theme health signal (structure + momentum + breakouts + breadth composite)</span>
+          <span><span style={{ color: "#2bb886" }}>★ ADD</span> / <span style={{ color: "#f87171" }}>✗ REMOVE</span> — Theme health signal (structure + momentum + breakouts + breadth composite)</span>
         </>)}
       </div>)}
       {list.map(theme => {
@@ -835,7 +835,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             <div onClick={() => toggle(theme.theme)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer",
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
               <span style={{ color: "#d4d4e0", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
-              <span style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 13, flex: 1 }}>
+              <span style={{ color: "#d4d4e0", fontWeight: 600, fontSize: 13, flex: 1 }}>
                 {theme.theme}
                 {onThemeDrillDown && <span onClick={(e) => { e.stopPropagation(); onThemeDrillDown(theme.theme); }}
                   title={`View ${theme.theme} in Scan Watch`}
@@ -844,11 +844,11 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                   onMouseEnter={e => { e.target.style.color = "#4aad8c"; e.target.style.borderColor = "#0d9163"; }}
                   onMouseLeave={e => { e.target.style.color = "#686878"; e.target.style.borderColor = "#3a3a4a"; }}>⇢ Scan</span>}
               </span>
-              <span style={{ background: qc.tag, color: "#d4d4e0", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{quad}</span>
+              <span style={{ background: qc.tag, color: "#d4d4e0", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{quad}</span>
               <span style={{ color: "#9090a0", fontSize: 12 }}>{theme.count}</span>
-              <span style={{ color: qc.text, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{theme.rts}</span>
+              <span style={{ color: qc.text, fontWeight: 600, fontSize: 13, fontFamily: "monospace" }}>{theme.rts}</span>
               {(() => { const lp = liveThemePerf[theme.theme]; if (!lp) return null;
-                return <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 13,
+                return <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 13,
                   color: lp.avg > 0 ? "#2bb886" : lp.avg < 0 ? "#f87171" : "#9090a0" }}>
                   {lp.avg > 0 ? "+" : ""}{lp.avg.toFixed(2)}%
                 </span>;
@@ -890,12 +890,12 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                   const total = allStocks.length || 1;
                   return (
                   <div style={{ display: "flex", gap: 16, padding: "6px 8px", marginBottom: 6, background: "#1a1a24", borderRadius: 4, fontSize: 11, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ color: "#9090a0" }}>Stocks: <b style={{ color: "#d4d4e0" }}>{theme.count}</b></span>
-                    <span style={{ color: "#9090a0" }}>A grades: <b style={{ color: "#2bb886" }}>{theme.a_grades}</b></span>
-                    <span style={{ color: "#9090a0" }}>Breadth: <b style={{ color: theme.breadth >= 60 ? "#2bb886" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</b></span>
-                    <span style={{ color: "#9090a0" }}>Avg RS: <b style={{ color: "#b8b8c8" }}>{Math.round(allStocks.reduce((a, s) => a + (s.rs_rank || 0), 0) / total)}</b></span>
+                    <span style={{ color: "#9090a0" }}>Stocks: <span style={{ color: "#d4d4e0" }}>{theme.count}</span></span>
+                    <span style={{ color: "#9090a0" }}>A grades: <span style={{ color: "#2bb886" }}>{theme.a_grades}</span></span>
+                    <span style={{ color: "#9090a0" }}>Breadth: <span style={{ color: theme.breadth >= 60 ? "#2bb886" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</span></span>
+                    <span style={{ color: "#9090a0" }}>Avg RS: <span style={{ color: "#b8b8c8" }}>{Math.round(allStocks.reduce((a, s) => a + (s.rs_rank || 0), 0) / total)}</span></span>
                     {(() => { const best = [...allStocks].sort((a, b) => b.return_3m - a.return_3m)[0];
-                      return best ? <span style={{ color: "#9090a0" }}>Top 3M: <b style={{ color: "#2bb886" }}>{best.ticker}</b> <Ret v={best.return_3m} bold /></span> : null;
+                      return best ? <span style={{ color: "#9090a0" }}>Top 3M: <span style={{ color: "#2bb886" }}>{best.ticker}</span> <Ret v={best.return_3m} bold /></span> : null;
                     })()}
                     {/* 52W High Proximity Distribution */}
                     <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 1, marginLeft: 4 }} title={`Within 5%: ${hi5}\n5-10%: ${hi10}\n10-25%: ${hi25}\n25-50%: ${hi50}\n>50%: ${hiRest}`}>
@@ -990,7 +990,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                               ref={isAct ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
                               onClick={() => onTickerClick(s.ticker)}
                               style={{ borderBottom: "1px solid #222230", cursor: "pointer", background: isAct ? "#0d916315" : "transparent" }}>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>{s.ticker}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>{s.ticker}</td>
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
                               {(() => { const chg = liveLookup[s.ticker]?.change; const c = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
@@ -1028,7 +1028,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderBottom: "1px solid #222230", fontSize: 12 }}>
                       <span style={{ color: "#b8b8c8", fontWeight: 400, width: 160, textAlign: "left" }}>{sub.name}</span>
                       <span style={{ color: "#787888", width: 24, textAlign: "center" }}>{sub.count}</span>
-                      <span style={{ color: sub.rts >= 65 ? "#2bb886" : sub.rts >= 50 ? "#60a5fa" : "#fbbf24", fontWeight: 700, fontFamily: "monospace", width: 32 }}>{sub.rts}</span>
+                      <span style={{ color: sub.rts >= 65 ? "#2bb886" : sub.rts >= 50 ? "#60a5fa" : "#fbbf24", fontWeight: 600, fontFamily: "monospace", width: 32 }}>{sub.rts}</span>
                       <Ret v={sub.return_1m} /><Ret v={sub.return_3m} bold />
                       <span style={{ color: "#787888", fontSize: 11 }}>B:{sub.breadth}%</span>
                       <span style={{ color: "#787888", fontSize: 11 }}>{sub.a_grades}A</span>
@@ -1595,7 +1595,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700 }}>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
@@ -1945,7 +1945,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           {columns.map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setSortBy(sk) : undefined}
-              style={{ padding: "5px 6px", color: sortBy === sk ? "#fbbf24" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 10,
+              style={{ padding: "5px 6px", color: sortBy === sk ? "#fbbf24" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 10,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
               {h}{sortBy === sk ? " ▼" : ""}</th>
           ))}
@@ -1963,7 +1963,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               style={{ borderBottom: `1px solid ${isConsol ? "#fbbf2425" : "#222230"}`, cursor: "pointer",
                 background: isActive ? "#fbbf2415" : isConsol ? "#fbbf2408" : "transparent" }}>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                <span style={{ color: isActive ? "#fbbf24" : "#d4d4e0", fontWeight: 700 }}>{isConsol && "★ "}{ep.ticker}</span>
+                <span style={{ color: isActive ? "#fbbf24" : "#d4d4e0", fontWeight: 600 }}>{isConsol && "★ "}{ep.ticker}</span>
                 {ep.near_earnings && <span title="Near earnings" style={{ marginLeft: 3, fontSize: 9, color: "#fbbf24" }}>📊</span>}
               </td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
@@ -1982,11 +1982,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: ep.days_ago === 0 ? "#fbbf24" : ep.days_ago <= 5 ? "#fcd34d" : "#787888" }}>
                 {ep.days_ago === 0 ? "TODAY" : `${ep.days_ago}d`}</td>
-              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: ep.gap_pct >= 15 ? "#fbbf24" : "#2bb886" }}>+{ep.gap_pct}%</td>
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: ep.change_pct > 0 ? "#2bb886" : "#f87171" }}>{ep.change_pct > 0 ? "+" : ""}{ep.change_pct}%</td>
-              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: ep.vol_ratio >= 8 ? "#fbbf24" : ep.vol_ratio >= 5 ? "#2bb886" : "#60a5fa" }}>{ep.vol_ratio}x</td>
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace",
                 color: ep.close_range >= 80 ? "#2bb886" : "#9090a0" }}>{ep.close_range}%</td>
@@ -2097,9 +2097,9 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Q", "quality"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
+  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Q", "quality"], ["VCS", "vcs"], ["MF", "mf"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["ADR%", "adr"],
-  ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
+  ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
 
 function LiveSortHeader({ setter, current }) {
@@ -2107,7 +2107,7 @@ function LiveSortHeader({ setter, current }) {
     <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
       {LIVE_COLUMNS.map(([h, sk]) => (
         <th key={h || "act"} onClick={sk ? () => setter(prev => prev === sk ? "change" : sk) : undefined}
-          style={{ padding: "6px 6px", color: current === sk ? "#4aad8c" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 11,
+          style={{ padding: "6px 6px", color: current === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
             cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
           {h}{current === sk ? " ▼" : ""}</th>
       ))}
@@ -2134,7 +2134,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
         {onAdd && <span onClick={(e) => { e.stopPropagation(); onAdd(s.ticker); }}
           style={{ color: "#0d9163", cursor: "pointer", fontSize: 11 }}>{addLabel || "+watch"}</span>}
       </td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 700, fontSize: 12 }}>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 600, fontSize: 12 }}>
         <span>{s.ticker}</span>
         {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
           <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
@@ -2146,6 +2146,21 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
           </span>
         )}
       </td>
+      {/* Tags */}
+      <td style={{ padding: "4px 6px", textAlign: "center" }}>
+        <div style={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
+          {(s._scanHits || []).map(h => {
+            const hc = { T: { bg: "#05966920", color: "#2bb886", label: "T" }, W: { bg: "#c084fc20", color: "#c084fc", label: "W" },
+              L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" },
+              EP: { bg: "#f9731620", color: "#f97316", label: "EP" },
+              CS: { bg: "#22d3ee20", color: "#22d3ee", label: "CS" },
+              ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" } }[h];
+            if (!hc) return null;
+            return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
+              color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
+          })}
+        </div>
+      </td>
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
         title={s._q_factors?.length ? s._q_factors.map(f => {
@@ -2156,16 +2171,30 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
             "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
           return labels[f] || f; }).join("\n") : ""}>
         {s._quality ?? "—"}</td>
+      {/* VCS */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
+        title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
+        {s.vcs ?? "—"}</td>
+      {/* MF */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
+        title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
+        {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontFamily: "monospace", fontSize: 12 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace", fontSize: 12 }}>
+      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} /></td>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace", fontSize: 12 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
         {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+      {/* $Vol */}
+      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+        color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
+        {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
       {(() => { const rv = s.rel_volume;
         const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
         const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
@@ -2334,7 +2363,7 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
                   cursor: "pointer", marginBottom: 1 }}
                 onMouseEnter={ev => ev.currentTarget.style.background = "#1a1a24"}
                 onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
-                <span style={{ fontWeight: 700, fontSize: 12, color: "#d4d4e0", width: 50 }}>{e.ticker}</span>
+                <span style={{ fontWeight: 600, fontSize: 12, color: "#d4d4e0", width: 50 }}>{e.ticker}</span>
                 {e.grade && <Badge grade={e.grade} />}
                 <span style={{ fontSize: 11, color: "#9090a0", fontFamily: "monospace", width: 28, textAlign: "right" }}>{e.rs_rank ?? '—'}</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", width: 45, textAlign: "right",
@@ -2556,6 +2585,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const mergeStock = useCallback((ticker) => {
     const live = liveLookup[ticker] || {};
     const pipe = stockMap?.[ticker] || {};
+    const { quality, q_factors } = computeStockQuality(pipe);
     return {
       ticker,
       price: live.price ?? pipe.price,
@@ -2582,11 +2612,21 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       themes: pipe.themes || [],
       theme: pipe.themes?.[0]?.theme || live.sector || "",
       company: live.company || pipe.company || "",
+      // Additional fields for column parity with Scan
+      vcs: pipe.vcs,
+      vcs_components: pipe.vcs_components,
+      mf: pipe.mf,
+      mf_components: pipe.mf_components,
+      _mfPct: pipe._mfPct,
+      avg_dollar_vol: pipe.avg_dollar_vol,
+      avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
+      earnings_days: pipe.earnings_days,
+      earnings_display: pipe.earnings_display,
+      earnings_date: pipe.earnings_date,
+      _scanHits: pipe._scanHits || [],
+      _quality: quality,
+      _q_factors: q_factors,
     };
-    const { quality, q_factors } = computeStockQuality(pipe);
-    merged._quality = quality;
-    merged._q_factors = q_factors;
-    return merged;
   }, [liveLookup, stockMap]);
 
   // Merge for volume gainers (no pipeline data typically)
@@ -2602,9 +2642,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const makeSorters = () => ({
     ticker: (a, b) => a.ticker.localeCompare(b.ticker),
     quality: sortFn("_quality"),
+    hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
+    vcs: sortFn("vcs"),
+    mf: sortFn("mf"),
     change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
     fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
     atr50: sortFn("atr_to_50"), adr: sortFn("adr_pct"),
+    dvol: sortFn("avg_dollar_vol_raw"),
     vol: (a, b) => {
       const av = a.avg_volume_raw && a.rel_volume ? a.avg_volume_raw * a.rel_volume : 0;
       const bv = b.avg_volume_raw && b.rel_volume ? b.avg_volume_raw * b.rel_volume : 0;
@@ -2613,7 +2657,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     rel_volume: sortFn("rel_volume"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
-    rel_volume: sortFn("rel_volume"), rsi: sortFn("rsi"), price: sortFn("price"),
+    rsi: sortFn("rsi"), price: sortFn("price"),
   });
 
   const sortList = (list, sortKey) => {
@@ -3232,10 +3276,10 @@ function AppMain({ authToken, onLogout }) {
           <span style={{ color: "#686878", fontSize: 12 }}>{data.date}</span>
         </div>
         <div className="tp-stats" style={{ display: "flex", gap: 16, fontSize: 12 }}>
-          <span style={{ color: "#787888" }}>Stocks: <b style={{ color: "#d4d4e0" }}>{data.total_stocks}</b></span>
-          <span style={{ color: "#787888" }}>Strong: <b style={{ color: "#2bb886" }}>{strongC}</b></span>
-          <span style={{ color: "#787888" }}>A Grades: <b style={{ color: "#2bb886" }}>{aCount}</b></span>
-          <span style={{ color: "#787888" }}>Breadth: <b style={{ color: breadth >= 60 ? "#2bb886" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</b></span>
+          <span style={{ color: "#787888" }}>Stocks: <span style={{ color: "#d4d4e0" }}>{data.total_stocks}</span></span>
+          <span style={{ color: "#787888" }}>Strong: <span style={{ color: "#2bb886" }}>{strongC}</span></span>
+          <span style={{ color: "#787888" }}>A Grades: <span style={{ color: "#2bb886" }}>{aCount}</span></span>
+          <span style={{ color: "#787888" }}>Breadth: <span style={{ color: breadth >= 60 ? "#2bb886" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</span></span>
         </div>
       </div>
 
