@@ -316,32 +316,65 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               </div>
             )}
             {/* Past earnings from quarterly data */}
-            {stock.quarters && stock.quarters.length > 0 && stock.quarters.map((q, i) => (
-              <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0 }}>
+            {stock.quarters && stock.quarters.length > 0 && stock.quarters.map((q, i) => {
+              // EPS highlighting tier
+              const epsYoy = q.eps_yoy;
+              const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 40 ? 2 : epsYoy >= 25 ? 1 : 0;
+              const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+              const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
+              // Sales highlighting tier
+              const salesYoy = q.sales_yoy;
+              const salesTier = salesYoy >= 100 ? 3 : salesYoy >= 40 ? 2 : salesYoy >= 25 ? 1 : 0;
+              const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+              // EPS Acceleration: latest quarter YoY > previous quarter YoY
+              const prevQ = stock.quarters[i + 1];
+              const isAccel = i === 0 && epsYoy != null && prevQ?.eps_yoy != null && epsYoy > prevQ.eps_yoy && epsYoy > 0;
+              return (
+              <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0,
+                borderBottom: isAccel ? "1px solid #2bb88650" : "none" }}>
                 <span style={{ width: 38, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
-                {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 52, flexShrink: 0 }}>
+                {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 58, flexShrink: 0,
+                  background: epsBg, borderRadius: 2, padding: "0 2px" }}>
+                  {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
                   E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
+                  {isAccel && <span style={{ color: "#2bb886", fontSize: 8, marginLeft: 1 }} title="EPS accelerating">▲</span>}
                 </span>}
-                {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 25 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171" }}>
+                {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 25 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171",
+                  background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                   S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
                 </span>}
               </div>
-            ))}
+              );
+            })}
             {/* Annual EPS/Sales */}
             {stock.annual && stock.annual.length > 0 && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "3px 0 2px", width: "100%" }} />
               <div style={{ color: "#686878", fontWeight: 700, marginBottom: 1 }}>Annual</div>
-              {stock.annual.slice(0, 3).map((a, i) => (
+              {stock.annual.slice(0, 3).map((a, i) => {
+                // EPS highlighting tier
+                const epsYoy = a.eps_yoy;
+                const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 40 ? 2 : epsYoy >= 25 ? 1 : 0;
+                const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+                const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
+                // Sales highlighting tier
+                const salesYoy = a.sales_yoy;
+                const salesTier = salesYoy >= 100 ? 3 : salesYoy >= 40 ? 2 : salesYoy >= 25 ? 1 : 0;
+                const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+                return (
                 <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0 }}>
                   <span style={{ width: 38, flexShrink: 0 }}>{a.year}</span>
-                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 52, flexShrink: 0 }}>
+                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 58, flexShrink: 0,
+                    background: epsBg, borderRadius: 2, padding: "0 2px" }}>
+                    {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
                     E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
                   </span>}
-                  {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 25 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171" }}>
+                  {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 25 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171",
+                    background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                     S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
                   </span>}
                 </div>
-              ))}
+                );
+              })}
             </>)}
           </div>
           {/* Divider */}
