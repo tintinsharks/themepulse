@@ -353,6 +353,17 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         });
         const yoyColor = (v) => v == null ? "#505060" : v > 25 ? "#2bb886" : v > 0 ? "#9090a0" : "#f87171";
         const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+        // CANSLIM cell highlight: background glow for cells meeting O'Neil criteria
+        const canslimBg = (yoy, type) => {
+          if (yoy == null) return "transparent";
+          if (type === "eps" && yoy >= 100) return "#2bb88618"; // exceptional
+          if (type === "eps" && yoy >= 40) return "#2bb88612";  // great
+          if (yoy >= 25) return "#2bb88608";                     // good (both eps & sales)
+          return "transparent";
+        };
+        // Detect EPS acceleration: current quarter YoY > previous quarter YoY
+        const epsAccel = withYoY.length >= 2 && withYoY[0].eps_yoy != null && withYoY[1].eps_yoy != null
+          && withYoY[0].eps_yoy > withYoY[1].eps_yoy && withYoY[0].eps_yoy > 0;
         const annuals = (stock.annual || []).slice(0, 3);
         return (
         <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", flexShrink: 0, display: "flex", gap: 0 }}>
@@ -369,17 +380,24 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             <tbody>
               <tr>
                 <td style={{ padding: "2px 3px", color: "#686878" }}>EPS ($)</td>
-                {withYoY.map(q => (
-                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top" }}>
+                {withYoY.map((q, qi) => {
+                  const isAccel = qi === 0 && epsAccel;
+                  return (
+                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top",
+                    background: canslimBg(q.eps_yoy, "eps"),
+                    borderBottom: isAccel ? "2px solid #2bb886" : undefined }}
+                    title={q.eps_yoy >= 100 ? "★ Exceptional EPS ≥100%" : q.eps_yoy >= 40 ? "● Strong EPS ≥40%" : q.eps_yoy >= 25 ? "○ CANSLIM EPS ≥25%" : isAccel ? "▲ EPS Accelerating" : ""}>
                     <div style={{ color: q.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{q.eps}</div>
-                    {q.eps_yoy != null && <div style={{ color: yoyColor(q.eps_yoy), fontSize: 10 }}>{fmtYoY(q.eps_yoy)}</div>}
+                    {q.eps_yoy != null && <div style={{ color: yoyColor(q.eps_yoy), fontSize: 10 }}>{fmtYoY(q.eps_yoy)}{isAccel ? " ▲" : ""}</div>}
                   </td>
-                ))}
+                  );
+                })}
               </tr>
               <tr>
                 <td style={{ padding: "2px 3px", color: "#686878" }}>Sales ($)</td>
                 {withYoY.map(q => (
-                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top" }}>
+                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top",
+                    background: canslimBg(q.sales_yoy, "sales") }}>
                     <div style={{ color: "#b8b8c8" }}>{q.revenue_fmt}</div>
                     {q.sales_yoy != null && <div style={{ color: yoyColor(q.sales_yoy), fontSize: 10 }}>{fmtYoY(q.sales_yoy)}</div>}
                   </td>
@@ -400,7 +418,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               <tr>
                 <td style={{ padding: "2px 6px", color: "#686878" }}>EPS ($)</td>
                 {annuals.map(a => (
-                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
+                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top",
+                    background: canslimBg(a.eps_yoy, "eps") }}>
                     <div style={{ color: a.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{a.eps}</div>
                     {a.eps_yoy != null && <div style={{ color: yoyColor(a.eps_yoy), fontSize: 10 }}>{fmtYoY(a.eps_yoy)}</div>}
                   </td>
@@ -409,7 +428,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               <tr>
                 <td style={{ padding: "2px 6px", color: "#686878" }}>Sales ($)</td>
                 {annuals.map(a => (
-                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top" }}>
+                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top",
+                    background: canslimBg(a.sales_yoy, "sales") }}>
                     <div style={{ color: "#b8b8c8" }}>{a.revenue_fmt}</div>
                     {a.sales_yoy != null && <div style={{ color: yoyColor(a.sales_yoy), fontSize: 10 }}>{fmtYoY(a.sales_yoy)}</div>}
                   </td>
@@ -1239,8 +1259,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
-  const [minRS, setMinRS] = useState(0);
-  const [scanFilters, setScanFilters] = useState(new Set());
+  const [minRS, setMinRS] = useState(70);
+  const [scanFilters, setScanFilters] = useState(new Set(["T"]));
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
