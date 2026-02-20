@@ -244,8 +244,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, alignItems: "center" }}>
           <span style={{ color: "#9090a0" }}>{stock.company}</span>
           <span style={{ color: "#505060", fontSize: 10 }}>{stock.sector} · {stock.industry}</span>
-          <span style={{ flex: 1 }} />
-          {(stock.earnings_display || stock.earnings_date) && <span style={{ fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>ER:{stock.earnings_display || stock.earnings_date}</span>}
         </div>
       )}
 
@@ -1386,6 +1384,18 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (hits.length > 0) hitMap[s.ticker] = hits;
     });
 
+    // Compute MF percentile thresholds for top/bottom 10%
+    const allMF = stocks.map(s => s.mf).filter(v => v != null).sort((a, b) => a - b);
+    const mfPosThreshold = allMF.length > 0 ? allMF[Math.floor(allMF.length * 0.90)] : 50;
+    const mfNegThreshold = allMF.length > 0 ? allMF[Math.floor(allMF.length * 0.10)] : -50;
+
+    // Add MF+/MF- tags
+    stocks.forEach(s => {
+      if (!hitMap[s.ticker]) hitMap[s.ticker] = [];
+      if (s.mf != null && s.mf >= mfPosThreshold && s.mf > 0) hitMap[s.ticker].push("MF+");
+      if (s.mf != null && s.mf <= mfNegThreshold && s.mf < 0) hitMap[s.ticker].push("MF-");
+    });
+
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     if (scanFilters.size === 0) {
       list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [] }));
@@ -1425,6 +1435,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || (b.rs_rank - a.rs_rank),
       quality: safe(s => s._quality),
       vcs: safe(s => s.vcs),
+      mf: safe(s => s.mf),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: safe(s => GRADE_ORDER[s.grade] ?? null),
       rs: safe(s => s.rs_rank),
@@ -1446,7 +1457,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
-    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0 };
+    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, "MF+": 0, "MF-": 0 };
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
@@ -1454,7 +1465,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"],
     ["Tags", "hits"],
-    ["Q", "quality"], ["VCS", "vcs"],
+    ["Q", "quality"], ["VCS", "vcs"], ["MF", "mf"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["ADR%", "adr"], ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
@@ -1466,7 +1477,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {/* Tag filter toggles */}
         {[
           ["T", "Theme", "#2bb886"], ["W", "Winners", "#c084fc"], ["L", "Liquid", "#60a5fa"],
-          ["E", "Early", "#fbbf24"], ["EP", "EP", "#f97316"], ["CS", "CANSLIM", "#22d3ee"], ["ZM", "Zanger", "#a78bfa"]
+          ["E", "Early", "#fbbf24"], ["EP", "EP", "#f97316"], ["CS", "CANSLIM", "#22d3ee"], ["ZM", "Zanger", "#a78bfa"],
+          ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"]
         ].map(([tag, label, color]) => {
           const active = scanFilters.has(tag);
           return (
@@ -1613,6 +1625,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
                 title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
                 {s.vcs ?? "—"}</td>
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
+                title={s.mf_components ? `DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
+                {s.mf != null ? (s.mf > 0 ? `+${s.mf}` : s.mf) : "—"}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
