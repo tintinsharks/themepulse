@@ -353,7 +353,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         });
         const yoyColor = (v) => v == null ? "#505060" : v > 25 ? "#2bb886" : v > 0 ? "#9090a0" : "#f87171";
         const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
-        const annuals = stock.annual || [];
+        const annuals = (stock.annual || []).slice(0, 3);
         return (
         <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", flexShrink: 0, display: "flex", gap: 0 }}>
           {/* Left: Earnings tables */}
