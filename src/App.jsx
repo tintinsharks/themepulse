@@ -292,25 +292,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
             return <StockStat label="200d" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
-          {stock.inst_quarters && stock.inst_quarters.length > 0 && (
-            <div style={{ width: "100%", borderTop: "1px solid #2a2a38", paddingTop: 2, marginTop: 2 }}>
-              <span style={{ color: "#686878", fontWeight: 700, fontSize: 10 }}>Funds </span>
-              {stock.inst_quarters.slice(0, 4).map((iq, i) => {
-                const prev = stock.inst_quarters[i + 1];
-                const delta = prev ? iq.holders - prev.holders : null;
-                const deltaColor = delta > 0 ? "#2bb886" : delta < 0 ? "#f87171" : "#686878";
-                return (
-                  <span key={i} style={{ fontSize: 10, marginRight: 6 }}>
-                    <span style={{ color: "#505060" }}>{iq.label}:</span>
-                    <span style={{ color: "#b8b8c8", marginLeft: 2 }}>{iq.holders}</span>
-                    {delta != null && delta !== 0 && (
-                      <span style={{ color: deltaColor, fontSize: 9 }}>
-                        ({delta > 0 ? "+" : ""}{delta})
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
+          {(stock.inst_own != null || stock.inst_trans != null) && (
+            <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
+              {stock.inst_own != null && <StockStat label="Inst" value={`${stock.inst_own}%`}
+                color={stock.inst_own >= 80 ? "#2bb886" : stock.inst_own >= 50 ? "#9090a0" : "#f97316"} />}
+              {stock.inst_own != null && stock.inst_trans != null && <span style={{ color: "#3a3a4a", margin: "0 6px" }}>│</span>}
+              {stock.inst_trans != null && <StockStat label="Trans" value={`${stock.inst_trans > 0 ? '+' : ''}${stock.inst_trans}%`}
+                color={stock.inst_trans > 0 ? "#2bb886" : stock.inst_trans < 0 ? "#f87171" : "#686878"} />}
             </div>
           )}
           </div>
