@@ -305,9 +305,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             {/* Past earnings from quarterly data */}
             {stock.quarters && stock.quarters.length > 0 && stock.quarters.map((q, i) => (
               <div key={i} style={{ padding: "1px 0", color: "#505060" }}>
-                <span>● {q.label}</span>
+                <span>{q.report_date ? q.report_date.slice(5) : q.label}</span>
                 {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", marginLeft: 4 }}>
-                  EPS:{q.eps}{q.eps_yoy != null ? ` (${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%)` : ""}
+                  E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
+                </span>}
+                {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 25 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171" }}>
+                  {" / "}S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
                 </span>}
               </div>
             ))}
