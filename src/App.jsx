@@ -314,6 +314,22 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 </span>}
               </div>
             ))}
+            {/* Annual EPS/Sales */}
+            {stock.annual && stock.annual.length > 0 && (<>
+              <div style={{ borderTop: "1px solid #2a2a38", margin: "3px 0 2px", width: "100%" }} />
+              <div style={{ color: "#686878", fontWeight: 700, marginBottom: 1 }}>Annual</div>
+              {stock.annual.slice(0, 3).map((a, i) => (
+                <div key={i} style={{ padding: "1px 0", color: "#505060" }}>
+                  <span>{a.year}</span>
+                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", marginLeft: 4 }}>
+                    E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
+                  </span>}
+                  {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 25 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171" }}>
+                    {" / "}S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
+                  </span>}
+                </div>
+              ))}
+            </>)}
           </div>
           {/* Divider */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
