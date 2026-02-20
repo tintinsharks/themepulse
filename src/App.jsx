@@ -1389,6 +1389,17 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const mfPosThreshold = allMF.length > 0 ? allMF[Math.floor(allMF.length * 0.90)] : 50;
     const mfNegThreshold = allMF.length > 0 ? allMF[Math.floor(allMF.length * 0.10)] : -50;
 
+    // Compute MF percentile rank for each stock
+    const mfRankMap = {};
+    if (allMF.length > 0) {
+      stocks.forEach(s => {
+        if (s.mf != null) {
+          const rank = allMF.filter(v => v <= s.mf).length;
+          mfRankMap[s.ticker] = Math.round(rank / allMF.length * 100);
+        }
+      });
+    }
+
     // Add MF+/MF- tags
     stocks.forEach(s => {
       if (!hitMap[s.ticker]) hitMap[s.ticker] = [];
@@ -1398,7 +1409,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     if (scanFilters.size === 0) {
-      list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [] }));
+      list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker] }));
     } else {
       list = stocks.filter(s => {
         const hits = new Set(hitMap[s.ticker] || []);
@@ -1406,7 +1417,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           if (!hits.has(f)) return false;
         }
         return true;
-      }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [] }));
+      }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker] }));
     }
 
     // Compute stock quality score for each candidate
@@ -1627,8 +1638,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 {s.vcs ?? "—"}</td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
-                title={s.mf_components ? `DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
-                {s.mf != null ? (s.mf > 0 ? `+${s.mf}` : s.mf) : "—"}</td>
+                title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
+                {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
               {(() => {
