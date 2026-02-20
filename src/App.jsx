@@ -368,143 +368,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 ))}
               </div>
             )}
+            {description && (
+              <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#787888", lineHeight: 1.4, maxHeight: 50, overflowY: "auto" }}>
+                {description}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Quarterly earnings mini-table */}
-      {stock && stock.quarters && stock.quarters.length > 0 && (() => {
-        // Build FactSet lookup by period key for YoY overlay
-        const fqMap = {};
-        if (finvizQuarters) {
-          finvizQuarters.forEach(q => { fqMap[`${q.period}_${q.year}`] = q; });
-        }
-        // Use pre-computed YoY from pipeline, overlay FactSet YoY, fall back to computing from yoy_lookup
-        const qMap = {};
-        stock.quarters.forEach(q => { qMap[`${q.period}_${q.year}`] = q; });
-        if (stock.yoy_lookup) {
-          Object.entries(stock.yoy_lookup).forEach(([key, val]) => {
-            if (!qMap[key]) qMap[key] = val;
-          });
-        }
-        const qs = stock.quarters;
-        const withYoY = qs.map((q) => {
-          const fq = fqMap[`${q.period}_${q.year}`];
-          // Priority: FactSet YoY > pipeline pre-computed > computed from lookup
-          let epsYoY = fq?.eps_yoy ?? q.eps_yoy ?? null;
-          let salesYoY = fq?.revenue_yoy ?? q.sales_yoy ?? null;
-          // Use FactSet EPS/revenue if pipeline is missing
-          let eps = q.eps ?? fq?.eps ?? null;
-          let revenue = q.revenue ?? fq?.revenue;
-          let revenue_fmt = q.revenue_fmt ?? fq?.revenue_fmt;
-          // Fallback: compute from lookup if still null
-          if (epsYoY == null || salesYoY == null) {
-            const prior = qMap[`${q.period}_${q.year - 1}`];
-            if (prior) {
-              if (epsYoY == null && prior.eps && prior.eps !== 0 && eps != null) epsYoY = ((eps - prior.eps) / Math.abs(prior.eps) * 100);
-              if (salesYoY == null && prior.revenue && prior.revenue !== 0 && revenue) salesYoY = ((revenue - prior.revenue) / Math.abs(prior.revenue) * 100);
-            }
-          }
-          return { ...q, eps, revenue, revenue_fmt, eps_yoy: epsYoY, sales_yoy: salesYoY };
-        });
-        const yoyColor = (v) => v == null ? "#505060" : v > 25 ? "#2bb886" : v > 0 ? "#9090a0" : "#f87171";
-        const fmtYoY = (v) => v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
-        // CANSLIM cell highlight: background glow for cells meeting O'Neil criteria
-        const canslimBg = (yoy, type) => {
-          if (yoy == null) return "transparent";
-          if (type === "eps" && yoy >= 100) return "#2bb88618"; // exceptional
-          if (type === "eps" && yoy >= 40) return "#2bb88612";  // great
-          if (yoy >= 25) return "#2bb88608";                     // good (both eps & sales)
-          return "transparent";
-        };
-        // Detect EPS acceleration: current quarter YoY > previous quarter YoY
-        const epsAccel = withYoY.length >= 2 && withYoY[0].eps_yoy != null && withYoY[1].eps_yoy != null
-          && withYoY[0].eps_yoy > withYoY[1].eps_yoy && withYoY[0].eps_yoy > 0;
-        const annuals = (stock.annual || []).slice(0, 3);
-        return (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", flexShrink: 0, display: "flex", gap: 0 }}>
-          {/* Left: Earnings tables */}
-          <div style={{ flex: "0 0 auto", overflowX: "auto", display: "flex", gap: 16 }}>
-          {/* Quarterly table */}
-          <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace" }}>
-            <thead><tr>
-              <td style={{ padding: "2px 3px", color: "#686878", fontWeight: 700 }}>Qtr</td>
-              {withYoY.map(q => (
-                <td key={q.label} style={{ padding: "2px 4px", color: "#9090a0", textAlign: "center", fontWeight: 700 }}>{q.label}</td>
-              ))}
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td style={{ padding: "2px 3px", color: "#686878" }}>EPS ($)</td>
-                {withYoY.map((q, qi) => {
-                  const isAccel = qi === 0 && epsAccel;
-                  return (
-                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top",
-                    background: canslimBg(q.eps_yoy, "eps"),
-                    borderBottom: isAccel ? "2px solid #2bb886" : undefined }}
-                    title={q.eps_yoy >= 100 ? "★ Exceptional EPS ≥100%" : q.eps_yoy >= 40 ? "● Strong EPS ≥40%" : q.eps_yoy >= 25 ? "○ CANSLIM EPS ≥25%" : isAccel ? "▲ EPS Accelerating" : ""}>
-                    <div style={{ color: q.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{q.eps}</div>
-                    {q.eps_yoy != null && <div style={{ color: yoyColor(q.eps_yoy), fontSize: 10 }}>{fmtYoY(q.eps_yoy)}{isAccel ? " ▲" : ""}</div>}
-                  </td>
-                  );
-                })}
-              </tr>
-              <tr>
-                <td style={{ padding: "2px 3px", color: "#686878" }}>Sales ($)</td>
-                {withYoY.map(q => (
-                  <td key={q.label} style={{ padding: "2px 4px", textAlign: "center", verticalAlign: "top",
-                    background: canslimBg(q.sales_yoy, "sales") }}>
-                    <div style={{ color: "#b8b8c8" }}>{q.revenue_fmt}</div>
-                    {q.sales_yoy != null && <div style={{ color: yoyColor(q.sales_yoy), fontSize: 10 }}>{fmtYoY(q.sales_yoy)}</div>}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-          {/* Annual table */}
-          {annuals.length > 0 && (
-          <table style={{ borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace", borderLeft: "1px solid #3a3a4a", paddingLeft: 8 }}>
-            <thead><tr>
-              <td style={{ padding: "2px 6px", color: "#686878", fontWeight: 700 }}>Annual</td>
-              {annuals.map(a => (
-                <td key={a.year} style={{ padding: "2px 8px", color: "#9090a0", textAlign: "center", fontWeight: 700 }}>{a.year}</td>
-              ))}
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td style={{ padding: "2px 6px", color: "#686878" }}>EPS ($)</td>
-                {annuals.map(a => (
-                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top",
-                    background: canslimBg(a.eps_yoy, "eps") }}>
-                    <div style={{ color: a.eps > 0 ? "#b8b8c8" : "#f87171", fontWeight: 600 }}>{a.eps}</div>
-                    {a.eps_yoy != null && <div style={{ color: yoyColor(a.eps_yoy), fontSize: 10 }}>{fmtYoY(a.eps_yoy)}</div>}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <td style={{ padding: "2px 6px", color: "#686878" }}>Sales ($)</td>
-                {annuals.map(a => (
-                  <td key={a.year} style={{ padding: "2px 8px", textAlign: "center", verticalAlign: "top",
-                    background: canslimBg(a.sales_yoy, "sales") }}>
-                    <div style={{ color: "#b8b8c8" }}>{a.revenue_fmt}</div>
-                    {a.sales_yoy != null && <div style={{ color: yoyColor(a.sales_yoy), fontSize: 10 }}>{fmtYoY(a.sales_yoy)}</div>}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-          )}
-          </div>
-          {/* Profile Description */}
-          {description && (
-            <div style={{ flex: 1, minWidth: 180, maxHeight: 80, overflowY: "auto", borderLeft: "1px solid #3a3a4a", 
-              padding: "4px 10px", fontSize: 10, color: "#9090a0", lineHeight: 1.4 }}>
-              {description}
-            </div>
-          )}
-        </div>
-        );
-      })()}
 
       </>)}
 
