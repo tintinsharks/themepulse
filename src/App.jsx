@@ -27,7 +27,7 @@ const QC = {
 function Ret({ v, bold }) {
   if (v == null) return <span style={{ color: "#787888" }}>—</span>;
   const c = v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
-  return <span style={{ color: c, fontWeight: bold ? 700 : 400, fontFamily: "monospace", fontSize: 13 }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
+  return <span style={{ color: c, fontWeight: bold ? 700 : 400, fontFamily: "monospace" }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
 }
 
 function Badge({ grade }) {
@@ -40,9 +40,9 @@ function Badge({ grade }) {
 // ── STOCK STAT (label: value pair for chart panel) ──
 function StockStat({ label, value, color = "#9090a0" }) {
   return (
-    <span style={{ whiteSpace: "nowrap" }}>
+    <span style={{ whiteSpace: "nowrap", lineHeight: 1.1 }}>
       <span style={{ color: "#686878" }}>{label}: </span>
-      <span style={{ color, fontFamily: "monospace", fontWeight: 600 }}>{value}</span>
+      <span style={{ color, fontFamily: "monospace" }}>{value}</span>
     </span>
   );
 }
@@ -199,7 +199,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </span>
           )}
           {live && live.change != null && (
-            <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace",
+            <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "monospace",
               color: live.change > 0 ? "#2bb886" : live.change < 0 ? "#f87171" : "#9090a0" }}>
               {live.change > 0 ? "+" : ""}{live.change.toFixed(2)}%
             </span>
@@ -240,26 +240,23 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {/* Collapsible: company, sector, stats, earnings */}
       {showDetails && (<>
 
-      {stock && (
-        <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0 }}>
-          <span style={{ color: "#9090a0" }}>{stock.company}</span>
-          <span style={{ color: "#787888" }}>{stock.sector}</span>
-          <span style={{ color: "#787888" }}>{stock.industry}</span>
-          {stock.adr_pct != null && <span style={{ fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
-          <span style={{ color: "#9090a0" }}>1M: <Ret v={stock.return_1m} /></span>
-          <span style={{ color: "#9090a0" }}>3M: <Ret v={stock.return_3m} bold /></span>
-          <span style={{ color: "#9090a0" }}>6M: <Ret v={stock.return_6m} /></span>
-          {(stock.earnings_display || stock.earnings_date) && <span style={{ fontFamily: "monospace", color: stock.earnings_days != null && stock.earnings_days < 14 ? "#f87171" : "#c084fc" }}>ER:{stock.earnings_display || stock.earnings_date}</span>}
-        </div>
-      )}
-
       {/* Stock detail row — metrics left, news right */}
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0, lineHeight: 1.1 }}>
+          {/* Company info header */}
+          <div style={{ width: "100%", display: "flex", gap: 8, alignItems: "center", marginBottom: 1 }}>
+            <span style={{ color: "#787888", fontSize: 10 }}>{stock.company}</span>
+            <span style={{ color: "#505060", fontSize: 9 }}>{stock.sector} · {stock.industry}</span>
+            <span style={{ flex: 1 }} />
+            {stock.adr_pct != null && <span style={{ fontFamily: "monospace", fontSize: 10, color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
+            <span style={{ fontSize: 10 }}>1M:<Ret v={stock.return_1m} /></span>
+            <span style={{ fontSize: 10 }}>3M:<Ret v={stock.return_3m} /></span>
+            <span style={{ fontSize: 10 }}>6M:<Ret v={stock.return_6m} /></span>
+          </div>
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
-            color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
+            color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : stock.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171"} />}
           {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
             color={stock.avg_volume_raw > 1000000 ? "#2bb886" : "#f97316"} />}
           {stock.volume != null && <StockStat label="Vol" value={(() => { const v = stock.volume; if (v >= 1e9) return (v/1e9).toFixed(2)+"B"; if (v >= 1e6) return (v/1e6).toFixed(2)+"M"; if (v >= 1e3) return (v/1e3).toFixed(0)+"K"; return v; })()}
@@ -274,17 +271,17 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {stock.sma20_pct != null && stock.dist_20dma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_20dma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="Dist 20 SMA" value={`${stock.sma20_pct > 0 ? '+' : ''}${stock.sma20_pct}% / ${stock.dist_20dma_atrx}x`} color={col} />;
+            return <StockStat label="20d" value={`${stock.sma20_pct > 0 ? '+' : ''}${stock.sma20_pct}% / ${stock.dist_20dma_atrx}x`} color={col} />;
           })()}
           {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_50sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="Dist 50 SMA" value={`${stock.sma50_pct > 0 ? '+' : ''}${stock.sma50_pct}% / ${stock.dist_50sma_atrx}x`} color={col} />;
+            return <StockStat label="50d" value={`${stock.sma50_pct > 0 ? '+' : ''}${stock.sma50_pct}% / ${stock.dist_50sma_atrx}x`} color={col} />;
           })()}
           {stock.sma200_pct != null && stock.dist_200sma_atrx != null && (() => {
             const atrx = Math.abs(stock.dist_200sma_atrx);
             const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="Dist 200 SMA" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
+            return <StockStat label="200d" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
           })()}
           {stock.inst_quarters && stock.inst_quarters.length > 0 && (
             <div style={{ width: "100%", borderTop: "1px solid #2a2a38", paddingTop: 2, marginTop: 2 }}>
@@ -325,13 +322,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             )}
             {/* Past earnings from quarterly data */}
             {stock.quarters && stock.quarters.length > 0 && stock.quarters.map((q, i) => (
-              <div key={i} style={{ padding: "1px 0", color: "#505060" }}>
-                <span>{q.report_date ? q.report_date.slice(5) : q.label}</span>
-                {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", marginLeft: 4 }}>
+              <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0 }}>
+                <span style={{ width: 38, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
+                {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 52, flexShrink: 0 }}>
                   E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
                 </span>}
                 {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 25 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171" }}>
-                  {" / "}S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
+                  S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
                 </span>}
               </div>
             ))}
@@ -340,13 +337,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               <div style={{ borderTop: "1px solid #2a2a38", margin: "3px 0 2px", width: "100%" }} />
               <div style={{ color: "#686878", fontWeight: 700, marginBottom: 1 }}>Annual</div>
               {stock.annual.slice(0, 3).map((a, i) => (
-                <div key={i} style={{ padding: "1px 0", color: "#505060" }}>
-                  <span>{a.year}</span>
-                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", marginLeft: 4 }}>
+                <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0 }}>
+                  <span style={{ width: 38, flexShrink: 0 }}>{a.year}</span>
+                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 52, flexShrink: 0 }}>
                     E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
                   </span>}
                   {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 25 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171" }}>
-                    {" / "}S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
+                    S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
                   </span>}
                 </div>
               ))}
@@ -361,9 +358,17 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             ) : news.length > 0 ? (
               <div style={{ fontSize: 10, fontFamily: "monospace" }}>
                 <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>News</div>
-                {news.map((n, i) => (
+                {news.map((n, i) => {
+                  // Shorten date: "Feb-19-26 08:00AM" → "Feb 19" or "2/19 8AM"
+                  const shortDate = (() => {
+                    if (!n.date) return '';
+                    const parts = n.date.replace(/-/g, ' ').split(' ');
+                    if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
+                    return n.date;
+                  })();
+                  return (
                   <div key={i} style={{ display: "flex", gap: 6, padding: "1px 0" }}>
-                    <span style={{ color: "#686878", whiteSpace: "nowrap", flexShrink: 0 }}>{n.date}</span>
+                    <span style={{ color: "#505060", whiteSpace: "nowrap", flexShrink: 0, fontSize: 9 }}>{shortDate}</span>
                     <a href={n.url} target="_blank" rel="noopener noreferrer"
                       style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                       onMouseEnter={e => e.target.style.color = "#0d9163"}
@@ -371,7 +376,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                       {n.headline}
                     </a>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>No news found</span>
@@ -672,7 +678,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                       ["3M%", "ret3m", 48],
                     ].map(([h, sk, w]) => (
                       <th key={h} onClick={sk ? () => setIntradaySort(prev => prev === sk ? "chg" : sk) : undefined}
-                        style={{ padding: "4px 4px", color: intradaySort === sk ? "#4aad8c" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 10,
+                        style={{ padding: "4px 4px", color: intradaySort === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 10,
                           cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap", width: w || undefined }}>
                         {h}{intradaySort === sk ? " ▼" : ""}
                       </th>
@@ -710,7 +716,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                       {/* # */}
                       <td style={{ padding: "4px 4px", textAlign: "center", color: "#686878", fontFamily: "monospace", fontSize: 10, width: 24 }}>{i + 1}</td>
                       {/* Theme + signal tag */}
-                      <td style={{ padding: "4px 6px", fontWeight: isSelected ? 700 : 500, color: isSelected ? "#0d9163" : "#b8b8c8",
+                      <td style={{ padding: "4px 6px", fontWeight: isSelected ? 600 : 400, color: isSelected ? "#0d9163" : "#b8b8c8",
                         maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
                         <span style={{ display: "inline-block", padding: "1px 4px", borderRadius: 3, fontSize: 8, fontWeight: 700,
                           color: sigColor, background: sigBg, border: `1px solid ${sigColor}30`, marginRight: 5, verticalAlign: "middle",
@@ -945,7 +951,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {/* Detail table view */}
                 {detailTheme === theme.theme && (() => {
                   const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["ADR%","adr"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
+                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["ADR%","adr"],["$Vol","dvol"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
                   const safe = (fn) => (a, b) => {
                     const av = fn(a), bv = fn(b);
                     if (av == null && bv == null) return 0;
@@ -962,6 +968,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     ret3m: safe(s => s.return_3m),
                     fromhi: safe(s => s.pct_from_high),
                     adr: safe(s => s.adr_pct),
+                    dvol: safe(s => s.avg_dollar_vol_raw),
                     vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
                     rvol: safe(s => s.rel_volume),
                   };
@@ -975,7 +982,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
                           {cols.map(([h, sk]) => (
                             <th key={h} onClick={sk ? () => setDetailSort(prev => prev === sk ? "rs" : sk) : undefined}
-                              style={{ padding: "4px 6px", color: detailSort === sk ? "#4aad8c" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 10,
+                              style={{ padding: "4px 6px", color: detailSort === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 10,
                                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
                               {h}{detailSort === sk ? " ▼" : ""}</th>
                           ))}
@@ -992,13 +999,16 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
                               {(() => { const chg = liveLookup[s.ticker]?.change; const c = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
-                                return <td style={{ padding: "3px 6px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 11, color: chg != null ? c : "#3a3a4a" }}>
+                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: chg != null ? c : "#3a3a4a" }}>
                                   {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>; })()}
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
                               <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
+                                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
                               {(() => { const lv = liveLookup[s.ticker]; const rv = lv?.rel_volume ?? s.rel_volume;
                                 const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
                                 const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
@@ -1021,7 +1031,7 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                 {detailTheme !== theme.theme && theme.subthemes.map(sub => (
                   <div key={sub.name} style={{ marginBottom: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderBottom: "1px solid #222230", fontSize: 12 }}>
-                      <span style={{ color: "#b8b8c8", fontWeight: 600, width: 160, textAlign: "left" }}>{sub.name}</span>
+                      <span style={{ color: "#b8b8c8", fontWeight: 400, width: 160, textAlign: "left" }}>{sub.name}</span>
                       <span style={{ color: "#787888", width: 24, textAlign: "center" }}>{sub.count}</span>
                       <span style={{ color: sub.rts >= 65 ? "#2bb886" : sub.rts >= 50 ? "#60a5fa" : "#fbbf24", fontWeight: 700, fontFamily: "monospace", width: 32 }}>{sub.rts}</span>
                       <Ret v={sub.return_1m} /><Ret v={sub.return_3m} bold />
@@ -1425,6 +1435,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       ret3m: safe(s => s.return_3m),
       fromhi: safe(s => s.pct_from_high),
       adr: safe(s => s.adr_pct),
+      dvol: safe(s => s.avg_dollar_vol_raw),
       vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
@@ -1449,7 +1460,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     ["Q", "quality"], ["VCS", "vcs"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["ADR%", "adr"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
+    ["FrHi%", "fromhi"], ["ADR%", "adr"], ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
   ];
 
   return (
@@ -1466,7 +1477,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               const next = new Set(prev);
               if (next.has(tag)) next.delete(tag); else next.add(tag);
               return next;
-            })} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer",
+            })} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
               border: `1px solid ${active ? color : "#3a3a4a"}`,
               background: active ? `${color}20` : "transparent",
               color: active ? color : "#686878", display: "flex", alignItems: "center", gap: 3 }}>
@@ -1479,7 +1490,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
         )}
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span style={{ color: "#2bb886", fontWeight: 700, fontSize: 12 }}>{candidates.length}</span>
+        <span style={{ color: "#2bb886", fontWeight: 600, fontSize: 12 }}>{candidates.length}</span>
         {scanFilters.size > 0 && (
           <span style={{ color: "#9090a0", fontSize: 9, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {(() => {
@@ -1503,7 +1514,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           border: greenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
           background: greenOnly ? "#2bb88620" : "transparent", color: greenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 700, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
+          <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
           <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
         </div>
@@ -1544,7 +1555,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           {columns.map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setSortBy(prev => prev === sk ? "default" : sk) : undefined}
-              style={{ padding: "6px 8px", color: sortBy === sk ? "#4aad8c" : "#787888", fontWeight: 700, textAlign: "center", fontSize: 11,
+              style={{ padding: "6px 8px", color: sortBy === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
               {h}{sortBy === sk ? " ▼" : ""}</th>
           ))}
@@ -1611,14 +1622,17 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 const lv = liveLookup[s.ticker];
                 const chg = lv?.change;
                 const chgColor = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 700, fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
                   {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>;
               })()}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontWeight: near ? 700 : 400, fontFamily: "monospace" }}>{s.pct_from_high}%</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
+                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
               {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
                 const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
                 const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
