@@ -1238,8 +1238,8 @@ function computeStockQuality(s, leadingThemes) {
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
-  const [greenOnly, setGreenOnly] = useState(true);
-  const [minRS, setMinRS] = useState(75);
+  const [greenOnly, setGreenOnly] = useState(false);
+  const [minRS, setMinRS] = useState(0);
   const [scanFilters, setScanFilters] = useState(new Set());
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
@@ -1378,7 +1378,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
 
     let list;
-    // Always run master scan — union of all filters with tag tracking
+    // Compute tags for all stocks
     const hitMap = {};
     stocks.forEach(s => {
       const hits = [];
@@ -1409,17 +1409,18 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
       if (hits.length > 0) hitMap[s.ticker] = hits;
     });
-    list = stocks.filter(s => hitMap[s.ticker]).map(s => ({ ...s, _scanHits: hitMap[s.ticker] }));
 
-    // Apply tag filters (AND logic) — stock must have ALL selected tags
-    if (scanFilters.size > 0) {
-      list = list.filter(s => {
-        const hits = new Set(s._scanHits || []);
+    // No tag filters = show all stocks (with tags attached), tag filters = AND filter
+    if (scanFilters.size === 0) {
+      list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [] }));
+    } else {
+      list = stocks.filter(s => {
+        const hits = new Set(hitMap[s.ticker] || []);
         for (const f of scanFilters) {
           if (!hits.has(f)) return false;
         }
         return true;
-      });
+      }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [] }));
     }
 
     // Compute stock quality score for each candidate
