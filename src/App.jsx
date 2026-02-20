@@ -257,7 +257,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {stock && (stock.market_cap || stock.atr || stock.adr_pct) && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 35%", minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0 }}>
           {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
             color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : "#f97316"} />}
           {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
@@ -289,7 +289,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </div>
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
-          <div style={{ flex: "0 0 auto", minWidth: 100, fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ flex: "0 0 auto", minWidth: 160, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>Earnings</div>
             {/* Next earnings */}
             {(stock.earnings_display || stock.earnings_date) && (
