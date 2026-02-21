@@ -583,21 +583,14 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 
 // ── THEME LEADERS ──
 function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData: externalLiveData, onThemeDrillDown }) {
-  const [open, setOpen] = useState({});
-  const [sort, setSort] = useState("rts");
-  const [detailTheme, setDetailTheme] = useState(null);
-  const [detailSort, setDetailSort] = useState("rs");
-  const [healthFilter, setHealthFilter] = useState(null);
-  const [showLegend, setShowLegend] = useState(false);
-  const [showIntraday, setShowIntraday] = useState(true);
-  const [intradaySort, setIntradaySort] = useState("chg");
+  const [sort, setSort] = useState("chg");
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [hourlySnaps, setHourlySnaps] = useState([]); // [{ts, themes: {name: avg}}]
 
-  // Use external data from LiveView if available, otherwise fetch our own
   const liveThemeData = externalLiveData || localLiveData;
 
-  // Auto-fetch theme universe when Leaders tab is active and no data exists
+  // Auto-fetch theme universe when no data exists
   useEffect(() => {
     if (liveThemeData || !themes || liveLoading) return;
     setLiveLoading(true);
@@ -619,33 +612,13 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
           }
         }
-        if (results.length > 0) setLocalLiveData(prev => mergeThemeData(prev, results));
+        if (results.length > 0) setLocalLiveData(results);
       } catch (e) {}
       finally { setLiveLoading(false); }
     })();
   }, [liveThemeData, themes, liveLoading]);
 
-  // Merge new data with previous — keeps old entries if new fetch missed them
-  function mergeThemeData(prev, next) {
-    if (!prev || prev.length === 0) return next;
-    if (!next || next.length === 0) return prev;
-    const map = {};
-    prev.forEach(s => { map[s.ticker] = s; });
-    next.forEach(s => { map[s.ticker] = s; }); // new overwrites old
-    return Object.values(map);
-  }
-
-  // Auto-refresh removed — parent now handles global theme universe refresh every 30s
-
-  // Build liveLookup from liveThemeData (ticker → {change, rel_volume, ...})
-  const liveLookup = useMemo(() => {
-    const m = {};
-    if (liveThemeData) liveThemeData.forEach(s => { m[s.ticker] = s; });
-    return m;
-  }, [liveThemeData]);
-  const hasLive = Object.keys(liveLookup).length > 0;
-
-  // Compute live theme performance + rotation score
+  // Compute live theme performance
   const liveThemePerf = useMemo(() => {
     if (!liveThemeData || liveThemeData.length === 0 || !themes) return {};
     const lookup = {};
@@ -653,570 +626,170 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     const perf = {};
     themes.forEach(t => {
       const tickers = t.subthemes?.flatMap(s => s.tickers || []) || [];
-      const changes = [], rvols = [];
+      const changes = [], rvols = [], mfScores = [];
+      let rsSum = 0, rsCount = 0;
       tickers.forEach(tk => {
         const s = lookup[tk];
+        const sm = stockMap[tk];
         if (s?.change != null) changes.push(s.change);
         if (s?.rel_volume != null && s.rel_volume > 0) rvols.push(s.rel_volume);
+        if (sm?.mf != null) mfScores.push(sm.mf);
+        if (sm?.rs_rank != null) { rsSum += sm.rs_rank; rsCount++; }
       });
       if (changes.length === 0) return;
       const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
       const up = changes.filter(c => c > 0).length;
-      const liveBreadth = Math.round(up / changes.length * 100);
+      const breadth = Math.round(up / changes.length * 100);
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
-      // Δ Breadth: live intraday breadth vs pipeline daily breadth (above 50MA %)
-      const pipelineBreadth = t.breadth ?? 50;
-      const deltaBreadth = liveBreadth - pipelineBreadth;
-      // Rotation Score: composite of breadth, RVol, and Δ breadth (0-100 scale)
-      // Breadth component: 0-40 pts (high % green = money flowing in)
-      const breadthScore = Math.min(40, (liveBreadth / 100) * 40);
-      // RVol component: 0-35 pts (institutional participation)
-      const rvolScore = avgRvol != null ? Math.min(35, ((Math.min(avgRvol, 3) - 0.5) / 2.5) * 35) : 0;
-      // Δ Breadth component: 0-25 pts (acceleration — live breadth gaining vs daily)
-      const deltaScore = Math.max(0, Math.min(25, ((deltaBreadth + 30) / 60) * 25));
-      const rotationScore = Math.round(Math.max(0, breadthScore + rvolScore + deltaScore));
-      perf[t.theme] = { avg, up, total: changes.length, breadth: liveBreadth, avgRvol, deltaBreadth, rotationScore };
+      const avgMF = mfScores.length > 0 ? Math.round(mfScores.reduce((a, b) => a + b, 0) / mfScores.length) : null;
+      const avgRS = rsCount > 0 ? Math.round(rsSum / rsCount) : null;
+      perf[t.theme] = { avg, up, total: changes.length, breadth, avgRvol, avgMF, avgRS };
     });
     return perf;
-  }, [liveThemeData, themes]);
+  }, [liveThemeData, themes, stockMap]);
 
-  // Build theme breadth lookup from MM data
-  const breadthMap = useMemo(() => {
-    const m = {};
-    if (mmData?.theme_breadth) {
-      mmData.theme_breadth.forEach(tb => { m[tb.theme] = tb; });
+  // Hourly snapshot accumulator
+  useEffect(() => {
+    if (Object.keys(liveThemePerf).length === 0) return;
+    const now = Date.now();
+    const lastSnap = hourlySnaps.length > 0 ? hourlySnaps[hourlySnaps.length - 1].ts : 0;
+    // Snapshot every 30 min (1800000ms)
+    if (now - lastSnap >= 1800000) {
+      const snap = { ts: now, themes: {} };
+      Object.entries(liveThemePerf).forEach(([name, p]) => { snap.themes[name] = p.avg; });
+      setHourlySnaps(prev => [...prev.slice(-10), snap]); // keep last 10
     }
-    return m;
-  }, [mmData]);
-  // Build theme health lookup
+  }, [liveThemePerf]);
+
+  // Theme health lookup
   const healthMap = useMemo(() => {
     const m = {};
-    if (themeHealth) {
-      themeHealth.forEach(h => { m[h.theme] = h; });
-    }
+    if (themeHealth) themeHealth.forEach(h => { m[h.theme] = h; });
     return m;
   }, [themeHealth]);
 
-  // Intraday ranked themes
-  const liveRanked = useMemo(() => {
-    if (!hasLive) return [];
-    const ranked = themes
-      .map(t => ({ ...t, live: liveThemePerf[t.theme] }))
-      .filter(t => t.live);
+  // Ranked themes
+  const ranked = useMemo(() => {
+    const items = themes.map(t => {
+      const live = liveThemePerf[t.theme];
+      const health = healthMap[t.theme];
+      // Compute hourly delta if we have snaps
+      let hourlyDelta = null;
+      if (hourlySnaps.length >= 2 && live) {
+        const prevSnap = hourlySnaps[hourlySnaps.length - 2];
+        const prev = prevSnap.themes[t.theme];
+        if (prev != null) hourlyDelta = live.avg - prev;
+      }
+      return { ...t, live, health, hourlyDelta };
+    }).filter(t => t.live);
+    
     const sorters = {
       chg: (a, b) => b.live.avg - a.live.avg,
       breadth: (a, b) => b.live.breadth - a.live.breadth,
-      rvol: (a, b) => (b.live.avgRvol ?? 0) - (a.live.avgRvol ?? 0),
-      rts: (a, b) => b.rts - a.rts,
-      ret3m: (a, b) => (b.return_3m ?? 0) - (a.return_3m ?? 0),
-      rotScore: (a, b) => (b.live.rotationScore ?? 0) - (a.live.rotationScore ?? 0),
-      delta: (a, b) => (b.live.deltaBreadth ?? 0) - (a.live.deltaBreadth ?? 0),
-      ret1w: (a, b) => (b.return_1w ?? 0) - (a.return_1w ?? 0),
-    };
-    ranked.sort(sorters[intradaySort] || sorters.chg);
-    return ranked;
-  }, [themes, liveThemePerf, hasLive, intradaySort]);
-
-  const list = useMemo(() => {
-    let t = [...themes];
-    if (filters.minRTS > 0) t = t.filter(x => x.rts >= filters.minRTS);
-    if (filters.quad) t = t.filter(x => getQuad(x.weekly_rs, x.monthly_rs) === filters.quad);
-    if (filters.search) {
-      const q = filters.search.toUpperCase();
-      t = t.filter(x => x.theme.toUpperCase().includes(q) || x.subthemes.some(s => s.tickers.some(tk => tk.includes(q))));
-    }
-    if (healthFilter) {
-      t = t.filter(x => {
-        const h = healthMap[x.theme];
-        if (!h) return false;
-        if (healthFilter === "ADD" || healthFilter === "REMOVE") return h.signal === healthFilter;
-        return h.status === healthFilter;
-      });
-    }
-    const sorters = {
       rts: (a, b) => (b.rts || 0) - (a.rts || 0),
-      live_change: (a, b) => (liveThemePerf[b.theme]?.avg ?? -999) - (liveThemePerf[a.theme]?.avg ?? -999),
-      return_3m: (a, b) => (b.return_3m || 0) - (a.return_3m || 0),
-      breadth: (a, b) => (b.breadth || 0) - (a.breadth || 0),
-      a_grades: (a, b) => (b.a_grades || 0) - (a.a_grades || 0),
-      health: (a, b) => (healthMap[b.theme]?.composite || 0) - (healthMap[a.theme]?.composite || 0),
+      rs: (a, b) => (b.live.avgRS || 0) - (a.live.avgRS || 0),
+      mf: (a, b) => (b.live.avgMF || 0) - (a.live.avgMF || 0),
+      ret3m: (a, b) => (b.return_3m || 0) - (a.return_3m || 0),
     };
-    t.sort(sorters[sort] || sorters.rts);
-    return t;
-  }, [themes, filters, sort, healthFilter, healthMap, liveThemePerf]);
-  const toggle = (name) => {
-    setOpen(p => ({ ...p, [name]: !p[name] }));
-    setDetailTheme(name);
-  };
-
-  // Report visible ticker order to parent for keyboard nav
-  useEffect(() => {
-    if (onVisibleTickers) {
-      if (detailTheme) {
-        const theme = list.find(t => t.theme === detailTheme);
-        if (theme) {
-          const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-          const safe = (fn) => (a, b) => {
-            const av = fn(a), bv = fn(b);
-            if (av == null && bv == null) return 0;
-            if (av == null) return 1;
-            if (bv == null) return -1;
-            return bv - av;
-          };
-          const GRADE_ORDER = {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1};
-          const dSorters = {
-            ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-            grade: safe(s => GRADE_ORDER[s.grade] ?? null),
-            rs: safe(s => s.rs_rank),
-            change: safe(s => liveLookup[s.ticker]?.change),
-            ret3m: safe(s => s.return_3m),
-            fromhi: safe(s => s.pct_from_high), adr: safe(s => s.adr_pct),
-            vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
-            rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
-          };
-          const sorted = [...allStocks].sort(dSorters[detailSort] || dSorters.rs);
-          onVisibleTickers(sorted.map(s => s.ticker));
-        }
-      } else {
-        const tickers = list.flatMap(t => t.subthemes.flatMap(s =>
-          s.tickers.map(tk => stockMap[tk]).filter(Boolean).sort((a, b) => b.rs_rank - a.rs_rank).map(s => s.ticker)
-        )).filter((v, i, a) => a.indexOf(v) === i);
-        onVisibleTickers(tickers);
-      }
-    }
-  }, [list, onVisibleTickers, stockMap, detailTheme, detailSort, liveLookup]);
+    items.sort(sorters[sort] || sorters.chg);
+    return items;
+  }, [themes, liveThemePerf, healthMap, hourlySnaps, sort]);
 
   return (
-    <div>
-      {/* Intraday Theme Rotation Table */}
-      {hasLive && (
-        <div style={{ marginBottom: 12 }}>
-          <div onClick={() => setShowIntraday(p => !p)}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer",
-              background: "#141420", border: "1px solid #222230", borderRadius: showIntraday ? "8px 8px 0 0" : 8 }}>
-            <span style={{ color: "#0d9163", fontSize: 11 }}>●</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#0d9163", textTransform: "uppercase", letterSpacing: 1 }}>
-              Theme Rotation
-            </span>
-            <span style={{ color: "#686878", fontSize: 11 }}>{liveRanked.length} themes</span>
-            {liveLoading && <span style={{ color: "#fbbf24", fontSize: 11 }}>Loading...</span>}
-            <span style={{ marginLeft: "auto", color: "#686878", fontSize: 13 }}>{showIntraday ? "▾" : "▸"}</span>
-          </div>
-          {showIntraday && (
-            <div style={{ background: "#141420", border: "1px solid #222230", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "4px 0" }}>
-              <div style={{ display: "flex", gap: 12, padding: "4px 12px 6px", fontSize: 10, color: "#686878", flexWrap: "wrap", borderBottom: "1px solid #1a1a2a", alignItems: "center" }}>
-                <span style={{ color: "#787888", fontWeight: 700 }}>SIGNAL:</span>
-                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#2bb886", background: "#05966925", border: "1px solid #2bb88630", marginRight: 3, verticalAlign: "middle" }}>LEAD</span>Confirmed leader</span>
-                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#0d916390", background: "#0d916312", border: "1px solid #0d916320", marginRight: 3, verticalAlign: "middle" }}>REST</span>Strong but quiet</span>
-                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#fbbf24", background: "#fbbf2418", border: "1px solid #fbbf2430", marginRight: 3, verticalAlign: "middle" }}>ROT↑</span>Rotation in</span>
-                <span><span style={{ display: "inline-block", padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700, color: "#dc262670", background: "#dc262610", border: "1px solid #dc262620", marginRight: 3, verticalAlign: "middle" }}>SKIP</span>Avoid</span>
-                <span style={{ marginLeft: "auto", color: "#4a4a5a" }}>ROT = Breadth×.4 + RVol×.35 + ΔBrdth×.25</span>
+    <div style={{ padding: "8px 6px", fontSize: 10, fontFamily: "monospace" }}>
+      {/* Heatmap */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 8 }}>
+        {ranked.map(t => {
+          const chg = t.live.avg;
+          const intensity = Math.min(1, Math.abs(chg) / 3);
+          const bg = chg > 0
+            ? `rgba(43, 184, 134, ${0.1 + intensity * 0.4})`
+            : chg < 0
+            ? `rgba(248, 113, 113, ${0.1 + intensity * 0.4})`
+            : "rgba(144, 144, 160, 0.1)";
+          return (
+            <div key={t.theme} onClick={() => onThemeDrillDown && onThemeDrillDown(t.theme)}
+              title={`${t.theme}\nChg: ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%\nBreadth: ${t.live.breadth}%\nRS: ${t.live.avgRS || '—'}\nMF: ${t.live.avgMF ?? '—'}`}
+              style={{ padding: "3px 5px", borderRadius: 3, cursor: "pointer", textAlign: "center",
+                background: bg, border: `1px solid ${chg > 0 ? "#2bb88630" : chg < 0 ? "#f8717130" : "#3a3a4a30"}`,
+                minWidth: 52, fontSize: 9 }}>
+              <div style={{ color: "#d4d4e0", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 70 }}>
+                {t.theme.length > 10 ? t.theme.slice(0, 9) + "…" : t.theme}
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                    {[
-                      ["#", null, 24],
-                      ["Theme", null, null],
-                      ["Quad", null, 52],
-                      ["ROT", "rotScore", 44],
-                      ["Chg%", "chg", 56],
-                      ["Breadth", "breadth", 64],
-                      ["↑/Tot", null, 50],
-                      ["RVol", "rvol", 44],
-                      ["ΔBrdth", "delta", 52],
-                      ["1W%", "ret1w", 48],
-                      ["RTS", "rts", 36],
-                      ["3M%", "ret3m", 48],
-                    ].map(([h, sk, w]) => (
-                      <th key={h} onClick={sk ? () => setIntradaySort(prev => prev === sk ? "chg" : sk) : undefined}
-                        style={{ padding: "4px 4px", color: intradaySort === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 10,
-                          cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap", width: w || undefined }}>
-                        {h}{intradaySort === sk ? " ▼" : ""}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>{liveRanked.map((t, i) => {
-                  const quad = getQuad(t.weekly_rs, t.monthly_rs);
-                  const qc = QC[quad];
-                  const chg = t.live.avg;
-                  const brdth = t.live.breadth;
-                  const rvol = t.live.avgRvol;
-                  const delta = t.live.deltaBreadth;
-                  const rotScore = t.live.rotationScore;
-                  const isSelected = detailTheme === t.theme;
-                  // Rotation signal classification
-                  const isStructurallyStrong = quad === "STRONG" || quad === "IMPROVING";
-                  const isTacticallyHot = brdth >= 60 && (rvol == null || rvol >= 1.0);
-                  let sigLabel, sigColor, sigBg, rowGlow;
-                  if (isStructurallyStrong && isTacticallyHot) {
-                    sigLabel = "LEAD"; sigColor = "#2bb886"; sigBg = "#05966925"; rowGlow = "#05966910";
-                  } else if (isStructurallyStrong && !isTacticallyHot) {
-                    sigLabel = "REST"; sigColor = "#0d916390"; sigBg = "#0d916312"; rowGlow = "transparent";
-                  } else if (!isStructurallyStrong && isTacticallyHot) {
-                    sigLabel = "ROT↑"; sigColor = "#fbbf24"; sigBg = "#fbbf2418"; rowGlow = "#fbbf2408";
-                  } else {
-                    sigLabel = "SKIP"; sigColor = "#dc262670"; sigBg = "#dc262610"; rowGlow = "transparent";
-                  }
-                  // Rotation score bar color
-                  const rotBarColor = rotScore >= 70 ? "#059669" : rotScore >= 50 ? "#2bb886" : rotScore >= 35 ? "#fbbf24" : "#686878";
-                  return (
-                    <tr key={t.theme} onClick={() => toggle(t.theme)}
-                      style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-                        background: isSelected ? "#0d916315" : rowGlow }}>
-                      {/* # */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", color: "#686878", fontFamily: "monospace", fontSize: 10, width: 24 }}>{i + 1}</td>
-                      {/* Theme + signal tag */}
-                      <td style={{ padding: "4px 6px", fontWeight: isSelected ? 600 : 400, color: isSelected ? "#0d9163" : "#b8b8c8",
-                        maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderLeft: `3px solid ${qc.tag}` }}>
-                        <span style={{ display: "inline-block", padding: "1px 4px", borderRadius: 3, fontSize: 8, fontWeight: 700,
-                          color: sigColor, background: sigBg, border: `1px solid ${sigColor}30`, marginRight: 5, verticalAlign: "middle",
-                          letterSpacing: 0.5, lineHeight: "14px" }}>{sigLabel}</span>
-                        {t.theme}
-                      </td>
-                      {/* Quad */}
-                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
-                        <span style={{ background: qc.tag, color: "#d4d4e0", padding: "1px 5px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>{quad.slice(0, 4)}</span>
-                      </td>
-                      {/* Rotation Score — bar + number */}
-                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }}>
-                          <div style={{ width: 22, height: 6, background: "#1a1a2a", borderRadius: 3, overflow: "hidden" }}>
-                            <div style={{ width: `${rotScore}%`, height: "100%", background: rotBarColor, borderRadius: 3 }}></div>
-                          </div>
-                          <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 11, color: rotBarColor }}>{rotScore}</span>
-                        </div>
-                      </td>
-                      {/* Chg% */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, fontFamily: "monospace",
-                        color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0" }}>
-                        {chg > 0 ? "+" : ""}{chg.toFixed(2)}%
-                      </td>
-                      {/* Breadth — bar + % */}
-                      <td style={{ padding: "4px 4px", textAlign: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }}>
-                          <div style={{ width: 28, height: 6, background: "#1a1a2a", borderRadius: 3, overflow: "hidden" }}>
-                            <div style={{ width: `${brdth}%`, height: "100%", borderRadius: 3,
-                              background: brdth >= 70 ? "#2bb886" : brdth >= 50 ? "#fbbf24" : "#f87171" }}></div>
-                          </div>
-                          <span style={{ fontFamily: "monospace", fontSize: 11,
-                            color: brdth >= 70 ? "#2bb886" : brdth >= 50 ? "#fbbf24" : "#f87171" }}>{brdth}%</span>
-                        </div>
-                      </td>
-                      {/* ↑/Total */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: "#9090a0", fontSize: 11 }}>
-                        <span style={{ color: "#2bb886" }}>{t.live.up}</span>/<span style={{ color: "#787888" }}>{t.live.total}</span>
-                      </td>
-                      {/* RVol */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontWeight: rvol >= 1.5 ? 700 : 400,
-                        color: rvol == null ? "#3a3a4a" : rvol < 1.0 ? "#686878" :
-                          chg > 0 ? (rvol >= 2 ? "#22a06a" : rvol >= 1.5 ? "#2bb886" : "#2bb88688") :
-                          chg < 0 ? (rvol >= 2 ? "#ef4444" : rvol >= 1.5 ? "#f87171" : "#f8717188") : "#9090a0" }}>
-                        {rvol != null ? `${rvol.toFixed(1)}x` : '—'}
-                      </td>
-                      {/* Δ Breadth */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontWeight: Math.abs(delta) >= 15 ? 700 : 400,
-                        color: delta > 15 ? "#22a06a" : delta > 5 ? "#2bb886" : delta > 0 ? "#2bb88688" : delta < -15 ? "#ef4444" : delta < -5 ? "#f87171" : delta < 0 ? "#f8717188" : "#686878" }}>
-                        {delta > 0 ? "+" : ""}{delta}%
-                      </td>
-                      {/* 1W% */}
-                      <td style={{ padding: "4px 4px", textAlign: "center" }}><Ret v={t.return_1w} bold /></td>
-                      {/* RTS */}
-                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: qc.text, fontWeight: 700 }}>
-                        {t.rts}
-                      </td>
-                      {/* 3M% */}
-                      <td style={{ padding: "4px 4px", textAlign: "center" }}><Ret v={t.return_3m} bold /></td>
-                    </tr>
-                  );
-                })}</tbody>
-              </table>
+              <div style={{ color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878", fontWeight: 700, fontSize: 10 }}>
+                {chg > 0 ? "+" : ""}{chg.toFixed(1)}%
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       {/* Sort buttons */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-        {[["rts","RTS"],
-          ...(hasLive ? [["live_change","Chg%"]] : []),
-          ["return_3m","3M"],["breadth","Brdth"],["a_grades","A's"],["health","Health"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSort(k)} style={{ padding: "4px 10px", borderRadius: 4,
-            border: sort === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
-            background: sort === k ? "#0d916320" : "transparent", color: sort === k ? "#4aad8c" : "#9090a0", fontSize: 12, cursor: "pointer" }}>{l}</button>
+      <div style={{ display: "flex", gap: 3, marginBottom: 6, flexWrap: "wrap" }}>
+        {[["chg","Chg"],["breadth","Brdth"],["rts","RTS"],["rs","RS"],["mf","MF"],["ret3m","3M"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSort(k)} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+            border: sort === k ? "1px solid #0d9163" : "1px solid #2a2a38",
+            background: sort === k ? "#0d916320" : "transparent", color: sort === k ? "#4aad8c" : "#686878" }}>{l}</button>
         ))}
-        {Object.keys(healthMap).length > 0 && (<>
-          <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
-          {[["All", null],["★ ADD","ADD"],["✗ REMOVE","REMOVE"],["Leading","LEADING"],["Emerging","EMERGING"],["Weakening","WEAKENING"],["Lagging","LAGGING"]].map(([label, val]) => (
-            <button key={label} onClick={() => setHealthFilter(healthFilter === val ? null : val)} style={{ padding: "2px 7px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-              border: healthFilter === val ? "1px solid #0d9163" : "1px solid #3a3a4a",
-              background: healthFilter === val ? "#0d916320" : "transparent",
-              color: healthFilter === val ? "#4aad8c" : val === "ADD" ? "#2bb886" : val === "REMOVE" ? "#f87171" : "#787888" }}>{label}</button>
+        {liveLoading && <span style={{ color: "#fbbf24", fontSize: 9 }}>Loading...</span>}
+      </div>
+
+      {/* Compact theme table */}
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+        <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
+          {[["Theme"],["Chg"],["Brd"],["RS"],["MF"],["RTS"],["3M"],["Sig"]].map(([h]) => (
+            <th key={h} style={{ padding: "3px 3px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 9, whiteSpace: "nowrap" }}>{h}</th>
           ))}
-        </>)}
-      </div>
-      {/* Legend */}
-      <div onClick={() => setShowLegend(p => !p)}
-        style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 6, background: "#1a1a24",
-          borderRadius: showLegend ? "4px 4px 0 0" : 4, fontSize: 10, color: "#787888", cursor: "pointer", userSelect: "none" }}>
-        <span style={{ fontSize: 11 }}>{showLegend ? "▾" : "▸"}</span>
-        <span style={{ fontWeight: 700 }}>LEGEND</span>
-      </div>
-      {showLegend && (
-      <div style={{ display: "flex", gap: 12, padding: "6px 12px", marginBottom: 6, background: "#1a1a24", borderRadius: "0 0 4px 4px", fontSize: 10, color: "#787888", flexWrap: "wrap", alignItems: "center", lineHeight: 1.8 }}>
-        <span><span style={{ color: "#059669" }}>STRONG</span>/<span style={{ color: "#d97706" }}>IMPROVING</span>/<span style={{ color: "#ea580c" }}>WEAKENING</span>/<span style={{ color: "#dc2626" }}>WEAK</span> — Quadrant (Weekly vs Monthly RS)</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><span style={{ color: "#9090a0" }}>11</span> — Stock count</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><span style={{ color: "#4aad8c" }}>78.5</span> — RTS Score (0-100, composite theme momentum)</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><span style={{ color: "#9090a0" }}>B:100%</span> — Breadth (% of stocks above 50MA; <span style={{ color: "#2bb886" }}>≥60%</span> healthy, <span style={{ color: "#fbbf24" }}>≥40%</span> mixed, <span style={{ color: "#f87171" }}>&lt;40%</span> weak)</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><span style={{ color: "#9090a0" }}>1W% 1M%</span> <span style={{ color: "#b8b8c8" }}>3M%</span> — Returns</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><span style={{ color: "#9090a0" }}>4A</span> — Count of A+/A/A- graded stocks (top momentum names)</span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span><span style={{ color: "#2bb886" }}>4%↑2</span> <span style={{ color: "#f87171" }}>↓1</span> — Today's 4%+ movers on above-avg volume (green = buying, red = selling)</span>
-        {Object.keys(healthMap).length > 0 && (<>
-          <span style={{ color: "#3a3a4a" }}>|</span>
-          <span><span style={{ color: "#2bb886" }}>★ ADD</span> / <span style={{ color: "#f87171" }}>✗ REMOVE</span> — Theme health signal (structure + momentum + breakouts + breadth composite)</span>
-        </>)}
-      </div>)}
-      {list.map(theme => {
-        const quad = getQuad(theme.weekly_rs, theme.monthly_rs);
-        const qc = QC[quad]; const isOpen = open[theme.theme];
-        const barW = Math.max(5, Math.min(100, theme.rts));
-        return (
-          <div key={theme.theme} style={{ marginBottom: 4, borderRadius: 6, border: "1px solid #3a3a4a", overflow: "hidden" }}>
-            <div onClick={() => toggle(theme.theme)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "pointer",
-              background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
-              <span style={{ color: "#d4d4e0", fontSize: 14, width: 16 }}>{isOpen ? "▾" : "▸"}</span>
-              <span style={{ color: "#d4d4e0", fontWeight: 600, fontSize: 13, flex: 1 }}>
-                {theme.theme}
-                {onThemeDrillDown && <span onClick={(e) => { e.stopPropagation(); onThemeDrillDown(theme.theme); }}
-                  title={`View ${theme.theme} in Scan Watch`}
-                  style={{ marginLeft: 6, fontSize: 10, color: "#686878", cursor: "pointer", padding: "1px 4px", borderRadius: 3,
-                    border: "1px solid #3a3a4a" }}
-                  onMouseEnter={e => { e.target.style.color = "#4aad8c"; e.target.style.borderColor = "#0d9163"; }}
-                  onMouseLeave={e => { e.target.style.color = "#686878"; e.target.style.borderColor = "#3a3a4a"; }}>⇢ Scan</span>}
-              </span>
-              <span style={{ background: qc.tag, color: "#d4d4e0", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{quad}</span>
-              <span style={{ color: "#9090a0", fontSize: 12 }}>{theme.count}</span>
-              <span style={{ color: qc.text, fontWeight: 600, fontSize: 13, fontFamily: "monospace" }}>{theme.rts}</span>
-              {(() => { const lp = liveThemePerf[theme.theme]; if (!lp) return null;
-                return <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 13,
-                  color: lp.avg > 0 ? "#2bb886" : lp.avg < 0 ? "#f87171" : "#9090a0" }}>
-                  {lp.avg > 0 ? "+" : ""}{lp.avg.toFixed(2)}%
-                </span>;
-              })()}
-              <span style={{ color: "#9090a0", fontSize: 12 }}>B:{theme.breadth}%</span>
-              <Ret v={theme.return_3m} bold />
-              <span style={{ color: "#9090a0", fontSize: 12 }}>{theme.a_grades}A</span>
-              {(() => { const h = healthMap[theme.theme]; if (!h) return null;
-                const sc = { LEADING: { bg: "#22a06a18", border: "#22a06a50", color: "#2bb886" },
-                  EMERGING: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24" },
-                  HOLDING: { bg: "#88888812", border: "#88888830", color: "#9090a0" },
-                  WEAKENING: { bg: "#f9731618", border: "#f9731640", color: "#f97316" },
-                  LAGGING: { bg: "#ef444418", border: "#ef444440", color: "#f87171" } }[h.status] || {};
-                const sig = h.signal === "ADD" ? "★" : h.signal === "REMOVE" ? "✗" : "";
-                return <span title={`Health: ${h.composite} | Struct: ${h.pillars.structure} | Mom: ${h.pillars.momentum} | Brk: ${h.pillars.breakouts} | Brdth: ${h.pillars.breadth}`}
-                  style={{ padding: "1px 6px", borderRadius: 3, fontSize: 10, fontWeight: 700,
-                    background: sc.bg, border: `1px solid ${sc.border}`, color: sc.color }}>
-                  {sig}{sig ? " " : ""}{h.status} {h.composite}</span>;
-              })()}
-              {(() => { const tb = breadthMap[theme.theme]; if (!tb || (tb.up_4pct === 0 && tb.down_4pct === 0)) return null;
-                return <span style={{ fontSize: 10, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, marginLeft: 2,
-                  background: tb.net > 0 ? "#22a06a15" : tb.net < 0 ? "#ef444415" : "#3a3a4a30",
-                  border: `1px solid ${tb.net > 0 ? "#22a06a30" : tb.net < 0 ? "#ef444430" : "#3a3a4a40"}`,
-                  color: tb.net > 0 ? "#2bb886" : tb.net < 0 ? "#f87171" : "#787888" }}>
-                  4%↑{tb.up_4pct} ↓{tb.down_4pct}</span>;
-              })()}
-            </div>
-            {isOpen && (
-              <div style={{ background: "#121218", padding: "4px 8px" }}>
-                {/* Theme summary bar */}
-                {(() => {
-                  const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  // 52W high proximity distribution
-                  const hi5 = allStocks.filter(s => s.pct_from_high >= -5).length;
-                  const hi10 = allStocks.filter(s => s.pct_from_high >= -10 && s.pct_from_high < -5).length;
-                  const hi25 = allStocks.filter(s => s.pct_from_high >= -25 && s.pct_from_high < -10).length;
-                  const hi50 = allStocks.filter(s => s.pct_from_high >= -50 && s.pct_from_high < -25).length;
-                  const hiRest = allStocks.filter(s => s.pct_from_high < -50).length;
-                  const total = allStocks.length || 1;
-                  return (
-                  <div style={{ display: "flex", gap: 16, padding: "6px 8px", marginBottom: 6, background: "#1a1a24", borderRadius: 4, fontSize: 11, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ color: "#9090a0" }}>Stocks: <span style={{ color: "#d4d4e0" }}>{theme.count}</span></span>
-                    <span style={{ color: "#9090a0" }}>A grades: <span style={{ color: "#2bb886" }}>{theme.a_grades}</span></span>
-                    <span style={{ color: "#9090a0" }}>Breadth: <span style={{ color: theme.breadth >= 60 ? "#2bb886" : theme.breadth >= 40 ? "#fbbf24" : "#f87171" }}>{theme.breadth}%</span></span>
-                    <span style={{ color: "#9090a0" }}>Avg RS: <span style={{ color: "#b8b8c8" }}>{Math.round(allStocks.reduce((a, s) => a + (s.rs_rank || 0), 0) / total)}</span></span>
-                    {(() => { const best = [...allStocks].sort((a, b) => b.return_3m - a.return_3m)[0];
-                      return best ? <span style={{ color: "#9090a0" }}>Top 3M: <span style={{ color: "#2bb886" }}>{best.ticker}</span> <Ret v={best.return_3m} bold /></span> : null;
-                    })()}
-                    {/* 52W High Proximity Distribution */}
-                    <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 1, marginLeft: 4 }} title={`Within 5%: ${hi5}\n5-10%: ${hi10}\n10-25%: ${hi25}\n25-50%: ${hi50}\n>50%: ${hiRest}`}>
-                      <span style={{ fontSize: 10, color: "#686878", marginRight: 2, alignSelf: "center" }}>52WH:</span>
-                      {[[hi5,"#2bb886","<5%"],[hi10,"#60a5fa","5-10"],[hi25,"#fbbf24","10-25"],[hi50,"#f97316","25-50"],[hiRest,"#f87171",">50"]].map(([cnt, col, lbl]) => (
-                        <span key={lbl} title={`${lbl}%: ${cnt}`} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-                          <span style={{ width: 14, background: col + "60", borderRadius: "2px 2px 0 0",
-                            height: Math.max(2, Math.round(cnt / total * 40)) }} />
-                          <span style={{ fontSize: 9, color: "#686878" }}>{cnt}</span>
-                        </span>
-                      ))}
-                    </span>
-                    <button onClick={(e) => { e.stopPropagation(); setDetailTheme(detailTheme === theme.theme ? null : theme.theme); }}
-                      style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                        border: detailTheme === theme.theme ? "1px solid #0d9163" : "1px solid #3a3a4a",
-                        background: detailTheme === theme.theme ? "#0d916320" : "transparent",
-                        color: detailTheme === theme.theme ? "#4aad8c" : "#787888" }}>
-                      {detailTheme === theme.theme ? "Close Table" : "Detail Table"}</button>
-                  </div>
-                  );
-                })()}
+        </tr></thead>
+        <tbody>{ranked.map((t, i) => {
+          const chg = t.live.avg;
+          const brd = t.live.breadth;
+          const quad = getQuad(t.weekly_rs, t.monthly_rs);
+          const isStrong = quad === "STRONG" || quad === "IMPROVING";
+          const isHot = brd >= 60 && (t.live.avgRvol == null || t.live.avgRvol >= 1.0);
+          let sig, sigColor;
+          if (isStrong && isHot) { sig = "LEAD"; sigColor = "#2bb886"; }
+          else if (isStrong && !isHot) { sig = "REST"; sigColor = "#0d916380"; }
+          else if (!isStrong && isHot) { sig = "ROT↑"; sigColor = "#fbbf24"; }
+          else { sig = "—"; sigColor = "#3a3a4a"; }
+          const h = t.health;
+          const hSig = h?.signal === "ADD" ? "★" : h?.signal === "REMOVE" ? "✗" : "";
 
-                {/* Health pillar breakdown */}
-                {(() => { const h = healthMap[theme.theme]; if (!h) return null;
-                  const bars = [
-                    ["Structure", h.pillars.structure, `>20MA: ${h.detail.above_20}% | >50MA: ${h.detail.above_50}% | >200MA: ${h.detail.above_200}% | Stacked: ${h.detail.ma_stacked}%`],
-                    ["Momentum", h.pillars.momentum, `Avg RS: ${h.detail.avg_rs} | Accel: ${h.detail.accelerating ? "Yes" : "No"}`],
-                    ["Breakouts", h.pillars.breakouts, `<5% from high: ${h.detail.near_high_5}% | <10%: ${h.detail.near_high_10}% | A-density: ${h.detail.a_density}%`],
-                    ["Breadth", h.pillars.breadth, `Positive 1M: ${h.detail.positive_1m_pct}% | Dispersion: ${h.detail.ret_dispersion}`],
-                  ];
-                  return (
-                    <div style={{ display: "flex", gap: 10, padding: "4px 8px", marginBottom: 4, fontSize: 10, alignItems: "center" }}>
-                      <span style={{ color: "#686878", fontSize: 10, minWidth: 45 }}>HEALTH</span>
-                      {bars.map(([label, val, tip]) => (
-                        <span key={label} title={tip} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                          <span style={{ color: "#787888" }}>{label}</span>
-                          <span style={{ width: 40, height: 4, background: "#2a2a38", borderRadius: 2, overflow: "hidden", display: "inline-block" }}>
-                            <span style={{ width: `${val}%`, height: "100%", display: "block", borderRadius: 2,
-                              background: val >= 65 ? "#2bb886" : val >= 40 ? "#fbbf24" : "#f87171" }} />
-                          </span>
-                          <span style={{ color: val >= 65 ? "#2bb886" : val >= 40 ? "#fbbf24" : "#f87171", fontFamily: "monospace" }}>{Math.round(val)}</span>
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {/* Detail table view */}
-                {detailTheme === theme.theme && (() => {
-                  const allStocks = theme.subthemes.flatMap(sub => sub.tickers.map(t => stockMap[t]).filter(Boolean));
-                  const cols = [["Ticker","ticker"],["Grade","grade"],["RS","rs"],["Chg%","change"],["3M%","ret3m"],["FrHi%","fromhi"],["ADR%","adr"],["$Vol","dvol"],["Vol","vol"],["RVol","rvol"],["Subtheme",null]];
-                  const safe = (fn) => (a, b) => {
-                    const av = fn(a), bv = fn(b);
-                    if (av == null && bv == null) return 0;
-                    if (av == null) return 1;
-                    if (bv == null) return -1;
-                    return bv - av;
-                  };
-                  const GRADE_ORDER = {"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1};
-                  const dSorters = {
-                    ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-                    grade: safe(s => GRADE_ORDER[s.grade] ?? null),
-                    rs: safe(s => s.rs_rank),
-                    change: safe(s => liveLookup[s.ticker]?.change),
-                    ret3m: safe(s => s.return_3m),
-                    fromhi: safe(s => s.pct_from_high),
-                    adr: safe(s => s.adr_pct),
-                    dvol: safe(s => s.avg_dollar_vol_raw),
-                    vol: safe(s => s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null),
-                    rvol: safe(s => s.rel_volume),
-                  };
-                  // Build ticker→subtheme map
-                  const subMap = {};
-                  theme.subthemes.forEach(sub => sub.tickers.forEach(t => { subMap[t] = sub.name; }));
-                  const sorted = [...allStocks].sort(dSorters[detailSort] || dSorters.rs);
-                  return (
-                    <div style={{ marginBottom: 8 }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                        <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                          {cols.map(([h, sk]) => (
-                            <th key={h} onClick={sk ? () => setDetailSort(prev => prev === sk ? "rs" : sk) : undefined}
-                              style={{ padding: "4px 6px", color: detailSort === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 10,
-                                cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
-                              {h}{detailSort === sk ? " ▼" : ""}</th>
-                          ))}
-                        </tr></thead>
-                        <tbody>{sorted.map(s => {
-                          const near = s.pct_from_high >= -5;
-                          const isAct = s.ticker === activeTicker;
-                          return (
-                            <tr key={s.ticker}
-                              ref={isAct ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
-                              onClick={() => onTickerClick(s.ticker)}
-                              style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-                                background: isAct ? "#0d916315"
-                                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 1 ? "rgba(248, 113, 113, 0.12)"
-                                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 3 ? "rgba(248, 113, 113, 0.07)"
-                                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 7 ? "rgba(248, 113, 113, 0.03)"
-                                  : "transparent" }}>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>{s.ticker}</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
-                              {(() => { const chg = liveLookup[s.ticker]?.change; const c = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
-                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: chg != null ? c : "#3a3a4a" }}>
-                                  {chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>; })()}
-                              <td style={{ padding: "3px 6px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
-                                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-                              <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
-                                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
-                              {(() => { const lv = liveLookup[s.ticker]; const rv = lv?.rel_volume ?? s.rel_volume;
-                                const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
-                                const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
-                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                  color: v >= 1e6 ? "#9090a0" : v != null ? "#f97316" : "#3a3a4a" }}>{fmt}</td>; })()}
-                              {(() => { const lv = liveLookup[s.ticker]; const rv = lv?.rel_volume ?? s.rel_volume;
-                                return <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
-                                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
-                                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
-                              <td style={{ padding: "3px 6px", color: "#686878", fontSize: 10 }}>{subMap[s.ticker]}</td>
-                            </tr>
-                          );
-                        })}</tbody>
-                      </table>
-                    </div>
-                  );
-                })()}
-
-                {/* Compact badge view (original) — shown when detail table is NOT active */}
-                {detailTheme !== theme.theme && theme.subthemes.map(sub => (
-                  <div key={sub.name} style={{ marginBottom: 6 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderBottom: "1px solid #222230", fontSize: 12 }}>
-                      <span style={{ color: "#b8b8c8", fontWeight: 400, width: 160, textAlign: "left" }}>{sub.name}</span>
-                      <span style={{ color: "#787888", width: 24, textAlign: "center" }}>{sub.count}</span>
-                      <span style={{ color: sub.rts >= 65 ? "#2bb886" : sub.rts >= 50 ? "#60a5fa" : "#fbbf24", fontWeight: 600, fontFamily: "monospace", width: 32 }}>{sub.rts}</span>
-                      <Ret v={sub.return_1m} /><Ret v={sub.return_3m} bold />
-                      <span style={{ color: "#787888", fontSize: 11 }}>B:{sub.breadth}%</span>
-                      <span style={{ color: "#787888", fontSize: 11 }}>{sub.a_grades}A</span>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, padding: "4px 8px" }}>
-                      {sub.tickers.map(t => stockMap[t]).filter(Boolean).sort((a, b) => b.rs_rank - a.rs_rank).map(s => {
-                        const ext = s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : null;
-                        const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
-                        return (
-                          <Ticker key={s.ticker} ticker={s.ticker} onClick={onTickerClick} activeTicker={activeTicker}
-                            title={`${s.company}\nGrade: ${s.grade} | RS: ${s.rs_rank}\n3M: ${s.return_3m}% | ATR/50: ${s.atr_to_50}\nFrom High: ${s.pct_from_high}%`}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, fontSize: 12, fontFamily: "monospace",
-                              background: gc + "20", border: `1px solid ${gc}40`, color: ext || "#ddd", fontWeight: ext ? 700 : 400 }}>
-                            <Badge grade={s.grade} /> {s.ticker}
-                          </Ticker>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      <div style={{ color: "#686878", fontSize: 12, marginTop: 8 }}>{list.length} themes shown</div>
+          return (
+            <tr key={t.theme} onClick={() => onThemeDrillDown && onThemeDrillDown(t.theme)}
+              style={{ borderBottom: "1px solid #1a1a2a", cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#0d916310"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <td style={{ padding: "3px 4px", color: "#c8c8d4", fontWeight: 500, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {hSig && <span style={{ color: hSig === "★" ? "#2bb886" : "#f87171", marginRight: 2 }}>{hSig}</span>}
+                {t.theme}
+              </td>
+              <td style={{ padding: "3px 3px", textAlign: "center", fontWeight: 700,
+                color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                {chg > 0 ? "+" : ""}{chg.toFixed(1)}
+                {t.hourlyDelta != null && (
+                  <span style={{ fontSize: 8, color: t.hourlyDelta > 0 ? "#2bb88680" : "#f8717180", marginLeft: 1 }}>
+                    {t.hourlyDelta > 0 ? "▲" : "▼"}
+                  </span>
+                )}
+              </td>
+              <td style={{ padding: "3px 3px", textAlign: "center",
+                color: brd >= 70 ? "#2bb886" : brd >= 50 ? "#fbbf24" : "#f87171" }}>{brd}%</td>
+              <td style={{ padding: "3px 3px", textAlign: "center", color: "#9090a0" }}>{t.live.avgRS || "—"}</td>
+              <td style={{ padding: "3px 3px", textAlign: "center",
+                color: (t.live.avgMF ?? 0) > 20 ? "#2bb886" : (t.live.avgMF ?? 0) < -20 ? "#f87171" : "#686878" }}>
+                {t.live.avgMF != null ? (t.live.avgMF > 0 ? "+" : "") + t.live.avgMF : "—"}</td>
+              <td style={{ padding: "3px 3px", textAlign: "center", color: t.rts >= 65 ? "#2bb886" : t.rts >= 50 ? "#60a5fa" : "#fbbf24", fontWeight: 600 }}>{t.rts}</td>
+              <td style={{ padding: "3px 3px", textAlign: "center" }}><Ret v={t.return_3m} /></td>
+              <td style={{ padding: "3px 2px", textAlign: "center" }}>
+                <span style={{ fontSize: 8, fontWeight: 700, color: sigColor, padding: "0 2px", borderRadius: 2,
+                  background: sigColor + "18", border: `1px solid ${sigColor}30` }}>{sig}</span>
+              </td>
+            </tr>
+          );
+        })}</tbody>
+      </table>
+      <div style={{ color: "#505060", fontSize: 9, marginTop: 4 }}>{ranked.length} themes · click to filter scan</div>
     </div>
   );
 }
