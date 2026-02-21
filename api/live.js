@@ -632,10 +632,22 @@ async function fetchTickerNews(cookies, ticker) {
     
     // ── ANALYST CONSENSUS ──
     const analyst = {};
+    // Try epsGet first (uses <b> tag pattern), then fallback to broader pattern
     const rawTarget = epsGet('Target Price');
-    if (rawTarget) analyst.target_price = rawTarget;
+    if (rawTarget) {
+      analyst.target_price = rawTarget;
+    } else {
+      // Broader pattern: look for Target Price in snapshot table with various tag patterns
+      const tpMatch = html.match(/Target Price<\/td>\s*<td[^>]*>\s*(?:<[^>]*>)*\s*([\d.,]+)/i);
+      if (tpMatch) analyst.target_price = tpMatch[1].trim();
+    }
     const rawRecom = epsGet('Recom');
-    if (rawRecom) analyst.recommendation = parseFloat(rawRecom);
+    if (rawRecom) {
+      analyst.recommendation = parseFloat(rawRecom);
+    } else {
+      const recMatch = html.match(/Recom<\/td>\s*<td[^>]*>\s*(?:<[^>]*>)*\s*([\d.]+)/i);
+      if (recMatch) analyst.recommendation = parseFloat(recMatch[1]);
+    }
     
     // ── QUARTERLY INCOME STATEMENT from FactSet table ──
     // Table class="quote_statements-table" with rows: Total Revenue, EPS (Diluted), etc.

@@ -538,12 +538,11 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
                   <span style={{ color: "#686878", fontWeight: 700 }}>Analyst</span>
                   <span style={{ color: "#9090a0" }}>
-                    {analyst.recommendation && <span style={{
+                    {analyst.recommendation != null && <span style={{
                       color: analyst.recommendation <= 2 ? "#2bb886" : analyst.recommendation <= 3 ? "#fbbf24" : "#f87171",
                       fontWeight: 700, marginRight: 4
                     }}>{analyst.recommendation <= 1.5 ? "Buy" : analyst.recommendation <= 2.5 ? "Outperform" : analyst.recommendation <= 3.5 ? "Hold" : analyst.recommendation <= 4.5 ? "Underperform" : "Sell"}</span>}
-                    PT:${analyst.target_price}
-                    {analyst.count && <span style={{ color: "#505060" }}> ({analyst.count})</span>}
+                    PT:{analyst.target_price}
                   </span>
                 </>)}
               </div>
