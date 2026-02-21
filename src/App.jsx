@@ -1521,9 +1521,84 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (s.mf != null && s.mf <= mfNegThreshold && s.mf < 0) hitMap[s.ticker].push("MF-");
     });
 
+    // ── Composite EPS Score (0-99 percentile) ──
+    // Weighted blend of CANSLIM fundamentals: C (current quarterly) + A (annual) + margins + consistency
+    const epsRawScores = {};
+    stocks.forEach(s => {
+      const qs = s.quarters || [];
+      const annuals = s.annual || [];
+      // Current Q EPS YoY (most recent)
+      const curEps = qs[0]?.eps_yoy;
+      // EPS acceleration: current Q vs prior Q growth rate
+      const prevEps = qs[1]?.eps_yoy;
+      const epsAccel = (curEps != null && prevEps != null && prevEps !== 0) ? curEps - prevEps : null;
+      // Current Q Sales YoY
+      const curSales = qs[0]?.sales_yoy;
+      // Annual EPS growth (most recent year)
+      const annEps = annuals[0]?.eps_yoy;
+      // Margin trend: current Q net margin vs prior Q
+      const curMargin = qs[0]?.net_margin ?? qs[0]?.op_margin ?? qs[0]?.gross_margin;
+      const prevMargin = qs[1]?.net_margin ?? qs[1]?.op_margin ?? qs[1]?.gross_margin;
+      const marginDelta = (curMargin != null && prevMargin != null) ? curMargin - prevMargin : null;
+      // Consistency: how many of last 4 quarters had positive EPS growth
+      const posQs = qs.slice(0, 4).filter(q => q.eps_yoy != null && q.eps_yoy > 0).length;
+      epsRawScores[s.ticker] = { curEps, epsAccel, curSales, annEps, marginDelta, posQs };
+    });
+
+    // Percentile rank helper
+    const pctRank = (arr) => {
+      const sorted = arr.filter(v => v != null).sort((a, b) => a - b);
+      if (sorted.length === 0) return () => null;
+      return (val) => {
+        if (val == null) return null;
+        let idx = 0;
+        for (let i = 0; i < sorted.length; i++) { if (sorted[i] <= val) idx = i + 1; }
+        return Math.round(idx / sorted.length * 99);
+      };
+    };
+
+    const allCurEps = stocks.map(s => epsRawScores[s.ticker]?.curEps);
+    const allAccel = stocks.map(s => epsRawScores[s.ticker]?.epsAccel);
+    const allCurSales = stocks.map(s => epsRawScores[s.ticker]?.curSales);
+    const allAnnEps = stocks.map(s => epsRawScores[s.ticker]?.annEps);
+    const allMarginD = stocks.map(s => epsRawScores[s.ticker]?.marginDelta);
+    const allPosQs = stocks.map(s => epsRawScores[s.ticker]?.posQs);
+
+    const pCurEps = pctRank(allCurEps);
+    const pAccel = pctRank(allAccel);
+    const pCurSales = pctRank(allCurSales);
+    const pAnnEps = pctRank(allAnnEps);
+    const pMarginD = pctRank(allMarginD);
+    const pPosQs = pctRank(allPosQs);
+
+    // Weighted composite: C(30%) + Accel(20%) + Sales(15%) + A(15%) + Margin(10%) + Consistency(10%)
+    const epsCompositeMap = {};
+    stocks.forEach(s => {
+      const r = epsRawScores[s.ticker];
+      const scores = [
+        { p: pCurEps(r.curEps), w: 0.30 },
+        { p: pAccel(r.epsAccel), w: 0.20 },
+        { p: pCurSales(r.curSales), w: 0.15 },
+        { p: pAnnEps(r.annEps), w: 0.15 },
+        { p: pMarginD(r.marginDelta), w: 0.10 },
+        { p: pPosQs(r.posQs), w: 0.10 },
+      ];
+      let totalW = 0, totalS = 0;
+      scores.forEach(({ p, w }) => { if (p != null) { totalS += p * w; totalW += w; } });
+      epsCompositeMap[s.ticker] = totalW > 0 ? Math.round(totalS / totalW) : null;
+    });
+
+    // Re-rank composites into final percentile
+    const allComposites = Object.values(epsCompositeMap).filter(v => v != null).sort((a, b) => a - b);
+    const pComposite = pctRank(allComposites);
+    const epsFinalMap = {};
+    stocks.forEach(s => {
+      epsFinalMap[s.ticker] = pComposite(epsCompositeMap[s.ticker]);
+    });
+
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     if (scanFilters.size === 0) {
-      list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker] }));
+      list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker], _epsScore: epsFinalMap[s.ticker] }));
     } else {
       list = stocks.filter(s => {
         const hits = new Set(hitMap[s.ticker] || []);
@@ -1531,7 +1606,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           if (!hits.has(f)) return false;
         }
         return true;
-      }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker] }));
+      }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker], _epsScore: epsFinalMap[s.ticker] }));
     }
 
     // Compute stock quality score for each candidate
@@ -1559,6 +1634,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       default: (a, b) => ((b.pct_from_high >= -5 ? 1000 : 0) + b.rs_rank) - ((a.pct_from_high >= -5 ? 1000 : 0) + a.rs_rank),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || (b.rs_rank - a.rs_rank),
       quality: safe(s => s._quality),
+      eps_score: safe(s => s._epsScore),
       vcs: safe(s => s.vcs),
       mf: safe(s => s.mf),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
@@ -1590,7 +1666,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"],
     ["Tags", "hits"],
-    ["Q", "quality"], ["VCS", "vcs"], ["MF", "mf"],
+    ["Q", "quality"], ["EPS", "eps_score"], ["VCS", "vcs"], ["MF", "mf"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["ADR%", "adr"], ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
@@ -1750,6 +1826,23 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
                   return labels[f] || f; }).join("\n") : ""}>
                 {s._quality ?? "—"}</td>
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}
+                title={(() => {
+                  const qs = s.quarters || []; const an = s.annual || [];
+                  const parts = [];
+                  if (qs[0]?.eps_yoy != null) parts.push(`CurQ EPS: ${qs[0].eps_yoy > 0 ? "+" : ""}${qs[0].eps_yoy.toFixed(0)}%`);
+                  if (qs[0]?.sales_yoy != null) parts.push(`CurQ Sales: ${qs[0].sales_yoy > 0 ? "+" : ""}${qs[0].sales_yoy.toFixed(0)}%`);
+                  if (qs[1]?.eps_yoy != null && qs[0]?.eps_yoy != null) parts.push(`Accel: ${qs[0].eps_yoy > qs[1].eps_yoy ? "▲" : "▼"}`);
+                  if (an[0]?.eps_yoy != null) parts.push(`Ann EPS: ${an[0].eps_yoy > 0 ? "+" : ""}${an[0].eps_yoy.toFixed(0)}%`);
+                  const m = qs[0]?.net_margin ?? qs[0]?.op_margin ?? qs[0]?.gross_margin;
+                  const pm = qs[1]?.net_margin ?? qs[1]?.op_margin ?? qs[1]?.gross_margin;
+                  if (m != null && pm != null) parts.push(`Margin: ${(m - pm) >= 0 ? "+" : ""}${(m - pm).toFixed(1)}pp`);
+                  const posQs = qs.slice(0, 4).filter(q => q.eps_yoy != null && q.eps_yoy > 0).length;
+                  parts.push(`${posQs}/4 pos Qs`);
+                  return parts.join("\n");
+                })()}>
+                {s._epsScore ?? "—"}</td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
                 title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
@@ -2215,7 +2308,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Q", "quality"], ["VCS", "vcs"], ["MF", "mf"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
+  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Q", "quality"], ["EPS", "eps_score"], ["VCS", "vcs"], ["MF", "mf"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["ADR%", "adr"],
   ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
@@ -2293,6 +2386,10 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
             "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
           return labels[f] || f; }).join("\n") : ""}>
         {s._quality ?? "—"}</td>
+      {/* EPS */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
+        {s._epsScore ?? "—"}</td>
       {/* VCS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
@@ -2746,6 +2843,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       earnings_display: pipe.earnings_display,
       earnings_date: pipe.earnings_date,
       _scanHits: pipe._scanHits || [],
+      _epsScore: pipe._epsScore,
       _quality: quality,
       _q_factors: q_factors,
     };
@@ -2764,6 +2862,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const makeSorters = () => ({
     ticker: (a, b) => a.ticker.localeCompare(b.ticker),
     quality: sortFn("_quality"),
+    eps_score: sortFn("_epsScore"),
     hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
     vcs: sortFn("vcs"),
     mf: sortFn("mf"),
@@ -3233,7 +3332,53 @@ function AppMain({ authToken, onLogout }) {
     reader.readAsText(file);
   }, []);
 
-  const stockMap = useMemo(() => { if (!data) return {}; const m = {}; data.stocks.forEach(s => { m[s.ticker] = s; }); return m; }, [data]);
+  const stockMap = useMemo(() => {
+    if (!data) return {};
+    const m = {};
+    data.stocks.forEach(s => { m[s.ticker] = s; });
+    
+    // Compute EPS composite scores for all stocks
+    const allStocks = data.stocks;
+    const rawScores = {};
+    allStocks.forEach(s => {
+      const qs = s.quarters || [];
+      const annuals = s.annual || [];
+      rawScores[s.ticker] = {
+        curEps: qs[0]?.eps_yoy ?? null,
+        epsAccel: (qs[0]?.eps_yoy != null && qs[1]?.eps_yoy != null) ? qs[0].eps_yoy - qs[1].eps_yoy : null,
+        curSales: qs[0]?.sales_yoy ?? null,
+        annEps: annuals[0]?.eps_yoy ?? null,
+        marginDelta: (() => {
+          const cm = qs[0]?.net_margin ?? qs[0]?.op_margin ?? qs[0]?.gross_margin;
+          const pm = qs[1]?.net_margin ?? qs[1]?.op_margin ?? qs[1]?.gross_margin;
+          return (cm != null && pm != null) ? cm - pm : null;
+        })(),
+        posQs: qs.slice(0, 4).filter(q => q.eps_yoy != null && q.eps_yoy > 0).length,
+      };
+    });
+    const pctRank = (arr) => {
+      const sorted = arr.filter(v => v != null).sort((a, b) => a - b);
+      if (!sorted.length) return () => null;
+      return (val) => { if (val == null) return null; let idx = 0; for (let i = 0; i < sorted.length; i++) { if (sorted[i] <= val) idx = i + 1; } return Math.round(idx / sorted.length * 99); };
+    };
+    const pCE = pctRank(allStocks.map(s => rawScores[s.ticker]?.curEps));
+    const pAc = pctRank(allStocks.map(s => rawScores[s.ticker]?.epsAccel));
+    const pCS = pctRank(allStocks.map(s => rawScores[s.ticker]?.curSales));
+    const pAE = pctRank(allStocks.map(s => rawScores[s.ticker]?.annEps));
+    const pMD = pctRank(allStocks.map(s => rawScores[s.ticker]?.marginDelta));
+    const pPQ = pctRank(allStocks.map(s => rawScores[s.ticker]?.posQs));
+    // Weighted composite then re-ranked
+    const composites = {};
+    allStocks.forEach(s => {
+      const r = rawScores[s.ticker];
+      const scores = [{p:pCE(r.curEps),w:.30},{p:pAc(r.epsAccel),w:.20},{p:pCS(r.curSales),w:.15},{p:pAE(r.annEps),w:.15},{p:pMD(r.marginDelta),w:.10},{p:pPQ(r.posQs),w:.10}];
+      let tw=0,ts=0; scores.forEach(({p,w})=>{if(p!=null){ts+=p*w;tw+=w;}}); composites[s.ticker]=tw>0?Math.round(ts/tw):null;
+    });
+    const pFinal = pctRank(Object.values(composites).filter(v=>v!=null));
+    allStocks.forEach(s => { m[s.ticker]._epsScore = pFinal(composites[s.ticker]); });
+    
+    return m;
+  }, [data]);
   const openChart = useCallback((t) => setChartTicker(prev => prev === t ? null : t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
 
