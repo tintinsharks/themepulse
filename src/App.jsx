@@ -569,7 +569,7 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
   const isActive = ticker === activeTicker;
   return (
     <span {...props}
-      ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
+      ref={undefined}
       onClick={(e) => { e.stopPropagation(); onClick(ticker); }}
       style={{ ...style, cursor: "pointer", transition: "all 0.15s",
         outline: isActive ? "2px solid #0d9163" : "none",
@@ -1467,7 +1467,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const inPortfolio = portfolio?.includes(s.ticker);
           const inWatchlist = watchlist?.includes(s.ticker);
           return (
-            <tr key={s.ticker} ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
+            <tr key={s.ticker} ref={undefined}
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
@@ -1574,7 +1574,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <Leaders themes={themes} stockMap={stockMap} filters={filters} onTickerClick={onTickerClick}
           activeTicker={activeTicker} mmData={mmData} onVisibleTickers={() => {}} themeHealth={themeHealth}
           liveThemeData={externalLiveData}
-          onThemeDrillDown={(themeName) => { setActiveTheme(themeName); setShowLeaders(false); }} />
+          onThemeDrillDown={(themeName) => { setActiveTheme(themeName); }} />
       </div>
     )}
     </div>
@@ -1860,7 +1860,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           const isConsol = c.status === "consolidating";
           return (
             <tr key={`${ep.ticker}-${ep.date}`}
-              ref={isActive ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
+              ref={undefined}
               onClick={() => onTickerClick(ep.ticker)}
               style={{ borderBottom: `1px solid ${isConsol ? "#fbbf2425" : "#222230"}`, cursor: "pointer",
                 background: isActive ? "#fbbf2415" : isConsol ? "#fbbf2408" : "transparent" }}>
@@ -2021,9 +2021,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
   const isActive = s.ticker === activeTicker;
   const rowRef = useRef(null);
   useEffect(() => {
-    if (isActive && rowRef.current) {
-      rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
+    // disabled auto-scroll
   }, [isActive]);
   const near = s.pct_from_high != null && s.pct_from_high >= -5;
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
