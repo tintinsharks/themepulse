@@ -2059,6 +2059,30 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     return results;
   }, [stocks]);
 
+  // Combo: tickers appearing in 2+ screener groups
+  const comboStocks = useMemo(() => {
+    const counts = {};
+    const sources = {};
+    const addGroup = (list, label) => {
+      list.forEach(s => {
+        counts[s.ticker] = (counts[s.ticker] || 0) + 1;
+        if (!sources[s.ticker]) sources[s.ticker] = [];
+        sources[s.ticker].push(label);
+      });
+    };
+    addGroup(weekMovers, "1W");
+    addGroup(monthMovers, "1M");
+    addGroup(strongestStocks, "Strong");
+    addGroup(momentumStocks, "Mom");
+    const multi = Object.entries(counts).filter(([, c]) => c >= 2).map(([tk]) => tk);
+    const sMap = {};
+    [...weekMovers, ...monthMovers, ...strongestStocks, ...momentumStocks].forEach(s => {
+      if (!sMap[s.ticker]) sMap[s.ticker] = s;
+    });
+    return multi.map(tk => ({ ...sMap[tk], _comboSources: sources[tk], _comboCount: counts[tk] }))
+      .sort((a, b) => (b._comboCount - a._comboCount) || ((b.rs_rank || 0) - (a.rs_rank || 0)));
+  }, [weekMovers, monthMovers, strongestStocks, momentumStocks]);
+
   // Report visible ticker order to parent
   useEffect(() => {
     if (onVisibleTickers) {
@@ -2121,6 +2145,36 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           );
         })}
       </div>
+
+      {/* Combo — tickers in 2+ screener groups */}
+      {comboStocks.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24" }}>Combo</span>
+            <span style={{ fontSize: 10, color: "#686878" }}>In 2+ screeners</span>
+            <span style={{ fontSize: 10, color: "#505060" }}>{comboStocks.length} stocks</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+            {comboStocks.map(s => {
+              const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
+              return (
+                <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                  title={`${s.company} | RS:${s.rs_rank} | In: ${s._comboSources.join(", ")} | Grade:${s.grade}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
+                    fontSize: 11, fontFamily: "monospace", cursor: "pointer",
+                    background: s.ticker === activeTicker ? "#0d916330" : gc + "20",
+                    border: `1px solid ${s._comboCount >= 3 ? "#fbbf24" : gc}40`,
+                    color: s._comboCount >= 3 ? "#fbbf24" : "#bbb",
+                    fontWeight: s._comboCount >= 3 ? 700 : 400 }}>
+                  <Badge grade={s.grade} />
+                  {s.ticker}
+                  <sup style={{ fontSize: 7, color: "#fbbf24", marginLeft: 1 }}>{s._comboCount}</sup>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Screeners */}
       <div style={{ marginTop: 16 }}>
