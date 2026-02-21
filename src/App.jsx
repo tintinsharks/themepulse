@@ -1389,7 +1389,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   return (
     <div style={{ display: "flex", gap: 0, minHeight: 0 }}>
-    <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+    <div style={{ flex: 1, minWidth: 0, overflowX: "auto", overflowY: "visible" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filter toggles */}
         {[
