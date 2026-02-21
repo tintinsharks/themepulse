@@ -1963,6 +1963,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const [showLegend, setShowLegend] = useState(false);
   const [filterOn, setFilterOn] = useState(true);
+  const [activeBox, setActiveBox] = useState(null); // track which box was last clicked
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
 
   // Filter out excluded industries
@@ -2111,31 +2112,41 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   }, [weekMovers, monthMovers, strongestStocks, momentumStocks]);
 
   // Build box-grouped ticker lists for keyboard navigation
-  const boxLists = useMemo(() => {
-    const rtsBox = grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker));
-    const comboBox = comboStocks.map(s => s.ticker);
-    const w1Box = weekMovers.map(s => s.ticker);
-    const m1Box = monthMovers.map(s => s.ticker);
-    const strongBox = strongestStocks.map(s => s.ticker);
-    const momBox = momentumStocks.map(s => s.ticker);
-    return [rtsBox, comboBox, w1Box, m1Box, strongBox, momBox];
-  }, [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks]);
+  const boxLists = useMemo(() => ({
+    rts: grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker)),
+    combo: comboStocks.map(s => s.ticker),
+    w1: weekMovers.map(s => s.ticker),
+    m1: monthMovers.map(s => s.ticker),
+    strong: strongestStocks.map(s => s.ticker),
+    mom: momentumStocks.map(s => s.ticker),
+  }), [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks]);
 
-  // Report visible ticker order to parent — find which box the active ticker is in
+  const boxListsRef = useRef(boxLists);
+  boxListsRef.current = boxLists;
+
+  // Report visible ticker order to parent based on which box was clicked
   useEffect(() => {
     if (!onVisibleTickers) return;
-    // Find box containing activeTicker
-    if (activeTicker) {
-      for (const box of boxLists) {
-        if (box.includes(activeTicker)) {
-          onVisibleTickers(box);
-          return;
-        }
-      }
+    const bl = boxListsRef.current;
+    if (activeBox && bl[activeBox] && bl[activeBox].length > 0) {
+      onVisibleTickers(bl[activeBox]);
+    } else {
+      onVisibleTickers(bl.combo && bl.combo.length > 0 ? bl.combo : bl.rts);
     }
-    // Default: RTS grid
-    onVisibleTickers(boxLists[0]);
-  }, [boxLists, activeTicker, onVisibleTickers]);
+  }, [activeBox, onVisibleTickers]);
+
+  // Helper: click ticker in a specific box
+  const clickInBox = useCallback((ticker, box) => {
+    setActiveBox(prev => {
+      // Force effect to re-fire even if same box by toggling
+      if (prev === box) {
+        // Same box - still need to update visibleTickers
+        setTimeout(() => onVisibleTickers(boxListsRef.current[box] || []), 0);
+      }
+      return box;
+    });
+    onTickerClick(ticker);
+  }, [onTickerClick, onVisibleTickers]);
 
   // Auto-open first combo ticker (or first A+ stock) on mount
   const autoOpened = useRef(false);
@@ -2220,7 +2231,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
               const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
               const isActive = s.ticker === activeTicker;
               return (
-                <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                <div key={s.ticker} onClick={() => clickInBox(s.ticker, "combo")}
                   title={`${s.company} | RS:${s.rs_rank} | In: ${s._comboSources.join(", ")} | Grade:${s.grade}`}
                   style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
                     fontSize: 11, fontFamily: "monospace", cursor: "pointer",
@@ -2254,7 +2265,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                 const isActive = s.ticker === activeTicker;
                 return (
                 <div key={s.ticker} title={`${s.company} | 1W:${s.return_1w != null ? s.return_1w.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
-                  onClick={() => onTickerClick(s.ticker)}
+                  onClick={() => clickInBox(s.ticker, "w1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                     background: isActive ? "#fbbf2430" : "#c084fc25",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
@@ -2273,7 +2284,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                 const isActive = s.ticker === activeTicker;
                 return (
                 <div key={s.ticker} title={`${s.company} | 1M:${s.return_1m != null ? s.return_1m.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
-                  onClick={() => onTickerClick(s.ticker)}
+                  onClick={() => clickInBox(s.ticker, "m1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#60a5fa25",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
@@ -2292,7 +2303,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                 const isActive = s.ticker === activeTicker;
                 return (
                 <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
-                  onClick={() => onTickerClick(s.ticker)}
+                  onClick={() => clickInBox(s.ticker, "strong")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#2bb88625",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
@@ -2311,7 +2322,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                 const isActive = s.ticker === activeTicker;
                 return (
                 <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._momTag} | 1W:${s.return_1w ?? '—'}% | 1M:${s.return_1m ?? '—'}% | 3M:${s.return_3m ?? '—'}% | 6M:${s.return_6m ?? '—'}%`}
-                  onClick={() => onTickerClick(s.ticker)}
+                  onClick={() => clickInBox(s.ticker, "mom")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#f9731625",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
@@ -2337,7 +2348,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   const isActive = s.ticker === activeTicker;
                   return (
                   <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | 3M:${s.return_3m}%`}
-                    onClick={() => onTickerClick(s.ticker)}
+                    onClick={() => clickInBox(s.ticker, "rts")}
                     style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                       background: isActive ? "#fbbf2430" : GRADE_COLORS[g] + "25",
                       color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
