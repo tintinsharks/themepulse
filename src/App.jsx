@@ -1963,34 +1963,59 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const [showLegend, setShowLegend] = useState(false);
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
-  const groups = useMemo(() => {
-    const g = {}; grades.forEach(gr => { g[gr] = stocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
+
+  // Filter out excluded industries
+  const EXCLUDED_INDUSTRIES = new Set([
+    "Biotechnology", "Investment Brokerage - National", "Investment Brokerage - Regional",
+    "Investment Banks/Brokers", "Investment Banks and Brokerages",
+    "Investment Management", "Investment Managers",
+    "Closed-End Fund - Equity", "Closed-End Fund - Debt", "Closed-End Fund - Foreign",
+    "Investment Trusts/Mutual Funds",
+    "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+    "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+    "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
+    "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
+    "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
+  ]);
+  const filteredStocks = useMemo(() => {
+    return stocks.filter(s => {
+      const ind = (s.industry || "").trim();
+      if (!ind) return true;
+      for (const ex of EXCLUDED_INDUSTRIES) {
+        if (ind.toLowerCase() === ex.toLowerCase()) return false;
+      }
+      return true;
+    });
   }, [stocks]);
+
+  const groups = useMemo(() => {
+    const g = {}; grades.forEach(gr => { g[gr] = filteredStocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
+  }, [filteredStocks]);
 
   // 20% 1W screener: Price > $5, 1W return > 20%, Avg Vol > 100K
   const weekMovers = useMemo(() => {
-    return stocks.filter(s =>
+    return filteredStocks.filter(s =>
       s.price >= 5 &&
       s.return_1w > 20 &&
       s.avg_volume_raw >= 100000
     ).sort((a, b) => (b.return_1w || 0) - (a.return_1w || 0));
-  }, [stocks]);
+  }, [filteredStocks]);
 
   // 20% 1M screener: Price > $5, 1M return > 20%, Avg Vol > 100K
   const monthMovers = useMemo(() => {
-    return stocks.filter(s =>
+    return filteredStocks.filter(s =>
       s.price >= 5 &&
       s.return_1m > 20 &&
       s.avg_volume_raw >= 100000
     ).sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0));
-  }, [stocks]);
+  }, [filteredStocks]);
 
   // Strongest Stocks: two scans combined
   const strongestStocks = useMemo(() => {
     const seen = new Set();
     const results = [];
     // Scan 1: Small/Mid (<10B) — tight base, strong growth, low float
-    stocks.forEach(s => {
+    filteredStocks.forEach(s => {
       const mcap = s.market_cap_raw || 0;
       if (mcap < 300e6 || mcap > 10e9) return;
       if ((s.above_52w_low || 0) < 70) return;
@@ -2003,7 +2028,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "S" }); }
     });
     // Scan 2: Large (10B+) — institutional quality, strong growth
-    stocks.forEach(s => {
+    filteredStocks.forEach(s => {
       const mcap = s.market_cap_raw || 0;
       if (mcap < 10e9) return;
       if ((s.above_52w_low || 0) < 70) return;
@@ -2016,7 +2041,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     });
     results.sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
     return results;
-  }, [stocks]);
+  }, [filteredStocks]);
 
   // Momentum: 8 scans combined (1W/1M/3M/6M × <10B/10B+)
   const momentumStocks = useMemo(() => {
@@ -2037,7 +2062,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
         s.sma20_pct != null && s.sma20_pct >= 0 && s.sma20_pct <= 10;
     };
     const add = (s, tag) => { if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _momTag: tag }); } };
-    stocks.forEach(s => {
+    filteredStocks.forEach(s => {
       // 1W +20% <10B
       if (baseSmall(s) && (s.return_1w || 0) >= 20) add(s, "1W·S");
       // 1W +20% 10B+
@@ -2057,7 +2082,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     });
     results.sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
     return results;
-  }, [stocks]);
+  }, [filteredStocks]);
 
   // Combo: tickers appearing in 2+ screener groups
   const comboStocks = useMemo(() => {
