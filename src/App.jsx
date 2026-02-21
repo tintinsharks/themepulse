@@ -2452,27 +2452,27 @@ function LWChart({ ticker, entry, stop, target }) {
       // ── Price overlay MAs ──
       // 10 EMA — pinkish red (cross style not available in LW, use thin line)
       maRefs.current.ema10 = chart.addLineSeries({
-        color: "#ff828c", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+        color: "#ff828c", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
         lineStyle: 0, // solid
       });
       // 21 EMA Cloud — high/low as thin gray, close as colored line
       maRefs.current.ema21hi = chart.addLineSeries({
-        color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+        color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       maRefs.current.ema21lo = chart.addLineSeries({
-        color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+        color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       maRefs.current.ema21close = chart.addLineSeries({
-        color: "#808080", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false,
+        color: "#808080", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
         lineStyle: 0,
       });
       // 50 SMA — teal/green
       maRefs.current.sma50 = chart.addLineSeries({
-        color: "#00bc9a", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+        color: "#00bc9a", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       // 200 EMA — purple
       maRefs.current.ema200 = chart.addLineSeries({
-        color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+        color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       volSeriesRef.current = chart.addHistogramSeries({
         priceFormat: { type: "volume" }, priceScaleId: "vol",
@@ -2481,7 +2481,7 @@ function LWChart({ ticker, entry, stop, target }) {
       // 50-day volume MA line
       volMaRef.current = chart.addLineSeries({
         color: "#fbbf2480", lineWidth: 1, priceScaleId: "vol",
-        lastValueVisible: false, crosshairMarkerVisible: false,
+        lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.75, bottom: 0 } });
 
@@ -2728,7 +2728,9 @@ function LWChart({ ticker, entry, stop, target }) {
           }
         }
 
-        chartRef.current.timeScale().fitContent();
+        // Show last ~6 months (126 trading days)
+        const sixMonthsAgo = bars.length > 126 ? bars[bars.length - 126].date : bars[0].date;
+        chartRef.current.timeScale().setVisibleRange({ from: sixMonthsAgo, to: bars[bars.length - 1].date });
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];
