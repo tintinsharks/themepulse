@@ -305,16 +305,21 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           <div style={{ flex: "0 0 auto", minWidth: 207, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2, display: "flex", alignItems: "baseline", gap: 6 }}>
               <span>Earnings</span>
-              {(stock.earnings_display || stock.earnings_date) && (
+              {(stock.earnings_display || stock.earnings_date) && (() => {
+                const raw = stock.earnings_display || stock.earnings_date || "";
+                const trimmed = raw.replace(/:00(?=\s|$)/g, "");
+                const days = stock.earnings_days;
+                return (
                 <span style={{ fontWeight: 400, fontSize: 10 }}>
-                  <span style={{ color: stock.earnings_days != null && stock.earnings_days <= 7 ? "#f87171" : stock.earnings_days != null && stock.earnings_days <= 14 ? "#fbbf24" : "#c084fc" }}>
-                    ▶ {(stock.earnings_display || stock.earnings_date || "").replace(/:00$/, "")}
+                  <span style={{ color: days != null && days <= 7 ? "#f87171" : days != null && days <= 14 ? "#fbbf24" : "#c084fc" }}>
+                    ▶ {trimmed}
                   </span>
-                  {stock.earnings_days != null && stock.earnings_days >= 0 && (
-                    <span style={{ color: "#686878", marginLeft: 4 }}>({stock.earnings_days}d)</span>
+                  {days != null && days >= 0 && (
+                    <span style={{ color: "#686878", marginLeft: 4 }}>({days}d)</span>
                   )}
                 </span>
-              )}
+                );
+              })()}
             </div>
             {/* Past earnings from quarterly data — CANSLIM C: Current Quarterly */}
             {/* Code 33: 3 consecutive quarters of acceleration in EPS, Sales, and Profit Margins */}
