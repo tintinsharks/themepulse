@@ -1985,6 +1985,39 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     ).sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0));
   }, [stocks]);
 
+  // Strongest Stocks: two scans combined
+  const strongestStocks = useMemo(() => {
+    const seen = new Set();
+    const results = [];
+    // Scan 1: Small/Mid (<10B) — tight base, strong growth, low float
+    stocks.forEach(s => {
+      const mcap = s.market_cap_raw || 0;
+      if (mcap < 300e6 || mcap > 10e9) return;
+      if ((s.above_52w_low || 0) < 70) return;
+      if ((s.eps_qq ?? s.eps_this_y ?? -1) < 25) return;
+      if ((s.sales_qq ?? s.sales_past_5y ?? -1) < 25) return;
+      if ((s.avg_volume_raw || 0) < 500000) return;
+      if (s.shares_float_raw != null && s.shares_float_raw > 50e6) return;
+      if ((s.sma50_pct ?? -1) < 0) return;
+      if (s.sma20_pct != null && (s.sma20_pct < 0 || s.sma20_pct > 10)) return;
+      if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "S" }); }
+    });
+    // Scan 2: Large (10B+) — institutional quality, strong growth
+    stocks.forEach(s => {
+      const mcap = s.market_cap_raw || 0;
+      if (mcap < 10e9) return;
+      if ((s.above_52w_low || 0) < 70) return;
+      if ((s.eps_qq ?? s.eps_this_y ?? -1) < 25) return;
+      if ((s.sales_qq ?? s.sales_past_5y ?? -1) < 25) return;
+      if ((s.avg_volume_raw || 0) < 500000) return;
+      if (s.shares_float_raw != null && s.shares_float_raw > 150e6) return;
+      if ((s.sma50_pct ?? -1) < 0) return;
+      if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "L" }); }
+    });
+    results.sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
+    return results;
+  }, [stocks]);
+
   // Report visible ticker order to parent
   useEffect(() => {
     if (onVisibleTickers) {
@@ -2082,6 +2115,21 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     background: s.ticker === activeTicker ? "#0d916330" : "#60a5fa25",
                     color: s.return_1m >= 50 ? "#f87171" : s.return_1m >= 30 ? "#fbbf24" : "#bbb",
                     fontWeight: s.return_1m >= 30 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+              ))}
+            </div>
+          </div>
+          {/* Strongest Stocks — two scans combined, wraps to match height */}
+          <div>
+            <div style={{ background: "#2bb886", color: "#fff", textAlign: "center", padding: "4px 8px", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
+              Strongest <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>({strongestStocks.length})</span></div>
+            <div style={{ display: "flex", flexWrap: "wrap", flexDirection: "column", maxHeight: "55vh", gap: 0, alignContent: "flex-start" }}>
+              {strongestStocks.map(s => (
+                <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
+                  onClick={() => onTickerClick(s.ticker)}
+                  style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
+                    background: s.ticker === activeTicker ? "#0d916330" : "#2bb88625",
+                    color: s._scanSource === "S" ? "#fbbf24" : "#bbb",
+                    fontWeight: s.rs_rank >= 80 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
               ))}
             </div>
           </div>
