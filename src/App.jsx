@@ -1930,7 +1930,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           );
         })}</tbody>
       </table>
-    </div>
     {/* Collapsible Theme Leaders drawer */}
     <div style={{ borderTop: "2px solid #3a3a4a", marginTop: 4 }}>
       <button onClick={() => setShowLeaders(p => !p)} style={{
