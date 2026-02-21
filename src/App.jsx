@@ -2054,7 +2054,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           <span style={{ fontSize: 12, fontWeight: 700, color: "#c084fc" }}>Screeners</span>
           <span style={{ fontSize: 10, color: "#686878" }}>Price &gt; $5 · Vol &gt; 100K</span>
         </div>
-        <div style={{ display: "flex", gap: 2 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           {/* 20% 1W */}
           <div style={{ width: 64, flexShrink: 0 }}>
             <div style={{ background: "#c084fc", color: "#fff", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
@@ -2070,15 +2070,15 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
               ))}
             </div>
           </div>
-          {/* 20% 1M */}
-          <div style={{ width: 64, flexShrink: 0 }}>
-            <div style={{ background: "#60a5fa", color: "#fff", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
-              20%1M<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{monthMovers.length}</span></div>
-            <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
+          {/* 20% 1M — wraps horizontally to match RTS grid height */}
+          <div>
+            <div style={{ background: "#60a5fa", color: "#fff", textAlign: "center", padding: "4px 8px", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
+              20% 1M <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>({monthMovers.length})</span></div>
+            <div style={{ display: "flex", flexWrap: "wrap", flexDirection: "column", maxHeight: "55vh", gap: 0, alignContent: "flex-start" }}>
               {monthMovers.map(s => (
                 <div key={s.ticker} title={`${s.company} | 1M:${s.return_1m != null ? s.return_1m.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
                   onClick={() => onTickerClick(s.ticker)}
-                  style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
+                  style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: s.ticker === activeTicker ? "#0d916330" : "#60a5fa25",
                     color: s.return_1m >= 50 ? "#f87171" : s.return_1m >= 30 ? "#fbbf24" : "#bbb",
                     fontWeight: s.return_1m >= 30 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
