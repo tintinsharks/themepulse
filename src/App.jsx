@@ -303,20 +303,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
           <div style={{ flex: "0 0 auto", minWidth: 207, fontSize: 10, fontFamily: "monospace" }}>
-            <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2, display: "flex", alignItems: "baseline", gap: 6 }}>
+            <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
               <span>Earnings</span>
               {(stock.earnings_display || stock.earnings_date) && (() => {
                 const raw = stock.earnings_display || stock.earnings_date || "";
                 const trimmed = raw.replace(/:00(?=\s|$)/g, "");
-                const days = stock.earnings_days;
+                const days = stock.earnings_days != null ? Number(stock.earnings_days) : null;
+                const showDays = days != null && !isNaN(days);
                 return (
                 <span style={{ fontWeight: 400, fontSize: 10 }}>
-                  <span style={{ color: days != null && days <= 7 ? "#f87171" : days != null && days <= 14 ? "#fbbf24" : "#c084fc" }}>
+                  <span style={{ color: showDays && days <= 7 ? "#f87171" : showDays && days <= 14 ? "#fbbf24" : "#c084fc" }}>
                     ▶ {trimmed}
                   </span>
-                  {days != null && days >= 0 && (
-                    <span style={{ color: "#686878", marginLeft: 4 }}>({days}d)</span>
-                  )}
+                  {showDays && <span style={{ color: "#686878", marginLeft: 4 }}>({days}d)</span>}
                 </span>
                 );
               })()}
