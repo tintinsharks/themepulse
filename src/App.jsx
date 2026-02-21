@@ -427,6 +427,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 const prevA = stock.annual[i + 1];
                 const prevMargin = prevA ? (prevA.net_margin ?? prevA.op_margin ?? prevA.gross_margin) : null;
                 const marginDelta = margin != null && prevMargin != null ? margin - prevMargin : null;
+                // Annual acceleration: compare growth rate vs prior year
+                const isEpsAccel = epsYoy != null && prevA?.eps_yoy != null && epsYoy > prevA.eps_yoy && epsYoy > 0;
+                const isEpsDecel = epsYoy != null && prevA?.eps_yoy != null && epsYoy < prevA.eps_yoy && epsYoy > 0 && prevA.eps_yoy > 0;
+                const isSalesAccel = salesYoy != null && prevA?.sales_yoy != null && salesYoy > prevA.sales_yoy && salesYoy > 0;
                 return (
                 <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 3 }}>
                   <span style={{ width: 40, flexShrink: 0 }}>{a.year}</span>
@@ -435,11 +439,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     {a.eps != null ? <>
                       {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
                       E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
+                      {isEpsAccel && <span style={{ color: "#2bb886", fontSize: 10, marginLeft: 3 }}>▲</span>}
+                      {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 3 }}>▼</span>}
                     </> : ""}
                   </span>
                   <span style={{ color: a.sales_yoy >= 20 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : a.sales_yoy < 0 ? "#f87171" : "#505060",
                     width: 56, flexShrink: 0, background: salesBg, borderRadius: 2, padding: "0 2px" }}>
-                    {a.sales_yoy != null ? <>S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%</> : ""}
+                    {a.sales_yoy != null ? <>S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
+                      {isSalesAccel && <span style={{ color: "#2bb886", fontSize: 10, marginLeft: 3 }}>▲</span>}
+                    </> : ""}
                   </span>
                   <span style={{
                     color: marginDelta != null && marginDelta > 0 ? "#22d3ee" : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
@@ -1646,6 +1654,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || (b.rs_rank - a.rs_rank),
       quality: safe(s => s._quality),
       eps_score: safe(s => s._epsScore),
+      ms_score: safe(s => s._msScore),
       vcs: safe(s => s.vcs),
       mf: safe(s => s.mf),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
@@ -1677,7 +1686,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"],
     ["Tags", "hits"],
-    ["Q", "quality"], ["EPS", "eps_score"], ["VCS", "vcs"], ["MF", "mf"],
+    ["EPS", "eps_score"], ["MS", "ms_score"], ["VCS", "vcs"], ["MF", "mf"],
     ["Grade", "grade"], ["RS", "rs"],
     ["Chg%", "change"], ["3M%", "ret3m"],
     ["FrHi%", "fromhi"], ["ADR%", "adr"], ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
@@ -1828,16 +1837,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 </div>
               </td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-                color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
-                title={s._q_factors?.length ? s._q_factors.map(f => {
-                  const labels = { "C↑↑": "EPS This Y ≥100%", "C↑": "EPS This Y ≥40%", "A↑": "EPS 5Y ≥40%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
-                    "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
-                    "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
-                    "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
-                    "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
-                  return labels[f] || f; }).join("\n") : ""}>
-                {s._quality ?? "—"}</td>
-              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}
                 title={(() => {
                   const qs = s.quarters || []; const an = s.annual || [];
@@ -1854,6 +1853,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   return parts.join("\n");
                 })()}>
                 {s._epsScore ?? "—"}</td>
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s._msScore >= 80 ? "#2bb886" : s._msScore >= 60 ? "#60a5fa" : s._msScore >= 40 ? "#9090a0" : s._msScore != null ? "#686878" : "#3a3a4a" }}
+                title={`RS:${s.rs_rank ?? '—'} FrHi:${s.pct_from_high ?? '—'}% 3M:${s.return_3m ?? '—'}% VCS:${s.vcs ?? '—'} EPS:${s._epsScore ?? '—'} MF:${s.mf ?? '—'} ADR:${s.adr_pct ?? '—'}%`}>
+                {s._msScore ?? "—"}</td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
                 title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
@@ -2319,7 +2322,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Q", "quality"], ["EPS", "eps_score"], ["VCS", "vcs"], ["MF", "mf"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
+  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["EPS", "eps_score"], ["MS", "ms_score"], ["VCS", "vcs"], ["MF", "mf"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["ADR%", "adr"],
   ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
 ];
@@ -2387,20 +2390,15 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
           })}
         </div>
       </td>
-      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-        color: s._quality >= 80 ? "#2bb886" : s._quality >= 60 ? "#60a5fa" : s._quality >= 40 ? "#9090a0" : "#686878" }}
-        title={s._q_factors?.length ? s._q_factors.map(f => {
-          const labels = { "C↑↑": "EPS This Y ≥100%", "C↑": "EPS This Y ≥40%", "A↑": "EPS 5Y ≥40%", "A↑": "Annual EPS ≥40%", "A↓": "Neg annual EPS",
-            "S↑": "Sales ≥25%", "NH": "New 52W high", "LF": "Low float <15M", "MF": "Float <50M", "L": "RS leader ≥90",
-            "NI": "Low inst <30%", "SR": "Short ratio ≥5d", "SQ": "Short ≥15%",
-            "SC": "Small cap <$2B", "MC": "Mid cap <$10B", "IPO": "Young IPO", "TH": "Leading theme",
-            "S↓": "Neg sales", "S↑↑": "Sales Q/Q ≥40%", "QQ↑↑": "EPS Q/Q ≥100%", "QQ↑": "EPS Q/Q ≥40%", "Acc": "EPS accelerating", "Gr": "A-grade", "Deep": "Deep off highs" };
-          return labels[f] || f; }).join("\n") : ""}>
-        {s._quality ?? "—"}</td>
       {/* EPS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
         {s._epsScore ?? "—"}</td>
+      {/* MS */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s._msScore >= 80 ? "#2bb886" : s._msScore >= 60 ? "#60a5fa" : s._msScore >= 40 ? "#9090a0" : s._msScore != null ? "#686878" : "#3a3a4a" }}
+        title={`RS:${s.rs_rank ?? '—'} FrHi:${s.pct_from_high ?? '—'}% 3M:${s.return_3m ?? '—'}% VCS:${s.vcs ?? '—'} EPS:${s._epsScore ?? '—'} MF:${s.mf ?? '—'} ADR:${s.adr_pct ?? '—'}%`}>
+        {s._msScore ?? "—"}</td>
       {/* VCS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
@@ -2855,6 +2853,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       earnings_date: pipe.earnings_date,
       _scanHits: pipe._scanHits || [],
       _epsScore: pipe._epsScore,
+      _msScore: pipe._msScore,
       _quality: quality,
       _q_factors: q_factors,
     };
@@ -2874,6 +2873,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     ticker: (a, b) => a.ticker.localeCompare(b.ticker),
     quality: sortFn("_quality"),
     eps_score: sortFn("_epsScore"),
+    ms_score: sortFn("_msScore"),
     hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
     vcs: sortFn("vcs"),
     mf: sortFn("mf"),
@@ -3387,6 +3387,34 @@ function AppMain({ authToken, onLogout }) {
     });
     const pFinal = pctRank(Object.values(composites).filter(v=>v!=null));
     allStocks.forEach(s => { m[s.ticker]._epsScore = pFinal(composites[s.ticker]); });
+    
+    // ── Momentum Score (0-99) ──
+    // Blend of price action + EPS quality for swing/momentum trading
+    const pRS = pctRank(allStocks.map(s => s.rs_rank));
+    const pFrHi = pctRank(allStocks.map(s => s.pct_from_high));  // closer to 0 = better
+    const pRet3m = pctRank(allStocks.map(s => s.return_3m));
+    const pVCS = pctRank(allStocks.map(s => s.vcs));
+    const pEPS = pctRank(allStocks.map(s => m[s.ticker]._epsScore));
+    const pMF = pctRank(allStocks.map(s => s.mf));
+    const pADR = pctRank(allStocks.map(s => s.adr_pct));
+    
+    const msComposites = {};
+    allStocks.forEach(s => {
+      const scores = [
+        { p: pRS(s.rs_rank), w: 0.25 },
+        { p: pFrHi(s.pct_from_high), w: 0.15 },
+        { p: pRet3m(s.return_3m), w: 0.15 },
+        { p: pVCS(s.vcs), w: 0.15 },
+        { p: pEPS(m[s.ticker]._epsScore), w: 0.15 },
+        { p: pMF(s.mf), w: 0.10 },
+        { p: pADR(s.adr_pct), w: 0.05 },
+      ];
+      let tw = 0, ts = 0;
+      scores.forEach(({ p, w }) => { if (p != null) { ts += p * w; tw += w; } });
+      msComposites[s.ticker] = tw > 0 ? Math.round(ts / tw) : null;
+    });
+    const pMS = pctRank(Object.values(msComposites).filter(v => v != null));
+    allStocks.forEach(s => { m[s.ticker]._msScore = pMS(msComposites[s.ticker]); });
     
     return m;
   }, [data]);
