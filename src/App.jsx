@@ -2485,19 +2485,54 @@ function LWChart({ ticker, entry, stop, target }) {
         const bars = data.ohlc;
 
         // ── Pocket Pivot Volume Detection ──
-        // For each bar, track if it's an up day (close >= open)
-        // 10-day PP: up-day volume > max down-day volume of last 10 down days
-        // 5-day PP: up-day volume > max down-day volume of last 5 down days
+        // Track highest up volume ever and in last year (252 trading days)
+        let highestUpVolEver = 0;
+        const upVolsAll = [];
+        for (let i = 0; i < bars.length; i++) {
+          if (bars[i].close >= bars[i].open) {
+            upVolsAll.push({ idx: i, vol: bars[i].volume || 0 });
+            if ((bars[i].volume || 0) > highestUpVolEver) highestUpVolEver = bars[i].volume || 0;
+          }
+        }
+        // Highest up volume in last 252 bars (1 year)
+        const yearStart = Math.max(0, bars.length - 252);
+        let highestUpVolYear = 0;
+        for (let i = yearStart; i < bars.length; i++) {
+          if (bars[i].close >= bars[i].open && (bars[i].volume || 0) > highestUpVolYear) {
+            highestUpVolYear = bars[i].volume || 0;
+          }
+        }
+
+        // Highest up volume in last quarter (63 trading days)
+        const qtrStart = Math.max(0, bars.length - 63);
+        let highestUpVolQtr = 0, highestUpVolQtrIdx = -1;
+        for (let i = qtrStart; i < bars.length; i++) {
+          if (bars[i].close >= bars[i].open && (bars[i].volume || 0) > highestUpVolQtr) {
+            highestUpVolQtr = bars[i].volume || 0;
+            highestUpVolQtrIdx = i;
+          }
+        }
+
         const volumes = bars.map((c, i) => {
           const isUp = c.close >= c.open;
           const vol = c.volume || 0;
 
           if (!isUp) {
-            // Down day: red
-            return { time: c.date, value: vol, color: "#f8717180" };
+            return { time: c.date, value: vol, color: "#6b7280cc" };
           }
 
-          // Collect down-day volumes looking back
+          // Check highest up volume ever/year/quarter — all purple bars
+          if (vol === highestUpVolEver && vol > 0) {
+            return { time: c.date, value: vol, color: "#a855f7" };
+          }
+          if (i >= yearStart && vol === highestUpVolYear && vol > 0 && vol !== highestUpVolEver) {
+            return { time: c.date, value: vol, color: "#a855f7" };
+          }
+          if (i >= qtrStart && vol === highestUpVolQtr && vol > 0 && vol !== highestUpVolEver && vol !== highestUpVolYear) {
+            return { time: c.date, value: vol, color: "#a855f7" };
+          }
+
+          // Pocket pivot detection
           const downVols = [];
           for (let j = i - 1; j >= 0 && downVols.length < 10; j--) {
             if (bars[j].close < bars[j].open) {
@@ -2508,35 +2543,93 @@ function LWChart({ ticker, entry, stop, target }) {
           if (downVols.length >= 10) {
             const max10 = Math.max(...downVols.slice(0, 10));
             if (vol > max10) {
-              // 10-day pocket pivot — bright green
-              return { time: c.date, value: vol, color: "#22c55e" };
+              return { time: c.date, value: vol, color: "#2563eb" };
             }
           }
           if (downVols.length >= 5) {
             const max5 = Math.max(...downVols.slice(0, 5));
             if (vol > max5) {
-              // 5-day pocket pivot — blue
-              return { time: c.date, value: vol, color: "#60a5fa" };
+              return { time: c.date, value: vol, color: "#0d9488" };
             }
           }
 
-          // Regular up day — dim green
-          return { time: c.date, value: vol, color: "#2bb88650" };
+          return { time: c.date, value: vol, color: "#ffffffcc" };
         });
+
+        // Find indices of HVE and HVY for markers
+        let hveIdx = -1, hvyIdx = -1;
+        for (let i = 0; i < bars.length; i++) {
+          if (bars[i].close >= bars[i].open) {
+            if ((bars[i].volume || 0) === highestUpVolEver) hveIdx = i;
+            if (i >= yearStart && (bars[i].volume || 0) === highestUpVolYear) hvyIdx = i;
+          }
+        }
 
         seriesRef.current.setData(bars.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
         volSeriesRef.current.setData(volumes);
 
+        // ── HVE / HVY / HVQ markers above volume bars ──
+        const volMarkers = [];
+        const calcPctAboveAvg = (idx) => {
+          if (idx < 49) return 0;
+          let s = 0; for (let j = idx - 49; j <= idx; j++) s += (bars[j].volume || 0);
+          const avg = s / 50;
+          return avg > 0 ? Math.round(((bars[idx].volume || 0) / avg - 1) * 100) : 0;
+        };
+
+        if (hveIdx >= 0) {
+          volMarkers.push({ time: bars[hveIdx].date, position: "aboveBar", color: "#d946ef",
+            shape: "arrowDown", size: 1, text: `HVE ${fmtVol(bars[hveIdx].volume)} (${calcPctAboveAvg(hveIdx)}%)` });
+        }
+        if (hvyIdx >= 0 && hvyIdx !== hveIdx) {
+          volMarkers.push({ time: bars[hvyIdx].date, position: "aboveBar", color: "#a855f7",
+            shape: "arrowDown", size: 1, text: `HVY ${fmtVol(bars[hvyIdx].volume)} (${calcPctAboveAvg(hvyIdx)}%)` });
+        }
+        if (highestUpVolQtrIdx >= 0 && highestUpVolQtrIdx !== hveIdx && highestUpVolQtrIdx !== hvyIdx) {
+          volMarkers.push({ time: bars[highestUpVolQtrIdx].date, position: "aboveBar", color: "#22d3ee",
+            shape: "arrowDown", size: 1, text: `HVQ ${fmtVol(bars[highestUpVolQtrIdx].volume)} (${calcPctAboveAvg(highestUpVolQtrIdx)}%)` });
+        }
+
+        volMarkers.sort((a, b) => a.time.localeCompare(b.time));
+        volSeriesRef.current.setMarkers(volMarkers);
+
         // ── 50-day Volume MA line ──
         if (volMaRef.current) {
           const maData = [];
+          const dryUpMarkers = [];
           for (let i = 0; i < bars.length; i++) {
             if (i < 49) continue;
             let sum = 0;
             for (let j = i - 49; j <= i; j++) sum += (bars[j].volume || 0);
-            maData.push({ time: bars[i].date, value: sum / 50 });
+            const ma = sum / 50;
+            maData.push({ time: bars[i].date, value: ma });
+
+            // Volume dry-up detection
+            const vol = bars[i].volume || 0;
+            if (ma > 0) {
+              const pctChange = ((vol - ma) / ma) * 100;
+              if (pctChange <= -60) {
+                // 2nd level dry-up (≤ -60%) — orange dot
+                dryUpMarkers.push({
+                  time: bars[i].date, position: "aboveBar", color: "#f97316",
+                  shape: "circle", size: 0.5,
+                });
+              } else if (pctChange <= -45) {
+                // 1st level dry-up (≤ -45%) — yellow dot
+                dryUpMarkers.push({
+                  time: bars[i].date, position: "aboveBar", color: "#fbbf24",
+                  shape: "circle", size: 0.5,
+                });
+              }
+            }
           }
           volMaRef.current.setData(maData);
+          // Set markers on the MA line (shares vol price scale)
+          if (dryUpMarkers.length > 0) {
+            volMaRef.current.setMarkers(dryUpMarkers);
+          } else {
+            volMaRef.current.setMarkers([]);
+          }
         }
 
         chartRef.current.timeScale().fitContent();
@@ -2557,10 +2650,12 @@ function LWChart({ ticker, entry, stop, target }) {
         });
         const udRatio = downVol > 0 ? (upVol / downVol) : 0;
         // Count pocket pivots in visible range
-        const ppCount10 = volumes.filter(v => v.color === "#22c55e").length;
-        const ppCount5 = volumes.filter(v => v.color === "#60a5fa").length;
+        const ppCount10 = volumes.filter(v => v.color === "#2563eb").length;
+        const ppCount5 = volumes.filter(v => v.color === "#0d9488").length;
+        const hiVolEver = volumes.filter(v => v.color === "#d946ef").length;
+        const hiVolYear = volumes.filter(v => v.color === "#a855f7").length;
 
-        setVolStats({ avgVol50, lastVol, volChgPct, avgDolVol, udRatio, ppCount10, ppCount5 });
+        setVolStats({ avgVol50, lastVol, volChgPct, avgDolVol, udRatio, ppCount10, ppCount5, hiVolEver, hiVolYear });
       })
       .catch(e => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -2591,10 +2686,10 @@ function LWChart({ ticker, entry, stop, target }) {
       {loading && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#fbbf24", zIndex: 5, pointerEvents: "none" }}>Loading {ticker}...</div>}
       {error && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#f87171", zIndex: 5, pointerEvents: "none" }}>⚠ {error}</div>}
       {!libReady && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 11, color: "#505060", zIndex: 5 }}>Loading chart library...</div>}
-      {/* Volume stats data box */}
+      {/* Volume stats data box — top left */}
       {volStats && (
-        <div style={{ position: "absolute", bottom: 28, left: 8, zIndex: 5, pointerEvents: "none",
-          fontSize: 9, fontFamily: "monospace", color: "#787888", lineHeight: 1.5 }}>
+        <div style={{ position: "absolute", top: 6, left: 8, zIndex: 5, pointerEvents: "none",
+          fontSize: 9, fontFamily: "monospace", color: "#686878", lineHeight: 1.6 }}>
           <div>Avg Vol(50): <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.avgVol50)}</span></div>
           <div>Daily Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.lastVol)}</span>
             <span style={{ color: volStats.volChgPct >= 0 ? "#2bb886" : "#f87171", marginLeft: 4 }}>
@@ -2603,16 +2698,19 @@ function LWChart({ ticker, entry, stop, target }) {
           </div>
           <div>Avg $Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.avgDolVol)}</span></div>
           <div>U/D Ratio: <span style={{ color: volStats.udRatio >= 1 ? "#2bb886" : "#f87171" }}>{volStats.udRatio.toFixed(2)}</span></div>
-          <div>PP: <span style={{ color: "#22c55e" }}>{volStats.ppCount10}×10d</span> <span style={{ color: "#60a5fa" }}>{volStats.ppCount5}×5d</span></div>
+          <div>PP: <span style={{ color: "#2563eb" }}>{volStats.ppCount10}×10d</span> <span style={{ color: "#0d9488" }}>{volStats.ppCount5}×5d</span></div>
         </div>
       )}
-      {/* PP legend */}
+      {/* PP legend — top right */}
       <div style={{ position: "absolute", top: 6, right: 8, zIndex: 5, pointerEvents: "none",
-        fontSize: 8, fontFamily: "monospace", display: "flex", gap: 8, color: "#505060" }}>
-        <span><span style={{ color: "#22c55e" }}>■</span> 10d PP</span>
-        <span><span style={{ color: "#60a5fa" }}>■</span> 5d PP</span>
-        <span><span style={{ color: "#2bb886" }}>■</span> Up</span>
-        <span><span style={{ color: "#f87171" }}>■</span> Down</span>
+        fontSize: 8, fontFamily: "monospace", display: "flex", flexDirection: "column", gap: 2, color: "#505060", alignItems: "flex-end" }}>
+        <span><span style={{ color: "#a855f7" }}>■</span> HV</span>
+        <span><span style={{ color: "#2563eb" }}>■</span> 10d PP</span>
+        <span><span style={{ color: "#0d9488" }}>■</span> 5d PP</span>
+        <span><span style={{ color: "#ffffff" }}>■</span> Up</span>
+        <span><span style={{ color: "#6b7280" }}>■</span> Down</span>
+        <span><span style={{ color: "#fbbf24" }}>●</span> Dry -45%</span>
+        <span><span style={{ color: "#f97316" }}>●</span> Dry -60%</span>
       </div>
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
