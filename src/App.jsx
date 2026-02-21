@@ -2396,6 +2396,7 @@ function LWChart({ ticker, entry, stop, target }) {
   const wrapperRef = useRef(null);
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
+  const volChartRef = useRef(null);
   const seriesRef = useRef(null);
   const volSeriesRef = useRef(null);
   const roRef = useRef(null);
@@ -2420,7 +2421,8 @@ function LWChart({ ticker, entry, stop, target }) {
     wrapperRef.current.appendChild(el);
     chartContainerRef.current = el;
     return () => {
-      if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; volSeriesRef.current = null; linesRef.current = []; }
+      if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
+      if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
       chartContainerRef.current = null;
@@ -2433,61 +2435,107 @@ function LWChart({ ticker, entry, stop, target }) {
     const LW = window.LightweightCharts;
     if (!LW) return;
     try {
-      const chart = LW.createChart(chartContainerRef.current, {
-        width: chartContainerRef.current.clientWidth || 400,
-        height: chartContainerRef.current.clientHeight || 400,
+      // ── Price chart (top ~75%) ──
+      const priceEl = document.createElement("div");
+      priceEl.style.cssText = "width:100%;height:75%;";
+      chartContainerRef.current.appendChild(priceEl);
+
+      const priceChart = LW.createChart(priceEl, {
+        width: priceEl.clientWidth || 400,
+        height: priceEl.clientHeight || 300,
         layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#787888", fontFamily: "monospace", fontSize: 10 },
         grid: { vertLines: { color: "#1a1a24" }, horzLines: { color: "#1a1a24" } },
         crosshair: { mode: 0 },
         rightPriceScale: { borderColor: "#2a2a38" },
-        timeScale: { borderColor: "#2a2a38", timeVisible: false },
+        timeScale: { borderColor: "#2a2a38", timeVisible: false, rightOffset: 27 },
       });
-      chartRef.current = chart;
-      // v4 API: addCandlestickSeries / addHistogramSeries
-      seriesRef.current = chart.addCandlestickSeries({
+      chartRef.current = priceChart;
+
+      seriesRef.current = priceChart.addCandlestickSeries({
         upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
         wickUpColor: "#2bb886", wickDownColor: "#f87171",
       });
 
       // ── Price overlay MAs ──
-      // 10 EMA — pinkish red (cross style not available in LW, use thin line)
-      maRefs.current.ema10 = chart.addLineSeries({
+      maRefs.current.ema10 = priceChart.addLineSeries({
         color: "#ff828c", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
-        lineStyle: 0, // solid
       });
-      // 21 EMA Cloud — high/low as thin gray, close as colored line
-      maRefs.current.ema21hi = chart.addLineSeries({
+      maRefs.current.ema21hi = priceChart.addLineSeries({
         color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      maRefs.current.ema21lo = chart.addLineSeries({
+      maRefs.current.ema21lo = priceChart.addLineSeries({
         color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      maRefs.current.ema21close = chart.addLineSeries({
+      maRefs.current.ema21close = priceChart.addLineSeries({
         color: "#808080", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
-        lineStyle: 0,
       });
-      // 50 SMA — teal/green
-      maRefs.current.sma50 = chart.addLineSeries({
+      maRefs.current.sma50 = priceChart.addLineSeries({
         color: "#00bc9a", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      // 200 EMA — purple
-      maRefs.current.ema200 = chart.addLineSeries({
+      maRefs.current.ema200 = priceChart.addLineSeries({
         color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      volSeriesRef.current = chart.addHistogramSeries({
-        priceFormat: { type: "volume" }, priceScaleId: "vol",
+
+      // ── Volume chart (bottom ~25%) ──
+      const volEl = document.createElement("div");
+      volEl.style.cssText = "width:100%;height:25%;";
+      chartContainerRef.current.appendChild(volEl);
+
+      const volChart = LW.createChart(volEl, {
+        width: volEl.clientWidth || 400,
+        height: volEl.clientHeight || 100,
+        layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#787888", fontFamily: "monospace", fontSize: 10 },
+        grid: { vertLines: { color: "#1a1a24" }, horzLines: { color: "#1a1a24" } },
+        crosshair: { mode: 0 },
+        rightPriceScale: { borderColor: "#2a2a38" },
+        timeScale: { borderColor: "#2a2a38", timeVisible: false, rightOffset: 27 },
+      });
+      volChartRef.current = volChart;
+
+      volSeriesRef.current = volChart.addHistogramSeries({
+        priceFormat: { type: "volume" },
         color: "#2bb88640",
       });
-      // 50-day volume MA line
-      volMaRef.current = chart.addLineSeries({
-        color: "#fbbf2480", lineWidth: 1, priceScaleId: "vol",
+      volMaRef.current = volChart.addLineSeries({
+        color: "#fbbf2480", lineWidth: 1,
         lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.75, bottom: 0 } });
 
+      // ── Sync time scales ──
+      priceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range && volChartRef.current) {
+          volChartRef.current.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+      volChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range && chartRef.current) {
+          chartRef.current.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+
+      // ── Sync crosshair ──
+      const syncCrosshair = (sourceChart, targetChart) => {
+        sourceChart.subscribeCrosshairMove((param) => {
+          if (!param || !param.time) {
+            targetChart.clearCrosshairPosition();
+          } else {
+            // Move crosshair to same time on target
+            targetChart.setCrosshairPosition(undefined, param.time, targetChart === volChartRef.current ? volSeriesRef.current : seriesRef.current);
+          }
+        });
+      };
+      try {
+        syncCrosshair(priceChart, volChart);
+        syncCrosshair(volChart, priceChart);
+      } catch {}
+
+      // ── Resize observer ──
       roRef.current = new ResizeObserver(() => {
-        if (chartRef.current && chartContainerRef.current) {
-          try { chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400); } catch {}
+        if (chartContainerRef.current) {
+          const w = chartContainerRef.current.clientWidth || 400;
+          const h = chartContainerRef.current.clientHeight || 400;
+          if (chartRef.current) chartRef.current.resize(w, Math.round(h * 0.75));
+          if (volChartRef.current) volChartRef.current.resize(w, Math.round(h * 0.25));
         }
       });
       roRef.current.observe(chartContainerRef.current);
@@ -2728,9 +2776,12 @@ function LWChart({ ticker, entry, stop, target }) {
           }
         }
 
-        // Show last ~6 months (126 trading days)
-        const sixMonthsAgo = bars.length > 126 ? bars[bars.length - 126].date : bars[0].date;
-        chartRef.current.timeScale().setVisibleRange({ from: sixMonthsAgo, to: bars[bars.length - 1].date });
+        // Show last ~6 months (126 trading days) with right offset already set to 27
+        const totalBars = bars.length;
+        const from = totalBars > 126 ? totalBars - 126 : 0;
+        const logicalRange = { from, to: totalBars - 1 };
+        chartRef.current.timeScale().setVisibleLogicalRange(logicalRange);
+        // volChart syncs automatically via subscribeVisibleLogicalRangeChange
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];
