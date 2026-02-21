@@ -1967,6 +1967,24 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     const g = {}; grades.forEach(gr => { g[gr] = stocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
   }, [stocks]);
 
+  // 20% 1W screener: Price > $5, 1W return > 20%, Avg Vol > 100K
+  const weekMovers = useMemo(() => {
+    return stocks.filter(s =>
+      s.price >= 5 &&
+      s.return_1w > 20 &&
+      s.avg_volume_raw >= 100000
+    ).sort((a, b) => (b.return_1w || 0) - (a.return_1w || 0));
+  }, [stocks]);
+
+  // 20% 1M screener: Price > $5, 1M return > 20%, Avg Vol > 100K
+  const monthMovers = useMemo(() => {
+    return stocks.filter(s =>
+      s.price >= 5 &&
+      s.return_1m > 20 &&
+      s.avg_volume_raw >= 100000
+    ).sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0));
+  }, [stocks]);
+
   // Report visible ticker order to parent
   useEffect(() => {
     if (onVisibleTickers) {
@@ -2007,6 +2025,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
         <span style={{ color: "#c084fc", fontWeight: 700, fontFamily: "monospace" }}>Purple</span><span style={{ color: "#b0b0be" }}> = ATR/50 ≥ 5x (extended)</span>
         <span style={{ color: "#bbb", fontFamily: "monospace" }}>Default</span><span style={{ color: "#b0b0be" }}> = Not extended</span>
       </div>)}
+      {/* RTS Grade Grid */}
       <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
         {grades.map(g => {
           const light = ["C+","C","C-","D+","D","D-"].includes(g);
@@ -2027,6 +2046,46 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
             </div>
           );
         })}
+      </div>
+
+      {/* Screeners */}
+      <div style={{ marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#c084fc" }}>Screeners</span>
+          <span style={{ fontSize: 10, color: "#686878" }}>Price &gt; $5 · Vol &gt; 100K</span>
+        </div>
+        <div style={{ display: "flex", gap: 2 }}>
+          {/* 20% 1W */}
+          <div style={{ width: 64, flexShrink: 0 }}>
+            <div style={{ background: "#c084fc", color: "#fff", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
+              20%1W<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{weekMovers.length}</span></div>
+            <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
+              {weekMovers.map(s => (
+                <div key={s.ticker} title={`${s.company} | 1W:${s.return_1w != null ? s.return_1w.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
+                  onClick={() => onTickerClick(s.ticker)}
+                  style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
+                    background: s.ticker === activeTicker ? "#0d916330" : "#c084fc25",
+                    color: s.return_1w >= 50 ? "#f87171" : s.return_1w >= 30 ? "#fbbf24" : "#bbb",
+                    fontWeight: s.return_1w >= 30 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+              ))}
+            </div>
+          </div>
+          {/* 20% 1M */}
+          <div style={{ width: 64, flexShrink: 0 }}>
+            <div style={{ background: "#60a5fa", color: "#fff", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
+              20%1M<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{monthMovers.length}</span></div>
+            <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
+              {monthMovers.map(s => (
+                <div key={s.ticker} title={`${s.company} | 1M:${s.return_1m != null ? s.return_1m.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
+                  onClick={() => onTickerClick(s.ticker)}
+                  style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
+                    background: s.ticker === activeTicker ? "#0d916330" : "#60a5fa25",
+                    color: s.return_1m >= 50 ? "#f87171" : s.return_1m >= 30 ? "#fbbf24" : "#bbb",
+                    fontWeight: s.return_1m >= 30 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -3306,7 +3365,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["grid","RTS Grid"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["grid","Research"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
