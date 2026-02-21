@@ -400,7 +400,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             })()}
             {/* Annual EPS/Sales/Margins — CANSLIM A: Annual Earnings */}
             {stock.annual && stock.annual.length > 0 && (<>
-              <div style={{ borderTop: "1px solid #2a2a38", margin: "3px 0 2px", width: "100%" }} />
+              <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
               <div style={{ color: "#686878", fontWeight: 700, marginBottom: 1 }}>Annual</div>
               {stock.annual.slice(0, 3).map((a, i) => {
                 // Annual EPS tiers (O'Neil): ≥25% CAGR minimum over 3-5 years
