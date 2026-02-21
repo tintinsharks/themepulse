@@ -1949,6 +1949,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         </div>
       )}
     </div>
+    </div>
   );
 }
 
