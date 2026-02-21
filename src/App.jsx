@@ -1962,6 +1962,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
 function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const [showLegend, setShowLegend] = useState(false);
+  const [filterOn, setFilterOn] = useState(true);
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
 
   // Filter out excluded industries
@@ -1978,6 +1979,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
   ]);
   const filteredStocks = useMemo(() => {
+    if (!filterOn) return stocks;
     return stocks.filter(s => {
       const ind = (s.industry || "").trim();
       if (!ind) return true;
@@ -1986,7 +1988,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       }
       return true;
     });
-  }, [stocks]);
+  }, [stocks, filterOn]);
 
   const groups = useMemo(() => {
     const g = {}; grades.forEach(gr => { g[gr] = filteredStocks.filter(s => s.grade === gr).sort((a, b) => b.rts_score - a.rts_score); }); return g;
@@ -2108,19 +2110,52 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       .sort((a, b) => (b._comboCount - a._comboCount) || ((b.rs_rank || 0) - (a.rs_rank || 0)));
   }, [weekMovers, monthMovers, strongestStocks, momentumStocks]);
 
-  // Report visible ticker order to parent
+  // Build box-grouped ticker lists for keyboard navigation
+  const boxLists = useMemo(() => {
+    const rtsBox = grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker));
+    const comboBox = comboStocks.map(s => s.ticker);
+    const w1Box = weekMovers.map(s => s.ticker);
+    const m1Box = monthMovers.map(s => s.ticker);
+    const strongBox = strongestStocks.map(s => s.ticker);
+    const momBox = momentumStocks.map(s => s.ticker);
+    return [rtsBox, comboBox, w1Box, m1Box, strongBox, momBox];
+  }, [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks]);
+
+  // Report visible ticker order to parent — find which box the active ticker is in
   useEffect(() => {
-    if (onVisibleTickers) {
-      const tickers = grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker));
-      onVisibleTickers(tickers);
+    if (!onVisibleTickers) return;
+    // Find box containing activeTicker
+    if (activeTicker) {
+      for (const box of boxLists) {
+        if (box.includes(activeTicker)) {
+          onVisibleTickers(box);
+          return;
+        }
+      }
     }
-  }, [groups, onVisibleTickers]);
+    // Default: RTS grid
+    onVisibleTickers(boxLists[0]);
+  }, [boxLists, activeTicker, onVisibleTickers]);
+
+  // Auto-open first combo ticker (or first A+ stock) on mount
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || !onTickerClick) return;
+    const first = comboStocks[0]?.ticker || groups["A+"]?.[0]?.ticker;
+    if (first) {
+      autoOpened.current = true;
+      onTickerClick(first);
+    }
+  }, [comboStocks, groups]);
   return (
     <div style={{ overflowX: "auto" }}>
-      {/* Filter indicator */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: 6, fontSize: 10, color: "#686878" }}>
-        <span style={{ color: "#f97316", fontWeight: 700 }}>⊘ FILTERED</span>
-        <span>Excluding: Biotech, Pharma, REITs, Investment Banks/Mgrs/Trusts</span>
+      {/* Filter toggle */}
+      <div onClick={() => setFilterOn(p => !p)}
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: 6, fontSize: 10,
+          cursor: "pointer", userSelect: "none",
+          color: filterOn ? "#686878" : "#505060" }}>
+        <span style={{ color: filterOn ? "#f97316" : "#3a3a4a", fontWeight: 700 }}>{filterOn ? "⊘ FILTERED" : "○ UNFILTERED"}</span>
+        <span style={{ color: filterOn ? "#686878" : "#3a3a4a" }}>Biotech, Pharma, REITs, Investment Banks/Mgrs/Trusts</span>
         <span style={{ color: "#505060" }}>({stocks.length - filteredStocks.length} removed · {filteredStocks.length} shown)</span>
       </div>
       {/* Legend */}
@@ -2131,28 +2166,46 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
         <span style={{ fontWeight: 700, fontSize: 10 }}>LEGEND</span>
       </div>
       {showLegend && (
-      <div style={{ display: "flex", gap: 20, marginBottom: 10, padding: "8px 12px", background: "#1a1a24", borderRadius: "0 0 6px 6px", fontSize: 11, flexWrap: "wrap", alignItems: "center", marginTop: -1 }}>
-        <span style={{ color: "#9090a0", fontWeight: 700 }}>COLUMN GRADE (RTS Score):</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#1B7A2B" }} /> <span style={{ color: "#b0b0be" }}>A+ to A- — Strongest momentum</span>
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#5CB85C" }} /> <span style={{ color: "#b0b0be" }}>B+ to B- — Above average</span>
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#CCF2CC" }} /> <span style={{ color: "#b0b0be" }}>C — Neutral</span>
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#e5e5e5" }} /> <span style={{ color: "#b0b0be" }}>D — Below average</span>
-        </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: "#FF5050" }} /> <span style={{ color: "#b0b0be" }}>E to G — Weakest momentum</span>
-        </span>
-        <span style={{ color: "#3a3a4a" }}>|</span>
-        <span style={{ color: "#9090a0", fontWeight: 700 }}>TICKER TEXT:</span>
-        <span style={{ color: "#f87171", fontWeight: 700, fontFamily: "monospace" }}>Red</span><span style={{ color: "#b0b0be" }}> = ATR/50 ≥ 7x (extremely extended)</span>
-        <span style={{ color: "#c084fc", fontWeight: 700, fontFamily: "monospace" }}>Purple</span><span style={{ color: "#b0b0be" }}> = ATR/50 ≥ 5x (extended)</span>
-        <span style={{ color: "#bbb", fontFamily: "monospace" }}>Default</span><span style={{ color: "#b0b0be" }}> = Not extended</span>
+      <div style={{ display: "flex", gap: 16, marginBottom: 10, padding: "8px 12px", background: "#1a1a24", borderRadius: "0 0 6px 6px", fontSize: 10, flexWrap: "wrap", alignItems: "flex-start", marginTop: -1 }}>
+        {/* Grade columns */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ color: "#9090a0", fontWeight: 700 }}>RTS GRADE COLUMNS</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#1B7A2B" }} /> <span style={{ color: "#b0b0be" }}>A+ to A-</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#5CB85C" }} /> <span style={{ color: "#b0b0be" }}>B+ to B-</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#CCF2CC" }} /> <span style={{ color: "#b0b0be" }}>C range</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#e5e5e5" }} /> <span style={{ color: "#b0b0be" }}>D range</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#FF5050" }} /> <span style={{ color: "#b0b0be" }}>E to G</span></span>
+        </div>
+        {/* Ticker text — applies to all sections */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ color: "#9090a0", fontWeight: 700 }}>TICKER TEXT (all sections)</span>
+          <span><span style={{ color: "#f87171", fontWeight: 700, fontFamily: "monospace" }}>Red bold</span><span style={{ color: "#b0b0be" }}> — ATR/50 ≥ 7x (very extended)</span></span>
+          <span><span style={{ color: "#c084fc", fontWeight: 700, fontFamily: "monospace" }}>Purple bold</span><span style={{ color: "#b0b0be" }}> — ATR/50 ≥ 5x (extended)</span></span>
+          <span><span style={{ color: "#bbb", fontFamily: "monospace" }}>Default</span><span style={{ color: "#b0b0be" }}> — Not extended</span></span>
+        </div>
+        {/* Screener headers */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ color: "#9090a0", fontWeight: 700 }}>SCREENER HEADERS</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#c084fc" }} /> <span style={{ color: "#b0b0be" }}>20% 1W — Weekly +20%</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#60a5fa" }} /> <span style={{ color: "#b0b0be" }}>20% 1M — Monthly +20%</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#2bb886" }} /> <span style={{ color: "#b0b0be" }}>Strongest — EPS+Sales growth, tight base</span></span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#f97316" }} /> <span style={{ color: "#b0b0be" }}>Momentum — 1W/1M/3M/6M multi-cap</span></span>
+        </div>
+        {/* Combo */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ color: "#9090a0", fontWeight: 700 }}>COMBO</span>
+          <span style={{ color: "#b0b0be" }}>Tickers in 2+ screeners</span>
+          <span><span style={{ color: "#fbbf24", fontFamily: "monospace", fontSize: 9 }}>superscript</span><span style={{ color: "#b0b0be" }}> — screener hit count</span></span>
+        </div>
       </div>)}
       {/* RTS Grade Grid */}
       <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
@@ -2195,8 +2248,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     fontSize: 11, fontFamily: "monospace", cursor: "pointer",
                     background: s.ticker === activeTicker ? "#0d916330" : gc + "20",
                     border: `1px solid ${s._comboCount >= 3 ? "#fbbf24" : gc}40`,
-                    color: s._comboCount >= 3 ? "#fbbf24" : "#bbb",
-                    fontWeight: s._comboCount >= 3 ? 700 : 400 }}>
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400 }}>
                   <Badge grade={s.grade} />
                   {s.ticker}
                   <sup style={{ fontSize: 7, color: "#fbbf24", marginLeft: 1 }}>{s._comboCount}</sup>
@@ -2224,8 +2277,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                     background: s.ticker === activeTicker ? "#0d916330" : "#c084fc25",
-                    color: s.return_1w >= 50 ? "#f87171" : s.return_1w >= 30 ? "#fbbf24" : "#bbb",
-                    fontWeight: s.return_1w >= 30 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
               ))}
             </div>
           </div>
@@ -2239,8 +2292,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: s.ticker === activeTicker ? "#0d916330" : "#60a5fa25",
-                    color: s.return_1m >= 50 ? "#f87171" : s.return_1m >= 30 ? "#fbbf24" : "#bbb",
-                    fontWeight: s.return_1m >= 30 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
               ))}
             </div>
           </div>
@@ -2254,8 +2307,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: s.ticker === activeTicker ? "#0d916330" : "#2bb88625",
-                    color: s._scanSource === "S" ? "#fbbf24" : "#bbb",
-                    fontWeight: s.rs_rank >= 80 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
               ))}
             </div>
           </div>
@@ -2269,8 +2322,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: s.ticker === activeTicker ? "#0d916330" : "#f9731625",
-                    color: s._momTag.startsWith("6M") ? "#f87171" : s._momTag.startsWith("3M") ? "#fbbf24" : s._momTag.startsWith("1M") ? "#60a5fa" : "#bbb",
-                    fontWeight: s.rs_rank >= 80 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
               ))}
             </div>
           </div>
