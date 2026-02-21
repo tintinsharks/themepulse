@@ -459,15 +459,24 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })}
             </>)}
-            {/* EPS Composite Score */}
-            {stock._epsScore != null && (<>
+            {/* EPS + MS Composite Scores */}
+            {(stock._epsScore != null || stock._msScore != null) && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ color: "#686878", fontWeight: 700 }}>EPS Score</span>
-                <span style={{
-                  color: stock._epsScore >= 80 ? "#22d3ee" : stock._epsScore >= 60 ? "#60a5fa" : stock._epsScore >= 40 ? "#9090a0" : "#686878",
-                  fontWeight: 700, fontSize: 14 }}>{stock._epsScore}</span>
-                <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                {stock._epsScore != null && <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ color: "#686878", fontWeight: 700 }}>EPS</span>
+                  <span style={{
+                    color: stock._epsScore >= 80 ? "#22d3ee" : stock._epsScore >= 60 ? "#60a5fa" : stock._epsScore >= 40 ? "#9090a0" : "#686878",
+                    fontWeight: 700, fontSize: 14 }}>{stock._epsScore}</span>
+                  <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
+                </span>}
+                {stock._msScore != null && <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ color: "#686878", fontWeight: 700 }}>MS</span>
+                  <span style={{
+                    color: stock._msScore >= 80 ? "#2bb886" : stock._msScore >= 60 ? "#60a5fa" : stock._msScore >= 40 ? "#9090a0" : "#686878",
+                    fontWeight: 700, fontSize: 14 }}>{stock._msScore}</span>
+                  <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
+                </span>}
               </div>
             </>)}
             {/* End of earnings timeline */}
