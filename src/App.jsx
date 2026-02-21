@@ -251,7 +251,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 25%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4 }}>
           {/* ADR | RVol */}
           <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
             {stock.adr_pct != null && <span style={{ color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
@@ -459,8 +459,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })}
             </>)}
-            {/* EPS + MS Composite Scores */}
-            {(stock._epsScore != null || stock._msScore != null) && (<>
+            {/* EPS + MS + MF Composite Scores */}
+            {(stock._epsScore != null || stock._msScore != null || stock.mf != null) && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                 {stock._epsScore != null && <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
@@ -475,6 +475,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   <span style={{
                     color: stock._msScore >= 80 ? "#2bb886" : stock._msScore >= 60 ? "#60a5fa" : stock._msScore >= 40 ? "#9090a0" : "#686878",
                     fontWeight: 700, fontSize: 14 }}>{stock._msScore}</span>
+                  <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
+                </span>}
+                {stock._mfPct != null && <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ color: "#686878", fontWeight: 700 }}>MF</span>
+                  <span style={{
+                    color: stock._mfPct >= 80 ? "#2bb886" : stock._mfPct >= 60 ? "#4a9070" : stock._mfPct <= 20 ? "#f87171" : stock._mfPct <= 40 ? "#c06060" : "#686878",
+                    fontWeight: 700, fontSize: 14 }}>{stock._mfPct}</span>
                   <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
                 </span>}
               </div>
@@ -3424,6 +3431,10 @@ function AppMain({ authToken, onLogout }) {
     });
     const pMS = pctRank(Object.values(msComposites).filter(v => v != null));
     allStocks.forEach(s => { m[s.ticker]._msScore = pMS(msComposites[s.ticker]); });
+    
+    // MF percentile for display
+    const pMFall = pctRank(allStocks.map(s => s.mf));
+    allStocks.forEach(s => { m[s.ticker]._mfPct = pMFall(s.mf); });
     
     return m;
   }, [data]);
