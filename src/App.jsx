@@ -2734,6 +2734,29 @@ function LWChart({ ticker, entry, stop, target }) {
             shape: "circle", size: 0.5, text: `HVQ ${fmtVol(bars[highestUpVolQtrIdx].volume)} (${calcPctAboveAvg(highestUpVolQtrIdx)}%)` });
         }
 
+        // ── Zanger Volume Explosion Diamond ──
+        // Conditions: volume > 2x 20-day SMA, close > prev close, close > open
+        const zangerMult = 2.0;
+        const zangerAvgLen = 20;
+        for (let i = zangerAvgLen; i < bars.length; i++) {
+          // 20-day volume SMA
+          let vSum = 0;
+          for (let j = i - zangerAvgLen; j < i; j++) vSum += (bars[j].volume || 0);
+          const vAvg = vSum / zangerAvgLen;
+
+          const vol = bars[i].volume || 0;
+          const priceUp = bars[i].close > (bars[i - 1]?.close || 0);     // close > prev close
+          const solidClose = bars[i].close > bars[i].open;                 // close > open
+          const volExplosion = vol > (vAvg * zangerMult);                  // vol > 200% avg
+
+          if (volExplosion && priceUp && solidClose) {
+            volMarkers.push({
+              time: bars[i].date, position: "belowBar", color: "#ffffff",
+              shape: "square", size: 0.3,
+            });
+          }
+        }
+
         volMarkers.sort((a, b) => a.time.localeCompare(b.time));
         volSeriesRef.current.setMarkers(volMarkers);
 
@@ -2936,10 +2959,162 @@ function LWChart({ ticker, entry, stop, target }) {
         <span><span style={{ color: "#6b7280" }}>■</span> Down</span>
         <span><span style={{ color: "#fbbf24" }}>●</span> Dry -45%</span>
         <span><span style={{ color: "#f97316" }}>●</span> Dry -60%</span>
+        <span><span style={{ color: "#ffffff" }}>◆</span> Zanger</span>
       </div>
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
+    </div>
+  );
+}
+
+// ── EXEC STATS PANEL (mirrors ChartPanel stats below LWChart) ──
+function ExecStatsPanel({ ticker, stock, liveThemeData, onTickerClick }) {
+  const [news, setNews] = useState(null);
+  const [peers, setPeers] = useState(null);
+  const [analyst, setAnalyst] = useState(null);
+
+  const live = useMemo(() => {
+    if (!liveThemeData) return null;
+    return liveThemeData.find(s => s.ticker === ticker) || null;
+  }, [liveThemeData, ticker]);
+
+  useEffect(() => {
+    setNews(null); setPeers(null); setAnalyst(null);
+    fetch(`/api/live?news=${ticker}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.ok) {
+          setNews(d.news?.length > 0 ? d.news : []);
+          setPeers(d.peers?.length > 0 ? d.peers : []);
+          setAnalyst(d.analyst || null);
+        } else { setNews([]); setPeers([]); }
+      })
+      .catch(() => { setNews([]); setPeers([]); });
+  }, [ticker]);
+
+  if (!stock) return null;
+
+  const s = stock;
+  const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
+  const fmtV = (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v;
+
+  return (
+    <div style={{ overflowY: "auto", borderTop: "1px solid #2a2a38", flexShrink: 0, maxHeight: "40%" }}>
+      {/* Company + sector */}
+      <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, alignItems: "center" }}>
+        <span style={{ color: "#9090a0" }}>{s.company}</span>
+        <span style={{ color: "#505060", fontSize: 10 }}>{s.sector} · {s.industry}</span>
+        {live && live.price != null && (
+          <span style={{ fontSize: 14, fontWeight: 900, color: "#d4d4e0", fontFamily: "monospace", marginLeft: "auto" }}>
+            ${live.price.toFixed(2)}
+            <span style={{ fontSize: 12, color: chg(live.change), marginLeft: 6 }}>
+              {live.change > 0 ? "+" : ""}{live.change?.toFixed(2)}%
+            </span>
+          </span>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, fontFamily: "monospace", gap: 8, flexWrap: "wrap", lineHeight: 1.5 }}>
+        <StockStat label="ADR" value={s.adr_pct != null ? `${s.adr_pct}%` : "—"}
+          color={s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316"} />
+        <span style={{ color: "#3a3a4a" }}>│</span>
+        <StockStat label="RVol" value={s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
+          color={s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878"} />
+        <span style={{ color: "#3a3a4a" }}>│</span>
+        <StockStat label="MktCap" value={s.market_cap || "—"} color="#9090a0" />
+        <span style={{ color: "#3a3a4a" }}>│</span>
+        <StockStat label="Float" value={s.shares_float || "—"} color="#9090a0" />
+        <span style={{ color: "#3a3a4a" }}>│</span>
+        <StockStat label="Short" value={s.short_float || "—"} color="#9090a0" />
+        <div style={{ width: "100%", display: "flex", gap: 8 }}>
+          <Ret v={s.return_1m} label="1M" />
+          <Ret v={s.return_3m} label="3M" />
+          <Ret v={s.return_6m} label="6M" />
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          {s.sma20_pct != null && <StockStat label="20d" value={`${s.sma20_pct > 0 ? "+" : ""}${s.sma20_pct}%`}
+            color={s.sma20_pct > 0 ? "#2bb886" : "#f87171"} />}
+          {s.sma50_pct != null && <StockStat label="50d" value={`${s.sma50_pct > 0 ? "+" : ""}${s.sma50_pct}%`}
+            color={s.sma50_pct > 0 ? "#2bb886" : "#f87171"} />}
+          {s.sma200_pct != null && <StockStat label="200d" value={`${s.sma200_pct > 0 ? "+" : ""}${s.sma200_pct}%`}
+            color={s.sma200_pct > 0 ? "#2bb886" : "#f87171"} />}
+        </div>
+        {(s.inst_own != null || s.inst_trans != null) && (
+          <div style={{ width: "100%", display: "flex", gap: 8 }}>
+            {s.inst_own != null && <StockStat label="Inst" value={`${s.inst_own}%`}
+              color={s.inst_own >= 80 ? "#2bb886" : s.inst_own >= 50 ? "#9090a0" : "#f97316"} />}
+            {s.inst_trans != null && <StockStat label="Trans" value={`${s.inst_trans > 0 ? "+" : ""}${s.inst_trans}%`}
+              color={s.inst_trans > 0 ? "#2bb886" : s.inst_trans < 0 ? "#f87171" : "#686878"} />}
+          </div>
+        )}
+      </div>
+
+      {/* Earnings timeline */}
+      {s.quarters && s.quarters.length > 0 && (
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ color: "#686878", fontWeight: 700, marginBottom: 4, display: "flex", gap: 6 }}>
+            <span>Earnings</span>
+            {(s.earnings_display || s.earnings_date) && (() => {
+              const raw = s.earnings_display || s.earnings_date || "";
+              const days = s.earnings_days != null ? Number(s.earnings_days) : null;
+              return <span style={{ fontWeight: 400, color: days != null && days <= 7 ? "#f87171" : days != null && days <= 14 ? "#fbbf24" : "#c084fc" }}>
+                ▶ {raw.replace(/:00(?=\s|$)/g, "")} {days != null && <span style={{ color: "#686878" }}>({days}d)</span>}
+              </span>;
+            })()}
+          </div>
+          {s.quarters.slice(0, 6).map((q, i) => (
+            <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 3 }}>
+              <span style={{ width: 40, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
+              <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 66, flexShrink: 0 }}>
+                {q.eps_yoy != null ? `E:${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : ""}
+              </span>
+              <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : q.sales_yoy < 0 ? "#f87171" : "#505060", width: 56, flexShrink: 0 }}>
+                {q.sales_yoy != null ? `S:${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Analyst */}
+      {analyst && (
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, fontFamily: "monospace", display: "flex", gap: 8 }}>
+          {analyst.targetPrice && <StockStat label="Target" value={`$${analyst.targetPrice}`}
+            color={analyst.targetPrice > (live?.price || 0) ? "#2bb886" : "#f87171"} />}
+          {analyst.recommendation && <span style={{ color: "#9090a0" }}>{analyst.recommendation}</span>}
+        </div>
+      )}
+
+      {/* News */}
+      {news && news.length > 0 && (
+        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10 }}>
+          <div style={{ color: "#686878", fontWeight: 700, marginBottom: 3 }}>News</div>
+          {news.slice(0, 5).map((n, i) => (
+            <div key={i} style={{ marginBottom: 2 }}>
+              <a href={n.url} target="_blank" rel="noopener noreferrer"
+                style={{ color: "#9090a0", textDecoration: "none", fontSize: 10 }}>
+                <span style={{ color: "#505060", marginRight: 4 }}>{n.date?.slice(5, 10)}</span>
+                {n.title}
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Peers */}
+      {peers && peers.length > 0 && (
+        <div style={{ padding: "4px 12px", fontSize: 10 }}>
+          <div style={{ color: "#686878", fontWeight: 700, marginBottom: 3 }}>Peers</div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {peers.slice(0, 12).map(p => (
+              <span key={p} onClick={() => onTickerClick(p)}
+                style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #3a3a4a", color: "#9090a0",
+                  cursor: "pointer", fontSize: 9 }}>{p}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4751,24 +4926,51 @@ function AppMain({ authToken, onLogout }) {
         {chartOpen && (
           <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
             {view === "exec" ? (
-              <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid #2a2a38", flexShrink: 0 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: "#d4d4e0", fontFamily: "monospace" }}>{chartTicker}</span>
-                  {stockMap[chartTicker] && <>
-                    <span style={{ fontSize: 11, color: "#686878" }}>{stockMap[chartTicker]?.company}</span>
-                    {stockMap[chartTicker]?.grade && <Badge grade={stockMap[chartTicker].grade} />}
-                    <span style={{ fontSize: 11, color: "#686878" }}>RS:{stockMap[chartTicker]?.rs_rank}</span>
-                  </>}
-                  <div style={{ flex: 1 }} />
-                  <button onClick={closeChart} className="tp-chart-close"
-                    style={{ width: 24, height: 24, borderRadius: 4, border: "1px solid #3a3a4a", background: "transparent", color: "#686878", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", borderLeft: "1px solid #2a2a38", background: "#121218" }}>
+                {/* Reuse ChartPanel header bar */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
+                  borderBottom: "1px solid #2a2a38", flexShrink: 0, background: "#1a1a24" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}>{chartTicker}</span>
+                    {watchlist && (
+                      watchlist.includes(chartTicker)
+                        ? <button onClick={() => removeFromWatchlist(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                            background: "#0d916320", border: "1px solid #0d916340", color: "#0d9163" }}>✓ Watch</button>
+                        : <button onClick={() => addToWatchlist(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                            background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ Watch</button>
+                    )}
+                    {portfolio && (
+                      portfolio.includes(chartTicker)
+                        ? <button onClick={() => removeFromPortfolio(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                            background: "#fbbf2420", border: "1px solid #fbbf2440", color: "#fbbf24" }}>✓ Portfolio</button>
+                        : <button onClick={() => addToPortfolio(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                            background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ Portfolio</button>
+                    )}
+                    {stockMap[chartTicker] && (<>
+                      <Badge grade={stockMap[chartTicker].grade} />
+                      <span style={{ color: "#787888", fontSize: 12 }}>RS:{stockMap[chartTicker]?.rs_rank}</span>
+                      {stockMap[chartTicker]?.themes?.length > 0 && (
+                        <span style={{ color: "#0d9163", fontSize: 11 }}>{stockMap[chartTicker].themes.map(t => t.subtheme ? `${t.theme} › ${t.subtheme}` : t.theme).join(", ")}</span>
+                      )}
+                    </>)}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <a href={`https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(chartTicker)}`} target="_blank" rel="noopener noreferrer"
+                      style={{ color: "#0d9163", fontSize: 12, textDecoration: "none", padding: "4px 12px", border: "1px solid #0d916340",
+                        borderRadius: 4, fontWeight: 700 }}>Full Chart ↗</a>
+                    <button onClick={closeChart} style={{ background: "none", border: "1px solid #505060", borderRadius: 4, color: "#787888", fontSize: 14,
+                      width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                  </div>
                 </div>
-                <div style={{ flex: 1, minHeight: 0 }}>
+                {/* LW Chart area */}
+                <div style={{ flex: 1, minHeight: 200 }}>
                   <LWChart ticker={chartTicker}
                     entry={trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || ""}
                     stop={trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || ""}
                     target={trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || ""} />
                 </div>
+                {/* Stats panel — scrollable, reuse ChartPanel's detail sections */}
+                <ExecStatsPanel ticker={chartTicker} stock={stockMap[chartTicker]} liveThemeData={liveThemeData} onTickerClick={openChart} />
               </div>
             ) : (
               <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
