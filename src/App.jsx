@@ -380,24 +380,28 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 3,
                   borderBottom: rowBorder, background: rowBg, borderRadius: isCode33Q ? 2 : 0 }}>
                   <span style={{ width: 40, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
-                  {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 66, flexShrink: 0,
+                  <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 66, flexShrink: 0,
                     background: epsBg, borderRadius: 2, padding: "0 2px" }}>
-                    {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
-                    E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
-                    {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="EPS accelerating vs prior quarter">▲</span>}
-                    {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 3 }} title="EPS decelerating vs prior quarter">▼</span>}
-                  </span>}
-                  {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171",
+                    {q.eps != null ? <>
+                      {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
+                      E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
+                      {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="EPS accelerating vs prior quarter">▲</span>}
+                      {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 3 }} title="EPS decelerating vs prior quarter">▼</span>}
+                    </> : ""}
+                  </span>
+                  <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : q.sales_yoy < 0 ? "#f87171" : "#505060",
                     width: 56, flexShrink: 0, background: salesBg, borderRadius: 2, padding: "0 2px" }}>
-                    S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
-                    {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="Sales accelerating vs prior quarter">▲</span>}
-                  </span>}
-                  {margin != null && <span style={{
+                    {q.sales_yoy != null ? <>
+                      S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
+                      {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="Sales accelerating vs prior quarter">▲</span>}
+                    </> : ""}
+                  </span>
+                  <span style={{
                     color: isMarginAccel ? (isCode33Q ? "#60a5fa" : "#22d3ee") : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
                     width: 52, flexShrink: 0, fontSize: 10 }}
-                    title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
-                    M:{margin.toFixed(0)}%{isMarginAccel ? " ▲" : marginDelta != null && marginDelta < 0 ? " ▼" : ""}
-                  </span>}
+                    title={margin != null ? `${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}` : undefined}>
+                    {margin != null ? <>M:{margin.toFixed(0)}%{isMarginAccel ? " ▲" : marginDelta != null && marginDelta < 0 ? " ▼" : ""}</> : ""}
+                  </span>
                 </div>
                 );
               })}
@@ -426,21 +430,23 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 return (
                 <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 3 }}>
                   <span style={{ width: 40, flexShrink: 0 }}>{a.year}</span>
-                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 66, flexShrink: 0,
+                  <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 66, flexShrink: 0,
                     background: epsBg, borderRadius: 2, padding: "0 2px" }}>
-                    {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
-                    E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
-                  </span>}
-                  {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 20 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171",
+                    {a.eps != null ? <>
+                      {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
+                      E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
+                    </> : ""}
+                  </span>
+                  <span style={{ color: a.sales_yoy >= 20 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : a.sales_yoy < 0 ? "#f87171" : "#505060",
                     width: 56, flexShrink: 0, background: salesBg, borderRadius: 2, padding: "0 2px" }}>
-                    S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
-                  </span>}
-                  {margin != null && <span style={{
+                    {a.sales_yoy != null ? <>S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%</> : ""}
+                  </span>
+                  <span style={{
                     color: marginDelta != null && marginDelta > 0 ? "#22d3ee" : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
                     width: 52, flexShrink: 0, fontSize: 10 }}
-                    title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
-                    M:{margin.toFixed(0)}%{marginDelta != null && marginDelta > 0 ? " ▲" : marginDelta != null && marginDelta < 0 ? " ▼" : ""}
-                  </span>}
+                    title={margin != null ? `${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}` : undefined}>
+                    {margin != null ? <>M:{margin.toFixed(0)}%{marginDelta != null && marginDelta > 0 ? " ▲" : marginDelta != null && marginDelta < 0 ? " ▼" : ""}</> : ""}
+                  </span>
                 </div>
                 );
               })}
