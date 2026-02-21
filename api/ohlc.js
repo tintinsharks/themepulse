@@ -1,40 +1,39 @@
 // Vercel serverless function: /api/ohlc?ticker=AAPL
 // Place in: themepulse/api/ohlc.js
-// Uses FMP (Financial Modeling Prep) API for OHLC data
-// Requires env var: FMP_API_KEY
+// Uses Yahoo Finance chart API (free, no key needed)
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   const { ticker } = req.query;
   if (!ticker) return res.status(400).json({ ok: false, error: "Missing ticker" });
 
-  const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) return res.status(500).json({ ok: false, error: "FMP_API_KEY not configured" });
-
   try {
-    // FMP historical daily prices — returns up to 5 years by default
-    const url = `https://financialmodelingprep.com/api/v3/historical-price-full/${encodeURIComponent(ticker)}?apikey=${apiKey}`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`FMP HTTP ${resp.status}`);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d&includePrePost=false`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+    });
+    if (!resp.ok) throw new Error(`Yahoo HTTP ${resp.status}`);
     const data = await resp.json();
 
-    if (!data?.historical || data.historical.length === 0) {
-      throw new Error("No historical data from FMP");
-    }
+    const result = data?.chart?.result?.[0];
+    if (!result || !result.timestamp) throw new Error("No data from Yahoo");
 
-    // FMP returns newest first, Lightweight Charts needs oldest first
-    // Take last 250 trading days (~1 year)
-    const ohlc = data.historical
-      .slice(0, 250)
-      .reverse()
-      .map(d => ({
-        date: d.date,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-        volume: d.volume || 0,
-      }));
+    const timestamps = result.timestamp;
+    const quote = result.indicators?.quote?.[0];
+    if (!quote) throw new Error("No quote data");
+
+    const ohlc = timestamps.map((ts, i) => {
+      const d = new Date(ts * 1000);
+      const date = d.toISOString().split("T")[0];
+      return {
+        date,
+        open: quote.open?.[i] != null ? Math.round(quote.open[i] * 100) / 100 : null,
+        high: quote.high?.[i] != null ? Math.round(quote.high[i] * 100) / 100 : null,
+        low: quote.low?.[i] != null ? Math.round(quote.low[i] * 100) / 100 : null,
+        close: quote.close?.[i] != null ? Math.round(quote.close[i] * 100) / 100 : null,
+        volume: quote.volume?.[i] || 0,
+      };
+    }).filter(c => c.open != null && c.close != null);
 
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
     return res.json({ ok: true, ticker: ticker.toUpperCase(), ohlc });
