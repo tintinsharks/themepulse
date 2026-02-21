@@ -50,7 +50,7 @@ function StockStat({ label, value, color = "#9090a0" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
 
-function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, manualEPs, onAddEP, onRemoveEP, liveThemeData }) {
+function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, manualEPs, onAddEP, onRemoveEP, liveThemeData, lwChartProps }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
@@ -97,6 +97,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   ];
 
   useEffect(() => {
+    if (lwChartProps) return; // Skip TradingView when using LW chart
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
 
@@ -559,7 +560,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       </>)}
 
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+      {lwChartProps ? (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <LWChart ticker={ticker} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} />
+        </div>
+      ) : (
+        <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+      )}
     </div>
   );
 }
@@ -2968,157 +2975,6 @@ function LWChart({ ticker, entry, stop, target }) {
   );
 }
 
-// ── EXEC STATS PANEL (mirrors ChartPanel stats below LWChart) ──
-function ExecStatsPanel({ ticker, stock, liveThemeData, onTickerClick }) {
-  const [news, setNews] = useState(null);
-  const [peers, setPeers] = useState(null);
-  const [analyst, setAnalyst] = useState(null);
-
-  const live = useMemo(() => {
-    if (!liveThemeData) return null;
-    return liveThemeData.find(s => s.ticker === ticker) || null;
-  }, [liveThemeData, ticker]);
-
-  useEffect(() => {
-    setNews(null); setPeers(null); setAnalyst(null);
-    fetch(`/api/live?news=${ticker}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.ok) {
-          setNews(d.news?.length > 0 ? d.news : []);
-          setPeers(d.peers?.length > 0 ? d.peers : []);
-          setAnalyst(d.analyst || null);
-        } else { setNews([]); setPeers([]); }
-      })
-      .catch(() => { setNews([]); setPeers([]); });
-  }, [ticker]);
-
-  if (!stock) return null;
-
-  const s = stock;
-  const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
-  const fmtV = (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v;
-
-  return (
-    <div style={{ overflowY: "auto", borderTop: "1px solid #2a2a38", flexShrink: 0, maxHeight: "40%" }}>
-      {/* Company + sector */}
-      <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, alignItems: "center" }}>
-        <span style={{ color: "#9090a0" }}>{s.company}</span>
-        <span style={{ color: "#505060", fontSize: 10 }}>{s.sector} · {s.industry}</span>
-        {live && live.price != null && (
-          <span style={{ fontSize: 14, fontWeight: 900, color: "#d4d4e0", fontFamily: "monospace", marginLeft: "auto" }}>
-            ${live.price.toFixed(2)}
-            <span style={{ fontSize: 12, color: chg(live.change), marginLeft: 6 }}>
-              {live.change > 0 ? "+" : ""}{live.change?.toFixed(2)}%
-            </span>
-          </span>
-        )}
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, fontFamily: "monospace", gap: 8, flexWrap: "wrap", lineHeight: 1.5 }}>
-        <StockStat label="ADR" value={s.adr_pct != null ? `${s.adr_pct}%` : "—"}
-          color={s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316"} />
-        <span style={{ color: "#3a3a4a" }}>│</span>
-        <StockStat label="RVol" value={s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
-          color={s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : "#686878"} />
-        <span style={{ color: "#3a3a4a" }}>│</span>
-        <StockStat label="MktCap" value={s.market_cap || "—"} color="#9090a0" />
-        <span style={{ color: "#3a3a4a" }}>│</span>
-        <StockStat label="Float" value={s.shares_float || "—"} color="#9090a0" />
-        <span style={{ color: "#3a3a4a" }}>│</span>
-        <StockStat label="Short" value={s.short_float || "—"} color="#9090a0" />
-        <div style={{ width: "100%", display: "flex", gap: 8 }}>
-          <Ret v={s.return_1m} label="1M" />
-          <Ret v={s.return_3m} label="3M" />
-          <Ret v={s.return_6m} label="6M" />
-          <span style={{ color: "#3a3a4a" }}>│</span>
-          {s.sma20_pct != null && <StockStat label="20d" value={`${s.sma20_pct > 0 ? "+" : ""}${s.sma20_pct}%`}
-            color={s.sma20_pct > 0 ? "#2bb886" : "#f87171"} />}
-          {s.sma50_pct != null && <StockStat label="50d" value={`${s.sma50_pct > 0 ? "+" : ""}${s.sma50_pct}%`}
-            color={s.sma50_pct > 0 ? "#2bb886" : "#f87171"} />}
-          {s.sma200_pct != null && <StockStat label="200d" value={`${s.sma200_pct > 0 ? "+" : ""}${s.sma200_pct}%`}
-            color={s.sma200_pct > 0 ? "#2bb886" : "#f87171"} />}
-        </div>
-        {(s.inst_own != null || s.inst_trans != null) && (
-          <div style={{ width: "100%", display: "flex", gap: 8 }}>
-            {s.inst_own != null && <StockStat label="Inst" value={`${s.inst_own}%`}
-              color={s.inst_own >= 80 ? "#2bb886" : s.inst_own >= 50 ? "#9090a0" : "#f97316"} />}
-            {s.inst_trans != null && <StockStat label="Trans" value={`${s.inst_trans > 0 ? "+" : ""}${s.inst_trans}%`}
-              color={s.inst_trans > 0 ? "#2bb886" : s.inst_trans < 0 ? "#f87171" : "#686878"} />}
-          </div>
-        )}
-      </div>
-
-      {/* Earnings timeline */}
-      {s.quarters && s.quarters.length > 0 && (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, fontFamily: "monospace" }}>
-          <div style={{ color: "#686878", fontWeight: 700, marginBottom: 4, display: "flex", gap: 6 }}>
-            <span>Earnings</span>
-            {(s.earnings_display || s.earnings_date) && (() => {
-              const raw = s.earnings_display || s.earnings_date || "";
-              const days = s.earnings_days != null ? Number(s.earnings_days) : null;
-              return <span style={{ fontWeight: 400, color: days != null && days <= 7 ? "#f87171" : days != null && days <= 14 ? "#fbbf24" : "#c084fc" }}>
-                ▶ {raw.replace(/:00(?=\s|$)/g, "")} {days != null && <span style={{ color: "#686878" }}>({days}d)</span>}
-              </span>;
-            })()}
-          </div>
-          {s.quarters.slice(0, 6).map((q, i) => (
-            <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 3 }}>
-              <span style={{ width: 40, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
-              <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 66, flexShrink: 0 }}>
-                {q.eps_yoy != null ? `E:${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : ""}
-              </span>
-              <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : q.sales_yoy < 0 ? "#f87171" : "#505060", width: 56, flexShrink: 0 }}>
-                {q.sales_yoy != null ? `S:${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : ""}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Analyst */}
-      {analyst && (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, fontFamily: "monospace", display: "flex", gap: 8 }}>
-          {analyst.targetPrice && <StockStat label="Target" value={`$${analyst.targetPrice}`}
-            color={analyst.targetPrice > (live?.price || 0) ? "#2bb886" : "#f87171"} />}
-          {analyst.recommendation && <span style={{ color: "#9090a0" }}>{analyst.recommendation}</span>}
-        </div>
-      )}
-
-      {/* News */}
-      {news && news.length > 0 && (
-        <div style={{ padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10 }}>
-          <div style={{ color: "#686878", fontWeight: 700, marginBottom: 3 }}>News</div>
-          {news.slice(0, 5).map((n, i) => (
-            <div key={i} style={{ marginBottom: 2 }}>
-              <a href={n.url} target="_blank" rel="noopener noreferrer"
-                style={{ color: "#9090a0", textDecoration: "none", fontSize: 10 }}>
-                <span style={{ color: "#505060", marginRight: 4 }}>{n.date?.slice(5, 10)}</span>
-                {n.title}
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Peers */}
-      {peers && peers.length > 0 && (
-        <div style={{ padding: "4px 12px", fontSize: 10 }}>
-          <div style={{ color: "#686878", fontWeight: 700, marginBottom: 3 }}>Peers</div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {peers.slice(0, 12).map(p => (
-              <span key={p} onClick={() => onTickerClick(p)}
-                style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #3a3a4a", color: "#9090a0",
-                  cursor: "pointer", fontSize: 9 }}>{p}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── EXECUTION TAB ──
 const SETUP_TAGS = ["Breakout", "Pullback", "EP Gap", "VCP", "IPO Base", "Power Earnings Gap", "Other"];
 
@@ -4926,52 +4782,16 @@ function AppMain({ authToken, onLogout }) {
         {chartOpen && (
           <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
             {view === "exec" ? (
-              <div style={{ height: "100%", display: "flex", flexDirection: "column", borderLeft: "1px solid #2a2a38", background: "#121218" }}>
-                {/* Reuse ChartPanel header bar */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
-                  borderBottom: "1px solid #2a2a38", flexShrink: 0, background: "#1a1a24" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}>{chartTicker}</span>
-                    {watchlist && (
-                      watchlist.includes(chartTicker)
-                        ? <button onClick={() => removeFromWatchlist(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-                            background: "#0d916320", border: "1px solid #0d916340", color: "#0d9163" }}>✓ Watch</button>
-                        : <button onClick={() => addToWatchlist(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-                            background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ Watch</button>
-                    )}
-                    {portfolio && (
-                      portfolio.includes(chartTicker)
-                        ? <button onClick={() => removeFromPortfolio(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-                            background: "#fbbf2420", border: "1px solid #fbbf2440", color: "#fbbf24" }}>✓ Portfolio</button>
-                        : <button onClick={() => addToPortfolio(chartTicker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-                            background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ Portfolio</button>
-                    )}
-                    {stockMap[chartTicker] && (<>
-                      <Badge grade={stockMap[chartTicker].grade} />
-                      <span style={{ color: "#787888", fontSize: 12 }}>RS:{stockMap[chartTicker]?.rs_rank}</span>
-                      {stockMap[chartTicker]?.themes?.length > 0 && (
-                        <span style={{ color: "#0d9163", fontSize: 11 }}>{stockMap[chartTicker].themes.map(t => t.subtheme ? `${t.theme} › ${t.subtheme}` : t.theme).join(", ")}</span>
-                      )}
-                    </>)}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <a href={`https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(chartTicker)}`} target="_blank" rel="noopener noreferrer"
-                      style={{ color: "#0d9163", fontSize: 12, textDecoration: "none", padding: "4px 12px", border: "1px solid #0d916340",
-                        borderRadius: 4, fontWeight: 700 }}>Full Chart ↗</a>
-                    <button onClick={closeChart} style={{ background: "none", border: "1px solid #505060", borderRadius: 4, color: "#787888", fontSize: 14,
-                      width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-                  </div>
-                </div>
-                {/* LW Chart area */}
-                <div style={{ flex: 1, minHeight: 200 }}>
-                  <LWChart ticker={chartTicker}
-                    entry={trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || ""}
-                    stop={trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || ""}
-                    target={trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || ""} />
-                </div>
-                {/* Stats panel — scrollable, reuse ChartPanel's detail sections */}
-                <ExecStatsPanel ticker={chartTicker} stock={stockMap[chartTicker]} liveThemeData={liveThemeData} onTickerClick={openChart} />
-              </div>
+              <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
+                watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
+                portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+                manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
+                liveThemeData={liveThemeData}
+                lwChartProps={{
+                  entry: trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || "",
+                  stop: trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || "",
+                  target: trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || "",
+                }} />
             ) : (
               <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
                 watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
