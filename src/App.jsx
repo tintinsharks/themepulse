@@ -302,7 +302,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </div>
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
-          <div style={{ flex: "0 0 auto", minWidth: 230, fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ flex: "0 0 auto", minWidth: 207, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>Earnings</div>
             {/* Next earnings */}
             {(stock.earnings_display || stock.earnings_date) && (
