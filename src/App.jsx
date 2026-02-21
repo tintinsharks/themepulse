@@ -253,7 +253,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4, overflow: "hidden", wordBreak: "break-all" }}>
           {/* ADR | RVol */}
           <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
             {stock.adr_pct != null && <span style={{ color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
@@ -1371,7 +1371,7 @@ function computeStockQuality(s, leadingThemes) {
   return { quality: q, q_factors: factors };
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, stockMap, filters, mmData, themeHealth }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
@@ -1380,6 +1380,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
+  const [showLeaders, setShowLeaders] = useState(false);
 
   // Build EP ticker lookup: ticker → most recent EP signal (pipeline + manual)
   const epLookup = useMemo(() => {
@@ -1929,6 +1930,24 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           );
         })}</tbody>
       </table>
+    </div>
+    {/* Collapsible Theme Leaders drawer */}
+    <div style={{ borderTop: "2px solid #3a3a4a", marginTop: 4 }}>
+      <button onClick={() => setShowLeaders(p => !p)} style={{
+        width: "100%", padding: "6px 12px", background: showLeaders ? "#0d916315" : "transparent",
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+        color: showLeaders ? "#4aad8c" : "#686878", fontSize: 11, fontWeight: 600 }}>
+        <span style={{ transform: showLeaders ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▶</span>
+        Theme Leaders
+      </button>
+      {showLeaders && (
+        <div style={{ maxHeight: "40vh", overflowY: "auto" }}>
+          <Leaders themes={themes} stockMap={stockMap} filters={filters} onTickerClick={onTickerClick}
+            activeTicker={activeTicker} mmData={mmData} onVisibleTickers={() => {}} themeHealth={themeHealth}
+            liveThemeData={externalLiveData}
+            onThemeDrillDown={(themeName) => { setActiveTheme(themeName); setShowLeaders(false); }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -3624,7 +3643,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["leaders","Theme Leaders"],["scan","Scan Watch"],["ep","EP Scan"],["grid","RTS Grid"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["grid","RTS Grid"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -3707,12 +3726,9 @@ function AppMain({ authToken, onLogout }) {
       <div ref={containerRef} className="tp-main" style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
-          {view === "leaders" && <Leaders themes={data.themes} stockMap={stockMap} filters={filters} onTickerClick={openChart} activeTicker={chartTicker} mmData={mmData} onVisibleTickers={onVisibleTickers} themeHealth={data.theme_health} liveThemeData={liveThemeData}
-            onThemeDrillDown={(themeName) => { setScanThemeFilter(themeName); setView("scan"); }} />}
-
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs} />}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs}
+            stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
