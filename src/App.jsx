@@ -251,7 +251,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: metrics */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 26%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4 }}>
           {/* ADR | RVol */}
           <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
             {stock.adr_pct != null && <span style={{ color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
@@ -302,7 +302,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </div>
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
-          <div style={{ flex: "0 0 auto", minWidth: 207, fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ flex: "0 0 auto", minWidth: 206, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
               <span>Earnings</span>
               {(stock.earnings_display || stock.earnings_date) && (() => {
