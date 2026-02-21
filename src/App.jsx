@@ -383,15 +383,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 1 }} title="EPS decelerating vs prior quarter">▼</span>}
                   </span>}
                   {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171",
-                    background: salesBg, borderRadius: 2, padding: "0 2px" }}>
+                    width: 56, flexShrink: 0, background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                     S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
                     {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 1 }} title="Sales accelerating vs prior quarter">▲</span>}
                   </span>}
                   {margin != null && <span style={{
                     color: isMarginAccel ? (isCode33Q ? "#60a5fa" : "#a78bfa") : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
-                    fontSize: 10, marginLeft: 2 }}
+                    width: 52, flexShrink: 0, fontSize: 10 }}
                     title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
-                    {marginLabel}:{margin.toFixed(0)}%{isMarginAccel ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
+                    M:{margin.toFixed(0)}%{isMarginAccel ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
                   </span>}
                 </div>
                 );
@@ -427,14 +427,14 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
                   </span>}
                   {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 20 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171",
-                    background: salesBg, borderRadius: 2, padding: "0 2px" }}>
+                    width: 56, flexShrink: 0, background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                     S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
                   </span>}
                   {margin != null && <span style={{
                     color: marginDelta != null && marginDelta > 0 ? "#a78bfa" : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
-                    fontSize: 10, marginLeft: 2 }}
+                    width: 52, flexShrink: 0, fontSize: 10 }}
                     title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
-                    {marginLabel}:{margin.toFixed(0)}%{marginDelta != null && marginDelta > 0 ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
+                    M:{margin.toFixed(0)}%{marginDelta != null && marginDelta > 0 ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
                   </span>}
                 </div>
                 );
