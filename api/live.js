@@ -731,6 +731,16 @@ async function fetchTickerNews(cookies, ticker) {
     }
 
     console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}, FactSet quarters: ${quarters.length}`);
+    // DEBUG: capture nearby HTML for Target Price / Recom
+    const tpIdx = html.indexOf('Target Price');
+    if (tpIdx !== -1) {
+      analyst._debug = html.substring(tpIdx - 50, tpIdx + 200).replace(/\n/g, ' ');
+    } else {
+      analyst._debug = 'Target Price NOT FOUND in HTML';
+    }
+    const recIdx = html.indexOf('Recom');
+    analyst._debugRecom = recIdx !== -1 ? html.substring(recIdx - 50, recIdx + 200).replace(/\n/g, ' ') : 'Recom NOT FOUND';
+
     return { news, peers, description, earningsData, quarters, analyst };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
