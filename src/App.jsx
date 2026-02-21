@@ -2373,6 +2373,385 @@ const LIVE_COLUMNS = [
   ["3M%", "ret3m"], ["FrHi%", "fromhi"],
 ];
 
+// ── EXECUTION TAB ──
+const SETUP_TAGS = ["Breakout", "Pullback", "EP Gap", "VCP", "IPO Base", "Power Earnings Gap", "Other"];
+
+function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [tab, setTab] = useState("open"); // open | closed | calc
+  const [calcTicker, setCalcTicker] = useState("");
+  const [calcEntry, setCalcEntry] = useState("");
+  const [calcStop, setCalcStop] = useState("");
+  const [calcRisk, setCalcRisk] = useState("1");
+  const [calcAccount, setCalcAccount] = useState(() => {
+    try { return localStorage.getItem("tp_account_size") || "100000"; } catch { return "100000"; }
+  });
+
+  // Form state
+  const emptyForm = { ticker: "", entry: "", stop: "", target: "", shares: "", date: new Date().toISOString().split("T")[0], setup: "Breakout", notes: "", status: "open" };
+  const [form, setForm] = useState(emptyForm);
+
+  // Persist account size
+  useEffect(() => { localStorage.setItem("tp_account_size", calcAccount); }, [calcAccount]);
+
+  // Report visible tickers
+  const openTrades = useMemo(() => trades.filter(t => t.status === "open"), [trades]);
+  const closedTrades = useMemo(() => trades.filter(t => t.status === "closed").sort((a, b) => (b.closeDate || "").localeCompare(a.closeDate || "")), [trades]);
+
+  useEffect(() => {
+    if (onVisibleTickers) {
+      const tickers = (tab === "closed" ? closedTrades : openTrades).map(t => t.ticker);
+      onVisibleTickers([...new Set(tickers)]);
+    }
+  }, [tab, openTrades, closedTrades, onVisibleTickers]);
+
+  // Risk calculator
+  const calcStock = stockMap[calcTicker.toUpperCase()];
+  const calcADR = calcStock?.adr_pct;
+  const calcPrice = calcStock?.price;
+  const calcATR = calcADR && calcPrice ? (calcADR / 100 * calcPrice).toFixed(2) : null;
+
+  const entryNum = parseFloat(calcEntry) || parseFloat(calcPrice) || 0;
+  const stopNum = parseFloat(calcStop) || 0;
+  const riskPct = parseFloat(calcRisk) || 1;
+  const accountNum = parseFloat(calcAccount) || 100000;
+  const riskPerShare = entryNum > 0 && stopNum > 0 ? Math.abs(entryNum - stopNum) : 0;
+  const dollarRisk = accountNum * (riskPct / 100);
+  const positionShares = riskPerShare > 0 ? Math.floor(dollarRisk / riskPerShare) : 0;
+  const positionValue = positionShares * entryNum;
+  const positionPct = accountNum > 0 ? ((positionValue / accountNum) * 100).toFixed(1) : 0;
+  const rr1 = entryNum + riskPerShare;
+  const rr2 = entryNum + riskPerShare * 2;
+  const rr3 = entryNum + riskPerShare * 3;
+
+  // Auto-fill from active ticker
+  useEffect(() => {
+    if (tab === "calc" && activeTicker && activeTicker !== calcTicker.toUpperCase()) {
+      setCalcTicker(activeTicker);
+      const s = stockMap[activeTicker];
+      if (s?.price) setCalcEntry(String(s.price));
+    }
+  }, [activeTicker, tab]);
+
+  // Add / Edit trade
+  const saveTrade = () => {
+    const t = { ...form, ticker: form.ticker.toUpperCase(), id: editId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
+    if (editId) {
+      setTrades(prev => prev.map(x => x.id === editId ? t : x));
+    } else {
+      setTrades(prev => [...prev, t]);
+    }
+    setForm(emptyForm);
+    setEditId(null);
+    setShowForm(false);
+  };
+
+  const closeTrade = (id, exitPrice, exitDate) => {
+    setTrades(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const entry = parseFloat(t.entry) || 0;
+      const exit = parseFloat(exitPrice) || 0;
+      const shares = parseFloat(t.shares) || 0;
+      const pnl = (exit - entry) * shares;
+      const pnlPct = entry > 0 ? ((exit - entry) / entry * 100) : 0;
+      return { ...t, status: "closed", exitPrice: exit, closeDate: exitDate || new Date().toISOString().split("T")[0], pnl: Math.round(pnl * 100) / 100, pnlPct: Math.round(pnlPct * 100) / 100 };
+    }));
+  };
+
+  const deleteTrade = (id) => setTrades(prev => prev.filter(t => t.id !== id));
+
+  const startEdit = (t) => {
+    setForm(t);
+    setEditId(t.id);
+    setShowForm(true);
+  };
+
+  // Quick add from calc
+  const addFromCalc = () => {
+    if (!calcTicker || !entryNum || !stopNum) return;
+    const t = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      ticker: calcTicker.toUpperCase(), entry: String(entryNum), stop: String(stopNum),
+      target: String(rr2.toFixed(2)), shares: String(positionShares),
+      date: new Date().toISOString().split("T")[0], setup: "Breakout", notes: "", status: "open",
+    };
+    setTrades(prev => [...prev, t]);
+  };
+
+  // Close trade prompt
+  const [closingId, setClosingId] = useState(null);
+  const [closePrice, setClosePrice] = useState("");
+
+  const st = { label: { color: "#686878", fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 },
+    input: { background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 4, color: "#d4d4e0", padding: "5px 8px", fontSize: 12, fontFamily: "monospace", outline: "none", width: "100%" },
+    btn: (c, bg) => ({ padding: "4px 10px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", border: `1px solid ${c}`, background: bg || "transparent", color: c }),
+  };
+
+  return (
+    <div style={{ padding: 0 }}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
+        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+            border: tab === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
+            background: tab === k ? "#0d916320" : "transparent", color: tab === k ? "#4aad8c" : "#686878" }}>{l}</button>
+        ))}
+        {tab !== "calc" && (
+          <button onClick={() => { setForm({ ...emptyForm, ticker: activeTicker || "" }); setEditId(null); setShowForm(true); }}
+            style={st.btn("#0d9163", "#0d916320")}>+ New Trade</button>
+        )}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 10, color: "#505060" }}>Acct: </span>
+        <input value={calcAccount} onChange={e => setCalcAccount(e.target.value)}
+          style={{ ...st.input, width: 80, textAlign: "right" }} />
+      </div>
+
+      {/* New/Edit Trade Form */}
+      {showForm && (
+        <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, marginBottom: 10 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div style={{ width: 80 }}><div style={st.label}>Ticker</div>
+              <input value={form.ticker} onChange={e => setForm(p => ({ ...p, ticker: e.target.value }))} style={st.input} /></div>
+            <div style={{ width: 80 }}><div style={st.label}>Entry</div>
+              <input value={form.entry} onChange={e => setForm(p => ({ ...p, entry: e.target.value }))} style={st.input} type="number" step="0.01" /></div>
+            <div style={{ width: 80 }}><div style={st.label}>Stop</div>
+              <input value={form.stop} onChange={e => setForm(p => ({ ...p, stop: e.target.value }))} style={st.input} type="number" step="0.01" /></div>
+            <div style={{ width: 80 }}><div style={st.label}>Target</div>
+              <input value={form.target} onChange={e => setForm(p => ({ ...p, target: e.target.value }))} style={st.input} type="number" step="0.01" /></div>
+            <div style={{ width: 70 }}><div style={st.label}>Shares</div>
+              <input value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} style={st.input} type="number" /></div>
+            <div style={{ width: 90 }}><div style={st.label}>Date</div>
+              <input value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={st.input} type="date" /></div>
+            <div style={{ width: 100 }}><div style={st.label}>Setup</div>
+              <select value={form.setup} onChange={e => setForm(p => ({ ...p, setup: e.target.value }))}
+                style={{ ...st.input, cursor: "pointer" }}>
+                {SETUP_TAGS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select></div>
+            <div style={{ flex: 1, minWidth: 120 }}><div style={st.label}>Notes</div>
+              <input value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} style={st.input} placeholder="Setup notes..." /></div>
+            <button onClick={saveTrade} style={st.btn("#2bb886", "#2bb88620")}>{editId ? "Update" : "Add"}</button>
+            <button onClick={() => { setShowForm(false); setEditId(null); }} style={st.btn("#686878")}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Calculator Tab ── */}
+      {tab === "calc" && (
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {/* Input panel */}
+          <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, width: 280 }}>
+            <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>Position Sizer</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div><div style={st.label}>Ticker</div>
+                <input value={calcTicker} onChange={e => { setCalcTicker(e.target.value); const s = stockMap[e.target.value.toUpperCase()]; if (s?.price) setCalcEntry(String(s.price)); }}
+                  style={st.input} placeholder="AAPL" /></div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ flex: 1 }}><div style={st.label}>Entry $</div>
+                  <input value={calcEntry} onChange={e => setCalcEntry(e.target.value)} style={st.input} type="number" step="0.01" /></div>
+                <div style={{ flex: 1 }}><div style={st.label}>Stop $</div>
+                  <input value={calcStop} onChange={e => setCalcStop(e.target.value)} style={st.input} type="number" step="0.01" /></div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ flex: 1 }}><div style={st.label}>Risk %</div>
+                  <input value={calcRisk} onChange={e => setCalcRisk(e.target.value)} style={st.input} type="number" step="0.25" /></div>
+                <div style={{ flex: 1 }}><div style={st.label}>Account $</div>
+                  <input value={calcAccount} onChange={e => setCalcAccount(e.target.value)} style={st.input} type="number" /></div>
+              </div>
+              {calcATR && <div style={{ fontSize: 9, color: "#505060" }}>ADR: {calcADR}% · ATR ≈ ${calcATR}</div>}
+              <button onClick={addFromCalc} disabled={!calcTicker || !entryNum || !stopNum}
+                style={{ ...st.btn("#2bb886", "#2bb88620"), opacity: !calcTicker || !entryNum || !stopNum ? 0.4 : 1, marginTop: 4 }}>
+                Add to Open Trades ({positionShares} shares)</button>
+            </div>
+          </div>
+          {/* Results panel */}
+          <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, minWidth: 240 }}>
+            <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>Risk / Reward</div>
+            <table style={{ borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+              <tbody>
+                {[
+                  ["Risk/Share", riskPerShare > 0 ? `$${riskPerShare.toFixed(2)}` : "—", "#f87171"],
+                  ["$ at Risk", dollarRisk > 0 ? `$${dollarRisk.toFixed(0)}` : "—", "#f87171"],
+                  ["Shares", positionShares > 0 ? positionShares : "—", "#d4d4e0"],
+                  ["Position $", positionValue > 0 ? `$${positionValue.toLocaleString()}` : "—", "#d4d4e0"],
+                  ["Position %", `${positionPct}%`, parseFloat(positionPct) > 25 ? "#f87171" : "#d4d4e0"],
+                  ["", "", ""],
+                  ["1R Target", rr1 > 0 ? `$${rr1.toFixed(2)}` : "—", "#fbbf24"],
+                  ["2R Target", rr2 > 0 ? `$${rr2.toFixed(2)}` : "—", "#2bb886"],
+                  ["3R Target", rr3 > 0 ? `$${rr3.toFixed(2)}` : "—", "#0d9163"],
+                ].map(([label, val, c], i) => (
+                  <tr key={i}>
+                    <td style={{ padding: "3px 8px 3px 0", color: "#686878" }}>{label}</td>
+                    <td style={{ padding: "3px 0", color: c, fontWeight: 600 }}>{val}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Open Trades ── */}
+      {tab === "open" && (
+        <div>
+          {openTrades.length === 0 ? (
+            <div style={{ color: "#505060", fontSize: 12, padding: 20, textAlign: "center" }}>No open trades. Click "+ New Trade" to start.</div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                {["Ticker", "Entry", "Stop", "Target", "Shares", "Risk$", "R/R", "Setup", "Date", "P&L", ""].map(h => (
+                  <th key={h} style={{ padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>{openTrades.map(t => {
+                const entry = parseFloat(t.entry) || 0;
+                const stop = parseFloat(t.stop) || 0;
+                const target = parseFloat(t.target) || 0;
+                const shares = parseFloat(t.shares) || 0;
+                const live = stockMap[t.ticker];
+                const curPrice = live?.price || entry;
+                const unrealPnl = (curPrice - entry) * shares;
+                const unrealPct = entry > 0 ? ((curPrice - entry) / entry * 100) : 0;
+                const riskPS = Math.abs(entry - stop);
+                const riskDollar = riskPS * shares;
+                const rrRatio = riskPS > 0 && target > 0 ? ((target - entry) / riskPS).toFixed(1) : "—";
+                const isActive = t.ticker === activeTicker;
+                return (
+                  <tr key={t.id} onClick={() => onTickerClick(t.ticker)}
+                    style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                      background: isActive ? "#fbbf2418" : closingId === t.id ? "#f8717110" : "transparent" }}>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 600, color: isActive ? "#fbbf24" : "#d4d4e0", fontFamily: "monospace" }}>
+                      {t.ticker}
+                      {live?.grade && <span style={{ marginLeft: 3 }}><Badge grade={live.grade} /></span>}
+                    </td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>${entry.toFixed(2)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>${stop.toFixed(2)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#2bb886" }}>{target > 0 ? `$${target.toFixed(2)}` : "—"}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>{shares}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>${riskDollar.toFixed(0)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: parseFloat(rrRatio) >= 2 ? "#2bb886" : "#fbbf24" }}>{rrRatio}R</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center" }}>
+                      <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 2, background: "#3a3a4a30", color: "#9090a0", border: "1px solid #3a3a4a" }}>{t.setup}</span>
+                    </td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 10 }}>{t.date}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 600,
+                      color: unrealPnl >= 0 ? "#2bb886" : "#f87171" }}>
+                      {unrealPnl >= 0 ? "+" : ""}{unrealPnl.toFixed(0)} <span style={{ fontSize: 8, color: "#686878" }}>({unrealPct >= 0 ? "+" : ""}{unrealPct.toFixed(1)}%)</span>
+                    </td>
+                    <td style={{ padding: "5px 4px", textAlign: "center", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
+                      {closingId === t.id ? (
+                        <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
+                          <input value={closePrice} onChange={e => setClosePrice(e.target.value)} placeholder="Exit $"
+                            style={{ ...st.input, width: 60, padding: "2px 4px", fontSize: 10 }} type="number" step="0.01"
+                            onKeyDown={e => { if (e.key === "Enter" && closePrice) { closeTrade(t.id, closePrice); setClosingId(null); setClosePrice(""); }}} autoFocus />
+                          <span onClick={() => { if (closePrice) { closeTrade(t.id, closePrice); setClosingId(null); setClosePrice(""); }}}
+                            style={{ color: "#2bb886", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>✓</span>
+                          <span onClick={() => { setClosingId(null); setClosePrice(""); }}
+                            style={{ color: "#686878", cursor: "pointer", fontSize: 10 }}>✕</span>
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-flex", gap: 4 }}>
+                          <span onClick={() => { setClosingId(t.id); setClosePrice(String(curPrice)); }} title="Close trade"
+                            style={{ color: "#f87171", cursor: "pointer", fontSize: 10 }}>Close</span>
+                          <span onClick={() => startEdit(t)} title="Edit"
+                            style={{ color: "#60a5fa", cursor: "pointer", fontSize: 10 }}>Edit</span>
+                          <span onClick={() => deleteTrade(t.id)} title="Delete"
+                            style={{ color: "#3a3a4a", cursor: "pointer", fontSize: 10 }}>✕</span>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          )}
+          {openTrades.length > 0 && (() => {
+            const totalRisk = openTrades.reduce((sum, t) => {
+              const e = parseFloat(t.entry) || 0, s = parseFloat(t.stop) || 0, sh = parseFloat(t.shares) || 0;
+              return sum + Math.abs(e - s) * sh;
+            }, 0);
+            const totalUnreal = openTrades.reduce((sum, t) => {
+              const e = parseFloat(t.entry) || 0, sh = parseFloat(t.shares) || 0;
+              const cur = stockMap[t.ticker]?.price || e;
+              return sum + (cur - e) * sh;
+            }, 0);
+            return (
+              <div style={{ display: "flex", gap: 16, padding: "8px 6px", borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#686878" }}>
+                <span>Positions: {openTrades.length}</span>
+                <span>Total Risk: <span style={{ color: "#f87171", fontFamily: "monospace" }}>${totalRisk.toFixed(0)}</span></span>
+                <span>Unrealized: <span style={{ color: totalUnreal >= 0 ? "#2bb886" : "#f87171", fontFamily: "monospace" }}>{totalUnreal >= 0 ? "+" : ""}${totalUnreal.toFixed(0)}</span></span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── Closed Trades ── */}
+      {tab === "closed" && (
+        <div>
+          {closedTrades.length === 0 ? (
+            <div style={{ color: "#505060", fontSize: 12, padding: 20, textAlign: "center" }}>No closed trades yet.</div>
+          ) : (<>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                {["Ticker", "Entry", "Exit", "Shares", "P&L $", "P&L %", "Setup", "Opened", "Closed", "Days", ""].map(h => (
+                  <th key={h} style={{ padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>{closedTrades.map(t => {
+                const entry = parseFloat(t.entry) || 0;
+                const exit = parseFloat(t.exitPrice) || 0;
+                const days = t.date && t.closeDate ? Math.round((new Date(t.closeDate) - new Date(t.date)) / 86400000) : "—";
+                return (
+                  <tr key={t.id} onClick={() => onTickerClick(t.ticker)}
+                    style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                      background: t.ticker === activeTicker ? "#fbbf2418" : "transparent" }}>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 600, color: "#d4d4e0", fontFamily: "monospace" }}>{t.ticker}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>${entry.toFixed(2)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>${exit.toFixed(2)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>{t.shares}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 600,
+                      color: (t.pnl || 0) >= 0 ? "#2bb886" : "#f87171" }}>
+                      {(t.pnl || 0) >= 0 ? "+" : ""}${(t.pnl || 0).toFixed(0)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace",
+                      color: (t.pnlPct || 0) >= 0 ? "#2bb886" : "#f87171" }}>
+                      {(t.pnlPct || 0) >= 0 ? "+" : ""}{(t.pnlPct || 0).toFixed(1)}%</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center" }}>
+                      <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 2, background: "#3a3a4a30", color: "#9090a0", border: "1px solid #3a3a4a" }}>{t.setup}</span></td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 10 }}>{t.date}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 10 }}>{t.closeDate}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#505060", fontSize: 10 }}>{days}d</td>
+                    <td style={{ padding: "5px 4px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                      <span onClick={() => deleteTrade(t.id)} style={{ color: "#3a3a4a", cursor: "pointer", fontSize: 10 }}>✕</span>
+                    </td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+            {(() => {
+              const wins = closedTrades.filter(t => (t.pnl || 0) > 0).length;
+              const losses = closedTrades.filter(t => (t.pnl || 0) < 0).length;
+              const totalPnl = closedTrades.reduce((s, t) => s + (t.pnl || 0), 0);
+              const avgWin = wins > 0 ? closedTrades.filter(t => (t.pnl || 0) > 0).reduce((s, t) => s + t.pnl, 0) / wins : 0;
+              const avgLoss = losses > 0 ? closedTrades.filter(t => (t.pnl || 0) < 0).reduce((s, t) => s + t.pnl, 0) / losses : 0;
+              const winRate = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(0) : 0;
+              return (
+                <div style={{ display: "flex", gap: 16, padding: "8px 6px", borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#686878", flexWrap: "wrap" }}>
+                  <span>Trades: {closedTrades.length}</span>
+                  <span>Win Rate: <span style={{ color: parseFloat(winRate) >= 50 ? "#2bb886" : "#f87171", fontWeight: 600 }}>{winRate}%</span> ({wins}W / {losses}L)</span>
+                  <span>Total P&L: <span style={{ color: totalPnl >= 0 ? "#2bb886" : "#f87171", fontFamily: "monospace", fontWeight: 600 }}>{totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(0)}</span></span>
+                  <span>Avg Win: <span style={{ color: "#2bb886", fontFamily: "monospace" }}>+${avgWin.toFixed(0)}</span></span>
+                  <span>Avg Loss: <span style={{ color: "#f87171", fontFamily: "monospace" }}>${avgLoss.toFixed(0)}</span></span>
+                </div>
+              );
+            })()}
+          </>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LiveSortHeader({ setter, current }) {
   return (
     <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
@@ -3479,6 +3858,9 @@ function AppMain({ authToken, onLogout }) {
   const [manualEPs, setManualEPs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_manual_eps") || "[]"); } catch { return []; }
   });
+  const [trades, setTrades] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_trades") || "[]"); } catch { return []; }
+  });
   const [serverLoaded, setServerLoaded] = useState(false);
 
   // Load from server on mount
@@ -3495,6 +3877,7 @@ function AppMain({ authToken, onLogout }) {
           setPortfolio(d.data.portfolio || []);
           setWatchlist(d.data.watchlist || []);
           if (d.data.manualEPs) setManualEPs(d.data.manualEPs);
+          if (d.data.trades) setTrades(d.data.trades);
           console.log("Loaded from server:", d.data);
         }
       })
@@ -3506,6 +3889,7 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
   useEffect(() => { localStorage.setItem("tp_manual_eps", JSON.stringify(manualEPs)); }, [manualEPs]);
+  useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
 
   // Save to server (debounced)
   const saveTimer = useRef(null);
@@ -3517,14 +3901,14 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist, manualEPs }),
+        body: JSON.stringify({ portfolio, watchlist, manualEPs, trades }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
@@ -3639,7 +4023,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["grid","Research"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -3725,6 +4109,7 @@ function AppMain({ authToken, onLogout }) {
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs}
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
