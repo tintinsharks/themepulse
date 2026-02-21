@@ -2374,7 +2374,8 @@ const LIVE_COLUMNS = [
 ];
 
 // ── LIGHTWEIGHT CHART (for Execution tab) ──
-const LW_CDN = "https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js";
+// Pin to v4.1.1 which uses addCandlestickSeries/addHistogramSeries API
+const LW_CDN = "https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js";
 let lwLoading = false;
 let lwLoaded = false;
 const lwCallbacks = [];
@@ -2387,7 +2388,7 @@ function loadLW(cb) {
   const script = document.createElement("script");
   script.src = LW_CDN;
   script.onload = () => { lwLoaded = true; lwCallbacks.forEach(fn => fn()); lwCallbacks.length = 0; };
-  script.onerror = () => { lwLoading = false; };
+  script.onerror = () => { lwLoading = false; console.error("Failed to load LW charts"); };
   document.head.appendChild(script);
 }
 
@@ -2408,7 +2409,7 @@ function LWChart({ ticker, entry, stop, target }) {
     if (!libReady) loadLW(() => setLibReady(true));
   }, [libReady]);
 
-  // Create a dedicated DOM element for the chart (outside React's control)
+  // Create a dedicated DOM element for chart (outside React's DOM control)
   useEffect(() => {
     if (!wrapperRef.current) return;
     const el = document.createElement("div");
@@ -2416,27 +2417,18 @@ function LWChart({ ticker, entry, stop, target }) {
     wrapperRef.current.appendChild(el);
     chartContainerRef.current = el;
     return () => {
-      // Destroy chart first
-      if (chartRef.current) {
-        try { chartRef.current.remove(); } catch {}
-        chartRef.current = null;
-        seriesRef.current = null;
-        volSeriesRef.current = null;
-        linesRef.current = [];
-      }
+      if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; volSeriesRef.current = null; linesRef.current = []; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
-      // Remove the DOM element
       if (el.parentNode) el.parentNode.removeChild(el);
       chartContainerRef.current = null;
     };
   }, []);
 
-  // Create chart once lib is ready
+  // Create chart once lib + container ready
   useEffect(() => {
     if (!libReady || !chartContainerRef.current || chartRef.current) return;
     const LW = window.LightweightCharts;
     if (!LW) return;
-
     try {
       const chart = LW.createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth || 400,
@@ -2448,22 +2440,25 @@ function LWChart({ ticker, entry, stop, target }) {
         timeScale: { borderColor: "#2a2a38", timeVisible: false },
       });
       chartRef.current = chart;
-      seriesRef.current = chart.addSeries(LW.CandlestickSeries, {
+      // v4 API: addCandlestickSeries / addHistogramSeries
+      seriesRef.current = chart.addCandlestickSeries({
         upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
         wickUpColor: "#2bb886", wickDownColor: "#f87171",
       });
-      volSeriesRef.current = chart.addSeries(LW.HistogramSeries, {
+      volSeriesRef.current = chart.addHistogramSeries({
         priceFormat: { type: "volume" }, priceScaleId: "vol",
+        color: "#2bb88640",
       });
       chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
       roRef.current = new ResizeObserver(() => {
         if (chartRef.current && chartContainerRef.current) {
-          chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400);
+          try { chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400); } catch {}
         }
       });
       roRef.current.observe(chartContainerRef.current);
     } catch (e) {
+      console.error("LW chart init error:", e);
       setError("Chart init failed: " + e.message);
     }
   }, [libReady]);
@@ -2479,7 +2474,7 @@ function LWChart({ ticker, entry, stop, target }) {
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(data => {
         if (cancelled || !seriesRef.current) return;
-        if (!data.ok || !data.ohlc || data.ohlc.length === 0) throw new Error("No OHLC data");
+        if (!data.ok || !data.ohlc || data.ohlc.length === 0) throw new Error(data.error || "No OHLC data");
         seriesRef.current.setData(data.ohlc.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
         volSeriesRef.current.setData(data.ohlc.map(c => ({ time: c.date, value: c.volume || 0, color: c.close >= c.open ? "#2bb88640" : "#f8717140" })));
         chartRef.current.timeScale().fitContent();
@@ -4320,11 +4315,33 @@ function AppMain({ authToken, onLogout }) {
         {/* Right: chart panel */}
         {chartOpen && (
           <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
-            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
-              watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
-              portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
-              manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
-              liveThemeData={liveThemeData} />
+            {view === "exec" ? (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid #2a2a38", flexShrink: 0 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "#d4d4e0", fontFamily: "monospace" }}>{chartTicker}</span>
+                  {stockMap[chartTicker] && <>
+                    <span style={{ fontSize: 11, color: "#686878" }}>{stockMap[chartTicker]?.company}</span>
+                    {stockMap[chartTicker]?.grade && <Badge grade={stockMap[chartTicker].grade} />}
+                    <span style={{ fontSize: 11, color: "#686878" }}>RS:{stockMap[chartTicker]?.rs_rank}</span>
+                  </>}
+                  <div style={{ flex: 1 }} />
+                  <button onClick={closeChart} className="tp-chart-close"
+                    style={{ width: 24, height: 24, borderRadius: 4, border: "1px solid #3a3a4a", background: "transparent", color: "#686878", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <LWChart ticker={chartTicker}
+                    entry={trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || ""}
+                    stop={trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || ""}
+                    target={trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || ""} />
+                </div>
+              </div>
+            ) : (
+              <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
+                watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
+                portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+                manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
+                liveThemeData={liveThemeData} />
+            )}
           </div>
         )}
 
