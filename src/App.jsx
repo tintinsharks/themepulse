@@ -302,7 +302,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </div>
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
-          <div style={{ flex: "0 0 auto", minWidth: 160, fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ flex: "0 0 auto", minWidth: 260, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>Earnings</div>
             {/* Next earnings */}
             {(stock.earnings_display || stock.earnings_date) && (
@@ -372,10 +372,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   : isEpsAccel ? "1px solid #2bb88650" : isEpsDecel ? "1px solid #f8717130" : "none";
                 const rowBg = isCode33Q ? "rgba(96, 165, 250, 0.06)" : "transparent";
                 return (
-                <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0,
+                <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 4,
                   borderBottom: rowBorder, background: rowBg, borderRadius: isCode33Q ? 2 : 0 }}>
-                  <span style={{ width: 38, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
-                  {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 58, flexShrink: 0,
+                  <span style={{ width: 44, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
+                  {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 72, flexShrink: 0,
                     background: epsBg, borderRadius: 2, padding: "0 2px" }}>
                     {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
                     E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
@@ -419,9 +419,9 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 const prevMargin = prevA ? (prevA.net_margin ?? prevA.op_margin ?? prevA.gross_margin) : null;
                 const marginDelta = margin != null && prevMargin != null ? margin - prevMargin : null;
                 return (
-                <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0 }}>
-                  <span style={{ width: 38, flexShrink: 0 }}>{a.year}</span>
-                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 58, flexShrink: 0,
+                <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 4 }}>
+                  <span style={{ width: 44, flexShrink: 0 }}>{a.year}</span>
+                  {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 72, flexShrink: 0,
                     background: epsBg, borderRadius: 2, padding: "0 2px" }}>
                     {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
                     E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
