@@ -2373,13 +2373,191 @@ const LIVE_COLUMNS = [
   ["3M%", "ret3m"], ["FrHi%", "fromhi"],
 ];
 
+// ── LIGHTWEIGHT CHART (for Execution tab) ──
+const LW_CDN = "https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js";
+
+function LWChart({ ticker, entry, stop, target }) {
+  const containerRef = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  const volSeriesRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const prevTickerRef = useRef(null);
+
+  // Load library once
+  useEffect(() => {
+    if (window.LightweightCharts) return;
+    const script = document.createElement("script");
+    script.src = LW_CDN;
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
+
+  // Create/update chart
+  useEffect(() => {
+    if (!ticker || !containerRef.current) return;
+    const LW = window.LightweightCharts;
+    if (!LW) {
+      // Library not loaded yet, retry
+      const timer = setTimeout(() => {
+        prevTickerRef.current = null; // force re-run
+        containerRef.current?.dispatchEvent(new Event("lw-retry"));
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+
+    // Only recreate chart if container changed
+    if (!chartRef.current) {
+      chartRef.current = LW.createChart(containerRef.current, {
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight || 400,
+        layout: {
+          background: { type: "solid", color: "#0d0d14" },
+          textColor: "#787888",
+          fontFamily: "monospace",
+          fontSize: 10,
+        },
+        grid: {
+          vertLines: { color: "#1a1a24" },
+          horzLines: { color: "#1a1a24" },
+        },
+        crosshair: { mode: 0 },
+        rightPriceScale: { borderColor: "#2a2a38" },
+        timeScale: { borderColor: "#2a2a38", timeVisible: false },
+        attributionLogo: false,
+      });
+
+      seriesRef.current = chartRef.current.addSeries(LW.CandlestickSeries, {
+        upColor: "#2bb886", downColor: "#f87171",
+        borderVisible: false,
+        wickUpColor: "#2bb886", wickDownColor: "#f87171",
+      });
+
+      volSeriesRef.current = chartRef.current.addSeries(LW.HistogramSeries, {
+        priceFormat: { type: "volume" },
+        priceScaleId: "vol",
+      });
+      chartRef.current.priceScale("vol").applyOptions({
+        scaleMargins: { top: 0.8, bottom: 0 },
+      });
+
+      // Resize observer
+      const ro = new ResizeObserver(() => {
+        if (chartRef.current && containerRef.current) {
+          chartRef.current.resize(containerRef.current.clientWidth, containerRef.current.clientHeight || 400);
+        }
+      });
+      ro.observe(containerRef.current);
+    }
+
+    if (prevTickerRef.current === ticker) {
+      // Just update price lines
+      updatePriceLines();
+      return;
+    }
+    prevTickerRef.current = ticker;
+
+    // Fetch OHLC data
+    setLoading(true);
+    setError(null);
+
+    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (!data.ok || !data.ohlc || data.ohlc.length === 0) throw new Error("No OHLC data");
+        const candles = data.ohlc.map(c => ({
+          time: c.date || c.time,
+          open: c.open, high: c.high, low: c.low, close: c.close,
+        }));
+        const volumes = data.ohlc.map(c => ({
+          time: c.date || c.time,
+          value: c.volume || 0,
+          color: c.close >= c.open ? "#2bb88640" : "#f8717140",
+        }));
+        seriesRef.current.setData(candles);
+        volSeriesRef.current.setData(volumes);
+        chartRef.current.timeScale().fitContent();
+        updatePriceLines();
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+
+    function updatePriceLines() {
+      if (!seriesRef.current) return;
+      // Remove existing price lines
+      const existing = seriesRef.current.priceLinesMap;
+      // Use createPriceLine API
+      try {
+        // Clear by recreating - simpler approach
+        const entryNum = parseFloat(entry);
+        const stopNum = parseFloat(stop);
+        const targetNum = parseFloat(target);
+
+        // We need to track and remove old lines
+        if (seriesRef.current._customLines) {
+          seriesRef.current._customLines.forEach(l => {
+            try { seriesRef.current.removePriceLine(l); } catch {}
+          });
+        }
+        seriesRef.current._customLines = [];
+
+        if (entryNum > 0) {
+          seriesRef.current._customLines.push(seriesRef.current.createPriceLine({
+            price: entryNum, color: "#60a5fa", lineWidth: 1, lineStyle: 2,
+            axisLabelVisible: true, title: "Entry",
+          }));
+        }
+        if (stopNum > 0) {
+          seriesRef.current._customLines.push(seriesRef.current.createPriceLine({
+            price: stopNum, color: "#f87171", lineWidth: 1, lineStyle: 2,
+            axisLabelVisible: true, title: "Stop",
+          }));
+        }
+        if (targetNum > 0) {
+          seriesRef.current._customLines.push(seriesRef.current.createPriceLine({
+            price: targetNum, color: "#2bb886", lineWidth: 1, lineStyle: 2,
+            axisLabelVisible: true, title: "Target",
+          }));
+        }
+      } catch {}
+    }
+  }, [ticker, entry, stop, target]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        seriesRef.current = null;
+        volSeriesRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", height: "100%", minHeight: 300, position: "relative" }}>
+      {loading && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#fbbf24", zIndex: 2 }}>Loading {ticker}...</div>}
+      {error && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#f87171", zIndex: 2 }}>⚠ {error}</div>}
+      <div style={{ position: "absolute", top: 4, right: 8, fontSize: 9, color: "#3a3a4a", zIndex: 2 }}>
+        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#3a3a4a", textDecoration: "none" }}>Powered by TradingView</a>
+      </div>
+    </div>
+  );
+}
+
 // ── EXECUTION TAB ──
 const SETUP_TAGS = ["Breakout", "Pullback", "EP Gap", "VCP", "IPO Base", "Power Earnings Gap", "Other"];
 
-function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, onVisibleTickers }) {
+function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, removeFromPortfolio, liveThemeData }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [tab, setTab] = useState("open"); // open | closed | calc
+  const [pSort, setPSort] = useState("change");
   const [calcTicker, setCalcTicker] = useState("");
   const [calcEntry, setCalcEntry] = useState("");
   const [calcStop, setCalcStop] = useState("");
@@ -2387,6 +2565,45 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [calcAccount, setCalcAccount] = useState(() => {
     try { return localStorage.getItem("tp_account_size") || "100000"; } catch { return "100000"; }
   });
+
+  // Merge portfolio stocks with live data (same pattern as LiveView)
+  const mergeStock = useCallback((ticker) => {
+    const pipe = stockMap?.[ticker] || {};
+    const { quality, q_factors } = computeStockQuality(pipe);
+    return {
+      ticker, price: pipe.price, change: null, rel_volume: pipe.rel_volume,
+      avg_volume_raw: pipe.avg_volume_raw, grade: pipe.grade, rs_rank: pipe.rs_rank,
+      return_1m: pipe.return_1m, return_3m: pipe.return_3m, pct_from_high: pipe.pct_from_high,
+      atr_to_50: pipe.atr_to_50, adr_pct: pipe.adr_pct, eps_past_5y: pipe.eps_past_5y,
+      eps_this_y: pipe.eps_this_y, eps_qq: pipe.eps_qq, sales_past_5y: pipe.sales_past_5y,
+      sales_qq: pipe.sales_qq, pe: pipe.pe, roe: pipe.roe, profit_margin: pipe.profit_margin,
+      rsi: pipe.rsi, themes: pipe.themes || [], theme: pipe.themes?.[0]?.theme || "",
+      company: pipe.company || "", vcs: pipe.vcs, vcs_components: pipe.vcs_components,
+      mf: pipe.mf, mf_components: pipe.mf_components, _mfPct: pipe._mfPct,
+      avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
+      earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display,
+      earnings_date: pipe.earnings_date, _scanHits: pipe._scanHits || [],
+      _epsScore: pipe._epsScore, _msScore: pipe._msScore, _quality: quality, _q_factors: q_factors,
+    };
+  }, [stockMap]);
+
+  const sortFn = (key, desc = true) => (a, b) => {
+    const av = a[key] ?? (desc ? -Infinity : Infinity);
+    const bv = b[key] ?? (desc ? -Infinity : Infinity);
+    return desc ? bv - av : av - bv;
+  };
+  const sortList = (list, sk) => {
+    const sorters = { ticker: (a, b) => a.ticker.localeCompare(b.ticker), quality: sortFn("_quality"),
+      eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), vcs: sortFn("vcs"), mf: sortFn("mf"),
+      change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
+      fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
+      adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"), rel_volume: sortFn("rel_volume"),
+      hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
+    };
+    const sorted = [...list]; if (sorters[sk]) sorted.sort(sorters[sk]); return sorted;
+  };
+
+  const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort]);
 
   // Form state
   const emptyForm = { ticker: "", entry: "", stop: "", target: "", shares: "", date: new Date().toISOString().split("T")[0], setup: "Breakout", notes: "", status: "open" };
@@ -2490,7 +2707,15 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
   return (
     <div style={{ padding: 0 }}>
-      {/* Tab bar */}
+      {/* Portfolio Table */}
+      {portfolio.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#4aad8c", marginBottom: 4 }}>Portfolio ({portfolio.length})</div>
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} />
+        </div>
+      )}
+
+      {/* Sub-tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
         {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
@@ -4109,7 +4334,8 @@ function AppMain({ authToken, onLogout }) {
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs}
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
-          {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
+            portfolio={portfolio} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
@@ -4130,11 +4356,35 @@ function AppMain({ authToken, onLogout }) {
         {/* Right: chart panel */}
         {chartOpen && (
           <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
-            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
-              watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
-              portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
-              manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
-              liveThemeData={liveThemeData} />
+            {view === "exec" ? (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                {/* Header bar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid #2a2a38", flexShrink: 0 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "#d4d4e0", fontFamily: "monospace" }}>{chartTicker}</span>
+                  {stockMap[chartTicker] && <>
+                    <span style={{ fontSize: 11, color: "#686878" }}>{stockMap[chartTicker]?.company}</span>
+                    {stockMap[chartTicker]?.grade && <Badge grade={stockMap[chartTicker].grade} />}
+                    <span style={{ fontSize: 11, color: "#686878" }}>RS:{stockMap[chartTicker]?.rs_rank}</span>
+                  </>}
+                  <div style={{ flex: 1 }} />
+                  <button onClick={closeChart} className="tp-chart-close"
+                    style={{ width: 24, height: 24, borderRadius: 4, border: "1px solid #3a3a4a", background: "transparent", color: "#686878", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                </div>
+                {/* LW Chart */}
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <LWChart ticker={chartTicker}
+                    entry={trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || ""}
+                    stop={trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || ""}
+                    target={trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || ""} />
+                </div>
+              </div>
+            ) : (
+              <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
+                watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
+                portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+                manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
+                liveThemeData={liveThemeData} />
+            )}
           </div>
         )}
 
