@@ -2018,6 +2018,47 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     return results;
   }, [stocks]);
 
+  // Momentum: 8 scans combined (1W/1M/3M/6M × <10B/10B+)
+  const momentumStocks = useMemo(() => {
+    const seen = new Set();
+    const results = [];
+    // Common base filters for <10B scans
+    const baseSmall = (s) => {
+      const mcap = s.market_cap_raw || 0;
+      return mcap >= 300e6 && mcap <= 10e9 && (s.avg_volume_raw || 0) >= 300000 &&
+        (s.above_52w_low || 0) >= 50 && (s.shares_float_raw == null || s.shares_float_raw <= 50e6) &&
+        s.sma20_pct != null && s.sma20_pct >= 0 && s.sma20_pct <= 20;
+    };
+    // Common base filters for 10B+ scans
+    const baseLarge = (s) => {
+      const mcap = s.market_cap_raw || 0;
+      return mcap >= 10e9 && (s.avg_volume_raw || 0) >= 300000 &&
+        (s.above_52w_low || 0) >= 50 && (s.shares_float_raw == null || s.shares_float_raw <= 150e6) &&
+        s.sma20_pct != null && s.sma20_pct >= 0 && s.sma20_pct <= 10;
+    };
+    const add = (s, tag) => { if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _momTag: tag }); } };
+    stocks.forEach(s => {
+      // 1W +20% <10B
+      if (baseSmall(s) && (s.return_1w || 0) >= 20) add(s, "1W·S");
+      // 1W +20% 10B+
+      if (baseLarge(s) && (s.return_1w || 0) >= 20) add(s, "1W·L");
+      // 1M +30% <10B
+      if (baseSmall(s) && (s.return_1m || 0) >= 30) add(s, "1M·S");
+      // 1M +30% 10B+
+      if (baseLarge(s) && (s.return_1m || 0) >= 30) add(s, "1M·L");
+      // 3M +70% <10B (above 52W by 100%)
+      if (baseSmall(s) && (s.above_52w_low || 0) >= 100 && (s.return_3m || 0) >= 70) add(s, "3M·S");
+      // 3M +70% 10B+
+      if (baseLarge(s) && (s.above_52w_low || 0) >= 100 && (s.return_3m || 0) >= 70) add(s, "3M·L");
+      // 6M +100% <10B
+      if (baseSmall(s) && (s.above_52w_low || 0) >= 100 && (s.return_6m || 0) >= 100) add(s, "6M·S");
+      // 6M +100% 10B+
+      if (baseLarge(s) && (s.above_52w_low || 0) >= 100 && (s.return_6m || 0) >= 100) add(s, "6M·L");
+    });
+    results.sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
+    return results;
+  }, [stocks]);
+
   // Report visible ticker order to parent
   useEffect(() => {
     if (onVisibleTickers) {
@@ -2129,6 +2170,21 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: s.ticker === activeTicker ? "#0d916330" : "#2bb88625",
                     color: s._scanSource === "S" ? "#fbbf24" : "#bbb",
+                    fontWeight: s.rs_rank >= 80 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
+              ))}
+            </div>
+          </div>
+          {/* Momentum — 8 scans combined, wraps to match height */}
+          <div>
+            <div style={{ background: "#f97316", color: "#fff", textAlign: "center", padding: "4px 8px", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
+              Momentum <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>({momentumStocks.length})</span></div>
+            <div style={{ display: "flex", flexWrap: "wrap", flexDirection: "column", maxHeight: "55vh", gap: 0, alignContent: "flex-start" }}>
+              {momentumStocks.map(s => (
+                <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._momTag} | 1W:${s.return_1w ?? '—'}% | 1M:${s.return_1m ?? '—'}% | 3M:${s.return_3m ?? '—'}% | 6M:${s.return_6m ?? '—'}%`}
+                  onClick={() => onTickerClick(s.ticker)}
+                  style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
+                    background: s.ticker === activeTicker ? "#0d916330" : "#f9731625",
+                    color: s._momTag.startsWith("6M") ? "#f87171" : s._momTag.startsWith("3M") ? "#fbbf24" : s._momTag.startsWith("1M") ? "#60a5fa" : "#bbb",
                     fontWeight: s.rs_rank >= 80 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
               ))}
             </div>
