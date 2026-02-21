@@ -303,18 +303,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
           <div style={{ flex: "0 0 auto", minWidth: 207, fontSize: 10, fontFamily: "monospace" }}>
-            <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>Earnings</div>
-            {/* Next earnings */}
-            {(stock.earnings_display || stock.earnings_date) && (
-              <div style={{ padding: "1px 0" }}>
-                <span style={{ color: stock.earnings_days != null && stock.earnings_days <= 7 ? "#f87171" : stock.earnings_days != null && stock.earnings_days <= 14 ? "#fbbf24" : "#c084fc" }}>
-                  ▶ {stock.earnings_display || stock.earnings_date}
+            <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2, display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span>Earnings</span>
+              {(stock.earnings_display || stock.earnings_date) && (
+                <span style={{ fontWeight: 400, fontSize: 10 }}>
+                  <span style={{ color: stock.earnings_days != null && stock.earnings_days <= 7 ? "#f87171" : stock.earnings_days != null && stock.earnings_days <= 14 ? "#fbbf24" : "#c084fc" }}>
+                    ▶ {(stock.earnings_display || stock.earnings_date || "").replace(/:00$/, "")}
+                  </span>
+                  {stock.earnings_days != null && stock.earnings_days >= 0 && (
+                    <span style={{ color: "#686878", marginLeft: 4 }}>({stock.earnings_days}d)</span>
+                  )}
                 </span>
-                {stock.earnings_days != null && stock.earnings_days >= 0 && (
-                  <span style={{ color: "#686878", marginLeft: 4 }}>({stock.earnings_days}d)</span>
-                )}
-              </div>
-            )}
+              )}
+            </div>
             {/* Past earnings from quarterly data — CANSLIM C: Current Quarterly */}
             {/* Code 33: 3 consecutive quarters of acceleration in EPS, Sales, and Profit Margins */}
             {(() => {
