@@ -2753,10 +2753,10 @@ function LWChart({ ticker, entry, stop, target }) {
           }
         }
 
-        // Show last ~6 months (126 trading days)
+        // Show last ~6 months (126 trading days) — use logical range to preserve rightOffset
         const totalBars = bars.length;
-        const sixMonthsAgo = totalBars > 126 ? bars[totalBars - 126].date : bars[0].date;
-        chartRef.current.timeScale().setVisibleRange({ from: sixMonthsAgo, to: bars[totalBars - 1].date });
+        const fromBar = totalBars > 126 ? totalBars - 126 : 0;
+        chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + 27 });
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];
@@ -2853,15 +2853,11 @@ function LWChart({ ticker, entry, stop, target }) {
       {volStats && (
         <div style={{ position: "absolute", top: 6, left: 8, zIndex: 5, pointerEvents: "none",
           fontSize: 9, fontFamily: "monospace", color: "#686878", lineHeight: 1.6 }}>
-          <div>Avg Vol(50): <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.avgVol50)}</span></div>
           <div>Daily Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.lastVol)}</span>
             <span style={{ color: volStats.volChgPct >= 0 ? "#2bb886" : "#f87171", marginLeft: 4 }}>
               {volStats.volChgPct >= 0 ? "+" : ""}{volStats.volChgPct.toFixed(0)}%
             </span>
           </div>
-          <div>Avg $Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.avgDolVol)}</span></div>
-          <div>U/D Ratio: <span style={{ color: volStats.udRatio >= 1 ? "#2bb886" : "#f87171" }}>{volStats.udRatio.toFixed(2)}</span></div>
-          <div>PP: <span style={{ color: "#2563eb" }}>{volStats.ppCount10}×10d</span> <span style={{ color: "#0d9488" }}>{volStats.ppCount5}×5d</span></div>
           {/* MA Spread Table */}
           {volStats.spread10_21 != null && (
             <div style={{ marginTop: 4, borderTop: "1px solid #2a2a38", paddingTop: 3 }}>
