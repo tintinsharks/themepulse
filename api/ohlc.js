@@ -1,32 +1,44 @@
-// api/ohlc.js — Vercel serverless function to proxy FMP historical price requests
-// Keeps API key server-side, never exposed to client
+// Vercel serverless function: /api/ohlc?ticker=AAPL
+// Place in: themepulse/api/ohlc.js
+// Uses FMP (Financial Modeling Prep) API for OHLC data
+// Requires env var: FMP_API_KEY
 
 export default async function handler(req, res) {
-  const { symbol, from, to } = req.query;
-  
-  if (!symbol) {
-    return res.status(400).json({ error: "symbol required" });
-  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { ticker } = req.query;
+  if (!ticker) return res.status(400).json({ ok: false, error: "Missing ticker" });
 
   const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "FMP_API_KEY not configured" });
-  }
+  if (!apiKey) return res.status(500).json({ ok: false, error: "FMP_API_KEY not configured" });
 
   try {
-    const url = `https://financialmodelingprep.com/stable/historical-price-eod/full?symbol=${encodeURIComponent(symbol)}&from=${from || ""}&to=${to || ""}&apikey=${apiKey}`;
-    const response = await fetch(url, { headers: { "Accept": "application/json" } });
-    
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `FMP returned ${response.status}` });
+    // FMP historical daily prices — returns up to 5 years by default
+    const url = `https://financialmodelingprep.com/api/v3/historical-price-full/${encodeURIComponent(ticker)}?apikey=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`FMP HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    if (!data?.historical || data.historical.length === 0) {
+      throw new Error("No historical data from FMP");
     }
 
-    const data = await response.json();
-    
-    // Cache for 5 minutes (CDN) + 1 hour (browser)
-    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=3600");
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    // FMP returns newest first, Lightweight Charts needs oldest first
+    // Take last 250 trading days (~1 year)
+    const ohlc = data.historical
+      .slice(0, 250)
+      .reverse()
+      .map(d => ({
+        date: d.date,
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+        volume: d.volume || 0,
+      }));
+
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    return res.json({ ok: true, ticker: ticker.toUpperCase(), ohlc });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
   }
 }
