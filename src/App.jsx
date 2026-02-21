@@ -1570,7 +1570,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     </div>
     {/* Theme Leaders side panel */}
     {showLeaders && (
-      <div style={{ width: "30%", minWidth: 280, borderLeft: "2px solid #3a3a4a", overflowY: "auto", flexShrink: 0 }}>
+      <div style={{ width: "30%", minWidth: 280, borderLeft: "2px solid #3a3a4a", overflowY: "auto", flexShrink: 0,
+        position: "sticky", top: 0, maxHeight: "100vh", alignSelf: "flex-start" }}>
         <Leaders themes={themes} stockMap={stockMap} filters={filters} onTickerClick={onTickerClick}
           activeTicker={activeTicker} mmData={mmData} onVisibleTickers={() => {}} themeHealth={themeHealth}
           liveThemeData={externalLiveData}
