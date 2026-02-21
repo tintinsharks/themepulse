@@ -315,51 +315,109 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 )}
               </div>
             )}
-            {/* Past earnings from quarterly data */}
-            {stock.quarters && stock.quarters.length > 0 && stock.quarters.map((q, i) => {
-              // EPS highlighting tier
-              const epsYoy = q.eps_yoy;
-              const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 40 ? 2 : epsYoy >= 25 ? 1 : 0;
-              const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
-              const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
-              // Sales highlighting tier
-              const salesYoy = q.sales_yoy;
-              const salesTier = salesYoy >= 100 ? 3 : salesYoy >= 40 ? 2 : salesYoy >= 25 ? 1 : 0;
-              const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
-              // EPS Acceleration: latest quarter YoY > previous quarter YoY
-              const prevQ = stock.quarters[i + 1];
-              const isAccel = i === 0 && epsYoy != null && prevQ?.eps_yoy != null && epsYoy > prevQ.eps_yoy && epsYoy > 0;
-              return (
-              <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0,
-                borderBottom: isAccel ? "1px solid #2bb88650" : "none" }}>
-                <span style={{ width: 38, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
-                {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 58, flexShrink: 0,
-                  background: epsBg, borderRadius: 2, padding: "0 2px" }}>
-                  {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
-                  E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
-                  {isAccel && <span style={{ color: "#2bb886", fontSize: 8, marginLeft: 1 }} title="EPS accelerating">▲</span>}
-                </span>}
-                {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 25 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171",
-                  background: salesBg, borderRadius: 2, padding: "0 2px" }}>
-                  S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
-                </span>}
-              </div>
-              );
-            })}
-            {/* Annual EPS/Sales */}
+            {/* Past earnings from quarterly data — CANSLIM C: Current Quarterly */}
+            {/* Code 33: 3 consecutive quarters of acceleration in EPS, Sales, and Profit Margins */}
+            {(() => {
+              const qs = stock.quarters || [];
+              // Detect acceleration sequences (each quarter vs next older quarter)
+              const accel = qs.map((q, i) => {
+                const prev = qs[i + 1];
+                if (!prev) return null;
+                const epsA = q.eps_yoy != null && prev.eps_yoy != null && q.eps_yoy > prev.eps_yoy && q.eps_yoy > 0;
+                const salesA = q.sales_yoy != null && prev.sales_yoy != null && q.sales_yoy > prev.sales_yoy && q.sales_yoy > 0;
+                // Margin: use real net_margin from FMP if available, else fall back to op_margin, then gross_margin
+                const qMargin = q.net_margin ?? q.op_margin ?? q.gross_margin;
+                const pMargin = prev.net_margin ?? prev.op_margin ?? prev.gross_margin;
+                const marginA = qMargin != null && pMargin != null && qMargin > pMargin;
+                const marginExp = qMargin != null && pMargin != null && qMargin > pMargin;
+                return { eps: epsA, sales: salesA, margin: marginA, marginExp };
+              });
+              // Code 33: 3 consecutive quarters (indices 0,1,2) all show acceleration in all three
+              const code33 = accel[0] && accel[1] && accel[2]
+                && accel[0].eps && accel[1].eps && accel[2].eps
+                && accel[0].sales && accel[1].sales && accel[2].sales
+                && accel[0].margin && accel[1].margin && accel[2].margin;
+              return (<>
+              {code33 && (
+                <div style={{ padding: "2px 4px", marginBottom: 2, background: "rgba(96, 165, 250, 0.12)", border: "1px solid rgba(96, 165, 250, 0.30)",
+                  borderRadius: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ color: "#60a5fa", fontSize: 9, fontWeight: 600, letterSpacing: 0.5 }}>CODE 33</span>
+                  <span style={{ color: "#60a5fa", fontSize: 8 }}>3Q accel: EPS + Sales + Margins</span>
+                </div>
+              )}
+              {qs.map((q, i) => {
+                // Quarterly EPS tiers (O'Neil): ≥25% minimum, 50-100%+ winner standard
+                const epsYoy = q.eps_yoy;
+                const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 50 ? 2 : epsYoy >= 25 ? 1 : 0;
+                const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+                const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
+                // Quarterly Sales tiers (O'Neil): ≥20% minimum, 25%+ strong
+                const salesYoy = q.sales_yoy;
+                const salesTier = salesYoy >= 50 ? 3 : salesYoy >= 25 ? 2 : salesYoy >= 20 ? 1 : 0;
+                const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+                // Acceleration/deceleration for this quarter
+                const a = accel[i];
+                const isEpsAccel = a?.eps;
+                const isEpsDecel = !isEpsAccel && epsYoy != null && qs[i+1]?.eps_yoy != null && epsYoy < qs[i+1].eps_yoy && epsYoy > 0 && qs[i+1].eps_yoy > 0;
+                const isSalesAccel = a?.sales;
+                const isMarginAccel = a?.marginExp;
+                // Real margin data (prefer net > op > gross)
+                const margin = q.net_margin ?? q.op_margin ?? q.gross_margin;
+                const marginLabel = q.net_margin != null ? "NM" : q.op_margin != null ? "OM" : q.gross_margin != null ? "GM" : null;
+                const prevMargin = qs[i+1] ? (qs[i+1].net_margin ?? qs[i+1].op_margin ?? qs[i+1].gross_margin) : null;
+                const marginDelta = margin != null && prevMargin != null ? margin - prevMargin : null;
+                // Code 33 quarter highlighting (blue)
+                const isCode33Q = code33 && i <= 2 && accel[i]?.eps && accel[i]?.sales && accel[i]?.margin;
+                const rowBorder = isCode33Q ? "1px solid rgba(96, 165, 250, 0.30)"
+                  : isEpsAccel ? "1px solid #2bb88650" : isEpsDecel ? "1px solid #f8717130" : "none";
+                const rowBg = isCode33Q ? "rgba(96, 165, 250, 0.06)" : "transparent";
+                return (
+                <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0,
+                  borderBottom: rowBorder, background: rowBg, borderRadius: isCode33Q ? 2 : 0 }}>
+                  <span style={{ width: 38, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
+                  {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 58, flexShrink: 0,
+                    background: epsBg, borderRadius: 2, padding: "0 2px" }}>
+                    {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
+                    E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
+                    {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 8, marginLeft: 1 }} title="EPS accelerating vs prior quarter">▲</span>}
+                    {isEpsDecel && <span style={{ color: "#f87171", fontSize: 8, marginLeft: 1 }} title="EPS decelerating vs prior quarter">▼</span>}
+                  </span>}
+                  {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171",
+                    background: salesBg, borderRadius: 2, padding: "0 2px" }}>
+                    S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
+                    {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 8, marginLeft: 1 }} title="Sales accelerating vs prior quarter">▲</span>}
+                  </span>}
+                  {margin != null && <span style={{
+                    color: isMarginAccel ? (isCode33Q ? "#60a5fa" : "#a78bfa") : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
+                    fontSize: 9, marginLeft: 2 }}
+                    title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
+                    {marginLabel}:{margin.toFixed(0)}%{isMarginAccel ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
+                  </span>}
+                </div>
+                );
+              })}
+              </>);
+            })()}
+            {/* Annual EPS/Sales/Margins — CANSLIM A: Annual Earnings */}
             {stock.annual && stock.annual.length > 0 && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "3px 0 2px", width: "100%" }} />
               <div style={{ color: "#686878", fontWeight: 700, marginBottom: 1 }}>Annual</div>
               {stock.annual.slice(0, 3).map((a, i) => {
-                // EPS highlighting tier
+                // Annual EPS tiers (O'Neil): ≥25% CAGR minimum over 3-5 years
                 const epsYoy = a.eps_yoy;
-                const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 40 ? 2 : epsYoy >= 25 ? 1 : 0;
+                const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 50 ? 2 : epsYoy >= 25 ? 1 : 0;
                 const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
                 const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
-                // Sales highlighting tier
+                // Annual Sales tiers (O'Neil): ≥20-25% annual growth
                 const salesYoy = a.sales_yoy;
-                const salesTier = salesYoy >= 100 ? 3 : salesYoy >= 40 ? 2 : salesYoy >= 25 ? 1 : 0;
+                const salesTier = salesYoy >= 50 ? 3 : salesYoy >= 25 ? 2 : salesYoy >= 20 ? 1 : 0;
                 const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
+                // Annual margin
+                const margin = a.net_margin ?? a.op_margin ?? a.gross_margin;
+                const marginLabel = a.net_margin != null ? "NM" : a.op_margin != null ? "OM" : a.gross_margin != null ? "GM" : null;
+                const prevA = stock.annual[i + 1];
+                const prevMargin = prevA ? (prevA.net_margin ?? prevA.op_margin ?? prevA.gross_margin) : null;
+                const marginDelta = margin != null && prevMargin != null ? margin - prevMargin : null;
                 return (
                 <div key={i} style={{ padding: "1px 0", color: "#505060", display: "flex", gap: 0 }}>
                   <span style={{ width: 38, flexShrink: 0 }}>{a.year}</span>
@@ -368,14 +426,21 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
                     E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
                   </span>}
-                  {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 25 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171",
+                  {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 20 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171",
                     background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                     S:{a.sales_yoy > 0 ? "+" : ""}{a.sales_yoy.toFixed(0)}%
+                  </span>}
+                  {margin != null && <span style={{
+                    color: marginDelta != null && marginDelta > 0 ? "#a78bfa" : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
+                    fontSize: 9, marginLeft: 2 }}
+                    title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
+                    {marginLabel}:{margin.toFixed(0)}%{marginDelta != null && marginDelta > 0 ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
                   </span>}
                 </div>
                 );
               })}
             </>)}
+            {/* End of earnings timeline */}
           </div>
           {/* Divider */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
@@ -1022,7 +1087,12 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                             <tr key={s.ticker}
                               ref={isAct ? (el) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }) : undefined}
                               onClick={() => onTickerClick(s.ticker)}
-                              style={{ borderBottom: "1px solid #222230", cursor: "pointer", background: isAct ? "#0d916315" : "transparent" }}>
+                              style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                                background: isAct ? "#0d916315"
+                                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 1 ? "rgba(248, 113, 113, 0.12)"
+                                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 3 ? "rgba(248, 113, 113, 0.07)"
+                                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 7 ? "rgba(248, 113, 113, 0.03)"
+                                  : "transparent" }}>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: isAct ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>{s.ticker}</td>
                               <td style={{ padding: "3px 6px", textAlign: "center" }}><Badge grade={s.grade} /></td>
                               <td style={{ padding: "3px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
@@ -1627,7 +1697,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
-                background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
+                background: isActive ? "rgba(251, 191, 36, 0.10)"
+                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 1 ? "rgba(248, 113, 113, 0.12)"
+                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 3 ? "rgba(248, 113, 113, 0.07)"
+                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 7 ? "rgba(248, 113, 113, 0.03)"
+                  : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
@@ -2160,7 +2234,11 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
   return (
     <tr ref={rowRef} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-      background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
+      background: isActive ? "rgba(251, 191, 36, 0.10)"
+        : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 1 ? "rgba(248, 113, 113, 0.12)"
+        : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 3 ? "rgba(248, 113, 113, 0.07)"
+        : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 7 ? "rgba(248, 113, 113, 0.03)"
+        : "transparent" }}>
       <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
         {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
           style={{ color: "#686878", cursor: "pointer", fontSize: 11, marginRight: 2 }}>✕</span>}
