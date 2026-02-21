@@ -2392,7 +2392,8 @@ function loadLW(cb) {
 }
 
 function LWChart({ ticker, entry, stop, target }) {
-  const containerRef = useRef(null);
+  const wrapperRef = useRef(null);
+  const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const volSeriesRef = useRef(null);
@@ -2407,47 +2408,69 @@ function LWChart({ ticker, entry, stop, target }) {
     if (!libReady) loadLW(() => setLibReady(true));
   }, [libReady]);
 
-  // Create chart once lib + container ready
+  // Create a dedicated DOM element for the chart (outside React's control)
   useEffect(() => {
-    if (!libReady || !containerRef.current) return;
-    const LW = window.LightweightCharts;
-    if (!LW || chartRef.current) return;
-
-    const chart = LW.createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight || 400,
-      layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#787888", fontFamily: "monospace", fontSize: 10 },
-      grid: { vertLines: { color: "#1a1a24" }, horzLines: { color: "#1a1a24" } },
-      crosshair: { mode: 0 },
-      rightPriceScale: { borderColor: "#2a2a38" },
-      timeScale: { borderColor: "#2a2a38", timeVisible: false },
-    });
-    chartRef.current = chart;
-    seriesRef.current = chart.addSeries(LW.CandlestickSeries, {
-      upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
-      wickUpColor: "#2bb886", wickDownColor: "#f87171",
-    });
-    volSeriesRef.current = chart.addSeries(LW.HistogramSeries, {
-      priceFormat: { type: "volume" }, priceScaleId: "vol",
-    });
-    chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-
-    roRef.current = new ResizeObserver(() => {
-      if (chartRef.current && containerRef.current) {
-        chartRef.current.resize(containerRef.current.clientWidth, containerRef.current.clientHeight || 400);
-      }
-    });
-    roRef.current.observe(containerRef.current);
-
+    if (!wrapperRef.current) return;
+    const el = document.createElement("div");
+    el.style.cssText = "width:100%;height:100%;position:absolute;top:0;left:0;";
+    wrapperRef.current.appendChild(el);
+    chartContainerRef.current = el;
     return () => {
+      // Destroy chart first
+      if (chartRef.current) {
+        try { chartRef.current.remove(); } catch {}
+        chartRef.current = null;
+        seriesRef.current = null;
+        volSeriesRef.current = null;
+        linesRef.current = [];
+      }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
-      if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; seriesRef.current = null; volSeriesRef.current = null; linesRef.current = []; }
+      // Remove the DOM element
+      if (el.parentNode) el.parentNode.removeChild(el);
+      chartContainerRef.current = null;
     };
+  }, []);
+
+  // Create chart once lib is ready
+  useEffect(() => {
+    if (!libReady || !chartContainerRef.current || chartRef.current) return;
+    const LW = window.LightweightCharts;
+    if (!LW) return;
+
+    try {
+      const chart = LW.createChart(chartContainerRef.current, {
+        width: chartContainerRef.current.clientWidth || 400,
+        height: chartContainerRef.current.clientHeight || 400,
+        layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#787888", fontFamily: "monospace", fontSize: 10 },
+        grid: { vertLines: { color: "#1a1a24" }, horzLines: { color: "#1a1a24" } },
+        crosshair: { mode: 0 },
+        rightPriceScale: { borderColor: "#2a2a38" },
+        timeScale: { borderColor: "#2a2a38", timeVisible: false },
+      });
+      chartRef.current = chart;
+      seriesRef.current = chart.addSeries(LW.CandlestickSeries, {
+        upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
+        wickUpColor: "#2bb886", wickDownColor: "#f87171",
+      });
+      volSeriesRef.current = chart.addSeries(LW.HistogramSeries, {
+        priceFormat: { type: "volume" }, priceScaleId: "vol",
+      });
+      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+      roRef.current = new ResizeObserver(() => {
+        if (chartRef.current && chartContainerRef.current) {
+          chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400);
+        }
+      });
+      roRef.current.observe(chartContainerRef.current);
+    } catch (e) {
+      setError("Chart init failed: " + e.message);
+    }
   }, [libReady]);
 
   // Fetch data when ticker changes
   useEffect(() => {
-    if (!ticker || !seriesRef.current) return;
+    if (!ticker || !seriesRef.current || !chartRef.current) return;
     setLoading(true);
     setError(null);
     let cancelled = false;
@@ -2455,12 +2478,10 @@ function LWChart({ ticker, entry, stop, target }) {
     fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(data => {
-        if (cancelled) return;
+        if (cancelled || !seriesRef.current) return;
         if (!data.ok || !data.ohlc || data.ohlc.length === 0) throw new Error("No OHLC data");
-        const candles = data.ohlc.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close }));
-        const volumes = data.ohlc.map(c => ({ time: c.date, value: c.volume || 0, color: c.close >= c.open ? "#2bb88640" : "#f8717140" }));
-        seriesRef.current.setData(candles);
-        volSeriesRef.current.setData(volumes);
+        seriesRef.current.setData(data.ohlc.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
+        volSeriesRef.current.setData(data.ohlc.map(c => ({ time: c.date, value: c.volume || 0, color: c.close >= c.open ? "#2bb88640" : "#f8717140" })));
         chartRef.current.timeScale().fitContent();
       })
       .catch(e => { if (!cancelled) setError(e.message); })
@@ -2469,34 +2490,25 @@ function LWChart({ ticker, entry, stop, target }) {
     return () => { cancelled = true; };
   }, [ticker, libReady]);
 
-  // Update price lines when entry/stop/target change
+  // Update price lines
   useEffect(() => {
     if (!seriesRef.current) return;
-    // Remove old lines
     linesRef.current.forEach(l => { try { seriesRef.current.removePriceLine(l); } catch {} });
     linesRef.current = [];
-
-    const lines = [
-      [parseFloat(entry), "#60a5fa", "Entry"],
-      [parseFloat(stop), "#f87171", "Stop"],
-      [parseFloat(target), "#2bb886", "Target"],
-    ];
-    lines.forEach(([price, color, title]) => {
+    [[parseFloat(entry), "#60a5fa", "Entry"], [parseFloat(stop), "#f87171", "Stop"], [parseFloat(target), "#2bb886", "Target"]].forEach(([price, color, title]) => {
       if (price > 0) {
-        linesRef.current.push(seriesRef.current.createPriceLine({
-          price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title,
-        }));
+        try { linesRef.current.push(seriesRef.current.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title })); } catch {}
       }
     });
   }, [entry, stop, target, ticker, libReady]);
 
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%", minHeight: 300, position: "relative" }}>
-      {loading && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#fbbf24", zIndex: 2 }}>Loading {ticker}...</div>}
-      {error && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#f87171", zIndex: 2 }}>⚠ {error}</div>}
-      {!libReady && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 11, color: "#505060" }}>Loading chart library...</div>}
-      <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 2 }}>
-        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none" }}>Powered by TradingView</a>
+    <div ref={wrapperRef} style={{ width: "100%", height: "100%", minHeight: 300, position: "relative" }}>
+      {loading && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#fbbf24", zIndex: 5, pointerEvents: "none" }}>Loading {ticker}...</div>}
+      {error && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#f87171", zIndex: 5, pointerEvents: "none" }}>⚠ {error}</div>}
+      {!libReady && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 11, color: "#505060", zIndex: 5 }}>Loading chart library...</div>}
+      <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
+        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
     </div>
   );
@@ -4308,35 +4320,11 @@ function AppMain({ authToken, onLogout }) {
         {/* Right: chart panel */}
         {chartOpen && (
           <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
-            {view === "exec" ? (
-              <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                {/* Header bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid #2a2a38", flexShrink: 0 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: "#d4d4e0", fontFamily: "monospace" }}>{chartTicker}</span>
-                  {stockMap[chartTicker] && <>
-                    <span style={{ fontSize: 11, color: "#686878" }}>{stockMap[chartTicker]?.company}</span>
-                    {stockMap[chartTicker]?.grade && <Badge grade={stockMap[chartTicker].grade} />}
-                    <span style={{ fontSize: 11, color: "#686878" }}>RS:{stockMap[chartTicker]?.rs_rank}</span>
-                  </>}
-                  <div style={{ flex: 1 }} />
-                  <button onClick={closeChart} className="tp-chart-close"
-                    style={{ width: 24, height: 24, borderRadius: 4, border: "1px solid #3a3a4a", background: "transparent", color: "#686878", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-                </div>
-                {/* LW Chart */}
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <LWChart ticker={chartTicker}
-                    entry={trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || ""}
-                    stop={trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || ""}
-                    target={trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || ""} />
-                </div>
-              </div>
-            ) : (
-              <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
-                watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
-                portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
-                manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
-                liveThemeData={liveThemeData} />
-            )}
+            <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
+              watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
+              portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+              manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
+              liveThemeData={liveThemeData} />
           </div>
         )}
 
