@@ -2401,6 +2401,7 @@ function LWChart({ ticker, entry, stop, target }) {
   const roRef = useRef(null);
   const linesRef = useRef([]);
   const volMaRef = useRef(null);
+  const maRefs = useRef({}); // ema10, ema21hi, ema21close, ema21lo, sma50, ema200
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
@@ -2446,6 +2447,32 @@ function LWChart({ ticker, entry, stop, target }) {
       seriesRef.current = chart.addCandlestickSeries({
         upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
         wickUpColor: "#2bb886", wickDownColor: "#f87171",
+      });
+
+      // ── Price overlay MAs ──
+      // 10 EMA — pinkish red (cross style not available in LW, use thin line)
+      maRefs.current.ema10 = chart.addLineSeries({
+        color: "#ff828c", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+        lineStyle: 0, // solid
+      });
+      // 21 EMA Cloud — high/low as thin gray, close as colored line
+      maRefs.current.ema21hi = chart.addLineSeries({
+        color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      maRefs.current.ema21lo = chart.addLineSeries({
+        color: "#80808060", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      maRefs.current.ema21close = chart.addLineSeries({
+        color: "#808080", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false,
+        lineStyle: 0,
+      });
+      // 50 SMA — teal/green
+      maRefs.current.sma50 = chart.addLineSeries({
+        color: "#00bc9a", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      // 200 EMA — purple
+      maRefs.current.ema200 = chart.addLineSeries({
+        color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false,
       });
       volSeriesRef.current = chart.addHistogramSeries({
         priceFormat: { type: "volume" }, priceScaleId: "vol",
@@ -2568,6 +2595,75 @@ function LWChart({ ticker, entry, stop, target }) {
         seriesRef.current.setData(bars.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
         volSeriesRef.current.setData(volumes);
 
+        // ── Compute Moving Averages ──
+        const calcEMA = (data, period) => {
+          const k = 2 / (period + 1);
+          const result = [];
+          let prev = null;
+          for (let i = 0; i < data.length; i++) {
+            if (data[i] == null) { result.push(null); continue; }
+            if (prev == null) {
+              // Seed with SMA of first `period` values
+              if (i < period - 1) { result.push(null); continue; }
+              let sum = 0;
+              for (let j = i - period + 1; j <= i; j++) sum += data[j];
+              prev = sum / period;
+              result.push(prev);
+            } else {
+              prev = data[i] * k + prev * (1 - k);
+              result.push(prev);
+            }
+          }
+          return result;
+        };
+        const calcSMA = (data, period) => {
+          const result = [];
+          for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) { result.push(null); continue; }
+            let sum = 0;
+            for (let j = i - period + 1; j <= i; j++) sum += (data[j] || 0);
+            result.push(sum / period);
+          }
+          return result;
+        };
+
+        const closes = bars.map(c => c.close);
+        const highs = bars.map(c => c.high);
+        const lows = bars.map(c => c.low);
+
+        const ema10 = calcEMA(closes, 10);
+        const ema21hi = calcEMA(highs, 21);
+        const ema21close = calcEMA(closes, 21);
+        const ema21lo = calcEMA(lows, 21);
+        const sma50 = calcSMA(closes, 50);
+        const ema200 = calcEMA(closes, 200);
+
+        const toLine = (arr) => arr.map((v, i) => v != null ? { time: bars[i].date, value: Math.round(v * 100) / 100 } : null).filter(Boolean);
+
+        if (maRefs.current.ema10) maRefs.current.ema10.setData(toLine(ema10));
+        if (maRefs.current.sma50) maRefs.current.sma50.setData(toLine(sma50));
+        if (maRefs.current.ema200) maRefs.current.ema200.setData(toLine(ema200));
+        if (maRefs.current.ema21hi) maRefs.current.ema21hi.setData(toLine(ema21hi));
+        if (maRefs.current.ema21lo) maRefs.current.ema21lo.setData(toLine(ema21lo));
+
+        // 21 EMA close — color based on all rising/falling
+        if (maRefs.current.ema21close) {
+          const ema21data = [];
+          for (let i = 0; i < bars.length; i++) {
+            if (ema21hi[i] == null || ema21close[i] == null || ema21lo[i] == null) continue;
+            const allRising = i > 0 && ema21hi[i - 1] != null &&
+              ema21hi[i] > ema21hi[i - 1] && ema21close[i] > ema21close[i - 1] && ema21lo[i] > ema21lo[i - 1];
+            const allFalling = i > 0 && ema21hi[i - 1] != null &&
+              ema21hi[i] < ema21hi[i - 1] && ema21close[i] < ema21close[i - 1] && ema21lo[i] < ema21lo[i - 1];
+            ema21data.push({
+              time: bars[i].date,
+              value: Math.round(ema21close[i] * 100) / 100,
+              color: allRising ? "#00ff00" : allFalling ? "#ff00ff" : "#808080",
+            });
+          }
+          maRefs.current.ema21close.setData(ema21data);
+        }
+
         // ── HVE / HVY / HVQ markers above volume bars ──
         const volMarkers = [];
         const calcPctAboveAvg = (idx) => {
@@ -2579,15 +2675,15 @@ function LWChart({ ticker, entry, stop, target }) {
 
         if (hveIdx >= 0) {
           volMarkers.push({ time: bars[hveIdx].date, position: "aboveBar", color: "#d946ef",
-            shape: "arrowDown", size: 1, text: `HVE ${fmtVol(bars[hveIdx].volume)} (${calcPctAboveAvg(hveIdx)}%)` });
+            shape: "circle", size: 0.5, text: `HVE ${fmtVol(bars[hveIdx].volume)} (${calcPctAboveAvg(hveIdx)}%)` });
         }
         if (hvyIdx >= 0 && hvyIdx !== hveIdx) {
           volMarkers.push({ time: bars[hvyIdx].date, position: "aboveBar", color: "#a855f7",
-            shape: "arrowDown", size: 1, text: `HVY ${fmtVol(bars[hvyIdx].volume)} (${calcPctAboveAvg(hvyIdx)}%)` });
+            shape: "circle", size: 0.5, text: `HVY ${fmtVol(bars[hvyIdx].volume)} (${calcPctAboveAvg(hvyIdx)}%)` });
         }
         if (highestUpVolQtrIdx >= 0 && highestUpVolQtrIdx !== hveIdx && highestUpVolQtrIdx !== hvyIdx) {
           volMarkers.push({ time: bars[highestUpVolQtrIdx].date, position: "aboveBar", color: "#22d3ee",
-            shape: "arrowDown", size: 1, text: `HVQ ${fmtVol(bars[highestUpVolQtrIdx].volume)} (${calcPctAboveAvg(highestUpVolQtrIdx)}%)` });
+            shape: "circle", size: 0.5, text: `HVQ ${fmtVol(bars[highestUpVolQtrIdx].volume)} (${calcPctAboveAvg(highestUpVolQtrIdx)}%)` });
         }
 
         volMarkers.sort((a, b) => a.time.localeCompare(b.time));
@@ -2655,7 +2751,46 @@ function LWChart({ ticker, entry, stop, target }) {
         const hiVolEver = volumes.filter(v => v.color === "#d946ef").length;
         const hiVolYear = volumes.filter(v => v.color === "#a855f7").length;
 
-        setVolStats({ avgVol50, lastVol, volChgPct, avgDolVol, udRatio, ppCount10, ppCount5, hiVolEver, hiVolYear });
+        // ── MA Spread % + Percentile Rank ──
+        const li = bars.length - 1;
+        const lastEma10 = ema10[li], lastEma21 = ema21close[li], lastSma50 = sma50[li];
+        const spread10_21 = lastEma10 && lastEma21 ? ((lastEma10 - lastEma21) / lastEma21 * 100) : null;
+        const spread21_50 = lastEma21 && lastSma50 ? ((lastEma21 - lastSma50) / lastSma50 * 100) : null;
+
+        // Percentile rank over last 126 bars
+        const pctRank = (series10, series21, lookback) => {
+          const spreads = [];
+          for (let i = 0; i < bars.length; i++) {
+            if (series10[i] != null && series21[i] != null && series21[i] !== 0) {
+              spreads.push({ idx: i, val: (series10[i] - series21[i]) / series21[i] * 100 });
+            }
+          }
+          if (spreads.length < 2) return null;
+          const current = spreads[spreads.length - 1].val;
+          const window = spreads.slice(-lookback);
+          let count = 0;
+          for (let i = 0; i < window.length - 1; i++) {
+            if (current > window[i].val) count++;
+          }
+          return Math.round((count / (window.length - 1)) * 100);
+        };
+        const rank10_21 = pctRank(ema10, ema21close, 126);
+        const rank21_50 = pctRank(ema21close, sma50, 126);
+
+        const rankLabel = (pctile, spread) => {
+          if (pctile == null) return "—";
+          const isLong = (spread || 0) >= 0;
+          if (pctile >= 90) return isLong ? "OVEREXT" : "OVEREXT↓";
+          if (pctile >= 75) return isLong ? "EXTENDED" : "EXTEND↓";
+          if (pctile >= 25) return "NORMAL";
+          if (pctile >= 10) return "TIGHT";
+          return "COMPRESSED";
+        };
+
+        setVolStats({ avgVol50, lastVol, volChgPct, avgDolVol, udRatio, ppCount10, ppCount5, hiVolEver, hiVolYear,
+          spread10_21, spread21_50, rank10_21, rank21_50,
+          rankLbl10_21: rankLabel(rank10_21, spread10_21), rankLbl21_50: rankLabel(rank21_50, spread21_50),
+        });
       })
       .catch(e => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -2699,11 +2834,48 @@ function LWChart({ ticker, entry, stop, target }) {
           <div>Avg $Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.avgDolVol)}</span></div>
           <div>U/D Ratio: <span style={{ color: volStats.udRatio >= 1 ? "#2bb886" : "#f87171" }}>{volStats.udRatio.toFixed(2)}</span></div>
           <div>PP: <span style={{ color: "#2563eb" }}>{volStats.ppCount10}×10d</span> <span style={{ color: "#0d9488" }}>{volStats.ppCount5}×5d</span></div>
+          {/* MA Spread Table */}
+          {volStats.spread10_21 != null && (
+            <div style={{ marginTop: 4, borderTop: "1px solid #2a2a38", paddingTop: 3 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <span>10/21</span>
+                <span style={{ color: volStats.spread10_21 >= 0 ? "#2bb886" : "#f87171" }}>
+                  {volStats.spread10_21 >= 0 ? "+" : ""}{volStats.spread10_21.toFixed(2)}%
+                </span>
+                <span style={{ color: "#787888" }}>{volStats.rank10_21 != null ? `${volStats.rank10_21}th` : "—"}</span>
+                <span style={{ color:
+                  volStats.rankLbl10_21 === "OVEREXT" || volStats.rankLbl10_21 === "OVEREXT↓" ? "#f87171" :
+                  volStats.rankLbl10_21 === "EXTENDED" || volStats.rankLbl10_21 === "EXTEND↓" ? "#f97316" :
+                  volStats.rankLbl10_21 === "COMPRESSED" ? "#60a5fa" :
+                  volStats.rankLbl10_21 === "TIGHT" ? "#9ca3af" : "#2bb886"
+                }}>{volStats.rankLbl10_21}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <span>21/50</span>
+                <span style={{ color: volStats.spread21_50 >= 0 ? "#2bb886" : "#f87171" }}>
+                  {volStats.spread21_50 >= 0 ? "+" : ""}{volStats.spread21_50.toFixed(2)}%
+                </span>
+                <span style={{ color: "#787888" }}>{volStats.rank21_50 != null ? `${volStats.rank21_50}th` : "—"}</span>
+                <span style={{ color:
+                  volStats.rankLbl21_50 === "OVEREXT" || volStats.rankLbl21_50 === "OVEREXT↓" ? "#f87171" :
+                  volStats.rankLbl21_50 === "EXTENDED" || volStats.rankLbl21_50 === "EXTEND↓" ? "#f97316" :
+                  volStats.rankLbl21_50 === "COMPRESSED" ? "#60a5fa" :
+                  volStats.rankLbl21_50 === "TIGHT" ? "#9ca3af" : "#2bb886"
+                }}>{volStats.rankLbl21_50}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
-      {/* PP legend — top right */}
+      {/* Legend — top right */}
       <div style={{ position: "absolute", top: 6, right: 8, zIndex: 5, pointerEvents: "none",
         fontSize: 8, fontFamily: "monospace", display: "flex", flexDirection: "column", gap: 2, color: "#505060", alignItems: "flex-end" }}>
+        <span style={{ color: "#686878", fontWeight: 600, marginBottom: 1 }}>MAs</span>
+        <span><span style={{ color: "#ff828c" }}>━</span> 10 EMA</span>
+        <span><span style={{ color: "#808080" }}>━</span> 21 EMA</span>
+        <span><span style={{ color: "#00bc9a" }}>━</span> 50 SMA</span>
+        <span><span style={{ color: "#8232c8" }}>━</span> 200 EMA</span>
+        <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>Vol</span>
         <span><span style={{ color: "#a855f7" }}>■</span> HV</span>
         <span><span style={{ color: "#2563eb" }}>■</span> 10d PP</span>
         <span><span style={{ color: "#0d9488" }}>■</span> 5d PP</span>
