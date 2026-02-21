@@ -588,20 +588,34 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
   const [localLiveData, setLocalLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [healthFilter, setHealthFilter] = useState(null);
+  const [fetchProg, setFetchProg] = useState({ done: 0, total: 0 });
 
-  const liveThemeData = externalLiveData || localLiveData;
+  // Merge external + local for best coverage
+  const liveThemeData = useMemo(() => {
+    if (!externalLiveData && !localLiveData) return null;
+    if (!externalLiveData) return localLiveData;
+    if (!localLiveData) return externalLiveData;
+    const m = {};
+    externalLiveData.forEach(s => { m[s.ticker] = s; });
+    localLiveData.forEach(s => { m[s.ticker] = s; }); // local overwrites — it's our own complete fetch
+    return Object.values(m);
+  }, [externalLiveData, localLiveData]);
 
-  // Auto-fetch theme universe ONCE (not on every re-render)
-  const fetchedRef = useRef(false);
+  // Fetch theme universe once on mount, then refresh hourly
+  const lastFetchRef = useRef(0);
   useEffect(() => {
-    if (fetchedRef.current || liveThemeData || !themes || liveLoading) return;
-    fetchedRef.current = true;
+    if (!themes || liveLoading) return;
+    const now = Date.now();
+    if (lastFetchRef.current > 0 && now - lastFetchRef.current < 3600000) return; // 1 hour
+    lastFetchRef.current = now;
     setLiveLoading(true);
     const tickers = new Set();
     themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
     if (tickers.size === 0) { setLiveLoading(false); return; }
     const allTickers = [...tickers];
     const BATCH = 500;
+    const totalBatches = Math.ceil(allTickers.length / BATCH);
+    setFetchProg({ done: 0, total: totalBatches });
     (async () => {
       try {
         const results = [];
@@ -614,12 +628,22 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             const d = await resp.json();
             if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
           }
+          setFetchProg(prev => ({ ...prev, done: prev.done + 1 }));
         }
         if (results.length > 0) setLocalLiveData(results);
       } catch (e) {}
       finally { setLiveLoading(false); }
     })();
   }, [themes]);
+
+  // Hourly refresh interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      lastFetchRef.current = 0; // reset so next render triggers fetch
+      setLocalLiveData(prev => prev); // trigger re-render
+    }, 3600000);
+    return () => clearInterval(interval);
+  }, []);
 
   const liveLookup = useMemo(() => {
     const m = {};
@@ -714,10 +738,20 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
       {/* ── Intraday Rotation Table ── */}
         <div style={{ marginBottom: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderBottom: "1px solid #222230" }}>
-            <span style={{ color: hasLive ? "#0d9163" : "#505060", fontSize: 9 }}>●</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: hasLive ? "#0d9163" : "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>Rotation</span>
+            <span style={{ color: hasLive && !liveLoading ? "#0d9163" : "#505060", fontSize: 9 }}>●</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: hasLive && !liveLoading ? "#0d9163" : "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {hasLive && !liveLoading ? "● LIVE" : "Rotation"}
+            </span>
             <span style={{ color: "#505060", fontSize: 9 }}>{liveRanked.length} themes</span>
-            {liveLoading && <span style={{ color: "#fbbf24", fontSize: 9 }}>Loading...</span>}
+            {liveLoading && fetchProg.total > 0 && (
+              <span style={{ fontSize: 9, color: "#fbbf24", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ display: "inline-block", width: 40, height: 3, background: "#3a3a4a", borderRadius: 2, overflow: "hidden" }}>
+                  <span style={{ display: "block", height: "100%", width: `${(fetchProg.done / fetchProg.total) * 100}%`, background: "#fbbf24", borderRadius: 2, transition: "width 0.3s" }} />
+                </span>
+                {fetchProg.done}/{fetchProg.total}
+              </span>
+            )}
+            {liveLoading && fetchProg.total === 0 && <span style={{ color: "#fbbf24", fontSize: 9 }}>Loading...</span>}
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
             <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
