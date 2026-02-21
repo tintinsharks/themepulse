@@ -1723,7 +1723,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   ];
 
   return (
-    <div>
+    <div style={{ display: "flex", gap: 0, minHeight: 0 }}>
+    <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filter toggles */}
         {[
@@ -1810,6 +1811,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         )}
         {liveOverlay && liveLoading && liveProg.total === 0 && <span style={{ fontSize: 10, color: "#fbbf24" }}>Loading live data...</span>}
         {liveOverlay && !hasLive && !liveLoading && <span style={{ fontSize: 10, color: "#f87171" }}>No live data — market may be closed</span>}
+        <button onClick={() => setShowLeaders(p => !p)} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+          marginLeft: "auto",
+          border: showLeaders ? "1px solid #c084fc" : "1px solid #3a3a4a",
+          background: showLeaders ? "#c084fc20" : "transparent", color: showLeaders ? "#c084fc" : "#686878" }}>
+          {showLeaders ? "◀ Themes" : "Themes ▶"}</button>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
@@ -1930,24 +1936,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           );
         })}</tbody>
       </table>
-    {/* Collapsible Theme Leaders drawer */}
-    <div style={{ borderTop: "2px solid #3a3a4a", marginTop: 4 }}>
-      <button onClick={() => setShowLeaders(p => !p)} style={{
-        width: "100%", padding: "6px 12px", background: showLeaders ? "#0d916315" : "transparent",
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-        color: showLeaders ? "#4aad8c" : "#686878", fontSize: 11, fontWeight: 600 }}>
-        <span style={{ transform: showLeaders ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▶</span>
-        Theme Leaders
-      </button>
-      {showLeaders && (
-        <div style={{ maxHeight: "40vh", overflowY: "auto" }}>
-          <Leaders themes={themes} stockMap={stockMap} filters={filters} onTickerClick={onTickerClick}
-            activeTicker={activeTicker} mmData={mmData} onVisibleTickers={() => {}} themeHealth={themeHealth}
-            liveThemeData={externalLiveData}
-            onThemeDrillDown={(themeName) => { setActiveTheme(themeName); setShowLeaders(false); }} />
-        </div>
-      )}
     </div>
+    {/* Theme Leaders side panel */}
+    {showLeaders && (
+      <div style={{ width: "30%", minWidth: 280, borderLeft: "2px solid #3a3a4a", overflowY: "auto", flexShrink: 0 }}>
+        <Leaders themes={themes} stockMap={stockMap} filters={filters} onTickerClick={onTickerClick}
+          activeTicker={activeTicker} mmData={mmData} onVisibleTickers={() => {}} themeHealth={themeHealth}
+          liveThemeData={externalLiveData}
+          onThemeDrillDown={(themeName) => { setActiveTheme(themeName); setShowLeaders(false); }} />
+      </div>
+    )}
     </div>
   );
 }
