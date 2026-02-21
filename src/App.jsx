@@ -1379,12 +1379,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates]);
 
   const columns = [
-    ["Ticker", "ticker"],
-    ["Tags", "hits"],
-    ["EPS", "eps_score"], ["MS", "ms_score"], ["VCS", "vcs"], ["MF", "mf"],
-    ["Grade", "grade"], ["RS", "rs"],
-    ["Chg%", "change"], ["3M%", "ret3m"],
-    ["FrHi%", "fromhi"], ["ADR%", "adr"], ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rvol"], ["Theme", null], ["Subtheme", null],
+    ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
+    ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["RVol", "rvol"],
+    ["$Vol", "dvol"], ["ADR%", "adr"], ["VCS", "vcs"], ["EPS", "eps_score"],
+    ["3M%", "ret3m"], ["FrHi%", "fromhi"],
   ];
 
   return (
@@ -1537,6 +1535,47 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   })}
                 </div>
               </td>
+              {/* Grade */}
+              <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+              {/* RS */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
+              {/* MS */}
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s._msScore >= 80 ? "#2bb886" : s._msScore >= 60 ? "#60a5fa" : s._msScore >= 40 ? "#9090a0" : s._msScore != null ? "#686878" : "#3a3a4a" }}
+                title={`RS:${s.rs_rank ?? '—'} FrHi:${s.pct_from_high ?? '—'}% 3M:${s.return_3m ?? '—'}% VCS:${s.vcs ?? '—'} EPS:${s._epsScore ?? '—'} MF:${s.mf ?? '—'} ADR:${s.adr_pct ?? '—'}%`}>
+                {s._msScore ?? "—"}</td>
+              {/* MF */}
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
+                title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
+                {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
+              {/* Chg% */}
+              {(() => {
+                const lv = liveLookup[s.ticker];
+                const chg = lv?.change;
+                const chgColor = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
+                  {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>;
+              })()}
+              {/* RVol */}
+              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
+                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
+              {/* $Vol */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
+                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
+              {/* ADR% */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              {/* VCS */}
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
+                title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
+                {s.vcs ?? "—"}</td>
+              {/* EPS */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}
                 title={(() => {
@@ -1554,49 +1593,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   return parts.join("\n");
                 })()}>
                 {s._epsScore ?? "—"}</td>
-              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-                color: s._msScore >= 80 ? "#2bb886" : s._msScore >= 60 ? "#60a5fa" : s._msScore >= 40 ? "#9090a0" : s._msScore != null ? "#686878" : "#3a3a4a" }}
-                title={`RS:${s.rs_rank ?? '—'} FrHi:${s.pct_from_high ?? '—'}% 3M:${s.return_3m ?? '—'}% VCS:${s.vcs ?? '—'} EPS:${s._epsScore ?? '—'} MF:${s.mf ?? '—'} ADR:${s.adr_pct ?? '—'}%`}>
-                {s._msScore ?? "—"}</td>
-              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-                color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
-                title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
-                {s.vcs ?? "—"}</td>
-              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-                color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
-                title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
-                {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
-              <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
-              {(() => {
-                const lv = liveLookup[s.ticker];
-                const chg = lv?.change;
-                const chgColor = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
-                  {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>;
-              })()}
+              {/* 3M% */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
+              {/* FrHi% */}
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
-                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
-                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
-              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
-                const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
-                const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                  color: v >= 1e6 ? "#9090a0" : v != null ? "#f97316" : "#3a3a4a" }}>{fmt}</td>; })()}
-              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
-                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
-              <td style={{ padding: "4px 8px", color: "#787888", fontSize: 11, cursor: "pointer" }}
-                onClick={(e) => { e.stopPropagation(); setActiveTheme(theme?.theme || null); }}
-                onMouseEnter={e => e.target.style.color = "#4aad8c"}
-                onMouseLeave={e => e.target.style.color = "#787888"}>{theme?.theme}</td>
-              <td style={{ padding: "4px 8px", color: "#686878", fontSize: 10 }}>{theme?.subtheme}</td>
             </tr>
           );
         })}</tbody>
@@ -2034,9 +2034,10 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["EPS", "eps_score"], ["MS", "ms_score"], ["VCS", "vcs"], ["MF", "mf"], ["Grade", null], ["RS", "rs"], ["Chg%", "change"],
-  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["ADR%", "adr"],
-  ["$Vol", "dvol"], ["Vol", "vol"], ["RVol", "rel_volume"], ["Theme", null], ["Subtheme", null],
+  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
+  ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["RVol", "rel_volume"],
+  ["$Vol", "dvol"], ["ADR%", "adr"], ["VCS", "vcs"], ["EPS", "eps_score"],
+  ["3M%", "ret3m"], ["FrHi%", "fromhi"],
 ];
 
 function LiveSortHeader({ setter, current }) {
@@ -2100,49 +2101,49 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
           })}
         </div>
       </td>
-      {/* EPS */}
-      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-        color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
-        {s._epsScore ?? "—"}</td>
+      {/* Grade */}
+      <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
+      {/* RS */}
+      <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
       {/* MS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s._msScore >= 80 ? "#2bb886" : s._msScore >= 60 ? "#60a5fa" : s._msScore >= 40 ? "#9090a0" : s._msScore != null ? "#686878" : "#3a3a4a" }}
         title={`RS:${s.rs_rank ?? '—'} FrHi:${s.pct_from_high ?? '—'}% 3M:${s.return_3m ?? '—'}% VCS:${s.vcs ?? '—'} EPS:${s._epsScore ?? '—'} MF:${s.mf ?? '—'} ADR:${s.adr_pct ?? '—'}%`}>
         {s._msScore ?? "—"}</td>
-      {/* VCS */}
-      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
-        color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
-        title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
-        {s.vcs ?? "—"}</td>
       {/* MF */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
         title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
         {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
+      {/* Chg% */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontFamily: "monospace", fontSize: 12 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
-      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} /></td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace", fontSize: 12 }}>
-        {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
+      {/* RVol */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
-        {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+        color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
+        {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
       {/* $Vol */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
         {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
-      {(() => { const rv = s.rel_volume;
-        const v = s.avg_volume_raw && rv ? Math.round(s.avg_volume_raw * rv) : null;
-        const fmt = v == null ? '—' : v >= 1e9 ? `${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
-        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-          color: v >= 1e6 ? "#9090a0" : v != null ? "#f97316" : "#3a3a4a" }}>{fmt}</td>; })()}
+      {/* ADR% */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
-        {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
-      <td style={{ padding: "4px 6px", color: "#787888", fontSize: 11 }}>{s.themes?.[0]?.theme || '—'}</td>
-      <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10 }}>{s.themes?.[0]?.subtheme || '—'}</td>
+        color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
+        {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+      {/* VCS */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
+        title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
+        {s.vcs ?? "—"}</td>
+      {/* EPS */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
+        {s._epsScore ?? "—"}</td>
+      {/* 3M% */}
+      <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} /></td>
+      {/* FrHi% */}
+      <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace", fontSize: 12 }}>
+        {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
     </tr>
   );
 }
