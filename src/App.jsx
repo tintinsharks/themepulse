@@ -2117,6 +2117,12 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   }, [groups, onVisibleTickers]);
   return (
     <div style={{ overflowX: "auto" }}>
+      {/* Filter indicator */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: 6, fontSize: 10, color: "#686878" }}>
+        <span style={{ color: "#f97316", fontWeight: 700 }}>⊘ FILTERED</span>
+        <span>Excluding: Biotech, Pharma, REITs, Investment Banks/Mgrs/Trusts</span>
+        <span style={{ color: "#505060" }}>({stocks.length - filteredStocks.length} removed · {filteredStocks.length} shown)</span>
+      </div>
       {/* Legend */}
       <div onClick={() => setShowLegend(p => !p)}
         style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 10, background: "#1a1a24",
