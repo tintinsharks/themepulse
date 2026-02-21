@@ -2207,32 +2207,9 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           <span><span style={{ color: "#fbbf24", fontFamily: "monospace", fontSize: 9 }}>superscript</span><span style={{ color: "#b0b0be" }}> — screener hit count</span></span>
         </div>
       </div>)}
-      {/* RTS Grade Grid */}
-      <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
-        {grades.map(g => {
-          const light = ["C+","C","C-","D+","D","D-"].includes(g);
-          return (
-            <div key={g} style={{ width: 64, flexShrink: 0 }}>
-              <div style={{ background: GRADE_COLORS[g], color: light ? "#2a2a38" : "#d4d4e0", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 12, fontWeight: 700 }}>
-                {g}<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{groups[g].length}</span></div>
-              <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
-                {groups[g].slice(0, 60).map(s => (
-                  <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | 3M:${s.return_3m}%`}
-                    onClick={() => onTickerClick(s.ticker)}
-                    style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
-                      background: s.ticker === activeTicker ? "#0d916330" : GRADE_COLORS[g] + "25",
-                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
-                      fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Combo — tickers in 2+ screener groups */}
       {comboStocks.length > 0 && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24" }}>Combo</span>
             <span style={{ fontSize: 10, color: "#686878" }}>In 2+ screeners</span>
@@ -2241,15 +2218,16 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
             {comboStocks.map(s => {
               const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
+              const isActive = s.ticker === activeTicker;
               return (
                 <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
                   title={`${s.company} | RS:${s.rs_rank} | In: ${s._comboSources.join(", ")} | Grade:${s.grade}`}
                   style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
                     fontSize: 11, fontFamily: "monospace", cursor: "pointer",
-                    background: s.ticker === activeTicker ? "#0d916330" : gc + "20",
-                    border: `1px solid ${s._comboCount >= 3 ? "#fbbf24" : gc}40`,
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
-                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400 }}>
+                    background: isActive ? "#fbbf2430" : gc + "20",
+                    border: isActive ? "1px solid #fbbf24" : `1px solid ${s._comboCount >= 3 ? "#fbbf24" : gc}40`,
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400 }}>
                   <Badge grade={s.grade} />
                   {s.ticker}
                   <sup style={{ fontSize: 7, color: "#fbbf24", marginLeft: 1 }}>{s._comboCount}</sup>
@@ -2261,7 +2239,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       )}
 
       {/* Screeners */}
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: "#c084fc" }}>Screeners</span>
           <span style={{ fontSize: 10, color: "#686878" }}>Price &gt; $5 · Vol &gt; 100K</span>
@@ -2272,14 +2250,18 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
             <div style={{ background: "#c084fc", color: "#fff", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
               20%1W<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{weekMovers.length}</span></div>
             <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
-              {weekMovers.map(s => (
+              {weekMovers.map(s => {
+                const isActive = s.ticker === activeTicker;
+                return (
                 <div key={s.ticker} title={`${s.company} | 1W:${s.return_1w != null ? s.return_1w.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
-                    background: s.ticker === activeTicker ? "#0d916330" : "#c084fc25",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
-                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
-              ))}
+                    background: isActive ? "#fbbf2430" : "#c084fc25",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                );
+              })}
             </div>
           </div>
           {/* 20% 1M — wraps horizontally to match RTS grid height */}
@@ -2287,47 +2269,86 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
             <div style={{ background: "#60a5fa", color: "#fff", textAlign: "center", padding: "4px 8px", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
               20% 1M <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>({monthMovers.length})</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", flexDirection: "column", maxHeight: "55vh", gap: 0, alignContent: "flex-start" }}>
-              {monthMovers.map(s => (
+              {monthMovers.map(s => {
+                const isActive = s.ticker === activeTicker;
+                return (
                 <div key={s.ticker} title={`${s.company} | 1M:${s.return_1m != null ? s.return_1m.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
-                    background: s.ticker === activeTicker ? "#0d916330" : "#60a5fa25",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
-                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
-              ))}
+                    background: isActive ? "#fbbf2430" : "#60a5fa25",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                );
+              })}
             </div>
           </div>
-          {/* Strongest Stocks — two scans combined, wraps to match height */}
+          {/* Strongest Stocks */}
           <div>
             <div style={{ background: "#2bb886", color: "#fff", textAlign: "center", padding: "4px 8px", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
               Strongest <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>({strongestStocks.length})</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", flexDirection: "column", maxHeight: "55vh", gap: 0, alignContent: "flex-start" }}>
-              {strongestStocks.map(s => (
+              {strongestStocks.map(s => {
+                const isActive = s.ticker === activeTicker;
+                return (
                 <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
-                    background: s.ticker === activeTicker ? "#0d916330" : "#2bb88625",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
-                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
-              ))}
+                    background: isActive ? "#fbbf2430" : "#2bb88625",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                );
+              })}
             </div>
           </div>
-          {/* Momentum — 8 scans combined, wraps to match height */}
+          {/* Momentum */}
           <div>
             <div style={{ background: "#f97316", color: "#fff", textAlign: "center", padding: "4px 8px", borderRadius: "4px 4px 0 0", fontSize: 10, fontWeight: 700 }}>
               Momentum <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>({momentumStocks.length})</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", flexDirection: "column", maxHeight: "55vh", gap: 0, alignContent: "flex-start" }}>
-              {momentumStocks.map(s => (
+              {momentumStocks.map(s => {
+                const isActive = s.ticker === activeTicker;
+                return (
                 <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._momTag} | 1W:${s.return_1w ?? '—'}% | 1M:${s.return_1m ?? '—'}% | 3M:${s.return_3m ?? '—'}% | 6M:${s.return_6m ?? '—'}%`}
                   onClick={() => onTickerClick(s.ticker)}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
-                    background: s.ticker === activeTicker ? "#0d916330" : "#f9731625",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : "#bbb",
-                    fontWeight: s.atr_to_50 >= 5 ? 700 : 400, cursor: "pointer" }}>{s.ticker}</div>
-              ))}
+                    background: isActive ? "#fbbf2430" : "#f9731625",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                );
+              })}
             </div>
           </div>
         </div>
+      </div>
+
+      {/* RTS Grade Grid */}
+      <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
+        {grades.map(g => {
+          const light = ["C+","C","C-","D+","D","D-"].includes(g);
+          return (
+            <div key={g} style={{ width: 64, flexShrink: 0 }}>
+              <div style={{ background: GRADE_COLORS[g], color: light ? "#2a2a38" : "#d4d4e0", textAlign: "center", padding: "4px 0", borderRadius: "4px 4px 0 0", fontSize: 12, fontWeight: 700 }}>
+                {g}<br/><span style={{ fontWeight: 400, opacity: 0.7, fontSize: 11 }}>{groups[g].length}</span></div>
+              <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
+                {groups[g].slice(0, 60).map(s => {
+                  const isActive = s.ticker === activeTicker;
+                  return (
+                  <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | 3M:${s.return_3m}%`}
+                    onClick={() => onTickerClick(s.ticker)}
+                    style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
+                      background: isActive ? "#fbbf2430" : GRADE_COLORS[g] + "25",
+                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                      fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
+                      outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
