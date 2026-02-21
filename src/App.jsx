@@ -451,6 +451,30 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })}
             </>)}
+            {/* EPS Composite Score */}
+            {stock._epsScore != null && (<>
+              <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ color: "#686878", fontWeight: 700 }}>EPS Score</span>
+                <span style={{
+                  color: stock._epsScore >= 80 ? "#22d3ee" : stock._epsScore >= 60 ? "#60a5fa" : stock._epsScore >= 40 ? "#9090a0" : "#686878",
+                  fontWeight: 700, fontSize: 14 }}>{stock._epsScore}</span>
+                <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
+              </div>
+              <div style={{ color: "#505060", fontSize: 9, marginTop: 2 }}>
+                {(() => {
+                  const qs = stock.quarters || []; const an = stock.annual || [];
+                  const parts = [];
+                  if (qs[0]?.eps_yoy != null) parts.push(`Q EPS:${qs[0].eps_yoy > 0 ? "+" : ""}${qs[0].eps_yoy.toFixed(0)}%`);
+                  if (qs[0]?.sales_yoy != null) parts.push(`Q Sales:${qs[0].sales_yoy > 0 ? "+" : ""}${qs[0].sales_yoy.toFixed(0)}%`);
+                  if (qs[1]?.eps_yoy != null && qs[0]?.eps_yoy != null) parts.push(qs[0].eps_yoy > qs[1].eps_yoy ? "Accel▲" : "Decel▼");
+                  if (an[0]?.eps_yoy != null) parts.push(`Ann:${an[0].eps_yoy > 0 ? "+" : ""}${an[0].eps_yoy.toFixed(0)}%`);
+                  const posQs = qs.slice(0, 4).filter(q => q.eps_yoy != null && q.eps_yoy > 0).length;
+                  parts.push(`${posQs}/4 pos`);
+                  return parts.join(" · ");
+                })()}
+              </div>
+            </>)}
             {/* End of earnings timeline */}
           </div>
           {/* Divider */}
