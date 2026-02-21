@@ -56,6 +56,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
+  const [analyst, setAnalyst] = useState(null);
   const [description, setDescription] = useState(null);
   const [finvizQuarters, setFinvizQuarters] = useState(null);
 
@@ -69,7 +70,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   useEffect(() => {
     setNews(null);
     setPeers(null);
-    setDescription(null);
+    setAnalyst(null);    setDescription(null);
     setFinvizQuarters(null);
     fetch(`/api/live?news=${ticker}`)
       .then(r => {
@@ -80,11 +81,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         if (d?.ok) {
           setNews(d.news && d.news.length > 0 ? d.news : []);
           setPeers(d.peers && d.peers.length > 0 ? d.peers : []);
+          setAnalyst(d.analyst || null);
           setDescription(d.description || '');
           setFinvizQuarters(d.finvizQuarters && d.finvizQuarters.length > 0 ? d.finvizQuarters : null);
-        } else { setNews([]); setPeers([]); setDescription(''); }
+        } else { setNews([]); setPeers([]); setAnalyst(null); setDescription(''); }
       })
-      .catch(() => { setNews([]); setPeers([]); setDescription(''); });
+      .catch(() => { setNews([]); setPeers([]); setAnalyst(null); setDescription(''); });
   }, [ticker]);
 
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
@@ -532,6 +534,18 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     {p}
                   </span>
                 ))}
+                {analyst && analyst.target_price && (<>
+                  <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
+                  <span style={{ color: "#686878", fontWeight: 700 }}>Analyst</span>
+                  <span style={{ color: "#9090a0" }}>
+                    {analyst.recommendation && <span style={{
+                      color: analyst.recommendation <= 2 ? "#2bb886" : analyst.recommendation <= 3 ? "#fbbf24" : "#f87171",
+                      fontWeight: 700, marginRight: 4
+                    }}>{analyst.recommendation <= 1.5 ? "Buy" : analyst.recommendation <= 2.5 ? "Outperform" : analyst.recommendation <= 3.5 ? "Hold" : analyst.recommendation <= 4.5 ? "Underperform" : "Sell"}</span>}
+                    PT:${analyst.target_price}
+                    {analyst.count && <span style={{ color: "#505060" }}> ({analyst.count})</span>}
+                  </span>
+                </>)}
               </div>
             )}
             {description && (

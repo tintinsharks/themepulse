@@ -506,7 +506,7 @@ async function fetchTickerNews(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) return { news: [], peers: [], description: "", earningsData: {}, quarters: [] };
+    if (!resp.ok) return { news: [], peers: [], description: "", earningsData: {}, quarters: [], analyst: {} };
     const html = await resp.text();
     
     // ── NEWS ──
@@ -630,6 +630,13 @@ async function fetchTickerNews(cookies, ticker) {
     earningsData.sales_qq = epsGet('Sales Q/Q');
     earningsData.eps_qq = epsGet('EPS Q/Q');
     
+    // ── ANALYST CONSENSUS ──
+    const analyst = {};
+    const rawTarget = epsGet('Target Price');
+    if (rawTarget) analyst.target_price = rawTarget;
+    const rawRecom = epsGet('Recom');
+    if (rawRecom) analyst.recommendation = parseFloat(rawRecom);
+    
     // ── QUARTERLY INCOME STATEMENT from FactSet table ──
     // Table class="quote_statements-table" with rows: Total Revenue, EPS (Diluted), etc.
     // Each data cell: <span>value</span> and <span class="...">YoY%</span>
@@ -712,10 +719,10 @@ async function fetchTickerNews(cookies, ticker) {
     }
 
     console.log(`News for ${ticker}: ${news.length} items, Peers: ${peers.length}, FactSet quarters: ${quarters.length}`);
-    return { news, peers, description, earningsData, quarters };
+    return { news, peers, description, earningsData, quarters, analyst };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
-    return { news: [], peers: [], description: "", earningsData: {}, quarters: [] };
+    return { news: [], peers: [], description: "", earningsData: {}, quarters: [], analyst: {} };
   }
 }
 
@@ -1014,6 +1021,7 @@ export default async function handler(req, res) {
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
       finvizQuarters: tickerData?.quarters || null,
+      analyst: tickerData?.analyst || null,
       homepage,
       ep_signals: epSignals,
     });
