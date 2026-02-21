@@ -341,8 +341,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               {code33 && (
                 <div style={{ padding: "2px 4px", marginBottom: 2, background: "rgba(96, 165, 250, 0.12)", border: "1px solid rgba(96, 165, 250, 0.30)",
                   borderRadius: 3, display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ color: "#60a5fa", fontSize: 9, fontWeight: 600, letterSpacing: 0.5 }}>CODE 33</span>
-                  <span style={{ color: "#60a5fa", fontSize: 8 }}>3Q accel: EPS + Sales + Margins</span>
+                  <span style={{ color: "#60a5fa", fontSize: 10, fontWeight: 600, letterSpacing: 0.5 }}>CODE 33</span>
+                  <span style={{ color: "#60a5fa", fontSize: 10 }}>3Q accel: EPS + Sales + Margins</span>
                 </div>
               )}
               {qs.map((q, i) => {
@@ -377,19 +377,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   <span style={{ width: 44, flexShrink: 0 }}>{q.report_date ? q.report_date.slice(5) : q.label}</span>
                   {q.eps != null && <span style={{ color: q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 72, flexShrink: 0,
                     background: epsBg, borderRadius: 2, padding: "0 2px" }}>
-                    {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
+                    {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
                     E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
-                    {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 8, marginLeft: 1 }} title="EPS accelerating vs prior quarter">▲</span>}
-                    {isEpsDecel && <span style={{ color: "#f87171", fontSize: 8, marginLeft: 1 }} title="EPS decelerating vs prior quarter">▼</span>}
+                    {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 1 }} title="EPS accelerating vs prior quarter">▲</span>}
+                    {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 1 }} title="EPS decelerating vs prior quarter">▼</span>}
                   </span>}
                   {q.sales_yoy != null && <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : "#f87171",
                     background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                     S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
-                    {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 8, marginLeft: 1 }} title="Sales accelerating vs prior quarter">▲</span>}
+                    {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 1 }} title="Sales accelerating vs prior quarter">▲</span>}
                   </span>}
                   {margin != null && <span style={{
                     color: isMarginAccel ? (isCode33Q ? "#60a5fa" : "#a78bfa") : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
-                    fontSize: 9, marginLeft: 2 }}
+                    fontSize: 10, marginLeft: 2 }}
                     title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
                     {marginLabel}:{margin.toFixed(0)}%{isMarginAccel ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
                   </span>}
@@ -423,7 +423,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   <span style={{ width: 44, flexShrink: 0 }}>{a.year}</span>
                   {a.eps != null && <span style={{ color: a.eps_yoy > 0 ? "#2bb886" : a.eps_yoy < 0 ? "#f87171" : "#9090a0", width: 72, flexShrink: 0,
                     background: epsBg, borderRadius: 2, padding: "0 2px" }}>
-                    {epsIcon && <span style={{ fontSize: 7, marginRight: 1 }}>{epsIcon}</span>}
+                    {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
                     E:{a.eps_yoy != null ? `${a.eps_yoy > 0 ? "+" : ""}${a.eps_yoy.toFixed(0)}%` : a.eps}
                   </span>}
                   {a.sales_yoy != null && <span style={{ color: a.sales_yoy >= 20 ? "#2bb886" : a.sales_yoy > 0 ? "#9090a0" : "#f87171",
@@ -432,7 +432,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   </span>}
                   {margin != null && <span style={{
                     color: marginDelta != null && marginDelta > 0 ? "#a78bfa" : marginDelta != null && marginDelta < 0 ? "#f87171" : "#686878",
-                    fontSize: 9, marginLeft: 2 }}
+                    fontSize: 10, marginLeft: 2 }}
                     title={`${marginLabel}: ${margin.toFixed(1)}%${marginDelta != null ? ` (${marginDelta >= 0 ? "+" : ""}${marginDelta.toFixed(1)}pp)` : ""}`}>
                     {marginLabel}:{margin.toFixed(0)}%{marginDelta != null && marginDelta > 0 ? "▲" : marginDelta != null && marginDelta < 0 ? "▼" : ""}
                   </span>}
