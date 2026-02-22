@@ -949,7 +949,7 @@ function computeEPSScore(s) {
 
   // ── Sales growth (proves revenue-driven, not cost-cutting) ──
   const salesAnn = s.sales_past_5y;
-  const salesQQ = s.sales_qq;  // null until yfinance/FMP added
+  const salesQQ = s.sales_yoy ?? s.sales_qq;  // sales_yoy = latest quarter YoY (92% coverage)
   if (salesQQ != null) {
     hasAnyData = true;
     if (salesQQ >= 40) { score += 20; factors.push("S↑↑"); }
@@ -963,8 +963,8 @@ function computeEPSScore(s) {
     else if (salesAnn < 0) { score -= 5; factors.push("S↓"); }
   }
 
-  // ── Quarterly EPS Q/Q boost (when available from yfinance/FMP) ──
-  const epsQQ = s.eps_qq;
+  // ── Quarterly EPS Q/Q boost — eps_yoy = latest quarter EPS YoY (96% coverage) ──
+  const epsQQ = s.eps_yoy ?? s.eps_qq;
   if (epsQQ != null) {
     hasAnyData = true;
     if (epsQQ >= 100) { score += 15; factors.push("QQ↑↑"); }
@@ -1223,9 +1223,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (epLookup[s.ticker]) hits.push("EP");
 
       // ── CANSLIM tag ──
-      const epsG = s.eps_this_y ?? s.eps_past_5y;
-      const salesG = s.sales_qq ?? s.sales_past_5y;
-      const csC = (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);
+      const epsG = s.eps_yoy ?? s.eps_this_y ?? s.eps_past_5y;
+      const salesG = s.sales_yoy ?? s.sales_qq ?? s.sales_past_5y;
+      const csC = (s.eps_yoy != null && s.eps_yoy >= 40) || (s.eps_qq != null && s.eps_qq >= 40) || (epsG != null && epsG >= 40);
       const csN = s.pct_from_high != null && s.pct_from_high >= -10;
       const csS = s.shares_float_raw != null && s.shares_float_raw <= 100_000_000;
       const csL = s.rs_rank >= 80;
@@ -2047,32 +2047,38 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     ).sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0));
   }, [filteredStocks]);
 
-  // Strongest Stocks: two scans combined
+  // Strongest Stocks: two scans combined (matching Finviz screeners)
+  // Using eps_yoy (96% coverage) = latest quarter EPS YoY = Finviz "EPS dil growth Q/Q YoY"
+  // Using sales_yoy (92% coverage) = latest quarter Revenue YoY = Finviz "Revenue growth Q/Q YoY"
+  // shares_float_raw is 0% populated — filter kept but effectively a no-op until pipeline adds it
   const strongestStocks = useMemo(() => {
     const seen = new Set();
     const results = [];
-    // Scan 1: Small/Mid (<10B) — tight base, strong growth, low float
+    // Scan 1: Small/Mid (<10B)
     filteredStocks.forEach(s => {
       const mcap = s.market_cap_raw || 0;
       if (mcap < 300e6 || mcap > 10e9) return;
       if ((s.above_52w_low || 0) < 70) return;
-      if ((s.eps_qq ?? s.eps_this_y ?? -1) < 25) return;
-      if ((s.sales_qq ?? s.sales_past_5y ?? -1) < 25) return;
+      if ((s.eps_yoy ?? s.eps_qq ?? -1) < 25) return;
+      if ((s.sales_yoy ?? s.sales_qq ?? -1) < 25) return;
       if ((s.avg_volume_raw || 0) < 500000) return;
       if (s.shares_float_raw != null && s.shares_float_raw > 50e6) return;
-      if ((s.sma50_pct ?? -1) < 0) return;
       if (s.sma20_pct != null && (s.sma20_pct < 0 || s.sma20_pct > 10)) return;
+      if ((s.adr_pct ?? 0) < 3) return;
+      if ((s.sma50_pct ?? -1) < 0) return;
       if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "S" }); }
     });
-    // Scan 2: Large (10B+) — institutional quality, strong growth
+    // Scan 2: Large (10B+)
     filteredStocks.forEach(s => {
       const mcap = s.market_cap_raw || 0;
       if (mcap < 10e9) return;
       if ((s.above_52w_low || 0) < 70) return;
-      if ((s.eps_qq ?? s.eps_this_y ?? -1) < 25) return;
-      if ((s.sales_qq ?? s.sales_past_5y ?? -1) < 25) return;
+      if ((s.eps_yoy ?? s.eps_qq ?? -1) < 25) return;
+      if ((s.sales_yoy ?? s.sales_qq ?? -1) < 25) return;
       if ((s.avg_volume_raw || 0) < 500000) return;
       if (s.shares_float_raw != null && s.shares_float_raw > 150e6) return;
+      if (s.sma20_pct != null && (s.sma20_pct < 0 || s.sma20_pct > 3)) return;
+      if ((s.adr_pct ?? 0) < 2) return;
       if ((s.sma50_pct ?? -1) < 0) return;
       if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "L" }); }
     });
@@ -2080,11 +2086,12 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     return results;
   }, [filteredStocks]);
 
-  // Momentum: 8 scans combined (1W/1M/3M/6M × <10B/10B+)
+  // Momentum: 8 scans combined (1W/1M/3M/6M × <10B/10B+) — matching Finviz screeners
   const momentumStocks = useMemo(() => {
     const seen = new Set();
     const results = [];
     // Common base filters for <10B scans
+    // Above Low 52W ≥50%, Mcap 300M-10B, AvgVol60D >300K, Float ≤50M, SMA10(≈SMA20) 0-20%
     const baseSmall = (s) => {
       const mcap = s.market_cap_raw || 0;
       return mcap >= 300e6 && mcap <= 10e9 && (s.avg_volume_raw || 0) >= 300000 &&
@@ -2092,6 +2099,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
         s.sma20_pct != null && s.sma20_pct >= 0 && s.sma20_pct <= 20;
     };
     // Common base filters for 10B+ scans
+    // Above Low 52W ≥50%, Mcap ≥10B, AvgVol60D >300K, Float ≤150M, SMA10(≈SMA20) 0-10%
     const baseLarge = (s) => {
       const mcap = s.market_cap_raw || 0;
       return mcap >= 10e9 && (s.avg_volume_raw || 0) >= 300000 &&
@@ -2100,22 +2108,22 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     };
     const add = (s, tag) => { if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _momTag: tag }); } };
     filteredStocks.forEach(s => {
-      // 1W +20% <10B
+      // 1W +20% <10B — no volatility filter
       if (baseSmall(s) && (s.return_1w || 0) >= 20) add(s, "1W·S");
-      // 1W +20% 10B+
+      // 1W +20% 10B+ — no volatility filter
       if (baseLarge(s) && (s.return_1w || 0) >= 20) add(s, "1W·L");
-      // 1M +30% <10B
+      // 1M +30% <10B — no volatility filter
       if (baseSmall(s) && (s.return_1m || 0) >= 30) add(s, "1M·S");
-      // 1M +30% 10B+
+      // 1M +30% 10B+ — no volatility filter
       if (baseLarge(s) && (s.return_1m || 0) >= 30) add(s, "1M·L");
-      // 3M +70% <10B (above 52W by 100%)
-      if (baseSmall(s) && (s.above_52w_low || 0) >= 100 && (s.return_3m || 0) >= 70) add(s, "3M·S");
-      // 3M +70% 10B+
-      if (baseLarge(s) && (s.above_52w_low || 0) >= 100 && (s.return_3m || 0) >= 70) add(s, "3M·L");
-      // 6M +100% <10B
-      if (baseSmall(s) && (s.above_52w_low || 0) >= 100 && (s.return_6m || 0) >= 100) add(s, "6M·S");
-      // 6M +100% 10B+
-      if (baseLarge(s) && (s.above_52w_low || 0) >= 100 && (s.return_6m || 0) >= 100) add(s, "6M·L");
+      // 3M +70% <10B — above_52w ≥100%, Volatility 1M >3% (≈ADR >3%)
+      if (baseSmall(s) && (s.above_52w_low || 0) >= 100 && (s.return_3m || 0) >= 70 && (s.adr_pct ?? 0) >= 3) add(s, "3M·S");
+      // 3M +70% 10B+ — above_52w ≥100%, Volatility 1M >3% (≈ADR >3%)
+      if (baseLarge(s) && (s.above_52w_low || 0) >= 100 && (s.return_3m || 0) >= 70 && (s.adr_pct ?? 0) >= 3) add(s, "3M·L");
+      // 6M +100% <10B — above_52w ≥100%, Volatility 1M >3% (≈ADR >3%)
+      if (baseSmall(s) && (s.above_52w_low || 0) >= 100 && (s.return_6m || 0) >= 100 && (s.adr_pct ?? 0) >= 3) add(s, "6M·S");
+      // 6M +100% 10B+ — above_52w ≥100%, Volatility 1M >3% (≈ADR >3%)
+      if (baseLarge(s) && (s.above_52w_low || 0) >= 100 && (s.return_6m || 0) >= 100 && (s.adr_pct ?? 0) >= 3) add(s, "6M·L");
     });
     results.sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
     return results;
@@ -2336,7 +2344,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
               {strongestStocks.map(s => {
                 const isActive = s.ticker === activeTicker;
                 return (
-                <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
+                <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_yoy ?? s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_yoy ?? s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
                   onClick={() => clickInBox(s.ticker, "strong")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#2bb88625",
@@ -3030,8 +3038,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       avg_volume_raw: pipe.avg_volume_raw, grade: pipe.grade, rs_rank: pipe.rs_rank,
       return_1m: pipe.return_1m, return_3m: pipe.return_3m, pct_from_high: pipe.pct_from_high,
       atr_to_50: pipe.atr_to_50, adr_pct: pipe.adr_pct, eps_past_5y: pipe.eps_past_5y,
-      eps_this_y: pipe.eps_this_y, eps_qq: pipe.eps_qq, sales_past_5y: pipe.sales_past_5y,
-      sales_qq: pipe.sales_qq, pe: pipe.pe, roe: pipe.roe, profit_margin: pipe.profit_margin,
+      eps_this_y: pipe.eps_this_y, eps_qq: pipe.eps_qq, eps_yoy: pipe.eps_yoy, sales_past_5y: pipe.sales_past_5y,
+      sales_qq: pipe.sales_qq, sales_yoy: pipe.sales_yoy, pe: pipe.pe, roe: pipe.roe, profit_margin: pipe.profit_margin,
       rsi: pipe.rsi, themes: pipe.themes || [], theme: pipe.themes?.[0]?.theme || "",
       subtheme: pipe.themes?.[0]?.subtheme || "",
       company: pipe.company || "", vcs: pipe.vcs, vcs_components: pipe.vcs_components,
@@ -4165,8 +4173,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       eps_past_5y: pipe.eps_past_5y,
       eps_this_y: pipe.eps_this_y,
       eps_qq: pipe.eps_qq,
+      eps_yoy: pipe.eps_yoy,
       sales_past_5y: pipe.sales_past_5y,
       sales_qq: pipe.sales_qq,
+      sales_yoy: pipe.sales_yoy,
       pe: live.pe ?? pipe.pe,
       roe: pipe.roe,
       profit_margin: pipe.profit_margin,
