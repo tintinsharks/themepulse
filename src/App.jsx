@@ -2969,7 +2969,7 @@ function LWChart({ ticker, entry, stop, target }) {
 
         // ── MA Spread % + Percentile Rank ──
         const li = bars.length - 1;
-        const lastEma10 = ema10[li], lastEma21 = ema21close[li], lastSma50 = sma50[li];
+        const lastEma10 = ema10[li], lastEma21 = ema21close[li];
         const spread10_21 = lastEma10 && lastEma21 ? ((lastEma10 - lastEma21) / lastEma21 * 100) : null;
         const spread21_50 = lastEma21 && lastSma50 ? ((lastEma21 - lastSma50) / lastSma50 * 100) : null;
 
