@@ -1,4 +1,25 @@
-import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment, memo, Component } from "react";
+
+// ── Error Boundary ──
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, color: "#f87171", background: "#1a1a24", borderRadius: 6, margin: 8, fontSize: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Something went wrong in {this.props.name || "this section"}</div>
+          <div style={{ color: "#686878", fontSize: 10 }}>{this.state.error?.message}</div>
+          <button onClick={() => this.setState({ hasError: false, error: null })}
+            style={{ marginTop: 8, padding: "4px 12px", borderRadius: 4, border: "1px solid #f87171", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 10 }}>
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const GRADE_COLORS = {
   "A+":"#1B7A2B","A":"#2E8B3C","A-":"#44A04D",
@@ -24,28 +45,28 @@ const QC = {
   WEAK: { bg: "#450a0a", text: "#fca5a5", tag: "#dc2626" },
 };
 
-function Ret({ v, bold }) {
+const Ret = memo(function Ret({ v, bold }) {
   if (v == null) return <span style={{ color: "#787888" }}>—</span>;
   const c = v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
   return <span style={{ color: c, fontWeight: 400, fontFamily: "monospace" }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
-}
+});
 
-function Badge({ grade }) {
+const Badge = memo(function Badge({ grade }) {
   if (!grade) return null;
   const bg = GRADE_COLORS[grade] || "#505060";
   const light = ["B-","C+","C","C-","D+","D","D-","E+","E"].includes(grade);
   return <span style={{ background: bg, color: light ? "#2a2a38" : "#d4d4e0", padding: "1px 5px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
-}
+});
 
 // ── STOCK STAT (label: value pair for chart panel) ──
-function StockStat({ label, value, color = "#9090a0" }) {
+const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
   return (
     <span style={{ whiteSpace: "nowrap", lineHeight: 1.1 }}>
       <span style={{ color: "#686878" }}>{label}: </span>
       <span style={{ color, fontFamily: "monospace" }}>{value}</span>
     </span>
   );
-}
+});
 
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
@@ -964,8 +985,10 @@ function computeEPSScore(s) {
   return { score: normalized, factors };
 }
 
+const _qualityCache = new WeakMap();
 function computeStockQuality(s, leadingThemes) {
   if (!s) return { quality: 0, q_factors: [] };
+  if (!leadingThemes && _qualityCache.has(s)) return _qualityCache.get(s);
   let q = 30;  // base for non-EP stocks
   const factors = [];
 
@@ -1040,7 +1063,9 @@ function computeStockQuality(s, leadingThemes) {
   if (s.rsi != null && s.rsi > 85) { q -= 5; }
 
   q = Math.min(100, Math.max(0, q));
-  return { quality: q, q_factors: factors };
+  const result = { quality: q, q_factors: factors };
+  if (!leadingThemes) _qualityCache.set(s, result);
+  return result;
 }
 
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, stockMap, filters, mmData, themeHealth }) {
@@ -2977,6 +3002,13 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [tab, setTab] = useState("open"); // open | closed | calc
   const [pSort, setPSort] = useState("change");
   const [calcTicker, setCalcTicker] = useState("");
+
+  // O(1) lookup for live prices instead of O(n) find() per row
+  const liveMap = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => { m[s.ticker] = s; });
+    return m;
+  }, [liveThemeData]);
   const [calcEntry, setCalcEntry] = useState("");
   const [calcStop, setCalcStop] = useState("");
   const [calcRisk, setCalcRisk] = useState(() => {
@@ -3392,7 +3424,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                 const stop = st2.curStop;
                 const shares = st2.curShares;
                 const live = stockMap[t.ticker];
-                const livePrice = liveThemeData?.find(s => s.ticker === t.ticker);
+                const livePrice = liveMap[t.ticker];
                 const curPrice = livePrice?.price || live?.price || entry;
                 const unrealPnl = (curPrice - entry) * shares;
                 const unrealPct = entry > 0 ? ((curPrice - entry) / entry * 100) : 0;
@@ -3594,7 +3626,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
             }, 0);
             const totalUnreal = openTrades.reduce((sum, t) => {
               const s = tradeState(t);
-              const lp = liveThemeData?.find(x => x.ticker === t.ticker);
+              const lp = liveMap[t.ticker];
               const cur = lp?.price || stockMap[t.ticker]?.price || s.avgEntry;
               return sum + (cur - s.avgEntry) * s.curShares;
             }, 0);
@@ -3602,7 +3634,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
             const openHeat = acct > 0 ? (totalRisk / acct * 100) : 0;
             const totalExposure = openTrades.reduce((sum, t) => {
               const s = tradeState(t);
-              const lp = liveThemeData?.find(x => x.ticker === t.ticker);
+              const lp = liveMap[t.ticker];
               const cur = lp?.price || stockMap[t.ticker]?.price || s.avgEntry;
               return sum + cur * s.curShares;
             }, 0);
@@ -3631,7 +3663,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   );
 }
 
-function LiveSortHeader({ setter, current }) {
+const LiveSortHeader = memo(function LiveSortHeader({ setter, current }) {
   return (
     <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
       {LIVE_COLUMNS.map(([h, sk]) => (
@@ -3642,9 +3674,9 @@ function LiveSortHeader({ setter, current }) {
       ))}
     </tr></thead>
   );
-}
+});
 
-function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) {
+const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) {
   const isActive = s.ticker === activeTicker;
   const rowRef = useRef(null);
   useEffect(() => {
@@ -3737,7 +3769,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
     </tr>
   );
-}
+});
 
 function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) {
   return (
@@ -4099,7 +4131,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, [allTickers]);
 
-  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 30000); return () => clearInterval(iv); }, [fetchLive]);
+  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
   // Build merged lookup: live data + theme universe data + pipeline stockMap
   const liveLookup = useMemo(() => {
@@ -5486,19 +5518,29 @@ function AppMain({ authToken, onLogout }) {
       <div ref={containerRef} className="tp-main" style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
+          <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs}
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="Performance">
           {view === "perf" && <TradePerformance trades={trades} stockMap={stockMap}
             accountSize={parseFloat(localStorage.getItem("tp_account_size") || "100000")}
             maxAllocPct={parseFloat(localStorage.getItem("tp_max_alloc") || "25")} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="Live">
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
             liveThemeData={liveThemeData} homepage={homepage} />}
+          </ErrorBoundary>
         </div>
 
         {/* Draggable divider */}
@@ -5514,6 +5556,7 @@ function AppMain({ authToken, onLogout }) {
         {/* Right: chart panel */}
         {chartOpen && (
           <div className="tp-chart-panel" style={{ width: `${100 - splitPct}%`, height: "100%", transition: "none" }}>
+            <ErrorBoundary name="Chart Panel">
             {view === "exec" ? (
               <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
                 watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
@@ -5533,6 +5576,7 @@ function AppMain({ authToken, onLogout }) {
                 manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
                 liveThemeData={liveThemeData} />
             )}
+            </ErrorBoundary>
           </div>
         )}
 
