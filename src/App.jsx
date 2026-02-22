@@ -3449,6 +3449,10 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                         </span>
                       ) : (
                         <span style={{ display: "inline-flex", gap: 3 }}>
+                          <span onClick={() => setActionModal({ id: t.id, type: "edit",
+                            entry: String(entry.toFixed(2)), stop: String(stop || ""), target: t.target || "",
+                            shares: String(shares), date: t.date || "", setup: t.setup || "" })} title="Edit trade"
+                            style={{ color: "#9090a0", cursor: "pointer", fontSize: 9, padding: "1px 3px", border: "1px solid #9090a030", borderRadius: 2 }}>Edit</span>
                           <span onClick={() => setActionModal({ id: t.id, type: "add", price: String(curPrice), shares: "" })} title="Add shares"
                             style={{ color: "#60a5fa", cursor: "pointer", fontSize: 9, padding: "1px 3px", border: "1px solid #60a5fa30", borderRadius: 2 }}>+Add</span>
                           <span onClick={() => setActionModal({ id: t.id, type: "trim", price: String(curPrice), shares: "" })} title="Trim shares"
@@ -3463,10 +3467,51 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                       )}
                     </td>
                   </tr>
-                  {/* Inline action row for add/trim/stop */}
+                  {/* Inline action row for add/trim/stop/edit */}
                   {actionModal && actionModal.id === t.id && (
                     <tr style={{ background: "#1a1a2480" }}>
                       <td colSpan={13} style={{ padding: "6px 8px" }} onClick={e => e.stopPropagation()}>
+                        {actionModal.type === "edit" ? (
+                          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", fontSize: 10, flexWrap: "wrap" }}>
+                            <span style={{ color: "#9090a0", fontWeight: 700, textTransform: "uppercase", alignSelf: "center" }}>EDIT</span>
+                            <div><div style={st.label}>Entry</div>
+                              <input value={actionModal.entry} onChange={e => setActionModal(a => ({ ...a, entry: e.target.value }))}
+                                style={{ ...st.input, width: 70, padding: "2px 4px", fontSize: 10 }} type="number" step="0.01" autoFocus /></div>
+                            <div><div style={st.label}>Stop</div>
+                              <input value={actionModal.stop} onChange={e => setActionModal(a => ({ ...a, stop: e.target.value }))}
+                                style={{ ...st.input, width: 70, padding: "2px 4px", fontSize: 10 }} type="number" step="0.01" /></div>
+                            <div><div style={st.label}>Target</div>
+                              <input value={actionModal.target} onChange={e => setActionModal(a => ({ ...a, target: e.target.value }))}
+                                style={{ ...st.input, width: 70, padding: "2px 4px", fontSize: 10 }} type="number" step="0.01" /></div>
+                            <div><div style={st.label}>Shares</div>
+                              <input value={actionModal.shares} onChange={e => setActionModal(a => ({ ...a, shares: e.target.value }))}
+                                style={{ ...st.input, width: 55, padding: "2px 4px", fontSize: 10 }} type="number" /></div>
+                            <div><div style={st.label}>Date</div>
+                              <input value={actionModal.date} onChange={e => setActionModal(a => ({ ...a, date: e.target.value }))}
+                                style={{ ...st.input, width: 90, padding: "2px 4px", fontSize: 10 }} type="date" /></div>
+                            <div><div style={st.label}>Setup</div>
+                              <input value={actionModal.setup} onChange={e => setActionModal(a => ({ ...a, setup: e.target.value }))}
+                                style={{ ...st.input, width: 70, padding: "2px 4px", fontSize: 10 }} /></div>
+                            <span onClick={() => {
+                              const am = actionModal;
+                              setTrades(prev => prev.map(tr => {
+                                if (tr.id !== am.id) return tr;
+                                const newEntry = parseFloat(am.entry) || parseFloat(tr.entry) || 0;
+                                const newStop = parseFloat(am.stop) || 0;
+                                const newShares = parseInt(am.shares) || parseInt(tr.shares) || 0;
+                                // Rebuild transactions from scratch with new values
+                                const txs = [{ type: "buy", date: am.date || tr.date || "", price: newEntry, shares: newShares, note: "Edited" }];
+                                if (newStop > 0) txs.push({ type: "stop", date: am.date || tr.date || "", price: newStop, note: "Edited" });
+                                return { ...tr, entry: String(newEntry), stop: String(newStop), target: am.target || "0",
+                                  shares: String(newShares), date: am.date || tr.date, setup: am.setup || tr.setup,
+                                  transactions: txs };
+                              }));
+                              setActionModal(null);
+                            }} style={{ color: "#2bb886", cursor: "pointer", fontWeight: 700, fontSize: 12, alignSelf: "center" }}
+                              title="Save">✓</span>
+                            <span onClick={() => setActionModal(null)} style={{ color: "#686878", cursor: "pointer", fontSize: 12, alignSelf: "center" }}>✕</span>
+                          </div>
+                        ) : (
                         <div style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 10 }}>
                           <span style={{ color: actionModal.type === "add" ? "#60a5fa" : actionModal.type === "trim" ? "#fbbf24" : "#f97316",
                             fontWeight: 700, textTransform: "uppercase" }}>{actionModal.type}</span>
@@ -3508,6 +3553,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                           }} style={{ color: "#2bb886", cursor: "pointer", fontWeight: 700 }}>✓</span>
                           <span onClick={() => setActionModal(null)} style={{ color: "#686878", cursor: "pointer" }}>✕</span>
                         </div>
+                        )}
                         {/* Transaction history */}
                         {t.transactions && t.transactions.length > 1 && (
                           <div style={{ marginTop: 4, fontSize: 9, color: "#505060", fontFamily: "monospace" }}>
