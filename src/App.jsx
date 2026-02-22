@@ -3387,7 +3387,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                 const stop = st2.curStop;
                 const shares = st2.curShares;
                 const live = stockMap[t.ticker];
-                const curPrice = live?.price || entry;
+                const livePrice = liveThemeData?.find(s => s.ticker === t.ticker);
+                const curPrice = livePrice?.price || live?.price || entry;
                 const unrealPnl = (curPrice - entry) * shares;
                 const unrealPct = entry > 0 ? ((curPrice - entry) / entry * 100) : 0;
                 const riskPS = Math.abs(entry - stop);
@@ -3585,14 +3586,16 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
             }, 0);
             const totalUnreal = openTrades.reduce((sum, t) => {
               const s = tradeState(t);
-              const cur = stockMap[t.ticker]?.price || s.avgEntry;
+              const lp = liveThemeData?.find(x => x.ticker === t.ticker);
+              const cur = lp?.price || stockMap[t.ticker]?.price || s.avgEntry;
               return sum + (cur - s.avgEntry) * s.curShares;
             }, 0);
             const totalRealized = openTrades.reduce((sum, t) => sum + tradeState(t).realizedPnl, 0);
             const openHeat = acct > 0 ? (totalRisk / acct * 100) : 0;
             const totalExposure = openTrades.reduce((sum, t) => {
               const s = tradeState(t);
-              const cur = stockMap[t.ticker]?.price || s.avgEntry;
+              const lp = liveThemeData?.find(x => x.ticker === t.ticker);
+              const cur = lp?.price || stockMap[t.ticker]?.price || s.avgEntry;
               return sum + cur * s.curShares;
             }, 0);
             const exposurePct = acct > 0 ? (totalExposure / acct * 100) : 0;
@@ -5069,6 +5072,8 @@ function AppMain({ authToken, onLogout }) {
     const tickers = new Set();
     data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
     ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
+    // Include open trade tickers so P&L gets live prices
+    trades.filter(t => t.status === "open").forEach(t => tickers.add(t.ticker));
     if (tickers.size === 0) return;
     const allTickers = [...tickers];
     const BATCH = 500;
@@ -5100,7 +5105,7 @@ function AppMain({ authToken, onLogout }) {
     fetchUniverse();
     const iv = setInterval(fetchUniverse, 30000);
     return () => clearInterval(iv);
-  }, [data?.themes]);
+  }, [data?.themes, trades]);
 
   const handleFile = useCallback((e) => {
     const file = e.target.files?.[0]; if (!file) return;
