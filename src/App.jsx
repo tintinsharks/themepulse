@@ -3452,7 +3452,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       {tab === "calc" && (
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
           {/* Input panel */}
-          <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, width: 280 }}>
+          <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, width: 200 }}>
             <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>Position Sizer</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div><div style={st.label}>Ticker</div>
