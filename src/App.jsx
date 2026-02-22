@@ -1370,6 +1370,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
+      theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
+      subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
     };
     return list.sort(sorters[sortBy] || sorters.hits);
   }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup, epLookup]);
@@ -1389,7 +1391,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
     ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["RVol", "rvol"],
     ["$Vol", "dvol"], ["ADR%", "adr"], ["VCS", "vcs"], ["EPS", "eps_score"],
-    ["3M%", "ret3m"], ["FrHi%", "fromhi"],
+    ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
 
   return (
@@ -1604,6 +1606,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               {/* FrHi% */}
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
+              {/* Theme */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.theme}>{s.theme || "—"}</td>
+              {/* Subtheme */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
             </tr>
           );
         })}</tbody>
@@ -2377,7 +2383,7 @@ const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
   ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["RVol", "rel_volume"],
   ["$Vol", "dvol"], ["ADR%", "adr"], ["VCS", "vcs"], ["EPS", "eps_score"],
-  ["3M%", "ret3m"], ["FrHi%", "fromhi"],
+  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
 ];
 
 // ── LIGHTWEIGHT CHART (for Execution tab) ──
@@ -3020,6 +3026,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
       adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"), rel_volume: sortFn("rel_volume"),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
+      theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
+      subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
     };
     const sorted = [...list]; if (sorters[sk]) sorted.sort(sorters[sk]); return sorted;
   };
@@ -3377,7 +3385,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                {["Ticker", "Entry", "Stop", "Shares", "Risk$", "Cur R", "1R", "2R", "3R", "Setup", "Date", "P&L", ""].map(h => (
+                {["Ticker", "Entry", "Stop", "Shares", "Risk$", "Cur R", "1R", "2R", "3R", "Setup", "Date", "P&L", "Theme", "Sub", ""].map(h => (
                   <th key={h} style={{ padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 }}>{h}</th>
                 ))}
               </tr></thead>
@@ -3437,6 +3445,9 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                         locked: {st2.realizedPnl >= 0 ? "+" : ""}{st2.realizedPnl.toFixed(0)}
                       </div>}
                     </td>
+                    {/* Theme/Sub */}
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={live?.theme}>{live?.theme || "—"}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={live?.subtheme}>{live?.subtheme || "—"}</td>
                     <td style={{ padding: "5px 4px", textAlign: "center", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
                       {closingId === t.id ? (
                         <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
@@ -3471,7 +3482,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                   {/* Inline action row for add/trim/stop/edit */}
                   {actionModal && actionModal.id === t.id && (
                     <tr style={{ background: "#1a1a2480" }}>
-                      <td colSpan={13} style={{ padding: "6px 8px" }} onClick={e => e.stopPropagation()}>
+                      <td colSpan={15} style={{ padding: "6px 8px" }} onClick={e => e.stopPropagation()}>
                         {actionModal.type === "edit" ? (
                           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", fontSize: 10, flexWrap: "wrap" }}>
                             <span style={{ color: "#9090a0", fontWeight: 700, textTransform: "uppercase", alignSelf: "center" }}>EDIT</span>
@@ -3727,6 +3738,10 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
       {/* FrHi% */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace", fontSize: 12 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
+      {/* Theme */}
+      <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.theme}>{s.theme || "—"}</td>
+      {/* Sub */}
+      <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
     </tr>
   );
 }
@@ -4184,6 +4199,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"),
+    theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
+    subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
 
   const sortList = (list, sortKey) => {
