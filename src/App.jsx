@@ -1370,8 +1370,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
-      theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
-      subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
+      theme: (a, b) => (a.themes?.[0]?.theme || "").localeCompare(b.themes?.[0]?.theme || ""),
+      subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
     };
     return list.sort(sorters[sortBy] || sorters.hits);
   }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup, epLookup]);
@@ -1607,9 +1607,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {/* FrHi% */}
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
               {/* Theme */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.theme}>{s.theme || "—"}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.themes?.[0]?.theme}>{s.themes?.[0]?.theme || "—"}</td>
               {/* Subtheme */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.themes?.[0]?.subtheme}>{s.themes?.[0]?.subtheme || "—"}</td>
             </tr>
           );
         })}</tbody>
@@ -3005,6 +3005,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       eps_this_y: pipe.eps_this_y, eps_qq: pipe.eps_qq, sales_past_5y: pipe.sales_past_5y,
       sales_qq: pipe.sales_qq, pe: pipe.pe, roe: pipe.roe, profit_margin: pipe.profit_margin,
       rsi: pipe.rsi, themes: pipe.themes || [], theme: pipe.themes?.[0]?.theme || "",
+      subtheme: pipe.themes?.[0]?.subtheme || "",
       company: pipe.company || "", vcs: pipe.vcs, vcs_components: pipe.vcs_components,
       mf: pipe.mf, mf_components: pipe.mf_components, _mfPct: pipe._mfPct,
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
@@ -3446,8 +3447,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                       </div>}
                     </td>
                     {/* Theme/Sub */}
-                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={live?.theme}>{live?.theme || "—"}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={live?.subtheme}>{live?.subtheme || "—"}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={live?.themes?.[0]?.theme}>{live?.themes?.[0]?.theme || "—"}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={live?.themes?.[0]?.subtheme}>{live?.themes?.[0]?.subtheme || "—"}</td>
                     <td style={{ padding: "5px 4px", textAlign: "center", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
                       {closingId === t.id ? (
                         <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
@@ -4148,6 +4149,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       rsi: live.rsi ?? pipe.rsi,
       themes: pipe.themes || [],
       theme: pipe.themes?.[0]?.theme || live.sector || "",
+      subtheme: pipe.themes?.[0]?.subtheme || "",
       company: live.company || pipe.company || "",
       // Additional fields for column parity with Scan
       vcs: pipe.vcs,
