@@ -5067,19 +5067,24 @@ function AppMain({ authToken, onLogout }) {
   }, []);
 
   // Global theme universe live data fetch — batched for large universes, runs on load + every 30s
+  const tradesRef = useRef(trades);
+  tradesRef.current = trades;
   useEffect(() => {
     if (!data?.themes) return;
-    const tickers = new Set();
-    data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
-    ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
-    // Include open trade tickers so P&L gets live prices
-    trades.filter(t => t.status === "open").forEach(t => tickers.add(t.ticker));
-    if (tickers.size === 0) return;
-    const allTickers = [...tickers];
-    const BATCH = 500;
+    const buildTickers = () => {
+      const tickers = new Set();
+      data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+      ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
+      // Include open trade tickers so P&L gets live prices
+      tradesRef.current.filter(t => t.status === "open").forEach(t => tickers.add(t.ticker));
+      return [...tickers];
+    };
+    if (buildTickers().length === 0) return;
 
     const fetchUniverse = async () => {
       try {
+        const allTickers = buildTickers();
+        const BATCH = 500;
         const results = [];
         for (let i = 0; i < allTickers.length; i += BATCH) {
           const batch = allTickers.slice(i, i + BATCH);
@@ -5105,7 +5110,7 @@ function AppMain({ authToken, onLogout }) {
     fetchUniverse();
     const iv = setInterval(fetchUniverse, 30000);
     return () => clearInterval(iv);
-  }, [data?.themes, trades]);
+  }, [data?.themes]);
 
   const handleFile = useCallback((e) => {
     const file = e.target.files?.[0]; if (!file) return;
