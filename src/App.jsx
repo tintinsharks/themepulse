@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
 
 const GRADE_COLORS = {
   "A+":"#1B7A2B","A":"#2E8B3C","A-":"#44A04D",
@@ -3399,7 +3399,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                 const isActive = t.ticker === activeTicker;
                 const rColor = (r) => r >= 3 ? "#0d9163" : r >= 2 ? "#2bb886" : r >= 1 ? "#fbbf24" : r >= 0 ? "#9090a0" : "#f87171";
                 return (
-                  <React.Fragment key={t.id}>
+                  <Fragment key={t.id}>
                   <tr onClick={() => onTickerClick(t.ticker)}
                     style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                       background: isActive ? "#fbbf2418" : closingId === t.id ? "#f8717110" : "transparent" }}>
@@ -3408,7 +3408,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                       {live?.grade && <span style={{ marginLeft: 3 }}><Badge grade={live.grade} /></span>}
                     </td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>${entry.toFixed(2)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>${stop.toFixed(2)}</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>{stop > 0 ? `$${stop.toFixed(2)}` : "—"}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>{shares}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>${riskDollar.toFixed(0)}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
@@ -3526,7 +3526,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                       </td>
                     </tr>
                   )}
-                  </React.Fragment>
+                  </Fragment>
                 );
               })}</tbody>
             </table>
@@ -4421,7 +4421,7 @@ function TradeHistory({ trades, setTrades, stockMap, onTickerClick, activeTicker
             const finalR = riskPS > 0 ? ((exit - entry) / riskPS) : 0;
             const totalShares = s.totalBought;
             return (
-              <React.Fragment key={t.id}>
+              <Fragment key={t.id}>
                 <tr onClick={() => onTickerClick(t.ticker)}
                   style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                     background: t.ticker === activeTicker ? "#fbbf2418" : "transparent" }}>
@@ -4471,7 +4471,7 @@ function TradeHistory({ trades, setTrades, stockMap, onTickerClick, activeTicker
                     </td>
                   </tr>
                 )}
-              </React.Fragment>
+              </Fragment>
             );
           })}</tbody>
         </table>
@@ -4825,7 +4825,7 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
             </tr></thead>
             <tbody>
               {timePeriods.map(yp => (
-                <React.Fragment key={yp.year}>
+                <Fragment key={yp.year}>
                   <tr style={{ borderBottom: "1px solid #2a2a38", cursor: "pointer", background: "#1a1a2440" }}
                     onClick={() => setExpandedYears(p => ({ ...p, [yp.year]: !p[yp.year] }))}>
                     <td style={{ padding: "6px 8px", color: "#d4d4e0", fontWeight: 700 }}>
@@ -4855,7 +4855,7 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
                       </>) : <td colSpan={6} />}
                     </tr>
                   ))}
-                </React.Fragment>
+                </Fragment>
               ))}
             </tbody>
           </table>
