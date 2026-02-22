@@ -2736,19 +2736,8 @@ function LWChart({ ticker, entry, stop, target }) {
         };
 
         if (lastSma50 && lastAtr && lastAtr > 0) {
-          // Risk stop lines (daily ATR based)
-          addLine(lastClose - lastAtr * 0.5, "#ff5252", "Tight (0.5x)", 1, 1);
-          addLine(lastClose - lastAtr, "#ff5252", "Base (1.0x)", 1, 1);
-          addLine(lastClose - lastAtr * 2.0, "#ff5252", "Wide (2.0x)", 1, 1);
+          // Values computed for overlay labels only — no chart lines
         }
-
-        // Day Low / Prev Day Low
-        addLine(lastLow, "#808080", "LOD", 0, 1);
-        addLine(prevLow, "#ffa50080", "PDL", 1, 1);
-
-        // 52W High / ATH
-        if (wk52High > 0) addLine(wk52High, "#ffa500", `52W H`, 0, 1);
-        if (athHigh > 0 && Math.abs(athHigh - wk52High) > lastClose * 0.001) addLine(athHigh, "#ff8c00", "ATH", 0, 1);
 
         // Entry / Stop / Target from trade
         if (parseFloat(entry) > 0) addLine(parseFloat(entry), "#60a5fa", "Entry", 2, 1);
