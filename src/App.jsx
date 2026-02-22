@@ -5212,6 +5212,23 @@ function AppMain({ authToken, onLogout }) {
   });
   const [serverLoaded, setServerLoaded] = useState(false);
 
+  // Listen for external trade imports (from console) and storage changes from other tabs
+  useEffect(() => {
+    const handleImport = () => {
+      try {
+        const imported = JSON.parse(localStorage.getItem("tp_trades") || "[]").map(migrateTrade);
+        setTrades(imported);
+        console.log("Trades reloaded from localStorage:", imported.length);
+      } catch {}
+    };
+    window.addEventListener("tp_trades_imported", handleImport);
+    window.addEventListener("storage", (e) => { if (e.key === "tp_trades") handleImport(); });
+    return () => {
+      window.removeEventListener("tp_trades_imported", handleImport);
+      window.removeEventListener("storage", handleImport);
+    };
+  }, []);
+
   // Load from server on mount
   useEffect(() => {
     if (!authToken) { setServerLoaded(true); return; }
@@ -5257,7 +5274,7 @@ function AppMain({ authToken, onLogout }) {
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, trades, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, manualEPs, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
