@@ -117,8 +117,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     ["D", "D"], ["W", "W"], ["M", "M"],
   ];
 
+  const hasLwChart = !!lwChartProps;
   useEffect(() => {
-    if (lwChartProps) return; // Skip TradingView when using LW chart
+    if (hasLwChart) {
+      // Clean up TradingView when switching to LW chart
+      if (containerRef.current) containerRef.current.innerHTML = "";
+      return;
+    }
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
 
@@ -164,7 +169,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     return () => {
       if (script.parentNode) script.parentNode.removeChild(script);
     };
-  }, [ticker, tf]);
+  }, [ticker, tf, hasLwChart]);
 
 
   return (
