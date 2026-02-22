@@ -2916,6 +2916,56 @@ function LWChart({ ticker, entry, stop, target }) {
   );
 }
 
+// ── Trade state computed from transactions ──
+function tradeState(trade) {
+  const txs = trade.transactions || [];
+  if (txs.length === 0) {
+    // Legacy trade without transactions
+    const entry = parseFloat(trade.entry) || 0;
+    const shares = parseFloat(trade.shares) || 0;
+    const stop = parseFloat(trade.stop) || 0;
+    return { avgEntry: entry, curShares: shares, curStop: stop, totalBought: shares, totalSold: 0,
+      costBasis: entry * shares, realizedPnl: 0, transactions: [] };
+  }
+  let totalBoughtShares = 0, totalBoughtCost = 0, totalSoldShares = 0, realizedPnl = 0;
+  let curStop = parseFloat(trade.stop) || 0;
+  for (const tx of txs) {
+    if (tx.type === "buy") {
+      totalBoughtShares += tx.shares;
+      totalBoughtCost += tx.price * tx.shares;
+    } else if (tx.type === "sell") {
+      const avgEntry = totalBoughtShares > 0 ? totalBoughtCost / totalBoughtShares : 0;
+      realizedPnl += (tx.price - avgEntry) * tx.shares;
+      totalSoldShares += tx.shares;
+    } else if (tx.type === "stop") {
+      curStop = tx.price;
+    }
+  }
+  const curShares = totalBoughtShares - totalSoldShares;
+  const avgEntry = totalBoughtShares > 0 ? totalBoughtCost / totalBoughtShares : 0;
+  return { avgEntry, curShares, curStop, totalBought: totalBoughtShares, totalSold: totalSoldShares,
+    costBasis: totalBoughtCost, realizedPnl, transactions: txs };
+}
+
+// Migrate legacy trade to have transactions array
+function migrateTrade(t) {
+  if (t.transactions && t.transactions.length > 0) return t;
+  const entry = parseFloat(t.entry) || 0;
+  const shares = parseFloat(t.shares) || 0;
+  const stop = parseFloat(t.stop) || 0;
+  const txs = [];
+  if (entry > 0 && shares > 0) {
+    txs.push({ type: "buy", date: t.date || "", price: entry, shares, note: "Initial entry" });
+  }
+  if (stop > 0) {
+    txs.push({ type: "stop", date: t.date || "", price: stop, note: "Initial stop" });
+  }
+  if (t.status === "closed" && t.exitPrice) {
+    txs.push({ type: "sell", date: t.closeDate || "", price: parseFloat(t.exitPrice), shares, note: "Close all" });
+  }
+  return { ...t, transactions: txs };
+}
+
 // ── EXECUTION TAB ──
 const SETUP_TAGS = ["Breakout", "Pullback", "EP Gap", "VCP", "IPO Base", "Power Earnings Gap", "Other"];
 
@@ -2927,9 +2977,14 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [calcTicker, setCalcTicker] = useState("");
   const [calcEntry, setCalcEntry] = useState("");
   const [calcStop, setCalcStop] = useState("");
-  const [calcRisk, setCalcRisk] = useState("1");
+  const [calcRisk, setCalcRisk] = useState(() => {
+    try { return localStorage.getItem("tp_risk_pct") || "0.35"; } catch { return "0.35"; }
+  });
   const [calcAccount, setCalcAccount] = useState(() => {
     try { return localStorage.getItem("tp_account_size") || "100000"; } catch { return "100000"; }
+  });
+  const [calcMaxAlloc, setCalcMaxAlloc] = useState(() => {
+    try { return localStorage.getItem("tp_max_alloc") || "25"; } catch { return "25"; }
   });
 
   // Merge portfolio stocks with live data (same pattern as LiveView)
@@ -2977,6 +3032,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
   // Persist account size
   useEffect(() => { localStorage.setItem("tp_account_size", calcAccount); }, [calcAccount]);
+  useEffect(() => { localStorage.setItem("tp_risk_pct", calcRisk); }, [calcRisk]);
+  useEffect(() => { localStorage.setItem("tp_max_alloc", calcMaxAlloc); }, [calcMaxAlloc]);
 
   // Report visible tickers
   const openTrades = useMemo(() => trades.filter(t => t.status === "open"), [trades]);
@@ -2997,16 +3054,39 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
   const entryNum = parseFloat(calcEntry) || parseFloat(calcPrice) || 0;
   const stopNum = parseFloat(calcStop) || 0;
-  const riskPct = parseFloat(calcRisk) || 1;
+  const riskPct = parseFloat(calcRisk) || 0.35;
   const accountNum = parseFloat(calcAccount) || 100000;
+  const maxAllocPct = parseFloat(calcMaxAlloc) || 25;
   const riskPerShare = entryNum > 0 && stopNum > 0 ? Math.abs(entryNum - stopNum) : 0;
   const dollarRisk = accountNum * (riskPct / 100);
+  const maxAllocDollar = accountNum * (maxAllocPct / 100);
   const positionShares = riskPerShare > 0 ? Math.floor(dollarRisk / riskPerShare) : 0;
   const positionValue = positionShares * entryNum;
   const positionPct = accountNum > 0 ? ((positionValue / accountNum) * 100).toFixed(1) : 0;
   const rr1 = entryNum + riskPerShare;
   const rr2 = entryNum + riskPerShare * 2;
   const rr3 = entryNum + riskPerShare * 3;
+
+  // ATR-based position sizing table (0.5x, 1.0x, 2.0x)
+  const atrStops = useMemo(() => {
+    if (!calcATR || !entryNum || !accountNum) return null;
+    const atr = parseFloat(calcATR);
+    if (!atr || atr <= 0) return null;
+    return [0.5, 1.0, 2.0].map(mult => {
+      const stopDist = atr * mult;
+      const stopPrice = entryNum - stopDist;
+      const stopPct = entryNum > 0 ? (stopDist / entryNum * 100) : 0;
+      // Position size from risk budget
+      const sharesFromRisk = stopDist > 0 ? Math.floor(dollarRisk / stopDist) : 0;
+      // Cap by max allocation
+      const sharesFromAlloc = entryNum > 0 ? Math.floor(maxAllocDollar / entryNum) : 0;
+      const shares = Math.min(sharesFromRisk, sharesFromAlloc);
+      const invested = shares * entryNum;
+      const investedPct = accountNum > 0 ? (invested / accountNum * 100) : 0;
+      const estRisk = shares * stopDist;
+      return { mult, stopPrice, stopDist, stopPct, shares, invested, investedPct, estRisk };
+    });
+  }, [calcATR, entryNum, accountNum, dollarRisk, maxAllocDollar]);
 
   // Auto-fill from active ticker
   useEffect(() => {
@@ -3019,7 +3099,19 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
   // Add / Edit trade
   const saveTrade = () => {
-    const t = { ...form, ticker: form.ticker.toUpperCase(), id: editId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6) };
+    const ticker = form.ticker.toUpperCase();
+    const id = editId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const entry = parseFloat(form.entry) || 0;
+    const shares = parseFloat(form.shares) || 0;
+    const stop = parseFloat(form.stop) || 0;
+    let t = { ...form, ticker, id };
+    if (!editId) {
+      // New trade — generate initial transactions
+      const txs = [];
+      if (entry > 0 && shares > 0) txs.push({ type: "buy", date: form.date, price: entry, shares, note: "Initial entry" });
+      if (stop > 0) txs.push({ type: "stop", date: form.date, price: stop, note: "Initial stop" });
+      t.transactions = txs;
+    }
     if (editId) {
       setTrades(prev => prev.map(x => x.id === editId ? t : x));
     } else {
@@ -3033,12 +3125,53 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const closeTrade = (id, exitPrice, exitDate) => {
     setTrades(prev => prev.map(t => {
       if (t.id !== id) return t;
-      const entry = parseFloat(t.entry) || 0;
+      const st = tradeState(t);
       const exit = parseFloat(exitPrice) || 0;
-      const shares = parseFloat(t.shares) || 0;
-      const pnl = (exit - entry) * shares;
-      const pnlPct = entry > 0 ? ((exit - entry) / entry * 100) : 0;
-      return { ...t, status: "closed", exitPrice: exit, closeDate: exitDate || new Date().toISOString().split("T")[0], pnl: Math.round(pnl * 100) / 100, pnlPct: Math.round(pnlPct * 100) / 100 };
+      const date = exitDate || new Date().toISOString().split("T")[0];
+      const txs = [...(t.transactions || []), { type: "sell", date, price: exit, shares: st.curShares, note: "Close all" }];
+      const finalSt = tradeState({ ...t, transactions: txs });
+      return { ...t, transactions: txs, status: "closed", exitPrice: exit, closeDate: date,
+        pnl: Math.round(finalSt.realizedPnl * 100) / 100,
+        pnlPct: finalSt.avgEntry > 0 ? Math.round((exit - finalSt.avgEntry) / finalSt.avgEntry * 10000) / 100 : 0,
+        entry: String(finalSt.avgEntry.toFixed(2)), shares: String(0) };
+    }));
+  };
+
+  // Trim: sell partial shares
+  const trimTrade = (id, trimShares, trimPrice) => {
+    setTrades(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const date = new Date().toISOString().split("T")[0];
+      const txs = [...(t.transactions || []), { type: "sell", date, price: parseFloat(trimPrice), shares: parseInt(trimShares), note: "Trim" }];
+      const st = tradeState({ ...t, transactions: txs });
+      if (st.curShares <= 0) {
+        return { ...t, transactions: txs, status: "closed", closeDate: date, exitPrice: parseFloat(trimPrice),
+          pnl: Math.round(st.realizedPnl * 100) / 100,
+          pnlPct: st.avgEntry > 0 ? Math.round((parseFloat(trimPrice) - st.avgEntry) / st.avgEntry * 10000) / 100 : 0,
+          entry: String(st.avgEntry.toFixed(2)), shares: String(0) };
+      }
+      return { ...t, transactions: txs, shares: String(st.curShares), entry: String(st.avgEntry.toFixed(2)) };
+    }));
+  };
+
+  // Add shares
+  const addToTrade = (id, addShares, addPrice) => {
+    setTrades(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const date = new Date().toISOString().split("T")[0];
+      const txs = [...(t.transactions || []), { type: "buy", date, price: parseFloat(addPrice), shares: parseInt(addShares), note: "Add" }];
+      const st = tradeState({ ...t, transactions: txs });
+      return { ...t, transactions: txs, shares: String(st.curShares), entry: String(st.avgEntry.toFixed(2)) };
+    }));
+  };
+
+  // Move stop
+  const moveStop = (id, newStop) => {
+    setTrades(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const date = new Date().toISOString().split("T")[0];
+      const txs = [...(t.transactions || []), { type: "stop", date, price: parseFloat(newStop), note: "Stop moved" }];
+      return { ...t, transactions: txs, stop: String(parseFloat(newStop).toFixed(2)) };
     }));
   };
 
@@ -3053,11 +3186,16 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   // Quick add from calc
   const addFromCalc = () => {
     if (!calcTicker || !entryNum || !stopNum) return;
+    const date = new Date().toISOString().split("T")[0];
     const t = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       ticker: calcTicker.toUpperCase(), entry: String(entryNum), stop: String(stopNum),
       target: String(rr2.toFixed(2)), shares: String(positionShares),
-      date: new Date().toISOString().split("T")[0], setup: "Breakout", notes: "", status: "open",
+      date, setup: "Breakout", notes: "", status: "open",
+      transactions: [
+        { type: "buy", date, price: entryNum, shares: positionShares, note: "Initial entry" },
+        { type: "stop", date, price: stopNum, note: "Initial stop" },
+      ],
     };
     setTrades(prev => [...prev, t]);
   };
@@ -3065,6 +3203,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   // Close trade prompt
   const [closingId, setClosingId] = useState(null);
   const [closePrice, setClosePrice] = useState("");
+  const [actionModal, setActionModal] = useState(null); // { id, type: "add"|"trim"|"stop", price: "", shares: "" }
 
   const st = { label: { color: "#686878", fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 },
     input: { background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 4, color: "#d4d4e0", padding: "5px 8px", fontSize: 12, fontFamily: "monospace", outline: "none", width: "100%" },
@@ -3083,7 +3222,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
       {/* Sub-tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
-        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
+        {[["open", `Open (${openTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
             border: tab === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
             background: tab === k ? "#0d916320" : "transparent", color: tab === k ? "#4aad8c" : "#686878" }}>{l}</button>
@@ -3093,9 +3232,15 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
             style={st.btn("#0d9163", "#0d916320")}>+ New Trade</button>
         )}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: "#505060" }}>Acct: </span>
+        <span style={{ fontSize: 10, color: "#505060" }}>Acct:</span>
         <input value={calcAccount} onChange={e => setCalcAccount(e.target.value)}
           style={{ ...st.input, width: 80, textAlign: "right" }} />
+        <span style={{ fontSize: 10, color: "#505060", marginLeft: 6 }}>Risk%:</span>
+        <input value={calcRisk} onChange={e => setCalcRisk(e.target.value)}
+          style={{ ...st.input, width: 45, textAlign: "right" }} />
+        <span style={{ fontSize: 10, color: "#505060", marginLeft: 6 }}>MaxAlloc%:</span>
+        <input value={calcMaxAlloc} onChange={e => setCalcMaxAlloc(e.target.value)}
+          style={{ ...st.input, width: 40, textAlign: "right" }} />
       </div>
 
       {/* New/Edit Trade Form */}
@@ -3143,42 +3288,84 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                 <div style={{ flex: 1 }}><div style={st.label}>Stop $</div>
                   <input value={calcStop} onChange={e => setCalcStop(e.target.value)} style={st.input} type="number" step="0.01" /></div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <div style={{ flex: 1 }}><div style={st.label}>Risk %</div>
-                  <input value={calcRisk} onChange={e => setCalcRisk(e.target.value)} style={st.input} type="number" step="0.25" /></div>
-                <div style={{ flex: 1 }}><div style={st.label}>Account $</div>
-                  <input value={calcAccount} onChange={e => setCalcAccount(e.target.value)} style={st.input} type="number" /></div>
-              </div>
-              {calcATR && <div style={{ fontSize: 9, color: "#505060" }}>ADR: {calcADR}% · ATR ≈ ${calcATR}</div>}
+              {calcATR && <div style={{ fontSize: 10, color: "#787888", marginTop: 2 }}>
+                ADR: <span style={{ color: "#d4d4e0" }}>{calcADR}%</span> · ATR(14): <span style={{ color: "#d4d4e0" }}>${calcATR}</span>
+                {entryNum > 0 && <span> · <span style={{ color: "#d4d4e0" }}>{(parseFloat(calcATR) / entryNum * 100).toFixed(2)}%</span></span>}
+              </div>}
               <button onClick={addFromCalc} disabled={!calcTicker || !entryNum || !stopNum}
                 style={{ ...st.btn("#2bb886", "#2bb88620"), opacity: !calcTicker || !entryNum || !stopNum ? 0.4 : 1, marginTop: 4 }}>
                 Add to Open Trades ({positionShares} shares)</button>
             </div>
           </div>
-          {/* Results panel */}
-          <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, minWidth: 240 }}>
-            <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>Risk / Reward</div>
-            <table style={{ borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
-              <tbody>
-                {[
-                  ["Risk/Share", riskPerShare > 0 ? `$${riskPerShare.toFixed(2)}` : "—", "#f87171"],
-                  ["$ at Risk", dollarRisk > 0 ? `$${dollarRisk.toFixed(0)}` : "—", "#f87171"],
-                  ["Shares", positionShares > 0 ? positionShares : "—", "#d4d4e0"],
-                  ["Position $", positionValue > 0 ? `$${positionValue.toLocaleString()}` : "—", "#d4d4e0"],
-                  ["Position %", `${positionPct}%`, parseFloat(positionPct) > 25 ? "#f87171" : "#d4d4e0"],
-                  ["", "", ""],
-                  ["1R Target", rr1 > 0 ? `$${rr1.toFixed(2)}` : "—", "#fbbf24"],
-                  ["2R Target", rr2 > 0 ? `$${rr2.toFixed(2)}` : "—", "#2bb886"],
-                  ["3R Target", rr3 > 0 ? `$${rr3.toFixed(2)}` : "—", "#0d9163"],
-                ].map(([label, val, c], i) => (
-                  <tr key={i}>
-                    <td style={{ padding: "3px 8px 3px 0", color: "#686878" }}>{label}</td>
-                    <td style={{ padding: "3px 0", color: c, fontWeight: 600 }}>{val}</td>
+
+          {/* Custom stop R/R panel */}
+          {riskPerShare > 0 && (
+            <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, minWidth: 200 }}>
+              <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>Custom Stop</div>
+              <table style={{ borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+                <tbody>
+                  {[
+                    ["Risk/Share", `$${riskPerShare.toFixed(2)}`, "#f87171"],
+                    ["Stop Dist", `${(riskPerShare / entryNum * 100).toFixed(2)}%`, "#f87171"],
+                    ["$ at Risk", `$${dollarRisk.toFixed(0)}`, "#f87171"],
+                    ["Shares", String(positionShares), "#d4d4e0"],
+                    ["Position $", `$${positionValue.toLocaleString()}`, "#d4d4e0"],
+                    ["% Invested", `${positionPct}%`, parseFloat(positionPct) > maxAllocPct ? "#f87171" : "#d4d4e0"],
+                    ["Est. Risk $", `$${(positionShares * riskPerShare).toFixed(2)}`, "#f87171"],
+                    ["", "", ""],
+                    ["1R Target", `$${rr1.toFixed(2)}`, "#fbbf24"],
+                    ["2R Target", `$${rr2.toFixed(2)}`, "#2bb886"],
+                    ["3R Target", `$${rr3.toFixed(2)}`, "#0d9163"],
+                  ].map(([label, val, c], i) => (
+                    <tr key={i}>
+                      <td style={{ padding: "3px 8px 3px 0", color: "#686878" }}>{label}</td>
+                      <td style={{ padding: "3px 0", color: c, fontWeight: 600 }}>{val}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ATR-based position sizing table */}
+          {atrStops && (
+            <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, minWidth: 360 }}>
+              <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>
+                ATR (14): {(parseFloat(calcATR) / entryNum * 100).toFixed(2)}%
+              </div>
+              <table style={{ borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace", width: "100%" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                    <th style={{ padding: "4px 8px", color: "#686878", textAlign: "left", fontSize: 10 }}></th>
+                    {atrStops.map(s => (
+                      <th key={s.mult} style={{ padding: "4px 8px", color: "#9090a0", textAlign: "right", fontSize: 10, fontWeight: 700 }}>
+                        ({s.mult}x)
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {[
+                    { label: "Stop Price", fn: s => `$${s.stopPrice.toFixed(2)}`, color: "#d4d4e0" },
+                    { label: "Shares", fn: s => s.shares.toLocaleString(), color: "#d4d4e0" },
+                    { label: "Stop Dist %", fn: s => `-${s.stopPct.toFixed(2)}%`, color: "#f87171" },
+                    { label: "% Invested", fn: s => `${s.investedPct.toFixed(1)}%`, colorFn: s => s.investedPct > maxAllocPct ? "#f87171" : "#d4d4e0" },
+                    { label: "Est. Risk $", fn: s => `$${s.estRisk.toFixed(2)}`, color: "#f87171" },
+                  ].map((row, ri) => (
+                    <tr key={ri} style={{ borderBottom: "1px solid #222230" }}>
+                      <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10 }}>{row.label}</td>
+                      {atrStops.map(s => (
+                        <td key={s.mult} style={{ padding: "5px 8px", textAlign: "right", fontWeight: 600,
+                          color: row.colorFn ? row.colorFn(s) : row.color }}>
+                          {row.fn(s)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -3190,23 +3377,27 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                {["Ticker", "Entry", "Stop", "Target", "Shares", "Risk$", "R/R", "Setup", "Date", "P&L", ""].map(h => (
+                {["Ticker", "Entry", "Stop", "Shares", "Risk$", "Cur R", "1R", "2R", "3R", "Setup", "Date", "P&L", ""].map(h => (
                   <th key={h} style={{ padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 }}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>{openTrades.map(t => {
-                const entry = parseFloat(t.entry) || 0;
-                const stop = parseFloat(t.stop) || 0;
-                const target = parseFloat(t.target) || 0;
-                const shares = parseFloat(t.shares) || 0;
+                const st2 = tradeState(t);
+                const entry = st2.avgEntry;
+                const stop = st2.curStop;
+                const shares = st2.curShares;
                 const live = stockMap[t.ticker];
                 const curPrice = live?.price || entry;
                 const unrealPnl = (curPrice - entry) * shares;
                 const unrealPct = entry > 0 ? ((curPrice - entry) / entry * 100) : 0;
                 const riskPS = Math.abs(entry - stop);
                 const riskDollar = riskPS * shares;
-                const rrRatio = riskPS > 0 && target > 0 ? ((target - entry) / riskPS).toFixed(1) : "—";
+                const curR = riskPS > 0 ? ((curPrice - entry) / riskPS) : 0;
+                const t1R = entry + riskPS;
+                const t2R = entry + riskPS * 2;
+                const t3R = entry + riskPS * 3;
                 const isActive = t.ticker === activeTicker;
+                const rColor = (r) => r >= 3 ? "#0d9163" : r >= 2 ? "#2bb886" : r >= 1 ? "#fbbf24" : r >= 0 ? "#9090a0" : "#f87171";
                 return (
                   <tr key={t.id} onClick={() => onTickerClick(t.ticker)}
                     style={{ borderBottom: "1px solid #222230", cursor: "pointer",
@@ -3217,17 +3408,32 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                     </td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>${entry.toFixed(2)}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>${stop.toFixed(2)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#2bb886" }}>{target > 0 ? `$${target.toFixed(2)}` : "—"}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>{shares}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>${riskDollar.toFixed(0)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: parseFloat(rrRatio) >= 2 ? "#2bb886" : "#fbbf24" }}>{rrRatio}R</td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700,
+                      color: rColor(curR) }}>
+                      {curR >= 0 ? "+" : ""}{curR.toFixed(2)}R
+                    </td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#686878", fontSize: 10 }}>
+                      {riskPS > 0 ? `$${t1R.toFixed(2)}` : "—"}
+                    </td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#686878", fontSize: 10 }}>
+                      {riskPS > 0 ? `$${t2R.toFixed(2)}` : "—"}
+                    </td>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#686878", fontSize: 10 }}>
+                      {riskPS > 0 ? `$${t3R.toFixed(2)}` : "—"}
+                    </td>
                     <td style={{ padding: "5px 6px", textAlign: "center" }}>
                       <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 2, background: "#3a3a4a30", color: "#9090a0", border: "1px solid #3a3a4a" }}>{t.setup}</span>
                     </td>
                     <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 10 }}>{t.date}</td>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 600,
-                      color: unrealPnl >= 0 ? "#2bb886" : "#f87171" }}>
-                      {unrealPnl >= 0 ? "+" : ""}{unrealPnl.toFixed(0)} <span style={{ fontSize: 8, color: "#686878" }}>({unrealPct >= 0 ? "+" : ""}{unrealPct.toFixed(1)}%)</span>
+                      color: (unrealPnl + st2.realizedPnl) >= 0 ? "#2bb886" : "#f87171" }}>
+                      {(unrealPnl + st2.realizedPnl) >= 0 ? "+" : ""}{(unrealPnl + st2.realizedPnl).toFixed(0)}
+                      <span style={{ fontSize: 8, color: "#686878" }}> ({unrealPct >= 0 ? "+" : ""}{unrealPct.toFixed(1)}%)</span>
+                      {st2.realizedPnl !== 0 && <div style={{ fontSize: 8, color: st2.realizedPnl >= 0 ? "#2bb88680" : "#f8717180" }}>
+                        locked: {st2.realizedPnl >= 0 ? "+" : ""}{st2.realizedPnl.toFixed(0)}
+                      </div>}
                     </td>
                     <td style={{ padding: "5px 4px", textAlign: "center", whiteSpace: "nowrap" }} onClick={e => e.stopPropagation()}>
                       {closingId === t.id ? (
@@ -3241,104 +3447,122 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                             style={{ color: "#686878", cursor: "pointer", fontSize: 10 }}>✕</span>
                         </span>
                       ) : (
-                        <span style={{ display: "inline-flex", gap: 4 }}>
-                          <span onClick={() => { setClosingId(t.id); setClosePrice(String(curPrice)); }} title="Close trade"
-                            style={{ color: "#f87171", cursor: "pointer", fontSize: 10 }}>Close</span>
-                          <span onClick={() => startEdit(t)} title="Edit"
-                            style={{ color: "#60a5fa", cursor: "pointer", fontSize: 10 }}>Edit</span>
+                        <span style={{ display: "inline-flex", gap: 3 }}>
+                          <span onClick={() => setActionModal({ id: t.id, type: "add", price: String(curPrice), shares: "" })} title="Add shares"
+                            style={{ color: "#60a5fa", cursor: "pointer", fontSize: 9, padding: "1px 3px", border: "1px solid #60a5fa30", borderRadius: 2 }}>+Add</span>
+                          <span onClick={() => setActionModal({ id: t.id, type: "trim", price: String(curPrice), shares: "" })} title="Trim shares"
+                            style={{ color: "#fbbf24", cursor: "pointer", fontSize: 9, padding: "1px 3px", border: "1px solid #fbbf2430", borderRadius: 2 }}>Trim</span>
+                          <span onClick={() => setActionModal({ id: t.id, type: "stop", price: String(stop), shares: "" })} title="Move stop"
+                            style={{ color: "#f97316", cursor: "pointer", fontSize: 9, padding: "1px 3px", border: "1px solid #f9731630", borderRadius: 2 }}>Stop</span>
+                          <span onClick={() => { setClosingId(t.id); setClosePrice(String(curPrice)); }} title="Close all"
+                            style={{ color: "#f87171", cursor: "pointer", fontSize: 9, padding: "1px 3px", border: "1px solid #f8717130", borderRadius: 2 }}>Close</span>
                           <span onClick={() => deleteTrade(t.id)} title="Delete"
                             style={{ color: "#3a3a4a", cursor: "pointer", fontSize: 10 }}>✕</span>
                         </span>
                       )}
                     </td>
                   </tr>
+                  {/* Inline action row for add/trim/stop */}
+                  {actionModal && actionModal.id === t.id && (
+                    <tr style={{ background: "#1a1a2480" }}>
+                      <td colSpan={13} style={{ padding: "6px 8px" }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 10 }}>
+                          <span style={{ color: actionModal.type === "add" ? "#60a5fa" : actionModal.type === "trim" ? "#fbbf24" : "#f97316",
+                            fontWeight: 700, textTransform: "uppercase" }}>{actionModal.type}</span>
+                          {actionModal.type !== "stop" && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              <span style={{ color: "#686878" }}>Shares:</span>
+                              <input value={actionModal.shares} onChange={e => setActionModal(a => ({ ...a, shares: e.target.value }))}
+                                style={{ ...st.input, width: 50, padding: "2px 4px", fontSize: 10 }} type="number" autoFocus />
+                            </span>
+                          )}
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <span style={{ color: "#686878" }}>{actionModal.type === "stop" ? "New Stop $:" : "Price $:"}</span>
+                            <input value={actionModal.price} onChange={e => setActionModal(a => ({ ...a, price: e.target.value }))}
+                              style={{ ...st.input, width: 65, padding: "2px 4px", fontSize: 10 }} type="number" step="0.01"
+                              autoFocus={actionModal.type === "stop"}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") {
+                                  if (actionModal.type === "add" && actionModal.shares && actionModal.price) {
+                                    addToTrade(actionModal.id, actionModal.shares, actionModal.price);
+                                  } else if (actionModal.type === "trim" && actionModal.shares && actionModal.price) {
+                                    trimTrade(actionModal.id, actionModal.shares, actionModal.price);
+                                  } else if (actionModal.type === "stop" && actionModal.price) {
+                                    moveStop(actionModal.id, actionModal.price);
+                                  }
+                                  setActionModal(null);
+                                } else if (e.key === "Escape") { setActionModal(null); }
+                              }} />
+                          </span>
+                          {actionModal.type === "trim" && (
+                            <span style={{ color: "#686878" }}>
+                              of {shares} ({actionModal.shares ? Math.round(parseInt(actionModal.shares) / shares * 100) : 0}%)
+                            </span>
+                          )}
+                          <span onClick={() => {
+                            if (actionModal.type === "add" && actionModal.shares && actionModal.price) addToTrade(actionModal.id, actionModal.shares, actionModal.price);
+                            else if (actionModal.type === "trim" && actionModal.shares && actionModal.price) trimTrade(actionModal.id, actionModal.shares, actionModal.price);
+                            else if (actionModal.type === "stop" && actionModal.price) moveStop(actionModal.id, actionModal.price);
+                            setActionModal(null);
+                          }} style={{ color: "#2bb886", cursor: "pointer", fontWeight: 700 }}>✓</span>
+                          <span onClick={() => setActionModal(null)} style={{ color: "#686878", cursor: "pointer" }}>✕</span>
+                        </div>
+                        {/* Transaction history */}
+                        {t.transactions && t.transactions.length > 1 && (
+                          <div style={{ marginTop: 4, fontSize: 9, color: "#505060", fontFamily: "monospace" }}>
+                            {t.transactions.map((tx, ti) => (
+                              <span key={ti} style={{ marginRight: 8 }}>
+                                <span style={{ color: tx.type === "buy" ? "#60a5fa" : tx.type === "sell" ? "#fbbf24" : "#f97316" }}>
+                                  {tx.type === "buy" ? "BUY" : tx.type === "sell" ? "SELL" : "STOP"}
+                                </span>
+                                {tx.shares ? ` ${tx.shares}` : ""}
+                                {` @${tx.price.toFixed(2)}`}
+                                <span style={{ color: "#3a3a4a" }}> {tx.date?.slice(5)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
                 );
               })}</tbody>
             </table>
           )}
           {openTrades.length > 0 && (() => {
+            const acct = parseFloat(calcAccount) || 100000;
             const totalRisk = openTrades.reduce((sum, t) => {
-              const e = parseFloat(t.entry) || 0, s = parseFloat(t.stop) || 0, sh = parseFloat(t.shares) || 0;
-              return sum + Math.abs(e - s) * sh;
+              const s = tradeState(t);
+              return sum + Math.abs(s.avgEntry - s.curStop) * s.curShares;
             }, 0);
             const totalUnreal = openTrades.reduce((sum, t) => {
-              const e = parseFloat(t.entry) || 0, sh = parseFloat(t.shares) || 0;
-              const cur = stockMap[t.ticker]?.price || e;
-              return sum + (cur - e) * sh;
+              const s = tradeState(t);
+              const cur = stockMap[t.ticker]?.price || s.avgEntry;
+              return sum + (cur - s.avgEntry) * s.curShares;
             }, 0);
+            const totalRealized = openTrades.reduce((sum, t) => sum + tradeState(t).realizedPnl, 0);
+            const openHeat = acct > 0 ? (totalRisk / acct * 100) : 0;
+            const totalExposure = openTrades.reduce((sum, t) => {
+              const s = tradeState(t);
+              const cur = stockMap[t.ticker]?.price || s.avgEntry;
+              return sum + cur * s.curShares;
+            }, 0);
+            const exposurePct = acct > 0 ? (totalExposure / acct * 100) : 0;
             return (
-              <div style={{ display: "flex", gap: 16, padding: "8px 6px", borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#686878" }}>
+              <div style={{ display: "flex", gap: 16, padding: "8px 6px", borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#686878", flexWrap: "wrap" }}>
                 <span>Positions: {openTrades.length}</span>
-                <span>Total Risk: <span style={{ color: "#f87171", fontFamily: "monospace" }}>${totalRisk.toFixed(0)}</span></span>
+                <span>Open Heat: <span style={{ color: openHeat > 6 ? "#f87171" : openHeat > 4 ? "#fbbf24" : "#2bb886", fontFamily: "monospace", fontWeight: 700 }}>
+                  {openHeat.toFixed(2)}%</span> <span style={{ color: "#505060" }}>(${totalRisk.toFixed(0)})</span></span>
+                <span>Exposure: <span style={{ color: exposurePct > 80 ? "#f87171" : exposurePct > 50 ? "#fbbf24" : "#9090a0", fontFamily: "monospace" }}>
+                  {exposurePct.toFixed(1)}%</span></span>
                 <span>Unrealized: <span style={{ color: totalUnreal >= 0 ? "#2bb886" : "#f87171", fontFamily: "monospace" }}>{totalUnreal >= 0 ? "+" : ""}${totalUnreal.toFixed(0)}</span></span>
+                {totalRealized !== 0 && <span>Locked: <span style={{ color: totalRealized >= 0 ? "#2bb886" : "#f87171", fontFamily: "monospace" }}>{totalRealized >= 0 ? "+" : ""}${totalRealized.toFixed(0)}</span></span>}
               </div>
             );
           })()}
         </div>
       )}
 
-      {/* ── Closed Trades ── */}
-      {tab === "closed" && (
-        <div>
-          {closedTrades.length === 0 ? (
-            <div style={{ color: "#505060", fontSize: 12, padding: 20, textAlign: "center" }}>No closed trades yet.</div>
-          ) : (<>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                {["Ticker", "Entry", "Exit", "Shares", "P&L $", "P&L %", "Setup", "Opened", "Closed", "Days", ""].map(h => (
-                  <th key={h} style={{ padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>{closedTrades.map(t => {
-                const entry = parseFloat(t.entry) || 0;
-                const exit = parseFloat(t.exitPrice) || 0;
-                const days = t.date && t.closeDate ? Math.round((new Date(t.closeDate) - new Date(t.date)) / 86400000) : "—";
-                return (
-                  <tr key={t.id} onClick={() => onTickerClick(t.ticker)}
-                    style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-                      background: t.ticker === activeTicker ? "#fbbf2418" : "transparent" }}>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 600, color: "#d4d4e0", fontFamily: "monospace" }}>{t.ticker}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>${entry.toFixed(2)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>${exit.toFixed(2)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>{t.shares}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 600,
-                      color: (t.pnl || 0) >= 0 ? "#2bb886" : "#f87171" }}>
-                      {(t.pnl || 0) >= 0 ? "+" : ""}${(t.pnl || 0).toFixed(0)}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontFamily: "monospace",
-                      color: (t.pnlPct || 0) >= 0 ? "#2bb886" : "#f87171" }}>
-                      {(t.pnlPct || 0) >= 0 ? "+" : ""}{(t.pnlPct || 0).toFixed(1)}%</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center" }}>
-                      <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 2, background: "#3a3a4a30", color: "#9090a0", border: "1px solid #3a3a4a" }}>{t.setup}</span></td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 10 }}>{t.date}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#686878", fontSize: 10 }}>{t.closeDate}</td>
-                    <td style={{ padding: "5px 6px", textAlign: "center", color: "#505060", fontSize: 10 }}>{days}d</td>
-                    <td style={{ padding: "5px 4px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-                      <span onClick={() => deleteTrade(t.id)} style={{ color: "#3a3a4a", cursor: "pointer", fontSize: 10 }}>✕</span>
-                    </td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
-            {(() => {
-              const wins = closedTrades.filter(t => (t.pnl || 0) > 0).length;
-              const losses = closedTrades.filter(t => (t.pnl || 0) < 0).length;
-              const totalPnl = closedTrades.reduce((s, t) => s + (t.pnl || 0), 0);
-              const avgWin = wins > 0 ? closedTrades.filter(t => (t.pnl || 0) > 0).reduce((s, t) => s + t.pnl, 0) / wins : 0;
-              const avgLoss = losses > 0 ? closedTrades.filter(t => (t.pnl || 0) < 0).reduce((s, t) => s + t.pnl, 0) / losses : 0;
-              const winRate = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(0) : 0;
-              return (
-                <div style={{ display: "flex", gap: 16, padding: "8px 6px", borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#686878", flexWrap: "wrap" }}>
-                  <span>Trades: {closedTrades.length}</span>
-                  <span>Win Rate: <span style={{ color: parseFloat(winRate) >= 50 ? "#2bb886" : "#f87171", fontWeight: 600 }}>{winRate}%</span> ({wins}W / {losses}L)</span>
-                  <span>Total P&L: <span style={{ color: totalPnl >= 0 ? "#2bb886" : "#f87171", fontFamily: "monospace", fontWeight: 600 }}>{totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(0)}</span></span>
-                  <span>Avg Win: <span style={{ color: "#2bb886", fontFamily: "monospace" }}>+${avgWin.toFixed(0)}</span></span>
-                  <span>Avg Loss: <span style={{ color: "#f87171", fontFamily: "monospace" }}>${avgLoss.toFixed(0)}</span></span>
-                </div>
-              );
-            })()}
-          </>)}
-        </div>
-      )}
     </div>
   );
 }
@@ -4154,6 +4378,155 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   );
 }
 
+// ── TRADE HISTORY TAB ──
+function TradeHistory({ trades, setTrades, stockMap, onTickerClick, activeTicker }) {
+  const closedTrades = useMemo(() =>
+    trades.filter(t => t.status === "closed").sort((a, b) => (b.closeDate || "").localeCompare(a.closeDate || "")),
+  [trades]);
+
+  const deleteTrade = (id) => setTrades(prev => prev.filter(t => t.id !== id));
+
+  // Expanded row for transaction history
+  const [expandedId, setExpandedId] = useState(null);
+
+  // Stats
+  const stats = useMemo(() => {
+    if (closedTrades.length === 0) return null;
+    const wins = closedTrades.filter(t => (t.pnl || 0) > 0);
+    const losses = closedTrades.filter(t => (t.pnl || 0) < 0);
+    const totalPnl = closedTrades.reduce((s, t) => s + (t.pnl || 0), 0);
+    const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
+    const avgLoss = losses.length > 0 ? losses.reduce((s, t) => s + t.pnl, 0) / losses.length : 0;
+    const winRate = (wins.length / closedTrades.length * 100).toFixed(0);
+    const avgDays = closedTrades.filter(t => t.date && t.closeDate).reduce((s, t) => {
+      return s + Math.round((new Date(t.closeDate) - new Date(t.date)) / 86400000);
+    }, 0) / (closedTrades.filter(t => t.date && t.closeDate).length || 1);
+    const profitFactor = Math.abs(avgLoss) > 0 ? (avgWin / Math.abs(avgLoss)).toFixed(2) : "—";
+    const expectancy = closedTrades.length > 0 ? (totalPnl / closedTrades.length).toFixed(0) : 0;
+    // Largest win/loss
+    const largestWin = wins.length > 0 ? Math.max(...wins.map(t => t.pnl)) : 0;
+    const largestLoss = losses.length > 0 ? Math.min(...losses.map(t => t.pnl)) : 0;
+    // Streak
+    let curStreak = 0, maxWinStreak = 0, maxLossStreak = 0;
+    const sorted = [...closedTrades].reverse(); // oldest first
+    sorted.forEach(t => {
+      if ((t.pnl || 0) > 0) { curStreak = curStreak > 0 ? curStreak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, curStreak); }
+      else if ((t.pnl || 0) < 0) { curStreak = curStreak < 0 ? curStreak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, Math.abs(curStreak)); }
+      else { curStreak = 0; }
+    });
+    return { wins: wins.length, losses: losses.length, totalPnl, avgWin, avgLoss, winRate, avgDays: avgDays.toFixed(0),
+      profitFactor, expectancy, largestWin, largestLoss, maxWinStreak, maxLossStreak, total: closedTrades.length };
+  }, [closedTrades]);
+
+  const st = {
+    cell: { padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11 },
+    header: { padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 },
+  };
+
+  return (
+    <div style={{ padding: 0 }}>
+      {/* Stats dashboard */}
+      {stats && (
+        <div style={{ display: "flex", gap: 12, padding: "8px 0 12px", flexWrap: "wrap", fontSize: 10, fontFamily: "monospace" }}>
+          {[
+            ["Trades", stats.total, "#d4d4e0"],
+            ["Win Rate", `${stats.winRate}% (${stats.wins}W/${stats.losses}L)`, parseFloat(stats.winRate) >= 50 ? "#2bb886" : "#f87171"],
+            ["Total P&L", `${stats.totalPnl >= 0 ? "+" : ""}$${stats.totalPnl.toFixed(0)}`, stats.totalPnl >= 0 ? "#2bb886" : "#f87171"],
+            ["Avg Win", `+$${stats.avgWin.toFixed(0)}`, "#2bb886"],
+            ["Avg Loss", `$${stats.avgLoss.toFixed(0)}`, "#f87171"],
+            ["Profit Factor", stats.profitFactor, parseFloat(stats.profitFactor) >= 2 ? "#2bb886" : parseFloat(stats.profitFactor) >= 1 ? "#fbbf24" : "#f87171"],
+            ["Expectancy", `$${stats.expectancy}`, parseFloat(stats.expectancy) >= 0 ? "#2bb886" : "#f87171"],
+            ["Avg Days", `${stats.avgDays}d`, "#9090a0"],
+            ["Best", `+$${stats.largestWin.toFixed(0)}`, "#2bb886"],
+            ["Worst", `$${stats.largestLoss.toFixed(0)}`, "#f87171"],
+            ["Win Streak", stats.maxWinStreak, "#2bb886"],
+            ["Loss Streak", stats.maxLossStreak, "#f87171"],
+          ].map(([label, val, color], i) => (
+            <div key={i} style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 4, padding: "6px 10px", minWidth: 80 }}>
+              <div style={{ color: "#505060", fontSize: 8, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{label}</div>
+              <div style={{ color, fontWeight: 600, fontSize: 12 }}>{val}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {closedTrades.length === 0 ? (
+        <div style={{ color: "#505060", fontSize: 12, padding: 20, textAlign: "center" }}>No closed trades yet.</div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+            {["Ticker", "Avg Entry", "Exit", "Shares", "P&L $", "P&L %", "R", "Setup", "Opened", "Closed", "Days", ""].map(h => (
+              <th key={h} style={st.header}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>{closedTrades.map(t => {
+            const s = tradeState(t);
+            const entry = s.avgEntry || parseFloat(t.entry) || 0;
+            const exit = parseFloat(t.exitPrice) || 0;
+            const days = t.date && t.closeDate ? Math.round((new Date(t.closeDate) - new Date(t.date)) / 86400000) : "—";
+            const riskPS = Math.abs(entry - s.curStop);
+            const finalR = riskPS > 0 ? ((exit - entry) / riskPS) : 0;
+            const totalShares = s.totalBought;
+            return (
+              <React.Fragment key={t.id}>
+                <tr onClick={() => onTickerClick(t.ticker)}
+                  style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                    background: t.ticker === activeTicker ? "#fbbf2418" : "transparent" }}>
+                  <td style={{ ...st.cell, fontWeight: 600, color: "#d4d4e0" }}>
+                    {t.ticker}
+                    <span onClick={e => { e.stopPropagation(); setExpandedId(expandedId === t.id ? null : t.id); }}
+                      style={{ marginLeft: 4, color: "#505060", cursor: "pointer", fontSize: 9 }}>
+                      {expandedId === t.id ? "▾" : "▸"}
+                    </span>
+                  </td>
+                  <td style={{ ...st.cell, color: "#9090a0" }}>${entry.toFixed(2)}</td>
+                  <td style={{ ...st.cell, color: "#9090a0" }}>${exit.toFixed(2)}</td>
+                  <td style={{ ...st.cell, color: "#9090a0" }}>{totalShares}</td>
+                  <td style={{ ...st.cell, fontWeight: 600, color: (t.pnl || 0) >= 0 ? "#2bb886" : "#f87171" }}>
+                    {(t.pnl || 0) >= 0 ? "+" : ""}${(t.pnl || 0).toFixed(0)}</td>
+                  <td style={{ ...st.cell, color: (t.pnlPct || 0) >= 0 ? "#2bb886" : "#f87171" }}>
+                    {(t.pnlPct || 0) >= 0 ? "+" : ""}{(t.pnlPct || 0).toFixed(1)}%</td>
+                  <td style={{ ...st.cell, fontWeight: 600,
+                    color: finalR >= 2 ? "#2bb886" : finalR >= 1 ? "#fbbf24" : finalR >= 0 ? "#9090a0" : "#f87171" }}>
+                    {finalR >= 0 ? "+" : ""}{finalR.toFixed(1)}R</td>
+                  <td style={{ ...st.cell, fontSize: 9 }}>
+                    <span style={{ padding: "1px 4px", borderRadius: 2, background: "#3a3a4a30", color: "#9090a0", border: "1px solid #3a3a4a" }}>{t.setup}</span></td>
+                  <td style={{ ...st.cell, color: "#686878", fontSize: 10 }}>{t.date}</td>
+                  <td style={{ ...st.cell, color: "#686878", fontSize: 10 }}>{t.closeDate}</td>
+                  <td style={{ ...st.cell, color: "#505060", fontSize: 10 }}>{days}d</td>
+                  <td style={{ padding: "5px 4px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                    <span onClick={() => deleteTrade(t.id)} style={{ color: "#3a3a4a", cursor: "pointer", fontSize: 10 }}>✕</span>
+                  </td>
+                </tr>
+                {/* Expanded transaction history */}
+                {expandedId === t.id && t.transactions && t.transactions.length > 0 && (
+                  <tr style={{ background: "#1a1a2480" }}>
+                    <td colSpan={12} style={{ padding: "6px 12px", fontSize: 9, fontFamily: "monospace" }}>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {t.transactions.map((tx, ti) => (
+                          <span key={ti} style={{ color: "#686878" }}>
+                            <span style={{ color: tx.type === "buy" ? "#60a5fa" : tx.type === "sell" ? "#fbbf24" : "#f97316", fontWeight: 600 }}>
+                              {tx.type.toUpperCase()}
+                            </span>
+                            {tx.shares ? ` ${tx.shares}sh` : ""}
+                            {` @$${tx.price.toFixed(2)}`}
+                            <span style={{ color: "#3a3a4a" }}> {tx.date}</span>
+                            {tx.note && <span style={{ color: "#505060" }}> — {tx.note}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}</tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   // Auth state
   const [authToken, setAuthToken] = useState(() => localStorage.getItem("tp_auth_token") || null);
@@ -4450,7 +4823,7 @@ function AppMain({ authToken, onLogout }) {
     try { return JSON.parse(localStorage.getItem("tp_manual_eps") || "[]"); } catch { return []; }
   });
   const [trades, setTrades] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("tp_trades") || "[]"); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem("tp_trades") || "[]").map(migrateTrade); } catch { return []; }
   });
   const [serverLoaded, setServerLoaded] = useState(false);
 
@@ -4468,7 +4841,7 @@ function AppMain({ authToken, onLogout }) {
           setPortfolio(d.data.portfolio || []);
           setWatchlist(d.data.watchlist || []);
           if (d.data.manualEPs) setManualEPs(d.data.manualEPs);
-          if (d.data.trades) setTrades(d.data.trades);
+          if (d.data.trades) setTrades(d.data.trades.map(migrateTrade));
           console.log("Loaded from server:", d.data);
         }
       })
@@ -4614,7 +4987,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["history","History"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -4702,6 +5075,7 @@ function AppMain({ authToken, onLogout }) {
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} />}
+          {view === "history" && <TradeHistory trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
@@ -4728,11 +5102,12 @@ function AppMain({ authToken, onLogout }) {
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
                 manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
                 liveThemeData={liveThemeData}
-                lwChartProps={{
-                  entry: trades.find(t => t.ticker === chartTicker && t.status === "open")?.entry || "",
-                  stop: trades.find(t => t.ticker === chartTicker && t.status === "open")?.stop || "",
-                  target: trades.find(t => t.ticker === chartTicker && t.status === "open")?.target || "",
-                }} />
+                lwChartProps={(() => {
+                  const openT = trades.find(t => t.ticker === chartTicker && t.status === "open");
+                  if (!openT) return {};
+                  const s = tradeState(openT);
+                  return { entry: String(s.avgEntry), stop: String(s.curStop), target: openT.target || "" };
+                })()} />
             ) : (
               <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
                 watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
