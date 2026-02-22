@@ -3036,28 +3036,6 @@ function LWChart({ ticker, entry, stop, target }) {
           )}
         </div>
       )}
-      {/* Legend — top right */}
-      <div style={{ position: "absolute", top: 6, right: 8, zIndex: 5, pointerEvents: "none",
-        fontSize: 8, fontFamily: "monospace", display: "flex", flexDirection: "column", gap: 2, color: "#505060", alignItems: "flex-end" }}>
-        <span style={{ color: "#686878", fontWeight: 600, marginBottom: 1 }}>MAs</span>
-        <span><span style={{ color: "#ff828c" }}>━</span> 10 EMA</span>
-        <span><span style={{ color: "#808080" }}>━</span> 21 EMA</span>
-        <span><span style={{ color: "#4169e1" }}>━</span> 20 SMA</span>
-        <span><span style={{ color: "#00bc9a" }}>━</span> 50 SMA</span>
-        <span><span style={{ color: "#8232c8" }}>━</span> 200 EMA</span>
-        <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>ATRX</span>
-        <span><span style={{ color: "#ffd700" }}>●</span> 7x</span>
-        <span><span style={{ color: "#ff0000" }}>●</span> 10x</span>
-        <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>Vol</span>
-        <span><span style={{ color: "#a855f7" }}>■</span> HV</span>
-        <span><span style={{ color: "#2563eb" }}>■</span> 10d PP</span>
-        <span><span style={{ color: "#0d9488" }}>■</span> 5d PP</span>
-        <span><span style={{ color: "#ffffff" }}>■</span> Up</span>
-        <span><span style={{ color: "#6b7280" }}>■</span> Down</span>
-        <span><span style={{ color: "#fbbf24" }}>●</span> Dry -45%</span>
-        <span><span style={{ color: "#f97316" }}>●</span> Dry -60%</span>
-        <span><span style={{ color: "#ffffff" }}>◆</span> Zanger</span>
-      </div>
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
