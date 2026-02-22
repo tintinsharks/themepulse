@@ -5575,7 +5575,7 @@ function AppMain({ authToken, onLogout }) {
                 liveThemeData={liveThemeData}
                 lwChartProps={(() => {
                   const openT = trades.find(t => t.ticker === chartTicker && t.status === "open");
-                  if (!openT) return null;
+                  if (!openT) return { entry: "", stop: "", target: "" };
                   const s = tradeState(openT);
                   return { entry: String(s.avgEntry), stop: String(s.curStop), target: openT.target || "" };
                 })()} />
