@@ -3228,7 +3228,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
         const bars = data.ohlc;
         const last = bars[bars.length - 1];
         const prev = bars.length > 1 ? bars[bars.length - 2] : null;
-        if (last) setCalcDayLow(String(last.low));
+        if (last) { setCalcDayLow(String(last.low)); setCalcStop(String(last.low)); }
         if (prev) setCalcPDL(String(prev.low));
       })
       .catch(() => {});
