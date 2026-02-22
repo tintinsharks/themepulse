@@ -3222,7 +3222,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
       {/* Sub-tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
-        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["perf", "Performance"], ["calc", "Calculator"]].map(([k, l]) => (
+        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
             border: tab === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
             background: tab === k ? "#0d916320" : "transparent", color: tab === k ? "#4aad8c" : "#686878" }}>{l}</button>
@@ -3568,10 +3568,6 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       {/* ── Closed Trades Tab ── */}
       {tab === "closed" && (
         <TradeHistory trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker} />
-      )}
-
-      {tab === "perf" && (
-        <TradePerformance trades={trades} stockMap={stockMap} accountSize={parseFloat(calcAccount) || 100000} maxAllocPct={parseFloat(calcMaxAlloc) || 25} />
       )}
 
     </div>
@@ -4546,6 +4542,34 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
       holdTimeRatio: avgDL > 0 ? avgDW / avgDL : 0, maxWinStreak, maxLossStreak };
   }, [closedTrades]);
 
+  // ── Normalized metrics (adjust for position sizing vs target allocation) ──
+  const normalizedStats = useMemo(() => {
+    if (closedTrades.length === 0 || !accountSize) return null;
+    const targetPosSize = accountSize * (maxAllocPct / 100); // e.g. 25% of equity
+
+    const normalized = closedTrades.map(t => {
+      const s = tradeState(t);
+      const entry = s.avgEntry || parseFloat(t.entry) || 0;
+      const positionSize = entry * s.totalBought; // actual $ invested
+      const normFactor = targetPosSize > 0 ? positionSize / targetPosSize : 1;
+      const normPnlPct = (t.pnlPct || 0) * normFactor;
+      return { ...t, normPnlPct, normFactor };
+    });
+
+    const wins = normalized.filter(t => t.normPnlPct > 0);
+    const losses = normalized.filter(t => t.normPnlPct < 0);
+    const avgNormWinPct = wins.length > 0 ? wins.reduce((s, t) => s + t.normPnlPct, 0) / wins.length : 0;
+    const avgNormLossPct = losses.length > 0 ? losses.reduce((s, t) => s + t.normPnlPct, 0) / losses.length : 0;
+    const totalNormPnlPct = normalized.reduce((s, t) => s + t.normPnlPct, 0);
+    const normWinLoss = Math.abs(avgNormLossPct) > 0 ? avgNormWinPct / Math.abs(avgNormLossPct) : 0;
+    const wr = wins.length / normalized.length;
+    const normExpectancy = (wr * avgNormWinPct) + ((1 - wr) * avgNormLossPct);
+    const avgNormFactor = normalized.length > 0 ? normalized.reduce((s, t) => s + t.normFactor, 0) / normalized.length : 1;
+
+    return { avgNormWinPct, avgNormLossPct, totalNormPnlPct, normWinLoss, normExpectancy, avgNormFactor,
+      targetPosSize, wins: wins.length, losses: losses.length, total: normalized.length };
+  }, [closedTrades, accountSize, maxAllocPct]);
+
   // ── Time period breakdown (year → month) ──
   const timePeriods = useMemo(() => {
     if (closedTrades.length === 0) return [];
@@ -4600,7 +4624,7 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
   }, [openTrades, stockMap, accountSize, maxAllocPct]);
 
   const [expandedYears, setExpandedYears] = useState({});
-  const [openSections, setOpenSections] = useState({ perf: false, wl: false, risk: false, time: false });
+  const [openSections, setOpenSections] = useState({ perf: false, wl: false, risk: false, time: false, norm: false });
   const toggleSection = (key) => setOpenSections(p => ({ ...p, [key]: !p[key] }));
 
   const StatSection = ({ title, sKey, rows }) => (
@@ -4706,6 +4730,26 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
             ["Hold Time Ratio", stats.holdTimeRatio.toFixed(2), "#d4d4e0", "Winner hold time ÷ loser hold time."],
             ["Avg Days (All)", `${stats.avgDays.toFixed(1)} days`, "#d4d4e0", "Overall average holding period."],
           ]} />
+
+          {normalizedStats && (
+            <StatSection title={`Normalized Metrics (target: ${maxAllocPct}% position)`} sKey="norm" rows={[
+              ["Avg Norm Factor", normalizedStats.avgNormFactor.toFixed(2) + "x", "#d4d4e0",
+                `Average actual position size ÷ target (${maxAllocPct}% of equity). 1.0 = exactly on target.`],
+              ["Norm Avg Win %", `+${normalizedStats.avgNormWinPct.toFixed(2)}%`, "#2bb886",
+                "Average win % adjusted as if all trades were full position size."],
+              ["Norm Avg Loss %", `${normalizedStats.avgNormLossPct.toFixed(2)}%`, "#f87171",
+                "Average loss % adjusted as if all trades were full position size."],
+              ["Norm Win/Loss", normalizedStats.normWinLoss.toFixed(2),
+                normalizedStats.normWinLoss >= 1.5 ? "#2bb886" : normalizedStats.normWinLoss >= 1 ? "#fbbf24" : "#f87171",
+                "Normalized avg win ÷ |normalized avg loss|."],
+              ["Norm Expectancy", `${normalizedStats.normExpectancy >= 0 ? "+" : ""}${normalizedStats.normExpectancy.toFixed(2)}%`,
+                normalizedStats.normExpectancy >= 0 ? "#2bb886" : "#f87171",
+                "(Win% × Norm Avg Win%) + ((1-Win%) × Norm Avg Loss%)"],
+              ["Norm Total P/L %", `${normalizedStats.totalNormPnlPct >= 0 ? "+" : ""}${normalizedStats.totalNormPnlPct.toFixed(2)}%`,
+                normalizedStats.totalNormPnlPct >= 0 ? "#2bb886" : "#f87171",
+                "Sum of normalized % returns across all trades."],
+            ]} />
+          )}
         </div>
       )}
 
@@ -5281,7 +5325,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["perf","Performance"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -5369,6 +5413,9 @@ function AppMain({ authToken, onLogout }) {
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} />}
+          {view === "perf" && <TradePerformance trades={trades} stockMap={stockMap}
+            accountSize={parseFloat(localStorage.getItem("tp_account_size") || "100000")}
+            maxAllocPct={parseFloat(localStorage.getItem("tp_max_alloc") || "25")} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
