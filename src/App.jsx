@@ -3213,26 +3213,56 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const rr2 = entryNum + riskPerShare * 2;
   const rr3 = entryNum + riskPerShare * 3;
 
-  // ATR-based position sizing table (0.5x, 1.0x, 2.0x)
+  // ATR-based position sizing table (0.5x, 1.0x, 2.0x, Day Low, PDL)
+  const [calcDayLow, setCalcDayLow] = useState("");
+  const [calcPDL, setCalcPDL] = useState("");
+
+  // Fetch day low / PDL when ticker changes in calc
+  useEffect(() => {
+    if (!calcTicker) return;
+    const t = calcTicker.toUpperCase();
+    fetch(`/api/ohlc?ticker=${encodeURIComponent(t)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.ok || !data.ohlc?.length) return;
+        const bars = data.ohlc;
+        const last = bars[bars.length - 1];
+        const prev = bars.length > 1 ? bars[bars.length - 2] : null;
+        if (last) setCalcDayLow(String(last.low));
+        if (prev) setCalcPDL(String(prev.low));
+      })
+      .catch(() => {});
+  }, [calcTicker]);
+
   const atrStops = useMemo(() => {
     if (!calcATR || !entryNum || !accountNum) return null;
     const atr = parseFloat(calcATR);
     if (!atr || atr <= 0) return null;
-    return [0.5, 1.0, 2.0].map(mult => {
-      const stopDist = atr * mult;
-      const stopPrice = entryNum - stopDist;
+    const dayLow = parseFloat(calcDayLow) || 0;
+    const pdl = parseFloat(calcPDL) || 0;
+
+    const makeStop = (label, stopPrice) => {
+      const stopDist = entryNum - stopPrice;
       const stopPct = entryNum > 0 ? (stopDist / entryNum * 100) : 0;
-      // Position size from risk budget
       const sharesFromRisk = stopDist > 0 ? Math.floor(dollarRisk / stopDist) : 0;
-      // Cap by max allocation
       const sharesFromAlloc = entryNum > 0 ? Math.floor(maxAllocDollar / entryNum) : 0;
       const shares = Math.min(sharesFromRisk, sharesFromAlloc);
       const invested = shares * entryNum;
       const investedPct = accountNum > 0 ? (invested / accountNum * 100) : 0;
-      const estRisk = shares * stopDist;
-      return { mult, stopPrice, stopDist, stopPct, shares, invested, investedPct, estRisk };
-    });
-  }, [calcATR, entryNum, accountNum, dollarRisk, maxAllocDollar]);
+      const estRisk = shares * Math.abs(stopDist);
+      const capped = sharesFromRisk > sharesFromAlloc;
+      return { label, stopPrice, stopDist, stopPct, shares, invested, investedPct, estRisk, capped };
+    };
+
+    const stops = [
+      makeStop("(0.5x)", entryNum - atr * 0.5),
+      makeStop("(1.0x)", entryNum - atr),
+      makeStop("(2.0x)", entryNum - atr * 2.0),
+    ];
+    if (dayLow > 0 && dayLow < entryNum) stops.push(makeStop("Day Low", dayLow));
+    if (pdl > 0 && pdl < entryNum) stops.push(makeStop("PDL", pdl));
+    return stops;
+  }, [calcATR, entryNum, accountNum, dollarRisk, maxAllocDollar, calcDayLow, calcPDL]);
 
   // Auto-fill from active ticker
   useEffect(() => {
@@ -3484,8 +3514,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                   <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
                     <th style={{ padding: "4px 8px", color: "#686878", textAlign: "left", fontSize: 10 }}></th>
                     {atrStops.map(s => (
-                      <th key={s.mult} style={{ padding: "4px 8px", color: "#9090a0", textAlign: "right", fontSize: 10, fontWeight: 700 }}>
-                        ({s.mult}x)
+                      <th key={s.label} style={{ padding: "4px 8px", color: "#9090a0", textAlign: "right", fontSize: 10, fontWeight: 700 }}>
+                        {s.label}
                       </th>
                     ))}
                   </tr>
@@ -3493,7 +3523,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                 <tbody>
                   {[
                     { label: "Stop Price", fn: s => `$${s.stopPrice.toFixed(2)}`, color: "#d4d4e0" },
-                    { label: "Shares", fn: s => s.shares.toLocaleString(), color: "#d4d4e0" },
+                    { label: "Shares", fn: s => `${s.shares.toLocaleString()}${s.capped ? "*" : ""}`, colorFn: s => s.capped ? "#ffa500" : "#d4d4e0" },
                     { label: "Stop Dist %", fn: s => `-${s.stopPct.toFixed(2)}%`, color: "#f87171" },
                     { label: "% Invested", fn: s => `${s.investedPct.toFixed(1)}%`, colorFn: s => s.investedPct > maxAllocPct ? "#f87171" : "#d4d4e0" },
                     { label: "Est. Risk $", fn: s => `$${s.estRisk.toFixed(2)}`, color: "#f87171" },
@@ -3501,7 +3531,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                     <tr key={ri} style={{ borderBottom: "1px solid #222230" }}>
                       <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10 }}>{row.label}</td>
                       {atrStops.map(s => (
-                        <td key={s.mult} style={{ padding: "5px 8px", textAlign: "right", fontWeight: 600,
+                        <td key={s.label} style={{ padding: "5px 8px", textAlign: "right", fontWeight: 600,
                           color: row.colorFn ? row.colorFn(s) : row.color }}>
                           {row.fn(s)}
                         </td>
