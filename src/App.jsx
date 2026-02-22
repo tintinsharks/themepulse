@@ -2709,50 +2709,6 @@ function LWChart({ ticker, entry, stop, target }) {
         const ema200 = calcEMA(closes, 200);
         const atr14 = calcATR(bars, 14);
 
-        // ── Stage Analysis (matches Pine Script) ──
-        const stageData = [];
-        for (let i = 1; i < bars.length; i++) {
-          if (ema10[i] == null || sma20[i] == null || sma50[i] == null || atr14[i] == null || atr14[i] === 0) {
-            stageData.push(null);
-            continue;
-          }
-          const c = bars[i].close;
-          const e10 = ema10[i], s20 = sma20[i], s50 = sma50[i], atr = atr14[i];
-          const e10p = ema10[i - 1], s20p = sma20[i - 1] || s20, s50p = sma50[i - 1] || s50;
-
-          const atrx = (c - s50) / atr;
-          const maSpread = Math.max(e10, s20, s50) - Math.min(e10, s20, s50);
-
-          const e10Up = e10 > e10p, s20Up = s20 > s20p, s50Up = s50 > s50p;
-          const upAlign = c > e10 && e10 > s20 && s20 > s50 && e10Up && s20Up && s50Up;
-          const downAlign = c < e10 && e10 < s20 && s20 < s50 && !e10Up && !s20Up && !s50Up;
-
-          // Breakout/breakdown (20-bar lookback)
-          let hi20 = -Infinity, lo20 = Infinity;
-          for (let j = Math.max(0, i - 20); j < i; j++) { hi20 = Math.max(hi20, bars[j].high); lo20 = Math.min(lo20, bars[j].low); }
-          const breakout = c > hi20;
-          const breakdown = c < lo20;
-
-          const extBull = upAlign && atrx >= 7;
-          const extBear = downAlign && atrx <= -7;
-          const basing = Math.abs(c - s50) <= 1.0 * atr && maSpread <= 1.5 * atr;
-          const meanRev = !upAlign && !downAlign && !basing && c >= s20 && e10 >= s20;
-          const fadeA = !extBull && c >= s50 && ((upAlign && (c < e10 || !e10Up)) || (e10 >= s20 && c < e10));
-          const fadeB = !extBear && c >= s50 && e10 < s20;
-
-          let stage, stageLabel, stageColor;
-          if (extBull)            { stage = "2C"; stageLabel = "2C Extended"; stageColor = "rgba(0,128,0,0.35)"; }
-          else if (extBear)       { stage = "4C"; stageLabel = "4C Extended↓"; stageColor = "rgba(255,0,255,0.25)"; }
-          else if (upAlign)       { stage = breakout ? "2B" : "2A"; stageLabel = breakout ? "2B Breakout" : "2A Advancing"; stageColor = breakout ? "rgba(0,128,0,0.2)" : "rgba(0,255,0,0.15)"; }
-          else if (downAlign)     { stage = breakdown ? "4B" : "4A"; stageLabel = breakdown ? "4B Breakdown" : "4A Declining"; stageColor = breakdown ? "rgba(128,0,0,0.2)" : "rgba(255,0,0,0.15)"; }
-          else if (fadeB)         { stage = "3B"; stageLabel = "3B Distribution"; stageColor = "rgba(0,0,255,0.15)"; }
-          else if (fadeA)         { stage = "3A"; stageLabel = "3A Top"; stageColor = "rgba(0,255,255,0.15)"; }
-          else if (meanRev)       { stage = "1B"; stageLabel = "1B Recovery"; stageColor = "rgba(255,255,0,0.12)"; }
-          else                    { stage = "1A"; stageLabel = "1A Base"; stageColor = "rgba(255,165,0,0.1)"; }
-
-          stageData.push({ stage, stageLabel, stageColor, atrx });
-        }
-
         // ── ATR Extension Ladder (price lines from SMA50) ──
         const lastIdx = bars.length - 1;
         const lastSma50 = sma50[lastIdx];
@@ -2780,19 +2736,10 @@ function LWChart({ ticker, entry, stop, target }) {
         };
 
         if (lastSma50 && lastAtr && lastAtr > 0) {
-          // ATR ladder from SMA50
-          addLine(lastSma50 + 4 * lastAtr, "#32cd32", "Max Entry (4x)", 2, 1);
-          addLine(lastSma50 + 7 * lastAtr, "#32cd3280", "x7", 2, 1);
-          addLine(lastSma50 + 8 * lastAtr, "#32cd3280", "x8", 2, 1);
-          addLine(lastSma50 + 10 * lastAtr, "#ff323280", "x10", 2, 1);
-
           // Risk stop lines (daily ATR based)
           addLine(lastClose - lastAtr * 0.5, "#ff5252", "Tight (0.5x)", 1, 1);
           addLine(lastClose - lastAtr, "#ff5252", "Base (1.0x)", 1, 1);
           addLine(lastClose - lastAtr * 2.0, "#ff5252", "Wide (2.0x)", 1, 1);
-
-          // LoD + 0.6 ATR entry
-          addLine(lastLow + lastAtr * 0.6, "#9c27b0", "LoD+0.6ATR", 2, 1);
         }
 
         // Day Low / Prev Day Low
@@ -2885,18 +2832,17 @@ function LWChart({ ticker, entry, stop, target }) {
 
         // ── 7x/10x ATRX dots on price series ──
         const priceMarkers = [];
-        for (let i = 0; i < stageData.length; i++) {
-          if (!stageData[i]) continue;
-          const atrx = stageData[i].atrx;
-          const barIdx = i + 1; // stageData starts at index 1
+        for (let i = 1; i < bars.length; i++) {
+          if (sma50[i] == null || atr14[i] == null || atr14[i] === 0) continue;
+          const atrx = (bars[i].close - sma50[i]) / atr14[i];
           if (atrx >= 10) {
-            priceMarkers.push({ time: bars[barIdx].date, position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+            priceMarkers.push({ time: bars[i].date, position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
           } else if (atrx >= 7) {
-            priceMarkers.push({ time: bars[barIdx].date, position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+            priceMarkers.push({ time: bars[i].date, position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
           } else if (atrx <= -10) {
-            priceMarkers.push({ time: bars[barIdx].date, position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+            priceMarkers.push({ time: bars[i].date, position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
           } else if (atrx <= -7) {
-            priceMarkers.push({ time: bars[barIdx].date, position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+            priceMarkers.push({ time: bars[i].date, position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
           }
         }
         priceMarkers.sort((a, b) => a.time.localeCompare(b.time));
@@ -3006,13 +2952,18 @@ function LWChart({ ticker, entry, stop, target }) {
         setVolStats({ avgVol50, lastVol, volChgPct, avgDolVol, udRatio, ppCount10, ppCount5, hiVolEver, hiVolYear,
           spread10_21, spread21_50, rank10_21, rank21_50,
           rankLbl10_21: rankLabel(rank10_21, spread10_21), rankLbl21_50: rankLabel(rank21_50, spread21_50),
-          // Stage analysis
-          stage: stageData[stageData.length - 1]?.stage || "—",
-          stageLabel: stageData[stageData.length - 1]?.stageLabel || "—",
-          stageColor: stageData[stageData.length - 1]?.stageColor || "transparent",
-          atrx: stageData[stageData.length - 1]?.atrx ?? null,
+          // ATRX current
+          atrx: lastSma50 && lastAtr && lastAtr > 0 ? (lastClose - lastSma50) / lastAtr : null,
           // ATR ladder
           atr: lastAtr, sma50val: lastSma50,
+          maxEntry: lastSma50 && lastAtr ? lastSma50 + 4 * lastAtr : null,
+          atr7: lastSma50 && lastAtr ? lastSma50 + 7 * lastAtr : null,
+          atr8: lastSma50 && lastAtr ? lastSma50 + 8 * lastAtr : null,
+          atr10: lastSma50 && lastAtr ? lastSma50 + 10 * lastAtr : null,
+          lodEntry: lastLow && lastAtr ? lastLow + lastAtr * 0.6 : null,
+          tight: lastAtr ? lastClose - lastAtr * 0.5 : null,
+          base: lastAtr ? lastClose - lastAtr : null,
+          wide: lastAtr ? lastClose - lastAtr * 2.0 : null,
           // Reference prices
           wk52High, athHigh, dayLow: lastLow, prevDayLow: prevLow,
         });
@@ -3040,20 +2991,14 @@ function LWChart({ ticker, entry, stop, target }) {
       {volStats && (
         <div style={{ position: "absolute", top: 6, left: 8, zIndex: 5, pointerEvents: "none",
           fontSize: 9, fontFamily: "monospace", color: "#686878", lineHeight: 1.6 }}>
-          {/* Stage badge */}
-          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 2 }}>
-            <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 700,
-              background: volStats.stageColor || "transparent",
-              color: volStats.stage?.startsWith("2") ? "#2bb886" : volStats.stage?.startsWith("4") ? "#f87171" :
-                     volStats.stage?.startsWith("3") ? "#60a5fa" : "#fbbf24" }}>
-              {volStats.stageLabel || "—"}
-            </span>
-            {volStats.atrx != null && (
+          {/* ATRX */}
+          {volStats.atrx != null && (
+            <div style={{ marginBottom: 2 }}>
               <span style={{ color: volStats.atrx >= 7 ? "#ffd700" : volStats.atrx >= 4 ? "#2bb886" : volStats.atrx <= -7 ? "#ffd700" : volStats.atrx <= -4 ? "#f87171" : "#787888" }}>
                 ATRX: {volStats.atrx.toFixed(1)}
               </span>
-            )}
-          </div>
+            </div>
+          )}
           <div>Daily Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.lastVol)}</span>
             <span style={{ color: volStats.volChgPct >= 0 ? "#2bb886" : "#f87171", marginLeft: 4 }}>
               {volStats.volChgPct >= 0 ? "+" : ""}{volStats.volChgPct.toFixed(0)}%
@@ -3090,6 +3035,16 @@ function LWChart({ ticker, entry, stop, target }) {
               </div>
             </div>
           )}
+          {/* ATR Extension Ladder */}
+          {volStats.atr > 0 && (
+            <div style={{ marginTop: 4, borderTop: "1px solid #2a2a38", paddingTop: 3 }}>
+              {volStats.atr10 != null && <div><span style={{ color: "#ff3232" }}>x10</span> <span style={{ color: "#787888" }}>{volStats.atr10.toFixed(2)}</span></div>}
+              {volStats.atr8 != null && <div><span style={{ color: "#32cd32" }}>x8</span> <span style={{ color: "#787888" }}>{volStats.atr8.toFixed(2)}</span></div>}
+              {volStats.atr7 != null && <div><span style={{ color: "#32cd32" }}>x7</span> <span style={{ color: "#787888" }}>{volStats.atr7.toFixed(2)}</span></div>}
+              {volStats.maxEntry != null && <div><span style={{ color: "#32cd32" }}>MaxE</span> <span style={{ color: "#787888" }}>{volStats.maxEntry.toFixed(2)}</span></div>}
+              {volStats.lodEntry != null && <div><span style={{ color: "#9c27b0" }}>LoD+.6</span> <span style={{ color: "#787888" }}>{volStats.lodEntry.toFixed(2)}</span></div>}
+            </div>
+          )}
         </div>
       )}
       {/* Legend — top right */}
@@ -3101,9 +3056,9 @@ function LWChart({ ticker, entry, stop, target }) {
         <span><span style={{ color: "#4169e1" }}>━</span> 20 SMA</span>
         <span><span style={{ color: "#00bc9a" }}>━</span> 50 SMA</span>
         <span><span style={{ color: "#8232c8" }}>━</span> 200 EMA</span>
-        <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>Stage</span>
-        <span><span style={{ color: "#ffd700" }}>●</span> 7x ATRX</span>
-        <span><span style={{ color: "#ff0000" }}>●</span> 10x ATRX</span>
+        <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>ATRX</span>
+        <span><span style={{ color: "#ffd700" }}>●</span> 7x</span>
+        <span><span style={{ color: "#ff0000" }}>●</span> 10x</span>
         <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>Vol</span>
         <span><span style={{ color: "#a855f7" }}>■</span> HV</span>
         <span><span style={{ color: "#2563eb" }}>■</span> 10d PP</span>
