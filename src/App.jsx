@@ -2736,7 +2736,26 @@ function LWChart({ ticker, entry, stop, target }) {
         };
 
         if (lastSma50 && lastAtr && lastAtr > 0) {
-          // Values computed for overlay labels only — no chart lines
+          // ATR ladder — axis labels only (no visible lines)
+          const addAxisLabel = (price, color, title) => {
+            if (price > 0 && isFinite(price)) {
+              try { linesRef.current.push(seriesRef.current.createPriceLine({ price, color, lineWidth: 0, lineStyle: 2, lineVisible: false, axisLabelVisible: true, title })); } catch {}
+            }
+          };
+          addAxisLabel(lastSma50 + 10 * lastAtr, "#ff3232", "x10");
+          addAxisLabel(lastSma50 + 8 * lastAtr, "#32cd32", "x8");
+          addAxisLabel(lastSma50 + 7 * lastAtr, "#32cd32", "x7");
+          addAxisLabel(lastSma50 + 4 * lastAtr, "#32cd32", "MaxE");
+          addAxisLabel(lastLow + lastAtr * 0.6, "#9c27b0", "LoD+.6");
+          // Risk stops — axis labels only
+          addAxisLabel(lastClose - lastAtr * 0.5, "#ff5252", "0.5x");
+          addAxisLabel(lastClose - lastAtr, "#ff5252", "1.0x");
+          addAxisLabel(lastClose - lastAtr * 2.0, "#ff5252", "2.0x");
+          // Reference levels
+          addAxisLabel(lastLow, "#808080", "LOD");
+          addAxisLabel(prevLow, "#ffa500", "PDL");
+          if (wk52High > 0) addAxisLabel(wk52High, "#ffa500", "52W");
+          if (athHigh > 0 && Math.abs(athHigh - wk52High) > lastClose * 0.001) addAxisLabel(athHigh, "#ff8c00", "ATH");
         }
 
         // Entry / Stop / Target from trade
@@ -3022,16 +3041,6 @@ function LWChart({ ticker, entry, stop, target }) {
                   volStats.rankLbl21_50 === "TIGHT" ? "#9ca3af" : "#2bb886"
                 }}>{volStats.rankLbl21_50}</span>
               </div>
-            </div>
-          )}
-          {/* ATR Extension Ladder */}
-          {volStats.atr > 0 && (
-            <div style={{ marginTop: 4, borderTop: "1px solid #2a2a38", paddingTop: 3 }}>
-              {volStats.atr10 != null && <div><span style={{ color: "#ff3232" }}>x10</span> <span style={{ color: "#787888" }}>{volStats.atr10.toFixed(2)}</span></div>}
-              {volStats.atr8 != null && <div><span style={{ color: "#32cd32" }}>x8</span> <span style={{ color: "#787888" }}>{volStats.atr8.toFixed(2)}</span></div>}
-              {volStats.atr7 != null && <div><span style={{ color: "#32cd32" }}>x7</span> <span style={{ color: "#787888" }}>{volStats.atr7.toFixed(2)}</span></div>}
-              {volStats.maxEntry != null && <div><span style={{ color: "#32cd32" }}>MaxE</span> <span style={{ color: "#787888" }}>{volStats.maxEntry.toFixed(2)}</span></div>}
-              {volStats.lodEntry != null && <div><span style={{ color: "#9c27b0" }}>LoD+.6</span> <span style={{ color: "#787888" }}>{volStats.lodEntry.toFixed(2)}</span></div>}
             </div>
           )}
         </div>
