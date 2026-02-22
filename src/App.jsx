@@ -1512,11 +1512,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
-                background: isActive ? "rgba(251, 191, 36, 0.10)"
-                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 1 ? "rgba(248, 113, 113, 0.12)"
-                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 3 ? "rgba(248, 113, 113, 0.07)"
-                  : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 7 ? "rgba(248, 113, 113, 0.03)"
-                  : "transparent" }}>
+                background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
@@ -3658,11 +3654,7 @@ function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick }) 
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
   return (
     <tr ref={rowRef} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
-      background: isActive ? "rgba(251, 191, 36, 0.10)"
-        : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 1 ? "rgba(248, 113, 113, 0.12)"
-        : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 3 ? "rgba(248, 113, 113, 0.07)"
-        : s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 7 ? "rgba(248, 113, 113, 0.03)"
-        : "transparent" }}>
+      background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
       <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
         {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
           style={{ color: "#686878", cursor: "pointer", fontSize: 11, marginRight: 2 }}>✕</span>}
