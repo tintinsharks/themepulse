@@ -4662,6 +4662,66 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
 
   return (
     <div style={{ padding: 0, overflowY: "auto" }}>
+      {!stats && closedTrades.length === 0 && (
+        <div style={{ color: "#505060", fontSize: 12, padding: 20, textAlign: "center", marginBottom: 16 }}>
+          No closed trades yet. Performance metrics will appear once you close trades.
+        </div>
+      )}
+
+      {/* ═══ Position Exposure Buckets (always visible — uses open trades) ═══ */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 6, padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div>
+              <div style={{ color: "#d4d4e0", fontSize: 13, fontWeight: 700 }}>Position Exposure Buckets</div>
+              <div style={{ color: "#505060", fontSize: 10 }}>{buckets.numBuckets} buckets × {maxAllocPct}% each = {buckets.numBuckets * maxAllocPct}% total target ({maxAllocPct}% = 1 full position)</div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{buckets.totalExposurePct.toFixed(1)}%</div>
+              <div style={{ fontSize: 9, color: "#686878" }}>Total Exposure</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: buckets.bucketsFull >= 2 ? "#2bb886" : "#fbbf24", fontFamily: "monospace" }}>{(buckets.totalExposurePct / (maxAllocPct || 25)).toFixed(1)}</div>
+              <div style={{ fontSize: 9, color: "#686878" }}>Buckets Full</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{buckets.activePositions}</div>
+              <div style={{ fontSize: 9, color: "#686878" }}>Active Positions ({buckets.uniqueTickers} tickers)</div>
+            </div>
+            <div>
+              <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 4, border: `1px solid ${conditions[1]}40`, color: conditions[1], fontSize: 11, fontWeight: 700 }}>{conditions[0].toUpperCase()}</div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${buckets.numBuckets}, 1fr)`, gap: 10 }}>
+            {buckets.bkts.map((bkt, bi) => {
+              const fillPct = buckets.bucketTarget > 0 ? (bkt.total / buckets.bucketTarget * 100) : 0;
+              const capacityPct = accountSize > 0 ? (bkt.total / accountSize * 100) : 0;
+              return (
+                <div key={bi} style={{ background: "#0d0d14", border: "1px solid #2a2a38", borderRadius: 6, padding: 12, textAlign: "center" }}>
+                  <div style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>Bucket {bi + 1}</div>
+                  <div style={{ color: "#686878", fontSize: 9, marginBottom: 2 }}>{fillPct.toFixed(0)}% / 100%</div>
+                  <div style={{ color: "#505060", fontSize: 9, marginBottom: 8 }}>{capacityPct.toFixed(1)}% of equity</div>
+                  <div style={{ fontSize: 10, color: "#505060", marginBottom: 4 }}>{bkt.positions.length} position{bkt.positions.length !== 1 ? "s" : ""}</div>
+                  <div style={{ height: 60, background: "#1a1a24", borderRadius: 4, position: "relative", overflow: "hidden", marginBottom: 8 }}>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${Math.min(fillPct, 100)}%`, background: "#0d916340", transition: "height 0.3s" }} />
+                    {bkt.positions.map((p, pi) => (
+                      <div key={pi} style={{ position: "relative", zIndex: 1, padding: "1px 4px", fontSize: 8, color: "#d4d4e0",
+                        background: "#0d916380", margin: "1px 2px", borderRadius: 2, textAlign: "left" }}>
+                        {p.ticker} {(buckets.bucketTarget > 0 ? p.value / buckets.bucketTarget * 100 : 0).toFixed(0)}%
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{capacityPct.toFixed(1)}%</div>
+                  <div style={{ fontSize: 9, color: "#686878" }}>Capacity</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* ═══ Performance Summary Cards ═══ */}
       {stats && (
         <div style={{ marginBottom: 16 }}>
@@ -4802,65 +4862,6 @@ function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
         </div>
       )}
 
-      {/* ═══ Position Exposure Buckets ═══ */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 6, padding: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div>
-              <div style={{ color: "#d4d4e0", fontSize: 13, fontWeight: 700 }}>Position Exposure Buckets</div>
-              <div style={{ color: "#505060", fontSize: 10 }}>{buckets.numBuckets} buckets × {maxAllocPct}% each = {buckets.numBuckets * maxAllocPct}% total target ({maxAllocPct}% = 1 full position)</div>
-            </div>
-          </div>
-          {/* Summary metrics */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{buckets.totalExposurePct.toFixed(1)}%</div>
-              <div style={{ fontSize: 9, color: "#686878" }}>Total Exposure</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: buckets.bucketsFull >= 2 ? "#2bb886" : "#fbbf24", fontFamily: "monospace" }}>{(buckets.totalExposurePct / (maxAllocPct * 100 / 100)).toFixed(1)}</div>
-              <div style={{ fontSize: 9, color: "#686878" }}>Buckets Full</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{buckets.activePositions}</div>
-              <div style={{ fontSize: 9, color: "#686878" }}>Active Positions ({buckets.uniqueTickers} tickers)</div>
-            </div>
-            <div>
-              <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 4, border: `1px solid ${conditions[1]}40`, color: conditions[1], fontSize: 11, fontWeight: 700 }}>{conditions[0].toUpperCase()}</div>
-            </div>
-          </div>
-          {/* Bucket cards */}
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${buckets.numBuckets}, 1fr)`, gap: 10 }}>
-            {buckets.bkts.map((bkt, bi) => {
-              const fillPct = buckets.bucketTarget > 0 ? (bkt.total / buckets.bucketTarget * 100) : 0;
-              const capacityPct = accountSize > 0 ? (bkt.total / accountSize * 100) : 0;
-              return (
-                <div key={bi} style={{ background: "#0d0d14", border: "1px solid #2a2a38", borderRadius: 6, padding: 12, textAlign: "center" }}>
-                  <div style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>Bucket {bi + 1}</div>
-                  <div style={{ color: "#686878", fontSize: 9, marginBottom: 2 }}>{fillPct.toFixed(0)}% / 100%</div>
-                  <div style={{ color: "#505060", fontSize: 9, marginBottom: 8 }}>{capacityPct.toFixed(1)}% of equity</div>
-                  <div style={{ fontSize: 10, color: "#505060", marginBottom: 4 }}>{bkt.positions.length} position{bkt.positions.length !== 1 ? "s" : ""}</div>
-                  {/* Fill bar */}
-                  <div style={{ height: 60, background: "#1a1a24", borderRadius: 4, position: "relative", overflow: "hidden", marginBottom: 8 }}>
-                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${Math.min(fillPct, 100)}%`, background: "#0d916340", transition: "height 0.3s" }} />
-                    {bkt.positions.map((p, pi) => {
-                      const barH = buckets.bucketTarget > 0 ? (p.value / buckets.bucketTarget * 100) : 0;
-                      return (
-                        <div key={pi} style={{ position: "relative", zIndex: 1, padding: "1px 4px", fontSize: 8, color: "#d4d4e0",
-                          background: "#0d916380", margin: "1px 2px", borderRadius: 2, textAlign: "left" }}>
-                          {p.ticker} {barH.toFixed(0)}%
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{capacityPct.toFixed(1)}%</div>
-                  <div style={{ fontSize: 9, color: "#686878" }}>Capacity</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
