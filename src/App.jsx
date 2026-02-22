@@ -3108,7 +3108,7 @@ const SETUP_TAGS = ["Breakout", "Pullback", "EP Gap", "VCP", "IPO Base", "Power 
 function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, removeFromPortfolio, liveThemeData }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [tab, setTab] = useState("open"); // open | closed | calc
+  const [tab, setTab] = useState("calc"); // open | closed | calc
   const [pSort, setPSort] = useState("change");
   const [calcTicker, setCalcTicker] = useState("");
 
@@ -3124,7 +3124,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
     try { return localStorage.getItem("tp_risk_pct") || "0.35"; } catch { return "0.35"; }
   });
   const [calcAccount, setCalcAccount] = useState(() => {
-    try { return localStorage.getItem("tp_account_size") || "100000"; } catch { return "100000"; }
+    try { return localStorage.getItem("tp_account_size") || "300000"; } catch { return "300000"; }
   });
   const [calcMaxAlloc, setCalcMaxAlloc] = useState(() => {
     try { return localStorage.getItem("tp_max_alloc") || "25"; } catch { return "25"; }
