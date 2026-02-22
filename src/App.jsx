@@ -2512,6 +2512,9 @@ function LWChart({ ticker, entry, stop, target }) {
       maRefs.current.sma50 = chart.addLineSeries({
         color: "#00bc9a", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
+      maRefs.current.sma20 = chart.addLineSeries({
+        color: "#4169e1", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+      });
       maRefs.current.ema200 = chart.addLineSeries({
         color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
@@ -2668,6 +2671,30 @@ function LWChart({ ticker, entry, stop, target }) {
           }
           return result;
         };
+        // Wilder ATR (RMA-based, like Pine Script ta.atr)
+        const calcATR = (bars, period) => {
+          const tr = [];
+          for (let i = 0; i < bars.length; i++) {
+            if (i === 0) { tr.push(bars[i].high - bars[i].low); continue; }
+            tr.push(Math.max(
+              bars[i].high - bars[i].low,
+              Math.abs(bars[i].high - bars[i - 1].close),
+              Math.abs(bars[i].low - bars[i - 1].close)
+            ));
+          }
+          // RMA (Wilder's smoothing)
+          const atr = [];
+          for (let i = 0; i < tr.length; i++) {
+            if (i < period - 1) { atr.push(null); continue; }
+            if (i === period - 1) {
+              let sum = 0; for (let j = 0; j < period; j++) sum += tr[j];
+              atr.push(sum / period);
+            } else {
+              atr.push((atr[i - 1] * (period - 1) + tr[i]) / period);
+            }
+          }
+          return atr;
+        };
 
         const closes = bars.map(c => c.close);
         const highs = bars.map(c => c.high);
@@ -2677,12 +2704,114 @@ function LWChart({ ticker, entry, stop, target }) {
         const ema21hi = calcEMA(highs, 21);
         const ema21close = calcEMA(closes, 21);
         const ema21lo = calcEMA(lows, 21);
+        const sma20 = calcSMA(closes, 20);
         const sma50 = calcSMA(closes, 50);
         const ema200 = calcEMA(closes, 200);
+        const atr14 = calcATR(bars, 14);
+
+        // ── Stage Analysis (matches Pine Script) ──
+        const stageData = [];
+        for (let i = 1; i < bars.length; i++) {
+          if (ema10[i] == null || sma20[i] == null || sma50[i] == null || atr14[i] == null || atr14[i] === 0) {
+            stageData.push(null);
+            continue;
+          }
+          const c = bars[i].close;
+          const e10 = ema10[i], s20 = sma20[i], s50 = sma50[i], atr = atr14[i];
+          const e10p = ema10[i - 1], s20p = sma20[i - 1] || s20, s50p = sma50[i - 1] || s50;
+
+          const atrx = (c - s50) / atr;
+          const maSpread = Math.max(e10, s20, s50) - Math.min(e10, s20, s50);
+
+          const e10Up = e10 > e10p, s20Up = s20 > s20p, s50Up = s50 > s50p;
+          const upAlign = c > e10 && e10 > s20 && s20 > s50 && e10Up && s20Up && s50Up;
+          const downAlign = c < e10 && e10 < s20 && s20 < s50 && !e10Up && !s20Up && !s50Up;
+
+          // Breakout/breakdown (20-bar lookback)
+          let hi20 = -Infinity, lo20 = Infinity;
+          for (let j = Math.max(0, i - 20); j < i; j++) { hi20 = Math.max(hi20, bars[j].high); lo20 = Math.min(lo20, bars[j].low); }
+          const breakout = c > hi20;
+          const breakdown = c < lo20;
+
+          const extBull = upAlign && atrx >= 7;
+          const extBear = downAlign && atrx <= -7;
+          const basing = Math.abs(c - s50) <= 1.0 * atr && maSpread <= 1.5 * atr;
+          const meanRev = !upAlign && !downAlign && !basing && c >= s20 && e10 >= s20;
+          const fadeA = !extBull && c >= s50 && ((upAlign && (c < e10 || !e10Up)) || (e10 >= s20 && c < e10));
+          const fadeB = !extBear && c >= s50 && e10 < s20;
+
+          let stage, stageLabel, stageColor;
+          if (extBull)            { stage = "2C"; stageLabel = "2C Extended"; stageColor = "rgba(0,128,0,0.35)"; }
+          else if (extBear)       { stage = "4C"; stageLabel = "4C Extended↓"; stageColor = "rgba(255,0,255,0.25)"; }
+          else if (upAlign)       { stage = breakout ? "2B" : "2A"; stageLabel = breakout ? "2B Breakout" : "2A Advancing"; stageColor = breakout ? "rgba(0,128,0,0.2)" : "rgba(0,255,0,0.15)"; }
+          else if (downAlign)     { stage = breakdown ? "4B" : "4A"; stageLabel = breakdown ? "4B Breakdown" : "4A Declining"; stageColor = breakdown ? "rgba(128,0,0,0.2)" : "rgba(255,0,0,0.15)"; }
+          else if (fadeB)         { stage = "3B"; stageLabel = "3B Distribution"; stageColor = "rgba(0,0,255,0.15)"; }
+          else if (fadeA)         { stage = "3A"; stageLabel = "3A Top"; stageColor = "rgba(0,255,255,0.15)"; }
+          else if (meanRev)       { stage = "1B"; stageLabel = "1B Recovery"; stageColor = "rgba(255,255,0,0.12)"; }
+          else                    { stage = "1A"; stageLabel = "1A Base"; stageColor = "rgba(255,165,0,0.1)"; }
+
+          stageData.push({ stage, stageLabel, stageColor, atrx });
+        }
+
+        // ── ATR Extension Ladder (price lines from SMA50) ──
+        const lastIdx = bars.length - 1;
+        const lastSma50 = sma50[lastIdx];
+        const lastAtr = atr14[lastIdx];
+        const lastClose = bars[lastIdx].close;
+        const lastLow = bars[lastIdx].low;
+        const prevLow = lastIdx > 0 ? bars[lastIdx - 1].low : lastLow;
+
+        // 52W high & ATH
+        const lookback252 = Math.max(0, lastIdx - 252);
+        let wk52High = 0, athHigh = 0;
+        for (let i = 0; i <= lastIdx; i++) {
+          athHigh = Math.max(athHigh, bars[i].high);
+          if (i >= lookback252) wk52High = Math.max(wk52High, bars[i].high);
+        }
+
+        // Remove old price lines
+        linesRef.current.forEach(l => { try { seriesRef.current.removePriceLine(l); } catch {} });
+        linesRef.current = [];
+
+        const addLine = (price, color, title, lineStyle = 2, lineWidth = 1) => {
+          if (price > 0 && isFinite(price)) {
+            try { linesRef.current.push(seriesRef.current.createPriceLine({ price, color, lineWidth, lineStyle, axisLabelVisible: true, title })); } catch {}
+          }
+        };
+
+        if (lastSma50 && lastAtr && lastAtr > 0) {
+          // ATR ladder from SMA50
+          addLine(lastSma50 + 4 * lastAtr, "#32cd32", "Max Entry (4x)", 2, 1);
+          addLine(lastSma50 + 7 * lastAtr, "#32cd3280", "x7", 2, 1);
+          addLine(lastSma50 + 8 * lastAtr, "#32cd3280", "x8", 2, 1);
+          addLine(lastSma50 + 10 * lastAtr, "#ff323280", "x10", 2, 1);
+
+          // Risk stop lines (daily ATR based)
+          addLine(lastClose - lastAtr * 0.5, "#ff5252", "Tight (0.5x)", 1, 1);
+          addLine(lastClose - lastAtr, "#ff5252", "Base (1.0x)", 1, 1);
+          addLine(lastClose - lastAtr * 2.0, "#ff5252", "Wide (2.0x)", 1, 1);
+
+          // LoD + 0.6 ATR entry
+          addLine(lastLow + lastAtr * 0.6, "#9c27b0", "LoD+0.6ATR", 2, 1);
+        }
+
+        // Day Low / Prev Day Low
+        addLine(lastLow, "#808080", "LOD", 0, 1);
+        addLine(prevLow, "#ffa50080", "PDL", 1, 1);
+
+        // 52W High / ATH
+        if (wk52High > 0) addLine(wk52High, "#ffa500", `52W H`, 0, 1);
+        if (athHigh > 0 && Math.abs(athHigh - wk52High) > lastClose * 0.001) addLine(athHigh, "#ff8c00", "ATH", 0, 1);
+
+        // Entry / Stop / Target from trade
+        if (parseFloat(entry) > 0) addLine(parseFloat(entry), "#60a5fa", "Entry", 2, 1);
+        if (parseFloat(stop) > 0) addLine(parseFloat(stop), "#f87171", "Stop", 2, 1);
+        if (parseFloat(target) > 0) addLine(parseFloat(target), "#2bb886", "Target", 2, 1);
 
         const toLine = (arr) => arr.map((v, i) => v != null ? { time: bars[i].date, value: Math.round(v * 100) / 100 } : null).filter(Boolean);
 
         if (maRefs.current.ema10) maRefs.current.ema10.setData(toLine(ema10));
+        if (maRefs.current.sma20) maRefs.current.sma20.setData(toLine(sma20));
         if (maRefs.current.sma50) maRefs.current.sma50.setData(toLine(sma50));
         if (maRefs.current.ema200) maRefs.current.ema200.setData(toLine(ema200));
         if (maRefs.current.ema21hi) maRefs.current.ema21hi.setData(toLine(ema21hi));
@@ -2753,6 +2882,25 @@ function LWChart({ ticker, entry, stop, target }) {
 
         volMarkers.sort((a, b) => a.time.localeCompare(b.time));
         volSeriesRef.current.setMarkers(volMarkers);
+
+        // ── 7x/10x ATRX dots on price series ──
+        const priceMarkers = [];
+        for (let i = 0; i < stageData.length; i++) {
+          if (!stageData[i]) continue;
+          const atrx = stageData[i].atrx;
+          const barIdx = i + 1; // stageData starts at index 1
+          if (atrx >= 10) {
+            priceMarkers.push({ time: bars[barIdx].date, position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+          } else if (atrx >= 7) {
+            priceMarkers.push({ time: bars[barIdx].date, position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+          } else if (atrx <= -10) {
+            priceMarkers.push({ time: bars[barIdx].date, position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+          } else if (atrx <= -7) {
+            priceMarkers.push({ time: bars[barIdx].date, position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+          }
+        }
+        priceMarkers.sort((a, b) => a.time.localeCompare(b.time));
+        seriesRef.current.setMarkers(priceMarkers);
 
         // ── 50-day Volume MA line ──
         if (volMaRef.current) {
@@ -2858,6 +3006,15 @@ function LWChart({ ticker, entry, stop, target }) {
         setVolStats({ avgVol50, lastVol, volChgPct, avgDolVol, udRatio, ppCount10, ppCount5, hiVolEver, hiVolYear,
           spread10_21, spread21_50, rank10_21, rank21_50,
           rankLbl10_21: rankLabel(rank10_21, spread10_21), rankLbl21_50: rankLabel(rank21_50, spread21_50),
+          // Stage analysis
+          stage: stageData[stageData.length - 1]?.stage || "—",
+          stageLabel: stageData[stageData.length - 1]?.stageLabel || "—",
+          stageColor: stageData[stageData.length - 1]?.stageColor || "transparent",
+          atrx: stageData[stageData.length - 1]?.atrx ?? null,
+          // ATR ladder
+          atr: lastAtr, sma50val: lastSma50,
+          // Reference prices
+          wk52High, athHigh, dayLow: lastLow, prevDayLow: prevLow,
         });
       })
       .catch(e => { if (!cancelled) setError(e.message); })
@@ -2866,17 +3023,7 @@ function LWChart({ ticker, entry, stop, target }) {
     return () => { cancelled = true; };
   }, [ticker, libReady]);
 
-  // Update price lines
-  useEffect(() => {
-    if (!seriesRef.current) return;
-    linesRef.current.forEach(l => { try { seriesRef.current.removePriceLine(l); } catch {} });
-    linesRef.current = [];
-    [[parseFloat(entry), "#60a5fa", "Entry"], [parseFloat(stop), "#f87171", "Stop"], [parseFloat(target), "#2bb886", "Target"]].forEach(([price, color, title]) => {
-      if (price > 0) {
-        try { linesRef.current.push(seriesRef.current.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title })); } catch {}
-      }
-    });
-  }, [entry, stop, target, ticker, libReady]);
+  // Price lines now managed inside data fetch useEffect (with ATR ladder, risk stops, etc.)
 
   const fmtVol = (v) => {
     if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
@@ -2893,6 +3040,20 @@ function LWChart({ ticker, entry, stop, target }) {
       {volStats && (
         <div style={{ position: "absolute", top: 6, left: 8, zIndex: 5, pointerEvents: "none",
           fontSize: 9, fontFamily: "monospace", color: "#686878", lineHeight: 1.6 }}>
+          {/* Stage badge */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 2 }}>
+            <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 700,
+              background: volStats.stageColor || "transparent",
+              color: volStats.stage?.startsWith("2") ? "#2bb886" : volStats.stage?.startsWith("4") ? "#f87171" :
+                     volStats.stage?.startsWith("3") ? "#60a5fa" : "#fbbf24" }}>
+              {volStats.stageLabel || "—"}
+            </span>
+            {volStats.atrx != null && (
+              <span style={{ color: volStats.atrx >= 7 ? "#ffd700" : volStats.atrx >= 4 ? "#2bb886" : volStats.atrx <= -7 ? "#ffd700" : volStats.atrx <= -4 ? "#f87171" : "#787888" }}>
+                ATRX: {volStats.atrx.toFixed(1)}
+              </span>
+            )}
+          </div>
           <div>Daily Vol: <span style={{ color: "#b0b0be" }}>{fmtVol(volStats.lastVol)}</span>
             <span style={{ color: volStats.volChgPct >= 0 ? "#2bb886" : "#f87171", marginLeft: 4 }}>
               {volStats.volChgPct >= 0 ? "+" : ""}{volStats.volChgPct.toFixed(0)}%
@@ -2937,8 +3098,12 @@ function LWChart({ ticker, entry, stop, target }) {
         <span style={{ color: "#686878", fontWeight: 600, marginBottom: 1 }}>MAs</span>
         <span><span style={{ color: "#ff828c" }}>━</span> 10 EMA</span>
         <span><span style={{ color: "#808080" }}>━</span> 21 EMA</span>
+        <span><span style={{ color: "#4169e1" }}>━</span> 20 SMA</span>
         <span><span style={{ color: "#00bc9a" }}>━</span> 50 SMA</span>
         <span><span style={{ color: "#8232c8" }}>━</span> 200 EMA</span>
+        <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>Stage</span>
+        <span><span style={{ color: "#ffd700" }}>●</span> 7x ATRX</span>
+        <span><span style={{ color: "#ff0000" }}>●</span> 10x ATRX</span>
         <span style={{ color: "#686878", fontWeight: 600, marginTop: 2, marginBottom: 1 }}>Vol</span>
         <span><span style={{ color: "#a855f7" }}>■</span> HV</span>
         <span><span style={{ color: "#2563eb" }}>■</span> 10d PP</span>
