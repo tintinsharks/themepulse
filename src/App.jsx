@@ -3222,7 +3222,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
       {/* Sub-tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
-        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
+        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["perf", "Performance"], ["calc", "Calculator"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
             border: tab === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
             background: tab === k ? "#0d916320" : "transparent", color: tab === k ? "#4aad8c" : "#686878" }}>{l}</button>
@@ -3568,6 +3568,10 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       {/* ── Closed Trades Tab ── */}
       {tab === "closed" && (
         <TradeHistory trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker} />
+      )}
+
+      {tab === "perf" && (
+        <TradePerformance trades={trades} stockMap={stockMap} accountSize={parseFloat(calcAccount) || 100000} maxAllocPct={parseFloat(calcMaxAlloc) || 25} />
       )}
 
     </div>
@@ -4396,35 +4400,6 @@ function TradeHistory({ trades, setTrades, stockMap, onTickerClick, activeTicker
   // Expanded row for transaction history
   const [expandedId, setExpandedId] = useState(null);
 
-  // Stats
-  const stats = useMemo(() => {
-    if (closedTrades.length === 0) return null;
-    const wins = closedTrades.filter(t => (t.pnl || 0) > 0);
-    const losses = closedTrades.filter(t => (t.pnl || 0) < 0);
-    const totalPnl = closedTrades.reduce((s, t) => s + (t.pnl || 0), 0);
-    const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
-    const avgLoss = losses.length > 0 ? losses.reduce((s, t) => s + t.pnl, 0) / losses.length : 0;
-    const winRate = (wins.length / closedTrades.length * 100).toFixed(0);
-    const avgDays = closedTrades.filter(t => t.date && t.closeDate).reduce((s, t) => {
-      return s + Math.round((new Date(t.closeDate) - new Date(t.date)) / 86400000);
-    }, 0) / (closedTrades.filter(t => t.date && t.closeDate).length || 1);
-    const profitFactor = Math.abs(avgLoss) > 0 ? (avgWin / Math.abs(avgLoss)).toFixed(2) : "—";
-    const expectancy = closedTrades.length > 0 ? (totalPnl / closedTrades.length).toFixed(0) : 0;
-    // Largest win/loss
-    const largestWin = wins.length > 0 ? Math.max(...wins.map(t => t.pnl)) : 0;
-    const largestLoss = losses.length > 0 ? Math.min(...losses.map(t => t.pnl)) : 0;
-    // Streak
-    let curStreak = 0, maxWinStreak = 0, maxLossStreak = 0;
-    const sorted = [...closedTrades].reverse(); // oldest first
-    sorted.forEach(t => {
-      if ((t.pnl || 0) > 0) { curStreak = curStreak > 0 ? curStreak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, curStreak); }
-      else if ((t.pnl || 0) < 0) { curStreak = curStreak < 0 ? curStreak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, Math.abs(curStreak)); }
-      else { curStreak = 0; }
-    });
-    return { wins: wins.length, losses: losses.length, totalPnl, avgWin, avgLoss, winRate, avgDays: avgDays.toFixed(0),
-      profitFactor, expectancy, largestWin, largestLoss, maxWinStreak, maxLossStreak, total: closedTrades.length };
-  }, [closedTrades]);
-
   const st = {
     cell: { padding: "5px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11 },
     header: { padding: "4px 6px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 10 },
@@ -4432,31 +4407,6 @@ function TradeHistory({ trades, setTrades, stockMap, onTickerClick, activeTicker
 
   return (
     <div style={{ padding: 0 }}>
-      {/* Stats dashboard */}
-      {stats && (
-        <div style={{ display: "flex", gap: 12, padding: "8px 0 12px", flexWrap: "wrap", fontSize: 10, fontFamily: "monospace" }}>
-          {[
-            ["Trades", stats.total, "#d4d4e0"],
-            ["Win Rate", `${stats.winRate}% (${stats.wins}W/${stats.losses}L)`, parseFloat(stats.winRate) >= 50 ? "#2bb886" : "#f87171"],
-            ["Total P&L", `${stats.totalPnl >= 0 ? "+" : ""}$${stats.totalPnl.toFixed(0)}`, stats.totalPnl >= 0 ? "#2bb886" : "#f87171"],
-            ["Avg Win", `+$${stats.avgWin.toFixed(0)}`, "#2bb886"],
-            ["Avg Loss", `$${stats.avgLoss.toFixed(0)}`, "#f87171"],
-            ["Profit Factor", stats.profitFactor, parseFloat(stats.profitFactor) >= 2 ? "#2bb886" : parseFloat(stats.profitFactor) >= 1 ? "#fbbf24" : "#f87171"],
-            ["Expectancy", `$${stats.expectancy}`, parseFloat(stats.expectancy) >= 0 ? "#2bb886" : "#f87171"],
-            ["Avg Days", `${stats.avgDays}d`, "#9090a0"],
-            ["Best", `+$${stats.largestWin.toFixed(0)}`, "#2bb886"],
-            ["Worst", `$${stats.largestLoss.toFixed(0)}`, "#f87171"],
-            ["Win Streak", stats.maxWinStreak, "#2bb886"],
-            ["Loss Streak", stats.maxLossStreak, "#f87171"],
-          ].map(([label, val, color], i) => (
-            <div key={i} style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 4, padding: "6px 10px", minWidth: 80 }}>
-              <div style={{ color: "#505060", fontSize: 8, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{label}</div>
-              <div style={{ color, fontWeight: 600, fontSize: 12 }}>{val}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {closedTrades.length === 0 ? (
         <div style={{ color: "#505060", fontSize: 12, padding: 20, textAlign: "center" }}>No closed trades yet.</div>
       ) : (
@@ -4530,6 +4480,343 @@ function TradeHistory({ trades, setTrades, stockMap, onTickerClick, activeTicker
           })}</tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+// ── TRADE PERFORMANCE TAB ──
+function TradePerformance({ trades, stockMap, accountSize, maxAllocPct }) {
+  const closedTrades = useMemo(() =>
+    trades.filter(t => t.status === "closed").sort((a, b) => (b.closeDate || "").localeCompare(a.closeDate || "")),
+  [trades]);
+  const openTrades = useMemo(() => trades.filter(t => t.status === "open"), [trades]);
+
+  // ── Compute stats for a group of trades ──
+  const computeStats = (arr) => {
+    if (arr.length === 0) return null;
+    const wins = arr.filter(t => (t.pnl || 0) > 0);
+    const losses = arr.filter(t => (t.pnl || 0) < 0);
+    const winRate = wins.length / arr.length;
+    const avgWinPct = wins.length > 0 ? wins.reduce((s, t) => s + (t.pnlPct || 0), 0) / wins.length : 0;
+    const avgLossPct = losses.length > 0 ? losses.reduce((s, t) => s + (t.pnlPct || 0), 0) / losses.length : 0;
+    const winLossRatio = Math.abs(avgLossPct) > 0 ? avgWinPct / Math.abs(avgLossPct) : 0;
+    const rValues = arr.map(t => {
+      const s = tradeState(t);
+      const entry = s.avgEntry || parseFloat(t.entry) || 0;
+      const exit = parseFloat(t.exitPrice) || 0;
+      const riskPS = Math.abs(entry - s.curStop);
+      return riskPS > 0 ? (exit - entry) / riskPS : 0;
+    });
+    const avgR = rValues.length > 0 ? rValues.reduce((a, b) => a + b, 0) / rValues.length : 0;
+    return { total: arr.length, wins: wins.length, losses: losses.length,
+      winRate: winRate * 100, winLossRatio, avgWinPct, avgLossPct, avgR };
+  };
+
+  // ── Full stats for summary cards ──
+  const stats = useMemo(() => {
+    const s = computeStats(closedTrades);
+    if (!s) return null;
+    const wins = closedTrades.filter(t => (t.pnl || 0) > 0);
+    const losses = closedTrades.filter(t => (t.pnl || 0) < 0);
+    const breakeven = closedTrades.filter(t => (t.pnl || 0) === 0);
+    const adjustedWL = (1 - s.winRate / 100) > 0 && Math.abs(s.avgLossPct) > 0
+      ? ((s.winRate / 100) * s.avgWinPct) / ((1 - s.winRate / 100) * Math.abs(s.avgLossPct)) : 0;
+    const grossProfits = wins.reduce((a, t) => a + (t.pnl || 0), 0);
+    const grossLosses = Math.abs(losses.reduce((a, t) => a + (t.pnl || 0), 0));
+    const profitFactor = grossLosses > 0 ? grossProfits / grossLosses : 0;
+    const wr = s.winRate / 100;
+    const expectancyPct = (wr * s.avgWinPct) + ((1 - wr) * s.avgLossPct);
+    const totalPnlPct = closedTrades.reduce((a, t) => a + (t.pnlPct || 0), 0);
+    const totalPnl = closedTrades.reduce((a, t) => a + (t.pnl || 0), 0);
+    const maxGainPct = wins.length > 0 ? Math.max(...wins.map(t => t.pnlPct || 0)) : 0;
+    const maxLossPct = losses.length > 0 ? Math.min(...losses.map(t => t.pnlPct || 0)) : 0;
+    const maxGainLossRatio = Math.abs(maxLossPct) > 0 ? maxGainPct / Math.abs(maxLossPct) : 0;
+    const daysOf = (a) => a.filter(t => t.date && t.closeDate).map(t => Math.round((new Date(t.closeDate) - new Date(t.date)) / 86400000));
+    const dW = daysOf(wins), dL = daysOf(losses), dA = daysOf(closedTrades);
+    const avg = (a) => a.length > 0 ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    const avgDW = avg(dW), avgDL = avg(dL), avgDA = avg(dA);
+    let curStreak = 0, maxWinStreak = 0, maxLossStreak = 0;
+    [...closedTrades].reverse().forEach(t => {
+      if ((t.pnl || 0) > 0) { curStreak = curStreak > 0 ? curStreak + 1 : 1; maxWinStreak = Math.max(maxWinStreak, curStreak); }
+      else if ((t.pnl || 0) < 0) { curStreak = curStreak < 0 ? curStreak - 1 : -1; maxLossStreak = Math.max(maxLossStreak, Math.abs(curStreak)); }
+      else { curStreak = 0; }
+    });
+    return { ...s, breakeven: breakeven.length, adjustedWL, profitFactor, expectancyPct, totalPnlPct, totalPnl,
+      maxGainPct, maxLossPct, maxGainLossRatio, avgDaysWin: avgDW, avgDaysLoss: avgDL, avgDays: avgDA,
+      holdTimeRatio: avgDL > 0 ? avgDW / avgDL : 0, maxWinStreak, maxLossStreak };
+  }, [closedTrades]);
+
+  // ── Time period breakdown (year → month) ──
+  const timePeriods = useMemo(() => {
+    if (closedTrades.length === 0) return [];
+    const byYear = {};
+    closedTrades.forEach(t => {
+      const d = t.closeDate || t.date || "";
+      if (!d) return;
+      const y = d.slice(0, 4);
+      const m = d.slice(0, 7);
+      if (!byYear[y]) byYear[y] = { trades: [], months: {} };
+      byYear[y].trades.push(t);
+      if (!byYear[y].months[m]) byYear[y].months[m] = [];
+      byYear[y].months[m].push(t);
+    });
+    return Object.keys(byYear).sort().reverse().map(y => ({
+      year: y, stats: computeStats(byYear[y].trades),
+      months: Object.keys(byYear[y].months).sort().reverse().map(m => ({
+        month: new Date(m + "-01").toLocaleString("en", { month: "long" }),
+        stats: computeStats(byYear[y].months[m]),
+      })),
+    }));
+  }, [closedTrades]);
+
+  // ── Exposure Buckets (from open trades) ──
+  const buckets = useMemo(() => {
+    const numBuckets = 4;
+    const bucketTarget = accountSize * (maxAllocPct / 100); // each bucket's $ target
+    const totalTarget = bucketTarget * numBuckets;
+    const positions = openTrades.map(t => {
+      const s = tradeState(t);
+      const curPrice = stockMap[t.ticker]?.price || s.avgEntry;
+      const value = curPrice * s.curShares;
+      const pctOfBucket = bucketTarget > 0 ? (value / bucketTarget * 100) : 0;
+      return { ticker: t.ticker, value, pctOfBucket, shares: s.curShares };
+    }).sort((a, b) => b.value - a.value);
+
+    // Distribute positions across buckets (greedy fill)
+    const bkts = Array.from({ length: numBuckets }, () => ({ positions: [], total: 0 }));
+    positions.forEach(p => {
+      // Find bucket with lowest fill
+      const target = bkts.reduce((min, b, i) => b.total < bkts[min].total ? i : min, 0);
+      bkts[target].positions.push(p);
+      bkts[target].total += p.value;
+    });
+
+    const totalExposure = positions.reduce((s, p) => s + p.value, 0);
+    const bucketsFull = bkts.filter(b => b.total >= bucketTarget * 0.8).length;
+    const totalExposurePct = accountSize > 0 ? (totalExposure / accountSize * 100) : 0;
+
+    return { bkts, bucketTarget, totalTarget, totalExposure, totalExposurePct, bucketsFull,
+      numBuckets, activePositions: positions.length, uniqueTickers: new Set(positions.map(p => p.ticker)).size };
+  }, [openTrades, stockMap, accountSize, maxAllocPct]);
+
+  const [expandedYears, setExpandedYears] = useState({});
+  const [openSections, setOpenSections] = useState({ perf: false, wl: false, risk: false, time: false });
+  const toggleSection = (key) => setOpenSections(p => ({ ...p, [key]: !p[key] }));
+
+  const StatSection = ({ title, sKey, rows }) => (
+    <div style={{ marginBottom: 6 }}>
+      <div onClick={() => toggleSection(sKey)}
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0",
+          cursor: "pointer", borderBottom: "1px solid #2a2a38" }}>
+        <span style={{ color: "#d4d4e0", fontSize: 12, fontWeight: 600 }}>{title}</span>
+        <span style={{ color: "#505060", fontSize: 12 }}>{openSections[sKey] ? "▾" : "▸"}</span>
+      </div>
+      {openSections[sKey] && (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, marginTop: 4 }}>
+          <thead><tr style={{ borderBottom: "1px solid #2a2a38" }}>
+            <th style={{ padding: "6px 8px", color: "#686878", textAlign: "left", fontSize: 10, width: "25%" }}>Metric</th>
+            <th style={{ padding: "6px 8px", color: "#686878", textAlign: "left", fontSize: 10, width: "15%" }}>Value</th>
+            <th style={{ padding: "6px 8px", color: "#505060", textAlign: "left", fontSize: 10 }}>Description</th>
+          </tr></thead>
+          <tbody>{rows.map(([metric, value, color, desc], i) => (
+            <tr key={i} style={{ borderBottom: "1px solid #1a1a24" }}>
+              <td style={{ padding: "8px 8px", color: "#b0b0be", fontWeight: 500 }}>{metric}</td>
+              <td style={{ padding: "8px 8px", color, fontWeight: 600, fontFamily: "monospace" }}>{value}</td>
+              <td style={{ padding: "8px 8px", color: "#686878", fontSize: 10 }}>{desc}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+    </div>
+  );
+
+  // Market conditions based on bucket fill
+  const conditions = buckets.bucketsFull <= 0 ? ["Conservative/Defensive", "#686878"]
+    : buckets.bucketsFull <= 1 ? ["Normal Conditions", "#2bb886"]
+    : buckets.bucketsFull <= 2 ? ["Very Good Conditions", "#fbbf24"]
+    : ["Premium Conditions", "#f97316"];
+
+  return (
+    <div style={{ padding: 0, overflowY: "auto" }}>
+      {/* ═══ Performance Summary Cards ═══ */}
+      {stats && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ color: "#9090a0", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Performance Summary</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+            {[
+              ["Batting Average", `${stats.winRate.toFixed(1)}%`, stats.winRate >= 50 ? "#2bb886" : "#f87171"],
+              ["Win/Loss Ratio", stats.winLossRatio.toFixed(2), stats.winLossRatio >= 1.5 ? "#2bb886" : stats.winLossRatio >= 1 ? "#fbbf24" : "#f87171"],
+              ["Adjusted Win/Loss", stats.adjustedWL.toFixed(2), stats.adjustedWL >= 2 ? "#2bb886" : stats.adjustedWL >= 1 ? "#fbbf24" : "#f87171"],
+              ["Average R-Ratio", stats.avgR.toFixed(2), stats.avgR >= 0.5 ? "#2bb886" : stats.avgR >= 0 ? "#fbbf24" : "#f87171"],
+            ].map(([label, val, color], i) => (
+              <div key={i} style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 6, padding: "10px 14px" }}>
+                <div style={{ color: "#686878", fontSize: 10, marginBottom: 6 }}>{label}</div>
+                <div style={{ color, fontWeight: 700, fontSize: 18, fontFamily: "monospace" }}>{val}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {[
+              ["Total Trades", String(stats.total), "#d4d4e0"],
+              ["W / L / BE", `${stats.wins} / ${stats.losses} / ${stats.breakeven}`, "#d4d4e0"],
+              ["Avg Win %", `+${stats.avgWinPct.toFixed(2)}%`, "#2bb886"],
+              ["Avg Loss %", `${stats.avgLossPct.toFixed(2)}%`, "#f87171"],
+            ].map(([label, val, color], i) => (
+              <div key={i} style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 6, padding: "10px 14px" }}>
+                <div style={{ color: "#686878", fontSize: 10, marginBottom: 6 }}>{label}</div>
+                <div style={{ color, fontWeight: 700, fontSize: 18, fontFamily: "monospace" }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Detailed Statistics ═══ */}
+      {stats && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ color: "#9090a0", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Detailed Statistics</div>
+          <StatSection title="Performance Metrics" sKey="perf" rows={[
+            ["Profit Factor", stats.profitFactor.toFixed(2), stats.profitFactor >= 2 ? "#2bb886" : stats.profitFactor >= 1 ? "#fbbf24" : "#f87171",
+              "Gross profits ÷ gross losses. Above 1 = profitable."],
+            ["Expectancy", `${stats.expectancyPct >= 0 ? "+" : ""}${stats.expectancyPct.toFixed(2)}%`, stats.expectancyPct >= 0 ? "#2bb886" : "#f87171",
+              "(Win% × Avg Win%) + ((1-Win%) × Avg Loss%)"],
+            ["Total P/L %", `${stats.totalPnlPct >= 0 ? "+" : ""}${stats.totalPnlPct.toFixed(2)}%`, stats.totalPnlPct >= 0 ? "#2bb886" : "#f87171",
+              "Sum of % gains/losses — not account equity."],
+            ["Total P/L $", `${stats.totalPnl >= 0 ? "+" : ""}$${stats.totalPnl.toFixed(0)}`, stats.totalPnl >= 0 ? "#2bb886" : "#f87171",
+              "Dollar P&L across all closed trades."],
+          ]} />
+          <StatSection title="Win/Loss Analysis" sKey="wl" rows={[
+            ["Win Rate", `${stats.winRate.toFixed(2)}%`, stats.winRate >= 50 ? "#2bb886" : "#f87171", "Wins ÷ total trades."],
+            ["Average Win", `+${stats.avgWinPct.toFixed(2)}%`, "#2bb886", "Mean % gain on winners."],
+            ["Average Loss", `${stats.avgLossPct.toFixed(2)}%`, "#f87171", "Mean % loss on losers."],
+            ["Win/Loss Ratio", stats.winLossRatio.toFixed(2), stats.winLossRatio >= 1 ? "#d4d4e0" : "#f87171", "Avg Win% ÷ |Avg Loss%|."],
+            ["Adjusted Win/Loss", stats.adjustedWL.toFixed(2), stats.adjustedWL >= 1 ? "#d4d4e0" : "#f87171", "W/L ratio adjusted by win rate."],
+            ["Win Streak", String(stats.maxWinStreak), "#2bb886", "Most consecutive wins."],
+            ["Loss Streak", String(stats.maxLossStreak), "#f87171", "Most consecutive losses."],
+          ]} />
+          <StatSection title="Risk Metrics" sKey="risk" rows={[
+            ["Average R-Ratio", stats.avgR.toFixed(2), stats.avgR >= 0 ? "#2bb886" : "#f87171", "Avg profit/loss relative to initial risk."],
+            ["Max Gain %", `+${stats.maxGainPct.toFixed(2)}%`, "#2bb886", "Largest single trade % gain."],
+            ["Max Loss %", `${stats.maxLossPct.toFixed(2)}%`, "#f87171", "Largest single trade % loss."],
+            ["Max Gain/Loss Ratio", stats.maxGainLossRatio.toFixed(2), stats.maxGainLossRatio >= 1 ? "#d4d4e0" : "#f87171", "Max gain ÷ |max loss|."],
+          ]} />
+          <StatSection title="Time Metrics" sKey="time" rows={[
+            ["Avg Days (Winners)", `${stats.avgDaysWin.toFixed(1)} days`, "#d4d4e0", "Avg hold time for winning trades."],
+            ["Avg Days (Losers)", `${stats.avgDaysLoss.toFixed(1)} days`, "#d4d4e0", "Avg hold time for losing trades."],
+            ["Hold Time Ratio", stats.holdTimeRatio.toFixed(2), "#d4d4e0", "Winner hold time ÷ loser hold time."],
+            ["Avg Days (All)", `${stats.avgDays.toFixed(1)} days`, "#d4d4e0", "Overall average holding period."],
+          ]} />
+        </div>
+      )}
+
+      {/* ═══ Trading Statistics By Time Period ═══ */}
+      {timePeriods.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ color: "#9090a0", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Trading Statistics By Time Period</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+              {["Period", "Trades", "Win Rate", "Win/Loss", "Avg Win %", "Avg Loss %", "R-Ratio"].map(h => (
+                <th key={h} style={{ padding: "6px 8px", color: "#686878", fontWeight: 600, textAlign: h === "Period" ? "left" : "center", fontSize: 10 }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {timePeriods.map(yp => (
+                <React.Fragment key={yp.year}>
+                  <tr style={{ borderBottom: "1px solid #2a2a38", cursor: "pointer", background: "#1a1a2440" }}
+                    onClick={() => setExpandedYears(p => ({ ...p, [yp.year]: !p[yp.year] }))}>
+                    <td style={{ padding: "6px 8px", color: "#d4d4e0", fontWeight: 700 }}>
+                      <span style={{ color: "#505060", marginRight: 4 }}>{expandedYears[yp.year] ? "▾" : "▸"}</span>{yp.year}
+                    </td>
+                    {yp.stats ? (<>
+                      <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>
+                        {yp.stats.total} <span style={{ color: "#505060", fontSize: 9 }}>({yp.stats.wins}/{yp.stats.losses})</span></td>
+                      <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: yp.stats.winRate >= 50 ? "#2bb886" : "#f87171" }}>{yp.stats.winRate.toFixed(1)}%</td>
+                      <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#d4d4e0" }}>{yp.stats.winLossRatio.toFixed(2)}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#2bb886" }}>+{yp.stats.avgWinPct.toFixed(2)}%</td>
+                      <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>{yp.stats.avgLossPct.toFixed(2)}%</td>
+                      <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: yp.stats.avgR >= 0 ? "#2bb886" : "#f87171" }}>{yp.stats.avgR.toFixed(2)}</td>
+                    </>) : <td colSpan={6} />}
+                  </tr>
+                  {expandedYears[yp.year] && yp.months.map(mp => (
+                    <tr key={mp.month} style={{ borderBottom: "1px solid #1a1a24" }}>
+                      <td style={{ padding: "6px 8px 6px 28px", color: "#9090a0" }}>{mp.month}</td>
+                      {mp.stats ? (<>
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>
+                          {mp.stats.total} <span style={{ color: "#505060", fontSize: 9 }}>({mp.stats.wins}/{mp.stats.losses})</span></td>
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: mp.stats.winRate >= 50 ? "#2bb886" : "#f87171" }}>{mp.stats.winRate.toFixed(1)}%</td>
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#9090a0" }}>{mp.stats.winLossRatio.toFixed(2)}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#2bb886" }}>+{mp.stats.avgWinPct.toFixed(2)}%</td>
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: "#f87171" }}>{mp.stats.avgLossPct.toFixed(2)}%</td>
+                        <td style={{ padding: "6px 8px", textAlign: "center", fontFamily: "monospace", color: mp.stats.avgR >= 0 ? "#2bb886" : "#f87171" }}>{mp.stats.avgR.toFixed(2)}</td>
+                      </>) : <td colSpan={6} />}
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ═══ Position Exposure Buckets ═══ */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ background: "#1a1a24", border: "1px solid #2a2a38", borderRadius: 6, padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div>
+              <div style={{ color: "#d4d4e0", fontSize: 13, fontWeight: 700 }}>Position Exposure Buckets</div>
+              <div style={{ color: "#505060", fontSize: 10 }}>{buckets.numBuckets} buckets × {maxAllocPct}% each = {buckets.numBuckets * maxAllocPct}% total target ({maxAllocPct}% = 1 full position)</div>
+            </div>
+          </div>
+          {/* Summary metrics */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{buckets.totalExposurePct.toFixed(1)}%</div>
+              <div style={{ fontSize: 9, color: "#686878" }}>Total Exposure</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: buckets.bucketsFull >= 2 ? "#2bb886" : "#fbbf24", fontFamily: "monospace" }}>{(buckets.totalExposurePct / (maxAllocPct * 100 / 100)).toFixed(1)}</div>
+              <div style={{ fontSize: 9, color: "#686878" }}>Buckets Full</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{buckets.activePositions}</div>
+              <div style={{ fontSize: 9, color: "#686878" }}>Active Positions ({buckets.uniqueTickers} tickers)</div>
+            </div>
+            <div>
+              <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 4, border: `1px solid ${conditions[1]}40`, color: conditions[1], fontSize: 11, fontWeight: 700 }}>{conditions[0].toUpperCase()}</div>
+            </div>
+          </div>
+          {/* Bucket cards */}
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${buckets.numBuckets}, 1fr)`, gap: 10 }}>
+            {buckets.bkts.map((bkt, bi) => {
+              const fillPct = buckets.bucketTarget > 0 ? (bkt.total / buckets.bucketTarget * 100) : 0;
+              const capacityPct = accountSize > 0 ? (bkt.total / accountSize * 100) : 0;
+              return (
+                <div key={bi} style={{ background: "#0d0d14", border: "1px solid #2a2a38", borderRadius: 6, padding: 12, textAlign: "center" }}>
+                  <div style={{ color: "#d4d4e0", fontWeight: 700, fontSize: 12, marginBottom: 4 }}>Bucket {bi + 1}</div>
+                  <div style={{ color: "#686878", fontSize: 9, marginBottom: 2 }}>{fillPct.toFixed(0)}% / 100%</div>
+                  <div style={{ color: "#505060", fontSize: 9, marginBottom: 8 }}>{capacityPct.toFixed(1)}% of equity</div>
+                  <div style={{ fontSize: 10, color: "#505060", marginBottom: 4 }}>{bkt.positions.length} position{bkt.positions.length !== 1 ? "s" : ""}</div>
+                  {/* Fill bar */}
+                  <div style={{ height: 60, background: "#1a1a24", borderRadius: 4, position: "relative", overflow: "hidden", marginBottom: 8 }}>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${Math.min(fillPct, 100)}%`, background: "#0d916340", transition: "height 0.3s" }} />
+                    {bkt.positions.map((p, pi) => {
+                      const barH = buckets.bucketTarget > 0 ? (p.value / buckets.bucketTarget * 100) : 0;
+                      return (
+                        <div key={pi} style={{ position: "relative", zIndex: 1, padding: "1px 4px", fontSize: 8, color: "#d4d4e0",
+                          background: "#0d916380", margin: "1px 2px", borderRadius: 2, textAlign: "left" }}>
+                          {p.ticker} {barH.toFixed(0)}%
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>{capacityPct.toFixed(1)}%</div>
+                  <div style={{ fontSize: 9, color: "#686878" }}>Capacity</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
