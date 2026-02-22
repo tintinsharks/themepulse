@@ -3222,7 +3222,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
       {/* Sub-tab bar */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, alignItems: "center" }}>
-        {[["open", `Open (${openTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
+        {[["open", `Open (${openTrades.length})`], ["closed", `Closed (${closedTrades.length})`], ["calc", "Calculator"]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
             border: tab === k ? "1px solid #0d9163" : "1px solid #3a3a4a",
             background: tab === k ? "#0d916320" : "transparent", color: tab === k ? "#4aad8c" : "#686878" }}>{l}</button>
@@ -3399,7 +3399,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                 const isActive = t.ticker === activeTicker;
                 const rColor = (r) => r >= 3 ? "#0d9163" : r >= 2 ? "#2bb886" : r >= 1 ? "#fbbf24" : r >= 0 ? "#9090a0" : "#f87171";
                 return (
-                  <tr key={t.id} onClick={() => onTickerClick(t.ticker)}
+                  <React.Fragment key={t.id}>
+                  <tr onClick={() => onTickerClick(t.ticker)}
                     style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                       background: isActive ? "#fbbf2418" : closingId === t.id ? "#f8717110" : "transparent" }}>
                     <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 600, color: isActive ? "#fbbf24" : "#d4d4e0", fontFamily: "monospace" }}>
@@ -3525,6 +3526,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                       </td>
                     </tr>
                   )}
+                  </React.Fragment>
                 );
               })}</tbody>
             </table>
@@ -3561,6 +3563,11 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
             );
           })()}
         </div>
+      )}
+
+      {/* ── Closed Trades Tab ── */}
+      {tab === "closed" && (
+        <TradeHistory trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker} />
       )}
 
     </div>
@@ -4987,7 +4994,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["history","History"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -5075,7 +5082,6 @@ function AppMain({ authToken, onLogout }) {
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} />}
-          {view === "history" && <TradeHistory trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} />}
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
