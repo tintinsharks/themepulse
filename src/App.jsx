@@ -3476,7 +3476,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
 
           {/* Custom stop R/R panel */}
           {riskPerShare > 0 && (
-            <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, minWidth: 200 }}>
+            <div style={{ background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 6, padding: 12, minWidth: 133 }}>
               <div style={{ ...st.label, marginBottom: 8, color: "#9090a0" }}>Custom Stop</div>
               <table style={{ borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
                 <tbody>
