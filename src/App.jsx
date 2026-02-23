@@ -1419,7 +1419,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
-    ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["RVol", "rvol"],
+    ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rvol"],
     ["$Vol", "dvol"], ["ADR%", "adr"], ["VCS", "vcs"], ["EPS", "eps_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
@@ -1592,6 +1592,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
                   {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>;
               })()}
+              {/* Vol */}
+              {(() => {
+                const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
+                const curVol = s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null;
+                const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
+                {curVol != null ? fmt(curVol) : '—'}</td>; })()}
               {/* RVol */}
               {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
@@ -2415,7 +2423,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
-  ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["RVol", "rel_volume"],
+  ["MS", "ms_score"], ["MF", "mf"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
   ["$Vol", "dvol"], ["ADR%", "adr"], ["VCS", "vcs"], ["EPS", "eps_score"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
 ];
@@ -3163,6 +3171,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
       fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
       adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"), rel_volume: sortFn("rel_volume"),
+      volume: sortFn("avg_volume_raw"), rvol: sortFn("rel_volume"),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
       theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
       subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
@@ -3876,6 +3885,15 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       {/* Chg% */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontFamily: "monospace", fontSize: 12 }}>
         {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change.toFixed(2)}%` : '—'}</td>
+      {/* Vol */}
+      {(() => {
+        const rv = s.rel_volume;
+        const curVol = s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null;
+        const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+          color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
+          {curVol != null ? fmt(curVol) : '—'}</td>;
+      })()}
       {/* RVol */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
@@ -4363,6 +4381,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       return bv - av;
     },
     rel_volume: sortFn("rel_volume"),
+    volume: sortFn("avg_volume_raw"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"),
@@ -5482,6 +5501,13 @@ function AppMain({ authToken, onLogout }) {
 
   // Resizable split panel
   const [splitPct, setSplitPct] = useState(50);
+  const [userDragged, setUserDragged] = useState(false);
+  // Auto-widen left panel on exec tab for calculator boxes
+  useEffect(() => {
+    if (!userDragged) {
+      setSplitPct(view === "exec" ? 60 : 50);
+    }
+  }, [view, userDragged]);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef(null);
 
@@ -5492,6 +5518,7 @@ function AppMain({ authToken, onLogout }) {
       const rect = containerRef.current.getBoundingClientRect();
       const pct = ((ev.clientX - rect.left) / rect.width) * 100;
       setSplitPct(Math.max(15, Math.min(85, pct)));
+      setUserDragged(true);
     };
     const onUp = () => {
       setIsDragging(false);
