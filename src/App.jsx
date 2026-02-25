@@ -1720,6 +1720,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [epSection, setEpSection] = useState("results"); // results only now
   const [erSort, setErSort] = useState({ col: "change", dir: "desc" });
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
+  const [erNoBio, setErNoBio] = useState(true);
+  const [er9M, setEr9M] = useState(false);
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -1727,6 +1729,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [liveEPs, setLiveEPs] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
+  const [topGainers, setTopGainers] = useState(null);
 
   // Fetch live EPs on mount and on manual refresh
   const fetchLiveEPs = useCallback(() => {
@@ -1741,6 +1744,15 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         setLiveLoading(false);
       })
       .catch(() => setLiveLoading(false));
+    // Separate call for top gainers (won't break EP if it fails)
+    fetch('/api/live?gainers=1')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.ok && d.top_gainers) {
+          setTopGainers(d.top_gainers);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => { fetchLiveEPs(); }, [fetchLiveEPs]);
@@ -1953,30 +1965,82 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
       {/* ── Earnings Results — All Market Movers ── */}
       {(() => {
-        // earnings_movers is the SOLE data source — built by 09g pipeline
-        // Contains ALL stocks that reported yesterday AMC + today BMO (universe + external)
-        const allMovers = (earningsMovers || []).map(m => {
+        // earnings_movers from 09g + 09h pipeline (already reported)
+        // Plus: today's upcoming AMC reporters from stockMap (not yet reported)
+        const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
+
+        // Detect today's AMC reporters — these haven't reported yet
+        const todayAMCTickers = new Set();
+        Object.values(stockMap).forEach(s => {
+          if (s.earnings_days === 0) {
+            const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
+            if (disp.includes("AMC")) todayAMCTickers.add(s.ticker);
+          }
+        });
+
+        // Find upcoming AMC reporters NOT already in earningsMovers
+        const upcomingAMC = Object.values(stockMap).filter(s => {
+          if (reportedTickers.has(s.ticker)) return false;
+          return todayAMCTickers.has(s.ticker);
+        }).map(s => ({
+          ticker: s.ticker,
+          company: s.company || s.ticker,
+          price: s.price,
+          change_pct: s.change_pct,
+          volume: s.volume || s.avg_volume_raw,
+          er: { time: "amc_today" },
+          in_universe: true,
+          grade: s.grade,
+          _upcoming: true,
+        }));
+
+        // Merge top gainers (dedup against earnings + AMC)
+        const existingTickers = new Set([
+          ...reportedTickers,
+          ...upcomingAMC.map(s => s.ticker),
+        ]);
+        const gainerEntries = (topGainers || []).filter(g => !existingTickers.has(g.ticker)).map(g => ({
+          ticker: g.ticker,
+          company: g.company || g.ticker,
+          price: g.price,
+          change_pct: g.change_pct ?? 0,
+          volume: g.volume,
+          er: {},
+          in_universe: !!stockMap[g.ticker],
+          grade: stockMap[g.ticker]?.grade || null,
+          industry: g.industry,
+          rel_volume: g.rel_volume,
+          _gainer: true,
+          _gainerHeadline: g.headline || "",
+        }));
+
+        const allMovers = [...(earningsMovers || []), ...upcomingAMC, ...gainerEntries].map(m => {
           const er = m.er || {};
           const chg = m.change_pct ?? 0;
-          // Build SA-style headline
+          // Mark as upcoming if it's a today-AMC ticker (even if it came from earningsMovers with stale data)
+          const isUpcoming = !!m._upcoming || todayAMCTickers.has(m.ticker);
+
+          // Only build headline for stocks that have already reported
           const parts = [];
-          if (er.eps != null) {
-            const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
-            if (er.eps_estimated != null) {
-              const diff = er.eps - er.eps_estimated;
-              parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
-            } else {
-              parts.push(epsStr);
+          if (!isUpcoming) {
+            if (er.eps != null) {
+              const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
+              if (er.eps_estimated != null) {
+                const diff = er.eps - er.eps_estimated;
+                parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
+              } else {
+                parts.push(epsStr);
+              }
             }
-          }
-          if (er.revenue != null) {
-            const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
-            if (er.revenue_estimated != null) {
-              const diff = er.revenue - er.revenue_estimated;
-              const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
-              parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
-            } else {
-              parts.push(`revenue of ${revStr}`);
+            if (er.revenue != null) {
+              const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
+              if (er.revenue_estimated != null) {
+                const diff = er.revenue - er.revenue_estimated;
+                const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
+                parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
+              } else {
+                parts.push(`revenue of ${revStr}`);
+              }
             }
           }
           return {
@@ -1985,19 +2049,58 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             price: m.price,
             _chg: chg,
             _er: er,
-            _headline: parts.join(", "),
-            _vol: m.volume || 0,
+            _headline: isUpcoming ? "" : parts.join(", "),
+            _vol: typeof m.volume === "string" ? parseFloat(m.volume.replace(/,/g, "")) || 0 : (m.volume || 0),
             _inUniverse: !!m.in_universe,
             grade: m.grade || null,
+            _pmChg: m.pm_change_pct ?? null,
+            _idChg: m.id_change_pct ?? null,
+            _idVol: m.id_volume ?? null,
+            _ahChg: m.ah_change_pct ?? null,
+            _upcoming: isUpcoming,
+            _industry: stockMap[m.ticker]?.industry || m.industry || "",
+            _rvol: m._gainer && m.rel_volume ? m.rel_volume : (stockMap[m.ticker]?.rel_volume ?? null),
+            _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
+            _gainer: !!m._gainer,
+            _gainerHeadline: m._gainerHeadline || "",
           };
         });
 
-        const visibleMovers = erUniverseOnly ? allMovers.filter(s => s._inUniverse) : allMovers;
+        const ER_EXCLUDED = new Set([
+          "Biotechnology", "Investment Brokerage - National", "Investment Brokerage - Regional",
+          "Investment Banks/Brokers", "Investment Banks and Brokerages",
+          "Investment Management", "Investment Managers",
+          "Closed-End Fund - Equity", "Closed-End Fund - Debt", "Closed-End Fund - Foreign",
+          "Investment Trusts/Mutual Funds",
+          "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+          "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+          "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
+          "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
+          "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
+        ]);
+        const bioFiltered = erNoBio ? allMovers.filter(s => {
+          const ind = (s._industry || "").trim();
+          if (!ind) return true;
+          for (const ex of ER_EXCLUDED) { if (ind.toLowerCase() === ex.toLowerCase()) return false; }
+          return true;
+        }) : allMovers;
 
-        // Sort all movers together
+        const nineM = er9M ? bioFiltered.filter(s => {
+          const todayVol = s._vol || 0;
+          const avgVol = s._avgVol || Infinity;
+          return todayVol >= 8_900_000 && avgVol < 8_900_000;
+        }) : bioFiltered;
+
+        const visibleMovers = erUniverseOnly ? nineM.filter(s => s._inUniverse) : nineM;
+
         const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
-          if (erSort.col === "change") { va = a._chg; vb = b._chg; }
+          if (erSort.col === "pm_chg") { va = a._pmChg ?? -999; vb = b._pmChg ?? -999; }
+          else if (erSort.col === "id_chg") { va = a._idChg ?? -999; vb = b._idChg ?? -999; }
+          else if (erSort.col === "id_vol") { va = a._idVol ?? 0; vb = b._idVol ?? 0; }
+          else if (erSort.col === "ah_chg") { va = a._ahChg ?? -999; vb = b._ahChg ?? -999; }
+          else if (erSort.col === "rvol") { va = a._rvol ?? 0; vb = b._rvol ?? 0; }
+          else if (erSort.col === "change") { va = a._chg; vb = b._chg; }
           else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
           else { va = a._chg; vb = b._chg; }
           return erSort.dir === "desc" ? vb - va : va - vb;
@@ -2008,14 +2111,33 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         };
         const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " ↓" : " ↑") : "";
 
-        const uCount = allMovers.filter(s => s._inUniverse).length;
-        const eCount = allMovers.filter(s => !s._inUniverse).length;
+        const uCount = allMovers.filter(s => s._inUniverse && !s._gainer).length;
+        const eCount = allMovers.filter(s => !s._inUniverse && !s._gainer).length;
+        const gCount = allMovers.filter(s => s._gainer).length;
+
+        const chgColor = (v) => {
+          if (v == null) return "#3a3a4a";
+          if (v >= 5) return "#2bb886"; if (v > 0) return "#4a9a6a";
+          if (v <= -5) return "#f87171"; if (v < 0) return "#c06060";
+          return "#686878";
+        };
+        const fmtVol = (v) => {
+          if (v == null || v === 0) return "—";
+          if (v >= 1e6) return `${(v/1e6).toFixed(1)}M`;
+          if (v >= 1e3) return `${(v/1e3).toFixed(0)}K`;
+          return v.toLocaleString();
+        };
+
+        const thBase = { padding: "4px 4px", textAlign: "right", color: "#686878", fontWeight: 600,
+          fontSize: 9, fontFamily: "system-ui, -apple-system, sans-serif", whiteSpace: "nowrap" };
+        const thClick = { ...thBase, cursor: "pointer", userSelect: "none" };
+
+        const hasSessionData = allMovers.some(s => s._pmChg != null || s._idChg != null || s._ahChg != null);
 
         return (
           <div>
-            {/* Filter bar */}
             <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings Results ({visibleMovers.length})</span>
+              <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings & Top Gainers ({visibleMovers.length})</span>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
                 style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: 8,
                   border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
@@ -2023,8 +2145,30 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
                 {"★ Theme Only"}
               </button>
+              <button onClick={() => setErNoBio(prev => !prev)}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                  border: erNoBio ? "1px solid #f97316" : "1px solid #3a3a4a",
+                  background: erNoBio ? "#f9731618" : "transparent",
+                  color: erNoBio ? "#f97316" : "#787888" }}>
+                {erNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
+              </button>
+              <button onClick={() => setEr9M(prev => !prev)}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                  border: er9M ? "1px solid #e879f9" : "1px solid #3a3a4a",
+                  background: er9M ? "#e879f918" : "transparent",
+                  color: er9M ? "#e879f9" : "#787888" }}
+                title="Today vol≥8.9M but avg vol<8.9M (unusual activity)">
+                9M
+              </button>
+              {!hasSessionData && (
+                <span style={{ fontSize: 9, color: "#c06060", marginLeft: 8, fontStyle: "italic" }}>
+                  Session data pending — run 09h
+                </span>
+              )}
               <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
                 {"★"} {uCount} theme {" · "} {eCount} external
+                {gCount > 0 && <>{" · "}<span style={{ color: "#2bb886" }}>{gCount} gainers</span></>}
+                {allMovers.filter(s => s._upcoming).length > 0 && <>{" · "}<span style={{ color: "#f59e0b" }}>{allMovers.filter(s => s._upcoming).length} AMC today</span></>}
               </span>
             </div>
 
@@ -2035,78 +2179,115 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   : "No movers in current results."}
               </div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                    <th style={{ padding: "6px 4px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 20,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}></th>
-                    <th onClick={() => toggleSort("change")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
-                      fontSize: 10, width: 95, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                      Change{sortArrow("change")}</th>
-                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#686878", fontWeight: 600, fontSize: 10, width: 50,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Last</th>
-                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, width: 60,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Symbol</th>
-                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, width: 140,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Name</th>
-                    <th onClick={() => toggleSort("volume")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
-                      fontSize: 10, width: 80, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                      Volume{sortArrow("volume")}</th>
-                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>SeekingAlpha Headline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map(s => {
-                    const chg = s._chg;
-                    const chgAbs = s.price != null ? Math.abs(s.price * chg / (100 + chg)) : null;
-                    const chgColor = chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878";
-                    const isActive = s.ticker === activeTicker;
-                    const volStr = s._vol ? (s._vol >= 1e6 ? `${(s._vol/1e6).toFixed(1)}M` : s._vol.toLocaleString()) : "—";
-                    const er = s._er;
-                    const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
-                    const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
-                    const headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false && revBeat === false ? "#f87171" : epsBeat ? "#4a9a6a" : "#c06060";
-
-                    return (
-                      <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
-                          background: isActive ? "#fbbf2420" : "transparent",
-                          opacity: s._inUniverse ? 1 : 0.75 }}
-                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
-                        {/* Universe indicator */}
-                        <td style={{ padding: "6px 4px", textAlign: "center", fontSize: 9 }}>
-                          {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
-                        </td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                          <span style={{ color: chgColor, fontSize: 11 }}>
-                            {chgAbs != null ? `${chg >= 0 ? "" : "-"}${chgAbs.toFixed(2)}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
-                          </span>
-                        </td>
-                        <td style={{ padding: "6px 6px", textAlign: "right", color: "#a8a8b8", fontSize: 11, fontFamily: "monospace" }}>
-                          {s.price != null ? Number(s.price).toFixed(2) : "—"}
-                        </td>
-                        <td style={{ padding: "6px 8px", fontWeight: 600, fontSize: 11,
-                          color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
-                          {s.ticker}
-                        </td>
-                        <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140,
-                          fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                          {s.company || "—"}
-                        </td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
-                          {volStr}
-                        </td>
-                        <td style={{ padding: "6px 8px", fontSize: 10, color: headlineColor, lineHeight: 1.4,
-                          fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                          {s._headline}
-                        </td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 800 : 650 }}>
+                  <thead>
+                    {hasSessionData && (
+                      <tr style={{ borderBottom: "none" }}>
+                        <th colSpan={3}></th>
+                        <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#a78bfa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #a78bfa30" }}>PRE-MKT</th>
+                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#60a5fa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #60a5fa30" }}>INTRADAY</th>
+                        <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#f59e0b", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
+                        <th></th>
+                        <th></th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    )}
+                    <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                      <th style={{ ...thBase, width: 16, textAlign: "center" }}></th>
+                      <th style={{ ...thBase, textAlign: "left", width: 55 }}>Symbol</th>
+                      <th style={{ ...thBase, textAlign: "left", width: 120 }}>Name</th>
+                      {hasSessionData ? (<>
+                        <th onClick={() => toggleSort("pm_chg")} style={{ ...thClick, width: 55, color: "#a78bfa" }}>Chg%{sortArrow("pm_chg")}</th>
+                        <th onClick={() => toggleSort("id_chg")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Chg%{sortArrow("id_chg")}</th>
+                        <th onClick={() => toggleSort("id_vol")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Vol{sortArrow("id_vol")}</th>
+                        <th onClick={() => toggleSort("ah_chg")} style={{ ...thClick, width: 55, color: "#f59e0b" }}>Chg%{sortArrow("ah_chg")}</th>
+                        <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
+                      </>) : (<>
+                        <th onClick={() => toggleSort("change")} style={{ ...thClick, width: 95 }}>Change{sortArrow("change")}</th>
+                        <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
+                        <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
+                      </>)}
+                      <th style={{ ...thBase, textAlign: "left" }}>Headline / Industry</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map(s => {
+                      const isActive = s.ticker === activeTicker;
+                      const er = s._er;
+                      const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
+                      const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
+                      const headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false && revBeat === false ? "#f87171" : epsBeat ? "#4a9a6a" : "#c06060";
+
+                      const chgCell = (val) => (
+                        <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>
+                          {val != null ? (
+                            <span style={{ color: chgColor(val) }}>{val > 0 ? "+" : ""}{val.toFixed(1)}%</span>
+                          ) : <span style={{ color: "#2a2a35" }}>—</span>}
+                        </td>
+                      );
+                      const volCell = (val) => (
+                        <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#606070" }}>
+                          {fmtVol(val)}
+                        </td>
+                      );
+
+                      return (
+                        <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
+                            background: isActive ? "#fbbf2420" : "transparent",
+                            opacity: s._inUniverse ? 1 : 0.75 }}
+                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                          <td style={{ padding: "4px 3px", textAlign: "center", fontSize: 9 }}>
+                            {s._gainer ? <span style={{ color: "#2bb886" }} title="Top Gainer">{"▲"}</span> : s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
+                          </td>
+                          <td style={{ padding: "4px 4px", fontWeight: 600, fontSize: 10,
+                            color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
+                            {s.ticker}
+                          </td>
+                          <td style={{ padding: "4px 4px", color: "#686878", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120,
+                            fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                            {s.company || "—"}
+                          </td>
+                          {hasSessionData ? (<>
+                            {chgCell(s._pmChg)}
+                            {chgCell(s._idChg)}
+                            {volCell(s._idVol)}
+                            {chgCell(s._ahChg)}
+                            <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                              color: s._rvol >= 2 ? "#c084fc" : s._rvol >= 1.5 ? "#a78bfa" : s._rvol != null ? "#686878" : "#3a3a4a" }}>
+                              {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
+                            </td>
+                          </>) : (<>
+                            <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                              <span style={{ color: chgColor(s._chg), fontSize: 11 }}>
+                                {s._chg > 0 ? "+" : ""}{s._chg.toFixed(2)}%
+                              </span>
+                            </td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
+                              {fmtVol(s._vol)}
+                            </td>
+                            <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                              color: s._rvol >= 2 ? "#c084fc" : s._rvol >= 1.5 ? "#a78bfa" : s._rvol != null ? "#686878" : "#3a3a4a" }}>
+                              {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
+                            </td>
+                          </>)}
+                          <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : s._gainer ? "#686878" : headlineColor, lineHeight: 1.3,
+                            fontFamily: "system-ui, -apple-system, sans-serif", fontStyle: (s._upcoming || s._gainer) ? "italic" : "normal" }}>
+                            {s._upcoming ? "Reports after close today" : s._gainer ? (s._gainerHeadline || s._industry || "Top Gainer") : s._headline}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         );
