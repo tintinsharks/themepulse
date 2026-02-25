@@ -1902,9 +1902,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   }, [upcomingEarnings]);
 
   const [collapsedWeeks, setCollapsedWeeks] = useState(() => {
-    // Collapse all non-current weeks by default
+    // Collapse past days by default
     const collapsed = new Set();
-    earningsCalendar.forEach(w => { if (!w.isCurrent) collapsed.add(w.weekKey); });
+    earningsCalendar.forEach(w => w.days.forEach(d => {
+      if (d.days < 0) collapsed.add(d.dateKey);
+    }));
     return collapsed;
   });
   const toggleWeek = (wk) => setCollapsedWeeks(prev => {
@@ -1953,182 +1955,177 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <span style={{ color: "#404050", fontSize: 8, marginLeft: "auto" }}>{upcomingEarnings.length}</span>
         </div>
 
-        {/* Focus mode: just today + tomorrow */}
-        {epTodayOnly && (() => {
-          const focusDays = [];
+        {/* ── Earnings Calendar — Revamped ── */}
+        {(() => {
+          // Flatten all days, optionally filter by Focus (today + tomorrow)
+          const allDays = [];
           earningsCalendar.forEach(w => w.days.forEach(d => {
-            if (d.days >= 0 && d.days <= 1) focusDays.push(d);
+            if (epTodayOnly && (d.days < 0 || d.days > 1)) return;
+            allDays.push(d);
           }));
-          if (focusDays.length === 0) return <div style={{ textAlign: "center", color: "#686878", padding: 16, fontSize: 11 }}>No reports today or tomorrow.</div>;
-          return focusDays.map(day => {
+          if (allDays.length === 0) return (
+            <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 12 }}>
+              {epTodayOnly ? "No reports today or tomorrow." : `No earnings in ±14 days for EP≥${epMinScore}.`}
+            </div>
+          );
+
+          return allDays.map(day => {
             const isToday = day.days === 0;
-            const isPastDay = false;
-            const gradeBuckets = { A: [], B: [], C: [], D: [] };
-            day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).forEach(s => {
-              const g = (s.grade || "")[0];
-              if (g === "A") gradeBuckets.A.push(s);
-              else if (g === "B") gradeBuckets.B.push(s);
-              else if (g === "C") gradeBuckets.C.push(s);
-              else gradeBuckets.D.push(s);
+            const isPast = day.days < 0;
+            const isTomorrow = day.days === 1;
+            // Split BMO / AMC
+            const bmo = []; const amc = [];
+            day.items.forEach(s => {
+              const t = String(s.earnings_display || s.earnings_date || "");
+              if (/BMO|8:30.*AM|7:00.*AM|before/i.test(t)) bmo.push(s);
+              else amc.push(s);
             });
-            const bucketMeta = [["A", "#1a3a25", "#2bb886", "#2bb88618"], ["B", "#1a2a3a", "#60a5fa", "#60a5fa18"], ["C", "#2a2a20", "#fbbf24", "#fbbf2418"], ["D", "#2a2024", "#9090a0", "#9090a015"]];
+            // Sort: past days by change% (gainers first), future by EP score
+            const sortFn = isPast
+              ? (a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0)
+              : (a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1);
+            bmo.sort(sortFn);
+            amc.sort(sortFn);
+
+            // Split into gainers/losers for past days
+            const splitGainLoss = (arr) => {
+              if (!isPast) return { gainers: arr, losers: [] };
+              return { gainers: arr.filter(s => (s.change_pct ?? 0) >= 0), losers: arr.filter(s => (s.change_pct ?? 0) < 0) };
+            };
+
+            const renderRow = (s) => {
+              const isActive = s.ticker === activeTicker;
+              const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
+              const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#484858";
+              const chg = s.change_pct;
+              const chgColor = chg == null ? "#484858" : chg >= 8 ? "#2bb886" : chg >= 3 ? "#4a9a6a" : chg > 0 ? "#5a8a5a" : chg <= -8 ? "#f87171" : chg <= -3 ? "#c06060" : chg < 0 ? "#a05050" : "#686878";
+              const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#686878";
+              const q0 = (s.quarters || [])[0] || {};
+              // Build headline: EPS/Sales YoY from most recent quarter
+              let headline = s.company || "";
+              if (q0.eps_yoy != null || q0.sales_yoy != null) {
+                const parts = [];
+                if (q0.eps_yoy != null) parts.push(`EPS ${q0.eps_yoy > 0 ? "+" : ""}${Math.round(q0.eps_yoy)}%`);
+                if (q0.sales_yoy != null) parts.push(`Rev ${q0.sales_yoy > 0 ? "+" : ""}${Math.round(q0.sales_yoy)}%`);
+                headline = parts.join(" · ");
+              }
+              const headlineColor = (q0.eps_yoy ?? 0) > 0 && (q0.sales_yoy ?? 0) > 0 ? "#4a9a6a" : (q0.eps_yoy ?? 0) < 0 && (q0.sales_yoy ?? 0) < 0 ? "#a05050" : "#585868";
+
+              return (
+                <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                  style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
+                    background: isActive ? "#fbbf2420" : "transparent" }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                  {/* Score bar + Ticker */}
+                  <td style={{ padding: "3px 4px 3px 0", borderLeft: `2px solid ${scoreColor}`, paddingLeft: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 11, color: isActive ? "#fbbf24" : isPast ? "#787888" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
+                    {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700, marginLeft: 2 }}>EP</span>}
+                  </td>
+                  {/* Grade */}
+                  <td style={{ padding: "2px 3px", textAlign: "center" }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: gradeColor }}>{s.grade}</span>
+                  </td>
+                  {/* EP Score */}
+                  <td style={{ padding: "2px 3px", textAlign: "right", fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: scoreColor }}>
+                    {s._epsScore ?? "—"}
+                  </td>
+                  {/* Chg% */}
+                  <td style={{ padding: "2px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10, fontWeight: 700, color: chgColor }}>
+                    {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                  </td>
+                  {/* MCap */}
+                  <td style={{ padding: "2px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 9, color: "#585868" }}>
+                    {s.market_cap || "—"}
+                  </td>
+                  {/* Headline */}
+                  <td style={{ padding: "2px 6px", fontSize: 9, color: headlineColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}
+                    title={`${s.company || s.ticker} · ${headline} · RS:${s.rs_rank} 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.themes?.[0]?.theme || ""}`}>
+                    {headline}
+                  </td>
+                </tr>
+              );
+            };
+
+            const renderSection = (label, labelColor, items) => {
+              if (items.length === 0) return null;
+              const { gainers, losers } = splitGainLoss(items);
+              return (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: labelColor, padding: "2px 6px", background: `${labelColor}10`,
+                    borderBottom: `1px solid ${labelColor}30`, display: "flex", alignItems: "center", gap: 4 }}>
+                    {label} <span style={{ fontWeight: 400, color: "#505060" }}>{items.length}</span>
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                    <colgroup>
+                      <col style={{ width: 58 }} />
+                      <col style={{ width: 24 }} />
+                      <col style={{ width: 26 }} />
+                      <col style={{ width: 48 }} />
+                      <col style={{ width: 44 }} />
+                      <col />
+                    </colgroup>
+                    <tbody>
+                      {isPast && gainers.length > 0 && losers.length > 0 && (
+                        <tr><td colSpan={6} style={{ fontSize: 8, color: "#2bb886", padding: "2px 6px", background: "#2bb88608", fontWeight: 600 }}>▲ Gainers</td></tr>
+                      )}
+                      {(isPast ? gainers : items).map(renderRow)}
+                      {isPast && losers.length > 0 && (
+                        <>
+                          <tr><td colSpan={6} style={{ fontSize: 8, color: "#f87171", padding: "2px 6px", background: "#f8717108", fontWeight: 600 }}>▼ Losers</td></tr>
+                          {losers.map(renderRow)}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            };
+
+            // Collapsible day
+            const dayCollapsed = !isToday && !isTomorrow && collapsedWeeks.has(day.dateKey);
             return (
-              <div key={day.dateKey} style={{ marginBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px",
-                  background: isToday ? "#fbbf2415" : "#1a1a25", borderRadius: "3px 3px 0 0", border: "1px solid #fbbf2425", borderBottom: "none" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: isToday ? "#fbbf24" : "#9090a0" }}>
-                    {day.dayLabel}{isToday ? " ★ Today" : " — Tomorrow"}
+              <div key={day.dateKey} style={{ marginBottom: 6 }}>
+                {/* Day header */}
+                <div onClick={() => { if (!isToday && !isTomorrow) toggleWeek(day.dateKey); }}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px",
+                    background: isToday ? "#fbbf2412" : isTomorrow ? "#fbbf2408" : isPast ? "#f8717106" : "#1a1a24",
+                    borderRadius: dayCollapsed ? 3 : "3px 3px 0 0",
+                    border: `1px solid ${isToday ? "#fbbf2430" : isTomorrow ? "#fbbf2420" : "#222232"}`,
+                    borderBottom: dayCollapsed ? undefined : "none",
+                    cursor: (!isToday && !isTomorrow) ? "pointer" : "default", userSelect: "none" }}>
+                  {(!isToday && !isTomorrow) && <span style={{ fontSize: 8, color: "#585868" }}>{dayCollapsed ? "▸" : "▾"}</span>}
+                  <span style={{ fontSize: 11, fontWeight: 700,
+                    color: isToday ? "#fbbf24" : isTomorrow ? "#c8a830" : isPast ? "#787888" : "#9090a0" }}>
+                    {day.dayLabel}{isToday ? " — Today" : isTomorrow ? " — Tomorrow" : ""}
                   </span>
-                  <span style={{ fontSize: 9, color: "#505060" }}>{day.items.length}</span>
+                  <span style={{ fontSize: 9, color: "#505060" }}>
+                    {bmo.length > 0 && <span>BMO:{bmo.length}</span>}
+                    {bmo.length > 0 && amc.length > 0 && <span style={{ margin: "0 3px", color: "#2a2a3a" }}>·</span>}
+                    {amc.length > 0 && <span>AMC:{amc.length}</span>}
+                  </span>
+                  {isPast && (() => {
+                    const allItems = [...bmo, ...amc];
+                    const avgChg = allItems.length > 0 ? allItems.reduce((s, x) => s + (x.change_pct ?? 0), 0) / allItems.length : 0;
+                    const gCount = allItems.filter(x => (x.change_pct ?? 0) > 0).length;
+                    return <span style={{ fontSize: 8, color: avgChg >= 0 ? "#4a9a6a" : "#a05050", marginLeft: "auto" }}>
+                      {gCount}↑ {allItems.length - gCount}↓ avg {avgChg > 0 ? "+" : ""}{avgChg.toFixed(1)}%
+                    </span>;
+                  })()}
                 </div>
-                <div style={{ display: "flex", gap: 2, padding: "4px 8px 6px", border: "1px solid #fbbf2418", borderTop: "none", borderRadius: "0 0 3px 3px" }}>
-                  {bucketMeta.map(([label, headerBg, headerFg, bodyBg]) => {
-                    const items = gradeBuckets[label];
-                    return (
-                      <div key={label} style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ background: headerBg, color: headerFg, textAlign: "center", padding: "1px 0",
-                          borderRadius: "3px 3px 0 0", fontSize: 10, fontWeight: 700 }}>
-                          {label}{items.length > 0 && <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 9 }}> {items.length}</span>}
-                        </div>
-                        <div style={{ background: bodyBg, borderRadius: "0 0 3px 3px", minHeight: 24 }}>
-                          {items.map(s => {
-                            const isActive = s.ticker === activeTicker;
-                            const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
-                            const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
-                            const timing = String(s.earnings_display || s.earnings_date || "");
-                            const isBMO = /BMO|8:30.*AM/i.test(timing);
-                            const isAMC = /AMC|4:30.*PM/i.test(timing);
-                            return (
-                              <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                                title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · ${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
-                                style={{ display: "flex", alignItems: "center", gap: 3,
-                                  padding: "2px 2px", cursor: "pointer", fontSize: 11, fontFamily: "monospace",
-                                  background: isActive ? "#fbbf2430" : "transparent",
-                                  borderLeft: `2px solid ${scoreColor}`,
-                                  outline: isActive ? "1px solid #fbbf24" : "none" }}
-                                onMouseEnter={e => { e.currentTarget.style.background = "#fbbf2418"; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2430" : "transparent"; }}>
-                                <span style={{ fontWeight: 600, color: isActive ? "#fbbf24" : "#c8c8d4", flex: 1, textAlign: "center" }}>{s.ticker}</span>
-                                {s._epsScore != null && <span style={{ fontSize: 8, fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
-                                {(isBMO || isAMC) && <span style={{ fontSize: 7, color: "#585868" }}>{isBMO ? "b" : "a"}</span>}
-                                {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Content — two-column: BMO | AMC */}
+                {!dayCollapsed && (
+                  <div style={{ display: "flex", gap: 0, border: `1px solid ${isToday ? "#fbbf2420" : isTomorrow ? "#fbbf2415" : "#222232"}`,
+                    borderRadius: "0 0 3px 3px", overflow: "hidden" }}>
+                    {renderSection("Pre-Market", "#60a5fa", bmo)}
+                    {(bmo.length > 0 && amc.length > 0) && <div style={{ width: 1, background: "#252535" }} />}
+                    {renderSection("After Hours", "#c084fc", amc)}
+                  </div>
+                )}
               </div>
             );
           });
         })()}
-
-        {/* Full calendar mode */}
-        {!epTodayOnly && earningsCalendar.map(week => {
-          const isCollapsed = collapsedWeeks.has(week.weekKey);
-          const totalStocks = week.days.reduce((sum, d) => sum + d.items.length, 0);
-          return (
-            <div key={week.weekKey} style={{ marginBottom: 2 }}>
-              {/* Week header */}
-              <div onClick={() => toggleWeek(week.weekKey)}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", cursor: "pointer", userSelect: "none",
-                  background: week.isCurrent ? "#fbbf2410" : "transparent",
-                  borderRadius: isCollapsed ? 3 : "3px 3px 0 0", border: `1px solid ${week.isCurrent ? "#fbbf2425" : "#222232"}` }}>
-                <span style={{ fontSize: 9, color: "#585868" }}>{isCollapsed ? "▸" : "▾"}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: week.isCurrent ? "#fbbf24" : week.isPast ? "#686878" : "#9090a0" }}>
-                  {week.weekKey}{week.isCurrent ? " ← This Week" : ""}
-                </span>
-                <span style={{ fontSize: 9, color: "#505060" }}>{totalStocks}</span>
-              </div>
-
-              {/* Days */}
-              {!isCollapsed && (
-                <div style={{ border: `1px solid ${week.isCurrent ? "#fbbf2418" : "#222232"}`, borderTop: "none", borderRadius: "0 0 3px 3px" }}>
-                  {week.days.map(day => {
-                    const isToday = day.days === 0;
-                    const isPastDay = day.days < 0;
-                    // Group items into grade buckets
-                    const gradeBuckets = { A: [], B: [], C: [], D: [] };
-                    day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).forEach(s => {
-                      const g = (s.grade || "")[0];
-                      if (g === "A") gradeBuckets.A.push(s);
-                      else if (g === "B") gradeBuckets.B.push(s);
-                      else if (g === "C") gradeBuckets.C.push(s);
-                      else gradeBuckets.D.push(s);
-                    });
-                    const bucketMeta = [
-                      ["A", "#1a3a25", "#2bb886", "#2bb88618"],
-                      ["B", "#1a2a3a", "#60a5fa", "#60a5fa18"],
-                      ["C", "#2a2a20", "#fbbf24", "#fbbf2418"],
-                      ["D", "#2a2024", "#9090a0", "#9090a015"],
-                    ];
-                    return (
-                      <div key={day.dateKey} style={{ borderBottom: "1px solid #1a1a25" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 8px",
-                          background: isToday ? "#fbbf2415" : "transparent" }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, minWidth: 66,
-                            color: isToday ? "#fbbf24" : isPastDay ? "#585868" : "#9090a0" }}>
-                            {day.dayLabel}{isToday ? " ★" : ""}
-                          </span>
-                          <span style={{ fontSize: 8, color: "#404050" }}>{day.items.length}</span>
-                        </div>
-                        {/* Grade bucket columns */}
-                        <div style={{ display: "flex", gap: 2, padding: "2px 8px 4px" }}>
-                          {bucketMeta.map(([label, headerBg, headerFg, bodyBg]) => {
-                            const items = gradeBuckets[label];
-                            return (
-                              <div key={label} style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ background: headerBg, color: headerFg, textAlign: "center", padding: "1px 0",
-                                  borderRadius: "3px 3px 0 0", fontSize: 10, fontWeight: 700 }}>
-                                  {label}{items.length > 0 && <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 9 }}> {items.length}</span>}
-                                </div>
-                                <div style={{ background: bodyBg, borderRadius: "0 0 3px 3px", minHeight: 20 }}>
-                                  {items.map(s => {
-                                    const isActive = s.ticker === activeTicker;
-                                    const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
-                                    const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
-                                    const chg = isPastDay ? s.change_pct : null;
-                                    const timing = String(s.earnings_display || s.earnings_date || "");
-                                    const isBMO = /BMO|8:30.*AM/i.test(timing);
-                                    const isAMC = /AMC|4:30.*PM/i.test(timing);
-                                    return (
-                                      <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                                        title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · ${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
-                                        style={{ display: "flex", alignItems: "center", gap: 3,
-                                          padding: "1px 2px", cursor: "pointer", fontSize: 10, fontFamily: "monospace",
-                                          background: isActive ? "#fbbf2430" : "transparent",
-                                          borderLeft: `2px solid ${scoreColor}`,
-                                          outline: isActive ? "1px solid #fbbf24" : "none" }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = "#fbbf2418"; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2430" : "transparent"; }}>
-                                        <span style={{ fontWeight: 600, color: isActive ? "#fbbf24" : isPastDay ? "#686878" : "#c8c8d4", flex: 1, textAlign: "center" }}>{s.ticker}</span>
-                                        {s._epsScore != null && <span style={{ fontSize: 8, fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
-                                        {!isPastDay && (isBMO || isAMC) && <span style={{ fontSize: 7, color: "#585868" }}>{isBMO ? "b" : "a"}</span>}
-                                        {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
-                                        {chg != null && <span style={{ fontSize: 8, fontWeight: 600,
-                                          color: chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878" }}>
-                                          {chg > 0 ? "+" : ""}{chg.toFixed(1)}%</span>}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {upcomingEarnings.length === 0 && (
-          <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No earnings in the ±14 day window for EP≥{epMinScore}.</div>
-        )}
       </div>)}
 
       {/* ── EP Signals Section ── */}
