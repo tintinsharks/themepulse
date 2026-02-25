@@ -1971,6 +1971,21 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   {week.days.map(day => {
                     const isToday = day.days === 0;
                     const isPastDay = day.days < 0;
+                    // Group items into grade buckets
+                    const gradeBuckets = { A: [], B: [], C: [], D: [] };
+                    day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).forEach(s => {
+                      const g = (s.grade || "")[0];
+                      if (g === "A") gradeBuckets.A.push(s);
+                      else if (g === "B") gradeBuckets.B.push(s);
+                      else if (g === "C") gradeBuckets.C.push(s);
+                      else gradeBuckets.D.push(s);
+                    });
+                    const bucketMeta = [
+                      ["A", "#2E8B3C", "#d4d4e0"],
+                      ["B", "#5CB85C", "#d4d4e0"],
+                      ["C", "#B0E8B0", "#2a2a38"],
+                      ["D", "#e5e5e5", "#2a2a38"],
+                    ];
                     return (
                       <div key={day.dateKey} style={{ borderBottom: "1px solid #1a1a25" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 8px",
@@ -1981,25 +1996,37 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           </span>
                           <span style={{ fontSize: 8, color: "#404050" }}>{day.items.length}</span>
                         </div>
-                        {/* Ticker chips for this day */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "2px 8px 4px" }}>
-                          {day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).map(s => {
-                            const isActive = s.ticker === activeTicker;
-                            const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#787888";
-                            const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
-                            const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
+                        {/* Grade bucket columns */}
+                        <div style={{ display: "flex", gap: 2, padding: "2px 8px 4px" }}>
+                          {bucketMeta.map(([label, headerBg, headerFg]) => {
+                            const items = gradeBuckets[label];
                             return (
-                              <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                                title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · Grade:${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
-                                style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
-                                  background: isActive ? "#fbbf2425" : hasEP ? "#f9731612" : "transparent",
-                                  border: `1px solid ${isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#252535"}` }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#fbbf24"; e.currentTarget.style.background = "#fbbf2412"; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#252535"; e.currentTarget.style.background = isActive ? "#fbbf2425" : hasEP ? "#f9731612" : "transparent"; }}>
-                                <span style={{ fontWeight: 600, fontSize: 11, color: isActive ? "#fbbf24" : isPastDay ? "#787888" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
-                                {s._epsScore != null && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
-                                <span style={{ fontSize: 7, color: gradeColor, fontWeight: 700 }}>{s.grade}</span>
-                                {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
+                              <div key={label} style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ background: headerBg, color: headerFg, textAlign: "center", padding: "1px 0",
+                                  borderRadius: "3px 3px 0 0", fontSize: 10, fontWeight: 700 }}>
+                                  {label}{items.length > 0 && <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 9 }}> {items.length}</span>}
+                                </div>
+                                <div style={{ background: headerBg + "15", borderRadius: "0 0 3px 3px", minHeight: 20 }}>
+                                  {items.map(s => {
+                                    const isActive = s.ticker === activeTicker;
+                                    const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
+                                    const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
+                                    return (
+                                      <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                                        title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · ${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+                                          padding: "1px 2px", cursor: "pointer", fontSize: 10, fontFamily: "monospace",
+                                          background: isActive ? "#fbbf2430" : "transparent",
+                                          outline: isActive ? "1px solid #fbbf24" : "none" }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = "#fbbf2418"; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2430" : "transparent"; }}>
+                                        <span style={{ fontWeight: 600, color: isActive ? "#fbbf24" : isPastDay ? "#686878" : "#c8c8d4" }}>{s.ticker}</span>
+                                        {s._epsScore != null && <span style={{ fontSize: 8, fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
+                                        {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             );
                           })}
