@@ -856,67 +856,140 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 // When eps_qq/sales_qq available (yfinance/FMP later), they boost as primary signals
 function computeEPSScore(s) {
   if (!s) return { score: null, factors: [] };
-  let score = 0;
   const factors = [];
-  let hasAnyData = false;
+  let total = 0;
+  let maxPossible = 0;
 
-  // ── Current Year EPS (primary available signal) — Zanger: 40%+ minimum ──
-  const epsThisY = s.eps_this_y;
-  if (epsThisY != null) {
-    hasAnyData = true;
-    if (epsThisY >= 100) { score += 35; factors.push("C↑↑"); }       // Monster growth
-    else if (epsThisY >= 40) { score += 25; factors.push("C↑"); }    // Zanger minimum
-    else if (epsThisY >= 25) { score += 15; }                         // O'Neil A minimum
-    else if (epsThisY >= 10) { score += 5; }
-    else if (epsThisY < 0) { score -= 10; factors.push("C↓"); }
+  const qs = s.quarters || [];
+  const q0 = qs[0] || {};  // most recent quarter
+  const q1 = qs[1] || {};  // quarter before
+  const q2 = qs[2] || {};  // two quarters back
+
+  // ══════ 1. EPS Growth — Last 2 Quarters (0–25 pts) ══════
+  // Average of last 2Q EPS YoY — the core CANSLIM signal
+  const eps0 = q0.eps_yoy;
+  const eps1 = q1.eps_yoy;
+  if (eps0 != null || eps1 != null) {
+    maxPossible += 25;
+    const vals = [eps0, eps1].filter(v => v != null);
+    const avgEps = vals.reduce((a, b) => a + b, 0) / vals.length;
+    if (avgEps >= 100) { total += 25; factors.push("E" + Math.round(avgEps)); }
+    else if (avgEps >= 50) { total += 20; factors.push("E" + Math.round(avgEps)); }
+    else if (avgEps >= 25) { total += 15; factors.push("E" + Math.round(avgEps)); }
+    else if (avgEps >= 10) { total += 8; }
+    else if (avgEps > 0) { total += 3; }
+    else { total -= 5; factors.push("E↓"); }
   }
 
-  // ── Long-term EPS (confirms sustained growth) ──
-  const eps5Y = s.eps_past_5y;
-  if (eps5Y != null) {
-    hasAnyData = true;
-    if (eps5Y >= 40) { score += 20; factors.push("A↑"); }
-    else if (eps5Y >= 25) { score += 12; }
-    else if (eps5Y >= 10) { score += 5; }
-    else if (eps5Y < 0) { score -= 8; factors.push("A↓"); }
+  // ══════ 2. Sales Growth — Last 2 Quarters (0–25 pts) ══════
+  const sal0 = q0.sales_yoy;
+  const sal1 = q1.sales_yoy;
+  if (sal0 != null || sal1 != null) {
+    maxPossible += 25;
+    const vals = [sal0, sal1].filter(v => v != null);
+    const avgSales = vals.reduce((a, b) => a + b, 0) / vals.length;
+    if (avgSales >= 40) { total += 25; factors.push("S" + Math.round(avgSales)); }
+    else if (avgSales >= 25) { total += 20; factors.push("S" + Math.round(avgSales)); }
+    else if (avgSales >= 15) { total += 12; factors.push("S" + Math.round(avgSales)); }
+    else if (avgSales >= 5) { total += 6; }
+    else if (avgSales > 0) { total += 2; }
+    else { total -= 5; factors.push("S↓"); }
   }
 
-  // ── Sales growth (proves revenue-driven, not cost-cutting) ──
-  const salesAnn = s.sales_past_5y;
-  const salesQQ = s.sales_yoy ?? s.sales_qq;  // sales_yoy = latest quarter YoY (92% coverage)
-  if (salesQQ != null) {
-    hasAnyData = true;
-    if (salesQQ >= 40) { score += 20; factors.push("S↑↑"); }
-    else if (salesQQ >= 25) { score += 15; factors.push("S↑"); }
-    else if (salesQQ >= 10) { score += 8; }
-    else if (salesQQ < -10) { score -= 5; }
-  } else if (salesAnn != null) {
-    hasAnyData = true;
-    if (salesAnn >= 25) { score += 15; factors.push("S↑"); }
-    else if (salesAnn >= 10) { score += 8; }
-    else if (salesAnn < 0) { score -= 5; factors.push("S↓"); }
+  // ══════ 3. EPS Acceleration (0–20 pts) ══════
+  // Is EPS growth speeding up? Q0 > Q1 > Q2
+  if (eps0 != null && eps1 != null) {
+    maxPossible += 20;
+    if (eps0 > eps1 && eps0 > 0) {
+      const accelDelta = eps0 - eps1;
+      if (eps1 > 0 && q2.eps_yoy != null && eps1 > q2.eps_yoy) {
+        // Triple acceleration: Q0 > Q1 > Q2 — strongest signal
+        total += 20; factors.push("EA▲▲");
+      } else if (accelDelta >= 20) {
+        total += 15; factors.push("EA▲");
+      } else {
+        total += 10; factors.push("EA↑");
+      }
+    } else if (eps0 != null && eps1 != null && eps0 < eps1 && eps0 > 0) {
+      // Decelerating but still positive
+      total += 2;
+    } else if (eps0 != null && eps0 < 0) {
+      total -= 5; factors.push("EA↓");
+    }
   }
 
-  // ── Quarterly EPS Q/Q boost — eps_yoy = latest quarter EPS YoY (96% coverage) ──
-  const epsQQ = s.eps_yoy ?? s.eps_qq;
-  if (epsQQ != null) {
-    hasAnyData = true;
-    if (epsQQ >= 100) { score += 15; factors.push("QQ↑↑"); }
-    else if (epsQQ >= 40) { score += 10; factors.push("QQ↑"); }
-    else if (epsQQ < 0) { score -= 5; }
+  // ══════ 4. Sales Acceleration (0–15 pts) ══════
+  if (sal0 != null && sal1 != null) {
+    maxPossible += 15;
+    if (sal0 > sal1 && sal0 > 0) {
+      const accelDelta = sal0 - sal1;
+      if (sal1 > 0 && q2.sales_yoy != null && sal1 > q2.sales_yoy) {
+        total += 15; factors.push("SA▲▲");
+      } else if (accelDelta >= 10) {
+        total += 12; factors.push("SA▲");
+      } else {
+        total += 8; factors.push("SA↑");
+      }
+    } else if (sal0 < sal1 && sal0 > 0) {
+      total += 2;
+    } else if (sal0 < 0) {
+      total -= 3; factors.push("SA↓");
+    }
   }
 
-  // ── Acceleration: this year > 5-year avg = growth speeding up ──
-  if (epsThisY != null && eps5Y != null && epsThisY > eps5Y && epsThisY >= 25) {
-    score += 10; factors.push("Acc");
+  // ══════ 5. Margin Expansion (0–15 pts) ══════
+  // Compute net margin proxy from EPS * implied_shares / revenue
+  const computeMargin = (q, mcapRaw, price) => {
+    if (!q.eps || !q.revenue || !mcapRaw || !price || q.revenue <= 0) return null;
+    const shares = mcapRaw / price;
+    return (q.eps * shares / q.revenue) * 100;
+  };
+  const m0 = computeMargin(q0, s.market_cap_raw, s.price);
+  const m1 = computeMargin(q1, s.market_cap_raw, s.price);
+  const m2 = computeMargin(q2, s.market_cap_raw, s.price);
+  if (m0 != null && m1 != null) {
+    maxPossible += 15;
+    const mDelta = m0 - m1;
+    if (mDelta > 3 && m0 > 0) {
+      // Strong margin expansion
+      if (m2 != null && m1 > m2) {
+        total += 15; factors.push("M▲▲");  // Accelerating margins
+      } else {
+        total += 12; factors.push("M▲");
+      }
+    } else if (mDelta > 0 && m0 > 0) {
+      total += 6; factors.push("M↑");
+    } else if (mDelta < -3) {
+      total -= 3; factors.push("M↓");
+    }
   }
 
-  if (!hasAnyData) return { score: null, factors: [] };
+  if (maxPossible === 0) {
+    // Fallback: use annual data if no quarterly data
+    const epsThisY = s.eps_this_y;
+    const salesQQ = s.sales_yoy ?? s.sales_qq;
+    if (epsThisY == null && salesQQ == null) return { score: null, factors: [] };
+    let fallback = 0;
+    if (epsThisY != null) {
+      if (epsThisY >= 40) { fallback += 30; factors.push("C↑"); }
+      else if (epsThisY >= 25) { fallback += 20; }
+      else if (epsThisY >= 10) { fallback += 10; }
+    }
+    if (salesQQ != null) {
+      if (salesQQ >= 25) { fallback += 20; factors.push("S↑"); }
+      else if (salesQQ >= 10) { fallback += 10; }
+    }
+    return { score: Math.min(49, fallback), factors };  // Cap at 49 — not enough data for conviction
+  }
 
-  // Normalize: max realistic score ~100 (35+20+15+15+10=95 best case with all data)
-  const normalized = Math.min(100, Math.max(0, score));
-
-  return { score: normalized, factors };
+  // Normalize to 0–99 scale based on points earned vs possible
+  // Apply data confidence: need at least 3 of 5 components for full score
+  const componentCount = [eps0 != null || eps1 != null, sal0 != null || sal1 != null,
+    eps0 != null && eps1 != null, sal0 != null && sal1 != null, m0 != null && m1 != null]
+    .filter(Boolean).length;
+  const confidenceCap = componentCount >= 4 ? 99 : componentCount >= 3 ? 85 : componentCount >= 2 ? 65 : 45;
+  const normalized = Math.round((Math.max(0, total) / maxPossible) * 99);
+  return { score: Math.min(confidenceCap, normalized), factors };
 }
 
 const _qualityCache = new WeakMap();
@@ -1615,6 +1688,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [showLegend, setShowLegend] = useState(false);
   const [epSection, setEpSection] = useState("upcoming"); // "upcoming" | "signals"
   const [earningsMinRS, setEarningsMinRS] = useState(50);
+  const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
+  const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
   const [liveEPs, setLiveEPs] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
@@ -1774,12 +1849,24 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         } catch {}
       }
       if (days != null && days >= -14 && days <= 14 && (s.rs_rank ?? 0) >= earningsMinRS) {
+        // Biotech filter
+        if (epNoBio && (String(s.industry || "") === "Biotechnology" || String(s.industry || "").includes("Drug Manufacturer"))) return;
+        // Market cap filters
+        const mcap = s.market_cap_raw || 0;
+        if (epFilters.has("S+") && mcap >= 2_000_000_000) return;
+        if (epFilters.has("M+") && (mcap < 2_000_000_000 || mcap >= 10_000_000_000)) return;
+        if (epFilters.has("L+") && mcap < 10_000_000_000) return;
+        // MF filters (top/bottom 10% — use threshold ±30 as proxy)
+        if (epFilters.has("MF+") && !(s.mf != null && s.mf >= 30)) return;
+        if (epFilters.has("MF-") && !(s.mf != null && s.mf <= -30)) return;
+        // 9M filter: today vol ≥8.9M but avg vol <8.9M
+        if (epFilters.has("9M") && !((s.volume || 0) >= 8_900_000 && (s.avg_volume_raw || Infinity) < 8_900_000)) return;
         const epsScore = computeEPSScore(s);
         results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
       }
     });
-    return results.sort((a, b) => a._days - b._days || (b.rs_rank ?? 0) - (a.rs_rank ?? 0));
-  }, [stockMap, earningsMinRS]);
+    return results.sort((a, b) => a._days - b._days || (b._epsScore ?? -1) - (a._epsScore ?? -1));
+  }, [stockMap, earningsMinRS, epNoBio, epFilters]);
 
   // Group upcoming by week and day (calendar view)
   const earningsCalendar = useMemo(() => {
@@ -1832,12 +1919,30 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
       {/* ── Upcoming Earnings Section — Calendar View ── */}
       {epSection === "upcoming" && (<div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
           <span style={{ color: "#686878", fontSize: 10 }}>RS≥</span>
           {[0, 50, 70, 80].map(v => (
             <button key={v} onClick={() => setEarningsMinRS(v)} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
               border: earningsMinRS === v ? "1px solid #fbbf24" : "1px solid #3a3a4a",
               background: earningsMinRS === v ? "#fbbf2420" : "transparent", color: earningsMinRS === v ? "#fbbf24" : "#787888" }}>{v || "All"}</button>
+          ))}
+          <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
+          {/* NoBio toggle */}
+          <button onClick={() => setEpNoBio(!epNoBio)} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
+            border: epNoBio ? "1px solid #f87171" : "1px solid #3a3a4a",
+            background: epNoBio ? "#f8717120" : "transparent", color: epNoBio ? "#f87171" : "#787888" }}>NoBio</button>
+          <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
+          {/* Tag-style filters */}
+          {[["MF+", "#2bb886"], ["MF-", "#f87171"], ["S+", "#60a5fa"], ["M+", "#a78bfa"], ["L+", "#fbbf24"], ["9M", "#e879f9"]].map(([tag, color]) => (
+            <button key={tag} onClick={() => setEpFilters(prev => {
+              const next = new Set(prev);
+              // S+/M+/L+ are mutually exclusive
+              if (["S+","M+","L+"].includes(tag)) { next.delete("S+"); next.delete("M+"); next.delete("L+"); }
+              if (next.has(tag)) next.delete(tag); else next.add(tag);
+              return next;
+            })} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
+              border: epFilters.has(tag) ? `1px solid ${color}` : "1px solid #3a3a4a",
+              background: epFilters.has(tag) ? `${color}20` : "transparent", color: epFilters.has(tag) ? color : "#787888" }}>{tag === "MF-" ? "MF−" : tag}</button>
           ))}
           <span style={{ color: "#505060", fontSize: 9, marginLeft: "auto" }}>{upcomingEarnings.length} reports · ±2 weeks</span>
         </div>
@@ -1878,21 +1983,24 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         </div>
                         {/* Ticker chips for this day */}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 3, padding: "3px 8px 6px" }}>
-                          {day.items.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0)).map(s => {
+                          {day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).map(s => {
                             const isActive = s.ticker === activeTicker;
                             const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#787888";
                             const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
                             return (
                               <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                                title={`${s.company || s.ticker} | Grade:${s.grade} RS:${s.rs_rank} EPS:${s._epsScore ?? "—"} 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} MCap:${s.market_cap || "—"} ${s.themes?.[0]?.theme || ""}`}
+                                title={`${s.company || s.ticker} | EP Score:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} | Grade:${s.grade} RS:${s.rs_rank} | 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} MCap:${s.market_cap || ""} ${s.themes?.[0]?.theme || ""}`}
                                 style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, cursor: "pointer",
                                   background: isActive ? "#fbbf2425" : hasEP ? "#f9731618" : isPastDay ? "#1a1a24" : "#161622",
                                   border: `1px solid ${isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#2a2a38"}` }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#fbbf24"; e.currentTarget.style.background = "#fbbf2415"; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#2a2a38"; e.currentTarget.style.background = isActive ? "#fbbf2425" : hasEP ? "#f9731618" : isPastDay ? "#1a1a24" : "#161622"; }}>
                                 <span style={{ fontWeight: 600, fontSize: 11, color: isActive ? "#fbbf24" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
+                                {s._epsScore != null && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, padding: "0 2px", borderRadius: 2,
+                                  background: s._epsScore >= 70 ? "#2bb88625" : s._epsScore >= 40 ? "#fbbf2418" : "transparent",
+                                  color: s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868" }}>{s._epsScore}</span>}
                                 <span style={{ fontSize: 8, color: gradeColor, fontWeight: 700 }}>{s.grade}</span>
-                                <span style={{ fontSize: 8, color: s.rs_rank >= 80 ? "#2bb886" : s.rs_rank >= 50 ? "#9090a0" : "#686878", fontFamily: "monospace" }}>{s.rs_rank}</span>
+                                {s._epsFactors?.length > 0 && <span style={{ fontSize: 7, color: "#787888", fontFamily: "monospace" }}>{s._epsFactors.slice(0, 3).join("·")}</span>}
                                 {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
                               </div>
                             );
