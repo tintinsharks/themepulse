@@ -1981,10 +1981,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       else gradeBuckets.D.push(s);
                     });
                     const bucketMeta = [
-                      ["A", "#2E8B3C", "#d4d4e0"],
-                      ["B", "#5CB85C", "#d4d4e0"],
-                      ["C", "#B0E8B0", "#2a2a38"],
-                      ["D", "#e5e5e5", "#2a2a38"],
+                      ["A", "#1a3a25", "#2bb886", "#2bb88618"],
+                      ["B", "#1a2a3a", "#60a5fa", "#60a5fa18"],
+                      ["C", "#2a2a20", "#fbbf24", "#fbbf2418"],
+                      ["D", "#2a2024", "#9090a0", "#9090a015"],
                     ];
                     return (
                       <div key={day.dateKey} style={{ borderBottom: "1px solid #1a1a25" }}>
@@ -1998,7 +1998,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         </div>
                         {/* Grade bucket columns */}
                         <div style={{ display: "flex", gap: 2, padding: "2px 8px 4px" }}>
-                          {bucketMeta.map(([label, headerBg, headerFg]) => {
+                          {bucketMeta.map(([label, headerBg, headerFg, bodyBg]) => {
                             const items = gradeBuckets[label];
                             return (
                               <div key={label} style={{ flex: 1, minWidth: 0 }}>
@@ -2006,7 +2006,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                                   borderRadius: "3px 3px 0 0", fontSize: 10, fontWeight: 700 }}>
                                   {label}{items.length > 0 && <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 9 }}> {items.length}</span>}
                                 </div>
-                                <div style={{ background: headerBg + "15", borderRadius: "0 0 3px 3px", minHeight: 20 }}>
+                                <div style={{ background: bodyBg, borderRadius: "0 0 3px 3px", minHeight: 20 }}>
                                   {items.map(s => {
                                     const isActive = s.ticker === activeTicker;
                                     const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
