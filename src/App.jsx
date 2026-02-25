@@ -1960,68 +1960,72 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
       {/* ── Earnings Results Section — SeekingAlpha style ── */}
       {epSection === "results" && (() => {
-        // Get stocks that already reported (past days with er data)
+        // Get stocks that already reported with er data
         const reported = upcomingEarnings
           .filter(s => s.er && s.er.eps != null)
           .map(s => {
             const er = s.er;
             const chg = s.change_pct;
-            return { ...s, _chg: chg ?? 0, _er: er };
+            // Build SeekingAlpha-style headline
+            const parts = [];
+            if (er.eps != null) {
+              const epsStr = `${s.company || s.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
+              if (er.eps_estimated != null) {
+                const diff = er.eps - er.eps_estimated;
+                parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
+              } else {
+                parts.push(epsStr);
+              }
+            }
+            if (er.revenue != null) {
+              const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
+              if (er.revenue_estimated != null) {
+                const diff = er.revenue - er.revenue_estimated;
+                const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
+                parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
+              } else {
+                parts.push(`revenue of ${revStr}`);
+              }
+            }
+            const headline = parts.join(", ");
+            return { ...s, _chg: chg ?? 0, _er: er, _headline: headline };
           });
         // Split into gainers and losers
         const gainers = reported.filter(s => s._chg > 0).sort((a, b) => b._chg - a._chg);
         const losers = reported.filter(s => s._chg <= 0).sort((a, b) => a._chg - b._chg);
 
-        const fmtM = (v) => {
-          if (v == null) return "—";
-          const num = typeof v === "number" ? v : parseFloat(v);
-          if (isNaN(num)) return "—";
-          if (Math.abs(num) >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-          if (Math.abs(num) >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-          return `$${num.toLocaleString()}`;
-        };
-        const fmtEPS = (v) => {
-          if (v == null) return "—";
-          return `$${Number(v).toFixed(2)}`;
-        };
-
         const renderResultsTable = (title, titleColor, items) => {
           if (items.length === 0) return null;
           return (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: titleColor, padding: "6px 10px",
-                background: `${titleColor}10`, borderRadius: "4px 4px 0 0", borderBottom: `1px solid ${titleColor}25` }}>
-                {title} ({items.length})
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: titleColor, padding: "8px 10px",
+                borderBottom: `2px solid ${titleColor}40` }}>
+                {title}
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#686878", fontWeight: 600, width: 62 }}>Change</th>
-                    <th style={{ padding: "4px 4px", textAlign: "right", color: "#686878", fontWeight: 600, width: 48 }}>Last</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#686878", fontWeight: 600, width: 56 }}>Symbol</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#686878", fontWeight: 600 }}>Name</th>
-                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontWeight: 600, width: 40 }}>EP</th>
-                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontWeight: 600, width: 45 }}>Grd</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#686878", fontWeight: 600, width: 130 }}>EPS</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#686878", fontWeight: 600, width: 150 }}>Revenue</th>
+                    {[["Change", "right", 90], ["Last", "right", 50], ["Symbol", "left", 60], ["Name", "left", null],
+                      ["Volume", "right", 80], ["SeekingAlpha Headline", "left", null]].map(([label, align, w]) => (
+                      <th key={label} style={{ padding: "6px 8px", textAlign: align, color: "#686878", fontWeight: 600,
+                        fontSize: 10, width: w || undefined, fontFamily: "system-ui, -apple-system, sans-serif",
+                        borderBottom: "1px solid #3a3a4a" }}>{label}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(s => {
-                    const er = s._er;
                     const chg = s._chg;
-                    const chgAbs = s.price != null && chg != null ? (s.price * chg / (100 + chg)).toFixed(2) : null;
-                    const chgColor = chg >= 8 ? "#2bb886" : chg >= 3 ? "#4a9a6a" : chg > 0 ? "#5a8a5a" : chg <= -8 ? "#f87171" : chg <= -3 ? "#c06060" : chg < 0 ? "#a05050" : "#686878";
-                    const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#686878";
-                    const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#484858";
+                    const chgAbs = s.price != null && chg != null ? Math.abs(s.price * chg / (100 + chg)) : null;
+                    const chgColor = chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878";
                     const isActive = s.ticker === activeTicker;
-
-                    // EPS beat/miss
-                    const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps - er.eps_estimated : null;
-                    const epsBeatColor = epsBeat != null ? (epsBeat >= 0 ? "#2bb886" : "#f87171") : "#484858";
-                    // Revenue beat/miss
-                    const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue - er.revenue_estimated : null;
-                    const revBeatColor = revBeat != null ? (revBeat >= 0 ? "#2bb886" : "#f87171") : "#484858";
+                    const vol = s.volume || s.avg_volume_raw;
+                    const volStr = vol ? (vol >= 1e6 ? `${(vol/1e6).toFixed(1)}M` : vol.toLocaleString()) : "—";
+                    // Headline color: green if both beat, red if both miss
+                    const er = s._er;
+                    const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
+                    const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
+                    const headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false && revBeat === false ? "#f87171" : epsBeat ? "#4a9a6a" : "#c06060";
 
                     return (
                       <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
@@ -2030,63 +2034,33 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
                         {/* Change */}
-                        <td style={{ padding: "4px 6px", textAlign: "right" }}>
-                          <span style={{ color: chgColor, fontWeight: 700, fontSize: 11 }}>
-                            {chgAbs != null ? `${chg > 0 ? "+" : ""}${chgAbs}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
+                        <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                          <span style={{ color: chgColor, fontSize: 11 }}>
+                            {chgAbs != null ? `${chg > 0 ? "" : "-"}${chgAbs.toFixed(2)}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
                           </span>
                         </td>
                         {/* Last */}
-                        <td style={{ padding: "4px 4px", textAlign: "right", color: "#a8a8b8", fontSize: 10 }}>
+                        <td style={{ padding: "6px 6px", textAlign: "right", color: "#a8a8b8", fontSize: 11, fontFamily: "monospace" }}>
                           {s.price != null ? Number(s.price).toFixed(2) : "—"}
                         </td>
                         {/* Symbol */}
-                        <td style={{ padding: "4px 6px", fontWeight: 600, fontSize: 11,
-                          color: isActive ? "#fbbf24" : "#a8a8b8" }}>
+                        <td style={{ padding: "6px 8px", fontWeight: 600, fontSize: 11,
+                          color: isActive ? "#fbbf24" : "#a8a8b8", fontFamily: "monospace" }}>
                           {s.ticker}
                         </td>
                         {/* Name */}
-                        <td style={{ padding: "4px 6px", color: "#686878", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                        <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160,
+                          fontFamily: "system-ui, -apple-system, sans-serif" }}>
                           {s.company || "—"}
                         </td>
-                        {/* EP Score */}
-                        <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, color: scoreColor }}>
-                          {s._epsScore ?? "—"}
+                        {/* Volume */}
+                        <td style={{ padding: "6px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
+                          {volStr}
                         </td>
-                        {/* Grade */}
-                        <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, color: gradeColor }}>
-                          {s.grade || "—"}
-                        </td>
-                        {/* EPS: actual vs est, beat */}
-                        <td style={{ padding: "4px 6px", textAlign: "right" }}>
-                          {er.eps != null ? (
-                            <span>
-                              <span style={{ color: "#a8a8b8" }}>{fmtEPS(er.eps)}</span>
-                              {er.eps_estimated != null && (
-                                <span style={{ color: "#505060", fontSize: 9 }}> / {fmtEPS(er.eps_estimated)}</span>
-                              )}
-                              {epsBeat != null && (
-                                <span style={{ color: epsBeatColor, fontWeight: 700, fontSize: 9, marginLeft: 3 }}>
-                                  {epsBeat >= 0 ? "✓" : "✗"}{epsBeat >= 0 ? "+" : ""}{epsBeat.toFixed(2)}
-                                </span>
-                              )}
-                            </span>
-                          ) : <span style={{ color: "#3a3a4a" }}>—</span>}
-                        </td>
-                        {/* Revenue: actual vs est, beat */}
-                        <td style={{ padding: "4px 6px", textAlign: "right" }}>
-                          {er.revenue != null ? (
-                            <span>
-                              <span style={{ color: "#a8a8b8" }}>{fmtM(er.revenue)}</span>
-                              {er.revenue_estimated != null && (
-                                <span style={{ color: "#505060", fontSize: 9 }}> / {fmtM(er.revenue_estimated)}</span>
-                              )}
-                              {revBeat != null && (
-                                <span style={{ color: revBeatColor, fontWeight: 700, fontSize: 9, marginLeft: 3 }}>
-                                  {revBeat >= 0 ? "✓+" : "✗"}{fmtM(Math.abs(revBeat)).replace("$", "")}
-                                </span>
-                              )}
-                            </span>
-                          ) : <span style={{ color: "#3a3a4a" }}>—</span>}
+                        {/* Headline */}
+                        <td style={{ padding: "6px 8px", fontSize: 10, color: headlineColor, lineHeight: 1.4,
+                          fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                          {s._headline}
                         </td>
                       </tr>
                     );
