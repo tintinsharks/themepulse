@@ -1687,7 +1687,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [statusFilter, setStatusFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
   const [epSection, setEpSection] = useState("upcoming"); // "upcoming" | "signals"
-  const [earningsMinRS, setEarningsMinRS] = useState(50);
+  const [epMinScore, setEpMinScore] = useState(20);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
   const [liveEPs, setLiveEPs] = useState(null);
@@ -1848,7 +1848,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           }
         } catch {}
       }
-      if (days != null && days >= -14 && days <= 14 && (s.rs_rank ?? 0) >= earningsMinRS) {
+      if (days != null && days >= -14 && days <= 14) {
         // Biotech filter
         if (epNoBio && (String(s.industry || "") === "Biotechnology" || String(s.industry || "").includes("Drug Manufacturer"))) return;
         // Market cap filters
@@ -1862,11 +1862,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         // 9M filter: today vol ≥8.9M but avg vol <8.9M
         if (epFilters.has("9M") && !((s.volume || 0) >= 8_900_000 && (s.avg_volume_raw || Infinity) < 8_900_000)) return;
         const epsScore = computeEPSScore(s);
+        // EP score filter
+        if ((epsScore.score ?? 0) < epMinScore) return;
         results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
       }
     });
     return results.sort((a, b) => a._days - b._days || (b._epsScore ?? -1) - (a._epsScore ?? -1));
-  }, [stockMap, earningsMinRS, epNoBio, epFilters]);
+  }, [stockMap, epMinScore, epNoBio, epFilters]);
 
   // Group upcoming by week and day (calendar view)
   const earningsCalendar = useMemo(() => {
@@ -1925,11 +1927,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       {/* ── Upcoming Earnings Section — Calendar View ── */}
       {epSection === "upcoming" && (<div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
-          {[0, 50, 70, 80].map(v => (
-            <button key={v} onClick={() => setEarningsMinRS(v)} style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, cursor: "pointer",
-              border: earningsMinRS === v ? "1px solid #fbbf24" : "1px solid #2a2a3a",
-              background: earningsMinRS === v ? "#fbbf2420" : "transparent", color: earningsMinRS === v ? "#fbbf24" : "#585868" }}>{v ? `RS${v}` : "All"}</button>
-          ))}
+          <span style={{ fontSize: 9, color: "#fbbf24", fontFamily: "monospace", minWidth: 32 }}>EP≥{epMinScore}</span>
+          <input type="range" min={0} max={80} step={5} value={epMinScore} onChange={e => setEpMinScore(Number(e.target.value))}
+            style={{ width: 80, height: 3, accentColor: "#fbbf24", cursor: "pointer" }} />
           <span style={{ color: "#252535", margin: "0 1px" }}>│</span>
           <button onClick={() => setEpNoBio(!epNoBio)} style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, cursor: "pointer",
             border: epNoBio ? "1px solid #f87171" : "1px solid #2a2a3a",
@@ -2013,7 +2013,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           );
         })}
         {upcomingEarnings.length === 0 && (
-          <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No earnings in the ±14 day window for RS≥{earningsMinRS}.</div>
+          <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No earnings in the ±14 day window for EP≥{epMinScore}.</div>
         )}
       </div>)}
 
