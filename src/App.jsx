@@ -1551,7 +1551,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 600 }}>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
@@ -1686,8 +1686,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [maxDays, setMaxDays] = useState(60);
   const [statusFilter, setStatusFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
-  const [epSection, setEpSection] = useState("upcoming"); // "upcoming" | "signals"
-  const [epMinScore, setEpMinScore] = useState(20);
+  const [epSection, setEpSection] = useState("upcoming"); // "upcoming" | "results" | "signals"
+  const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
   const [epTodayOnly, setEpTodayOnly] = useState(false);
@@ -1919,13 +1919,168 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     <div>
       {/* Section toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        {[["upcoming", `Upcoming Earnings (${upcomingEarnings.length})`], ["signals", `EP Signals (${filtered.length})`]].map(([k, label]) => (
+        {[["upcoming", `Upcoming (${upcomingEarnings.filter(s => s._days >= 0).length})`], ["results", `Results (${upcomingEarnings.filter(s => s._days < 0 && s.er).length})`], ["signals", `EP Signals (${filtered.length})`]].map(([k, label]) => (
           <button key={k} onClick={() => setEpSection(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
             border: epSection === k ? "1px solid #fbbf24" : "1px solid #3a3a4a",
             background: epSection === k ? "#fbbf2420" : "transparent", color: epSection === k ? "#fbbf24" : "#787888" }}>{label}</button>
         ))}
         {consolCount > 0 && <span style={{ color: "#fbbf24", fontSize: 10, background: "#fbbf2418", border: "1px solid #fbbf2440", padding: "1px 8px", borderRadius: 10 }}>★ {consolCount} consolidating</span>}
       </div>
+
+      {/* ── Earnings Results Section — SeekingAlpha style ── */}
+      {epSection === "results" && (() => {
+        // Get stocks that already reported (past days with er data)
+        const reported = upcomingEarnings
+          .filter(s => s._days < 0 && s.er)
+          .map(s => {
+            const er = s.er;
+            const chg = s.change_pct;
+            return { ...s, _chg: chg ?? 0, _er: er };
+          });
+        // Split into gainers and losers
+        const gainers = reported.filter(s => s._chg > 0).sort((a, b) => b._chg - a._chg);
+        const losers = reported.filter(s => s._chg <= 0).sort((a, b) => a._chg - b._chg);
+
+        const fmtM = (v) => {
+          if (v == null) return "—";
+          const num = typeof v === "number" ? v : parseFloat(v);
+          if (isNaN(num)) return "—";
+          if (Math.abs(num) >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+          if (Math.abs(num) >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
+          return `$${num.toLocaleString()}`;
+        };
+        const fmtEPS = (v) => {
+          if (v == null) return "—";
+          return `$${Number(v).toFixed(2)}`;
+        };
+
+        const renderResultsTable = (title, titleColor, items) => {
+          if (items.length === 0) return null;
+          return (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: titleColor, padding: "6px 10px",
+                background: `${titleColor}10`, borderRadius: "4px 4px 0 0", borderBottom: `1px solid ${titleColor}25` }}>
+                {title} ({items.length})
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, fontFamily: "monospace" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#686878", fontWeight: 600, width: 62 }}>Change</th>
+                    <th style={{ padding: "4px 4px", textAlign: "right", color: "#686878", fontWeight: 600, width: 48 }}>Last</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#686878", fontWeight: 600, width: 56 }}>Symbol</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#686878", fontWeight: 600 }}>Name</th>
+                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontWeight: 600, width: 40 }}>EP</th>
+                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontWeight: 600, width: 45 }}>Grd</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#686878", fontWeight: 600, width: 130 }}>EPS</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#686878", fontWeight: 600, width: 150 }}>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(s => {
+                    const er = s._er;
+                    const chg = s._chg;
+                    const chgAbs = s.price != null && chg != null ? (s.price * chg / (100 + chg)).toFixed(2) : null;
+                    const chgColor = chg >= 8 ? "#2bb886" : chg >= 3 ? "#4a9a6a" : chg > 0 ? "#5a8a5a" : chg <= -8 ? "#f87171" : chg <= -3 ? "#c06060" : chg < 0 ? "#a05050" : "#686878";
+                    const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#686878";
+                    const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#484858";
+                    const isActive = s.ticker === activeTicker;
+
+                    // EPS beat/miss
+                    const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps - er.eps_estimated : null;
+                    const epsBeatColor = epsBeat != null ? (epsBeat >= 0 ? "#2bb886" : "#f87171") : "#484858";
+                    // Revenue beat/miss
+                    const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue - er.revenue_estimated : null;
+                    const revBeatColor = revBeat != null ? (revBeat >= 0 ? "#2bb886" : "#f87171") : "#484858";
+
+                    return (
+                      <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
+                          background: isActive ? "#fbbf2420" : "transparent" }}
+                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                        {/* Change */}
+                        <td style={{ padding: "4px 6px", textAlign: "right" }}>
+                          <span style={{ color: chgColor, fontWeight: 700, fontSize: 11 }}>
+                            {chgAbs != null ? `${chg > 0 ? "+" : ""}${chgAbs}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
+                          </span>
+                        </td>
+                        {/* Last */}
+                        <td style={{ padding: "4px 4px", textAlign: "right", color: "#a8a8b8", fontSize: 10 }}>
+                          {s.price != null ? Number(s.price).toFixed(2) : "—"}
+                        </td>
+                        {/* Symbol */}
+                        <td style={{ padding: "4px 6px", fontWeight: 600, fontSize: 11,
+                          color: isActive ? "#fbbf24" : "#a8a8b8" }}>
+                          {s.ticker}
+                        </td>
+                        {/* Name */}
+                        <td style={{ padding: "4px 6px", color: "#686878", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160, fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                          {s.company || "—"}
+                        </td>
+                        {/* EP Score */}
+                        <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, color: scoreColor }}>
+                          {s._epsScore ?? "—"}
+                        </td>
+                        {/* Grade */}
+                        <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700, fontSize: 10, color: gradeColor }}>
+                          {s.grade || "—"}
+                        </td>
+                        {/* EPS: actual vs est, beat */}
+                        <td style={{ padding: "4px 6px", textAlign: "right" }}>
+                          {er.eps != null ? (
+                            <span>
+                              <span style={{ color: "#a8a8b8" }}>{fmtEPS(er.eps)}</span>
+                              {er.eps_estimated != null && (
+                                <span style={{ color: "#505060", fontSize: 9 }}> / {fmtEPS(er.eps_estimated)}</span>
+                              )}
+                              {epsBeat != null && (
+                                <span style={{ color: epsBeatColor, fontWeight: 700, fontSize: 9, marginLeft: 3 }}>
+                                  {epsBeat >= 0 ? "✓" : "✗"}{epsBeat >= 0 ? "+" : ""}{epsBeat.toFixed(2)}
+                                </span>
+                              )}
+                            </span>
+                          ) : <span style={{ color: "#3a3a4a" }}>—</span>}
+                        </td>
+                        {/* Revenue: actual vs est, beat */}
+                        <td style={{ padding: "4px 6px", textAlign: "right" }}>
+                          {er.revenue != null ? (
+                            <span>
+                              <span style={{ color: "#a8a8b8" }}>{fmtM(er.revenue)}</span>
+                              {er.revenue_estimated != null && (
+                                <span style={{ color: "#505060", fontSize: 9 }}> / {fmtM(er.revenue_estimated)}</span>
+                              )}
+                              {revBeat != null && (
+                                <span style={{ color: revBeatColor, fontWeight: 700, fontSize: 9, marginLeft: 3 }}>
+                                  {revBeat >= 0 ? "✓+" : "✗"}{fmtM(Math.abs(revBeat)).replace("$", "")}
+                                </span>
+                              )}
+                            </span>
+                          ) : <span style={{ color: "#3a3a4a" }}>—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        };
+
+        return (
+          <div>
+            {reported.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 12 }}>
+                No earnings results yet. Run <span style={{ fontFamily: "monospace", color: "#fbbf24" }}>09g_earnings_calendar.py</span> after market hours.
+              </div>
+            ) : (
+              <>
+                {renderResultsTable("Top Gaining Earnings Stocks", "#2bb886", gainers)}
+                {renderResultsTable("Top Losing Earnings Stocks", "#f87171", losers)}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Upcoming Earnings Section — Calendar View ── */}
       {epSection === "upcoming" && (<div>
@@ -2019,7 +2174,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
                   {/* Score bar + Ticker */}
                   <td style={{ padding: "3px 4px 3px 0", borderLeft: `2px solid ${scoreColor}`, paddingLeft: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 11, color: isActive ? "#fbbf24" : isPast ? "#787888" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
+                    <span style={{ fontWeight: 500, fontSize: 11, color: isActive ? "#fbbf24" : isPast ? "#686878" : "#a8a8b8", fontFamily: "monospace" }}>{s.ticker}</span>
                     {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700, marginLeft: 2 }}>EP</span>}
                   </td>
                   {/* Grade */}
@@ -2249,7 +2404,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               style={{ borderBottom: `1px solid ${isConsol ? "#fbbf2425" : "#222230"}`, cursor: "pointer",
                 background: isActive ? "#fbbf2415" : isConsol ? "#fbbf2408" : "transparent" }}>
               <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                <span style={{ color: isActive ? "#fbbf24" : "#d4d4e0", fontWeight: 600 }}>{isConsol && "★ "}{ep.ticker}</span>
+                <span style={{ color: isActive ? "#fbbf24" : "#a8a8b8", fontWeight: 500 }}>{isConsol && "★ "}{ep.ticker}</span>
                 {ep.near_earnings && <span title="Near earnings" style={{ marginLeft: 3, fontSize: 9, color: "#fbbf24" }}>📊</span>}
               </td>
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
@@ -3892,7 +4047,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
                   <tr onClick={() => onTickerClick(t.ticker)}
                     style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                       background: isActive ? "#fbbf2418" : closingId === t.id ? "#f8717110" : "transparent" }}>
-                    <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 600, color: isActive ? "#fbbf24" : "#d4d4e0", fontFamily: "monospace" }}>
+                    <td style={{ padding: "5px 6px", textAlign: "center", fontWeight: 500, color: isActive ? "#fbbf24" : "#a8a8b8", fontFamily: "monospace" }}>
                       {t.ticker}
                       {live?.grade && <span style={{ marginLeft: 3 }}><Badge grade={live.grade} /></span>}
                     </td>
@@ -4144,7 +4299,7 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
         {onAdd && <span onClick={(e) => { e.stopPropagation(); onAdd(s.ticker); }}
           style={{ color: "#0d9163", cursor: "pointer", fontSize: 11 }}>{addLabel || "+watch"}</span>}
       </td>
-      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#d4d4e0", fontWeight: 600, fontSize: 12 }}>
+      <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500, fontSize: 12 }}>
         <span>{s.ticker}</span>
         {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
           <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
@@ -4391,7 +4546,7 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
                   cursor: "pointer", marginBottom: 1 }}
                 onMouseEnter={ev => ev.currentTarget.style.background = "#1a1a24"}
                 onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
-                <span style={{ fontWeight: 600, fontSize: 12, color: "#d4d4e0", width: 50 }}>{e.ticker}</span>
+                <span style={{ fontWeight: 500, fontSize: 12, color: "#a8a8b8", width: 50 }}>{e.ticker}</span>
                 {e.grade && <Badge grade={e.grade} />}
                 <span style={{ fontSize: 11, color: "#9090a0", fontFamily: "monospace", width: 28, textAlign: "right" }}>{e.rs_rank ?? '—'}</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", width: 45, textAlign: "right",
