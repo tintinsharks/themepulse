@@ -1613,6 +1613,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [maxDays, setMaxDays] = useState(60);
   const [statusFilter, setStatusFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [epSection, setEpSection] = useState("upcoming"); // "upcoming" | "signals"
+  const [earningsMinRS, setEarningsMinRS] = useState(50);
   const [liveEPs, setLiveEPs] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
@@ -1750,25 +1752,124 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     ["PB%", "pb"], ["VolCon", "volcon"], ["FrHi%", "fromhi"], ["RS", "rs"], ["Theme", "theme"],
   ];
 
-  if (!enhancedSignals || (!enhancedSignals.length && !liveLoading)) {
-    return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <div style={{ color: "#fbbf24", fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Episodic Pivots</div>
-        <div style={{ color: "#787888", fontSize: 13, marginBottom: 20 }}>
-          {liveLoading ? "Scanning Finviz for today's EPs..." : "No EP signals found. Market may be closed."}
-        </div>
-        <button onClick={fetchLiveEPs} style={{ padding: "6px 16px", borderRadius: 4, border: "1px solid #fbbf24",
-          background: "#fbbf2420", color: "#fbbf24", cursor: "pointer", fontSize: 12 }}>
-          {liveLoading ? "Scanning..." : "Scan Now"}
-        </button>
-      </div>
-    );
-  }
-
   const consolCount = enhancedSignals.filter(ep => ep.consol?.status === "consolidating").length;
+
+  // Upcoming earnings — EP candidates
+  const upcomingEarnings = useMemo(() => {
+    if (!stockMap) return [];
+    const now = new Date();
+    const results = [];
+    Object.values(stockMap).forEach(s => {
+      let days = s.earnings_days;
+      if (days == null && s.earnings_date) {
+        try {
+          const raw = s.earnings_date.replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
+          const parts = raw.split(/\s+/);
+          if (parts.length >= 2) {
+            for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
+              const parsed = new Date(`${parts[0]} ${parts[1]}, ${y}`);
+              if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -1) { days = diff; break; } }
+            }
+          }
+        } catch {}
+      }
+      if (days != null && days >= -1 && days <= 14 && (s.rs_rank ?? 0) >= earningsMinRS) {
+        const epsScore = computeEPSScore(s);
+        results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
+      }
+    });
+    return results.sort((a, b) => a._days - b._days || (b.rs_rank ?? 0) - (a.rs_rank ?? 0));
+  }, [stockMap, earningsMinRS]);
+
+  // Group upcoming by day
+  const earningsGrouped = useMemo(() => {
+    const g = {};
+    upcomingEarnings.forEach(s => {
+      const key = s._days <= 0 ? "Today" : s._days === 1 ? "Tomorrow" : `In ${s._days}d`;
+      if (!g[key]) g[key] = { label: key, days: s._days, items: [] };
+      g[key].items.push(s);
+    });
+    return Object.values(g).sort((a, b) => a.days - b.days);
+  }, [upcomingEarnings]);
 
   return (
     <div>
+      {/* Section toggle */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        {[["upcoming", `Upcoming Earnings (${upcomingEarnings.length})`], ["signals", `EP Signals (${filtered.length})`]].map(([k, label]) => (
+          <button key={k} onClick={() => setEpSection(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+            border: epSection === k ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+            background: epSection === k ? "#fbbf2420" : "transparent", color: epSection === k ? "#fbbf24" : "#787888" }}>{label}</button>
+        ))}
+        {consolCount > 0 && <span style={{ color: "#fbbf24", fontSize: 10, background: "#fbbf2418", border: "1px solid #fbbf2440", padding: "1px 8px", borderRadius: 10 }}>★ {consolCount} consolidating</span>}
+      </div>
+
+      {/* ── Upcoming Earnings Section ── */}
+      {epSection === "upcoming" && (<div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ color: "#686878", fontSize: 10 }}>RS≥</span>
+          {[0, 50, 70, 80].map(v => (
+            <button key={v} onClick={() => setEarningsMinRS(v)} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
+              border: earningsMinRS === v ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+              background: earningsMinRS === v ? "#fbbf2420" : "transparent", color: earningsMinRS === v ? "#fbbf24" : "#787888" }}>{v || "All"}</button>
+          ))}
+        </div>
+        {earningsGrouped.map(group => (
+          <div key={group.label} style={{ marginBottom: 12 }}>
+            <div style={{ color: group.days <= 0 ? "#f87171" : group.days <= 1 ? "#fbbf24" : group.days <= 3 ? "#c084fc" : "#686878",
+              fontSize: 11, fontWeight: 700, marginBottom: 4, padding: "2px 0", borderBottom: "1px solid #2a2a38" }}>
+              {group.label} — {group.items.length} report{group.items.length !== 1 ? "s" : ""}
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, marginBottom: 4 }}>
+              <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
+                {["Ticker", "Grade", "RS", "EPS", "Chg%", "ADR%", "3M%", "FrHi%", "MF", "MCap", "Theme"].map(h => (
+                  <th key={h} style={{ padding: "3px 5px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 9 }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>{group.items.map(s => {
+                const isActive = s.ticker === activeTicker;
+                const epsColor = (s._epsScore ?? 0) >= 70 ? "#2bb886" : (s._epsScore ?? 0) >= 40 ? "#fbbf24" : "#9090a0";
+                return (
+                  <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                    style={{ borderBottom: "1px solid #1a1a2a", cursor: "pointer",
+                      background: isActive ? "#fbbf2415" : "transparent" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#fbbf2410"}
+                    onMouseLeave={e => e.currentTarget.style.background = isActive ? "#fbbf2415" : "transparent"}>
+                    <td style={{ padding: "4px 6px", fontWeight: 600, color: isActive ? "#fbbf24" : "#d4d4e0" }}>
+                      {s.ticker}
+                      <span style={{ marginLeft: 4, fontSize: 8, color: "#787888" }}>{s.earnings_date}</span>
+                    </td>
+                    <td style={{ padding: "4px 4px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
+                      color: s.rs_rank >= 80 ? "#2bb886" : s.rs_rank >= 50 ? "#b8b8c8" : "#787888" }}>{s.rs_rank}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: epsColor }}
+                      title={s._epsFactors?.join(", ") || ""}>{s._epsScore ?? "—"}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
+                      color: (s.change_pct ?? 0) > 0 ? "#2bb886" : (s.change_pct ?? 0) < 0 ? "#f87171" : "#787888" }}>
+                      {s.change_pct != null ? `${s.change_pct > 0 ? "+" : ""}${s.change_pct}%` : "—"}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: "#b8b8c8" }}>{s.adr_pct ? `${s.adr_pct}%` : "—"}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
+                      color: (s.return_3m ?? 0) > 0 ? "#2bb886" : "#f87171" }}>{s.return_3m != null ? `${s.return_3m > 0 ? "+" : ""}${s.return_3m}%` : "—"}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
+                      color: (s.pct_from_high ?? -99) >= -5 ? "#2bb886" : (s.pct_from_high ?? -99) >= -15 ? "#b8b8c8" : "#787888" }}>
+                      {s.pct_from_high != null ? `${s.pct_from_high}%` : "—"}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
+                      color: (s.mf ?? 0) > 20 ? "#2bb886" : (s.mf ?? 0) < -20 ? "#f87171" : "#787888" }}>{s.mf ?? "—"}</td>
+                    <td style={{ padding: "4px 4px", textAlign: "center", fontSize: 10, color: "#787888" }}>{s.market_cap || "—"}</td>
+                    <td style={{ padding: "4px 4px", fontSize: 10, color: "#686878" }}>{s.themes?.[0]?.theme || "—"}</td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          </div>
+        ))}
+        {upcomingEarnings.length === 0 && (
+          <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No upcoming earnings in next 14 days for RS≥{earningsMinRS}.</div>
+        )}
+      </div>)}
+
+      {/* ── EP Signals Section ── */}
+      {epSection === "signals" && (<div>
       {/* Legend */}
       <div onClick={() => setShowLegend(p => !p)}
         style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", marginBottom: showLegend ? 0 : 6, background: "#1a1a24",
@@ -1942,6 +2043,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           No EPs match current filters. Try lowering the gap% or volume threshold.
         </div>
       )}
+      </div>)}
     </div>
   );
 }
@@ -5553,7 +5655,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["perf","Performance"]].map(([id, label]) => (
+        {[["live","Live"],["scan","Scan Watch"],["ep","EP"],["grid","Research"],["exec","Execution"],["perf","Performance"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -5597,9 +5699,9 @@ function AppMain({ authToken, onLogout }) {
           })()}
         </div>
         <div className="tp-right-btns" style={{ display: "flex", gap: 4 }}>
-        <button onClick={() => setShowEarnings(p => !p)} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-          background: showEarnings ? "#c084fc20" : "transparent", border: showEarnings ? "1px solid #c084fc" : "1px solid #3a3a4a",
-          color: showEarnings ? "#c084fc" : "#787888" }}>Earnings</button>
+        <button onClick={() => { setView("ep"); setVisibleTickers([]); }} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          background: view === "ep" ? "#c084fc20" : "transparent", border: view === "ep" ? "1px solid #c084fc" : "1px solid #3a3a4a",
+          color: view === "ep" ? "#c084fc" : "#787888" }}>Earnings</button>
         {/* Pipeline run button */}
         <div style={{ position: "relative" }}>
             <button onClick={() => setShowPipeline(p => !p)} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
@@ -5639,6 +5741,9 @@ function AppMain({ authToken, onLogout }) {
           <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs}
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="Episodic Pivots">
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
