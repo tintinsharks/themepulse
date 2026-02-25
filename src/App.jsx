@@ -1690,6 +1690,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [epMinScore, setEpMinScore] = useState(20);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
+  const [epTodayOnly, setEpTodayOnly] = useState(false);
   const [liveEPs, setLiveEPs] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
@@ -1945,10 +1946,87 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               border: epFilters.has(tag) ? `1px solid ${color}` : "1px solid #2a2a3a",
               background: epFilters.has(tag) ? `${color}18` : "transparent", color: epFilters.has(tag) ? color : "#585868" }}>{tag === "MF-" ? "MF−" : tag}</button>
           ))}
+          <span style={{ color: "#252535", margin: "0 1px" }}>│</span>
+          <button onClick={() => setEpTodayOnly(!epTodayOnly)} style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+            border: epTodayOnly ? "1px solid #fbbf24" : "1px solid #2a2a3a",
+            background: epTodayOnly ? "#fbbf2420" : "transparent", color: epTodayOnly ? "#fbbf24" : "#585868" }}>Focus</button>
           <span style={{ color: "#404050", fontSize: 8, marginLeft: "auto" }}>{upcomingEarnings.length}</span>
         </div>
 
-        {earningsCalendar.map(week => {
+        {/* Focus mode: just today + tomorrow */}
+        {epTodayOnly && (() => {
+          const focusDays = [];
+          earningsCalendar.forEach(w => w.days.forEach(d => {
+            if (d.days >= 0 && d.days <= 1) focusDays.push(d);
+          }));
+          if (focusDays.length === 0) return <div style={{ textAlign: "center", color: "#686878", padding: 16, fontSize: 11 }}>No reports today or tomorrow.</div>;
+          return focusDays.map(day => {
+            const isToday = day.days === 0;
+            const isPastDay = false;
+            const gradeBuckets = { A: [], B: [], C: [], D: [] };
+            day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).forEach(s => {
+              const g = (s.grade || "")[0];
+              if (g === "A") gradeBuckets.A.push(s);
+              else if (g === "B") gradeBuckets.B.push(s);
+              else if (g === "C") gradeBuckets.C.push(s);
+              else gradeBuckets.D.push(s);
+            });
+            const bucketMeta = [["A", "#1a3a25", "#2bb886", "#2bb88618"], ["B", "#1a2a3a", "#60a5fa", "#60a5fa18"], ["C", "#2a2a20", "#fbbf24", "#fbbf2418"], ["D", "#2a2024", "#9090a0", "#9090a015"]];
+            return (
+              <div key={day.dateKey} style={{ marginBottom: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px",
+                  background: isToday ? "#fbbf2415" : "#1a1a25", borderRadius: "3px 3px 0 0", border: "1px solid #fbbf2425", borderBottom: "none" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: isToday ? "#fbbf24" : "#9090a0" }}>
+                    {day.dayLabel}{isToday ? " ★ Today" : " — Tomorrow"}
+                  </span>
+                  <span style={{ fontSize: 9, color: "#505060" }}>{day.items.length}</span>
+                </div>
+                <div style={{ display: "flex", gap: 2, padding: "4px 8px 6px", border: "1px solid #fbbf2418", borderTop: "none", borderRadius: "0 0 3px 3px" }}>
+                  {bucketMeta.map(([label, headerBg, headerFg, bodyBg]) => {
+                    const items = gradeBuckets[label];
+                    return (
+                      <div key={label} style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ background: headerBg, color: headerFg, textAlign: "center", padding: "1px 0",
+                          borderRadius: "3px 3px 0 0", fontSize: 10, fontWeight: 700 }}>
+                          {label}{items.length > 0 && <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 9 }}> {items.length}</span>}
+                        </div>
+                        <div style={{ background: bodyBg, borderRadius: "0 0 3px 3px", minHeight: 24 }}>
+                          {items.map(s => {
+                            const isActive = s.ticker === activeTicker;
+                            const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
+                            const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
+                            const timing = String(s.earnings_display || s.earnings_date || "");
+                            const isBMO = /BMO|8:30.*AM/i.test(timing);
+                            const isAMC = /AMC|4:30.*PM/i.test(timing);
+                            return (
+                              <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                                title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · ${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
+                                style={{ display: "flex", alignItems: "center", gap: 3,
+                                  padding: "2px 2px", cursor: "pointer", fontSize: 11, fontFamily: "monospace",
+                                  background: isActive ? "#fbbf2430" : "transparent",
+                                  borderLeft: `2px solid ${scoreColor}`,
+                                  outline: isActive ? "1px solid #fbbf24" : "none" }}
+                                onMouseEnter={e => { e.currentTarget.style.background = "#fbbf2418"; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2430" : "transparent"; }}>
+                                <span style={{ fontWeight: 600, color: isActive ? "#fbbf24" : "#c8c8d4", flex: 1, textAlign: "center" }}>{s.ticker}</span>
+                                {s._epsScore != null && <span style={{ fontSize: 8, fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
+                                {(isBMO || isAMC) && <span style={{ fontSize: 7, color: "#585868" }}>{isBMO ? "b" : "a"}</span>}
+                                {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          });
+        })()}
+
+        {/* Full calendar mode */}
+        {!epTodayOnly && earningsCalendar.map(week => {
           const isCollapsed = collapsedWeeks.has(week.weekKey);
           const totalStocks = week.days.reduce((sum, d) => sum + d.items.length, 0);
           return (
@@ -2011,18 +2089,27 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                                     const isActive = s.ticker === activeTicker;
                                     const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
                                     const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
+                                    const chg = isPastDay ? s.change_pct : null;
+                                    const timing = String(s.earnings_display || s.earnings_date || "");
+                                    const isBMO = /BMO|8:30.*AM/i.test(timing);
+                                    const isAMC = /AMC|4:30.*PM/i.test(timing);
                                     return (
                                       <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
                                         title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · ${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
-                                        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+                                        style={{ display: "flex", alignItems: "center", gap: 3,
                                           padding: "1px 2px", cursor: "pointer", fontSize: 10, fontFamily: "monospace",
                                           background: isActive ? "#fbbf2430" : "transparent",
+                                          borderLeft: `2px solid ${scoreColor}`,
                                           outline: isActive ? "1px solid #fbbf24" : "none" }}
                                         onMouseEnter={e => { e.currentTarget.style.background = "#fbbf2418"; }}
                                         onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2430" : "transparent"; }}>
-                                        <span style={{ fontWeight: 600, color: isActive ? "#fbbf24" : isPastDay ? "#686878" : "#c8c8d4" }}>{s.ticker}</span>
+                                        <span style={{ fontWeight: 600, color: isActive ? "#fbbf24" : isPastDay ? "#686878" : "#c8c8d4", flex: 1, textAlign: "center" }}>{s.ticker}</span>
                                         {s._epsScore != null && <span style={{ fontSize: 8, fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
+                                        {!isPastDay && (isBMO || isAMC) && <span style={{ fontSize: 7, color: "#585868" }}>{isBMO ? "b" : "a"}</span>}
                                         {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
+                                        {chg != null && <span style={{ fontSize: 8, fontWeight: 600,
+                                          color: chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878" }}>
+                                          {chg > 0 ? "+" : ""}{chg.toFixed(1)}%</span>}
                                       </div>
                                     );
                                   })}
