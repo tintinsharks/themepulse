@@ -1710,7 +1710,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs }) {
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, earningsMovers }) {
   const [sortBy, setSortBy] = useState("date");
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(4);
@@ -1951,24 +1951,20 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   return (
     <div>
 
-      {/* ── Earnings Results — SeekingAlpha style ── */}
+      {/* ── Earnings Results — All Market Movers ── */}
       {(() => {
-        // Get stocks that already reported with er data
-        // Today's movers: today's BMO reporters + yesterday's AMC reporters
-        // These are the stocks whose earnings reaction shows in today's price
-        const allReported = upcomingEarnings
+        // Merge: universe stocks with er data + external earningsMovers
+        const universeReported = upcomingEarnings
           .filter(s => {
             if (!s.er || s.er.eps == null) return false;
-            if (s._days === 0 && s.er.time === "bmo") return true;   // today before open
-            if (s._days === -1 && s.er.time === "amc") return true;  // yesterday after close
-            // Fallback: if time unknown, include today's reporters
+            if (s._days === 0 && s.er.time === "bmo") return true;
+            if (s._days === -1 && s.er.time === "amc") return true;
             if (s._days === 0 && !s.er.time) return true;
             return false;
           })
           .map(s => {
             const er = s.er;
             const chg = s.change_pct ?? 0;
-            // Build SeekingAlpha-style headline
             const parts = [];
             if (er.eps != null) {
               const epsStr = `${s.company || s.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
@@ -1989,8 +1985,41 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 parts.push(`revenue of ${revStr}`);
               }
             }
-            return { ...s, _chg: chg, _er: er, _headline: parts.join(", "), _vol: s.volume || s.avg_volume_raw || 0 };
+            return { ticker: s.ticker, company: s.company, price: s.price, _chg: chg, _er: er, _headline: parts.join(", "), _vol: s.volume || s.avg_volume_raw || 0, _inUniverse: true, grade: s.grade, rs_rank: s.rs_rank };
           });
+
+        // External movers from earnings_movers array
+        const externalMovers = (earningsMovers || [])
+          .filter(m => !m.in_universe && m.er && m.er.eps != null && m.change_pct != null)
+          .map(m => {
+            const er = m.er;
+            const chg = m.change_pct ?? 0;
+            const parts = [];
+            if (er.eps != null) {
+              const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
+              if (er.eps_estimated != null) {
+                const diff = er.eps - er.eps_estimated;
+                parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
+              } else {
+                parts.push(epsStr);
+              }
+            }
+            if (er.revenue != null) {
+              const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
+              if (er.revenue_estimated != null) {
+                const diff = er.revenue - er.revenue_estimated;
+                const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
+                parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
+              } else {
+                parts.push(`revenue of ${revStr}`);
+              }
+            }
+            return { ticker: m.ticker, company: m.company || m.ticker, price: m.price, _chg: chg, _er: er, _headline: parts.join(", "), _vol: m.volume || 0, _inUniverse: false, grade: null, rs_rank: null };
+          });
+
+        // Deduplicate: universe takes priority
+        const seenTickers = new Set(universeReported.map(s => s.ticker));
+        const allReported = [...universeReported, ...externalMovers.filter(m => !seenTickers.has(m.ticker))];
 
         const gainers = allReported.filter(s => s._chg > 0);
         const losers = allReported.filter(s => s._chg <= 0);
@@ -2010,10 +2039,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         };
         const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " ↓" : " ↑") : "";
 
+        const uCount = allReported.filter(s => s._inUniverse).length;
+        const eCount = allReported.filter(s => !s._inUniverse).length;
+
         return (
           <div>
-            {/* Subtabs: Gainers | Losers */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            {/* Subtabs: Gainers | Losers + counts */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
               {[["gainers", `Top Gainers (${gainers.length})`, "#2bb886"], ["losers", `Top Losers (${losers.length})`, "#f87171"]].map(([k, label, color]) => (
                 <button key={k} onClick={() => { setErSubTab(k); setErSort({ col: "change", dir: k === "gainers" ? "desc" : "asc" }); }}
                   style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
@@ -2021,6 +2053,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     background: erSubTab === k ? `${color}18` : "transparent",
                     color: erSubTab === k ? color : "#787888" }}>{label}</button>
               ))}
+              <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
+                <span style={{ color: "#fbbf24" }}>★</span> {uCount} theme · {eCount} external
+              </span>
             </div>
 
             {sorted.length === 0 ? (
@@ -2033,6 +2068,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                    <th style={{ padding: "6px 4px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 20,
+                      fontFamily: "system-ui, -apple-system, sans-serif" }}></th>
                     <th onClick={() => toggleSort("change")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
                       fontSize: 10, width: 95, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
                       Change{sortArrow("change")}</th>
@@ -2064,9 +2101,14 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     return (
                       <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
-                          background: isActive ? "#fbbf2420" : "transparent" }}
+                          background: isActive ? "#fbbf2420" : "transparent",
+                          opacity: s._inUniverse ? 1 : 0.7 }}
                         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                        {/* Universe indicator */}
+                        <td style={{ padding: "6px 4px", textAlign: "center", fontSize: 9 }}>
+                          {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">★</span> : <span style={{ color: "#3a3a4a" }} title="External">·</span>}
+                        </td>
                         <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
                           <span style={{ color: chgColor, fontSize: 11 }}>
                             {chgAbs != null ? `${chg >= 0 ? "" : "-"}${chgAbs.toFixed(2)}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
@@ -2076,7 +2118,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           {s.price != null ? Number(s.price).toFixed(2) : "—"}
                         </td>
                         <td style={{ padding: "6px 8px", fontWeight: 600, fontSize: 11,
-                          color: isActive ? "#fbbf24" : "#a8a8b8", fontFamily: "monospace" }}>
+                          color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
                           {s.ticker}
                         </td>
                         <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140,
@@ -5804,7 +5846,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} earningsMovers={data.earnings_movers} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
