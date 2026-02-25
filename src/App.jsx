@@ -1768,12 +1768,12 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           if (parts.length >= 2) {
             for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
               const parsed = new Date(`${parts[0]} ${parts[1]}, ${y}`);
-              if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -1) { days = diff; break; } }
+              if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -14 && diff <= 14) { days = diff; break; } }
             }
           }
         } catch {}
       }
-      if (days != null && days >= -1 && days <= 14 && (s.rs_rank ?? 0) >= earningsMinRS) {
+      if (days != null && days >= -14 && days <= 14 && (s.rs_rank ?? 0) >= earningsMinRS) {
         const epsScore = computeEPSScore(s);
         results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
       }
@@ -1785,7 +1785,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const earningsGrouped = useMemo(() => {
     const g = {};
     upcomingEarnings.forEach(s => {
-      const key = s._days <= 0 ? "Today" : s._days === 1 ? "Tomorrow" : `In ${s._days}d`;
+      const key = s._days === 0 ? "Today" : s._days === 1 ? "Tomorrow" : s._days === -1 ? "Yesterday" : s._days < -1 ? `${Math.abs(s._days)}d ago` : `In ${s._days}d`;
       if (!g[key]) g[key] = { label: key, days: s._days, items: [] };
       g[key].items.push(s);
     });
@@ -1864,7 +1864,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           </div>
         ))}
         {upcomingEarnings.length === 0 && (
-          <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No upcoming earnings in next 14 days for RS≥{earningsMinRS}.</div>
+          <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No earnings in the ±14 day window for RS≥{earningsMinRS}.</div>
         )}
       </div>)}
 
