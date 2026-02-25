@@ -1781,16 +1781,42 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return results.sort((a, b) => a._days - b._days || (b.rs_rank ?? 0) - (a.rs_rank ?? 0));
   }, [stockMap, earningsMinRS]);
 
-  // Group upcoming by day
-  const earningsGrouped = useMemo(() => {
-    const g = {};
+  // Group upcoming by week and day (calendar view)
+  const earningsCalendar = useMemo(() => {
+    const now = new Date();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    // Build day buckets
+    const dayBuckets = {};
     upcomingEarnings.forEach(s => {
-      const key = s._days === 0 ? "Today" : s._days === 1 ? "Tomorrow" : s._days === -1 ? "Yesterday" : s._days < -1 ? `${Math.abs(s._days)}d ago` : `In ${s._days}d`;
-      if (!g[key]) g[key] = { label: key, days: s._days, items: [] };
-      g[key].items.push(s);
+      const d = new Date(now);
+      d.setDate(d.getDate() + s._days);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const dayLabel = `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`;
+      if (!dayBuckets[dateKey]) dayBuckets[dateKey] = { dateKey, dayLabel, days: s._days, date: d, items: [] };
+      dayBuckets[dateKey].items.push(s);
     });
-    return Object.values(g).sort((a, b) => a.days - b.days);
+    // Group days into weeks (Mon-Fri)
+    const weeks = {};
+    Object.values(dayBuckets).sort((a, b) => a.days - b.days).forEach(day => {
+      const d = day.date;
+      const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday of that week
+      const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+      const weekKey = `${monthNames[mon.getMonth()]} ${mon.getDate()}-${fri.getDate()}`;
+      const isPast = day.days < 0;
+      const isCurrent = mon <= now && fri >= now;
+      if (!weeks[weekKey]) weeks[weekKey] = { weekKey, days: [], isPast, isCurrent, startDay: day.days };
+      weeks[weekKey].days.push(day);
+    });
+    return Object.values(weeks).sort((a, b) => a.startDay - b.startDay);
   }, [upcomingEarnings]);
+
+  const [collapsedWeeks, setCollapsedWeeks] = useState(new Set());
+  const toggleWeek = (wk) => setCollapsedWeeks(prev => {
+    const next = new Set(prev);
+    if (next.has(wk)) next.delete(wk); else next.add(wk);
+    return next;
+  });
 
   return (
     <div>
@@ -1804,7 +1830,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         {consolCount > 0 && <span style={{ color: "#fbbf24", fontSize: 10, background: "#fbbf2418", border: "1px solid #fbbf2440", padding: "1px 8px", borderRadius: 10 }}>★ {consolCount} consolidating</span>}
       </div>
 
-      {/* ── Upcoming Earnings Section ── */}
+      {/* ── Upcoming Earnings Section — Calendar View ── */}
       {epSection === "upcoming" && (<div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ color: "#686878", fontSize: 10 }}>RS≥</span>
@@ -1813,56 +1839,73 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               border: earningsMinRS === v ? "1px solid #fbbf24" : "1px solid #3a3a4a",
               background: earningsMinRS === v ? "#fbbf2420" : "transparent", color: earningsMinRS === v ? "#fbbf24" : "#787888" }}>{v || "All"}</button>
           ))}
+          <span style={{ color: "#505060", fontSize: 9, marginLeft: "auto" }}>{upcomingEarnings.length} reports · ±2 weeks</span>
         </div>
-        {earningsGrouped.map(group => (
-          <div key={group.label} style={{ marginBottom: 12 }}>
-            <div style={{ color: group.days <= 0 ? "#f87171" : group.days <= 1 ? "#fbbf24" : group.days <= 3 ? "#c084fc" : "#686878",
-              fontSize: 11, fontWeight: 700, marginBottom: 4, padding: "2px 0", borderBottom: "1px solid #2a2a38" }}>
-              {group.label} — {group.items.length} report{group.items.length !== 1 ? "s" : ""}
+
+        {earningsCalendar.map(week => {
+          const isCollapsed = collapsedWeeks.has(week.weekKey);
+          const totalStocks = week.days.reduce((sum, d) => sum + d.items.length, 0);
+          return (
+            <div key={week.weekKey} style={{ marginBottom: 4 }}>
+              {/* Week header — collapsible */}
+              <div onClick={() => toggleWeek(week.weekKey)}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", userSelect: "none",
+                  background: week.isCurrent ? "#fbbf2412" : week.isPast ? "#f8717108" : "#1a1a24",
+                  borderRadius: isCollapsed ? 4 : "4px 4px 0 0", border: `1px solid ${week.isCurrent ? "#fbbf2430" : "#2a2a38"}` }}>
+                <span style={{ fontSize: 10, color: "#686878" }}>{isCollapsed ? "▸" : "▾"}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: week.isCurrent ? "#fbbf24" : week.isPast ? "#9090a0" : "#b8b8c8" }}>
+                  {week.weekKey}{week.isCurrent ? " ← This Week" : ""}
+                </span>
+                <span style={{ fontSize: 10, color: "#686878" }}>{totalStocks} report{totalStocks !== 1 ? "s" : ""}</span>
+              </div>
+
+              {/* Days within week */}
+              {!isCollapsed && (
+                <div style={{ border: `1px solid ${week.isCurrent ? "#fbbf2420" : "#2a2a38"}`, borderTop: "none", borderRadius: "0 0 4px 4px", overflow: "hidden" }}>
+                  {week.days.map(day => {
+                    const isToday = day.days === 0;
+                    const isPastDay = day.days < 0;
+                    return (
+                      <div key={day.dateKey} style={{ borderBottom: "1px solid #1a1a2a" }}>
+                        {/* Day header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px",
+                          background: isToday ? "#fbbf2418" : "transparent" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, minWidth: 70,
+                            color: isToday ? "#fbbf24" : isPastDay ? "#787888" : "#b8b8c8" }}>
+                            {day.dayLabel}{isToday ? " ★" : ""}
+                          </span>
+                          <span style={{ fontSize: 9, color: "#505060" }}>{day.items.length}</span>
+                        </div>
+                        {/* Ticker chips for this day */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, padding: "3px 8px 6px" }}>
+                          {day.items.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0)).map(s => {
+                            const isActive = s.ticker === activeTicker;
+                            const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#787888";
+                            const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
+                            return (
+                              <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                                title={`${s.company || s.ticker} | Grade:${s.grade} RS:${s.rs_rank} EPS:${s._epsScore ?? "—"} 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} MCap:${s.market_cap || "—"} ${s.themes?.[0]?.theme || ""}`}
+                                style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, cursor: "pointer",
+                                  background: isActive ? "#fbbf2425" : hasEP ? "#f9731618" : isPastDay ? "#1a1a24" : "#161622",
+                                  border: `1px solid ${isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#2a2a38"}` }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#fbbf24"; e.currentTarget.style.background = "#fbbf2415"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#2a2a38"; e.currentTarget.style.background = isActive ? "#fbbf2425" : hasEP ? "#f9731618" : isPastDay ? "#1a1a24" : "#161622"; }}>
+                                <span style={{ fontWeight: 600, fontSize: 11, color: isActive ? "#fbbf24" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
+                                <span style={{ fontSize: 8, color: gradeColor, fontWeight: 700 }}>{s.grade}</span>
+                                <span style={{ fontSize: 8, color: s.rs_rank >= 80 ? "#2bb886" : s.rs_rank >= 50 ? "#9090a0" : "#686878", fontFamily: "monospace" }}>{s.rs_rank}</span>
+                                {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, marginBottom: 4 }}>
-              <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
-                {["Ticker", "Grade", "RS", "EPS", "Chg%", "ADR%", "3M%", "FrHi%", "MF", "MCap", "Theme"].map(h => (
-                  <th key={h} style={{ padding: "3px 5px", color: "#686878", fontWeight: 600, textAlign: "center", fontSize: 9 }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>{group.items.map(s => {
-                const isActive = s.ticker === activeTicker;
-                const epsColor = (s._epsScore ?? 0) >= 70 ? "#2bb886" : (s._epsScore ?? 0) >= 40 ? "#fbbf24" : "#9090a0";
-                return (
-                  <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                    style={{ borderBottom: "1px solid #1a1a2a", cursor: "pointer",
-                      background: isActive ? "#fbbf2415" : "transparent" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#fbbf2410"}
-                    onMouseLeave={e => e.currentTarget.style.background = isActive ? "#fbbf2415" : "transparent"}>
-                    <td style={{ padding: "4px 6px", fontWeight: 600, color: isActive ? "#fbbf24" : "#d4d4e0" }}>
-                      {s.ticker}
-                      <span style={{ marginLeft: 4, fontSize: 8, color: "#787888" }}>{s.earnings_date}</span>
-                    </td>
-                    <td style={{ padding: "4px 4px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
-                      color: s.rs_rank >= 80 ? "#2bb886" : s.rs_rank >= 50 ? "#b8b8c8" : "#787888" }}>{s.rs_rank}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: epsColor }}
-                      title={s._epsFactors?.join(", ") || ""}>{s._epsScore ?? "—"}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
-                      color: (s.change_pct ?? 0) > 0 ? "#2bb886" : (s.change_pct ?? 0) < 0 ? "#f87171" : "#787888" }}>
-                      {s.change_pct != null ? `${s.change_pct > 0 ? "+" : ""}${s.change_pct}%` : "—"}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: "#b8b8c8" }}>{s.adr_pct ? `${s.adr_pct}%` : "—"}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
-                      color: (s.return_3m ?? 0) > 0 ? "#2bb886" : "#f87171" }}>{s.return_3m != null ? `${s.return_3m > 0 ? "+" : ""}${s.return_3m}%` : "—"}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
-                      color: (s.pct_from_high ?? -99) >= -5 ? "#2bb886" : (s.pct_from_high ?? -99) >= -15 ? "#b8b8c8" : "#787888" }}>
-                      {s.pct_from_high != null ? `${s.pct_from_high}%` : "—"}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace",
-                      color: (s.mf ?? 0) > 20 ? "#2bb886" : (s.mf ?? 0) < -20 ? "#f87171" : "#787888" }}>{s.mf ?? "—"}</td>
-                    <td style={{ padding: "4px 4px", textAlign: "center", fontSize: 10, color: "#787888" }}>{s.market_cap || "—"}</td>
-                    <td style={{ padding: "4px 4px", fontSize: 10, color: "#686878" }}>{s.themes?.[0]?.theme || "—"}</td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
-          </div>
-        ))}
+          );
+        })}
         {upcomingEarnings.length === 0 && (
           <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 13 }}>No earnings in the ±14 day window for RS≥{earningsMinRS}.</div>
         )}
