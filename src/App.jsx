@@ -885,31 +885,37 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
             style={{ marginBottom: 2, borderRadius: 4, border: "1px solid #2a2a38", overflow: "hidden", cursor: "pointer" }}
             onMouseEnter={e => e.currentTarget.style.borderColor = "#0d9163"}
             onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a38"}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px",
+            <div style={{ padding: "5px 8px",
               background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
-              <span style={{ color: "#d4d4e0", fontWeight: 600, fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {theme.theme}
-              </span>
-              <span style={{ background: qc.tag, color: "#d4d4e0", padding: "1px 5px", borderRadius: 8, fontSize: 9, fontWeight: 600 }}>{quad.slice(0, 4)}</span>
-              <span style={{ color: "#787888", fontSize: 10 }}>{theme.count}</span>
-              <span style={{ color: qc.text, fontWeight: 600, fontSize: 11, fontFamily: "monospace" }}>{theme.rts}</span>
-              {lp && <span style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 11,
-                color: lp.avg > 0 ? "#2bb886" : lp.avg < 0 ? "#f87171" : "#686878" }}>
-                {lp.avg > 0 ? "+" : ""}{lp.avg.toFixed(1)}%
-              </span>}
-              <span style={{ color: "#787888", fontSize: 9 }}>B:{theme.breadth}%</span>
-              <Ret v={theme.return_3m} />
-              {h && (() => {
-                const sc = { LEADING: "#2bb886", EMERGING: "#fbbf24", HOLDING: "#9090a0", WEAKENING: "#f97316", LAGGING: "#f87171" }[h.status] || "#686878";
-                const sig = h.signal === "ADD" ? "★" : h.signal === "REMOVE" ? "✗" : "";
-                return <span style={{ fontSize: 8, fontWeight: 700, color: sc, padding: "0 3px", borderRadius: 2,
-                  background: sc + "18", border: `1px solid ${sc}30` }}>{sig}{sig ? " " : ""}{h.status.slice(0, 4)}</span>;
-              })()}
-              {tb && (tb.up_4pct > 0 || tb.down_4pct > 0) && (
-                <span style={{ fontSize: 8, fontFamily: "monospace",
-                  color: tb.net > 0 ? "#2bb886" : tb.net < 0 ? "#f87171" : "#686878" }}>
-                  ↑{tb.up_4pct}↓{tb.down_4pct}</span>
-              )}
+              {/* Row 1: Theme name + quad + health */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                <span style={{ color: "#e4e4f0", fontWeight: 700, fontSize: 12, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {theme.theme}
+                </span>
+                <span style={{ background: qc.tag, color: "#d4d4e0", padding: "1px 5px", borderRadius: 8, fontSize: 9, fontWeight: 600 }}>{quad.slice(0, 4)}</span>
+                {h && (() => {
+                  const sc = { LEADING: "#2bb886", EMERGING: "#fbbf24", HOLDING: "#9090a0", WEAKENING: "#f97316", LAGGING: "#f87171" }[h.status] || "#686878";
+                  const sig = h.signal === "ADD" ? "★ " : h.signal === "REMOVE" ? "✗ " : "";
+                  return <span style={{ fontSize: 8, fontWeight: 700, color: sc, padding: "0 3px", borderRadius: 2,
+                    background: sc + "18", border: `1px solid ${sc}30` }}>{sig}{h.status.slice(0, 4)}</span>;
+                })()}
+              </div>
+              {/* Row 2: Metrics */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: "monospace" }}>
+                <span style={{ color: "#787888" }}>{theme.count}</span>
+                <span style={{ color: qc.text, fontWeight: 600 }}>{theme.rts}</span>
+                {lp && <span style={{ fontWeight: 600,
+                  color: lp.avg > 0 ? "#2bb886" : lp.avg < 0 ? "#f87171" : "#686878" }}>
+                  {lp.avg > 0 ? "+" : ""}{lp.avg.toFixed(1)}%
+                </span>}
+                <span style={{ color: "#787888", fontSize: 9 }}>B:{theme.breadth}%</span>
+                <Ret v={theme.return_3m} />
+                {tb && (tb.up_4pct > 0 || tb.down_4pct > 0) && (
+                  <span style={{ fontSize: 8,
+                    color: tb.net > 0 ? "#2bb886" : tb.net < 0 ? "#f87171" : "#686878" }}>
+                    ↑{tb.up_4pct}↓{tb.down_4pct}</span>
+                )}
+              </div>
             </div>
           </div>
         );
