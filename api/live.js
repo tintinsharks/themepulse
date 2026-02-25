@@ -978,111 +978,6 @@ async function fetchEpisodicPivots(cookies) {
   return results;
 }
 
-// ── Top Gainers (Finviz ta_topgainers signal) ──
-// Fetches today's top gaining stocks with filters:
-//   - Price > $5, Avg Volume > 500K (filter out penny stocks / illiquid)
-//   - Returns top 50 sorted by change% desc
-async function fetchTopGainers(cookies) {
-  // ta_topgainers = Finviz "Top Gainers" signal
-  // f=sh_avgvol_o500,sh_price_o5 = avg vol > 500K, price > $5
-  const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=sh_avgvol_o500,sh_price_o5`;
-
-  try {
-    const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) {
-      console.error(`Top gainers fetch failed: ${resp.status}`);
-      return [];
-    }
-    const ct = resp.headers.get("content-type") || "";
-    if (ct.includes("html")) {
-      console.error("Top gainers: got HTML instead of CSV");
-      return [];
-    }
-
-    const text = await resp.text();
-    const rows = parseCSV(text, "topgainers");
-
-    const results = rows.map(raw => {
-      const r = normalizeRow(raw);
-      return {
-        ticker: r["Ticker"],
-        company: r["Company"],
-        sector: r["Sector"],
-        industry: r["Industry"],
-        market_cap: r["Market Cap"],
-        price: num(r["Price"]),
-        change_pct: pct(r["Change"]),
-        gap_pct: pct(r["Gap"]),
-        change_from_open: pct(r["Change from Open"]),
-        volume: r["Volume"],
-        avg_volume: r["Avg Volume"],
-        rel_volume: num(r["Rel Volume"]),
-        perf_week: pct(r["Perf Week"]),
-        perf_month: pct(r["Perf Month"]),
-        rsi: num(r["RSI"]),
-        high_52w: pct(r["52W High"]),
-        atr: num(r["ATR"]),
-        earnings: r["Earnings Date"] || "",
-        headline: "",
-      };
-    }).filter(r => r.ticker && r.change_pct != null);
-
-    // Sort by change% desc, take top 50
-    results.sort((a, b) => (b.change_pct || 0) - (a.change_pct || 0));
-    const top = results.slice(0, 50);
-
-    // Fetch latest news headline for each gainer via Finviz quote pages (batched)
-    // Use screener HTML news view (v=320) with tickers — one request for all
-    if (top.length > 0) {
-      try {
-        const tickerStr = top.map(g => g.ticker).join(",");
-        const newsUrl = `https://elite.finviz.com/screener.ashx?v=320&t=${tickerStr}`;
-        const newsResp = await fetch(newsUrl, { headers: { ...HEADERS, Cookie: cookies } });
-        if (newsResp.ok) {
-          const newsHtml = await newsResp.text();
-          // Parse news view: each ticker's latest headline appears in news-table rows
-          // Pattern: ticker appears in a link, followed by news rows with headlines
-          // Simpler: find all news rows with ticker associations
-          // v=320 format: rows with class="news-table-row" containing ticker + headline
-          // Actually the screener news view groups news by ticker
-          // Let's parse: <a ...class="tab-link"...>TICKER</a> ... <a ...class="news-link-...">HEADLINE</a>
-          const headlineMap = {};
-          // Match ticker headers followed by news links
-          // Pattern: screener shows ticker as link, then news rows beneath
-          const tickerSections = newsHtml.split(/class="news_date-cell"/);
-          for (const section of tickerSections) {
-            // Find ticker in this section
-            const tickerMatch = section.match(/quote\.ashx\?t=([A-Z]+)[^>]*class="tab-link"/);
-            if (!tickerMatch) continue;
-            const t = tickerMatch[1];
-            if (headlineMap[t]) continue; // first headline only
-            // Find first news headline link
-            const headlineMatch = section.match(/class="news-link[^"]*"[^>]*>([^<]+)<\/a>/);
-            if (headlineMatch) {
-              headlineMap[t] = headlineMatch[1].trim();
-            }
-          }
-          // Apply headlines to results
-          for (const g of top) {
-            if (headlineMap[g.ticker]) {
-              g.headline = headlineMap[g.ticker];
-            }
-          }
-          console.log(`Top gainers headlines: ${Object.keys(headlineMap).length}/${top.length} matched`);
-        }
-      } catch (newsErr) {
-        console.error("Top gainers news fetch error:", newsErr.message);
-      }
-    }
-
-    console.log(`Top gainers: ${top.length} stocks`);
-    return top;
-  } catch (err) {
-    console.error("Top gainers error:", err.message);
-    return [];
-  }
-}
-
 // ── Handler ──
 export default async function handler(req, res) {
   // CORS
@@ -1138,10 +1033,6 @@ export default async function handler(req, res) {
     const wantEP = req.query.ep === "scan";
     const epSignals = wantEP ? await fetchEpisodicPivots(cookies) : null;
 
-    // Fetch top gainers if requested
-    const wantGainers = req.query.gainers === "1";
-    const topGainers = wantGainers ? await fetchTopGainers(cookies) : null;
-
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -1155,7 +1046,6 @@ export default async function handler(req, res) {
       analyst: tickerData?.analyst || null,
       homepage,
       ep_signals: epSignals,
-      top_gainers: topGainers,
     });
   } catch (err) {
     console.error("Live API error:", err);
