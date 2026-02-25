@@ -1720,6 +1720,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [epSection, setEpSection] = useState("results"); // results only now
   const [erSubTab, setErSubTab] = useState("gainers"); // "gainers" | "losers"
   const [erSort, setErSort] = useState({ col: "change", dir: "desc" });
+  const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -1992,8 +1993,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           };
         });
 
-        const gainers = allMovers.filter(s => s._chg > 0);
-        const losers = allMovers.filter(s => s._chg <= 0);
+        const visibleMovers = erUniverseOnly ? allMovers.filter(s => s._inUniverse) : allMovers;
+        const gainers = visibleMovers.filter(s => s._chg > 0);
+        const losers = visibleMovers.filter(s => s._chg <= 0);
         const items = erSubTab === "gainers" ? gainers : losers;
 
         // Sort
@@ -2024,8 +2026,15 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     background: erSubTab === k ? `${color}18` : "transparent",
                     color: erSubTab === k ? color : "#787888" }}>{label}</button>
               ))}
+              <button onClick={() => setErUniverseOnly(prev => !prev)}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: 8,
+                  border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+                  background: erUniverseOnly ? "#fbbf2418" : "transparent",
+                  color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
+                {"★ Theme Only"}
+              </button>
               <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
-                <span style={{ color: "#fbbf24" }}>\u2605</span> {uCount} theme \u00b7 {eCount} external
+                {"★"} {uCount} theme {" · "} {eCount} external
               </span>
             </div>
 
@@ -2063,7 +2072,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     const chgAbs = s.price != null ? Math.abs(s.price * chg / (100 + chg)) : null;
                     const chgColor = chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878";
                     const isActive = s.ticker === activeTicker;
-                    const volStr = s._vol ? (s._vol >= 1e6 ? `${(s._vol/1e6).toFixed(1)}M` : s._vol.toLocaleString()) : "\u2014";
+                    const volStr = s._vol ? (s._vol >= 1e6 ? `${(s._vol/1e6).toFixed(1)}M` : s._vol.toLocaleString()) : "—";
                     const er = s._er;
                     const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
                     const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
@@ -2078,7 +2087,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
                         {/* Universe indicator */}
                         <td style={{ padding: "6px 4px", textAlign: "center", fontSize: 9 }}>
-                          {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">\u2605</span> : <span style={{ color: "#3a3a4a" }} title="External">\u00b7</span>}
+                          {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
                         </td>
                         <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
                           <span style={{ color: chgColor, fontSize: 11 }}>
@@ -2086,7 +2095,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           </span>
                         </td>
                         <td style={{ padding: "6px 6px", textAlign: "right", color: "#a8a8b8", fontSize: 11, fontFamily: "monospace" }}>
-                          {s.price != null ? Number(s.price).toFixed(2) : "\u2014"}
+                          {s.price != null ? Number(s.price).toFixed(2) : "—"}
                         </td>
                         <td style={{ padding: "6px 8px", fontWeight: 600, fontSize: 11,
                           color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
@@ -2094,7 +2103,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         </td>
                         <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140,
                           fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                          {s.company || "\u2014"}
+                          {s.company || "—"}
                         </td>
                         <td style={{ padding: "6px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
                           {volStr}
