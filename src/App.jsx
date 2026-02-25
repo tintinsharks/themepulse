@@ -1721,6 +1721,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [erSort, setErSort] = useState({ col: "change", dir: "desc" });
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [erNoBio, setErNoBio] = useState(true);
+  const [er9M, setEr9M] = useState(false);
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -2028,6 +2029,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _ahChg: m.ah_change_pct ?? null,
             _upcoming: isUpcoming,
             _industry: stockMap[m.ticker]?.industry || m.industry || "",
+            _rvol: stockMap[m.ticker]?.rel_volume ?? null,
+            _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
           };
         });
 
@@ -2050,7 +2053,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           return true;
         }) : allMovers;
 
-        const visibleMovers = erUniverseOnly ? bioFiltered.filter(s => s._inUniverse) : bioFiltered;
+        const nineM = er9M ? bioFiltered.filter(s => {
+          const todayVol = s._vol || 0;
+          const avgVol = s._avgVol || Infinity;
+          return todayVol >= 8_900_000 && avgVol < 8_900_000;
+        }) : bioFiltered;
+
+        const visibleMovers = erUniverseOnly ? nineM.filter(s => s._inUniverse) : nineM;
 
         const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
@@ -2058,6 +2067,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           else if (erSort.col === "id_chg") { va = a._idChg ?? -999; vb = b._idChg ?? -999; }
           else if (erSort.col === "id_vol") { va = a._idVol ?? 0; vb = b._idVol ?? 0; }
           else if (erSort.col === "ah_chg") { va = a._ahChg ?? -999; vb = b._ahChg ?? -999; }
+          else if (erSort.col === "rvol") { va = a._rvol ?? 0; vb = b._rvol ?? 0; }
           else if (erSort.col === "change") { va = a._chg; vb = b._chg; }
           else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
           else { va = a._chg; vb = b._chg; }
@@ -2109,6 +2119,14 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   color: erNoBio ? "#f97316" : "#787888" }}>
                 {erNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
               </button>
+              <button onClick={() => setEr9M(prev => !prev)}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                  border: er9M ? "1px solid #e879f9" : "1px solid #3a3a4a",
+                  background: er9M ? "#e879f918" : "transparent",
+                  color: er9M ? "#e879f9" : "#787888" }}
+                title="Today vol≥8.9M but avg vol<8.9M (unusual activity)">
+                9M
+              </button>
               {!hasSessionData && (
                 <span style={{ fontSize: 9, color: "#c06060", marginLeft: 8, fontStyle: "italic" }}>
                   Session data pending — run 09h
@@ -2128,7 +2146,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 750 : 600 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 800 : 650 }}>
                   <thead>
                     {hasSessionData && (
                       <tr style={{ borderBottom: "none" }}>
@@ -2143,6 +2161,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           color: "#f59e0b", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
                           borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
                         <th></th>
+                        <th></th>
                       </tr>
                     )}
                     <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
@@ -2154,9 +2173,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         <th onClick={() => toggleSort("id_chg")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Chg%{sortArrow("id_chg")}</th>
                         <th onClick={() => toggleSort("id_vol")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Vol{sortArrow("id_vol")}</th>
                         <th onClick={() => toggleSort("ah_chg")} style={{ ...thClick, width: 55, color: "#f59e0b" }}>Chg%{sortArrow("ah_chg")}</th>
+                        <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
                       </>) : (<>
                         <th onClick={() => toggleSort("change")} style={{ ...thClick, width: 95 }}>Change{sortArrow("change")}</th>
                         <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
+                        <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
                       </>)}
                       <th style={{ ...thBase, textAlign: "left" }}>SeekingAlpha Headline</th>
                     </tr>
@@ -2205,6 +2226,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             {chgCell(s._idChg)}
                             {volCell(s._idVol)}
                             {chgCell(s._ahChg)}
+                            <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                              color: s._rvol >= 2 ? "#c084fc" : s._rvol >= 1.5 ? "#a78bfa" : s._rvol != null ? "#686878" : "#3a3a4a" }}>
+                              {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
+                            </td>
                           </>) : (<>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace" }}>
                               <span style={{ color: chgColor(s._chg), fontSize: 11 }}>
@@ -2213,6 +2238,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
                               {fmtVol(s._vol)}
+                            </td>
+                            <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                              color: s._rvol >= 2 ? "#c084fc" : s._rvol >= 1.5 ? "#a78bfa" : s._rvol != null ? "#686878" : "#3a3a4a" }}>
+                              {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
                             </td>
                           </>)}
                           <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : headlineColor, lineHeight: 1.3,
