@@ -1718,7 +1718,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [statusFilter, setStatusFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
   const [epSection, setEpSection] = useState("results"); // results only now
-  const [erSubTab, setErSubTab] = useState("gainers"); // "gainers" | "losers"
   const [erSort, setErSort] = useState({ col: "change", dir: "desc" });
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [epMinScore, setEpMinScore] = useState(0);
@@ -1994,12 +1993,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         });
 
         const visibleMovers = erUniverseOnly ? allMovers.filter(s => s._inUniverse) : allMovers;
-        const gainers = visibleMovers.filter(s => s._chg > 0);
-        const losers = visibleMovers.filter(s => s._chg <= 0);
-        const items = erSubTab === "gainers" ? gainers : losers;
 
-        // Sort
-        const sorted = [...items].sort((a, b) => {
+        // Sort all movers together
+        const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
           if (erSort.col === "change") { va = a._chg; vb = b._chg; }
           else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
@@ -2010,22 +2006,16 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         const toggleSort = (col) => {
           setErSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" });
         };
-        const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " \u2193" : " \u2191") : "";
+        const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " ↓" : " ↑") : "";
 
         const uCount = allMovers.filter(s => s._inUniverse).length;
         const eCount = allMovers.filter(s => !s._inUniverse).length;
 
         return (
           <div>
-            {/* Subtabs: Gainers | Losers + counts */}
+            {/* Filter bar */}
             <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-              {[["gainers", `Top Gainers (${gainers.length})`, "#2bb886"], ["losers", `Top Losers (${losers.length})`, "#f87171"]].map(([k, label, color]) => (
-                <button key={k} onClick={() => { setErSubTab(k); setErSort({ col: "change", dir: k === "gainers" ? "desc" : "asc" }); }}
-                  style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    border: erSubTab === k ? `1px solid ${color}` : "1px solid #3a3a4a",
-                    background: erSubTab === k ? `${color}18` : "transparent",
-                    color: erSubTab === k ? color : "#787888" }}>{label}</button>
-              ))}
+              <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings Results ({visibleMovers.length})</span>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
                 style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: 8,
                   border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
@@ -2042,7 +2032,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 12 }}>
                 {allMovers.length === 0
                   ? <>No earnings results yet. Run <span style={{ fontFamily: "monospace", color: "#fbbf24" }}>09g_earnings_calendar.py</span> after market hours.</>
-                  : `No ${erSubTab} in current results.`}
+                  : "No movers in current results."}
               </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
