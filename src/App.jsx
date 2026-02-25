@@ -349,6 +349,32 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })()}
             </div>
+            {/* Earnings beat/miss from 09g — show if er data present */}
+            {stock.er && stock.er.eps != null && (() => {
+              const er = stock.er;
+              const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps - er.eps_estimated : null;
+              const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue - er.revenue_estimated : null;
+              const epsBeatColor = epsBeat != null ? (epsBeat >= 0 ? "#2bb886" : "#f87171") : "#484858";
+              const revBeatColor = revBeat != null ? (revBeat >= 0 ? "#2bb886" : "#f87171") : "#484858";
+              const fmtRev = (v) => { if (!v) return "—"; const n = Math.abs(v); return n >= 1e9 ? `$${(v/1e9).toFixed(2)}B` : n >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : `$${v.toLocaleString()}`; };
+              return (
+                <div style={{ padding: "3px 6px", marginBottom: 4, background: "#ffffff06", border: "1px solid #2a2a3a",
+                  borderRadius: 3, fontSize: 10, fontFamily: "monospace", display: "flex", gap: 10, alignItems: "center" }}>
+                  <span>
+                    <span style={{ color: "#686878" }}>EPS </span>
+                    <span style={{ color: "#a8a8b8", fontWeight: 600 }}>${er.eps?.toFixed(2)}</span>
+                    {er.eps_estimated != null && <span style={{ color: "#505060" }}> / ${er.eps_estimated.toFixed(2)}</span>}
+                    {epsBeat != null && <span style={{ color: epsBeatColor, fontWeight: 700, marginLeft: 3 }}>{epsBeat >= 0 ? "✓" : "✗"}{epsBeat >= 0 ? "+" : ""}{epsBeat.toFixed(2)}</span>}
+                  </span>
+                  {er.revenue != null && <span>
+                    <span style={{ color: "#686878" }}>Rev </span>
+                    <span style={{ color: "#a8a8b8", fontWeight: 600 }}>{fmtRev(er.revenue)}</span>
+                    {er.revenue_estimated != null && <span style={{ color: "#505060" }}> / {fmtRev(er.revenue_estimated)}</span>}
+                    {revBeat != null && <span style={{ color: revBeatColor, fontWeight: 700, marginLeft: 3 }}>{revBeat >= 0 ? "✓" : "✗"}{revBeat >= 0 ? "+" : ""}{fmtRev(Math.abs(revBeat)).replace("$","")}</span>}
+                  </span>}
+                </div>
+              );
+            })()}
             {/* Past earnings from quarterly data — CANSLIM C: Current Quarterly */}
             {/* Code 33: 3 consecutive quarters of acceleration in EPS, Sales, and Profit Margins */}
             {(() => {
@@ -1554,12 +1580,17 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
-                  <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
+                  <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
                     style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
                       color: s.earnings_days <= 1 ? "#fff" : "#f87171",
                       background: s.earnings_days <= 1 ? "#dc2626" : "#f8717120",
                       border: `1px solid ${s.earnings_days <= 1 ? "#dc2626" : "#f8717130"}` }}>
                     ER{s.earnings_days === 0 ? "" : s.earnings_days}
+                    {s.er && s.er.eps != null && s.er.eps_estimated != null && (
+                      <span style={{ marginLeft: 1, color: s.er.eps >= s.er.eps_estimated ? "#4ade80" : "#fca5a5" }}>
+                        {s.er.eps >= s.er.eps_estimated ? "✓" : "✗"}
+                      </span>
+                    )}
                   </span>
                 )}
               </td>
@@ -1919,7 +1950,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     <div>
       {/* Section toggle */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        {[["upcoming", `Upcoming (${upcomingEarnings.filter(s => s._days >= 0).length})`], ["results", `Results (${upcomingEarnings.filter(s => s._days < 0 && s.er).length})`], ["signals", `EP Signals (${filtered.length})`]].map(([k, label]) => (
+        {[["upcoming", `Upcoming (${upcomingEarnings.filter(s => s._days >= 0 && !(s.er && s.er.eps != null)).length})`], ["results", `Results (${upcomingEarnings.filter(s => s.er && s.er.eps != null).length})`], ["signals", `EP Signals (${filtered.length})`]].map(([k, label]) => (
           <button key={k} onClick={() => setEpSection(k)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
             border: epSection === k ? "1px solid #fbbf24" : "1px solid #3a3a4a",
             background: epSection === k ? "#fbbf2420" : "transparent", color: epSection === k ? "#fbbf24" : "#787888" }}>{label}</button>
@@ -1931,7 +1962,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       {epSection === "results" && (() => {
         // Get stocks that already reported (past days with er data)
         const reported = upcomingEarnings
-          .filter(s => s._days < 0 && s.er)
+          .filter(s => s.er && s.er.eps != null)
           .map(s => {
             const er = s.er;
             const chg = s.change_pct;
@@ -2156,15 +2187,40 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               const chgColor = chg == null ? "#484858" : chg >= 8 ? "#2bb886" : chg >= 3 ? "#4a9a6a" : chg > 0 ? "#5a8a5a" : chg <= -8 ? "#f87171" : chg <= -3 ? "#c06060" : chg < 0 ? "#a05050" : "#686878";
               const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#686878";
               const q0 = (s.quarters || [])[0] || {};
-              // Build headline: EPS/Sales YoY from most recent quarter
+              const er = s.er || {};
+              // Build headline: prefer er beat/miss data, fallback to YoY
               let headline = s.company || "";
-              if (q0.eps_yoy != null || q0.sales_yoy != null) {
+              let headlineColor = "#585868";
+              if (isPast && er.eps != null) {
+                // Show actual beat/miss for reported stocks
+                const parts = [];
+                if (er.eps != null && er.eps_estimated != null) {
+                  const beat = er.eps - er.eps_estimated;
+                  parts.push(`EPS $${er.eps.toFixed(2)} ${beat >= 0 ? "✓" : "✗"}$${beat.toFixed(2)}`);
+                } else if (er.eps != null) {
+                  parts.push(`EPS $${er.eps.toFixed(2)}`);
+                }
+                if (er.revenue != null) {
+                  const revM = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(0)}M`;
+                  if (er.revenue_estimated) {
+                    const revBeat = er.revenue - er.revenue_estimated;
+                    const revBeatM = Math.abs(revBeat) >= 1e9 ? `$${(Math.abs(revBeat)/1e9).toFixed(2)}B` : `$${(Math.abs(revBeat)/1e6).toFixed(1)}M`;
+                    parts.push(`Rev ${revM} ${revBeat >= 0 ? "✓" : "✗"}${revBeatM}`);
+                  } else {
+                    parts.push(`Rev ${revM}`);
+                  }
+                }
+                headline = parts.join(" · ");
+                const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
+                const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
+                headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false || revBeat === false ? "#a05050" : "#4a9a6a";
+              } else if (q0.eps_yoy != null || q0.sales_yoy != null) {
                 const parts = [];
                 if (q0.eps_yoy != null) parts.push(`EPS ${q0.eps_yoy > 0 ? "+" : ""}${Math.round(q0.eps_yoy)}%`);
                 if (q0.sales_yoy != null) parts.push(`Rev ${q0.sales_yoy > 0 ? "+" : ""}${Math.round(q0.sales_yoy)}%`);
                 headline = parts.join(" · ");
+                headlineColor = (q0.eps_yoy ?? 0) > 0 && (q0.sales_yoy ?? 0) > 0 ? "#4a9a6a" : (q0.eps_yoy ?? 0) < 0 && (q0.sales_yoy ?? 0) < 0 ? "#a05050" : "#585868";
               }
-              const headlineColor = (q0.eps_yoy ?? 0) > 0 && (q0.sales_yoy ?? 0) > 0 ? "#4a9a6a" : (q0.eps_yoy ?? 0) < 0 && (q0.sales_yoy ?? 0) < 0 ? "#a05050" : "#585868";
 
               return (
                 <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
@@ -3613,7 +3669,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display,
-      earnings_date: pipe.earnings_date, _scanHits: pipe._scanHits || [],
+      earnings_date: pipe.earnings_date, er: pipe.er, _scanHits: pipe._scanHits || [],
       _epsScore: pipe._epsScore, _msScore: pipe._msScore, _quality: quality, _q_factors: q_factors,
     };
   }, [stockMap]);
@@ -4302,12 +4358,17 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500, fontSize: 12 }}>
         <span>{s.ticker}</span>
         {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
-          <span title={s.earnings_display || s.earnings_date || `${s.earnings_days}d`}
+          <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
             style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
               color: s.earnings_days <= 1 ? "#fff" : "#f87171",
               background: s.earnings_days <= 1 ? "#dc2626" : "#f8717120",
               border: `1px solid ${s.earnings_days <= 1 ? "#dc2626" : "#f8717130"}` }}>
             ER{s.earnings_days === 0 ? "" : s.earnings_days}
+            {s.er && s.er.eps != null && s.er.eps_estimated != null && (
+              <span style={{ marginLeft: 1, color: s.er.eps >= s.er.eps_estimated ? "#4ade80" : "#fca5a5" }}>
+                {s.er.eps >= s.er.eps_estimated ? "✓" : "✗"}
+              </span>
+            )}
           </span>
         )}
       </td>
@@ -4812,6 +4873,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       earnings_days: pipe.earnings_days,
       earnings_display: pipe.earnings_display,
       earnings_date: pipe.earnings_date,
+      er: pipe.er,
       _scanHits: pipe._scanHits || [],
       _epsScore: pipe._epsScore,
       _msScore: pipe._msScore,
