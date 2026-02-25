@@ -1957,12 +1957,19 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         // Plus: today's upcoming AMC reporters from stockMap (not yet reported)
         const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
 
-        // Find today's upcoming AMC reporters from universe stocks
+        // Detect today's AMC reporters — these haven't reported yet
+        const todayAMCTickers = new Set();
+        Object.values(stockMap).forEach(s => {
+          if (s.earnings_days === 0) {
+            const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
+            if (disp.includes("AMC")) todayAMCTickers.add(s.ticker);
+          }
+        });
+
+        // Find upcoming AMC reporters NOT already in earningsMovers
         const upcomingAMC = Object.values(stockMap).filter(s => {
           if (reportedTickers.has(s.ticker)) return false;
-          if (s.earnings_days !== 0) return false;
-          const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
-          return disp.includes("AMC");
+          return todayAMCTickers.has(s.ticker);
         }).map(s => ({
           ticker: s.ticker,
           company: s.company || s.ticker,
@@ -1978,7 +1985,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => {
           const er = m.er || {};
           const chg = m.change_pct ?? 0;
-          const isUpcoming = !!m._upcoming || er.time === "amc_today";
+          // Mark as upcoming if it's a today-AMC ticker (even if it came from earningsMovers with stale data)
+          const isUpcoming = !!m._upcoming || todayAMCTickers.has(m.ticker);
 
           // Only build headline for stocks that have already reported
           const parts = [];
