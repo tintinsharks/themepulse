@@ -1199,6 +1199,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (!hitMap[s.ticker]) hitMap[s.ticker] = [];
       if (s.mf != null && s.mf >= mfPosThreshold && s.mf > 0) hitMap[s.ticker].push("MF+");
       if (s.mf != null && s.mf <= mfNegThreshold && s.mf < 0) hitMap[s.ticker].push("MF-");
+      // 9M: Today's volume ≥ 8.9M shares but avg daily volume < 8.9M (unusual institutional activity)
+      const avgVol = s.avg_volume_raw || 0;
+      const todayVol = avgVol * (s.rel_volume || 0);
+      if (todayVol >= 8_900_000 && avgVol < 8_900_000) hitMap[s.ticker].push("9M");
     });
 
     // ── Composite EPS Score (0-99 percentile) ──
@@ -1341,7 +1345,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
-    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, "MF+": 0, "MF-": 0 };
+    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, "MF+": 0, "MF-": 0, "9M": 0 };
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
@@ -1361,7 +1365,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {[
           ["T", "Theme", "#2bb886"], ["W", "Winners", "#c084fc"], ["L", "Liquid", "#60a5fa"],
           ["E", "Early", "#fbbf24"], ["EP", "EP", "#f97316"], ["CS", "CANSLIM", "#22d3ee"], ["ZM", "Zanger", "#a78bfa"],
-          ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"]
+          ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
+          ["9M", "9M", "#e879f9"]
         ].map(([tag, label, color]) => {
           const active = scanFilters.has(tag);
           return (
@@ -1392,7 +1397,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 E: ">50MA(<10%), >200MA, RS:50-85, FrHi<-10%",
                 EP: "Gap + volume surge on earnings/news",
                 CS: "EPS≥40%, near highs, RS≥80, supply/demand",
-                ZM: "Leading theme, >MAs, near highs, tight to 50MA" };
+                ZM: "Leading theme, >MAs, near highs, tight to 50MA",
+                "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)" };
               const active = [...scanFilters];
               if (active.length === 1) return descs[active[0]] || "";
               return active.map(f => f).join(" + ");
@@ -1492,7 +1498,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                       L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" },
                       EP: { bg: "#f9731620", color: "#f97316", label: "EP" },
                       CS: { bg: "#22d3ee20", color: "#22d3ee", label: "CS" },
-                      ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" } }[h];
+                      ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" },
+                      "9M": { bg: "#e879f920", color: "#e879f9", label: "9M" } }[h];
                     if (!hc) return null;
                     return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
                       color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
@@ -3795,7 +3802,8 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
               L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" },
               EP: { bg: "#f9731620", color: "#f97316", label: "EP" },
               CS: { bg: "#22d3ee20", color: "#22d3ee", label: "CS" },
-              ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" } }[h];
+              ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" },
+              "9M": { bg: "#e879f920", color: "#e879f9", label: "9M" } }[h];
             if (!hc) return null;
             return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
               color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
