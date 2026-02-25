@@ -1898,7 +1898,12 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return Object.values(weeks).sort((a, b) => a.startDay - b.startDay);
   }, [upcomingEarnings]);
 
-  const [collapsedWeeks, setCollapsedWeeks] = useState(new Set());
+  const [collapsedWeeks, setCollapsedWeeks] = useState(() => {
+    // Collapse all non-current weeks by default
+    const collapsed = new Set();
+    earningsCalendar.forEach(w => { if (!w.isCurrent) collapsed.add(w.weekKey); });
+    return collapsed;
+  });
   const toggleWeek = (wk) => setCollapsedWeeks(prev => {
     const next = new Set(prev);
     if (next.has(wk)) next.delete(wk); else next.add(wk);
@@ -1919,88 +1924,81 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
       {/* ── Upcoming Earnings Section — Calendar View ── */}
       {epSection === "upcoming" && (<div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-          <span style={{ color: "#686878", fontSize: 10 }}>RS≥</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
           {[0, 50, 70, 80].map(v => (
-            <button key={v} onClick={() => setEarningsMinRS(v)} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
-              border: earningsMinRS === v ? "1px solid #fbbf24" : "1px solid #3a3a4a",
-              background: earningsMinRS === v ? "#fbbf2420" : "transparent", color: earningsMinRS === v ? "#fbbf24" : "#787888" }}>{v || "All"}</button>
+            <button key={v} onClick={() => setEarningsMinRS(v)} style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+              border: earningsMinRS === v ? "1px solid #fbbf24" : "1px solid #2a2a3a",
+              background: earningsMinRS === v ? "#fbbf2420" : "transparent", color: earningsMinRS === v ? "#fbbf24" : "#585868" }}>{v ? `RS${v}` : "All"}</button>
           ))}
-          <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
-          {/* NoBio toggle */}
-          <button onClick={() => setEpNoBio(!epNoBio)} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
-            border: epNoBio ? "1px solid #f87171" : "1px solid #3a3a4a",
-            background: epNoBio ? "#f8717120" : "transparent", color: epNoBio ? "#f87171" : "#787888" }}>NoBio</button>
-          <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
-          {/* Tag-style filters */}
+          <span style={{ color: "#252535", margin: "0 1px" }}>│</span>
+          <button onClick={() => setEpNoBio(!epNoBio)} style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+            border: epNoBio ? "1px solid #f87171" : "1px solid #2a2a3a",
+            background: epNoBio ? "#f8717118" : "transparent", color: epNoBio ? "#f87171" : "#585868" }}>NoBio</button>
+          <span style={{ color: "#252535", margin: "0 1px" }}>│</span>
           {[["MF+", "#2bb886"], ["MF-", "#f87171"], ["S+", "#60a5fa"], ["M+", "#a78bfa"], ["L+", "#fbbf24"], ["9M", "#e879f9"]].map(([tag, color]) => (
             <button key={tag} onClick={() => setEpFilters(prev => {
               const next = new Set(prev);
-              // S+/M+/L+ are mutually exclusive
               if (["S+","M+","L+"].includes(tag)) { next.delete("S+"); next.delete("M+"); next.delete("L+"); }
               if (next.has(tag)) next.delete(tag); else next.add(tag);
               return next;
-            })} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, cursor: "pointer",
-              border: epFilters.has(tag) ? `1px solid ${color}` : "1px solid #3a3a4a",
-              background: epFilters.has(tag) ? `${color}20` : "transparent", color: epFilters.has(tag) ? color : "#787888" }}>{tag === "MF-" ? "MF−" : tag}</button>
+            })} style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+              border: epFilters.has(tag) ? `1px solid ${color}` : "1px solid #2a2a3a",
+              background: epFilters.has(tag) ? `${color}18` : "transparent", color: epFilters.has(tag) ? color : "#585868" }}>{tag === "MF-" ? "MF−" : tag}</button>
           ))}
-          <span style={{ color: "#505060", fontSize: 9, marginLeft: "auto" }}>{upcomingEarnings.length} reports · ±2 weeks</span>
+          <span style={{ color: "#404050", fontSize: 8, marginLeft: "auto" }}>{upcomingEarnings.length}</span>
         </div>
 
         {earningsCalendar.map(week => {
           const isCollapsed = collapsedWeeks.has(week.weekKey);
           const totalStocks = week.days.reduce((sum, d) => sum + d.items.length, 0);
           return (
-            <div key={week.weekKey} style={{ marginBottom: 4 }}>
-              {/* Week header — collapsible */}
+            <div key={week.weekKey} style={{ marginBottom: 2 }}>
+              {/* Week header */}
               <div onClick={() => toggleWeek(week.weekKey)}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", userSelect: "none",
-                  background: week.isCurrent ? "#fbbf2412" : week.isPast ? "#f8717108" : "#1a1a24",
-                  borderRadius: isCollapsed ? 4 : "4px 4px 0 0", border: `1px solid ${week.isCurrent ? "#fbbf2430" : "#2a2a38"}` }}>
-                <span style={{ fontSize: 10, color: "#686878" }}>{isCollapsed ? "▸" : "▾"}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: week.isCurrent ? "#fbbf24" : week.isPast ? "#9090a0" : "#b8b8c8" }}>
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", cursor: "pointer", userSelect: "none",
+                  background: week.isCurrent ? "#fbbf2410" : "transparent",
+                  borderRadius: isCollapsed ? 3 : "3px 3px 0 0", border: `1px solid ${week.isCurrent ? "#fbbf2425" : "#222232"}` }}>
+                <span style={{ fontSize: 9, color: "#585868" }}>{isCollapsed ? "▸" : "▾"}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: week.isCurrent ? "#fbbf24" : week.isPast ? "#686878" : "#9090a0" }}>
                   {week.weekKey}{week.isCurrent ? " ← This Week" : ""}
                 </span>
-                <span style={{ fontSize: 10, color: "#686878" }}>{totalStocks} report{totalStocks !== 1 ? "s" : ""}</span>
+                <span style={{ fontSize: 9, color: "#505060" }}>{totalStocks}</span>
               </div>
 
-              {/* Days within week */}
+              {/* Days */}
               {!isCollapsed && (
-                <div style={{ border: `1px solid ${week.isCurrent ? "#fbbf2420" : "#2a2a38"}`, borderTop: "none", borderRadius: "0 0 4px 4px", overflow: "hidden" }}>
+                <div style={{ border: `1px solid ${week.isCurrent ? "#fbbf2418" : "#222232"}`, borderTop: "none", borderRadius: "0 0 3px 3px" }}>
                   {week.days.map(day => {
                     const isToday = day.days === 0;
                     const isPastDay = day.days < 0;
                     return (
-                      <div key={day.dateKey} style={{ borderBottom: "1px solid #1a1a2a" }}>
-                        {/* Day header */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px",
-                          background: isToday ? "#fbbf2418" : "transparent" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, minWidth: 70,
-                            color: isToday ? "#fbbf24" : isPastDay ? "#787888" : "#b8b8c8" }}>
+                      <div key={day.dateKey} style={{ borderBottom: "1px solid #1a1a25" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 8px",
+                          background: isToday ? "#fbbf2415" : "transparent" }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, minWidth: 66,
+                            color: isToday ? "#fbbf24" : isPastDay ? "#585868" : "#9090a0" }}>
                             {day.dayLabel}{isToday ? " ★" : ""}
                           </span>
-                          <span style={{ fontSize: 9, color: "#505060" }}>{day.items.length}</span>
+                          <span style={{ fontSize: 8, color: "#404050" }}>{day.items.length}</span>
                         </div>
                         {/* Ticker chips for this day */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, padding: "3px 8px 6px" }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "2px 8px 4px" }}>
                           {day.items.sort((a, b) => (b._epsScore ?? -1) - (a._epsScore ?? -1)).map(s => {
                             const isActive = s.ticker === activeTicker;
                             const gradeColor = ["A+","A","A-"].includes(s.grade) ? "#2bb886" : ["B+","B","B-"].includes(s.grade) ? "#60a5fa" : ["C+","C","C-"].includes(s.grade) ? "#fbbf24" : "#787888";
                             const hasEP = epSignals?.some(ep => ep.ticker === s.ticker && ep.days_ago <= 5);
+                            const scoreColor = s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868";
                             return (
                               <div key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                                title={`${s.company || s.ticker} | EP Score:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} | Grade:${s.grade} RS:${s.rs_rank} | 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} MCap:${s.market_cap || ""} ${s.themes?.[0]?.theme || ""}`}
-                                style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4, cursor: "pointer",
-                                  background: isActive ? "#fbbf2425" : hasEP ? "#f9731618" : isPastDay ? "#1a1a24" : "#161622",
-                                  border: `1px solid ${isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#2a2a38"}` }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#fbbf24"; e.currentTarget.style.background = "#fbbf2415"; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#2a2a38"; e.currentTarget.style.background = isActive ? "#fbbf2425" : hasEP ? "#f9731618" : isPastDay ? "#1a1a24" : "#161622"; }}>
-                                <span style={{ fontWeight: 600, fontSize: 11, color: isActive ? "#fbbf24" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
-                                {s._epsScore != null && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, padding: "0 2px", borderRadius: 2,
-                                  background: s._epsScore >= 70 ? "#2bb88625" : s._epsScore >= 40 ? "#fbbf2418" : "transparent",
-                                  color: s._epsScore >= 70 ? "#2bb886" : s._epsScore >= 40 ? "#fbbf24" : s._epsScore >= 20 ? "#9090a0" : "#585868" }}>{s._epsScore}</span>}
-                                <span style={{ fontSize: 8, color: gradeColor, fontWeight: 700 }}>{s.grade}</span>
-                                {s._epsFactors?.length > 0 && <span style={{ fontSize: 7, color: "#787888", fontFamily: "monospace" }}>{s._epsFactors.slice(0, 3).join("·")}</span>}
+                                title={`${s.company || s.ticker} · EP:${s._epsScore ?? "—"} ${(s._epsFactors || []).join(" ")} · Grade:${s.grade} RS:${s.rs_rank} · 3M:${s.return_3m ?? "—"}% FrHi:${s.pct_from_high ?? "—"}% MF:${s.mf ?? "—"} · ${s.market_cap || ""} · ${s.themes?.[0]?.theme || ""}`}
+                                style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                                  background: isActive ? "#fbbf2425" : hasEP ? "#f9731612" : "transparent",
+                                  border: `1px solid ${isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#252535"}` }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = "#fbbf24"; e.currentTarget.style.background = "#fbbf2412"; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = isActive ? "#fbbf24" : hasEP ? "#f9731640" : "#252535"; e.currentTarget.style.background = isActive ? "#fbbf2425" : hasEP ? "#f9731612" : "transparent"; }}>
+                                <span style={{ fontWeight: 600, fontSize: 11, color: isActive ? "#fbbf24" : isPastDay ? "#787888" : "#d4d4e0", fontFamily: "monospace" }}>{s.ticker}</span>
+                                {s._epsScore != null && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: scoreColor }}>{s._epsScore}</span>}
+                                <span style={{ fontSize: 7, color: gradeColor, fontWeight: 700 }}>{s.grade}</span>
                                 {hasEP && <span style={{ fontSize: 7, color: "#f97316", fontWeight: 700 }}>EP</span>}
                               </div>
                             );
