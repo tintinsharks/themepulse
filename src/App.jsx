@@ -1729,16 +1729,20 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [liveEPs, setLiveEPs] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
+  const [topGainers, setTopGainers] = useState(null);
 
   // Fetch live EPs on mount and on manual refresh
   const fetchLiveEPs = useCallback(() => {
     setLiveLoading(true);
-    fetch('/api/live?ep=scan')
+    fetch('/api/live?ep=scan&gainers=1')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.ok && d.ep_signals) {
           setLiveEPs(d.ep_signals);
           setLastScan(new Date().toLocaleTimeString());
+        }
+        if (d?.ok && d.top_gainers) {
+          setTopGainers(d.top_gainers);
         }
         setLiveLoading(false);
       })
@@ -1984,7 +1988,27 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           _upcoming: true,
         }));
 
-        const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => {
+        // Merge top gainers (dedup against earnings + AMC)
+        const existingTickers = new Set([
+          ...reportedTickers,
+          ...upcomingAMC.map(s => s.ticker),
+        ]);
+        const gainerEntries = (topGainers || []).filter(g => !existingTickers.has(g.ticker)).map(g => ({
+          ticker: g.ticker,
+          company: g.company || g.ticker,
+          price: g.price,
+          change_pct: g.change_pct ?? 0,
+          volume: g.volume,
+          er: {},
+          in_universe: !!stockMap[g.ticker],
+          grade: stockMap[g.ticker]?.grade || null,
+          industry: g.industry,
+          rel_volume: g.rel_volume,
+          _gainer: true,
+          _gainerHeadline: g.headline || "",
+        }));
+
+        const allMovers = [...(earningsMovers || []), ...upcomingAMC, ...gainerEntries].map(m => {
           const er = m.er || {};
           const chg = m.change_pct ?? 0;
           // Mark as upcoming if it's a today-AMC ticker (even if it came from earningsMovers with stale data)
@@ -2020,7 +2044,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _chg: chg,
             _er: er,
             _headline: isUpcoming ? "" : parts.join(", "),
-            _vol: m.volume || 0,
+            _vol: typeof m.volume === "string" ? parseFloat(m.volume.replace(/,/g, "")) || 0 : (m.volume || 0),
             _inUniverse: !!m.in_universe,
             grade: m.grade || null,
             _pmChg: m.pm_change_pct ?? null,
@@ -2029,8 +2053,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _ahChg: m.ah_change_pct ?? null,
             _upcoming: isUpcoming,
             _industry: stockMap[m.ticker]?.industry || m.industry || "",
-            _rvol: stockMap[m.ticker]?.rel_volume ?? null,
+            _rvol: m._gainer && m.rel_volume ? m.rel_volume : (stockMap[m.ticker]?.rel_volume ?? null),
             _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
+            _gainer: !!m._gainer,
+            _gainerHeadline: m._gainerHeadline || "",
           };
         });
 
@@ -2079,8 +2105,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         };
         const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " ↓" : " ↑") : "";
 
-        const uCount = allMovers.filter(s => s._inUniverse).length;
-        const eCount = allMovers.filter(s => !s._inUniverse).length;
+        const uCount = allMovers.filter(s => s._inUniverse && !s._gainer).length;
+        const eCount = allMovers.filter(s => !s._inUniverse && !s._gainer).length;
+        const gCount = allMovers.filter(s => s._gainer).length;
 
         const chgColor = (v) => {
           if (v == null) return "#3a3a4a";
@@ -2104,7 +2131,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         return (
           <div>
             <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings Results ({visibleMovers.length})</span>
+              <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings & Top Gainers ({visibleMovers.length})</span>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
                 style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: 8,
                   border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
@@ -2134,6 +2161,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               )}
               <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
                 {"★"} {uCount} theme {" · "} {eCount} external
+                {gCount > 0 && <>{" · "}<span style={{ color: "#2bb886" }}>{gCount} gainers</span></>}
                 {allMovers.filter(s => s._upcoming).length > 0 && <>{" · "}<span style={{ color: "#f59e0b" }}>{allMovers.filter(s => s._upcoming).length} AMC today</span></>}
               </span>
             </div>
@@ -2179,7 +2207,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
                         <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
                       </>)}
-                      <th style={{ ...thBase, textAlign: "left" }}>SeekingAlpha Headline</th>
+                      <th style={{ ...thBase, textAlign: "left" }}>Headline / Industry</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2211,7 +2239,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
                           onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
                           <td style={{ padding: "4px 3px", textAlign: "center", fontSize: 9 }}>
-                            {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
+                            {s._gainer ? <span style={{ color: "#2bb886" }} title="Top Gainer">{"▲"}</span> : s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
                           </td>
                           <td style={{ padding: "4px 4px", fontWeight: 600, fontSize: 10,
                             color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
@@ -2244,9 +2272,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                               {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
                             </td>
                           </>)}
-                          <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : headlineColor, lineHeight: 1.3,
-                            fontFamily: "system-ui, -apple-system, sans-serif", fontStyle: s._upcoming ? "italic" : "normal" }}>
-                            {s._upcoming ? "Reports after close today" : s._headline}
+                          <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : s._gainer ? "#686878" : headlineColor, lineHeight: 1.3,
+                            fontFamily: "system-ui, -apple-system, sans-serif", fontStyle: (s._upcoming || s._gainer) ? "italic" : "normal" }}>
+                            {s._upcoming ? "Reports after close today" : s._gainer ? (s._gainerHeadline || s._industry || "Top Gainer") : s._headline}
                           </td>
                         </tr>
                       );
