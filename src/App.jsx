@@ -1734,19 +1734,25 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   // Fetch live EPs on mount and on manual refresh
   const fetchLiveEPs = useCallback(() => {
     setLiveLoading(true);
-    fetch('/api/live?ep=scan&gainers=1')
+    fetch('/api/live?ep=scan')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.ok && d.ep_signals) {
           setLiveEPs(d.ep_signals);
           setLastScan(new Date().toLocaleTimeString());
         }
-        if (d?.ok && d.top_gainers) {
-          setTopGainers(d.top_gainers);
-        }
         setLiveLoading(false);
       })
       .catch(() => setLiveLoading(false));
+    // Separate call for top gainers (won't break EP if it fails)
+    fetch('/api/live?gainers=1')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.ok && d.top_gainers) {
+          setTopGainers(d.top_gainers);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => { fetchLiveEPs(); }, [fetchLiveEPs]);
