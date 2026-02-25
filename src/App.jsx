@@ -1953,12 +1953,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
       {/* ── Earnings Results — All Market Movers ── */}
       {(() => {
-        // earnings_movers is the SOLE data source — built by 09g pipeline
-        // Contains ALL stocks that reported yesterday AMC + today BMO (universe + external)
+        // earnings_movers is the SOLE data source — built by 09g + 09h pipeline
         const allMovers = (earningsMovers || []).map(m => {
           const er = m.er || {};
           const chg = m.change_pct ?? 0;
-          // Build SA-style headline
           const parts = [];
           if (er.eps != null) {
             const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
@@ -1989,15 +1987,26 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _vol: m.volume || 0,
             _inUniverse: !!m.in_universe,
             grade: m.grade || null,
+            _pmChg: m.pm_change_pct ?? null,
+            _pmVol: m.pm_volume ?? null,
+            _idChg: m.id_change_pct ?? null,
+            _idVol: m.id_volume ?? null,
+            _ahChg: m.ah_change_pct ?? null,
+            _ahVol: m.ah_volume ?? null,
           };
         });
 
         const visibleMovers = erUniverseOnly ? allMovers.filter(s => s._inUniverse) : allMovers;
 
-        // Sort all movers together
         const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
-          if (erSort.col === "change") { va = a._chg; vb = b._chg; }
+          if (erSort.col === "pm_chg") { va = a._pmChg ?? -999; vb = b._pmChg ?? -999; }
+          else if (erSort.col === "pm_vol") { va = a._pmVol ?? 0; vb = b._pmVol ?? 0; }
+          else if (erSort.col === "id_chg") { va = a._idChg ?? -999; vb = b._idChg ?? -999; }
+          else if (erSort.col === "id_vol") { va = a._idVol ?? 0; vb = b._idVol ?? 0; }
+          else if (erSort.col === "ah_chg") { va = a._ahChg ?? -999; vb = b._ahChg ?? -999; }
+          else if (erSort.col === "ah_vol") { va = a._ahVol ?? 0; vb = b._ahVol ?? 0; }
+          else if (erSort.col === "change") { va = a._chg; vb = b._chg; }
           else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
           else { va = a._chg; vb = b._chg; }
           return erSort.dir === "desc" ? vb - va : va - vb;
@@ -2011,9 +2020,27 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         const uCount = allMovers.filter(s => s._inUniverse).length;
         const eCount = allMovers.filter(s => !s._inUniverse).length;
 
+        const chgColor = (v) => {
+          if (v == null) return "#3a3a4a";
+          if (v >= 5) return "#2bb886"; if (v > 0) return "#4a9a6a";
+          if (v <= -5) return "#f87171"; if (v < 0) return "#c06060";
+          return "#686878";
+        };
+        const fmtVol = (v) => {
+          if (v == null || v === 0) return "—";
+          if (v >= 1e6) return `${(v/1e6).toFixed(1)}M`;
+          if (v >= 1e3) return `${(v/1e3).toFixed(0)}K`;
+          return v.toLocaleString();
+        };
+
+        const thBase = { padding: "4px 4px", textAlign: "right", color: "#686878", fontWeight: 600,
+          fontSize: 9, fontFamily: "system-ui, -apple-system, sans-serif", whiteSpace: "nowrap" };
+        const thClick = { ...thBase, cursor: "pointer", userSelect: "none" };
+
+        const hasSessionData = allMovers.some(s => s._pmChg != null || s._idChg != null || s._ahChg != null);
+
         return (
           <div>
-            {/* Filter bar */}
             <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
               <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings Results ({visibleMovers.length})</span>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
@@ -2023,6 +2050,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
                 {"★ Theme Only"}
               </button>
+              {!hasSessionData && (
+                <span style={{ fontSize: 9, color: "#c06060", marginLeft: 8, fontStyle: "italic" }}>
+                  Session data pending — run 09h
+                </span>
+              )}
               <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
                 {"★"} {uCount} theme {" · "} {eCount} external
               </span>
@@ -2035,78 +2067,108 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   : "No movers in current results."}
               </div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                    <th style={{ padding: "6px 4px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 20,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}></th>
-                    <th onClick={() => toggleSort("change")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
-                      fontSize: 10, width: 95, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                      Change{sortArrow("change")}</th>
-                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#686878", fontWeight: 600, fontSize: 10, width: 50,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Last</th>
-                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, width: 60,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Symbol</th>
-                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, width: 140,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Name</th>
-                    <th onClick={() => toggleSort("volume")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
-                      fontSize: 10, width: 80, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                      Volume{sortArrow("volume")}</th>
-                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10,
-                      fontFamily: "system-ui, -apple-system, sans-serif" }}>SeekingAlpha Headline</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map(s => {
-                    const chg = s._chg;
-                    const chgAbs = s.price != null ? Math.abs(s.price * chg / (100 + chg)) : null;
-                    const chgColor = chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878";
-                    const isActive = s.ticker === activeTicker;
-                    const volStr = s._vol ? (s._vol >= 1e6 ? `${(s._vol/1e6).toFixed(1)}M` : s._vol.toLocaleString()) : "—";
-                    const er = s._er;
-                    const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
-                    const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
-                    const headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false && revBeat === false ? "#f87171" : epsBeat ? "#4a9a6a" : "#c06060";
-
-                    return (
-                      <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
-                          background: isActive ? "#fbbf2420" : "transparent",
-                          opacity: s._inUniverse ? 1 : 0.75 }}
-                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
-                        {/* Universe indicator */}
-                        <td style={{ padding: "6px 4px", textAlign: "center", fontSize: 9 }}>
-                          {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
-                        </td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                          <span style={{ color: chgColor, fontSize: 11 }}>
-                            {chgAbs != null ? `${chg >= 0 ? "" : "-"}${chgAbs.toFixed(2)}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
-                          </span>
-                        </td>
-                        <td style={{ padding: "6px 6px", textAlign: "right", color: "#a8a8b8", fontSize: 11, fontFamily: "monospace" }}>
-                          {s.price != null ? Number(s.price).toFixed(2) : "—"}
-                        </td>
-                        <td style={{ padding: "6px 8px", fontWeight: 600, fontSize: 11,
-                          color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
-                          {s.ticker}
-                        </td>
-                        <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140,
-                          fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                          {s.company || "—"}
-                        </td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
-                          {volStr}
-                        </td>
-                        <td style={{ padding: "6px 8px", fontSize: 10, color: headlineColor, lineHeight: 1.4,
-                          fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                          {s._headline}
-                        </td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 900 : 600 }}>
+                  <thead>
+                    {hasSessionData && (
+                      <tr style={{ borderBottom: "none" }}>
+                        <th colSpan={3}></th>
+                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#a78bfa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #a78bfa30" }}>PRE-MKT</th>
+                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#60a5fa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #60a5fa30" }}>INTRADAY</th>
+                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#f59e0b", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
+                        <th></th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    )}
+                    <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                      <th style={{ ...thBase, width: 16, textAlign: "center" }}></th>
+                      <th style={{ ...thBase, textAlign: "left", width: 55 }}>Symbol</th>
+                      <th style={{ ...thBase, textAlign: "left", width: 120 }}>Name</th>
+                      {hasSessionData ? (<>
+                        <th onClick={() => toggleSort("pm_chg")} style={{ ...thClick, width: 55, color: "#a78bfa" }}>Chg%{sortArrow("pm_chg")}</th>
+                        <th onClick={() => toggleSort("pm_vol")} style={{ ...thClick, width: 50, color: "#a78bfa" }}>Vol{sortArrow("pm_vol")}</th>
+                        <th onClick={() => toggleSort("id_chg")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Chg%{sortArrow("id_chg")}</th>
+                        <th onClick={() => toggleSort("id_vol")} style={{ ...thClick, width: 50, color: "#60a5fa" }}>Vol{sortArrow("id_vol")}</th>
+                        <th onClick={() => toggleSort("ah_chg")} style={{ ...thClick, width: 55, color: "#f59e0b" }}>Chg%{sortArrow("ah_chg")}</th>
+                        <th onClick={() => toggleSort("ah_vol")} style={{ ...thClick, width: 50, color: "#f59e0b" }}>Vol{sortArrow("ah_vol")}</th>
+                      </>) : (<>
+                        <th onClick={() => toggleSort("change")} style={{ ...thClick, width: 95 }}>Change{sortArrow("change")}</th>
+                        <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
+                      </>)}
+                      <th style={{ ...thBase, textAlign: "left" }}>SeekingAlpha Headline</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map(s => {
+                      const isActive = s.ticker === activeTicker;
+                      const er = s._er;
+                      const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
+                      const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
+                      const headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false && revBeat === false ? "#f87171" : epsBeat ? "#4a9a6a" : "#c06060";
+
+                      const chgCell = (val) => (
+                        <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>
+                          {val != null ? (
+                            <span style={{ color: chgColor(val) }}>{val > 0 ? "+" : ""}{val.toFixed(1)}%</span>
+                          ) : <span style={{ color: "#2a2a35" }}>—</span>}
+                        </td>
+                      );
+                      const volCell = (val) => (
+                        <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#606070" }}>
+                          {fmtVol(val)}
+                        </td>
+                      );
+
+                      return (
+                        <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
+                            background: isActive ? "#fbbf2420" : "transparent",
+                            opacity: s._inUniverse ? 1 : 0.75 }}
+                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                          <td style={{ padding: "4px 3px", textAlign: "center", fontSize: 9 }}>
+                            {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
+                          </td>
+                          <td style={{ padding: "4px 4px", fontWeight: 600, fontSize: 10,
+                            color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
+                            {s.ticker}
+                          </td>
+                          <td style={{ padding: "4px 4px", color: "#686878", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120,
+                            fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                            {s.company || "—"}
+                          </td>
+                          {hasSessionData ? (<>
+                            {chgCell(s._pmChg)}
+                            {volCell(s._pmVol)}
+                            {chgCell(s._idChg)}
+                            {volCell(s._idVol)}
+                            {chgCell(s._ahChg)}
+                            {volCell(s._ahVol)}
+                          </>) : (<>
+                            <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                              <span style={{ color: chgColor(s._chg), fontSize: 11 }}>
+                                {s._chg > 0 ? "+" : ""}{s._chg.toFixed(2)}%
+                              </span>
+                            </td>
+                            <td style={{ padding: "4px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
+                              {fmtVol(s._vol)}
+                            </td>
+                          </>)}
+                          <td style={{ padding: "4px 6px", fontSize: 9, color: headlineColor, lineHeight: 1.3,
+                            fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                            {s._headline}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         );
