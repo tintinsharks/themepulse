@@ -978,29 +978,6 @@ async function fetchEpisodicPivots(cookies) {
   return results;
 }
 
-// ── Top Gainers ──
-async function fetchTopGainers(cookies) {
-  try {
-    const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=sh_avgvol_o500,sh_price_o5`;
-    const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) return [];
-    const ct = resp.headers.get("content-type") || "";
-    if (ct.includes("html")) return [];
-    const text = await resp.text();
-    const rows = parseCSV(text);
-    return rows.map(raw => {
-      const r = normalizeRow(raw);
-      return {
-        ticker: r["Ticker"], company: r["Company"], industry: r["Industry"],
-        price: num(r["Price"]), change_pct: pct(r["Change"]),
-        volume: r["Volume"], rel_volume: num(r["Rel Volume"]),
-      };
-    }).filter(r => r.ticker && r.change_pct != null)
-      .sort((a, b) => (b.change_pct || 0) - (a.change_pct || 0))
-      .slice(0, 50);
-  } catch (e) { console.error("Top gainers error:", e.message); return []; }
-}
-
 // ── Handler ──
 export default async function handler(req, res) {
   // CORS
@@ -1056,12 +1033,6 @@ export default async function handler(req, res) {
     const wantEP = req.query.ep === "scan";
     const epSignals = wantEP ? await fetchEpisodicPivots(cookies) : null;
 
-    // Top gainers (isolated)
-    let topGainers = null;
-    if (req.query.gainers === "1") {
-      try { topGainers = await fetchTopGainers(cookies); } catch (_) { topGainers = []; }
-    }
-
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -1075,7 +1046,6 @@ export default async function handler(req, res) {
       analyst: tickerData?.analyst || null,
       homepage,
       ep_signals: epSignals,
-      top_gainers: topGainers,
     });
   } catch (err) {
     console.error("Live API error:", err);
