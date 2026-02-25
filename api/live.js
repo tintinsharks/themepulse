@@ -978,68 +978,27 @@ async function fetchEpisodicPivots(cookies) {
   return results;
 }
 
-// ── Top Gainers (Finviz ta_topgainers signal) ──
+// ── Top Gainers ──
 async function fetchTopGainers(cookies) {
-  const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=sh_avgvol_o500,sh_price_o5`;
   try {
+    const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=sh_avgvol_o500,sh_price_o5`;
     const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
-    if (!resp.ok) { console.error(`Top gainers: HTTP ${resp.status}`); return []; }
+    if (!resp.ok) return [];
     const ct = resp.headers.get("content-type") || "";
-    if (ct.includes("html")) { console.error("Top gainers: got HTML not CSV"); return []; }
-
+    if (ct.includes("html")) return [];
     const text = await resp.text();
-    const rows = parseCSV(text, "topgainers");
-
-    const results = rows.map(raw => {
+    const rows = parseCSV(text);
+    return rows.map(raw => {
       const r = normalizeRow(raw);
       return {
-        ticker: r["Ticker"], company: r["Company"], sector: r["Sector"], industry: r["Industry"],
-        market_cap: r["Market Cap"], price: num(r["Price"]), change_pct: pct(r["Change"]),
-        gap_pct: pct(r["Gap"]), volume: r["Volume"], avg_volume: r["Avg Volume"],
-        rel_volume: num(r["Rel Volume"]), rsi: num(r["RSI"]), high_52w: pct(r["52W High"]),
-        headline: "",
+        ticker: r["Ticker"], company: r["Company"], industry: r["Industry"],
+        price: num(r["Price"]), change_pct: pct(r["Change"]),
+        volume: r["Volume"], rel_volume: num(r["Rel Volume"]),
       };
-    }).filter(r => r.ticker && r.change_pct != null);
-
-    results.sort((a, b) => (b.change_pct || 0) - (a.change_pct || 0));
-    const top = results.slice(0, 50);
-
-    // Fetch latest news headline per ticker from Finviz quote pages (batch via screener news view)
-    if (top.length > 0) {
-      try {
-        const tickerStr = top.map(g => g.ticker).join(",");
-        const newsUrl = `https://elite.finviz.com/screener.ashx?v=320&t=${tickerStr}`;
-        const newsResp = await fetch(newsUrl, { headers: { ...HEADERS, Cookie: cookies } });
-        if (newsResp.ok) {
-          const newsHtml = await newsResp.text();
-          const headlineMap = {};
-          // Split by news date cells to find ticker+headline pairs
-          const sections = newsHtml.split(/class="news_date-cell"/);
-          for (const section of sections) {
-            const tickerMatch = section.match(/quote\.ashx\?t=([A-Z]+)[^>]*class="tab-link"/);
-            if (!tickerMatch) continue;
-            const t = tickerMatch[1];
-            if (headlineMap[t]) continue;
-            const hlMatch = section.match(/class="news-link[^"]*"[^>]*>([^<]+)<\/a>/);
-            if (hlMatch) headlineMap[t] = hlMatch[1].trim();
-          }
-          for (const g of top) {
-            if (headlineMap[g.ticker]) g.headline = headlineMap[g.ticker];
-          }
-          console.log(`Top gainers headlines: ${Object.keys(headlineMap).length}/${top.length}`);
-        }
-      } catch (newsErr) {
-        console.error("Top gainers news error:", newsErr.message);
-        // Headlines just stay empty — not fatal
-      }
-    }
-
-    console.log(`Top gainers: ${top.length} stocks`);
-    return top;
-  } catch (err) {
-    console.error("Top gainers error:", err.message);
-    return [];
-  }
+    }).filter(r => r.ticker && r.change_pct != null)
+      .sort((a, b) => (b.change_pct || 0) - (a.change_pct || 0))
+      .slice(0, 50);
+  } catch (e) { console.error("Top gainers error:", e.message); return []; }
 }
 
 // ── Handler ──
@@ -1097,11 +1056,10 @@ export default async function handler(req, res) {
     const wantEP = req.query.ep === "scan";
     const epSignals = wantEP ? await fetchEpisodicPivots(cookies) : null;
 
-    // Fetch top gainers if requested (isolated — failure returns empty array)
+    // Top gainers (isolated)
     let topGainers = null;
     if (req.query.gainers === "1") {
-      try { topGainers = await fetchTopGainers(cookies); }
-      catch (e) { console.error("Top gainers failed (isolated):", e.message); topGainers = []; }
+      try { topGainers = await fetchTopGainers(cookies); } catch (_) { topGainers = []; }
     }
 
     return res.status(200).json({
