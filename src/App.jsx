@@ -1607,8 +1607,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
               {/* $Vol */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
-                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
+                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}
+                title={s.dvol_accel != null ? `$Vol Accel: ${s.dvol_accel > 0 ? '+' : ''}${s.dvol_accel} | 5d/20d: ${s.dvol_ratio_5_20}x | WoW: ${s.dvol_wow_chg > 0 ? '+' : ''}${s.dvol_wow_chg}%` : ""}>
+                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}
+                {s.dvol_accel != null && <span style={{ fontSize: 8, marginLeft: 2,
+                  color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
+                  {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
+              </td>
               {/* ADR% */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
@@ -3900,8 +3905,13 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
         {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
       {/* $Vol */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
-        {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
+        color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}
+        title={s.dvol_accel != null ? `$Vol Accel: ${s.dvol_accel > 0 ? '+' : ''}${s.dvol_accel} | 5d/20d: ${s.dvol_ratio_5_20}x | WoW: ${s.dvol_wow_chg > 0 ? '+' : ''}${s.dvol_wow_chg}%` : ""}>
+        {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}
+        {s.dvol_accel != null && <span style={{ fontSize: 8, marginLeft: 2,
+          color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
+          {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
+      </td>
       {/* ADR% */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
