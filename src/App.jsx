@@ -1988,11 +1988,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _inUniverse: !!m.in_universe,
             grade: m.grade || null,
             _pmChg: m.pm_change_pct ?? null,
-            _pmVol: m.pm_volume ?? null,
             _idChg: m.id_change_pct ?? null,
             _idVol: m.id_volume ?? null,
             _ahChg: m.ah_change_pct ?? null,
-            _ahVol: m.ah_volume ?? null,
           };
         });
 
@@ -2001,11 +1999,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
           if (erSort.col === "pm_chg") { va = a._pmChg ?? -999; vb = b._pmChg ?? -999; }
-          else if (erSort.col === "pm_vol") { va = a._pmVol ?? 0; vb = b._pmVol ?? 0; }
           else if (erSort.col === "id_chg") { va = a._idChg ?? -999; vb = b._idChg ?? -999; }
           else if (erSort.col === "id_vol") { va = a._idVol ?? 0; vb = b._idVol ?? 0; }
           else if (erSort.col === "ah_chg") { va = a._ahChg ?? -999; vb = b._ahChg ?? -999; }
-          else if (erSort.col === "ah_vol") { va = a._ahVol ?? 0; vb = b._ahVol ?? 0; }
           else if (erSort.col === "change") { va = a._chg; vb = b._chg; }
           else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
           else { va = a._chg; vb = b._chg; }
@@ -2068,18 +2064,18 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 900 : 600 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 750 : 600 }}>
                   <thead>
                     {hasSessionData && (
                       <tr style={{ borderBottom: "none" }}>
                         <th colSpan={3}></th>
-                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                        <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
                           color: "#a78bfa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
                           borderBottom: "1px solid #a78bfa30" }}>PRE-MKT</th>
                         <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
                           color: "#60a5fa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
                           borderBottom: "1px solid #60a5fa30" }}>INTRADAY</th>
-                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                        <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
                           color: "#f59e0b", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
                           borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
                         <th></th>
@@ -2091,11 +2087,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       <th style={{ ...thBase, textAlign: "left", width: 120 }}>Name</th>
                       {hasSessionData ? (<>
                         <th onClick={() => toggleSort("pm_chg")} style={{ ...thClick, width: 55, color: "#a78bfa" }}>Chg%{sortArrow("pm_chg")}</th>
-                        <th onClick={() => toggleSort("pm_vol")} style={{ ...thClick, width: 50, color: "#a78bfa" }}>Vol{sortArrow("pm_vol")}</th>
                         <th onClick={() => toggleSort("id_chg")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Chg%{sortArrow("id_chg")}</th>
-                        <th onClick={() => toggleSort("id_vol")} style={{ ...thClick, width: 50, color: "#60a5fa" }}>Vol{sortArrow("id_vol")}</th>
+                        <th onClick={() => toggleSort("id_vol")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Vol{sortArrow("id_vol")}</th>
                         <th onClick={() => toggleSort("ah_chg")} style={{ ...thClick, width: 55, color: "#f59e0b" }}>Chg%{sortArrow("ah_chg")}</th>
-                        <th onClick={() => toggleSort("ah_vol")} style={{ ...thClick, width: 50, color: "#f59e0b" }}>Vol{sortArrow("ah_vol")}</th>
                       </>) : (<>
                         <th onClick={() => toggleSort("change")} style={{ ...thClick, width: 95 }}>Change{sortArrow("change")}</th>
                         <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
@@ -2144,11 +2138,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           </td>
                           {hasSessionData ? (<>
                             {chgCell(s._pmChg)}
-                            {volCell(s._pmVol)}
                             {chgCell(s._idChg)}
                             {volCell(s._idVol)}
                             {chgCell(s._ahChg)}
-                            {volCell(s._ahVol)}
                           </>) : (<>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace" }}>
                               <span style={{ color: chgColor(s._chg), fontSize: 11 }}>
