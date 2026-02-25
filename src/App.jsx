@@ -1953,28 +1953,54 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
       {/* ── Earnings Results — All Market Movers ── */}
       {(() => {
-        // earnings_movers is the SOLE data source — built by 09g + 09h pipeline
-        const allMovers = (earningsMovers || []).map(m => {
+        // earnings_movers from 09g + 09h pipeline (already reported)
+        // Plus: today's upcoming AMC reporters from stockMap (not yet reported)
+        const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
+
+        // Find today's upcoming AMC reporters from universe stocks
+        const upcomingAMC = Object.values(stockMap).filter(s => {
+          if (reportedTickers.has(s.ticker)) return false;
+          if (s.earnings_days !== 0) return false;
+          const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
+          return disp.includes("AMC");
+        }).map(s => ({
+          ticker: s.ticker,
+          company: s.company || s.ticker,
+          price: s.price,
+          change_pct: s.change_pct,
+          volume: s.volume || s.avg_volume_raw,
+          er: { time: "amc_today" },
+          in_universe: true,
+          grade: s.grade,
+          _upcoming: true,
+        }));
+
+        const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => {
           const er = m.er || {};
           const chg = m.change_pct ?? 0;
+          const isUpcoming = !!m._upcoming || er.time === "amc_today";
+
+          // Only build headline for stocks that have already reported
           const parts = [];
-          if (er.eps != null) {
-            const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
-            if (er.eps_estimated != null) {
-              const diff = er.eps - er.eps_estimated;
-              parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
-            } else {
-              parts.push(epsStr);
+          if (!isUpcoming) {
+            if (er.eps != null) {
+              const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
+              if (er.eps_estimated != null) {
+                const diff = er.eps - er.eps_estimated;
+                parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
+              } else {
+                parts.push(epsStr);
+              }
             }
-          }
-          if (er.revenue != null) {
-            const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
-            if (er.revenue_estimated != null) {
-              const diff = er.revenue - er.revenue_estimated;
-              const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
-              parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
-            } else {
-              parts.push(`revenue of ${revStr}`);
+            if (er.revenue != null) {
+              const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
+              if (er.revenue_estimated != null) {
+                const diff = er.revenue - er.revenue_estimated;
+                const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
+                parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
+              } else {
+                parts.push(`revenue of ${revStr}`);
+              }
             }
           }
           return {
@@ -1983,7 +2009,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             price: m.price,
             _chg: chg,
             _er: er,
-            _headline: parts.join(", "),
+            _headline: isUpcoming ? "" : parts.join(", "),
             _vol: m.volume || 0,
             _inUniverse: !!m.in_universe,
             grade: m.grade || null,
@@ -1991,6 +2017,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _idChg: m.id_change_pct ?? null,
             _idVol: m.id_volume ?? null,
             _ahChg: m.ah_change_pct ?? null,
+            _upcoming: isUpcoming,
           };
         });
 
@@ -2053,6 +2080,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               )}
               <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
                 {"★"} {uCount} theme {" · "} {eCount} external
+                {allMovers.filter(s => s._upcoming).length > 0 && <>{" · "}<span style={{ color: "#f59e0b" }}>{allMovers.filter(s => s._upcoming).length} AMC today</span></>}
               </span>
             </div>
 
@@ -2151,9 +2179,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                               {fmtVol(s._vol)}
                             </td>
                           </>)}
-                          <td style={{ padding: "4px 6px", fontSize: 9, color: headlineColor, lineHeight: 1.3,
-                            fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                            {s._headline}
+                          <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : headlineColor, lineHeight: 1.3,
+                            fontFamily: "system-ui, -apple-system, sans-serif", fontStyle: s._upcoming ? "italic" : "normal" }}>
+                            {s._upcoming ? "Reports after close today" : s._headline}
                           </td>
                         </tr>
                       );
