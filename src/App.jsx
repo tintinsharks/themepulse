@@ -768,93 +768,19 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
 
   return (
     <div style={{ padding: "4px 0" }}>
-      {/* ── Intraday Rotation Table ── */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderBottom: "1px solid #222230" }}>
-            <span style={{ color: hasLive && !liveLoading ? "#0d9163" : "#505060", fontSize: 9 }}>●</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: hasLive && !liveLoading ? "#0d9163" : "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>
-              {hasLive && !liveLoading ? "● LIVE" : "Rotation"}
+      {/* ── Sort & Filter Controls ── */}
+      <div style={{ display: "flex", gap: 3, padding: "4px 6px", marginBottom: 4, flexWrap: "wrap", alignItems: "center" }}>
+        {hasLive && !liveLoading && <span style={{ color: "#0d9163", fontSize: 9, fontWeight: 700 }}>● LIVE</span>}
+        {liveLoading && fetchProg.total > 0 && (
+          <span style={{ fontSize: 9, color: "#fbbf24", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ display: "inline-block", width: 40, height: 3, background: "#3a3a4a", borderRadius: 2, overflow: "hidden" }}>
+              <span style={{ display: "block", height: "100%", width: `${(fetchProg.done / fetchProg.total) * 100}%`, background: "#fbbf24", borderRadius: 2, transition: "width 0.3s" }} />
             </span>
-            <span style={{ color: "#505060", fontSize: 9 }}>{liveRanked.length} themes</span>
-            {liveLoading && fetchProg.total > 0 && (
-              <span style={{ fontSize: 9, color: "#fbbf24", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <span style={{ display: "inline-block", width: 40, height: 3, background: "#3a3a4a", borderRadius: 2, overflow: "hidden" }}>
-                  <span style={{ display: "block", height: "100%", width: `${(fetchProg.done / fetchProg.total) * 100}%`, background: "#fbbf24", borderRadius: 2, transition: "width 0.3s" }} />
-                </span>
-                {fetchProg.done}/{fetchProg.total}
-              </span>
-            )}
-            {liveLoading && fetchProg.total === 0 && <span style={{ color: "#fbbf24", fontSize: 9 }}>Loading...</span>}
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
-            <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
-              {[
-                ["#", null, 20], ["Theme", null, null], ["Sig", null, 32],
-                ["ROT", "rotScore", 32], ["Chg", "chg", 42], ["Brd", "breadth", 34],
-                ["RVol", "rvol", 34], ["ΔB", "delta", 30], ["RTS", "rts", 28],
-              ].map(([h, sk, w]) => (
-                <th key={h} onClick={sk ? () => setIntradaySort(prev => prev === sk ? "chg" : sk) : undefined}
-                  style={{ padding: "2px 2px", color: intradaySort === sk ? "#4aad8c" : "#686878", fontWeight: 600, textAlign: "center", fontSize: 9,
-                    cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap", width: w || undefined }}>
-                  {h}{intradaySort === sk ? "▼" : ""}</th>
-              ))}
-            </tr></thead>
-            <tbody>{liveRanked.map((t, i) => {
-              const quad = getQuad(t.weekly_rs, t.monthly_rs);
-              const qc = QC[quad];
-              const chg = t.live?.avg ?? null;
-              const brdth = t.live?.breadth ?? null;
-              const rvol = t.live?.avgRvol ?? null;
-              const delta = t.live?.deltaBreadth ?? null;
-              const rotScore = t.live?.rotationScore ?? 0;
-              const isStrong = quad === "STRONG" || quad === "IMPROVING";
-              const isHot = brdth != null && brdth >= 60 && (rvol == null || rvol >= 1.0);
-              let sigLabel, sigColor;
-              if (!t.live) { sigLabel = "—"; sigColor = "#3a3a4a"; }
-              else if (isStrong && isHot) { sigLabel = "LEAD"; sigColor = "#2bb886"; }
-              else if (isStrong && !isHot) { sigLabel = "REST"; sigColor = "#0d916380"; }
-              else if (!isStrong && isHot) { sigLabel = "ROT↑"; sigColor = "#fbbf24"; }
-              else { sigLabel = "SKIP"; sigColor = "#dc262670"; }
-              const rotBarColor = rotScore >= 70 ? "#059669" : rotScore >= 50 ? "#2bb886" : rotScore >= 35 ? "#fbbf24" : "#686878";
-              return (
-                <tr key={t.theme} onClick={() => onThemeDrillDown && onThemeDrillDown(t.theme)}
-                  style={{ borderBottom: "1px solid #1a1a2a", cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#0d916310"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "2px 2px", textAlign: "center", color: "#505060", fontSize: 9 }}>{i + 1}</td>
-                  <td style={{ padding: "2px 3px", color: "#b8b8c8", fontSize: 10, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    borderLeft: `2px solid ${qc.tag}` }}>
-                    {t.theme}</td>
-                  <td style={{ padding: "2px 1px", textAlign: "center" }}>
-                    <span style={{ fontSize: 7, fontWeight: 700, color: sigColor, padding: "0 2px", borderRadius: 2,
-                      background: sigColor + "18", border: `1px solid ${sigColor}30` }}>{sigLabel}</span></td>
-                  <td style={{ padding: "2px 2px", textAlign: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 2, justifyContent: "center" }}>
-                      <div style={{ width: 16, height: 4, background: "#1a1a2a", borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ width: `${rotScore}%`, height: "100%", background: rotBarColor, borderRadius: 2 }} /></div>
-                      <span style={{ fontWeight: 700, fontSize: 9, color: rotBarColor }}>{rotScore}</span>
-                    </div></td>
-                  <td style={{ padding: "2px 2px", textAlign: "center", fontWeight: 700,
-                    color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878") : "#3a3a4a", fontSize: 10 }}>
-                    {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</td>
-                  <td style={{ padding: "2px 2px", textAlign: "center",
-                    color: brdth != null ? (brdth >= 70 ? "#2bb886" : brdth >= 50 ? "#fbbf24" : "#f87171") : "#3a3a4a", fontSize: 10 }}>{brdth != null ? `${brdth}%` : "—"}</td>
-                  <td style={{ padding: "2px 2px", textAlign: "center", fontWeight: rvol >= 1.5 ? 700 : 400, fontSize: 10,
-                    color: rvol == null ? "#3a3a4a" : rvol < 1.0 ? "#505060" :
-                      chg > 0 ? (rvol >= 2 ? "#22a06a" : "#2bb886") : chg < 0 ? (rvol >= 2 ? "#ef4444" : "#f87171") : "#686878" }}>
-                    {rvol != null ? `${rvol.toFixed(1)}` : "—"}</td>
-                  <td style={{ padding: "2px 2px", textAlign: "center", fontSize: 10,
-                    color: delta != null ? (delta > 10 ? "#22a06a" : delta > 0 ? "#2bb88688" : delta < -10 ? "#ef4444" : delta < 0 ? "#f8717188" : "#505060") : "#3a3a4a" }}>
-                    {delta != null ? `${delta > 0 ? "+" : ""}${delta}%` : "—"}</td>
-                  <td style={{ padding: "2px 2px", textAlign: "center", color: qc.text, fontWeight: 600, fontSize: 10 }}>{t.rts}</td>
-                </tr>
-              );
-            })}</tbody>
-          </table>
-        </div>
-
-      {/* ── Theme Strength Cards ── */}
-      <div style={{ display: "flex", gap: 3, padding: "0 6px", marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {fetchProg.done}/{fetchProg.total}
+          </span>
+        )}
+        {liveLoading && fetchProg.total === 0 && <span style={{ color: "#fbbf24", fontSize: 9 }}>Loading...</span>}
+        <span style={{ color: "#3a3a4a" }}>|</span>
         {[["rts","RTS"],
           ...(hasLive ? [["live_change","Chg"]] : []),
           ["return_3m","3M"],["breadth","Brd"],["health","Health"]].map(([k, l]) => (
@@ -900,14 +826,17 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
                     background: sc + "18", border: `1px solid ${sc}30` }}>{sig}{h.status.slice(0, 4)}</span>;
                 })()}
               </div>
-              {/* Row 2: Metrics */}
+              {/* Row 2: Metrics — pipeline + live */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: "monospace" }}>
                 <span style={{ color: h ? ({ LEADING: "#2bb886", EMERGING: "#fbbf24", HOLDING: "#9090a0", WEAKENING: "#f97316", LAGGING: "#f87171" }[h.status] || "#b8b8c8") : qc.text, fontWeight: 600 }}>{theme.rts}</span>
                 {lp && <span style={{ fontWeight: 600,
                   color: lp.avg > 0 ? "#2bb886" : lp.avg < 0 ? "#f87171" : "#686878" }}>
                   {lp.avg > 0 ? "+" : ""}{lp.avg.toFixed(1)}%
                 </span>}
-                <span style={{ color: "#787888", fontSize: 9 }}>B:{theme.breadth}%</span>
+                {lp && lp.avgRvol != null && <span style={{ fontSize: 9,
+                  color: lp.avgRvol >= 1.5 ? "#c084fc" : lp.avgRvol >= 1.0 ? "#787888" : "#505060",
+                  fontWeight: lp.avgRvol >= 1.5 ? 700 : 400 }}>{lp.avgRvol.toFixed(1)}x</span>}
+                <span style={{ color: "#787888", fontSize: 9 }}>B:{lp ? `${lp.breadth}%` : `${theme.breadth}%`}</span>
                 <Ret v={theme.return_3m} />
               </div>
             </div>
@@ -2065,10 +1994,9 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     ).sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0));
   }, [filteredStocks]);
 
-  // Strongest Stocks: two scans combined (matching Finviz screeners)
-  // Using eps_yoy (96% coverage) = latest quarter EPS YoY = Finviz "EPS dil growth Q/Q YoY"
-  // Using sales_yoy (92% coverage) = latest quarter Revenue YoY = Finviz "Revenue growth Q/Q YoY"
-  // shares_float_raw is 0% populated — filter kept but effectively a no-op until pipeline adds it
+  // Strongest Stocks: two scans combined (matching TradingView screeners)
+  // TV uses SMA(10), we use SMA(20) as proxy — SMA20 is slower so we widen ranges
+  // SMA10 0-10% ≈ SMA20 -2 to 18% | SMA10 0-3% ≈ SMA20 -2 to 12%
   const strongestStocks = useMemo(() => {
     const seen = new Set();
     const results = [];
@@ -2081,9 +2009,9 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       if ((s.sales_yoy ?? s.sales_qq ?? -1) < 25) return;
       if ((s.avg_volume_raw || 0) < 500000) return;
       if (s.shares_float_raw != null && s.shares_float_raw > 50e6) return;
-      if (s.sma20_pct != null && (s.sma20_pct < 0 || s.sma20_pct > 10)) return;
+      if (s.sma20_pct != null && (s.sma20_pct < -2 || s.sma20_pct > 18)) return;
       if ((s.adr_pct ?? 0) < 3) return;
-      if ((s.sma50_pct ?? -1) < 0) return;
+      if (s.sma50_pct != null && s.sma50_pct < -3) return;
       if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "S" }); }
     });
     // Scan 2: Large (10B+)
@@ -2095,9 +2023,9 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       if ((s.sales_yoy ?? s.sales_qq ?? -1) < 25) return;
       if ((s.avg_volume_raw || 0) < 500000) return;
       if (s.shares_float_raw != null && s.shares_float_raw > 150e6) return;
-      if (s.sma20_pct != null && (s.sma20_pct < 0 || s.sma20_pct > 3)) return;
+      if (s.sma20_pct != null && (s.sma20_pct < -2 || s.sma20_pct > 12)) return;
       if ((s.adr_pct ?? 0) < 2) return;
-      if ((s.sma50_pct ?? -1) < 0) return;
+      if (s.sma50_pct != null && s.sma50_pct < -3) return;
       if (!seen.has(s.ticker)) { seen.add(s.ticker); results.push({ ...s, _scanSource: "L" }); }
     });
     results.sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
