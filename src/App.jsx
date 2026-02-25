@@ -1718,6 +1718,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [statusFilter, setStatusFilter] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
   const [epSection, setEpSection] = useState("upcoming"); // "upcoming" | "results" | "signals"
+  const [erSubTab, setErSubTab] = useState("gainers"); // "gainers" | "losers"
+  const [erSort, setErSort] = useState({ col: "change", dir: "desc" }); // sortable columns
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -1961,11 +1963,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       {/* ── Earnings Results Section — SeekingAlpha style ── */}
       {epSection === "results" && (() => {
         // Get stocks that already reported with er data
-        const reported = upcomingEarnings
+        const allReported = upcomingEarnings
           .filter(s => s.er && s.er.eps != null)
           .map(s => {
             const er = s.er;
-            const chg = s.change_pct;
+            const chg = s.change_pct ?? 0;
             // Build SeekingAlpha-style headline
             const parts = [];
             if (er.eps != null) {
@@ -1987,41 +1989,73 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 parts.push(`revenue of ${revStr}`);
               }
             }
-            const headline = parts.join(", ");
-            return { ...s, _chg: chg ?? 0, _er: er, _headline: headline };
+            return { ...s, _chg: chg, _er: er, _headline: parts.join(", "), _vol: s.volume || s.avg_volume_raw || 0 };
           });
-        // Split into gainers and losers
-        const gainers = reported.filter(s => s._chg > 0).sort((a, b) => b._chg - a._chg);
-        const losers = reported.filter(s => s._chg <= 0).sort((a, b) => a._chg - b._chg);
 
-        const renderResultsTable = (title, titleColor, items) => {
-          if (items.length === 0) return null;
-          return (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: titleColor, padding: "8px 10px",
-                borderBottom: `2px solid ${titleColor}40` }}>
-                {title}
+        const gainers = allReported.filter(s => s._chg > 0);
+        const losers = allReported.filter(s => s._chg <= 0);
+        const items = erSubTab === "gainers" ? gainers : losers;
+
+        // Sort
+        const sorted = [...items].sort((a, b) => {
+          let va, vb;
+          if (erSort.col === "change") { va = a._chg; vb = b._chg; }
+          else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
+          else { va = a._chg; vb = b._chg; }
+          return erSort.dir === "desc" ? vb - va : va - vb;
+        });
+
+        const toggleSort = (col) => {
+          setErSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" });
+        };
+        const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " ↓" : " ↑") : "";
+
+        return (
+          <div>
+            {/* Subtabs: Gainers | Losers */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {[["gainers", `Top Gainers (${gainers.length})`, "#2bb886"], ["losers", `Top Losers (${losers.length})`, "#f87171"]].map(([k, label, color]) => (
+                <button key={k} onClick={() => { setErSubTab(k); setErSort({ col: "change", dir: k === "gainers" ? "desc" : "asc" }); }}
+                  style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    border: erSubTab === k ? `1px solid ${color}` : "1px solid #3a3a4a",
+                    background: erSubTab === k ? `${color}18` : "transparent",
+                    color: erSubTab === k ? color : "#787888" }}>{label}</button>
+              ))}
+            </div>
+
+            {sorted.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 12 }}>
+                {allReported.length === 0
+                  ? <>No earnings results yet. Run <span style={{ fontFamily: "monospace", color: "#fbbf24" }}>09g_earnings_calendar.py</span> after market hours.</>
+                  : `No ${erSubTab} in current results.`}
               </div>
+            ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    {[["Change", "right", 90], ["Last", "right", 50], ["Symbol", "left", 60], ["Name", "left", null],
-                      ["Volume", "right", 80], ["SeekingAlpha Headline", "left", null]].map(([label, align, w]) => (
-                      <th key={label} style={{ padding: "6px 8px", textAlign: align, color: "#686878", fontWeight: 600,
-                        fontSize: 10, width: w || undefined, fontFamily: "system-ui, -apple-system, sans-serif",
-                        borderBottom: "1px solid #3a3a4a" }}>{label}</th>
-                    ))}
+                  <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+                    <th onClick={() => toggleSort("change")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
+                      fontSize: 10, width: 95, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                      Change{sortArrow("change")}</th>
+                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#686878", fontWeight: 600, fontSize: 10, width: 50,
+                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Last</th>
+                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, width: 60,
+                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Symbol</th>
+                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, width: 140,
+                      fontFamily: "system-ui, -apple-system, sans-serif" }}>Name</th>
+                    <th onClick={() => toggleSort("volume")} style={{ padding: "6px 8px", textAlign: "right", color: "#686878", fontWeight: 600,
+                      fontSize: 10, width: 80, cursor: "pointer", userSelect: "none", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                      Volume{sortArrow("volume")}</th>
+                    <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10,
+                      fontFamily: "system-ui, -apple-system, sans-serif" }}>SeekingAlpha Headline</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(s => {
+                  {sorted.map(s => {
                     const chg = s._chg;
-                    const chgAbs = s.price != null && chg != null ? Math.abs(s.price * chg / (100 + chg)) : null;
+                    const chgAbs = s.price != null ? Math.abs(s.price * chg / (100 + chg)) : null;
                     const chgColor = chg >= 5 ? "#2bb886" : chg > 0 ? "#4a9a6a" : chg <= -5 ? "#f87171" : chg < 0 ? "#c06060" : "#686878";
                     const isActive = s.ticker === activeTicker;
-                    const vol = s.volume || s.avg_volume_raw;
-                    const volStr = vol ? (vol >= 1e6 ? `${(vol/1e6).toFixed(1)}M` : vol.toLocaleString()) : "—";
-                    // Headline color: green if both beat, red if both miss
+                    const volStr = s._vol ? (s._vol >= 1e6 ? `${(s._vol/1e6).toFixed(1)}M` : s._vol.toLocaleString()) : "—";
                     const er = s._er;
                     const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
                     const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
@@ -2033,31 +2067,25 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           background: isActive ? "#fbbf2420" : "transparent" }}
                         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
-                        {/* Change */}
                         <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
                           <span style={{ color: chgColor, fontSize: 11 }}>
-                            {chgAbs != null ? `${chg > 0 ? "" : "-"}${chgAbs.toFixed(2)}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
+                            {chgAbs != null ? `${chg >= 0 ? "" : "-"}${chgAbs.toFixed(2)}` : ""} ({chg > 0 ? "+" : ""}{chg.toFixed(2)}%)
                           </span>
                         </td>
-                        {/* Last */}
                         <td style={{ padding: "6px 6px", textAlign: "right", color: "#a8a8b8", fontSize: 11, fontFamily: "monospace" }}>
                           {s.price != null ? Number(s.price).toFixed(2) : "—"}
                         </td>
-                        {/* Symbol */}
                         <td style={{ padding: "6px 8px", fontWeight: 600, fontSize: 11,
                           color: isActive ? "#fbbf24" : "#a8a8b8", fontFamily: "monospace" }}>
                           {s.ticker}
                         </td>
-                        {/* Name */}
-                        <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160,
+                        <td style={{ padding: "6px 8px", color: "#787888", fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 140,
                           fontFamily: "system-ui, -apple-system, sans-serif" }}>
                           {s.company || "—"}
                         </td>
-                        {/* Volume */}
                         <td style={{ padding: "6px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
                           {volStr}
                         </td>
-                        {/* Headline */}
                         <td style={{ padding: "6px 8px", fontSize: 10, color: headlineColor, lineHeight: 1.4,
                           fontFamily: "system-ui, -apple-system, sans-serif" }}>
                           {s._headline}
@@ -2067,21 +2095,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   })}
                 </tbody>
               </table>
-            </div>
-          );
-        };
-
-        return (
-          <div>
-            {reported.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 12 }}>
-                No earnings results yet. Run <span style={{ fontFamily: "monospace", color: "#fbbf24" }}>09g_earnings_calendar.py</span> after market hours.
-              </div>
-            ) : (
-              <>
-                {renderResultsTable("Top Gaining Earnings Stocks", "#2bb886", gainers)}
-                {renderResultsTable("Top Losing Earnings Stocks", "#f87171", losers)}
-              </>
             )}
           </div>
         );
