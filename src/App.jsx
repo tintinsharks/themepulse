@@ -1720,6 +1720,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [epSection, setEpSection] = useState("results"); // results only now
   const [erSort, setErSort] = useState({ col: "change", dir: "desc" });
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
+  const [erNoBio, setErNoBio] = useState(true);
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -2026,10 +2027,30 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _idVol: m.id_volume ?? null,
             _ahChg: m.ah_change_pct ?? null,
             _upcoming: isUpcoming,
+            _industry: stockMap[m.ticker]?.industry || m.industry || "",
           };
         });
 
-        const visibleMovers = erUniverseOnly ? allMovers.filter(s => s._inUniverse) : allMovers;
+        const ER_EXCLUDED = new Set([
+          "Biotechnology", "Investment Brokerage - National", "Investment Brokerage - Regional",
+          "Investment Banks/Brokers", "Investment Banks and Brokerages",
+          "Investment Management", "Investment Managers",
+          "Closed-End Fund - Equity", "Closed-End Fund - Debt", "Closed-End Fund - Foreign",
+          "Investment Trusts/Mutual Funds",
+          "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+          "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+          "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
+          "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
+          "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
+        ]);
+        const bioFiltered = erNoBio ? allMovers.filter(s => {
+          const ind = (s._industry || "").trim();
+          if (!ind) return true;
+          for (const ex of ER_EXCLUDED) { if (ind.toLowerCase() === ex.toLowerCase()) return false; }
+          return true;
+        }) : allMovers;
+
+        const visibleMovers = erUniverseOnly ? bioFiltered.filter(s => s._inUniverse) : bioFiltered;
 
         const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
@@ -2080,6 +2101,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   background: erUniverseOnly ? "#fbbf2418" : "transparent",
                   color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
                 {"★ Theme Only"}
+              </button>
+              <button onClick={() => setErNoBio(prev => !prev)}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                  border: erNoBio ? "1px solid #f97316" : "1px solid #3a3a4a",
+                  background: erNoBio ? "#f9731618" : "transparent",
+                  color: erNoBio ? "#f97316" : "#787888" }}>
+                {erNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
               </button>
               {!hasSessionData && (
                 <span style={{ fontSize: 9, color: "#c06060", marginLeft: 8, fontStyle: "italic" }}>
