@@ -880,13 +880,14 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
         const h = healthMap[theme.theme];
         const lp = liveThemePerf[theme.theme];
         const tb = breadthMap[theme.theme];
+        const hBg = h ? ({ LEADING: "#2bb88618", EMERGING: "#fbbf2415", HOLDING: "#9090a010", WEAKENING: "#f9731615", LAGGING: "#f8717115" }[h.status] || "#1a1a2a") : "#1a1a2a";
         return (
           <div key={theme.theme} onClick={() => onThemeDrillDown && onThemeDrillDown(theme.theme)}
             style={{ marginBottom: 2, borderRadius: 4, border: "1px solid #2a2a38", overflow: "hidden", cursor: "pointer" }}
             onMouseEnter={e => e.currentTarget.style.borderColor = "#0d9163"}
             onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a38"}>
             <div style={{ padding: "5px 8px",
-              background: `linear-gradient(90deg, ${qc.bg} ${barW}%, #111 ${barW}%)` }}>
+              background: `linear-gradient(90deg, ${hBg} ${barW}%, #111 ${barW}%)` }}>
               {/* Row 1: Theme name + health */}
               <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
                 <span style={{ color: "#e4e4f0", fontWeight: 700, fontSize: 12, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
