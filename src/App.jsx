@@ -1572,7 +1572,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const inPortfolio = portfolio?.includes(s.ticker);
           const inWatchlist = watchlist?.includes(s.ticker);
           return (
-            <tr key={s.ticker} ref={undefined}
+            <tr key={s.ticker} data-ticker={s.ticker} ref={undefined}
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
@@ -2262,7 +2262,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       );
 
                       return (
-                        <tr key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                        <tr key={s.ticker} data-ticker={s.ticker} onClick={() => onTickerClick(s.ticker)}
                           style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
                             background: isActive ? "#fbbf2420" : "transparent",
                             opacity: s._inUniverse ? 1 : 0.75 }}
@@ -2600,7 +2600,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
               const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
               const isActive = s.ticker === activeTicker;
               return (
-                <div key={s.ticker} onClick={() => clickInBox(s.ticker, "combo")}
+                <div key={s.ticker} data-ticker={s.ticker} onClick={() => clickInBox(s.ticker, "combo")}
                   title={`${s.company} | RS:${s.rs_rank} | In: ${s._comboSources.join(", ")} | Grade:${s.grade}`}
                   style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
                     fontSize: 11, fontFamily: "monospace", cursor: "pointer",
@@ -2633,7 +2633,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
               {weekMovers.map(s => {
                 const isActive = s.ticker === activeTicker;
                 return (
-                <div key={s.ticker} title={`${s.company} | 1W:${s.return_1w != null ? s.return_1w.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
+                <div key={s.ticker} data-ticker={s.ticker} title={`${s.company} | 1W:${s.return_1w != null ? s.return_1w.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
                   onClick={() => clickInBox(s.ticker, "w1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                     background: isActive ? "#fbbf2430" : "#c084fc25",
@@ -2652,7 +2652,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
               {monthMovers.map(s => {
                 const isActive = s.ticker === activeTicker;
                 return (
-                <div key={s.ticker} title={`${s.company} | 1M:${s.return_1m != null ? s.return_1m.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
+                <div key={s.ticker} data-ticker={s.ticker} title={`${s.company} | 1M:${s.return_1m != null ? s.return_1m.toFixed(1) : '—'}% | RS:${s.rs_rank} | $${s.price}`}
                   onClick={() => clickInBox(s.ticker, "m1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#60a5fa25",
@@ -2671,7 +2671,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
               {strongestStocks.map(s => {
                 const isActive = s.ticker === activeTicker;
                 return (
-                <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_yoy ?? s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_yoy ?? s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
+                <div key={s.ticker} data-ticker={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._scanSource === "S" ? "<10B" : "10B+"} | EPS:${s.eps_yoy ?? s.eps_qq ?? s.eps_this_y ?? '—'}% | Sales:${s.sales_yoy ?? s.sales_qq ?? s.sales_past_5y ?? '—'}% | Float:${s.shares_float_raw ? (s.shares_float_raw / 1e6).toFixed(0) + 'M' : '—'}`}
                   onClick={() => clickInBox(s.ticker, "strong")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#2bb88625",
@@ -2690,7 +2690,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
               {momentumStocks.map(s => {
                 const isActive = s.ticker === activeTicker;
                 return (
-                <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._momTag} | 1W:${s.return_1w ?? '—'}% | 1M:${s.return_1m ?? '—'}% | 3M:${s.return_3m ?? '—'}% | 6M:${s.return_6m ?? '—'}%`}
+                <div key={s.ticker} data-ticker={s.ticker} title={`${s.company} | RS:${s.rs_rank} | ${s._momTag} | 1W:${s.return_1w ?? '—'}% | 1M:${s.return_1m ?? '—'}% | 3M:${s.return_3m ?? '—'}% | 6M:${s.return_6m ?? '—'}%`}
                   onClick={() => clickInBox(s.ticker, "mom")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#f9731625",
@@ -2716,7 +2716,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                 {groups[g].slice(0, 60).map(s => {
                   const isActive = s.ticker === activeTicker;
                   return (
-                  <div key={s.ticker} title={`${s.company} | RS:${s.rs_rank} | 3M:${s.return_3m}%`}
+                  <div key={s.ticker} data-ticker={s.ticker} title={`${s.company} | RS:${s.rs_rank} | 3M:${s.return_3m}%`}
                     onClick={() => clickInBox(s.ticker, "rts")}
                     style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                       background: isActive ? "#fbbf2430" : GRADE_COLORS[g] + "25",
@@ -4148,7 +4148,7 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
   const near = s.pct_from_high != null && s.pct_from_high >= -5;
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
   return (
-    <tr ref={rowRef} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+    <tr ref={rowRef} data-ticker={s.ticker} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
       background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
       <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
         {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
@@ -5901,7 +5901,13 @@ function AppMain({ authToken, onLogout }) {
           const idx = visibleTickers.indexOf(prev);
           if (idx === -1) return visibleTickers[0];
           const next = e.key === "ArrowDown" ? Math.min(idx + 1, visibleTickers.length - 1) : Math.max(idx - 1, 0);
-          return visibleTickers[next];
+          const nextTicker = visibleTickers[next];
+          // Scroll the active row into view
+          requestAnimationFrame(() => {
+            const el = document.querySelector(`[data-ticker="${nextTicker}"]`);
+            if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          });
+          return nextTicker;
         });
       }
     };
