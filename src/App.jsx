@@ -1722,6 +1722,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [erNoBio, setErNoBio] = useState(true);
   const [er9M, setEr9M] = useState(false);
+  const [erBeatFilter, setErBeatFilter] = useState(null); // null=all, "beat"=positive, "miss"=negative
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -2031,6 +2032,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _industry: stockMap[m.ticker]?.industry || m.industry || "",
             _rvol: stockMap[m.ticker]?.rel_volume ?? null,
             _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
+            _epsBeat: !isUpcoming && er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null,
+            _revBeat: !isUpcoming && er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null,
           };
         });
 
@@ -2059,7 +2062,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           return todayVol >= 8_900_000 && avgVol < 8_900_000;
         }) : bioFiltered;
 
-        const visibleMovers = erUniverseOnly ? nineM.filter(s => s._inUniverse) : nineM;
+        const beatFiltered = erBeatFilter === "beat"
+          ? nineM.filter(s => s._epsBeat === true || s._revBeat === true)
+          : erBeatFilter === "miss"
+          ? nineM.filter(s => s._epsBeat === false || s._revBeat === false)
+          : nineM;
+
+        const visibleMovers = erUniverseOnly ? beatFiltered.filter(s => s._inUniverse) : beatFiltered;
 
         const sorted = [...visibleMovers].sort((a, b) => {
           let va, vb;
@@ -2126,6 +2135,20 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   color: er9M ? "#e879f9" : "#787888" }}
                 title="Today vol≥8.9M but avg vol<8.9M (unusual activity)">
                 9M
+              </button>
+              <button onClick={() => setErBeatFilter(p => p === "beat" ? null : "beat")}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                  border: erBeatFilter === "beat" ? "1px solid #2bb886" : "1px solid #3a3a4a",
+                  background: erBeatFilter === "beat" ? "#2bb88618" : "transparent",
+                  color: erBeatFilter === "beat" ? "#2bb886" : "#787888" }}>
+                Beat
+              </button>
+              <button onClick={() => setErBeatFilter(p => p === "miss" ? null : "miss")}
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                  border: erBeatFilter === "miss" ? "1px solid #f87171" : "1px solid #3a3a4a",
+                  background: erBeatFilter === "miss" ? "#f8717118" : "transparent",
+                  color: erBeatFilter === "miss" ? "#f87171" : "#787888" }}>
+                Miss
               </button>
               {!hasSessionData && (
                 <span style={{ fontSize: 9, color: "#c06060", marginLeft: 8, fontStyle: "italic" }}>
