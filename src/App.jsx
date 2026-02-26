@@ -1440,13 +1440,24 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup, epLookup]);
 
   const burstStocks = useMemo(() => {
+    // Compute MF thresholds (same as scan watch)
+    const allMF = stocks.map(s => s.mf).filter(v => v != null).sort((a, b) => a - b);
+    const mfPosThreshold = allMF.length > 0 ? allMF[Math.floor(allMF.length * 0.90)] : 50;
+    const mfNegThreshold = allMF.length > 0 ? allMF[Math.floor(allMF.length * 0.10)] : -50;
+
     let list = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
       const s = stockMap[b.ticker];
+      const avgVol = s?.avg_volume_raw || 0;
+      const todayVol = avgVol * (s?.rel_volume || 0);
+      const isMFPos = s?.mf != null && s.mf >= mfPosThreshold && s.mf > 0;
+      const isMFNeg = s?.mf != null && s.mf <= mfNegThreshold && s.mf < 0;
+      const is9M = todayVol >= 8_900_000 && avgVol < 8_900_000;
       return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50,
         _mcap: s?.market_cap_raw, _avgVol: s?.avg_volume_raw, _pctFromHigh: s?.pct_from_high,
-        _scanHits: s?._scanHits, _above50ma: s?.above_50ma, _sma20_pct: s?.sma20_pct, _sma50_pct: s?.sma50_pct,
+        _above50ma: s?.above_50ma, _sma20_pct: s?.sma20_pct, _sma50_pct: s?.sma50_pct,
         _adr: s?.adr_pct, _aboveLow: s?.above_52w_low, _avgDolVol: s?.avg_dollar_vol_raw,
-        _relVol: s?.rel_volume, _mf: s?.mf, _eps_this_y: s?.eps_this_y };
+        _relVol: s?.rel_volume, _mf: s?.mf, _eps_this_y: s?.eps_this_y,
+        _isMFPos: isMFPos, _isMFNeg: isMFNeg, _is9M: is9M };
     });
     // Apply same filters as scan watch
     if (minRS > 0) list = list.filter(b => (b._rs || 0) >= minRS);
@@ -1456,8 +1467,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (mcapFilter === "mid") list = list.filter(b => (b._mcap || 0) >= 2_000_000_000);
     if (mcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
     if (volFilter > 0) list = list.filter(b => (b._avgVol || 0) >= volFilter);
+    // Apply MF+/MF-/9M tag filters
+    if (scanFilters.has("MF+")) list = list.filter(b => b._isMFPos);
+    if (scanFilters.has("MF-")) list = list.filter(b => b._isMFNeg);
+    if (scanFilters.has("9M")) list = list.filter(b => b._is9M);
     return list.sort((a, b) => b.change_pct - a.change_pct);
-  }, [momentumBurst, stockMap, minRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter]);
+  }, [momentumBurst, stocks, stockMap, minRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, scanFilters]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1499,13 +1514,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
       {/* Shared filters — apply to both tabs */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-        {/* Tag filters — only relevant for scan tab but always visible */}
-        {scanTab === "scan" && [
+        {/* Tag filters — scan tab gets all, burst tab gets MF+/MF-/9M */}
+        {(scanTab === "scan" ? [
           ["T", "Theme", "#2bb886"], ["W", "Winners", "#c084fc"], ["L", "Liquid", "#60a5fa"],
           ["E", "Early", "#fbbf24"], ["EP", "EP", "#f97316"], ["CS", "CANSLIM", "#22d3ee"], ["ZM", "Zanger", "#a78bfa"],
           ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
           ["9M", "9M", "#e879f9"]
-        ].map(([tag, label, color]) => {
+        ] : [
+          ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
+          ["9M", "9M", "#e879f9"]
+        ]).map(([tag, label, color]) => {
           const active = scanFilters.has(tag);
           return (
             <button key={tag} onClick={() => setScanFilters(prev => {
@@ -1520,11 +1538,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             </button>
           );
         })}
-        {scanTab === "scan" && scanFilters.size > 0 && (
+        {scanFilters.size > 0 && (
           <button onClick={() => setScanFilters(new Set())} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
             border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
         )}
-        {scanTab === "scan" && <span style={{ color: "#3a3a4a" }}>|</span>}
+        <span style={{ color: "#3a3a4a" }}>|</span>
         <span style={{ color: scanTab === "burst" ? "#f59e0b" : "#2bb886", fontWeight: 600, fontSize: 12 }}>{scanTab === "burst" ? burstStocks.length : candidates.length}</span>
         {scanTab === "scan" && scanFilters.size > 0 && (
           <span style={{ color: "#9090a0", fontSize: 9, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
