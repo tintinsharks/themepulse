@@ -178,7 +178,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
         borderBottom: "1px solid #2a2a38", flexShrink: 0, background: "#1a1a24" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}>{ticker}</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: manualEPs?.some(e => e.ticker === ticker) ? "#f97316" : "#d4d4e0" }}>{ticker}</span>
           {watchlist && (
             watchlist.includes(ticker)
               ? <button onClick={() => onRemoveWatchlist(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
@@ -1101,7 +1101,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, stockMap, filters, mmData, themeHealth }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, manualEPSet, stockMap, filters, mmData, themeHealth }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
@@ -1577,7 +1577,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : manualEPSet?.has(s.ticker) ? "#f97316" : "#a8a8b8", fontWeight: 500 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
@@ -1710,7 +1710,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, earningsMovers }) {
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers }) {
   const [sortBy, setSortBy] = useState("date");
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(4);
@@ -1845,9 +1845,44 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       .sort(sorters[sortBy] || sorters.date);
   }, [enhancedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
 
+  // Compute earnings visible tickers for keyboard nav
+  const earningsVisibleTickers = useMemo(() => {
+    const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
+    const todayAMCTickers = new Set();
+    Object.values(stockMap).forEach(s => {
+      if (s.earnings_days === 0) {
+        const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
+        if (disp.includes("AMC")) todayAMCTickers.add(s.ticker);
+      }
+    });
+    const upcomingAMC = Object.values(stockMap).filter(s => !reportedTickers.has(s.ticker) && todayAMCTickers.has(s.ticker));
+    const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => ({
+      ticker: m.ticker,
+      _inUniverse: !!m.in_universe || !!stockMap[m.ticker],
+      _industry: stockMap[m.ticker]?.industry || m.industry || "",
+      _vol: m.volume || 0,
+      _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
+      _epsBeat: m.er?.eps != null && m.er?.eps_estimated != null ? m.er.eps >= m.er.eps_estimated : null,
+      _revBeat: m.er?.revenue != null && m.er?.revenue_estimated != null ? m.er.revenue >= m.er.revenue_estimated : null,
+    }));
+    const ER_EXCLUDED_NAV = new Set([
+      "Biotechnology", "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+      "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+      "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel", "REIT - Industrial",
+      "REIT - Mortgage", "REIT - Office", "REIT - Residential", "REIT - Retail", "REIT - Specialty",
+    ]);
+    let result = allMovers;
+    if (erNoBio) result = result.filter(s => { const ind = (s._industry || "").trim().toLowerCase(); return !ind || ![...ER_EXCLUDED_NAV].some(ex => ex.toLowerCase() === ind); });
+    if (er9M) result = result.filter(s => (s._vol || 0) >= 8_900_000 && (s._avgVol || Infinity) < 8_900_000);
+    if (erBeatFilter === "beat") result = result.filter(s => s._epsBeat === true || s._revBeat === true);
+    if (erBeatFilter === "miss") result = result.filter(s => s._epsBeat === false || s._revBeat === false);
+    if (erUniverseOnly) result = result.filter(s => s._inUniverse);
+    return result.map(s => s.ticker);
+  }, [earningsMovers, stockMap, erNoBio, er9M, erBeatFilter, erUniverseOnly]);
+
   useEffect(() => {
-    if (onVisibleTickers) onVisibleTickers(filtered.map(ep => ep.ticker));
-  }, [filtered, onVisibleTickers]);
+    if (onVisibleTickers) onVisibleTickers([...filtered.map(ep => ep.ticker), ...earningsVisibleTickers]);
+  }, [filtered, earningsVisibleTickers, onVisibleTickers]);
 
   const STATUS_STYLE = {
     consolidating: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24", label: "★ CONSOLIDATING" },
@@ -2237,7 +2272,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
                           </td>
                           <td style={{ padding: "4px 4px", fontWeight: 600, fontSize: 10,
-                            color: isActive ? "#fbbf24" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
+                            color: isActive ? "#fbbf24" : manualEPSet?.has(s.ticker) ? "#f97316" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
                             {s.ticker}
                           </td>
                           <td style={{ padding: "4px 4px", color: "#686878", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120,
@@ -2287,7 +2322,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
 
-function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
+function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPSet }) {
   const [showLegend, setShowLegend] = useState(false);
   const [filterOn, setFilterOn] = useState(true);
   const [activeBox, setActiveBox] = useState(null); // track which box was last clicked
@@ -2571,7 +2606,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     fontSize: 11, fontFamily: "monospace", cursor: "pointer",
                     background: isActive ? "#fbbf2430" : gc + "20",
                     border: isActive ? "1px solid #fbbf24" : `1px solid ${s._comboCount >= 3 ? "#fbbf24" : gc}40`,
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400 }}>
                   <Badge grade={s.grade} />
                   {s.ticker}
@@ -2602,7 +2637,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => clickInBox(s.ticker, "w1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                     background: isActive ? "#fbbf2430" : "#c084fc25",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -2621,7 +2656,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => clickInBox(s.ticker, "m1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#60a5fa25",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -2640,7 +2675,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => clickInBox(s.ticker, "strong")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#2bb88625",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -2659,7 +2694,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                   onClick={() => clickInBox(s.ticker, "mom")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#f9731625",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -2685,7 +2720,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     onClick={() => clickInBox(s.ticker, "rts")}
                     style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                       background: isActive ? "#fbbf2430" : GRADE_COLORS[g] + "25",
-                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
                       fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                       outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                   );
@@ -5756,6 +5791,7 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
   useEffect(() => { localStorage.setItem("tp_manual_eps", JSON.stringify(manualEPs)); }, [manualEPs]);
+  const manualEPSet = useMemo(() => new Set(manualEPs.map(e => e.ticker)), [manualEPs]);
   useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
 
   // Save to server (debounced)
@@ -5982,14 +6018,14 @@ function AppMain({ authToken, onLogout }) {
         {/* Left: data views */}
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs} manualEPSet={manualEPSet}
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} earningsMovers={data.earnings_movers} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
-          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
+          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
