@@ -1101,7 +1101,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, manualEPSet, stockMap, filters, mmData, themeHealth }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, manualEPSet, stockMap, filters, mmData, themeHealth, momentumBurst }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
@@ -1440,8 +1440,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
-    if (onVisibleTickers) onVisibleTickers(candidates.map(s => s.ticker));
-  }, [candidates, onVisibleTickers]);
+    const burstTickers = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => b.ticker);
+    const candidateTickers = candidates.map(s => s.ticker);
+    if (onVisibleTickers) onVisibleTickers([...candidateTickers, ...burstTickers.filter(t => !candidateTickers.includes(t))]);
+  }, [candidates, momentumBurst, stockMap, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
     const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, "MF+": 0, "MF-": 0, "9M": 0 };
@@ -1693,6 +1695,77 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           );
         })}</tbody>
       </table>
+
+      {/* Momentum Burst — Stockbee $ + 4% Breakout */}
+      {(momentumBurst || []).length > 0 && (() => {
+        const bursts = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
+          const s = stockMap[b.ticker];
+          return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50 };
+        }).sort((a, b) => b.change_pct - a.change_pct);
+        if (bursts.length === 0) return null;
+        return (
+          <div style={{ marginTop: 12, padding: "8px 0", borderTop: "1px solid #3a3a4a" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>⚡ Momentum Burst</span>
+              <span style={{ fontSize: 10, color: "#686878" }}>Stockbee $ + 4% Breakout</span>
+              <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>{bursts.length}</span>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 10 }}>Ticker</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "center", fontSize: 10 }}>Type</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>Chg%</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>$Move</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>ClRng</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>RVol</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>Vol</th>
+                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 10 }}>Theme</th>
+              </tr></thead>
+              <tbody>{bursts.map(b => {
+                const isActive = b.ticker === activeTicker;
+                const scanTag = b.scan.join("+");
+                const tagColor = b.scan.includes("$") && b.scan.includes("4%") ? "#f59e0b" : b.scan.includes("$") ? "#60a5fa" : "#2bb886";
+                const gc = GRADE_COLORS[b._grade] || "#3a3a4a";
+                return (
+                  <tr key={b.ticker} data-ticker={b.ticker} onClick={() => onTickerClick(b.ticker)}
+                    style={{ borderBottom: "1px solid #1a1a2a", cursor: "pointer",
+                      background: isActive ? "#f59e0b18" : "transparent" }}>
+                    <td style={{ padding: "4px 6px", fontFamily: "monospace", fontWeight: 700,
+                      color: manualEPSet?.has(b.ticker) ? "#f97316" : isActive ? "#f59e0b" : "#d4d4e0" }}>
+                      <Badge grade={b._grade} />{" "}{b.ticker}
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: tagColor, padding: "1px 4px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                      color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0", fontWeight: 600 }}>
+                      {b.change_pct > 0 ? "+" : ""}{b.change_pct.toFixed(1)}%
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", color: "#b8b8c8" }}>
+                      ${b.dollar_move.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                      color: b.close_range >= 90 ? "#2bb886" : b.close_range >= 70 ? "#60a5fa" : "#9090a0" }}>
+                      {b.close_range.toFixed(0)}%
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                      color: b.vol_ratio >= 3 ? "#c084fc" : b.vol_ratio >= 2 ? "#a78bfa" : "#9090a0" }}>
+                      {b.vol_ratio.toFixed(1)}x
+                    </td>
+                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", color: "#9090a0" }}>
+                      {b.volume >= 1e6 ? (b.volume / 1e6).toFixed(1) + "M" : (b.volume / 1e3).toFixed(0) + "K"}
+                    </td>
+                    <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={b._themes?.[0]?.theme}>
+                      {b._themes?.[0]?.theme || "—"}
+                    </td>
+                  </tr>
+                );
+              })}</tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
     {/* Theme Leaders side panel */}
     {showLeaders && (
@@ -2304,7 +2377,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
 
-function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPSet, momentumBurst }) {
+function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPSet }) {
   const [showLegend, setShowLegend] = useState(false);
   const [filterOn, setFilterOn] = useState(true);
   const [activeBox, setActiveBox] = useState(null); // track which box was last clicked
@@ -2466,12 +2539,11 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
   const boxLists = useMemo(() => ({
     rts: grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker)),
     combo: comboStocks.map(s => s.ticker),
-    burst: (momentumBurst || []).map(b => b.ticker),
     w1: weekMovers.map(s => s.ticker),
     m1: monthMovers.map(s => s.ticker),
     strong: strongestStocks.map(s => s.ticker),
     mom: momentumStocks.map(s => s.ticker),
-  }), [groups, comboStocks, momentumBurst, weekMovers, monthMovers, strongestStocks, momentumStocks]);
+  }), [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks]);
 
   const boxListsRef = useRef(boxLists);
   boxListsRef.current = boxLists;
@@ -2600,51 +2672,6 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
           </div>
         </div>
       )}
-
-      {/* Momentum Burst (Stockbee scan) */}
-      {(momentumBurst || []).length > 0 && (() => {
-        const bursts = (momentumBurst || []).map(b => ({
-          ...b,
-          _stock: filteredStocks.find(s => s.ticker === b.ticker),
-        }));
-        const universeBursts = bursts.filter(b => b._stock);
-        const otherBursts = bursts.filter(b => !b._stock);
-        return (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>⚡ Momentum Burst</span>
-              <span style={{ fontSize: 10, color: "#686878" }}>Stockbee $ + 4% Breakout</span>
-              <span style={{ fontSize: 10, color: "#505060" }}>{bursts.length} stocks</span>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-              {[...universeBursts, ...otherBursts].map(b => {
-                const s = b._stock;
-                const gc = s ? (GRADE_COLORS[s.grade] || "#3a3a4a") : "#3a3a4a";
-                const isActive = b.ticker === activeTicker;
-                const scanTag = b.scan.join("+");
-                const tagColor = b.scan.includes("$") && b.scan.includes("4%") ? "#f59e0b" : b.scan.includes("$") ? "#60a5fa" : "#2bb886";
-                return (
-                  <div key={b.ticker} data-ticker={b.ticker} onClick={() => clickInBox(b.ticker, "burst")}
-                    title={`${s?.company || b.ticker} | ${scanTag} | Chg:${b.change_pct}% | $Move:${b.dollar_move} | ClRng:${b.close_range}% | RVol:${b.vol_ratio}x | Vol:${(b.volume/1e6).toFixed(1)}M`}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
-                      fontSize: 11, fontFamily: "monospace", cursor: "pointer",
-                      background: isActive ? "#f59e0b30" : gc + "15",
-                      border: isActive ? "1px solid #f59e0b" : `1px solid ${tagColor}40`,
-                      color: manualEPSet?.has(b.ticker) ? "#f97316" : isActive ? "#fff" : s ? "#bbb" : "#787888",
-                      fontWeight: isActive ? 700 : 400 }}>
-                    {s && <Badge grade={s.grade} />}
-                    {b.ticker}
-                    <span style={{ fontSize: 8, color: tagColor, fontWeight: 700, marginLeft: 1 }}>{scanTag}</span>
-                    <span style={{ fontSize: 9, color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0" }}>
-                      {b.change_pct > 0 ? "+" : ""}{b.change_pct}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Screeners */}
       <div style={{ marginBottom: 16 }}>
@@ -6073,13 +6100,13 @@ function AppMain({ authToken, onLogout }) {
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs} manualEPSet={manualEPSet}
-            stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} />}
+            stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
-          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} momentumBurst={data.momentum_burst} />}
+          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
