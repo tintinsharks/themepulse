@@ -1722,7 +1722,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [erNoBio, setErNoBio] = useState(true);
   const [er9M, setEr9M] = useState(false);
-  const [erBeatFilter, setErBeatFilter] = useState(null); // null=all, "beat"=positive, "miss"=negative
+  const [erBeatFilter, setErBeatFilter] = useState(null);
+  const erSortedTickersRef = useRef([]); // null=all, "beat"=positive, "miss"=negative
   const [epMinScore, setEpMinScore] = useState(0);
   const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
   const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
@@ -1845,44 +1846,22 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       .sort(sorters[sortBy] || sorters.date);
   }, [enhancedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
 
-  // Compute earnings visible tickers for keyboard nav
-  const earningsVisibleTickers = useMemo(() => {
-    const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
-    const todayAMCTickers = new Set();
-    Object.values(stockMap).forEach(s => {
-      if (s.earnings_days === 0) {
-        const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
-        if (disp.includes("AMC")) todayAMCTickers.add(s.ticker);
-      }
-    });
-    const upcomingAMC = Object.values(stockMap).filter(s => !reportedTickers.has(s.ticker) && todayAMCTickers.has(s.ticker));
-    const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => ({
-      ticker: m.ticker,
-      _inUniverse: !!m.in_universe || !!stockMap[m.ticker],
-      _industry: stockMap[m.ticker]?.industry || m.industry || "",
-      _vol: m.volume || 0,
-      _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
-      _epsBeat: m.er?.eps != null && m.er?.eps_estimated != null ? m.er.eps >= m.er.eps_estimated : null,
-      _revBeat: m.er?.revenue != null && m.er?.revenue_estimated != null ? m.er.revenue >= m.er.revenue_estimated : null,
-    }));
-    const ER_EXCLUDED_NAV = new Set([
-      "Biotechnology", "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
-      "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
-      "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel", "REIT - Industrial",
-      "REIT - Mortgage", "REIT - Office", "REIT - Residential", "REIT - Retail", "REIT - Specialty",
-    ]);
-    let result = allMovers;
-    if (erNoBio) result = result.filter(s => { const ind = (s._industry || "").trim().toLowerCase(); return !ind || ![...ER_EXCLUDED_NAV].some(ex => ex.toLowerCase() === ind); });
-    if (er9M) result = result.filter(s => (s._vol || 0) >= 8_900_000 && (s._avgVol || Infinity) < 8_900_000);
-    if (erBeatFilter === "beat") result = result.filter(s => s._epsBeat === true || s._revBeat === true);
-    if (erBeatFilter === "miss") result = result.filter(s => s._epsBeat === false || s._revBeat === false);
-    if (erUniverseOnly) result = result.filter(s => s._inUniverse);
-    return result.map(s => s.ticker);
-  }, [earningsMovers, stockMap, erNoBio, er9M, erBeatFilter, erUniverseOnly]);
-
+  // Report visible tickers for keyboard nav — depends on all filter/sort state
   useEffect(() => {
-    if (onVisibleTickers) onVisibleTickers([...filtered.map(ep => ep.ticker), ...earningsVisibleTickers]);
-  }, [filtered, earningsVisibleTickers, onVisibleTickers]);
+    if (onVisibleTickers && erSortedTickersRef.current.length > 0) {
+      onVisibleTickers(erSortedTickersRef.current);
+    }
+  }, [earningsMovers, stockMap, erNoBio, er9M, erBeatFilter, erUniverseOnly, erSort, onVisibleTickers]);
+
+  // Also report on mount after first render populates the ref
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (onVisibleTickers && erSortedTickersRef.current.length > 0) {
+        onVisibleTickers(erSortedTickersRef.current);
+      }
+    }, 100);
+    return () => clearTimeout(t);
+  }, [onVisibleTickers]);
 
   const STATUS_STYLE = {
     consolidating: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24", label: "★ CONSOLIDATING" },
@@ -2117,6 +2096,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           else { va = a._chg; vb = b._chg; }
           return erSort.dir === "desc" ? vb - va : va - vb;
         });
+
+        // Update ref for keyboard nav (actual useEffect below will sync to parent)
+        erSortedTickersRef.current = sorted.map(s => s.ticker);
 
         const toggleSort = (col) => {
           setErSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" });
