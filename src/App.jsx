@@ -1439,6 +1439,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     return list.sort(sorters[sortBy] || sorters.hits);
   }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup, epLookup]);
 
+  const burstStocks = useMemo(() => {
+    return (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
+      const s = stockMap[b.ticker];
+      return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50 };
+    }).sort((a, b) => b.change_pct - a.change_pct);
+  }, [momentumBurst, stockMap]);
+
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
     const burstTickers = burstStocks.map(b => b.ticker);
@@ -1451,13 +1458,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
-
-  const burstStocks = useMemo(() => {
-    return (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
-      const s = stockMap[b.ticker];
-      return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50 };
-    }).sort((a, b) => b.change_pct - a.change_pct);
-  }, [momentumBurst, stockMap]);
 
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
