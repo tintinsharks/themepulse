@@ -1111,6 +1111,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
   const [showLeaders, setShowLeaders] = useState(false);
+  const [scanTab, setScanTab] = useState("scan"); // "scan" or "burst"
 
   // Build EP ticker lookup: ticker → most recent EP signal (pipeline + manual)
   const epLookup = useMemo(() => {
@@ -1440,16 +1441,23 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
-    const burstTickers = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => b.ticker);
+    const burstTickers = burstStocks.map(b => b.ticker);
     const candidateTickers = candidates.map(s => s.ticker);
-    if (onVisibleTickers) onVisibleTickers([...candidateTickers, ...burstTickers.filter(t => !candidateTickers.includes(t))]);
-  }, [candidates, momentumBurst, stockMap, onVisibleTickers]);
+    if (onVisibleTickers) onVisibleTickers(scanTab === "burst" ? burstTickers : [...candidateTickers, ...burstTickers.filter(t => !candidateTickers.includes(t))]);
+  }, [candidates, burstStocks, scanTab, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
     const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, "MF+": 0, "MF-": 0, "9M": 0 };
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
+
+  const burstStocks = useMemo(() => {
+    return (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
+      const s = stockMap[b.ticker];
+      return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50 };
+    }).sort((a, b) => b.change_pct - a.change_pct);
+  }, [momentumBurst, stockMap]);
 
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
@@ -1461,6 +1469,22 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   return (
     <div style={{ display: "flex", gap: 0, minHeight: 0 }}>
     <div style={{ flex: 1, minWidth: 0, overflowX: "auto", overflowY: "visible" }}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 8 }}>
+        <button onClick={() => setScanTab("scan")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "scan" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "scan" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "scan" ? "#121218" : "transparent", color: scanTab === "scan" ? "#2bb886" : "#686878" }}>
+          Scan Watch <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "scan" ? "#4aad8c" : "#505060" }}>{candidates.length}</span>
+        </button>
+        <button onClick={() => setScanTab("burst")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "burst" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "burst" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "burst" ? "#121218" : "transparent", color: scanTab === "burst" ? "#f59e0b" : "#686878" }}>
+          ⚡ Momentum Burst <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "burst" ? "#f59e0b" : "#505060" }}>{burstStocks.length}</span>
+        </button>
+        <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
+      </div>
+
+      {scanTab === "scan" && (<>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filter toggles */}
         {[
@@ -1695,77 +1719,78 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           );
         })}</tbody>
       </table>
+      </>)}
 
-      {/* Momentum Burst — Stockbee $ + 4% Breakout */}
-      {(momentumBurst || []).length > 0 && (() => {
-        const bursts = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
-          const s = stockMap[b.ticker];
-          return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50 };
-        }).sort((a, b) => b.change_pct - a.change_pct);
-        if (bursts.length === 0) return null;
-        return (
-          <div style={{ marginTop: 12, padding: "8px 0", borderTop: "1px solid #3a3a4a" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>⚡ Momentum Burst</span>
-              <span style={{ fontSize: 10, color: "#686878" }}>Stockbee $ + 4% Breakout</span>
-              <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>{bursts.length}</span>
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-              <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 10 }}>Ticker</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "center", fontSize: 10 }}>Type</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>Chg%</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>$Move</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>ClRng</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>RVol</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 10 }}>Vol</th>
-                <th style={{ padding: "4px 6px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 10 }}>Theme</th>
-              </tr></thead>
-              <tbody>{bursts.map(b => {
-                const isActive = b.ticker === activeTicker;
-                const scanTag = b.scan.join("+");
-                const tagColor = b.scan.includes("$") && b.scan.includes("4%") ? "#f59e0b" : b.scan.includes("$") ? "#60a5fa" : "#2bb886";
-                const gc = GRADE_COLORS[b._grade] || "#3a3a4a";
-                return (
-                  <tr key={b.ticker} data-ticker={b.ticker} onClick={() => onTickerClick(b.ticker)}
-                    style={{ borderBottom: "1px solid #1a1a2a", cursor: "pointer",
-                      background: isActive ? "#f59e0b18" : "transparent" }}>
-                    <td style={{ padding: "4px 6px", fontFamily: "monospace", fontWeight: 700,
-                      color: manualEPSet?.has(b.ticker) ? "#f97316" : isActive ? "#f59e0b" : "#d4d4e0" }}>
-                      <Badge grade={b._grade} />{" "}{b.ticker}
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: tagColor, padding: "1px 4px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
-                      color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0", fontWeight: 600 }}>
-                      {b.change_pct > 0 ? "+" : ""}{b.change_pct.toFixed(1)}%
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", color: "#b8b8c8" }}>
-                      ${b.dollar_move.toFixed(2)}
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
-                      color: b.close_range >= 90 ? "#2bb886" : b.close_range >= 70 ? "#60a5fa" : "#9090a0" }}>
-                      {b.close_range.toFixed(0)}%
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
-                      color: b.vol_ratio >= 3 ? "#c084fc" : b.vol_ratio >= 2 ? "#a78bfa" : "#9090a0" }}>
-                      {b.vol_ratio.toFixed(1)}x
-                    </td>
-                    <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", color: "#9090a0" }}>
-                      {b.volume >= 1e6 ? (b.volume / 1e6).toFixed(1) + "M" : (b.volume / 1e3).toFixed(0) + "K"}
-                    </td>
-                    <td style={{ padding: "4px 6px", color: "#686878", fontSize: 10, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      title={b._themes?.[0]?.theme}>
-                      {b._themes?.[0]?.theme || "—"}
-                    </td>
-                  </tr>
-                );
-              })}</tbody>
-            </table>
+      {/* Momentum Burst tab */}
+      {scanTab === "burst" && burstStocks.length > 0 && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 10, color: "#686878" }}>Stockbee $ + 4% Breakout — stocks quiet yesterday, bursting today</span>
           </div>
-        );
-      })()}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 11 }}>Ticker</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "center", fontSize: 11 }}>Type</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>Chg%</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>$Move</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>Close</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>ClRng</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>RVol</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>Vol</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>RS</th>
+              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 11 }}>Theme</th>
+            </tr></thead>
+            <tbody>{burstStocks.map(b => {
+              const isActive = b.ticker === activeTicker;
+              const scanTag = b.scan.join("+");
+              const tagColor = b.scan.includes("$") && b.scan.includes("4%") ? "#f59e0b" : b.scan.includes("$") ? "#60a5fa" : "#2bb886";
+              return (
+                <tr key={b.ticker} data-ticker={b.ticker} onClick={() => onTickerClick(b.ticker)}
+                  style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                    background: isActive ? "#f59e0b18" : "transparent" }}>
+                  <td style={{ padding: "5px 8px", fontFamily: "monospace", fontWeight: 700,
+                    color: manualEPSet?.has(b.ticker) ? "#f97316" : isActive ? "#f59e0b" : "#d4d4e0" }}>
+                    <Badge grade={b._grade} />{" "}{b.ticker}
+                    <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{b._company}</span>
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "center" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: tagColor, padding: "2px 6px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
+                    color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0", fontWeight: 600 }}>
+                    {b.change_pct > 0 ? "+" : ""}{b.change_pct.toFixed(1)}%
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: "#b8b8c8" }}>
+                    ${b.dollar_move.toFixed(2)}
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: "#d4d4e0" }}>
+                    ${b.close.toFixed(2)}
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
+                    color: b.close_range >= 90 ? "#2bb886" : b.close_range >= 70 ? "#60a5fa" : "#9090a0" }}>
+                    {b.close_range.toFixed(0)}%
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
+                    color: b.vol_ratio >= 3 ? "#c084fc" : b.vol_ratio >= 2 ? "#a78bfa" : "#9090a0" }}>
+                    {b.vol_ratio.toFixed(1)}x
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: "#9090a0" }}>
+                    {b.volume >= 1e6 ? (b.volume / 1e6).toFixed(1) + "M" : (b.volume / 1e3).toFixed(0) + "K"}
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
+                    color: (b._rs || 0) >= 80 ? "#2bb886" : (b._rs || 0) >= 60 ? "#60a5fa" : "#9090a0" }}>
+                    {b._rs || "—"}
+                  </td>
+                  <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={b._themes?.[0]?.theme}>
+                    {b._themes?.[0]?.theme || "—"}
+                  </td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      )}
     </div>
     {/* Theme Leaders side panel */}
     {showLeaders && (
