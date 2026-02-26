@@ -4585,7 +4585,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, manualEPs, removeFromEP, liveThemeData, homepage }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -4594,10 +4594,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
+  const [epSort, setEpSort] = useState("change");
   const [marketOpen, setMarketOpen] = useState(true);
 
-  // Combine all tickers for API call — watchlist + portfolio only
-  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
+  const epTickers = useMemo(() => (manualEPs || []).map(e => e.ticker), [manualEPs]);
+
+  // Combine all tickers for API call — watchlist + portfolio + EP watchlist
+  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist, ...epTickers])], [portfolio, watchlist, epTickers]);
 
   const fetchLive = useCallback(async () => {
     if (allTickers.length === 0) { setLoading(false); return; }
@@ -4728,14 +4731,16 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
   const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
+  const epMerged = useMemo(() => sortList(epTickers.map(mergeStock), epSort), [epTickers, mergeStock, epSort, liveLookup]);
 
   useEffect(() => {
     if (!onVisibleTickers) return;
     const pTickers = portfolioMerged.map(s => s.ticker);
     const wTickers = watchlistMerged.map(s => s.ticker);
-    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t))];
+    const eTickers = epMerged.map(s => s.ticker);
+    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t)), ...eTickers.filter(t => !pTickers.includes(t) && !wTickers.includes(t))];
     onVisibleTickers(combined);
-  }, [pSort, wlSort, portfolio, watchlist, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pSort, wlSort, epSort, portfolio, watchlist, epTickers, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -4963,6 +4968,20 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           </div>
         )}
       </div>
+
+      {/* ── 3. EP Watchlist ── */}
+      {epTickers.length > 0 && (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#f97316", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            EP Watchlist ({epTickers.length})
+          </span>
+        </div>
+        <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={epMerged} sortKey={epSort} setter={setEpSort} onRemove={removeFromEP} />
+        </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -6041,6 +6060,7 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
+            manualEPs={manualEPs} removeFromEP={removeFromEP}
             liveThemeData={liveThemeData} homepage={homepage} />}
           </ErrorBoundary>
         </div>
