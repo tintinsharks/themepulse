@@ -2304,7 +2304,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
 
-function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPSet }) {
+function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPSet, momentumBurst }) {
   const [showLegend, setShowLegend] = useState(false);
   const [filterOn, setFilterOn] = useState(true);
   const [activeBox, setActiveBox] = useState(null); // track which box was last clicked
@@ -2466,11 +2466,12 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
   const boxLists = useMemo(() => ({
     rts: grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker)),
     combo: comboStocks.map(s => s.ticker),
+    burst: (momentumBurst || []).map(b => b.ticker),
     w1: weekMovers.map(s => s.ticker),
     m1: monthMovers.map(s => s.ticker),
     strong: strongestStocks.map(s => s.ticker),
     mom: momentumStocks.map(s => s.ticker),
-  }), [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks]);
+  }), [groups, comboStocks, momentumBurst, weekMovers, monthMovers, strongestStocks, momentumStocks]);
 
   const boxListsRef = useRef(boxLists);
   boxListsRef.current = boxLists;
@@ -2599,6 +2600,51 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
           </div>
         </div>
       )}
+
+      {/* Momentum Burst (Stockbee scan) */}
+      {(momentumBurst || []).length > 0 && (() => {
+        const bursts = (momentumBurst || []).map(b => ({
+          ...b,
+          _stock: filteredStocks.find(s => s.ticker === b.ticker),
+        }));
+        const universeBursts = bursts.filter(b => b._stock);
+        const otherBursts = bursts.filter(b => !b._stock);
+        return (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>⚡ Momentum Burst</span>
+              <span style={{ fontSize: 10, color: "#686878" }}>Stockbee $ + 4% Breakout</span>
+              <span style={{ fontSize: 10, color: "#505060" }}>{bursts.length} stocks</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+              {[...universeBursts, ...otherBursts].map(b => {
+                const s = b._stock;
+                const gc = s ? (GRADE_COLORS[s.grade] || "#3a3a4a") : "#3a3a4a";
+                const isActive = b.ticker === activeTicker;
+                const scanTag = b.scan.join("+");
+                const tagColor = b.scan.includes("$") && b.scan.includes("4%") ? "#f59e0b" : b.scan.includes("$") ? "#60a5fa" : "#2bb886";
+                return (
+                  <div key={b.ticker} data-ticker={b.ticker} onClick={() => clickInBox(b.ticker, "burst")}
+                    title={`${s?.company || b.ticker} | ${scanTag} | Chg:${b.change_pct}% | $Move:${b.dollar_move} | ClRng:${b.close_range}% | RVol:${b.vol_ratio}x | Vol:${(b.volume/1e6).toFixed(1)}M`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
+                      fontSize: 11, fontFamily: "monospace", cursor: "pointer",
+                      background: isActive ? "#f59e0b30" : gc + "15",
+                      border: isActive ? "1px solid #f59e0b" : `1px solid ${tagColor}40`,
+                      color: manualEPSet?.has(b.ticker) ? "#f97316" : isActive ? "#fff" : s ? "#bbb" : "#787888",
+                      fontWeight: isActive ? 700 : 400 }}>
+                    {s && <Badge grade={s.grade} />}
+                    {b.ticker}
+                    <span style={{ fontSize: 8, color: tagColor, fontWeight: 700, marginLeft: 1 }}>{scanTag}</span>
+                    <span style={{ fontSize: 9, color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0" }}>
+                      {b.change_pct > 0 ? "+" : ""}{b.change_pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Screeners */}
       <div style={{ marginBottom: 16 }}>
@@ -6033,7 +6079,7 @@ function AppMain({ authToken, onLogout }) {
           {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
-          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
+          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} momentumBurst={data.momentum_burst} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
