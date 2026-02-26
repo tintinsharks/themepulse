@@ -5901,19 +5901,20 @@ function AppMain({ authToken, onLogout }) {
           const idx = visibleTickers.indexOf(prev);
           if (idx === -1) return visibleTickers[0];
           const next = e.key === "ArrowDown" ? Math.min(idx + 1, visibleTickers.length - 1) : Math.max(idx - 1, 0);
-          const nextTicker = visibleTickers[next];
-          // Scroll the active row into view
-          requestAnimationFrame(() => {
-            const el = document.querySelector(`[data-ticker="${nextTicker}"]`);
-            if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          });
-          return nextTicker;
+          return visibleTickers[next];
         });
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [visibleTickers, closeChart]);
+
+  // Scroll active ticker row into view on keyboard nav
+  useEffect(() => {
+    if (!chartTicker) return;
+    const el = document.querySelector(`[data-ticker="${chartTicker}"]`);
+    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [chartTicker]);
 
   if (!data) {
     return (
