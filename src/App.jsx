@@ -2350,6 +2350,12 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
             _epsBeat: !isUpcoming && er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null,
             _revBeat: !isUpcoming && er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null,
+            _grossMargin: er.gross_margin ?? null,
+            _operatingMargin: er.operating_margin ?? null,
+            _netMargin: er.net_margin ?? null,
+            _revGrowthYoY: er.rev_growth_yoy ?? null,
+            _epsGrowthYoY: er.eps_growth_yoy ?? null,
+            _quarterlyHistory: er.quarterly_history ?? null,
           };
         });
 
@@ -2395,6 +2401,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           else if (erSort.col === "rvol") { va = a._rvol ?? 0; vb = b._rvol ?? 0; }
           else if (erSort.col === "change") { va = a._chg; vb = b._chg; }
           else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
+          else if (erSort.col === "rev_yoy") { va = a._revGrowthYoY ?? -999; vb = b._revGrowthYoY ?? -999; }
+          else if (erSort.col === "eps_yoy") { va = a._epsGrowthYoY ?? -999; vb = b._epsGrowthYoY ?? -999; }
+          else if (erSort.col === "gm") { va = a._grossMargin ?? -999; vb = b._grossMargin ?? -999; }
+          else if (erSort.col === "nm") { va = a._netMargin ?? -999; vb = b._netMargin ?? -999; }
           else { va = a._chg; vb = b._chg; }
           return erSort.dir === "desc" ? vb - va : va - vb;
         });
@@ -2488,7 +2498,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 800 : 650 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 1050 : 900 }}>
                   <thead>
                     {hasSessionData && (
                       <tr style={{ borderBottom: "none" }}>
@@ -2503,6 +2513,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           color: "#f59e0b", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
                           borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
                         <th></th>
+                        <th colSpan={4} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
+                          color: "#34d399", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
+                          borderBottom: "1px solid #34d39930" }}>FUNDAMENTALS</th>
                         <th></th>
                       </tr>
                     )}
@@ -2521,7 +2534,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
                         <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
                       </>)}
-                      <th style={{ ...thBase, textAlign: "left" }}>SeekingAlpha Headline</th>
+                      <th onClick={() => toggleSort("rev_yoy")} style={{ ...thClick, width: 55, color: "#34d399" }} title="Revenue Growth YoY">Rev%{sortArrow("rev_yoy")}</th>
+                      <th onClick={() => toggleSort("eps_yoy")} style={{ ...thClick, width: 55, color: "#34d399" }} title="EPS Growth YoY">EPS%{sortArrow("eps_yoy")}</th>
+                      <th onClick={() => toggleSort("gm")} style={{ ...thClick, width: 45, color: "#34d399" }} title="Gross Margin">GM{sortArrow("gm")}</th>
+                      <th onClick={() => toggleSort("nm")} style={{ ...thClick, width: 45, color: "#34d399" }} title="Net Margin">NM{sortArrow("nm")}</th>
+                      <th style={{ ...thBase, textAlign: "left" }}>Headline</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2586,6 +2603,22 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                               {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
                             </td>
                           </>)}
+                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: s._revGrowthYoY != null ? chgColor(s._revGrowthYoY) : "#2a2a35" }}>
+                            {s._revGrowthYoY != null ? `${s._revGrowthYoY > 0 ? "+" : ""}${s._revGrowthYoY.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: s._epsGrowthYoY != null ? chgColor(s._epsGrowthYoY) : "#2a2a35" }}>
+                            {s._epsGrowthYoY != null ? `${s._epsGrowthYoY > 0 ? "+" : ""}${s._epsGrowthYoY.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: s._grossMargin != null ? (s._grossMargin >= 50 ? "#2bb886" : s._grossMargin >= 30 ? "#4a9a6a" : "#686878") : "#2a2a35" }}>
+                            {s._grossMargin != null ? `${s._grossMargin.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: s._netMargin != null ? (s._netMargin >= 20 ? "#2bb886" : s._netMargin >= 10 ? "#4a9a6a" : s._netMargin >= 0 ? "#686878" : "#c06060") : "#2a2a35" }}>
+                            {s._netMargin != null ? `${s._netMargin.toFixed(0)}%` : "—"}
+                          </td>
                           <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : headlineColor, lineHeight: 1.3,
                             fontFamily: "system-ui, -apple-system, sans-serif", fontStyle: s._upcoming ? "italic" : "normal" }}>
                             {s._upcoming ? "Reports after close today" : s._headline}
