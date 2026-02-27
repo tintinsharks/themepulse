@@ -71,7 +71,7 @@ const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
 
-function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, manualEPs, onAddEP, onRemoveEP, liveThemeData, lwChartProps }) {
+function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, pkn, onAddPkn, onRemovePkn, pknWatch, onAddPknWatch, onRemovePknWatch, manualEPs, onAddEP, onRemoveEP, liveThemeData, lwChartProps }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
@@ -192,6 +192,20 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   background: "#fbbf2420", border: "1px solid #fbbf2440", color: "#fbbf24" }}>✓ Portfolio</button>
               : <button onClick={() => onAddPortfolio(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
                   background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ Portfolio</button>
+          )}
+          {pkn && (
+            pkn.includes(ticker)
+              ? <button onClick={() => onRemovePkn(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "#e879f920", border: "1px solid #e879f940", color: "#e879f9" }}>✓ PKN</button>
+              : <button onClick={() => onAddPkn(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ PKN</button>
+          )}
+          {pknWatch && (
+            pknWatch.includes(ticker)
+              ? <button onClick={() => onRemovePknWatch(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "#a78bfa20", border: "1px solid #a78bfa40", color: "#a78bfa" }}>✓ PKN W</button>
+              : <button onClick={() => onAddPknWatch(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                  background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ PKN W</button>
           )}
           {manualEPs && (
             manualEPs.some(e => e.ticker === ticker)
@@ -1632,6 +1646,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const isActive = s.ticker === activeTicker;
           const inPortfolio = portfolio?.includes(s.ticker);
           const inWatchlist = watchlist?.includes(s.ticker);
+          const inPkn = false; // PKN border handled via chart panel
           return (
             <tr key={s.ticker} data-ticker={s.ticker} ref={undefined}
               onClick={() => onTickerClick(s.ticker)}
@@ -5874,6 +5889,12 @@ function AppMain({ authToken, onLogout }) {
   const [watchlist, setWatchlist] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_watchlist") || "[]"); } catch { return []; }
   });
+  const [pkn, setPkn] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_pkn") || "[]"); } catch { return []; }
+  });
+  const [pknWatch, setPknWatch] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_pkn_watch") || "[]"); } catch { return []; }
+  });
   const [manualEPs, setManualEPs] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_manual_eps") || "[]"); } catch { return []; }
   });
@@ -5913,6 +5934,8 @@ function AppMain({ authToken, onLogout }) {
           setPortfolio(d.data.portfolio || []);
           setWatchlist(d.data.watchlist || []);
           if (d.data.manualEPs) setManualEPs(d.data.manualEPs);
+          if (d.data.pkn) setPkn(d.data.pkn);
+          if (d.data.pknWatch) setPknWatch(d.data.pknWatch);
           if (d.data.trades) setTrades(d.data.trades.map(migrateTrade));
           console.log("Loaded from server:", d.data);
         }
@@ -5924,6 +5947,8 @@ function AppMain({ authToken, onLogout }) {
   // Save to localStorage
   useEffect(() => { localStorage.setItem("tp_portfolio", JSON.stringify(portfolio)); }, [portfolio]);
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
+  useEffect(() => { localStorage.setItem("tp_pkn", JSON.stringify(pkn)); }, [pkn]);
+  useEffect(() => { localStorage.setItem("tp_pkn_watch", JSON.stringify(pknWatch)); }, [pknWatch]);
   useEffect(() => { localStorage.setItem("tp_manual_eps", JSON.stringify(manualEPs)); }, [manualEPs]);
   const manualEPSet = useMemo(() => new Set(manualEPs.map(e => e.ticker)), [manualEPs]);
   useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
@@ -5938,18 +5963,22 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist, manualEPs, trades }),
+        body: JSON.stringify({ portfolio, watchlist, manualEPs, trades, pkn, pknWatch }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, trades, manualEPs, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, manualEPs, pkn, pknWatch, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
   const removeFromPortfolio = useCallback((t) => setPortfolio(p => p.filter(x => x !== t)), []);
+  const addToPkn = useCallback((t) => { const u = t.toUpperCase(); if (!pkn.includes(u)) setPkn(p => [...p, u]); }, [pkn]);
+  const removeFromPkn = useCallback((t) => setPkn(p => p.filter(x => x !== t)), []);
+  const addToPknWatch = useCallback((t) => { const u = t.toUpperCase(); if (!pknWatch.includes(u)) setPknWatch(p => [...p, u]); }, [pknWatch]);
+  const removeFromPknWatch = useCallback((t) => setPknWatch(p => p.filter(x => x !== t)), []);
   const addToEP = useCallback((t) => {
     const u = t.toUpperCase();
     const today = new Date().toISOString().split("T")[0];
@@ -6075,7 +6104,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["scan","Scan Watch"],["ep","EP"],["grid","Research"],["exec","Execution"],["perf","Performance"]].map(([id, label]) => (
+        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["grid","Research"],["exec","Execution"],["perf","Performance"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -6205,6 +6234,8 @@ function AppMain({ authToken, onLogout }) {
               <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
                 watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+                pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
+                pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
                 manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
                 liveThemeData={liveThemeData}
                 lwChartProps={(() => {
@@ -6217,6 +6248,8 @@ function AppMain({ authToken, onLogout }) {
               <ChartPanel ticker={chartTicker} stock={stockMap[chartTicker]} onClose={closeChart} onTickerClick={openChart}
                 watchlist={watchlist} onAddWatchlist={addToWatchlist} onRemoveWatchlist={removeFromWatchlist}
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
+                pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
+                pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
                 manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
                 liveThemeData={liveThemeData} />
             )}
