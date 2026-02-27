@@ -1,0 +1,42 @@
+name: Run ThemePulse Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Pipeline mode'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - quick
+
+jobs:
+  run-pipeline:
+    runs-on: self-hosted
+    timeout-minutes: 30
+
+    steps:
+      - name: Run pipeline
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "quick" ]; then
+            echo "Running quick refresh (Finviz only)..."
+            cd "$HOME/Claude Theme/stock-pipeline" && source venv/bin/activate
+            python scripts/01_finviz_extract.py
+            python scripts/09_export_web_data.py
+            python scripts/09b_enrich_web_data.py
+            cp "$HOME/Claude Theme/stock-pipeline/output/dashboard_data.json" "$HOME/themepulse/public/"
+            cd "$HOME/themepulse" && git add -A && git commit -m "Quick refresh $(date +%Y-%m-%d' '%H:%M)" --allow-empty && git push
+          else
+            echo "Running full pipeline..."
+            bash "$HOME/Claude Theme/stock-pipeline/run_daily.sh"
+          fi
+
+      - name: Verify output
+        run: |
+          echo "dashboard_data.json last modified:"
+          ls -la "$HOME/themepulse/public/dashboard_data.json"
+          echo ""
+          echo "Last 5 log lines:"
+          tail -5 "$HOME/Claude Theme/stock-pipeline/logs/daily_$(date +%Y-%m-%d).log" 2>/dev/null || echo "No log file found"
