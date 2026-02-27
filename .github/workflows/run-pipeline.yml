@@ -10,7 +10,18 @@ on:
         type: choice
         options:
           - full
+          - intraday
           - quick
+
+  schedule:
+    # Full pipeline: 5:30 AM and 1:15 PM PT (Mon-Fri)
+    - cron: '30 13 * * 1-5'   # 5:30 AM PT (UTC-8)
+    - cron: '15 21 * * 1-5'   # 1:15 PM PT (UTC-8)
+    # Intraday (09h + 09i): 6:15 AM, 9:45 AM, 12:30 PM, 1:30 PM PT
+    - cron: '15 14 * * 1-5'   # 6:15 AM PT
+    - cron: '45 17 * * 1-5'   # 9:45 AM PT
+    - cron: '30 20 * * 1-5'   # 12:30 PM PT
+    - cron: '30 21 * * 1-5'   # 1:30 PM PT
 
 jobs:
   run-pipeline:
@@ -18,19 +29,38 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            # Full pipeline at :30 past 13 UTC and :15 past 21 UTC
+            HOUR=$(date -u +%H)
+            MIN=$(date -u +%M)
+            if [ "$HOUR" = "13" ] || ([ "$HOUR" = "21" ] && [ "$MIN" -lt "20" ]); then
+              echo "mode=full" >> $GITHUB_OUTPUT
+            else
+              echo "mode=intraday" >> $GITHUB_OUTPUT
+            fi
+          fi
+
       - name: Run pipeline
         run: |
-          if [ "${{ github.event.inputs.mode }}" = "quick" ]; then
-            echo "Running quick refresh (Finviz only)..."
+          MODE="${{ steps.mode.outputs.mode }}"
+          echo "Running in $MODE mode..."
+
+          if [ "$MODE" = "full" ]; then
+            bash "$HOME/Claude Theme/stock-pipeline/run_daily.sh"
+          elif [ "$MODE" = "intraday" ]; then
+            bash "$HOME/Claude Theme/stock-pipeline/run_intraday.sh"
+          elif [ "$MODE" = "quick" ]; then
             cd "$HOME/Claude Theme/stock-pipeline" && source venv/bin/activate
             python scripts/01_finviz_extract.py
             python scripts/09_export_web_data.py
             python scripts/09b_enrich_web_data.py
             cp "$HOME/Claude Theme/stock-pipeline/output/dashboard_data.json" "$HOME/themepulse/public/"
             cd "$HOME/themepulse" && git add -A && git commit -m "Quick refresh $(date +%Y-%m-%d' '%H:%M)" --allow-empty && git push
-          else
-            echo "Running full pipeline..."
-            bash "$HOME/Claude Theme/stock-pipeline/run_daily.sh"
           fi
 
       - name: Verify output
@@ -38,5 +68,6 @@ jobs:
           echo "dashboard_data.json last modified:"
           ls -la "$HOME/themepulse/public/dashboard_data.json"
           echo ""
-          echo "Last 5 log lines:"
-          tail -5 "$HOME/Claude Theme/stock-pipeline/logs/daily_$(date +%Y-%m-%d).log" 2>/dev/null || echo "No log file found"
+          echo "Last log lines:"
+          tail -5 "$HOME/Claude Theme/stock-pipeline/logs/daily_$(date +%Y-%m-%d).log" 2>/dev/null || true
+          tail -5 "$HOME/Claude Theme/stock-pipeline/logs/intraday_$(date +%Y-%m-%d).log" 2>/dev/null || true
