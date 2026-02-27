@@ -2116,6 +2116,160 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   return (
     <div>
 
+      {/* ── EP Signals Table ── */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>
+            EP Signals ({filtered.length})
+            {consolCount > 0 && <span style={{ color: "#fbbf24", marginLeft: 6 }}>★ {consolCount} consolidating</span>}
+          </span>
+          <button onClick={fetchLiveEPs} disabled={liveLoading}
+            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+              border: "1px solid #3a3a4a", background: liveLoading ? "#2bb88618" : "transparent",
+              color: liveLoading ? "#2bb886" : "#787888" }}>
+            {liveLoading ? "Scanning..." : "⟳ Scan"}
+          </button>
+          {lastScan && <span style={{ fontSize: 9, color: "#4a4a5a" }}>Last: {lastScan}</span>}
+          <span style={{ fontSize: 9, color: "#4a4a5a", marginLeft: 8 }}>
+            Gap≥<input type="number" value={minGap} onChange={e => setMinGap(+e.target.value)} min={0} max={50} step={1}
+              style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
+                fontSize: 9, textAlign: "center", padding: "1px 2px" }} />%
+          </span>
+          <span style={{ fontSize: 9, color: "#4a4a5a" }}>
+            Vol≥<input type="number" value={minVol} onChange={e => setMinVol(+e.target.value)} min={0} max={20} step={0.5}
+              style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
+                fontSize: 9, textAlign: "center", padding: "1px 2px" }} />x
+          </span>
+          <span style={{ fontSize: 9, color: "#4a4a5a" }}>
+            Days≤<input type="number" value={maxDays} onChange={e => setMaxDays(+e.target.value)} min={1} max={120} step={1}
+              style={{ width: 36, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
+                fontSize: 9, textAlign: "center", padding: "1px 2px" }} />
+          </span>
+          {["consolidating", "fresh", "basing", "holding", "failed"].map(s => {
+            const st = STATUS_STYLE[s];
+            const isActive = statusFilter === s;
+            return (
+              <button key={s} onClick={() => setStatusFilter(isActive ? null : s)}
+                style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+                  border: `1px solid ${isActive ? st.border : "#3a3a4a"}`,
+                  background: isActive ? st.bg : "transparent",
+                  color: isActive ? st.color : "#4a4a5a" }}>
+                {st.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {filtered.length > 0 ? (
+          <div style={{ overflowX: "auto", maxHeight: 500, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
+                  {columns.map(([header, key]) => (
+                    <th key={key} onClick={() => setSortBy(key)}
+                      style={{ padding: "4px 4px", textAlign: key === "ticker" || key === "theme" ? "left" : "right",
+                        color: sortBy === key ? "#fbbf24" : "#686878", fontWeight: 600, fontSize: 9, cursor: "pointer",
+                        userSelect: "none", whiteSpace: "nowrap",
+                        fontFamily: "system-ui, -apple-system, sans-serif" }}>
+                      {header}{sortBy === key ? " ↓" : ""}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(ep => {
+                  const s = stockMap[ep.ticker] || {};
+                  const isActive = ep.ticker === activeTicker;
+                  const isManual = !!ep.manual;
+                  const st = STATUS_STYLE[ep.consol?.status] || STATUS_STYLE.holding;
+                  const gradeColor = (g) => {
+                    if (!g) return "#4a4a5a";
+                    if (g.startsWith("A")) return "#2bb886";
+                    if (g.startsWith("B")) return "#60a5fa";
+                    if (g.startsWith("C")) return "#fbbf24";
+                    return "#686878";
+                  };
+                  return (
+                    <tr key={`${ep.ticker}_${ep.date}`}
+                      onClick={() => onTickerClick(ep.ticker)}
+                      style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer",
+                        background: isActive ? "#fbbf2420" : "transparent" }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                      <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
+                        color: isActive ? "#fbbf24" : isManual ? "#f97316" : manualEPSet?.has(ep.ticker) ? "#f97316" : "#a8a8b8" }}>
+                        {ep.ticker}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (ep.quality || 0) >= 70 ? "#2bb886" : (ep.quality || 0) >= 50 ? "#fbbf24" : "#686878" }}>
+                        {ep.quality ?? "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: gradeColor(s.grade) }}>
+                        {s.grade || "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, color: "#686878", fontFamily: "monospace" }}>
+                        {ep.date || "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.days_ago <= 1 ? "#2bb886" : ep.days_ago <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
+                        {ep.days_ago}d
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.gap_pct >= 15 ? "#2bb886" : ep.gap_pct >= 8 ? "#4a9a6a" : "#686878" }}>
+                        +{ep.gap_pct?.toFixed(1)}%
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.change_pct >= 15 ? "#2bb886" : ep.change_pct >= 8 ? "#4a9a6a" : ep.change_pct < 0 ? "#f87171" : "#686878" }}>
+                        {ep.change_pct >= 0 ? "+" : ""}{ep.change_pct?.toFixed(1)}%
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.vol_ratio >= 8 ? "#c084fc" : ep.vol_ratio >= 4 ? "#a78bfa" : "#686878" }}>
+                        {ep.vol_ratio?.toFixed(1)}x
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.close_range >= 80 ? "#2bb886" : ep.close_range >= 50 ? "#686878" : "#4a4a5a" }}>
+                        {ep.close_range != null ? `${ep.close_range}%` : "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9 }}>
+                        <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 600,
+                          background: st.bg, border: `1px solid ${st.border}`, color: st.color }}>
+                          {st.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.consol?.pullback_pct != null ? (ep.consol.pullback_pct <= -10 ? "#f87171" : "#686878") : "#3a3a4a" }}>
+                        {ep.consol?.pullback_pct != null ? `${ep.consol.pullback_pct.toFixed(1)}%` : "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: ep.consol?.vol_contraction != null ? (ep.consol.vol_contraction <= 0.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
+                        {ep.consol?.vol_contraction != null ? `${ep.consol.vol_contraction.toFixed(2)}` : "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
+                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
+                        {s.rs_rank ?? "—"}
+                      </td>
+                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9, color: "#4a4a5a",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>
+                        {s.themes?.[0]?.theme || "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ padding: 16, textAlign: "center", color: "#4a4a5a", fontSize: 11 }}>
+            No EP signals matching filters
+          </div>
+        )}
+      </div>
+
       {/* ── Earnings Results — All Market Movers ── */}
       {(() => {
         // earnings_movers from 09g + 09h pipeline (already reported)
