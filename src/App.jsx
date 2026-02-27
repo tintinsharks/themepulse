@@ -1646,7 +1646,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const isActive = s.ticker === activeTicker;
           const inPortfolio = portfolio?.includes(s.ticker);
           const inWatchlist = watchlist?.includes(s.ticker);
-          const inPkn = false; // PKN border handled via chart panel
           return (
             <tr key={s.ticker} data-ticker={s.ticker} ref={undefined}
               onClick={() => onTickerClick(s.ticker)}
@@ -4715,6 +4714,176 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
   );
 }
 
+// ── PKN TAB ──
+function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData }) {
+  const [liveData, setLiveData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [addTickerP, setAddTickerP] = useState("");
+  const [addTickerW, setAddTickerW] = useState("");
+  const [pSort, setPSort] = useState("change");
+  const [wlSort, setWlSort] = useState("change");
+
+  const allTickers = useMemo(() => [...new Set([...pkn, ...pknWatch])], [pkn, pknWatch]);
+
+  const fetchLive = useCallback(async () => {
+    if (allTickers.length === 0) { setLoading(false); return; }
+    try {
+      const params = new URLSearchParams();
+      params.set("tickers", allTickers.join(","));
+      const resp = await fetch(`/api/live?${params}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      if (!json.ok) throw new Error(json.error || "API error");
+      setLiveData(json);
+      setLastUpdate(new Date());
+      setError(null);
+    } catch (e) { setError(e.message); } finally { setLoading(false); }
+  }, [allTickers]);
+
+  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
+
+  const liveLookup = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = s; });
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
+    return m;
+  }, [liveData?.watchlist, liveThemeData]);
+
+  const mergeStock = useCallback((ticker) => {
+    const live = liveLookup[ticker] || {};
+    const pipe = stockMap?.[ticker] || {};
+    const { quality, q_factors } = computeStockQuality(pipe);
+    return {
+      ticker,
+      price: live.price ?? pipe.price,
+      change: live.change,
+      rel_volume: live.rel_volume ?? pipe.rel_volume,
+      avg_volume_raw: pipe.avg_volume_raw,
+      grade: pipe.grade, rs_rank: pipe.rs_rank,
+      return_1m: live.perf_month ?? pipe.return_1m,
+      return_3m: live.perf_quart ?? pipe.return_3m,
+      pct_from_high: live.high_52w ?? pipe.pct_from_high,
+      atr_to_50: pipe.atr_to_50, adr_pct: pipe.adr_pct,
+      eps_past_5y: pipe.eps_past_5y, eps_this_y: pipe.eps_this_y,
+      eps_qq: pipe.eps_qq, eps_yoy: pipe.eps_yoy,
+      sales_past_5y: pipe.sales_past_5y, sales_qq: pipe.sales_qq, sales_yoy: pipe.sales_yoy,
+      pe: live.pe ?? pipe.pe, roe: pipe.roe, profit_margin: pipe.profit_margin,
+      rsi: live.rsi ?? pipe.rsi,
+      themes: pipe.themes || [],
+      theme: pipe.themes?.[0]?.theme || live.sector || "",
+      subtheme: pipe.themes?.[0]?.subtheme || "",
+      company: live.company || pipe.company || "",
+      vcs: pipe.vcs, vcs_components: pipe.vcs_components,
+      mf: pipe.mf, mf_components: pipe.mf_components, _mfPct: pipe._mfPct,
+      avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
+      dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
+      earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
+      _scanHits: pipe._scanHits || [], _epsScore: pipe._epsScore, _msScore: pipe._msScore,
+      _quality: quality, _q_factors: q_factors,
+    };
+  }, [liveLookup, stockMap]);
+
+  const handleAddP = () => { const t = addTickerP.trim().toUpperCase(); if (t) addToPkn(t); setAddTickerP(""); };
+  const handleAddW = () => { const t = addTickerW.trim().toUpperCase(); if (t) addToPknWatch(t); setAddTickerW(""); };
+
+  const sortFn = (key, desc = true) => (a, b) => {
+    const av = a[key] ?? (desc ? -Infinity : Infinity);
+    const bv = b[key] ?? (desc ? -Infinity : Infinity);
+    return desc ? bv - av : av - bv;
+  };
+  const makeSorters = () => ({
+    ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+    quality: sortFn("_quality"), eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"),
+    hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
+    vcs: sortFn("vcs"), mf: sortFn("mf"),
+    change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
+    fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
+    atr50: sortFn("atr_to_50"), adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"),
+    vol: (a, b) => {
+      const av = a.avg_volume_raw && a.rel_volume ? a.avg_volume_raw * a.rel_volume : 0;
+      const bv = b.avg_volume_raw && b.rel_volume ? b.avg_volume_raw * b.rel_volume : 0;
+      return bv - av;
+    },
+    rel_volume: sortFn("rel_volume"), volume: sortFn("avg_volume_raw"),
+    pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
+    roe: sortFn("roe"), margin: sortFn("profit_margin"),
+    rsi: sortFn("rsi"), price: sortFn("price"),
+    theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
+    subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
+  });
+  const sortList = (list, sortKey) => {
+    const sorters = makeSorters();
+    const sorted = [...list];
+    if (sorters[sortKey]) sorted.sort(sorters[sortKey]);
+    return sorted;
+  };
+
+  const pknMerged = useMemo(() => sortList(pkn.map(mergeStock), pSort), [pkn, mergeStock, pSort, liveLookup]);
+  const pknWatchMerged = useMemo(() => sortList(pknWatch.map(mergeStock), wlSort), [pknWatch, mergeStock, wlSort, liveLookup]);
+
+  useEffect(() => {
+    if (!onVisibleTickers) return;
+    const pT = pknMerged.map(s => s.ticker);
+    const wT = pknWatchMerged.map(s => s.ticker);
+    onVisibleTickers([...pT, ...wT.filter(t => !pT.includes(t))]);
+  }, [pSort, wlSort, pkn, pknWatch, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: loading ? "#fbbf24" : "#2bb886" }}>●</span>
+          <span style={{ fontSize: 12, color: "#9090a0" }}>
+            {loading ? "Loading..." : lastUpdate ? `Updated ${lastUpdate.toLocaleTimeString()}` : ""}
+          </span>
+          <span style={{ fontSize: 11, color: "#686878" }}>Auto-refresh 60s</span>
+          <button onClick={fetchLive} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+            background: "#222230", border: "1px solid #3a3a4a", color: "#9090a0" }}>↻ Refresh</button>
+        </div>
+        {error && <span style={{ fontSize: 11, color: "#f87171" }}>Error: {error}</span>}
+      </div>
+
+      {/* PKN */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#e879f9", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            PKN ({pkn.length})
+          </span>
+          <TickerInput value={addTickerP} setValue={setAddTickerP} onAdd={handleAddP} />
+        </div>
+        {pkn.length === 0 ? (
+          <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
+            Add tickers above or click <span style={{ color: "#e879f9" }}>+ PKN</span> on charts.
+          </div>
+        ) : (
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} />
+        )}
+      </div>
+
+      {/* PKN Watch */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            PKN Watch ({pknWatch.length})
+          </span>
+          <TickerInput value={addTickerW} setValue={setAddTickerW} onAdd={handleAddW} />
+        </div>
+        {pknWatch.length === 0 ? (
+          <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
+            Add tickers above or click <span style={{ color: "#a78bfa" }}>+ PKN W</span> on charts.
+          </div>
+        ) : (
+          <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, manualEPs, removeFromEP, liveThemeData, homepage }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -6213,6 +6382,11 @@ function AppMain({ authToken, onLogout }) {
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
             manualEPs={manualEPs} removeFromEP={removeFromEP}
             liveThemeData={liveThemeData} homepage={homepage} />}
+          {view === "pkn" && <PknView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
+            pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
+            addToPkn={addToPkn} removeFromPkn={removeFromPkn}
+            addToPknWatch={addToPknWatch} removeFromPknWatch={removeFromPknWatch}
+            liveThemeData={liveThemeData} />}
           </ErrorBoundary>
         </div>
 
