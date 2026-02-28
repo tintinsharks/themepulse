@@ -2482,8 +2482,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     { col: "eps", label: "EPS%", align: "right", color: "#34d399" },
                   ].map(({ col, label, align, color }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
-                      style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
-                        fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                      style={{ padding: "4px 2px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
+                        fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
+                        width: 42, maxWidth: 42 }}>
                       {label}{sort.col === col ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
                     </th>
                   ))}
@@ -2561,13 +2562,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         {row.ticker}
                       </td>
                       {/* Rev% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
+                      <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        width: 42, maxWidth: 42, color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
                         {displayRev}
                       </td>
                       {/* EPS% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
+                      <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        width: 42, maxWidth: 42, color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
                         {displayEps}
                       </td>
                       {/* Headline */}
