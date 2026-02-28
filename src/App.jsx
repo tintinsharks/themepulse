@@ -2184,7 +2184,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       date: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       days: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       gap: (a, b) => (b.gap_pct ?? -999) - (a.gap_pct ?? -999),
-      change: (a, b) => (b._chg ?? -999) - (a._chg ?? -999),
+      change: (a, b) => ((stockMap[b.ticker]?.change_pct ?? b._chg) ?? -999) - ((stockMap[a.ticker]?.change_pct ?? a._chg) ?? -999),
+      dvol: (a, b) => (stockMap[b.ticker]?.avg_dollar_vol_raw ?? -999) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? -999),
       vol: (a, b) => {
         const av = a.vol_ratio ?? a._rvol ?? -999;
         const bv = b.vol_ratio ?? b._rvol ?? -999;
@@ -2473,7 +2474,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 <col style={{ width: 42 }} />{/* Rev% */}
                 <col style={{ width: 42 }} />{/* EPS% */}
                 <col />{/* Headline — takes remaining space */}
-                <col style={{ width: 40 }} />{/* Grade */}
+                <col style={{ width: 55 }} />{/* $Vol */}
                 <col style={{ width: 30 }} />{/* Days */}
                 <col style={{ width: 42 }} />{/* FrHi% */}
                 <col style={{ width: 42 }} />{/* Chg% */}
@@ -2498,7 +2499,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   ))}
                   <th style={{ padding: "4px 4px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 9 }}>Headline</th>
                   {[
-                    { col: "grade", label: "Grade", align: "right" },
+                    { col: "dvol", label: "$Vol", align: "right" },
                     { col: "days", label: "Days", align: "right" },
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
                     { col: "change", label: "Chg%", align: "right" },
@@ -2604,10 +2605,14 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           </span>
                         ) : "—"}
                       </td>
-                      {/* Grade */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: gradeColor(s.grade) }}>
-                        {s.grade || "—"}
+                      {/* $Vol */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace",
+                        color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}
+                        title={s.dvol_accel != null ? `$Vol Accel: ${s.dvol_accel > 0 ? '+' : ''}${s.dvol_accel} | 5d/20d: ${s.dvol_ratio_5_20}x | WoW: ${s.dvol_wow_chg > 0 ? '+' : ''}${s.dvol_wow_chg}%` : ""}>
+                        {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}
+                        {s.dvol_accel != null && <span style={{ fontSize: 7, marginLeft: 1,
+                          color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
+                          {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
                       </td>
                       {/* Days */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
