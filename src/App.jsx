@@ -72,7 +72,7 @@ const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
 
-function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, pkn, onAddPkn, onRemovePkn, pknWatch, onAddPknWatch, onRemovePknWatch, manualEPs, onAddEP, onRemoveEP, liveThemeData, lwChartProps }) {
+function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, pkn, onAddPkn, onRemovePkn, pknWatch, onAddPknWatch, onRemovePknWatch, liveThemeData, lwChartProps }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showDetails, setShowDetails] = useState(true);
@@ -179,7 +179,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
         borderBottom: "1px solid #2a2a38", flexShrink: 0, background: "#1a1a24" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: manualEPs?.some(e => e.ticker === ticker) ? "#f97316" : "#d4d4e0" }}>{ticker}</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}>{ticker}</span>
           {watchlist && (
             watchlist.includes(ticker)
               ? <button onClick={() => onRemoveWatchlist(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
@@ -207,13 +207,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   background: "#a78bfa20", border: "1px solid #a78bfa40", color: "#a78bfa" }}>✓ PKN W</button>
               : <button onClick={() => onAddPknWatch(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
                   background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ PKN W</button>
-          )}
-          {manualEPs && (
-            manualEPs.some(e => e.ticker === ticker)
-              ? <button onClick={() => onRemoveEP(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-                  background: "#f9731620", border: "1px solid #f9731640", color: "#f97316" }}>✓ EP</button>
-              : <button onClick={() => onAddEP(ticker)} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-                  background: "transparent", border: "1px solid #3a3a4a", color: "#787888" }}>+ EP</button>
           )}
           {stock && (<>
             <Badge grade={stock.grade} />
@@ -1116,7 +1109,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, epSignals, manualEPs, manualEPSet, stockMap, filters, mmData, themeHealth, momentumBurst }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, mmData, themeHealth, momentumBurst }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
@@ -1127,26 +1120,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan" or "burst"
-
-  // Build EP ticker lookup: ticker → most recent EP signal (pipeline + manual)
-  const epLookup = useMemo(() => {
-    const m = {};
-    if (epSignals) {
-      epSignals.forEach(ep => {
-        if (!m[ep.ticker] || ep.days_ago < m[ep.ticker].days_ago) m[ep.ticker] = ep;
-      });
-    }
-    // Manual EPs override / supplement — update days_ago based on current date
-    if (manualEPs) {
-      const today = new Date();
-      manualEPs.forEach(ep => {
-        const daysAgo = ep.date ? Math.round((today - new Date(ep.date)) / 86400000) : 0;
-        const entry = { ...ep, days_ago: daysAgo, consol: ep.consol || { status: daysAgo <= 1 ? "fresh" : "holding" }, manual: true };
-        if (!m[ep.ticker] || daysAgo < m[ep.ticker].days_ago) m[ep.ticker] = entry;
-      });
-    }
-    return m;
-  }, [epSignals, manualEPs]);
 
   // Apply theme filter from Leaders drill-down
   useEffect(() => {
@@ -1269,7 +1242,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (winnersFilter(s)) hits.push("W");
       if (liquidFilter(s)) hits.push("L");
       if (earlyFilter(s)) hits.push("E");
-      if (epLookup[s.ticker]) hits.push("EP");
 
       // ── CANSLIM tag ──
       const epsG = s.eps_yoy ?? s.eps_this_y ?? s.eps_past_5y;
@@ -1452,7 +1424,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
     };
     return list.sort(sorters[sortBy] || sorters.hits);
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup, epLookup]);
+  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup]);
 
   const burstStocks = useMemo(() => {
     // Compute MF thresholds (same as scan watch)
@@ -1653,7 +1625,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
-              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : manualEPSet?.has(s.ticker) ? "#f97316" : "#a8a8b8", fontWeight: 500 }}>
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
                 <span>{s.ticker}</span>
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
@@ -1799,7 +1771,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                     background: isActive ? "#f59e0b18" : "transparent" }}>
                   <td style={{ padding: "5px 8px", fontFamily: "monospace", fontWeight: 700,
-                    color: manualEPSet?.has(b.ticker) ? "#f97316" : isActive ? "#f59e0b" : "#d4d4e0" }}>
+                    color: isActive ? "#f59e0b" : "#d4d4e0" }}>
                     <Badge grade={b._grade} />{" "}{b.ticker}
                     <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{b._company}</span>
                   </td>
@@ -1858,107 +1830,27 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
-  const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "ep" | "er"
+  const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
 
-  // STATE: EP Filters
+  // STATE: Filters
   const [minRS, setMinRS] = useState(0);
-  const [minGap, setMinGap] = useState(8);
-  const [minVol, setMinVol] = useState(4);
   const [maxDays, setMaxDays] = useState(60);
-  const [statusFilter, setStatusFilter] = useState(null);
-  const [epMinScore, setEpMinScore] = useState(0);
-  const [epNoBio, setEpNoBio] = useState(true);
-  const [epFilters, setEpFilters] = useState(new Set());
+  const [noBio, setNoBio] = useState(true);
 
   // STATE: ER Filters
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
-  const [erNoBio, setErNoBio] = useState(true);
   const [er9M, setEr9M] = useState(false);
   const [erBeatFilter, setErBeatFilter] = useState(null);
 
-  // STATE: Live EPs & Calendar
-  const [liveEPs, setLiveEPs] = useState(null);
-  const [liveLoading, setLiveLoading] = useState(false);
-  const [lastScan, setLastScan] = useState(null);
+  // STATE: Calendar & PM/AH collapsible sections
   const [showLegend, setShowLegend] = useState(false);
-
-  // STATE: PM/AH collapsible sections
   const [pmCollapsed, setPmCollapsed] = useState(false);
   const [ahCollapsed, setAhCollapsed] = useState(false);
 
   const erSortedTickersRef = useRef([]);
-
-  // Fetch live EPs
-  const fetchLiveEPs = useCallback(() => {
-    setLiveLoading(true);
-    fetch('/api/live?ep=scan')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.ok && d.ep_signals) {
-          setLiveEPs(d.ep_signals);
-          setLastScan(new Date().toLocaleTimeString());
-        }
-        setLiveLoading(false);
-      })
-      .catch(() => setLiveLoading(false));
-  }, []);
-
-  useEffect(() => { fetchLiveEPs(); }, [fetchLiveEPs]);
-
-  // Merge: live EPs + pipeline EPs + manual EPs
-  const mergedSignals = useMemo(() => {
-    const all = [];
-    const seen = new Set();
-    const today = new Date();
-    if (liveEPs) {
-      liveEPs.forEach(ep => {
-        const key = `${ep.ticker}_${ep.date}`;
-        if (!seen.has(key)) { seen.add(key); all.push(ep); }
-      });
-    }
-    if (epSignals) {
-      epSignals.forEach(ep => {
-        const key = `${ep.ticker}_${ep.date}`;
-        if (!seen.has(key)) { seen.add(key); all.push(ep); }
-      });
-    }
-    if (manualEPs) {
-      manualEPs.forEach(ep => {
-        const key = `${ep.ticker}_${ep.date}`;
-        if (!seen.has(key)) {
-          const daysAgo = ep.date ? Math.round((today - new Date(ep.date)) / 86400000) : 0;
-          seen.add(key);
-          all.push({ ...ep, days_ago: daysAgo, gap_pct: ep.gap_pct || 0, change_pct: ep.change_pct || 0,
-            vol_ratio: ep.vol_ratio || 0, close_range: 0, manual: true,
-            consol: ep.consol || { status: daysAgo <= 1 ? "fresh" : "holding" } });
-        }
-      });
-    }
-    return all;
-  }, [liveEPs, epSignals, manualEPs]);
-
-  // Enhance quality scores for EPs
-  const enhancedSignals = useMemo(() => {
-    if (!mergedSignals) return [];
-    return mergedSignals.map(ep => {
-      const s = stockMap[ep.ticker];
-      const base = computeStockQuality(s);
-      let q = base.quality;
-      const factors = [...base.q_factors];
-      const liveBonus = (ep.quality || 0) - 50;
-      if (liveBonus > 0) q += liveBonus;
-      const c = ep.consol || {};
-      if (c.status === "consolidating") { q += 8; factors.push("★C"); }
-      else if (c.status === "fresh") { q += 3; }
-      else if (c.status === "failed") { q -= 10; factors.push("Fail"); }
-      if (ep.close_range >= 80) { q += 3; }
-      q = Math.min(100, Math.max(0, q));
-      return { ...ep, quality: q, q_factors: factors };
-    });
-  }, [mergedSignals, stockMap]);
 
   // Build earnings data
   const earningsData = useMemo(() => {
@@ -2065,7 +1957,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const filteredEarnings = useMemo(() => {
     let result = earningsData;
 
-    if (erNoBio) {
+    if (noBio) {
       result = result.filter(s => {
         const ind = (s._industry || "").trim();
         if (!ind) return true;
@@ -2093,62 +1985,23 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     }
 
     return result;
-  }, [earningsData, erNoBio, er9M, erUniverseOnly, erBeatFilter]);
+  }, [earningsData, noBio, er9M, erUniverseOnly, erBeatFilter]);
 
-  // Filter EP signals
-  const filteredEPs = useMemo(() => {
-    return enhancedSignals
-      .filter(ep => ep.manual || (ep.gap_pct >= minGap && ep.vol_ratio >= minVol))
-      .filter(ep => ep.days_ago <= maxDays)
-      .filter(ep => !statusFilter || ep.consol?.status === statusFilter);
-  }, [enhancedSignals, minGap, minVol, maxDays, statusFilter]);
-
-  // Unified row model: merge EPs and ERs, detect duplicates, apply source filter
+  // Unified row model: ERs + SIP
   const unifiedRows = useMemo(() => {
-    const epTickerMap = new Map();
-    filteredEPs.forEach(ep => {
-      const key = ep.ticker;
-      epTickerMap.set(key, ep);
-    });
-
-    const erTickerMap = new Map();
-    filteredEarnings.forEach(er => {
-      const key = er.ticker;
-      erTickerMap.set(key, er);
-    });
-
     const rows = [];
     const seen = new Set();
 
-    // Add EPs first
-    filteredEPs.forEach(ep => {
-      const key = `${ep.ticker}_${ep.date || ""}`;
+    // Add ER rows
+    filteredEarnings.forEach(er => {
+      const key = `${er.ticker}_er`;
       if (!seen.has(key)) {
         seen.add(key);
-        const er = erTickerMap.get(ep.ticker);
-        const source = ep.manual ? "manual" : er ? "both" : "ep";
-        // Look up scraped headlines for EP-only rows
-        const hlFromMap = headlinesMap[ep.ticker]?.headlines || [];
-        const merged = { ...ep, ...er, _source: source, _key: key, _epData: ep, _erData: er };
-        if (!merged._recentHeadlines || merged._recentHeadlines.length === 0) {
-          merged._recentHeadlines = hlFromMap;
-        }
-        rows.push(merged);
+        rows.push({ ...er, _source: er._upcoming ? "upcoming" : "er", _key: key });
       }
     });
 
-    // Add ERs not in EPs
-    filteredEarnings.forEach(er => {
-      if (!epTickerMap.has(er.ticker)) {
-        const key = `${er.ticker}_er`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          rows.push({ ...er, _source: er._upcoming ? "upcoming" : "er", _key: key, _epData: null, _erData: er });
-        }
-      }
-    });
-
-    // Add SIP movers (PM and AH stocks in play) not already in EPs/ERs
+    // Add SIP movers (PM and AH stocks in play) not already in ERs
     const allSip = [...(pmSipMovers || []).map(m => ({ ...m, _sipSession: "PM" })), ...(ahSipMovers || []).map(m => ({ ...m, _sipSession: "AH" }))];
     allSip.forEach(m => {
       if (!seen.has(m.ticker + "_sip")) {
@@ -2170,10 +2023,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
     // Filter by source
     let filtered = rows;
-    if (sourceFilter === "ep") {
-      filtered = filtered.filter(r => r._source === "ep" || r._source === "manual" || r._source === "both");
-    } else if (sourceFilter === "er") {
-      filtered = filtered.filter(r => r._source === "er" || r._source === "upcoming" || r._source === "both");
+    if (sourceFilter === "er") {
+      filtered = filtered.filter(r => r._source === "er" || r._source === "upcoming");
     } else if (sourceFilter === "sip") {
       filtered = filtered.filter(r => r._source === "pm_sip" || r._source === "ah_sip");
     }
@@ -2182,7 +2033,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? 0) >= minRS);
     }
     return filtered;
-  }, [filteredEPs, filteredEarnings, pmSipMovers, ahSipMovers, sourceFilter, minRS, stockMap]);
+  }, [filteredEarnings, pmSipMovers, ahSipMovers, sourceFilter, minRS, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2195,7 +2046,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const sortedRows = useMemo(() => {
     const sorters = {
       type: (a, b) => {
-        const order = { ep: 0, manual: 1, er: 2, both: 3, upcoming: 4, pm_sip: 5, ah_sip: 6 };
+        const order = { er: 0, upcoming: 1, pm_sip: 2, ah_sip: 3 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
       },
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
@@ -2240,15 +2091,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   }, [sortedRows, onVisibleTickers]);
 
   // STATUS & COLOR HELPERS
-  const STATUS_STYLE = {
-    consolidating: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24", label: "★ CONSOLIDATING" },
-    basing:        { bg: "#60a5fa10", border: "#60a5fa30", color: "#60a5fa", label: "BASING" },
-    fresh:         { bg: "#2bb88610", border: "#2bb88630", color: "#2bb886", label: "FRESH" },
-    holding:       { bg: "#88888810", border: "#88888830", color: "#9090a0", label: "HOLDING" },
-    failed:        { bg: "#ef444410", border: "#ef444430", color: "#f87171", label: "FAILED" },
-    extended_pullback: { bg: "#f9731610", border: "#f9731630", color: "#f97316", label: "DEEP PB" },
-  };
-
   const chgColor = (v) => {
     if (v == null) return "#3a3a4a";
     if (v >= 5) return "#2bb886"; if (v > 0) return "#4a9a6a";
@@ -2272,30 +2114,21 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   };
 
   const getTypeColor = (source) => {
-    if (source === "ep") return "#2bb886";
-    if (source === "manual") return "#f97316";
     if (source === "er") return "#c084fc";
-    if (source === "both") return "#fbbf24";
     if (source === "upcoming") return "#f59e0b";
     if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf8";
     return "#686878";
   };
 
   const getTypeBg = (source) => {
-    if (source === "ep") return "#2bb88618";
-    if (source === "manual") return "#f9731618";
     if (source === "er") return "#c084fc18";
-    if (source === "both") return "#fbbf2418";
     if (source === "upcoming") return "#f59e0b18";
     if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf818";
     return "#4a4a5a18";
   };
 
   const getSourceBorderColor = (source) => {
-    if (source === "ep") return "#2bb88640";
-    if (source === "manual") return "#f9731640";
     if (source === "er") return "#c084fc40";
-    if (source === "both") return "#fbbf2440";
     if (source === "upcoming") return "#f59e0b40";
     if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf840";
     return "#4a4a5a40";
@@ -2321,21 +2154,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         } catch {}
       }
       if (days != null && days >= -14 && days <= 14) {
-        if (epNoBio && (String(s.industry || "") === "Biotechnology" || String(s.industry || "").includes("Drug Manufacturer"))) return;
-        const mcap = s.market_cap_raw || 0;
-        if (epFilters.has("S+") && mcap >= 2_000_000_000) return;
-        if (epFilters.has("M+") && (mcap < 2_000_000_000 || mcap >= 10_000_000_000)) return;
-        if (epFilters.has("L+") && mcap < 10_000_000_000) return;
-        if (epFilters.has("MF+") && !(s.mf != null && s.mf >= 30)) return;
-        if (epFilters.has("MF-") && !(s.mf != null && s.mf <= -30)) return;
-        if (epFilters.has("9M") && !((s.volume || 0) >= 8_900_000 && (s.avg_volume_raw || Infinity) < 8_900_000)) return;
+        if (noBio && (String(s.industry || "") === "Biotechnology" || String(s.industry || "").includes("Drug Manufacturer"))) return;
         const epsScore = computeEPSScore(s);
-        if ((epsScore.score ?? 0) < epMinScore) return;
         results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
       }
     });
     return results.sort((a, b) => a._days - b._days || (b._epsScore ?? -1) - (a._epsScore ?? -1));
-  }, [stockMap, epMinScore, epNoBio, epFilters]);
+  }, [stockMap, noBio]);
 
   const earningsCalendar = useMemo(() => {
     const now = new Date();
@@ -2377,8 +2202,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return next;
   });
 
-  const consolCount = enhancedSignals.filter(ep => ep.consol?.status === "consolidating").length;
-
   return (
     <div>
       {/* ── UNIFIED CATALYSTS TABLE ── */}
@@ -2387,13 +2210,12 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>
             Catalysts ({sortedRows.length})
-            {consolCount > 0 && <span style={{ color: "#fbbf24", marginLeft: 6 }}>★ {consolCount} consolidating</span>}
           </span>
 
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-            {["all", "ep", "er", "sip"].map(src => {
-              const label = src === "all" ? "All" : src === "ep" ? "EP" : src === "er" ? "ER" : "SIP";
+            {["all", "er", "sip"].map(src => {
+              const label = src === "all" ? "All" : src === "er" ? "ER" : "SIP";
               const isActive = sourceFilter === src;
               return (
                 <button key={src} onClick={() => setSourceFilter(src)}
@@ -2422,34 +2244,15 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           </span>
 
           {/* Bio/REIT filter */}
-          <button onClick={() => setEpNoBio(prev => !prev)}
+          <button onClick={() => setNoBio(prev => !prev)}
             style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-              border: epNoBio ? "1px solid #f97316" : "1px solid #3a3a4a",
-              background: epNoBio ? "#f9731618" : "transparent",
-              color: epNoBio ? "#f97316" : "#787888" }}>
-            {epNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
+              border: noBio ? "1px solid #f97316" : "1px solid #3a3a4a",
+              background: noBio ? "#f9731618" : "transparent",
+              color: noBio ? "#f97316" : "#787888" }}>
+            {noBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
           </button>
 
-          {/* EP filters (show if All or EP) */}
-          {(sourceFilter === "all" || sourceFilter === "ep") && (
-            <>
-              {["consolidating", "fresh", "basing", "holding", "failed"].map(s => {
-                const st = STATUS_STYLE[s];
-                const isActive = statusFilter === s;
-                return (
-                  <button key={s} onClick={() => setStatusFilter(isActive ? null : s)}
-                    style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
-                      border: `1px solid ${isActive ? st.border : "#3a3a4a"}`,
-                      background: isActive ? st.bg : "transparent",
-                      color: isActive ? st.color : "#4a4a5a" }}>
-                    {st.label}
-                  </button>
-                );
-              })}
-            </>
-          )}
-
-          {/* ER filters (show if All or ER) */}
+          {/* ER filters */}
           {(sourceFilter === "all" || sourceFilter === "er") && (
             <>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
@@ -2578,14 +2381,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
-                          {row._source === "manual" ? "✋" : row._source === "both" ? "EP+ER" :
-                           row._source === "upcoming" ? "AMC" : row._source === "pm_sip" ? "PM-SIP" :
+                          {row._source === "upcoming" ? "AMC" : row._source === "pm_sip" ? "PM-SIP" :
                            row._source === "ah_sip" ? "AH-SIP" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
-                        color: isActive ? "#fbbf24" : manualEPSet?.has(row.ticker) ? "#f97316" : "#a8a8b8" }}>
+                        color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         {row.ticker}
                       </td>
                       {/* Rev% */}
@@ -2822,7 +2624,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         {day.items.map((s, idx) => (
                           <div key={idx} style={{ fontSize: 9, color: "#686878", padding: "2px 0", cursor: "pointer" }}
                             onClick={() => onTickerClick(s.ticker)}>
-                            <span style={{ fontWeight: 600, color: manualEPSet?.has(s.ticker) ? "#f97316" : "#a8a8b8" }}>
+                            <span style={{ fontWeight: 600, color: "#a8a8b8" }}>
                               {s.ticker}
                             </span>
                             {" "}
@@ -2844,7 +2646,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
 // ── INDEX CHART (SPY/QQQ/IWM/DIA with MA status) ──
 
-function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPSet }) {
+function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const [showLegend, setShowLegend] = useState(false);
   const [filterOn, setFilterOn] = useState(true);
   const [activeBox, setActiveBox] = useState(null); // track which box was last clicked
@@ -3128,7 +2930,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                     fontSize: 11, fontFamily: "monospace", cursor: "pointer",
                     background: isActive ? "#fbbf2430" : gc + "20",
                     border: isActive ? "1px solid #fbbf24" : `1px solid ${s._comboCount >= 3 ? "#fbbf24" : gc}40`,
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400 }}>
                   <Badge grade={s.grade} />
                   {s.ticker}
@@ -3159,7 +2961,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                   onClick={() => clickInBox(s.ticker, "w1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                     background: isActive ? "#fbbf2430" : "#c084fc25",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -3178,7 +2980,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                   onClick={() => clickInBox(s.ticker, "m1")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#60a5fa25",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -3197,7 +2999,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                   onClick={() => clickInBox(s.ticker, "strong")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#2bb88625",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -3216,7 +3018,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                   onClick={() => clickInBox(s.ticker, "mom")}
                   style={{ textAlign: "center", fontSize: 11, padding: "2px 4px", fontFamily: "monospace", width: 56,
                     background: isActive ? "#fbbf2430" : "#f9731625",
-                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
+                    color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                     outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                 );
@@ -3242,7 +3044,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers, manualEPS
                     onClick={() => clickInBox(s.ticker, "rts")}
                     style={{ textAlign: "center", fontSize: 11, padding: "2px 0", fontFamily: "monospace",
                       background: isActive ? "#fbbf2430" : GRADE_COLORS[g] + "25",
-                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : manualEPSet?.has(s.ticker) ? "#f97316" : isActive ? "#fff" : "#bbb",
+                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                       fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
                       outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
                   );
@@ -5277,7 +5079,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, manualEPs, removeFromEP, liveThemeData, homepage }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -5286,13 +5088,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("change");
   const [wlSort, setWlSort] = useState("change");
-  const [epSort, setEpSort] = useState("change");
   const [marketOpen, setMarketOpen] = useState(true);
 
-  const epTickers = useMemo(() => (manualEPs || []).map(e => e.ticker), [manualEPs]);
-
-  // Combine all tickers for API call — watchlist + portfolio + EP watchlist
-  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist, ...epTickers])], [portfolio, watchlist, epTickers]);
+  // Combine all tickers for API call — watchlist + portfolio
+  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
 
   const fetchLive = useCallback(async () => {
     if (allTickers.length === 0) { setLoading(false); return; }
@@ -5423,16 +5222,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
   const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
-  const epMerged = useMemo(() => sortList(epTickers.map(mergeStock), epSort), [epTickers, mergeStock, epSort, liveLookup]);
-
   useEffect(() => {
     if (!onVisibleTickers) return;
     const pTickers = portfolioMerged.map(s => s.ticker);
     const wTickers = watchlistMerged.map(s => s.ticker);
-    const eTickers = epMerged.map(s => s.ticker);
-    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t)), ...eTickers.filter(t => !pTickers.includes(t) && !wTickers.includes(t))];
+    const combined = [...pTickers, ...wTickers.filter(t => !pTickers.includes(t))];
     onVisibleTickers(combined);
-  }, [pSort, wlSort, epSort, portfolio, watchlist, epTickers, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pSort, wlSort, portfolio, watchlist, liveData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -5661,19 +5457,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         )}
       </div>
 
-      {/* ── 3. EP Watchlist ── */}
-      {epTickers.length > 0 && (
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ color: "#f97316", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            EP Watchlist ({epTickers.length})
-          </span>
-        </div>
-        <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={epMerged} sortKey={epSort} setter={setEpSort} onRemove={removeFromEP} />
-        </div>
-      </div>
-      )}
     </div>
   );
 }
@@ -6457,9 +6240,6 @@ function AppMain({ authToken, onLogout }) {
   const [pknWatch, setPknWatch] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_pkn_watch") || "[]"); } catch { return []; }
   });
-  const [manualEPs, setManualEPs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("tp_manual_eps") || "[]"); } catch { return []; }
-  });
   const [trades, setTrades] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_trades") || "[]").map(migrateTrade); } catch { return []; }
   });
@@ -6495,7 +6275,6 @@ function AppMain({ authToken, onLogout }) {
           // Server data takes priority over localStorage
           setPortfolio(d.data.portfolio || []);
           setWatchlist(d.data.watchlist || []);
-          if (d.data.manualEPs) setManualEPs(d.data.manualEPs);
           if (d.data.pkn) setPkn(d.data.pkn);
           if (d.data.pknWatch) setPknWatch(d.data.pknWatch);
           if (d.data.trades) setTrades(d.data.trades.map(migrateTrade));
@@ -6511,8 +6290,6 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => { localStorage.setItem("tp_watchlist", JSON.stringify(watchlist)); }, [watchlist]);
   useEffect(() => { localStorage.setItem("tp_pkn", JSON.stringify(pkn)); }, [pkn]);
   useEffect(() => { localStorage.setItem("tp_pkn_watch", JSON.stringify(pknWatch)); }, [pknWatch]);
-  useEffect(() => { localStorage.setItem("tp_manual_eps", JSON.stringify(manualEPs)); }, [manualEPs]);
-  const manualEPSet = useMemo(() => new Set(manualEPs.map(e => e.ticker)), [manualEPs]);
   useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
 
   // Save to server (debounced)
@@ -6525,14 +6302,14 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist, manualEPs, trades, pkn, pknWatch }),
+        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, trades, manualEPs, pkn, pknWatch, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, pkn, pknWatch, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
@@ -6541,16 +6318,6 @@ function AppMain({ authToken, onLogout }) {
   const removeFromPkn = useCallback((t) => setPkn(p => p.filter(x => x !== t)), []);
   const addToPknWatch = useCallback((t) => { const u = t.toUpperCase(); if (!pknWatch.includes(u)) setPknWatch(p => [...p, u]); }, [pknWatch]);
   const removeFromPknWatch = useCallback((t) => setPknWatch(p => p.filter(x => x !== t)), []);
-  const addToEP = useCallback((t) => {
-    const u = t.toUpperCase();
-    const today = new Date().toISOString().split("T")[0];
-    setManualEPs(p => {
-      if (p.some(e => e.ticker === u)) return p;
-      return [...p, { ticker: u, date: today, days_ago: 0, manual: true }];
-    });
-  }, []);
-  const removeFromEP = useCallback((t) => setManualEPs(p => p.filter(e => e.ticker !== t)), []);
-
   // Visible ticker list — reported by whichever view is active
   const [visibleTickers, setVisibleTickers] = useState([]);
   const onVisibleTickers = useCallback((tickers) => setVisibleTickers(tickers), []);
@@ -6750,14 +6517,14 @@ function AppMain({ authToken, onLogout }) {
         {/* Left: data views */}
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)} epSignals={data.ep_signals} manualEPs={manualEPs} manualEPSet={manualEPSet}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} />}
+          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
-          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
+          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
@@ -6773,7 +6540,6 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            manualEPs={manualEPs} removeFromEP={removeFromEP}
             liveThemeData={liveThemeData} homepage={homepage} />}
           {view === "pkn" && <PknView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
@@ -6806,7 +6572,6 @@ function AppMain({ authToken, onLogout }) {
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
                 pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
                 pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
-                manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
                 liveThemeData={liveThemeData}
                 lwChartProps={(() => {
                   const openT = trades.find(t => t.ticker === chartTicker && t.status === "open");
@@ -6820,7 +6585,6 @@ function AppMain({ authToken, onLogout }) {
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
                 pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
                 pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
-                manualEPs={manualEPs} onAddEP={addToEP} onRemoveEP={removeFromEP}
                 liveThemeData={liveThemeData} />
             )}
             </ErrorBoundary>
