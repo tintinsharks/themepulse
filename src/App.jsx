@@ -1867,6 +1867,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [pmCollapsed, setPmCollapsed] = useState(false);
   const [ahCollapsed, setAhCollapsed] = useState(false);
   const [histCollapsed, setHistCollapsed] = useState(false);
+  const [focusCollapsed, setFocusCollapsed] = useState(true);
 
   // Sort state for PM/AH/Historical tables
   const [pmSort, setPmSort] = useState({ col: "change", dir: "desc" });
@@ -2985,8 +2986,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         {/* ── RIGHT: EP/SIP FOCUS LIST ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>
-              ★ EP/SIP Focus ({focusList.length})
+            <span onClick={() => setFocusCollapsed(p => !p)}
+              style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+              {focusCollapsed ? "▶" : "▼"} ★ EP/SIP Focus ({focusList.length})
             </span>
             {focusList.length > 0 && (
               <button onClick={() => { if (confirm("Clear all focus tickers?")) onRemoveFocus("__ALL__"); }}
@@ -2996,7 +2998,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               </button>
             )}
           </div>
-          {focusList.length > 0 ? (
+          {!focusCollapsed && (focusList.length > 0 ? (
             <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
@@ -3086,7 +3088,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
             <div style={{ padding: 16, textAlign: "center", color: "#4a4a5a", fontSize: 11, border: "1px dashed #2a2a3a", borderRadius: 4 }}>
               Click ★ on any row to add tickers here
             </div>
-          )}
+          ))}
         </div>
       </div>
 
