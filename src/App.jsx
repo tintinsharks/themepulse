@@ -2984,7 +2984,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         </div>
 
         {/* ── RIGHT: EP/SIP FOCUS LIST ── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: focusCollapsed ? "0 0 auto" : 1, minWidth: 0 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
             <span onClick={() => setFocusCollapsed(p => !p)}
               style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
