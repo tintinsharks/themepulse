@@ -1929,6 +1929,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       return {
         ticker: m.ticker,
         company: m.company || m.ticker,
+        price: m.price ?? stockMap[m.ticker]?.price ?? null,
         _chg: chg,
         _er: er,
         _headline: computedHL,
@@ -1942,8 +1943,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         _ahChg: m.ah_change_pct ?? null,
         _upcoming: isUpcoming,
         _industry: stockMap[m.ticker]?.industry || m.industry || "",
-        _rvol: stockMap[m.ticker]?.rel_volume ?? null,
-        _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
+        _rvol: stockMap[m.ticker]?.rel_volume ?? m._rel_volume ?? null,
+        _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? m._avg_volume ?? null,
         _epsBeat: !isUpcoming && er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null,
         _revBeat: !isUpcoming && er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null,
         _grossMargin: er.gross_margin ?? null,
@@ -2441,19 +2442,28 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         ) : "—"}
                       </td>
                       {/* $Vol */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace",
-                        color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}
-                        title={s.dvol_accel != null ? `$Vol Accel: ${s.dvol_accel > 0 ? '+' : ''}${s.dvol_accel} | 5d/20d: ${s.dvol_ratio_5_20}x | WoW: ${s.dvol_wow_chg > 0 ? '+' : ''}${s.dvol_wow_chg}%` : ""}>
-                        {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}
-                        {s.dvol_accel != null && <span style={{ fontSize: 7, marginLeft: 1,
-                          color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
-                          {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
-                      </td>
-                      {/* Chg% — live from stockMap */}
-                      <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: chgColor(s.change_pct) }}>
-                        {s.change_pct != null ? `${s.change_pct > 0 ? "+" : ""}${s.change_pct.toFixed(1)}%` : "—"}
-                      </td>
+                      {(() => {
+                        const dv = s.avg_dollar_vol_raw || (row._vol && row.price ? row._vol * row.price : null);
+                        const dvFmt = s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : dv ? (dv >= 1e9 ? `$${(dv/1e9).toFixed(1)}B` : dv >= 1e6 ? `$${(dv/1e6).toFixed(0)}M` : dv >= 1e3 ? `$${(dv/1e3).toFixed(0)}K` : `$${dv.toFixed(0)}`) : null;
+                        return (
+                        <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace",
+                          color: (s.avg_dollar_vol_raw || dv || 0) > 20000000 ? "#2bb886" : (s.avg_dollar_vol_raw || dv || 0) > 10000000 ? "#fbbf24" : (s.avg_dollar_vol_raw || dv || 0) > 5000000 ? "#f97316" : "#f87171" }}
+                          title={s.dvol_accel != null ? `$Vol Accel: ${s.dvol_accel > 0 ? '+' : ''}${s.dvol_accel} | 5d/20d: ${s.dvol_ratio_5_20}x | WoW: ${s.dvol_wow_chg > 0 ? '+' : ''}${s.dvol_wow_chg}%` : ""}>
+                          {dvFmt || '—'}
+                          {s.dvol_accel != null && <span style={{ fontSize: 7, marginLeft: 1,
+                            color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
+                            {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
+                        </td>);
+                      })()}
+                      {/* Chg% — stockMap first, then mover data */}
+                      {(() => {
+                        const chgVal = s.change_pct ?? row._chg ?? null;
+                        return (
+                        <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                          color: chgColor(chgVal) }}>
+                          {chgVal != null ? `${chgVal > 0 ? "+" : ""}${chgVal.toFixed(1)}%` : "—"}
+                        </td>);
+                      })()}
                       {/* VolX */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
