@@ -2215,12 +2215,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     }));
   }, [filteredHistoricalMovers, histSort, stockMap]);
 
-  // Report visible tickers
+  // Report visible tickers — Catalysts + Historical (deduplicated, in order)
   useEffect(() => {
     if (onVisibleTickers) {
-      onVisibleTickers(sortedRows.map(r => r.ticker));
+      const seen = new Set();
+      const all = [];
+      for (const r of sortedRows) { if (!seen.has(r.ticker)) { seen.add(r.ticker); all.push(r.ticker); } }
+      for (const m of sortedHistMovers) { if (!seen.has(m.ticker)) { seen.add(m.ticker); all.push(m.ticker); } }
+      onVisibleTickers(all);
     }
-  }, [sortedRows, onVisibleTickers]);
+  }, [sortedRows, sortedHistMovers, onVisibleTickers]);
 
   // STATUS & COLOR HELPERS
   const chgColor = (v) => {
@@ -2505,7 +2509,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   );
 
                   return (
-                    <tr key={row._key}
+                    <tr key={row._key} data-ticker={row.ticker}
                       onClick={() => onTickerClick(row.ticker)}
                       style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer", borderLeft: `2px solid ${borderColor}`,
                         background: isActive ? "#fbbf2420" : "transparent" }}
@@ -2655,7 +2659,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   {sortedPmMovers.map((m, i) => {
                     const chg = m.change_pct ?? m.ext_hours_change_pct;
                     return (
-                      <tr key={m.ticker + i} onClick={() => onTickerClick(m.ticker)}
+                      <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
@@ -2723,7 +2727,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   {sortedAhMovers.map((m, i) => {
                     const chg = m.change_pct ?? m.ext_hours_change_pct;
                     return (
-                      <tr key={m.ticker + i} onClick={() => onTickerClick(m.ticker)}
+                      <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
@@ -2871,7 +2875,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const sess = m._session || m.er?.timing || "";
                     const rvol = m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (stockMap[m.ticker]?.rel_volume ?? null);
                     return (
-                      <tr key={m.ticker + "_hist_" + i} onClick={() => onTickerClick(m.ticker)}
+                      <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
