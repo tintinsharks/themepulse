@@ -3003,11 +3003,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     {[
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
-                      { key: "name", label: "Name", align: "left" },
-                      { key: "volume", label: "Vol", align: "right" },
+                      { key: "volume", label: "Volume", align: "right" },
+                      { key: "rev_yoy", label: "Rev%", align: "right" },
+                      { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
-                      { key: "added", label: "Added", align: "center" },
+                      { key: "days", label: "Days", align: "center" },
+                      { key: "headline", label: "Headline", align: "left" },
                     ].map(h => (
                       <th key={h.key} onClick={(e) => { e.stopPropagation(); setFocusSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
                         style={{ padding: "4px 6px", textAlign: h.align, color: focusSort.col === h.key ? "#f59e0b" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
@@ -3023,18 +3025,22 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       const chgVal = s.change_pct ?? null;
                       const rv = s.volume && s.avg_volume ? s.volume / s.avg_volume : (s.rel_volume ?? null);
                       const addedDays = f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null;
-                      return { ...f, _s: s, _chg: chgVal, _rvol: rv, _addedDays: addedDays, _rs: s.rs_rank ?? 0, _vol: s.volume ?? 0 };
+                      const revYoY = s.sales_yoy ?? s.rev_growth_yoy ?? (s.er?.rev_growth_yoy) ?? (s.quarterly_data?.[0]?.sales_yoy) ?? null;
+                      const epsYoY = s.eps_yoy ?? s.eps_growth_yoy ?? (s.er?.eps_growth_yoy) ?? (s.quarterly_data?.[0]?.eps_yoy) ?? null;
+                      const headlines = s.recent_headlines || [];
+                      return { ...f, _s: s, _chg: chgVal, _rvol: rv, _addedDays: addedDays, _rs: s.rs_rank ?? 0, _vol: s.volume ?? 0, _revYoY: revYoY, _epsYoY: epsYoY, _headlines: headlines };
                     });
                     focusRows.sort((a, b) => {
                       let cmp = 0;
                       switch (focusSort.col) {
                         case "rs": cmp = a._rs - b._rs; break;
                         case "ticker": cmp = a.ticker.localeCompare(b.ticker); break;
-                        case "name": cmp = (a._s.company || "").localeCompare(b._s.company || ""); break;
                         case "volume": cmp = a._vol - b._vol; break;
+                        case "rev_yoy": cmp = (a._revYoY ?? -999) - (b._revYoY ?? -999); break;
+                        case "eps_yoy": cmp = (a._epsYoY ?? -999) - (b._epsYoY ?? -999); break;
                         case "change": cmp = (a._chg ?? -999) - (b._chg ?? -999); break;
                         case "rvol": cmp = (a._rvol ?? -999) - (b._rvol ?? -999); break;
-                        case "added": cmp = (a._addedDays ?? 999) - (b._addedDays ?? 999); break;
+                        case "days": cmp = (a._addedDays ?? 999) - (b._addedDays ?? 999); break;
                         default: cmp = (a._chg ?? -999) - (b._chg ?? -999);
                       }
                       return focusSort.dir === "desc" ? -cmp : cmp;
@@ -3055,11 +3061,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {rs != null ? rs : "—"}
                           </td>
                           <td style={{ padding: "3px 6px", fontWeight: 600, color: "#f59e0b" }}>{f.ticker}</td>
-                          <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {s.company || "—"}
-                          </td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                             {fmtVol(s.volume)}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._revYoY != null ? chgColor(f._revYoY) : "#3a3a4a" }}>
+                            {f._revYoY != null ? `${f._revYoY >= 0 ? "+" : ""}${f._revYoY.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._epsYoY != null ? chgColor(f._epsYoY) : "#3a3a4a" }}>
+                            {f._epsYoY != null ? `${f._epsYoY >= 0 ? "+" : ""}${f._epsYoY.toFixed(0)}%` : "—"}
                           </td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                             color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#686878") : "#3a3a4a" }}>
@@ -3069,9 +3080,12 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             color: f._rvol != null ? (f._rvol >= 3 ? "#f59e0b" : f._rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
                             {f._rvol != null ? `${f._rvol.toFixed(1)}x` : "—"}
                           </td>
-                          <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 9,
+                          <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                             color: f._addedDays != null ? (f._addedDays <= 1 ? "#2bb886" : f._addedDays <= 3 ? "#a8a8b8" : "#686878") : "#4a4a5a" }}>
                             {f._addedDays != null ? `${f._addedDays}d` : "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
+                            {f._headlines.length > 0 ? f._headlines[0] : "—"}
                           </td>
                         </tr>
                       );
