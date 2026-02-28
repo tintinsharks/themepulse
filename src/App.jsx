@@ -2573,7 +2573,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       </td>
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
-                        lineHeight: 1.4, maxWidth: 100, minWidth: 60, verticalAlign: "top",
+                        lineHeight: 1.4, maxWidth: 50, minWidth: 30, verticalAlign: "top",
                         fontStyle: row._upcoming ? "italic" : "normal", whiteSpace: "normal", wordWrap: "break-word" }}>
                         {row._upcoming ? (
                           <span style={{ color: "#787888" }}>Reports after close today</span>
