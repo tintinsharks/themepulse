@@ -978,62 +978,66 @@ async function fetchEpisodicPivots(cookies) {
   return results;
 }
 
-// ── FMP Extended Hours Quotes ──
+// ── FMP Live Quotes (replaces Finviz for theme universe) ──
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
 function isExtendedHours() {
-  // Get current time in US Eastern
   const now = new Date();
   const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
   const et = new Date(etStr);
-  const h = et.getHours();
-  const m = et.getMinutes();
-  const mins = h * 60 + m; // minutes since midnight ET
-  // Premarket: 4:00 AM - 9:29 AM ET (240 - 569)
-  if (mins >= 240 && mins < 570) return "premarket";
-  // Aftermarket: 4:00 PM - 8:00 PM ET (960 - 1200)
-  if (mins >= 960 && mins < 1200) return "aftermarket";
-  // Regular hours or overnight
+  const mins = et.getHours() * 60 + et.getMinutes();
+  if (mins >= 240 && mins < 570) return "premarket";   // 4:00 AM - 9:29 AM ET
+  if (mins >= 960 && mins < 1200) return "aftermarket"; // 4:00 PM - 8:00 PM ET
   return null;
 }
 
-async function fetchFmpQuotes(tickers, apiKey) {
+async function fetchFmpUniverse(tickers, apiKey) {
   if (!tickers || tickers.length === 0 || !apiKey) return [];
+  const BATCH = 500; // FMP Premium supports large batches
+  const CONCURRENCY = 3; // parallel requests
   const results = [];
-  const BATCH = 50;
+  const batches = [];
 
   for (let i = 0; i < tickers.length; i += BATCH) {
-    const batch = tickers.slice(i, i + BATCH);
-    const symbolStr = batch.join(",");
-    try {
-      const url = `${FMP_BASE}/quote?symbol=${symbolStr}&apikey=${apiKey}`;
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        console.error(`FMP quote batch failed: ${resp.status}`);
-        continue;
-      }
-      const data = await resp.json();
-      if (Array.isArray(data)) {
-        data.forEach(q => {
-          if (q.symbol) {
-            results.push({
-              ticker: q.symbol,
-              price: q.price ?? null,
-              change: q.changesPercentage ?? null,
-              volume: q.volume ?? null,
-              avgVolume: q.avgVolume ?? null,
-            });
-          }
-        });
-      }
-    } catch (err) {
-      console.error(`FMP quote batch error: ${err.message}`);
-    }
-    // Small delay between batches
-    if (i + BATCH < tickers.length) await new Promise(r => setTimeout(r, 200));
+    batches.push(tickers.slice(i, i + BATCH));
   }
 
-  console.log(`FMP extended hours: ${results.length}/${tickers.length} quotes fetched`);
+  // Fetch batches in parallel groups
+  for (let g = 0; g < batches.length; g += CONCURRENCY) {
+    const group = batches.slice(g, g + CONCURRENCY);
+    const promises = group.map(async (batch) => {
+      const symbolStr = batch.join(",");
+      try {
+        const url = `${FMP_BASE}/quote?symbol=${symbolStr}&apikey=${apiKey}`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.error(`FMP universe batch failed: ${resp.status}`);
+          return [];
+        }
+        const data = await resp.json();
+        if (!Array.isArray(data)) return [];
+        return data.filter(q => q.symbol).map(q => ({
+          ticker: q.symbol,
+          price: q.price ?? null,
+          change: q.changesPercentage ?? null,
+          volume: q.volume != null ? String(q.volume) : null,
+          avg_volume: q.avgVolume != null ? String(q.avgVolume) : null,
+          rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
+            ? Math.round((q.volume / q.avgVolume) * 100) / 100
+            : null,
+        }));
+      } catch (err) {
+        console.error(`FMP universe batch error: ${err.message}`);
+        return [];
+      }
+    });
+    const groupResults = await Promise.all(promises);
+    groupResults.forEach(r => results.push(...r));
+    // Small delay between parallel groups to avoid rate limits
+    if (g + CONCURRENCY < batches.length) await new Promise(r => setTimeout(r, 100));
+  }
+
+  console.log(`FMP universe: ${results.length}/${tickers.length} quotes fetched`);
   return results;
 }
 
@@ -1075,51 +1079,16 @@ export default async function handler(req, res) {
       ? await fetchWatchlist(cookies, watchlistTickers)
       : [];
 
-    // Fetch theme universe (many batches, needs rate limit spacing)
-    let themeUniverse = universeTickers.length > 0
-      ? await fetchThemeUniverse(cookies, universeTickers)
-      : [];
-
-    // During extended hours, fetch FMP quotes and merge for live price/change data
+    // Fetch theme universe via FMP (fast, includes extended hours data)
     const extSession = isExtendedHours();
     const fmpKey = process.env.FMP_API_KEY;
-    if (extSession && fmpKey && universeTickers.length > 0) {
-      try {
-        const fmpQuotes = await fetchFmpQuotes(universeTickers, fmpKey);
-        if (fmpQuotes.length > 0) {
-          const fmpMap = {};
-          fmpQuotes.forEach(q => { fmpMap[q.ticker] = q; });
-          // Merge FMP data into Finviz universe results
-          themeUniverse = themeUniverse.map(item => {
-            const fmp = fmpMap[item.ticker];
-            if (fmp) {
-              return {
-                ...item,
-                price: fmp.price ?? item.price,
-                change: fmp.change ?? item.change,
-                // Keep Finviz rel_volume (FMP doesn't provide relative volume)
-              };
-            }
-            return item;
-          });
-          // Add FMP-only tickers not in Finviz results
-          const finvizSet = new Set(themeUniverse.map(t => t.ticker));
-          fmpQuotes.forEach(fmp => {
-            if (!finvizSet.has(fmp.ticker)) {
-              themeUniverse.push({
-                ticker: fmp.ticker,
-                price: fmp.price,
-                change: fmp.change,
-                volume: fmp.volume != null ? String(fmp.volume) : null,
-                avg_volume: fmp.avgVolume != null ? String(fmp.avgVolume) : null,
-                rel_volume: null,
-              });
-            }
-          });
-          console.log(`Extended hours (${extSession}): merged ${fmpQuotes.length} FMP quotes`);
-        }
-      } catch (err) {
-        console.error(`FMP extended hours merge error: ${err.message}`);
+    let themeUniverse = [];
+    if (universeTickers.length > 0) {
+      if (fmpKey) {
+        themeUniverse = await fetchFmpUniverse(universeTickers, fmpKey);
+      } else {
+        // Fallback to Finviz if no FMP key
+        themeUniverse = await fetchThemeUniverse(cookies, universeTickers);
       }
     }
 
