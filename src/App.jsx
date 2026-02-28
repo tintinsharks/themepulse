@@ -1868,6 +1868,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [ahCollapsed, setAhCollapsed] = useState(false);
   const [histCollapsed, setHistCollapsed] = useState(false);
 
+  // Sort state for PM/AH/Historical tables
+  const [pmSort, setPmSort] = useState({ col: "change", dir: "desc" });
+  const [ahSort, setAhSort] = useState({ col: "change", dir: "desc" });
+  const [histSort, setHistSort] = useState({ col: "days", dir: "asc" });
+
   const erSortedTickersRef = useRef([]);
 
   // Build earnings data
@@ -2109,6 +2114,106 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (sort.dir === "asc") sorted.reverse();
     return sorted;
   }, [unifiedRows, sort, stockMap]);
+
+  // Filter historical earnings movers using the same filters as the main table
+  const filteredHistoricalMovers = useMemo(() => {
+    let list = historicalEarningsMovers || [];
+
+    // Source filter: historical are all ER — hide when SIP-only
+    if (sourceFilter === "sip") return [];
+
+    // Bio/REIT filter
+    if (noBio) {
+      list = list.filter(m => {
+        const ind = (stockMap[m.ticker]?.industry || m._industry || "").trim().toLowerCase();
+        if (!ind) return true;
+        for (const ex of ER_EXCLUDED) { if (ind === ex.toLowerCase()) return false; }
+        return true;
+      });
+    }
+
+    // Theme Only
+    if (erUniverseOnly) {
+      list = list.filter(m => m.in_universe);
+    }
+
+    // 9M filter (today vol ≥ 8.9M but avg vol < 8.9M)
+    if (er9M) {
+      list = list.filter(m => {
+        const vol = m.volume || 0;
+        const avgVol = m.avg_volume || stockMap[m.ticker]?.avg_volume_raw || Infinity;
+        return vol >= 8_900_000 && avgVol < 8_900_000;
+      });
+    }
+
+    // Beat / Miss filter
+    if (erBeatFilter === "beat") {
+      list = list.filter(m => {
+        const er = m.er || {};
+        return er.eps != null && er.eps_estimated != null && er.eps >= er.eps_estimated;
+      });
+    } else if (erBeatFilter === "miss") {
+      list = list.filter(m => {
+        const er = m.er || {};
+        return er.eps != null && er.eps_estimated != null && er.eps < er.eps_estimated;
+      });
+    }
+
+    // RS slider
+    if (minRS > 0) {
+      list = list.filter(m => (stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? 0) >= minRS);
+    }
+
+    // $Vol slider
+    if (minDvol > 0) {
+      list = list.filter(m => {
+        const dv = stockMap[m.ticker]?.avg_dollar_vol_raw;
+        return dv != null && dv >= minDvol * 1_000_000;
+      });
+    }
+
+    return list;
+  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, stockMap]);
+
+  // Generic sort helper for PM/AH/Historical tables
+  const _sortSessionMovers = (list, sortState, getExtra) => {
+    const { col, dir } = sortState;
+    const sorted = [...list].sort((a, b) => {
+      const ea = getExtra ? getExtra(a) : {};
+      const eb = getExtra ? getExtra(b) : {};
+      let cmp = 0;
+      switch (col) {
+        case "ticker": cmp = (a.ticker || "").localeCompare(b.ticker || ""); break;
+        case "name": cmp = (a.name || a.company || "").localeCompare(b.name || b.company || ""); break;
+        case "volume": cmp = (a.volume || 0) - (b.volume || 0); break;
+        case "change": cmp = (a.change_pct ?? a.ext_hours_change_pct ?? -999) - (b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
+        case "price": cmp = (a.price || 0) - (b.price || 0); break;
+        case "rvol": cmp = (ea.rvol ?? -999) - (eb.rvol ?? -999); break;
+        case "days": cmp = (a.days_ago ?? 999) - (b.days_ago ?? 999); break;
+        case "session": cmp = (a._session || a.er?.timing || "").localeCompare(b._session || b.er?.timing || ""); break;
+        default: cmp = 0;
+      }
+      return dir === "desc" ? -cmp : cmp;
+    });
+    return sorted;
+  };
+
+  // Sorted PM movers
+  const sortedPmMovers = useMemo(() => {
+    return _sortSessionMovers(pmEarningsMovers || [], pmSort);
+  }, [pmEarningsMovers, pmSort]);
+
+  // Sorted AH movers
+  const sortedAhMovers = useMemo(() => {
+    return _sortSessionMovers(ahEarningsMovers || [], ahSort);
+  }, [ahEarningsMovers, ahSort]);
+
+  // Sorted Historical movers
+  const sortedHistMovers = useMemo(() => {
+    return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => ({
+      rvol: m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (stockMap[m.ticker]?.rel_volume ?? null),
+    }));
+  }, [filteredHistoricalMovers, histSort, stockMap]);
 
   // Report visible tickers
   useEffect(() => {
@@ -2531,16 +2636,23 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Ticker</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Name</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Chg%</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Price</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Volume</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Headline</th>
+                    {[
+                      { key: "ticker", label: "Ticker", align: "left" },
+                      { key: "name", label: "Name", align: "left" },
+                      { key: "volume", label: "Volume", align: "right" },
+                      { key: "change", label: "Chg%", align: "right" },
+                      { key: "price", label: "Price", align: "right" },
+                      { key: "headline", label: "Headline", align: "left" },
+                    ].map(h => (
+                      <th key={h.key} onClick={(e) => { e.stopPropagation(); setPmSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
+                        style={{ padding: "4px 6px", textAlign: h.align, color: pmSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                        {h.label}{pmSort.col === h.key ? (pmSort.dir === "desc" ? " ▾" : " ▴") : ""}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {pmEarningsMovers.map((m, i) => {
+                  {sortedPmMovers.map((m, i) => {
                     const chg = m.change_pct ?? m.ext_hours_change_pct;
                     return (
                       <tr key={m.ticker + i} onClick={() => onTickerClick(m.ticker)}
@@ -2553,15 +2665,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {m.name || "—"}
                         </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                          {fmtVol(m.volume)}
+                        </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
                           {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
                           {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(m.volume)}
                         </td>
                         <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
                           {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
@@ -2592,16 +2704,23 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Ticker</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Name</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Chg%</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Price</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Volume</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Headline</th>
+                    {[
+                      { key: "ticker", label: "Ticker", align: "left" },
+                      { key: "name", label: "Name", align: "left" },
+                      { key: "volume", label: "Volume", align: "right" },
+                      { key: "change", label: "Chg%", align: "right" },
+                      { key: "price", label: "Price", align: "right" },
+                      { key: "headline", label: "Headline", align: "left" },
+                    ].map(h => (
+                      <th key={h.key} onClick={(e) => { e.stopPropagation(); setAhSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
+                        style={{ padding: "4px 6px", textAlign: h.align, color: ahSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                        {h.label}{ahSort.col === h.key ? (ahSort.dir === "desc" ? " ▾" : " ▴") : ""}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {ahEarningsMovers.map((m, i) => {
+                  {sortedAhMovers.map((m, i) => {
                     const chg = m.change_pct ?? m.ext_hours_change_pct;
                     return (
                       <tr key={m.ticker + i} onClick={() => onTickerClick(m.ticker)}
@@ -2614,15 +2733,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {m.name || "—"}
                         </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                          {fmtVol(m.volume)}
+                        </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
                           {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
                           {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(m.volume)}
                         </td>
                         <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
                           {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
@@ -2638,36 +2757,119 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       )}
 
       {/* ── HISTORICAL EARNINGS WINNERS (last 5 days) ── */}
-      {historicalEarningsMovers && historicalEarningsMovers.length > 0 && (
+      {(historicalEarningsMovers && historicalEarningsMovers.length > 0) && (
         <div style={{ marginBottom: 16 }}>
-          <div onClick={() => setHistCollapsed(p => !p)}
-            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px",
-              background: "#1a1a28", borderRadius: 4, cursor: "pointer", userSelect: "none",
-              borderLeft: "3px solid #f59e0b" }}>
-            <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>{histCollapsed ? "▶" : "▼"}</span>
-            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>Historical Earnings Winners (5d)</span>
-            <span style={{ fontSize: 9, color: "#4a4a5a" }}>({historicalEarningsMovers.length})</span>
+          {/* Filter Bar */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span onClick={() => setHistCollapsed(p => !p)}
+              style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+              {histCollapsed ? "▶" : "▼"} Historical Earnings Winners ({sortedHistMovers.length})
+            </span>
+
+            {/* Source toggles */}
+            <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+              {["all", "er", "sip"].map(src => {
+                const label = src === "all" ? "All" : src === "er" ? "ER" : "SIP";
+                const isActive = sourceFilter === src;
+                return (
+                  <button key={src} onClick={() => setSourceFilter(src)}
+                    style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                      border: isActive ? `1px solid ${getTypeColor(src)}` : "1px solid #3a3a4a",
+                      background: isActive ? getTypeBg(src) : "transparent",
+                      color: isActive ? getTypeColor(src) : "#787888" }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* RS slider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+              <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
+              <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
+                style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+            </div>
+
+            {/* $Vol slider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 10, color: minDvol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥{minDvol}M</span>
+              <input type="range" min={0} max={100} step={5} value={minDvol} onChange={e => setMinDvol(Number(e.target.value))}
+                style={{ width: 60, height: 4, accentColor: "#fbbf24", cursor: "pointer" }} />
+            </div>
+
+            {/* Bio/REIT filter */}
+            <button onClick={() => setNoBio(prev => !prev)}
+              style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                border: noBio ? "1px solid #f97316" : "1px solid #3a3a4a",
+                background: noBio ? "#f9731618" : "transparent",
+                color: noBio ? "#f97316" : "#787888" }}>
+              {noBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
+            </button>
+
+            {/* ER filters */}
+            {(sourceFilter === "all" || sourceFilter === "er") && (
+              <>
+                <button onClick={() => setErUniverseOnly(prev => !prev)}
+                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+                    background: erUniverseOnly ? "#fbbf2418" : "transparent",
+                    color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
+                  {"★ Theme Only"}
+                </button>
+                <button onClick={() => setEr9M(prev => !prev)}
+                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    border: er9M ? "1px solid #e879f9" : "1px solid #3a3a4a",
+                    background: er9M ? "#e879f918" : "transparent",
+                    color: er9M ? "#e879f9" : "#787888" }}
+                  title="Today vol≥8.9M but avg vol<8.9M (unusual activity)">
+                  9M
+                </button>
+                <button onClick={() => setErBeatFilter(p => p === "beat" ? null : "beat")}
+                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    border: erBeatFilter === "beat" ? "1px solid #2bb886" : "1px solid #3a3a4a",
+                    background: erBeatFilter === "beat" ? "#2bb88618" : "transparent",
+                    color: erBeatFilter === "beat" ? "#2bb886" : "#787888" }}>
+                  Beat
+                </button>
+                <button onClick={() => setErBeatFilter(p => p === "miss" ? null : "miss")}
+                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    border: erBeatFilter === "miss" ? "1px solid #f87171" : "1px solid #3a3a4a",
+                    background: erBeatFilter === "miss" ? "#f8717118" : "transparent",
+                    color: erBeatFilter === "miss" ? "#f87171" : "#787888" }}>
+                  Miss
+                </button>
+              </>
+            )}
           </div>
-          {!histCollapsed && (
+
+          {!histCollapsed && sortedHistMovers.length > 0 && (
             <div style={{ overflowX: "auto", maxHeight: 400 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Ticker</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Name</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Chg%</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Price</th>
-                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontWeight: 600 }}>Days</th>
-                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontWeight: 600 }}>Session</th>
-                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Volume</th>
-                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Headline</th>
+                    {[
+                      { key: "ticker", label: "Ticker", align: "left" },
+                      { key: "name", label: "Name", align: "left" },
+                      { key: "volume", label: "Volume", align: "right" },
+                      { key: "change", label: "Chg%", align: "right" },
+                      { key: "rvol", label: "RVol", align: "right" },
+                      { key: "days", label: "Days", align: "center" },
+                      { key: "session", label: "Session", align: "center" },
+                      { key: "headline", label: "Headline", align: "left" },
+                    ].map(h => (
+                      <th key={h.key} onClick={(e) => { e.stopPropagation(); setHistSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
+                        style={{ padding: "4px 6px", textAlign: h.align, color: histSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                        {h.label}{histSort.col === h.key ? (histSort.dir === "desc" ? " ▾" : " ▴") : ""}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {historicalEarningsMovers.map((m, i) => {
+                  {sortedHistMovers.map((m, i) => {
                     const chg = m.change_pct;
                     const daysAgo = m.days_ago ?? 1;
                     const sess = m._session || m.er?.timing || "";
+                    const rvol = m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (stockMap[m.ticker]?.rel_volume ?? null);
                     return (
                       <tr key={m.ticker + "_hist_" + i} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
@@ -2679,12 +2881,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {m.company || "—"}
                         </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                          {fmtVol(m.volume)}
+                        </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
                           {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
                         </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
-                          {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: rvol != null ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
+                          {rvol != null ? `${rvol.toFixed(1)}x` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
@@ -2697,9 +2903,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {sess || "—"}
                           </span>
                         </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(m.volume)}
-                        </td>
                         <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
                           {m.recent_headlines && m.recent_headlines.length > 0 ? m.recent_headlines[0] : "—"}
                         </td>
@@ -2708,6 +2911,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          {!histCollapsed && sortedHistMovers.length === 0 && (
+            <div style={{ padding: 16, textAlign: "center", color: "#4a4a5a", fontSize: 11 }}>
+              No historical movers matching filters
             </div>
           )}
         </div>
