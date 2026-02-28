@@ -2429,7 +2429,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
         {/* Unified Table */}
         {sortedRows.length > 0 ? (
-          <div style={{ overflowX: "auto", maxHeight: 500, overflowY: "auto" }}>
+          <div style={{ overflowX: "auto", maxHeight: 375, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: 30 }} />{/* RS */}
