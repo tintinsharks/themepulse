@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# ThemePulse Daily Update — Beta v03
+# ThemePulse Daily Update — v04 (Streamlined)
 # Run after market close (~4:30 PM ET)
 #
 # Usage:
@@ -10,12 +10,15 @@
 #   1. Scrape Finviz (Overview, Valuation, Financial, Performance, Technical)
 #   2. Analyze: RS rankings, grades, theme scoring
 #   3. Export dashboard JSON
-#   4. Enrich: fundamentals, VCS, ATRX, earnings countdown
+#   4. Enrich: fundamentals from Finviz CSV (local, fast)
 #   5. Episodic Pivot scan
 #   6. Theme health scoring (ADD/REMOVE signals)
-#   7. Combined Excel dashboard
+#   7. Scrape TheStockCatalyst (earnings movers + headlines + session data)
 #   8. Market Monitor (breadth, 4% movers, theme sparklines, index MA)
 #   9. Copy JSONs to web app + git push to deploy
+#
+# Removed from v03: 09g (slow FMP/Nasdaq APIs), 09i (momentum burst),
+#                    07 (Excel dashboard — not needed for web)
 # ═══════════════════════════════════════════════════════════════
 
 set -e  # Exit on any error
@@ -25,6 +28,8 @@ WEBAPP=~/themepulse
 SCRIPTS=$PIPELINE/scripts
 OUTPUT=$PIPELINE/output
 PUBLIC=$WEBAPP/public
+
+START_TIME=$(date +%s)
 
 echo "═══════════════════════════════════════════════════════════"
 echo "  THEMEPULSE DAILY UPDATE — $(date '+%Y-%m-%d %H:%M')"
@@ -36,7 +41,7 @@ source venv/bin/activate
 
 # ── Step 1: Scrape Finviz ──────────────────────────────────────
 echo ""
-echo "▶ [1/8] Finviz Extract (5 views: Overview, Valuation, Financial, Performance, Technical)"
+echo "▶ [1/8] Finviz Extract (5 views)"
 python3 -u $SCRIPTS/01_finviz_extract.py
 
 # ── Step 2: Analyze ────────────────────────────────────────────
@@ -51,7 +56,7 @@ python3 -u $SCRIPTS/09_export_web_data.py
 
 # ── Step 4: Enrich ─────────────────────────────────────────────
 echo ""
-echo "▶ [4/8] Enrich (fundamentals, VCS, ATRX, earnings)"
+echo "▶ [4/8] Enrich (fundamentals from Finviz CSV)"
 python3 -u $SCRIPTS/09b_enrich_web_data.py
 
 # ── Step 5: Episodic Pivots ────────────────────────────────────
@@ -64,10 +69,10 @@ echo ""
 echo "▶ [6/8] Theme Health Scoring"
 python3 -u $SCRIPTS/09e_theme_health.py
 
-# ── Step 7: Combined Dashboard (Excel) ─────────────────────────
+# ── Step 7: Scrape TheStockCatalyst ────────────────────────────
 echo ""
-echo "▶ [7/8] Combined Excel Dashboard"
-python3 -u $SCRIPTS/07_combined_dashboard.py
+echo "▶ [7/8] Earnings Movers + Headlines (TheStockCatalyst)"
+python3 -u $SCRIPTS/09h_scrape_headlines.py
 
 # ── Step 8: Market Monitor ─────────────────────────────────────
 echo ""
@@ -90,7 +95,12 @@ git add -A
 git commit -m "Daily update $(date '+%Y-%m-%d')" || echo "  (no changes to commit)"
 git push
 
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+MINS=$((ELAPSED / 60))
+SECS=$((ELAPSED % 60))
+
 echo ""
 echo "═══════════════════════════════════════════════════════════"
-echo "  ✅ THEMEPULSE UPDATE COMPLETE — $(date '+%H:%M')"
+echo "  ✅ THEMEPULSE UPDATE COMPLETE — ${MINS}m ${SECS}s"
 echo "═══════════════════════════════════════════════════════════"

@@ -1858,7 +1858,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers }) {
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers, headlinesMap }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "ep" | "er"
@@ -2009,12 +2009,17 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         }
       }
 
+      // Scraped headlines from TheStockCatalyst (rich multi-headline), fallback to computed
+      const scrapedHL = m.recent_headlines || (headlinesMap[m.ticker]?.headlines) || [];
+      const computedHL = isUpcoming ? "" : parts.join(", ");
+
       return {
         ticker: m.ticker,
         company: m.company || m.ticker,
         _chg: chg,
         _er: er,
-        _headline: isUpcoming ? "" : parts.join(", "),
+        _headline: computedHL,
+        _recentHeadlines: scrapedHL,
         _vol: m.volume || 0,
         _inUniverse: !!m.in_universe,
         grade: m.grade || null,
@@ -2036,7 +2041,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     });
 
     return allMovers;
-  }, [earningsMovers, stockMap]);
+  }, [earningsMovers, stockMap, headlinesMap]);
 
   // Filter earnings movers
   const ER_EXCLUDED = new Set([
@@ -2117,7 +2122,13 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         seen.add(key);
         const er = erTickerMap.get(ep.ticker);
         const source = ep.manual ? "manual" : er ? "both" : "ep";
-        rows.push({ ...ep, ...er, _source: source, _key: key, _epData: ep, _erData: er });
+        // Look up scraped headlines for EP-only rows
+        const hlFromMap = headlinesMap[ep.ticker]?.headlines || [];
+        const merged = { ...ep, ...er, _source: source, _key: key, _epData: ep, _erData: er };
+        if (!merged._recentHeadlines || merged._recentHeadlines.length === 0) {
+          merged._recentHeadlines = hlFromMap;
+        }
+        rows.push(merged);
       }
     });
 
@@ -2666,10 +2677,26 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         {s.themes?.[0]?.theme || "—"}
                       </td>
                       {/* Headline */}
-                      <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : row._headline ? headlineColor : "#2a2a35",
-                        lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 250,
+                      <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
+                        lineHeight: 1.4, maxWidth: 300, minWidth: 120, verticalAlign: "top",
                         fontStyle: row._upcoming ? "italic" : "normal" }}>
-                        {row._upcoming ? "Reports after close today" : row._headline || "—"}
+                        {row._upcoming ? (
+                          <span style={{ color: "#787888" }}>Reports after close today</span>
+                        ) : row._recentHeadlines && row._recentHeadlines.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            {row._recentHeadlines.slice(0, 3).map((hl, hi) => (
+                              <div key={hi} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                                fontSize: hi === 0 ? 9 : 8, color: hi === 0 ? headlineColor : "#606070",
+                                fontWeight: hi === 0 ? 500 : 400 }}>
+                                {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
+                              </div>
+                            ))}
+                          </div>
+                        ) : row._headline ? (
+                          <span style={{ color: headlineColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                            {row._headline}
+                          </span>
+                        ) : "—"}
                       </td>
                     </tr>
                   );
@@ -6646,7 +6673,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
