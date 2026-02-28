@@ -2473,30 +2473,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           <div style={{ overflowX: "auto", maxHeight: 500, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, minWidth: hasSessionData ? 1600 : 1300 }}>
               <thead>
-                {hasSessionData && (
-                  <tr style={{ borderBottom: "none", position: "sticky", top: 0, background: "#0d0d14", zIndex: 2 }}>
-                    <th colSpan={8}></th>
-                    <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                      color: "#a78bfa", letterSpacing: "0.5px", borderBottom: "1px solid #a78bfa30" }}>PRE-MKT</th>
-                    <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                      color: "#60a5fa", letterSpacing: "0.5px", borderBottom: "1px solid #60a5fa30" }}>INTRADAY</th>
-                    <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                      color: "#f59e0b", letterSpacing: "0.5px", borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
-                    <th colSpan={4} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                      color: "#34d399", letterSpacing: "0.5px", borderBottom: "1px solid #34d39930" }}>FUNDAMENTALS</th>
-                    <th colSpan={3}></th>
-                  </tr>
-                )}
-                <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: hasSessionData ? 18 : 0, background: "#0d0d14", zIndex: 1 }}>
+                <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
                   {[
+                    { col: "rs", label: "RS", align: "right" },
                     { col: "type", label: "Type", align: "center" },
                     { col: "ticker", label: "Ticker", align: "left" },
-                    { col: "grade", label: "Grade", align: "right" },
-                    { col: "days", label: "Days", align: "right" },
-                    { col: "gap", label: "Gap%", align: "right" },
-                    { col: "change", label: "Chg%", align: "right" },
-                    { col: "vol", label: "VolX", align: "right" },
-                    { col: "status", label: "Status", align: "left" },
                   ].map(({ col, label, align }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
                       style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : "#686878",
@@ -2504,38 +2485,15 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       {label}{sort.col === col ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
                     </th>
                   ))}
-                  {hasSessionData ? (
-                    <>
-                      <th onClick={() => setSort(prev => prev.col === "pm" ? { col: "pm", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "pm", dir: "desc" })}
-                        style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "pm" ? "#fbbf24" : "#a78bfa",
-                          fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
-                        PM%{sort.col === "pm" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
-                      </th>
-                      <th onClick={() => setSort(prev => prev.col === "id" ? { col: "id", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "id", dir: "desc" })}
-                        style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "id" ? "#fbbf24" : "#60a5fa",
-                          fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
-                        ID%{sort.col === "id" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
-                      </th>
-                      <th onClick={() => setSort(prev => prev.col === "id_vol" ? { col: "id_vol", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "id_vol", dir: "desc" })}
-                        style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "id_vol" ? "#fbbf24" : "#60a5fa",
-                          fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
-                        IDVol{sort.col === "id_vol" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
-                      </th>
-                      <th onClick={() => setSort(prev => prev.col === "ah" ? { col: "ah", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "ah", dir: "desc" })}
-                        style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "ah" ? "#fbbf24" : "#f59e0b",
-                          fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
-                        AH%{sort.col === "ah" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
-                      </th>
-                    </>
-                  ) : null}
+                  <th style={{ padding: "4px 4px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 9 }}>Headline</th>
                   {[
+                    { col: "grade", label: "Grade", align: "right" },
+                    { col: "days", label: "Days", align: "right" },
+                    { col: "pct_from_high", label: "FrHi%", align: "right" },
+                    { col: "vol", label: "VolX", align: "right" },
+                    { col: "status", label: "Status", align: "left" },
                     { col: "rev", label: "Rev%", align: "right", color: "#34d399" },
                     { col: "eps", label: "EPS%", align: "right", color: "#34d399" },
-                    { col: "gm", label: "GM", align: "right", color: "#34d399" },
-                    { col: "nm", label: "NM", align: "right", color: "#34d399" },
-                    { col: "pct_from_high", label: "FrHi%", align: "right" },
-                    { col: "rs", label: "RS", align: "right" },
-                    { col: "theme", label: "Theme", align: "left" },
                   ].map(({ col, label, align, color }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
                       style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
@@ -2543,7 +2501,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       {label}{sort.col === col ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
                     </th>
                   ))}
-                  <th style={{ padding: "4px 4px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 9 }}>Headline</th>
                 </tr>
               </thead>
               <tbody>
@@ -2585,6 +2542,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         background: isActive ? "#fbbf2420" : "transparent" }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                      {/* RS */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
+                        {s.rs_rank ?? "—"}
+                      </td>
                       {/* Type Badge */}
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
@@ -2598,91 +2560,9 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         color: isActive ? "#fbbf24" : manualEPSet?.has(row.ticker) ? "#f97316" : "#a8a8b8" }}>
                         {row.ticker}
                       </td>
-                      {/* Grade */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: gradeColor(s.grade) }}>
-                        {s.grade || "—"}
-                      </td>
-                      {/* Days */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (row.days_ago ?? 999) <= 1 ? "#2bb886" : (row.days_ago ?? 999) <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
-                        {row.days_ago != null ? `${row.days_ago}d` : "—"}
-                      </td>
-                      {/* Gap% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row.gap_pct >= 15 ? "#2bb886" : row.gap_pct >= 8 ? "#4a9a6a" : row.gap_pct > 0 ? "#686878" : "#3a3a4a" }}>
-                        {displayGap}
-                      </td>
-                      {/* Chg% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: chgColor(row._chg ?? row.change_pct) }}>
-                        {displayChg}
-                      </td>
-                      {/* VolX */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
-                        {displayVol}
-                      </td>
-                      {/* Status */}
-                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9 }}>
-                        {statusDisplay && (
-                          <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 600,
-                            background: statusDisplay.bg || getTypeBg(row._source),
-                            border: `1px solid ${statusDisplay.border || getSourceBorderColor(row._source)}`,
-                            color: statusDisplay.color || getTypeColor(row._source) }}>
-                            {statusDisplay.label}
-                          </span>
-                        )}
-                      </td>
-                      {/* Session columns (PM/ID/AH) — only if any ER has session data */}
-                      {hasSessionData ? (
-                        <>
-                          {chgCell(row._pmChg)}
-                          {chgCell(row._idChg)}
-                          <td style={{ padding: "3px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#606070" }}>
-                            {row._idVol ? fmtVol(row._idVol) : "—"}
-                          </td>
-                          {chgCell(row._ahChg)}
-                        </>
-                      ) : null}
-                      {/* Rev% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
-                        {displayRev}
-                      </td>
-                      {/* EPS% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
-                        {displayEps}
-                      </td>
-                      {/* GM */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._grossMargin != null ? (row._grossMargin >= 50 ? "#2bb886" : row._grossMargin >= 30 ? "#4a9a6a" : "#686878") : "#2a2a35" }}>
-                        {row._grossMargin != null ? `${row._grossMargin.toFixed(0)}%` : "—"}
-                      </td>
-                      {/* NM */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._netMargin != null ? (row._netMargin >= 20 ? "#2bb886" : row._netMargin >= 10 ? "#4a9a6a" : row._netMargin >= 0 ? "#686878" : "#c06060") : "#2a2a35" }}>
-                        {row._netMargin != null ? `${row._netMargin.toFixed(0)}%` : "—"}
-                      </td>
-                      {/* FrHi% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
-                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
-                      </td>
-                      {/* RS */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
-                        {s.rs_rank ?? "—"}
-                      </td>
-                      {/* Theme */}
-                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9, color: "#4a4a5a",
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>
-                        {s.themes?.[0]?.theme || "—"}
-                      </td>
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
-                        lineHeight: 1.4, maxWidth: 300, minWidth: 120, verticalAlign: "top",
+                        lineHeight: 1.4, maxWidth: 400, minWidth: 150, verticalAlign: "top",
                         fontStyle: row._upcoming ? "italic" : "normal" }}>
                         {row._upcoming ? (
                           <span style={{ color: "#787888" }}>Reports after close today</span>
@@ -2701,6 +2581,47 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             {row._headline}
                           </span>
                         ) : "—"}
+                      </td>
+                      {/* Grade */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: gradeColor(s.grade) }}>
+                        {s.grade || "—"}
+                      </td>
+                      {/* Days */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (row.days_ago ?? 999) <= 1 ? "#2bb886" : (row.days_ago ?? 999) <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
+                        {row.days_ago != null ? `${row.days_ago}d` : "—"}
+                      </td>
+                      {/* FrHi% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
+                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
+                      </td>
+                      {/* VolX */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
+                        {displayVol}
+                      </td>
+                      {/* Status */}
+                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9 }}>
+                        {statusDisplay && (
+                          <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 600,
+                            background: statusDisplay.bg || getTypeBg(row._source),
+                            border: `1px solid ${statusDisplay.border || getSourceBorderColor(row._source)}`,
+                            color: statusDisplay.color || getTypeColor(row._source) }}>
+                            {statusDisplay.label}
+                          </span>
+                        )}
+                      </td>
+                      {/* Rev% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
+                        {displayRev}
+                      </td>
+                      {/* EPS% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
+                        {displayEps}
                       </td>
                     </tr>
                   );
