@@ -1853,6 +1853,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
   // STATE: Filters
   const [minRS, setMinRS] = useState(0);
+  const [minDvol, setMinDvol] = useState(0); // min avg $Vol in millions
   const [maxDays, setMaxDays] = useState(60);
   const [noBio, setNoBio] = useState(true);
 
@@ -2049,8 +2050,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (minRS > 0) {
       filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? 0) >= minRS);
     }
+    // Filter by avg $Vol (in millions)
+    if (minDvol > 0) {
+      filtered = filtered.filter(r => {
+        const dv = stockMap[r.ticker]?.avg_dollar_vol_raw;
+        return dv != null && dv >= minDvol * 1_000_000;
+      });
+    }
     return filtered;
-  }, [filteredEarnings, pmSipMovers, ahSipMovers, sourceFilter, minRS, stockMap]);
+  }, [filteredEarnings, pmSipMovers, ahSipMovers, sourceFilter, minRS, minDvol, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2251,6 +2259,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
             <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
             <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
               style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+          </div>
+
+          {/* $Vol slider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 10, color: minDvol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥{minDvol}M</span>
+            <input type="range" min={0} max={100} step={5} value={minDvol} onChange={e => setMinDvol(Number(e.target.value))}
+              style={{ width: 60, height: 4, accentColor: "#fbbf24", cursor: "pointer" }} />
           </div>
 
           {/* Days filter */}
