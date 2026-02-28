@@ -1858,7 +1858,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers }) {
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "ep" | "er"
@@ -2148,19 +2148,41 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       }
     });
 
+    // Add SIP movers (PM and AH stocks in play) not already in EPs/ERs
+    const allSip = [...(pmSipMovers || []).map(m => ({ ...m, _sipSession: "PM" })), ...(ahSipMovers || []).map(m => ({ ...m, _sipSession: "AH" }))];
+    allSip.forEach(m => {
+      if (!seen.has(m.ticker + "_sip")) {
+        seen.add(m.ticker + "_sip");
+        const s = stockMap[m.ticker] || {};
+        rows.push({
+          ticker: m.ticker,
+          _source: m._sipSession === "PM" ? "pm_sip" : "ah_sip",
+          _key: m.ticker + "_sip",
+          _headline: m.headlines?.[0] || "",
+          _recentHeadlines: m.headlines || [],
+          _chg: m.change_pct,
+          vol_ratio: m.volume && s.avg_volume ? m.volume / s.avg_volume : null,
+          days_ago: 0,
+          _sipData: m,
+        });
+      }
+    });
+
     // Filter by source
     let filtered = rows;
     if (sourceFilter === "ep") {
       filtered = filtered.filter(r => r._source === "ep" || r._source === "manual" || r._source === "both");
     } else if (sourceFilter === "er") {
       filtered = filtered.filter(r => r._source === "er" || r._source === "upcoming" || r._source === "both");
+    } else if (sourceFilter === "sip") {
+      filtered = filtered.filter(r => r._source === "pm_sip" || r._source === "ah_sip");
     }
     // Filter by RS
     if (minRS > 0) {
       filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? 0) >= minRS);
     }
     return filtered;
-  }, [filteredEPs, filteredEarnings, sourceFilter, minRS, stockMap]);
+  }, [filteredEPs, filteredEarnings, pmSipMovers, ahSipMovers, sourceFilter, minRS, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2173,7 +2195,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const sortedRows = useMemo(() => {
     const sorters = {
       type: (a, b) => {
-        const order = { ep: 0, manual: 1, er: 2, both: 3, upcoming: 4 };
+        const order = { ep: 0, manual: 1, er: 2, both: 3, upcoming: 4, pm_sip: 5, ah_sip: 6 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
       },
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
@@ -2255,6 +2277,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     if (source === "er") return "#c084fc";
     if (source === "both") return "#fbbf24";
     if (source === "upcoming") return "#f59e0b";
+    if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf8";
     return "#686878";
   };
 
@@ -2264,6 +2287,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     if (source === "er") return "#c084fc18";
     if (source === "both") return "#fbbf2418";
     if (source === "upcoming") return "#f59e0b18";
+    if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf818";
     return "#4a4a5a18";
   };
 
@@ -2273,6 +2297,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     if (source === "er") return "#c084fc40";
     if (source === "both") return "#fbbf2440";
     if (source === "upcoming") return "#f59e0b40";
+    if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf840";
     return "#4a4a5a40";
   };
 
@@ -2367,8 +2392,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-            {["all", "ep", "er"].map(src => {
-              const label = src === "all" ? "All" : src === "ep" ? "EP" : "ER";
+            {["all", "ep", "er", "sip"].map(src => {
+              const label = src === "all" ? "All" : src === "ep" ? "EP" : src === "er" ? "ER" : "SIP";
               const isActive = sourceFilter === src;
               return (
                 <button key={src} onClick={() => setSourceFilter(src)}
@@ -2466,7 +2491,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: 30 }} />{/* RS */}
-                <col style={{ width: 48 }} />{/* Type */}
+                <col style={{ width: 52 }} />{/* Type */}
                 <col style={{ width: 52 }} />{/* Ticker */}
                 <col style={{ width: 42 }} />{/* Rev% */}
                 <col style={{ width: 42 }} />{/* EPS% */}
@@ -2554,7 +2579,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
                           {row._source === "manual" ? "✋" : row._source === "both" ? "EP+ER" :
-                           row._source === "upcoming" ? "AMC" : row._source.toUpperCase()}
+                           row._source === "upcoming" ? "AMC" : row._source === "pm_sip" ? "PM-SIP" :
+                           row._source === "ah_sip" ? "AH-SIP" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
@@ -6728,7 +6754,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
