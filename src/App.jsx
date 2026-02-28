@@ -2141,9 +2141,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return rows;
   }, [filteredEPs, filteredEarnings, sourceFilter]);
 
-  // Detect if any earnings row has session data (PM/ID/AH)
+  // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
-    return filteredEarnings.some(s => s._pmChg != null || s._idChg != null || s._ahChg != null);
+    if (filteredEarnings.length === 0) return false;
+    const withSession = filteredEarnings.filter(s => s._pmChg != null || s._idChg != null || s._ahChg != null).length;
+    return withSession / filteredEarnings.length > 0.15; // need >15% coverage to show session columns
   }, [filteredEarnings]);
 
   // Sort unified rows
