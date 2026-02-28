@@ -2482,6 +2482,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 <col style={{ width: 40 }} />{/* Grade */}
                 <col style={{ width: 30 }} />{/* Days */}
                 <col style={{ width: 42 }} />{/* FrHi% */}
+                <col style={{ width: 42 }} />{/* Chg% */}
                 <col style={{ width: 38 }} />{/* VolX */}
                 <col style={{ width: 90 }} />{/* Status */}
               </colgroup>
@@ -2506,6 +2507,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     { col: "grade", label: "Grade", align: "right" },
                     { col: "days", label: "Days", align: "right" },
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
+                    { col: "change", label: "Chg%", align: "right" },
                     { col: "vol", label: "VolX", align: "right" },
                     { col: "status", label: "Status", align: "left" },
                   ].map(({ col, label, align, color }) => (
@@ -2622,6 +2624,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
                         {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
+                      </td>
+                      {/* Chg% — live from stockMap */}
+                      <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: chgColor(s.change_pct) }}>
+                        {s.change_pct != null ? `${s.change_pct > 0 ? "+" : ""}${s.change_pct.toFixed(1)}%` : "—"}
                       </td>
                       {/* VolX */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
