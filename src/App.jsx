@@ -2471,7 +2471,20 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         {/* Unified Table */}
         {sortedRows.length > 0 ? (
           <div style={{ overflowX: "auto", maxHeight: 500, overflowY: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, minWidth: hasSessionData ? 1600 : 1300 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: 30 }} />{/* RS */}
+                <col style={{ width: 48 }} />{/* Type */}
+                <col style={{ width: 52 }} />{/* Ticker */}
+                <col style={{ width: 42 }} />{/* Rev% */}
+                <col style={{ width: 42 }} />{/* EPS% */}
+                <col />{/* Headline — takes remaining space */}
+                <col style={{ width: 40 }} />{/* Grade */}
+                <col style={{ width: 30 }} />{/* Days */}
+                <col style={{ width: 42 }} />{/* FrHi% */}
+                <col style={{ width: 38 }} />{/* VolX */}
+                <col style={{ width: 90 }} />{/* Status */}
+              </colgroup>
               <thead>
                 <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
                   {[
@@ -2573,7 +2586,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                       </td>
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
-                        lineHeight: 1.4, maxWidth: 50, minWidth: 30, verticalAlign: "top",
+                        lineHeight: 1.4, verticalAlign: "top", overflow: "hidden",
                         fontStyle: row._upcoming ? "italic" : "normal", whiteSpace: "normal", wordWrap: "break-word" }}>
                         {row._upcoming ? (
                           <span style={{ color: "#787888" }}>Reports after close today</span>
