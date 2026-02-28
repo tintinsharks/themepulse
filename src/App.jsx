@@ -2921,6 +2921,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const er = m.er || {};
                     const revYoY = sMap.sales_yoy ?? sMap.rev_growth_yoy ?? er.rev_growth_yoy ?? (sMap.quarterly_data?.[0]?.sales_yoy) ?? null;
                     const epsYoY = sMap.eps_yoy ?? sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? (sMap.quarterly_data?.[0]?.eps_yoy) ?? null;
+                    const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
+                    const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
+                    const hlColor = epsBeat && revBeat ? "#2bb886" : "#606070";
                     return (
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
@@ -2962,7 +2965,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
                           {daysAgo}d
                         </td>
-                        <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
+                        <td style={{ padding: "3px 6px", color: hlColor, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
                           {m.recent_headlines && m.recent_headlines.length > 0 ? m.recent_headlines[0] : "—"}
                         </td>
                       </tr>
