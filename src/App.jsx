@@ -1859,28 +1859,34 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 // ── EPISODIC PIVOTS ──
 function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers }) {
-  const [sortBy, setSortBy] = useState("date");
+  // STATE: Unified table with source filter
+  const [sort, setSort] = useState({ col: "date", dir: "desc" });
+  const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "ep" | "er"
+
+  // STATE: EP Filters
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(4);
   const [maxDays, setMaxDays] = useState(60);
   const [statusFilter, setStatusFilter] = useState(null);
-  const [showLegend, setShowLegend] = useState(false);
-  const [epSection, setEpSection] = useState("results"); // results only now
-  const [erSort, setErSort] = useState({ col: "change", dir: "desc" });
+  const [epMinScore, setEpMinScore] = useState(0);
+  const [epNoBio, setEpNoBio] = useState(true);
+  const [epFilters, setEpFilters] = useState(new Set());
+
+  // STATE: ER Filters
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [erNoBio, setErNoBio] = useState(true);
   const [er9M, setEr9M] = useState(false);
   const [erBeatFilter, setErBeatFilter] = useState(null);
-  const erSortedTickersRef = useRef([]); // null=all, "beat"=positive, "miss"=negative
-  const [epMinScore, setEpMinScore] = useState(0);
-  const [epNoBio, setEpNoBio] = useState(true); // exclude biotech by default
-  const [epFilters, setEpFilters] = useState(new Set()); // "MF+","MF-","S+","M+","L+","9M"
-  const [epTodayOnly, setEpTodayOnly] = useState(false);
+
+  // STATE: Live EPs & Calendar
   const [liveEPs, setLiveEPs] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
+  const [showLegend, setShowLegend] = useState(false);
 
-  // Fetch live EPs on mount and on manual refresh
+  const erSortedTickersRef = useRef([]);
+
+  // Fetch live EPs
   const fetchLiveEPs = useCallback(() => {
     setLiveLoading(true);
     fetch('/api/live?ep=scan')
@@ -1897,26 +1903,23 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
 
   useEffect(() => { fetchLiveEPs(); }, [fetchLiveEPs]);
 
-  // Merge: live EPs (today) + pipeline EPs (historical) + manual EPs
+  // Merge: live EPs + pipeline EPs + manual EPs
   const mergedSignals = useMemo(() => {
     const all = [];
     const seen = new Set();
     const today = new Date();
-    // Live EPs first (today's fresh signals)
     if (liveEPs) {
       liveEPs.forEach(ep => {
         const key = `${ep.ticker}_${ep.date}`;
         if (!seen.has(key)) { seen.add(key); all.push(ep); }
       });
     }
-    // Pipeline EPs (historical with consolidation status)
     if (epSignals) {
       epSignals.forEach(ep => {
         const key = `${ep.ticker}_${ep.date}`;
         if (!seen.has(key)) { seen.add(key); all.push(ep); }
       });
     }
-    // Manual EPs
     if (manualEPs) {
       manualEPs.forEach(ep => {
         const key = `${ep.ticker}_${ep.date}`;
@@ -1932,103 +1935,316 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return all;
   }, [liveEPs, epSignals, manualEPs]);
 
-  // Enhance quality scores: shared stock quality (fundamentals + structure) + EP-specific bonuses (gap, volume, catalyst)
+  // Enhance quality scores for EPs
   const enhancedSignals = useMemo(() => {
     if (!mergedSignals) return [];
     return mergedSignals.map(ep => {
       const s = stockMap[ep.ticker];
       const base = computeStockQuality(s);
-      
-      // Start with shared stock quality, then add EP-specific bonuses
       let q = base.quality;
       const factors = [...base.q_factors];
-      
-      // EP-specific: live scanner already scored gap/vol into ep.quality (base 50)
-      // Add the delta from live scanner's EP-specific scoring
-      const liveBonus = (ep.quality || 0) - 50;  // extract just the EP-specific part
+      const liveBonus = (ep.quality || 0) - 50;
       if (liveBonus > 0) q += liveBonus;
-      
-      // EP-specific: consolidation quality (Bonde delayed entry)
       const c = ep.consol || {};
       if (c.status === "consolidating") { q += 8; factors.push("★C"); }
       else if (c.status === "fresh") { q += 3; }
       else if (c.status === "failed") { q -= 10; factors.push("Fail"); }
-      
-      // EP-specific: close range shows conviction
       if (ep.close_range >= 80) { q += 3; }
-      
       q = Math.min(100, Math.max(0, q));
       return { ...ep, quality: q, q_factors: factors };
     });
   }, [mergedSignals, stockMap]);
 
-  const filtered = useMemo(() => {
-    if (!enhancedSignals || !enhancedSignals.length) return [];
+  // Build earnings data
+  const earningsData = useMemo(() => {
+    const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
+    const todayAMCTickers = new Set();
+    Object.values(stockMap).forEach(s => {
+      if (s.earnings_days === 0) {
+        const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
+        if (disp.includes("AMC")) todayAMCTickers.add(s.ticker);
+      }
+    });
+
+    const upcomingAMC = Object.values(stockMap).filter(s => {
+      if (reportedTickers.has(s.ticker)) return false;
+      return todayAMCTickers.has(s.ticker);
+    }).map(s => ({
+      ticker: s.ticker,
+      company: s.company || s.ticker,
+      price: s.price,
+      change_pct: s.change_pct,
+      volume: s.volume || s.avg_volume_raw,
+      er: { time: "amc_today" },
+      in_universe: true,
+      grade: s.grade,
+      _upcoming: true,
+    }));
+
+    const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => {
+      const er = m.er || {};
+      const chg = m.change_pct ?? 0;
+      const isUpcoming = !!m._upcoming || todayAMCTickers.has(m.ticker);
+
+      const parts = [];
+      if (!isUpcoming) {
+        if (er.eps != null) {
+          const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
+          if (er.eps_estimated != null) {
+            const diff = er.eps - er.eps_estimated;
+            parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
+          } else {
+            parts.push(epsStr);
+          }
+        }
+        if (er.revenue != null) {
+          const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
+          if (er.revenue_estimated != null) {
+            const diff = er.revenue - er.revenue_estimated;
+            const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
+            parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
+          } else {
+            parts.push(`revenue of ${revStr}`);
+          }
+        }
+      }
+
+      return {
+        ticker: m.ticker,
+        company: m.company || m.ticker,
+        _chg: chg,
+        _er: er,
+        _headline: isUpcoming ? "" : parts.join(", "),
+        _vol: m.volume || 0,
+        _inUniverse: !!m.in_universe,
+        grade: m.grade || null,
+        _pmChg: m.pm_change_pct ?? null,
+        _idChg: m.id_change_pct ?? null,
+        _idVol: m.id_volume ?? null,
+        _ahChg: m.ah_change_pct ?? null,
+        _upcoming: isUpcoming,
+        _industry: stockMap[m.ticker]?.industry || m.industry || "",
+        _rvol: stockMap[m.ticker]?.rel_volume ?? null,
+        _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
+        _epsBeat: !isUpcoming && er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null,
+        _revBeat: !isUpcoming && er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null,
+        _grossMargin: er.gross_margin ?? null,
+        _netMargin: er.net_margin ?? null,
+        _revGrowthYoY: er.rev_growth_yoy ?? null,
+        _epsGrowthYoY: er.eps_growth_yoy ?? null,
+      };
+    });
+
+    return allMovers;
+  }, [earningsMovers, stockMap]);
+
+  // Filter earnings movers
+  const ER_EXCLUDED = new Set([
+    "Biotechnology", "Investment Brokerage - National", "Investment Brokerage - Regional",
+    "Investment Banks/Brokers", "Investment Banks and Brokerages",
+    "Investment Management", "Investment Managers",
+    "Closed-End Fund - Equity", "Closed-End Fund - Debt", "Closed-End Fund - Foreign",
+    "Investment Trusts/Mutual Funds",
+    "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+    "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+    "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
+    "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
+    "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
+  ]);
+
+  const filteredEarnings = useMemo(() => {
+    let result = earningsData;
+
+    if (erNoBio) {
+      result = result.filter(s => {
+        const ind = (s._industry || "").trim();
+        if (!ind) return true;
+        for (const ex of ER_EXCLUDED) { if (ind.toLowerCase() === ex.toLowerCase()) return false; }
+        return true;
+      });
+    }
+
+    if (er9M) {
+      result = result.filter(s => {
+        const todayVol = s._vol || 0;
+        const avgVol = s._avgVol || Infinity;
+        return todayVol >= 8_900_000 && avgVol < 8_900_000;
+      });
+    }
+
+    if (erUniverseOnly) {
+      result = result.filter(s => s._inUniverse);
+    }
+
+    if (erBeatFilter === "beat") {
+      result = result.filter(s => s._epsBeat === true || s._revBeat === true);
+    } else if (erBeatFilter === "miss") {
+      result = result.filter(s => s._epsBeat === false || s._revBeat === false);
+    }
+
+    return result;
+  }, [earningsData, erNoBio, er9M, erUniverseOnly, erBeatFilter]);
+
+  // Filter EP signals
+  const filteredEPs = useMemo(() => {
+    return enhancedSignals
+      .filter(ep => ep.manual || (ep.gap_pct >= minGap && ep.vol_ratio >= minVol))
+      .filter(ep => ep.days_ago <= maxDays)
+      .filter(ep => !statusFilter || ep.consol?.status === statusFilter);
+  }, [enhancedSignals, minGap, minVol, maxDays, statusFilter]);
+
+  // Unified row model: merge EPs and ERs, detect duplicates, apply source filter
+  const unifiedRows = useMemo(() => {
+    const epTickerMap = new Map();
+    filteredEPs.forEach(ep => {
+      const key = ep.ticker;
+      epTickerMap.set(key, ep);
+    });
+
+    const erTickerMap = new Map();
+    filteredEarnings.forEach(er => {
+      const key = er.ticker;
+      erTickerMap.set(key, er);
+    });
+
+    const rows = [];
+    const seen = new Set();
+
+    // Add EPs first
+    filteredEPs.forEach(ep => {
+      const key = `${ep.ticker}_${ep.date || ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const er = erTickerMap.get(ep.ticker);
+        const source = ep.manual ? "manual" : er ? "both" : "ep";
+        rows.push({ ...ep, ...er, _source: source, _key: key, _epData: ep, _erData: er });
+      }
+    });
+
+    // Add ERs not in EPs
+    filteredEarnings.forEach(er => {
+      if (!epTickerMap.has(er.ticker)) {
+        const key = `${er.ticker}_er`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          rows.push({ ...er, _source: er._upcoming ? "upcoming" : "er", _key: key, _epData: null, _erData: er });
+        }
+      }
+    });
+
+    // Filter by source
+    if (sourceFilter === "ep") {
+      return rows.filter(r => r._source === "ep" || r._source === "manual" || r._source === "both");
+    } else if (sourceFilter === "er") {
+      return rows.filter(r => r._source === "er" || r._source === "upcoming" || r._source === "both");
+    }
+    return rows;
+  }, [filteredEPs, filteredEarnings, sourceFilter]);
+
+  // Sort unified rows
+  const sortedRows = useMemo(() => {
     const sorters = {
-      ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+      type: (a, b) => {
+        const order = { ep: 0, manual: 1, er: 2, both: 3, upcoming: 4 };
+        return (order[a._source] ?? 99) - (order[b._source] ?? 99);
+      },
+      ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
       grade: (a, b) => {
         const go = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
         return (go.indexOf(stockMap[a.ticker]?.grade || "G") - go.indexOf(stockMap[b.ticker]?.grade || "G"));
       },
-      date: (a, b) => a.days_ago - b.days_ago,
-      days: (a, b) => a.days_ago - b.days_ago,
-      gap: (a, b) => b.gap_pct - a.gap_pct,
-      change: (a, b) => b.change_pct - a.change_pct,
-      vol: (a, b) => b.vol_ratio - a.vol_ratio,
-      clrng: (a, b) => b.close_range - a.close_range,
+      date: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
+      days: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
+      gap: (a, b) => (b.gap_pct ?? -999) - (a.gap_pct ?? -999),
+      change: (a, b) => (b._chg ?? -999) - (a._chg ?? -999),
+      vol: (a, b) => {
+        const av = a.vol_ratio ?? a._rvol ?? -999;
+        const bv = b.vol_ratio ?? b._rvol ?? -999;
+        return bv - av;
+      },
       status: (a, b) => {
         const order = { consolidating: 0, fresh: 1, basing: 2, holding: 3, extended_pullback: 4, failed: 5 };
         return (order[a.consol?.status] ?? 9) - (order[b.consol?.status] ?? 9);
       },
-      pb: (a, b) => (b.consol?.pullback_pct ?? -99) - (a.consol?.pullback_pct ?? -99),
-      volcon: (a, b) => (a.consol?.vol_contraction ?? 99) - (b.consol?.vol_contraction ?? 99),
+      rev: (a, b) => (b._revGrowthYoY ?? -999) - (a._revGrowthYoY ?? -999),
+      eps: (a, b) => (b._epsGrowthYoY ?? -999) - (a._epsGrowthYoY ?? -999),
+      pct_from_high: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
       rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
-      fromhi: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
-      quality: (a, b) => (b.quality ?? 0) - (a.quality ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
-    return enhancedSignals
-      .filter(ep => ep.manual || (ep.gap_pct >= minGap && ep.vol_ratio >= minVol))
-      .filter(ep => ep.days_ago <= maxDays)
-      .filter(ep => !statusFilter || ep.consol?.status === statusFilter)
-      .sort(sorters[sortBy] || sorters.date);
-  }, [enhancedSignals, stockMap, sortBy, minGap, minVol, maxDays, statusFilter]);
 
-  // Report visible tickers for keyboard nav — depends on all filter/sort state
+    const sorted = [...unifiedRows].sort(sorters[sort.col] || sorters.date);
+    if (sort.dir === "asc") sorted.reverse();
+    return sorted;
+  }, [unifiedRows, sort, stockMap]);
+
+  // Report visible tickers
   useEffect(() => {
-    if (onVisibleTickers && erSortedTickersRef.current.length > 0) {
-      onVisibleTickers(erSortedTickersRef.current);
+    if (onVisibleTickers) {
+      onVisibleTickers(sortedRows.map(r => r.ticker));
     }
-  }, [earningsMovers, stockMap, erNoBio, er9M, erBeatFilter, erUniverseOnly, erSort, onVisibleTickers]);
+  }, [sortedRows, onVisibleTickers]);
 
-  // Also report on mount after first render populates the ref
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (onVisibleTickers && erSortedTickersRef.current.length > 0) {
-        onVisibleTickers(erSortedTickersRef.current);
-      }
-    }, 100);
-    return () => clearTimeout(t);
-  }, [onVisibleTickers]);
-
+  // STATUS & COLOR HELPERS
   const STATUS_STYLE = {
     consolidating: { bg: "#fbbf2418", border: "#fbbf2450", color: "#fbbf24", label: "★ CONSOLIDATING" },
     basing:        { bg: "#60a5fa10", border: "#60a5fa30", color: "#60a5fa", label: "BASING" },
     fresh:         { bg: "#2bb88610", border: "#2bb88630", color: "#2bb886", label: "FRESH" },
-    holding:       { bg: "#88888810", border: "#88888830", color: "#9090a0",    label: "HOLDING" },
+    holding:       { bg: "#88888810", border: "#88888830", color: "#9090a0", label: "HOLDING" },
     failed:        { bg: "#ef444410", border: "#ef444430", color: "#f87171", label: "FAILED" },
     extended_pullback: { bg: "#f9731610", border: "#f9731630", color: "#f97316", label: "DEEP PB" },
   };
 
-  const columns = [
-    ["Ticker", "ticker"], ["Q", "quality"], ["Grade", "grade"], ["Date", "date"], ["Days", "days"], ["Gap%", "gap"],
-    ["Chg%", "change"], ["VolX", "vol"], ["ClRng", "clrng"], ["Status", "status"],
-    ["PB%", "pb"], ["VolCon", "volcon"], ["FrHi%", "fromhi"], ["RS", "rs"], ["Theme", "theme"],
-  ];
+  const chgColor = (v) => {
+    if (v == null) return "#3a3a4a";
+    if (v >= 5) return "#2bb886"; if (v > 0) return "#4a9a6a";
+    if (v <= -5) return "#f87171"; if (v < 0) return "#c06060";
+    return "#686878";
+  };
 
-  const consolCount = enhancedSignals.filter(ep => ep.consol?.status === "consolidating").length;
+  const fmtVol = (v) => {
+    if (v == null || v === 0) return "—";
+    if (v >= 1e6) return `${(v/1e6).toFixed(1)}M`;
+    if (v >= 1e3) return `${(v/1e3).toFixed(0)}K`;
+    return v.toLocaleString();
+  };
 
-  // Upcoming earnings — EP candidates
+  const gradeColor = (g) => {
+    if (!g) return "#4a4a5a";
+    if (g.startsWith("A")) return "#2bb886";
+    if (g.startsWith("B")) return "#60a5fa";
+    if (g.startsWith("C")) return "#fbbf24";
+    return "#686878";
+  };
+
+  const getTypeColor = (source) => {
+    if (source === "ep") return "#2bb886";
+    if (source === "manual") return "#f97316";
+    if (source === "er") return "#c084fc";
+    if (source === "both") return "#fbbf24";
+    if (source === "upcoming") return "#f59e0b";
+    return "#686878";
+  };
+
+  const getTypeBg = (source) => {
+    if (source === "ep") return "#2bb88618";
+    if (source === "manual") return "#f9731618";
+    if (source === "er") return "#c084fc18";
+    if (source === "both") return "#fbbf2418";
+    if (source === "upcoming") return "#f59e0b18";
+    return "#4a4a5a18";
+  };
+
+  const getSourceBorderColor = (source) => {
+    if (source === "ep") return "#2bb88640";
+    if (source === "manual") return "#f9731640";
+    if (source === "er") return "#c084fc40";
+    if (source === "both") return "#fbbf2440";
+    if (source === "upcoming") return "#f59e0b40";
+    return "#4a4a5a40";
+  };
+
+  // Upcoming earnings calendar
   const upcomingEarnings = useMemo(() => {
     if (!stockMap) return [];
     const now = new Date();
@@ -2048,20 +2264,15 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         } catch {}
       }
       if (days != null && days >= -14 && days <= 14) {
-        // Biotech filter
         if (epNoBio && (String(s.industry || "") === "Biotechnology" || String(s.industry || "").includes("Drug Manufacturer"))) return;
-        // Market cap filters
         const mcap = s.market_cap_raw || 0;
         if (epFilters.has("S+") && mcap >= 2_000_000_000) return;
         if (epFilters.has("M+") && (mcap < 2_000_000_000 || mcap >= 10_000_000_000)) return;
         if (epFilters.has("L+") && mcap < 10_000_000_000) return;
-        // MF filters (top/bottom 10% — use threshold ±30 as proxy)
         if (epFilters.has("MF+") && !(s.mf != null && s.mf >= 30)) return;
         if (epFilters.has("MF-") && !(s.mf != null && s.mf <= -30)) return;
-        // 9M filter: today vol ≥8.9M but avg vol <8.9M
         if (epFilters.has("9M") && !((s.volume || 0) >= 8_900_000 && (s.avg_volume_raw || Infinity) < 8_900_000)) return;
         const epsScore = computeEPSScore(s);
-        // EP score filter
         if ((epsScore.score ?? 0) < epMinScore) return;
         results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
       }
@@ -2069,12 +2280,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return results.sort((a, b) => a._days - b._days || (b._epsScore ?? -1) - (a._epsScore ?? -1));
   }, [stockMap, epMinScore, epNoBio, epFilters]);
 
-  // Group upcoming by week and day (calendar view)
   const earningsCalendar = useMemo(() => {
     const now = new Date();
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    // Build day buckets
     const dayBuckets = {};
     upcomingEarnings.forEach(s => {
       const d = new Date(now);
@@ -2084,11 +2293,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
       if (!dayBuckets[dateKey]) dayBuckets[dateKey] = { dateKey, dayLabel, days: s._days, date: d, items: [] };
       dayBuckets[dateKey].items.push(s);
     });
-    // Group days into weeks (Mon-Fri)
     const weeks = {};
     Object.values(dayBuckets).sort((a, b) => a.days - b.days).forEach(day => {
       const d = day.date;
-      const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday of that week
+      const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
       const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
       const weekKey = `${monthNames[mon.getMonth()]} ${mon.getDate()}-${fri.getDate()}`;
       const isPast = day.days < 0;
@@ -2100,7 +2308,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   }, [upcomingEarnings]);
 
   const [collapsedWeeks, setCollapsedWeeks] = useState(() => {
-    // Collapse past days by default
     const collapsed = new Set();
     earningsCalendar.forEach(w => w.days.forEach(d => {
       if (d.days < 0) collapsed.add(d.dateKey);
@@ -2113,16 +2320,37 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     return next;
   });
 
+  const consolCount = enhancedSignals.filter(ep => ep.consol?.status === "consolidating").length;
+
   return (
     <div>
-
-      {/* ── EP Signals Table ── */}
+      {/* ── UNIFIED CATALYSTS TABLE ── */}
       <div style={{ marginBottom: 16 }}>
+        {/* Filter Bar */}
         <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>
-            EP Signals ({filtered.length})
+            Catalysts ({sortedRows.length})
             {consolCount > 0 && <span style={{ color: "#fbbf24", marginLeft: 6 }}>★ {consolCount} consolidating</span>}
           </span>
+
+          {/* Source toggles */}
+          <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+            {["all", "ep", "er"].map(src => {
+              const label = src === "all" ? "All" : src === "ep" ? "EP" : "ER";
+              const isActive = sourceFilter === src;
+              return (
+                <button key={src} onClick={() => setSourceFilter(src)}
+                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                    border: isActive ? `1px solid ${getTypeColor(src)}` : "1px solid #3a3a4a",
+                    background: isActive ? getTypeBg(src) : "transparent",
+                    color: isActive ? getTypeColor(src) : "#787888" }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scan button */}
           <button onClick={fetchLiveEPs} disabled={liveLoading}
             style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
               border: "1px solid #3a3a4a", background: liveLoading ? "#2bb88618" : "transparent",
@@ -2130,332 +2358,61 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             {liveLoading ? "Scanning..." : "⟳ Scan"}
           </button>
           {lastScan && <span style={{ fontSize: 9, color: "#4a4a5a" }}>Last: {lastScan}</span>}
+
+          {/* Days filter */}
           <span style={{ fontSize: 9, color: "#4a4a5a", marginLeft: 8 }}>
-            Gap≥<input type="number" value={minGap} onChange={e => setMinGap(+e.target.value)} min={0} max={50} step={1}
-              style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
-                fontSize: 9, textAlign: "center", padding: "1px 2px" }} />%
-          </span>
-          <span style={{ fontSize: 9, color: "#4a4a5a" }}>
-            Vol≥<input type="number" value={minVol} onChange={e => setMinVol(+e.target.value)} min={0} max={20} step={0.5}
-              style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
-                fontSize: 9, textAlign: "center", padding: "1px 2px" }} />x
-          </span>
-          <span style={{ fontSize: 9, color: "#4a4a5a" }}>
             Days≤<input type="number" value={maxDays} onChange={e => setMaxDays(+e.target.value)} min={1} max={120} step={1}
               style={{ width: 36, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
                 fontSize: 9, textAlign: "center", padding: "1px 2px" }} />
           </span>
-          {["consolidating", "fresh", "basing", "holding", "failed"].map(s => {
-            const st = STATUS_STYLE[s];
-            const isActive = statusFilter === s;
-            return (
-              <button key={s} onClick={() => setStatusFilter(isActive ? null : s)}
-                style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
-                  border: `1px solid ${isActive ? st.border : "#3a3a4a"}`,
-                  background: isActive ? st.bg : "transparent",
-                  color: isActive ? st.color : "#4a4a5a" }}>
-                {st.label}
-              </button>
-            );
-          })}
-        </div>
 
-        {filtered.length > 0 ? (
-          <div style={{ overflowX: "auto", maxHeight: 500, overflowY: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
-                  {columns.map(([header, key]) => (
-                    <th key={key} onClick={() => setSortBy(key)}
-                      style={{ padding: "4px 4px", textAlign: key === "ticker" || key === "theme" ? "left" : "right",
-                        color: sortBy === key ? "#fbbf24" : "#686878", fontWeight: 600, fontSize: 9, cursor: "pointer",
-                        userSelect: "none", whiteSpace: "nowrap",
-                        fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                      {header}{sortBy === key ? " ↓" : ""}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(ep => {
-                  const s = stockMap[ep.ticker] || {};
-                  const isActive = ep.ticker === activeTicker;
-                  const isManual = !!ep.manual;
-                  const st = STATUS_STYLE[ep.consol?.status] || STATUS_STYLE.holding;
-                  const gradeColor = (g) => {
-                    if (!g) return "#4a4a5a";
-                    if (g.startsWith("A")) return "#2bb886";
-                    if (g.startsWith("B")) return "#60a5fa";
-                    if (g.startsWith("C")) return "#fbbf24";
-                    return "#686878";
-                  };
-                  return (
-                    <tr key={`${ep.ticker}_${ep.date}`}
-                      onClick={() => onTickerClick(ep.ticker)}
-                      style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer",
-                        background: isActive ? "#fbbf2420" : "transparent" }}
-                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
-                      <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
-                        color: isActive ? "#fbbf24" : isManual ? "#f97316" : manualEPSet?.has(ep.ticker) ? "#f97316" : "#a8a8b8" }}>
-                        {ep.ticker}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (ep.quality || 0) >= 70 ? "#2bb886" : (ep.quality || 0) >= 50 ? "#fbbf24" : "#686878" }}>
-                        {ep.quality ?? "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: gradeColor(s.grade) }}>
-                        {s.grade || "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, color: "#686878", fontFamily: "monospace" }}>
-                        {ep.date || "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.days_ago <= 1 ? "#2bb886" : ep.days_ago <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
-                        {ep.days_ago}d
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.gap_pct >= 15 ? "#2bb886" : ep.gap_pct >= 8 ? "#4a9a6a" : "#686878" }}>
-                        +{ep.gap_pct?.toFixed(1)}%
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.change_pct >= 15 ? "#2bb886" : ep.change_pct >= 8 ? "#4a9a6a" : ep.change_pct < 0 ? "#f87171" : "#686878" }}>
-                        {ep.change_pct >= 0 ? "+" : ""}{ep.change_pct?.toFixed(1)}%
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.vol_ratio >= 8 ? "#c084fc" : ep.vol_ratio >= 4 ? "#a78bfa" : "#686878" }}>
-                        {ep.vol_ratio?.toFixed(1)}x
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.close_range >= 80 ? "#2bb886" : ep.close_range >= 50 ? "#686878" : "#4a4a5a" }}>
-                        {ep.close_range != null ? `${ep.close_range}%` : "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9 }}>
-                        <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 600,
-                          background: st.bg, border: `1px solid ${st.border}`, color: st.color }}>
-                          {st.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.consol?.pullback_pct != null ? (ep.consol.pullback_pct <= -10 ? "#f87171" : "#686878") : "#3a3a4a" }}>
-                        {ep.consol?.pullback_pct != null ? `${ep.consol.pullback_pct.toFixed(1)}%` : "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: ep.consol?.vol_contraction != null ? (ep.consol.vol_contraction <= 0.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
-                        {ep.consol?.vol_contraction != null ? `${ep.consol.vol_contraction.toFixed(2)}` : "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
-                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
-                        {s.rs_rank ?? "—"}
-                      </td>
-                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9, color: "#4a4a5a",
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>
-                        {s.themes?.[0]?.theme || "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={{ padding: 16, textAlign: "center", color: "#4a4a5a", fontSize: 11 }}>
-            No EP signals matching filters
-          </div>
-        )}
-      </div>
+          {/* Bio/REIT filter */}
+          <button onClick={() => setEpNoBio(prev => !prev)}
+            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+              border: epNoBio ? "1px solid #f97316" : "1px solid #3a3a4a",
+              background: epNoBio ? "#f9731618" : "transparent",
+              color: epNoBio ? "#f97316" : "#787888" }}>
+            {epNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
+          </button>
 
-      {/* ── Earnings Results — All Market Movers ── */}
-      {(() => {
-        // earnings_movers from 09g + 09h pipeline (already reported)
-        // Plus: today's upcoming AMC reporters from stockMap (not yet reported)
-        const reportedTickers = new Set((earningsMovers || []).map(m => m.ticker));
+          {/* EP filters (show if All or EP) */}
+          {(sourceFilter === "all" || sourceFilter === "ep") && (
+            <>
+              <span style={{ fontSize: 9, color: "#4a4a5a" }}>
+                Gap≥<input type="number" value={minGap} onChange={e => setMinGap(+e.target.value)} min={0} max={50} step={1}
+                  style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
+                    fontSize: 9, textAlign: "center", padding: "1px 2px" }} />%
+              </span>
+              <span style={{ fontSize: 9, color: "#4a4a5a" }}>
+                Vol≥<input type="number" value={minVol} onChange={e => setMinVol(+e.target.value)} min={0} max={20} step={0.5}
+                  style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
+                    fontSize: 9, textAlign: "center", padding: "1px 2px" }} />x
+              </span>
+              {["consolidating", "fresh", "basing", "holding", "failed"].map(s => {
+                const st = STATUS_STYLE[s];
+                const isActive = statusFilter === s;
+                return (
+                  <button key={s} onClick={() => setStatusFilter(isActive ? null : s)}
+                    style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+                      border: `1px solid ${isActive ? st.border : "#3a3a4a"}`,
+                      background: isActive ? st.bg : "transparent",
+                      color: isActive ? st.color : "#4a4a5a" }}>
+                    {st.label}
+                  </button>
+                );
+              })}
+            </>
+          )}
 
-        // Detect today's AMC reporters — these haven't reported yet
-        const todayAMCTickers = new Set();
-        Object.values(stockMap).forEach(s => {
-          if (s.earnings_days === 0) {
-            const disp = (s.earnings_display || s.earnings_date || "").toUpperCase();
-            if (disp.includes("AMC")) todayAMCTickers.add(s.ticker);
-          }
-        });
-
-        // Find upcoming AMC reporters NOT already in earningsMovers
-        const upcomingAMC = Object.values(stockMap).filter(s => {
-          if (reportedTickers.has(s.ticker)) return false;
-          return todayAMCTickers.has(s.ticker);
-        }).map(s => ({
-          ticker: s.ticker,
-          company: s.company || s.ticker,
-          price: s.price,
-          change_pct: s.change_pct,
-          volume: s.volume || s.avg_volume_raw,
-          er: { time: "amc_today" },
-          in_universe: true,
-          grade: s.grade,
-          _upcoming: true,
-        }));
-
-        const allMovers = [...(earningsMovers || []), ...upcomingAMC].map(m => {
-          const er = m.er || {};
-          const chg = m.change_pct ?? 0;
-          // Mark as upcoming if it's a today-AMC ticker (even if it came from earningsMovers with stale data)
-          const isUpcoming = !!m._upcoming || todayAMCTickers.has(m.ticker);
-
-          // Only build headline for stocks that have already reported
-          const parts = [];
-          if (!isUpcoming) {
-            if (er.eps != null) {
-              const epsStr = `${m.company || m.ticker} GAAP EPS of $${er.eps.toFixed(2)}`;
-              if (er.eps_estimated != null) {
-                const diff = er.eps - er.eps_estimated;
-                parts.push(`${epsStr} ${diff >= 0 ? "beats" : "misses"} by $${Math.abs(diff).toFixed(2)}`);
-              } else {
-                parts.push(epsStr);
-              }
-            }
-            if (er.revenue != null) {
-              const revStr = er.revenue >= 1e9 ? `$${(er.revenue/1e9).toFixed(2)}B` : `$${(er.revenue/1e6).toFixed(2)}M`;
-              if (er.revenue_estimated != null) {
-                const diff = er.revenue - er.revenue_estimated;
-                const diffStr = Math.abs(diff) >= 1e9 ? `$${(Math.abs(diff)/1e9).toFixed(2)}B` : `$${(Math.abs(diff)/1e6).toFixed(2)}M`;
-                parts.push(`revenue of ${revStr} ${diff >= 0 ? "beats" : "misses"} by ${diffStr}`);
-              } else {
-                parts.push(`revenue of ${revStr}`);
-              }
-            }
-          }
-          return {
-            ticker: m.ticker,
-            company: m.company || m.ticker,
-            price: m.price,
-            _chg: chg,
-            _er: er,
-            _headline: isUpcoming ? "" : parts.join(", "),
-            _vol: m.volume || 0,
-            _inUniverse: !!m.in_universe,
-            grade: m.grade || null,
-            _pmChg: m.pm_change_pct ?? null,
-            _idChg: m.id_change_pct ?? null,
-            _idVol: m.id_volume ?? null,
-            _ahChg: m.ah_change_pct ?? null,
-            _upcoming: isUpcoming,
-            _industry: stockMap[m.ticker]?.industry || m.industry || "",
-            _rvol: stockMap[m.ticker]?.rel_volume ?? null,
-            _avgVol: stockMap[m.ticker]?.avg_volume_raw ?? null,
-            _epsBeat: !isUpcoming && er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null,
-            _revBeat: !isUpcoming && er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null,
-            _grossMargin: er.gross_margin ?? null,
-            _operatingMargin: er.operating_margin ?? null,
-            _netMargin: er.net_margin ?? null,
-            _revGrowthYoY: er.rev_growth_yoy ?? null,
-            _epsGrowthYoY: er.eps_growth_yoy ?? null,
-            _quarterlyHistory: er.quarterly_history ?? null,
-          };
-        });
-
-        const ER_EXCLUDED = new Set([
-          "Biotechnology", "Investment Brokerage - National", "Investment Brokerage - Regional",
-          "Investment Banks/Brokers", "Investment Banks and Brokerages",
-          "Investment Management", "Investment Managers",
-          "Closed-End Fund - Equity", "Closed-End Fund - Debt", "Closed-End Fund - Foreign",
-          "Investment Trusts/Mutual Funds",
-          "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
-          "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
-          "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
-          "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
-          "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
-        ]);
-        const bioFiltered = erNoBio ? allMovers.filter(s => {
-          const ind = (s._industry || "").trim();
-          if (!ind) return true;
-          for (const ex of ER_EXCLUDED) { if (ind.toLowerCase() === ex.toLowerCase()) return false; }
-          return true;
-        }) : allMovers;
-
-        const nineM = er9M ? bioFiltered.filter(s => {
-          const todayVol = s._vol || 0;
-          const avgVol = s._avgVol || Infinity;
-          return todayVol >= 8_900_000 && avgVol < 8_900_000;
-        }) : bioFiltered;
-
-        const beatFiltered = erBeatFilter === "beat"
-          ? nineM.filter(s => s._epsBeat === true || s._revBeat === true)
-          : erBeatFilter === "miss"
-          ? nineM.filter(s => s._epsBeat === false || s._revBeat === false)
-          : nineM;
-
-        const visibleMovers = erUniverseOnly ? beatFiltered.filter(s => s._inUniverse) : beatFiltered;
-
-        const sorted = [...visibleMovers].sort((a, b) => {
-          let va, vb;
-          if (erSort.col === "pm_chg") { va = a._pmChg ?? -999; vb = b._pmChg ?? -999; }
-          else if (erSort.col === "id_chg") { va = a._idChg ?? -999; vb = b._idChg ?? -999; }
-          else if (erSort.col === "id_vol") { va = a._idVol ?? 0; vb = b._idVol ?? 0; }
-          else if (erSort.col === "ah_chg") { va = a._ahChg ?? -999; vb = b._ahChg ?? -999; }
-          else if (erSort.col === "rvol") { va = a._rvol ?? 0; vb = b._rvol ?? 0; }
-          else if (erSort.col === "change") { va = a._chg; vb = b._chg; }
-          else if (erSort.col === "volume") { va = a._vol; vb = b._vol; }
-          else if (erSort.col === "rev_yoy") { va = a._revGrowthYoY ?? -999; vb = b._revGrowthYoY ?? -999; }
-          else if (erSort.col === "eps_yoy") { va = a._epsGrowthYoY ?? -999; vb = b._epsGrowthYoY ?? -999; }
-          else if (erSort.col === "gm") { va = a._grossMargin ?? -999; vb = b._grossMargin ?? -999; }
-          else if (erSort.col === "nm") { va = a._netMargin ?? -999; vb = b._netMargin ?? -999; }
-          else { va = a._chg; vb = b._chg; }
-          return erSort.dir === "desc" ? vb - va : va - vb;
-        });
-
-        // Update ref for keyboard nav (actual useEffect below will sync to parent)
-        erSortedTickersRef.current = sorted.map(s => s.ticker);
-
-        const toggleSort = (col) => {
-          setErSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" });
-        };
-        const sortArrow = (col) => erSort.col === col ? (erSort.dir === "desc" ? " ↓" : " ↑") : "";
-
-        const uCount = allMovers.filter(s => s._inUniverse).length;
-        const eCount = allMovers.filter(s => !s._inUniverse).length;
-
-        const chgColor = (v) => {
-          if (v == null) return "#3a3a4a";
-          if (v >= 5) return "#2bb886"; if (v > 0) return "#4a9a6a";
-          if (v <= -5) return "#f87171"; if (v < 0) return "#c06060";
-          return "#686878";
-        };
-        const fmtVol = (v) => {
-          if (v == null || v === 0) return "—";
-          if (v >= 1e6) return `${(v/1e6).toFixed(1)}M`;
-          if (v >= 1e3) return `${(v/1e3).toFixed(0)}K`;
-          return v.toLocaleString();
-        };
-
-        const thBase = { padding: "4px 4px", textAlign: "right", color: "#686878", fontWeight: 600,
-          fontSize: 9, fontFamily: "system-ui, -apple-system, sans-serif", whiteSpace: "nowrap" };
-        const thClick = { ...thBase, cursor: "pointer", userSelect: "none" };
-
-        const hasSessionData = allMovers.some(s => s._pmChg != null || s._idChg != null || s._ahChg != null);
-
-        return (
-          <div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Earnings Results ({visibleMovers.length})</span>
+          {/* ER filters (show if All or ER) */}
+          {(sourceFilter === "all" || sourceFilter === "er") && (
+            <>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
-                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: 8,
+                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
                   border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
                   background: erUniverseOnly ? "#fbbf2418" : "transparent",
                   color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
                 {"★ Theme Only"}
-              </button>
-              <button onClick={() => setErNoBio(prev => !prev)}
-                style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                  border: erNoBio ? "1px solid #f97316" : "1px solid #3a3a4a",
-                  background: erNoBio ? "#f9731618" : "transparent",
-                  color: erNoBio ? "#f97316" : "#787888" }}>
-                {erNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
               </button>
               <button onClick={() => setEr9M(prev => !prev)}
                 style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
@@ -2479,160 +2436,244 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   color: erBeatFilter === "miss" ? "#f87171" : "#787888" }}>
                 Miss
               </button>
-              {!hasSessionData && (
-                <span style={{ fontSize: 9, color: "#c06060", marginLeft: 8, fontStyle: "italic" }}>
-                  Session data pending — run 09h
-                </span>
-              )}
-              <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>
-                {"★"} {uCount} theme {" · "} {eCount} external
-                {allMovers.filter(s => s._upcoming).length > 0 && <>{" · "}<span style={{ color: "#f59e0b" }}>{allMovers.filter(s => s._upcoming).length} AMC today</span></>}
-              </span>
-            </div>
+            </>
+          )}
+        </div>
 
-            {sorted.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#686878", padding: 20, fontSize: 12 }}>
-                {allMovers.length === 0
-                  ? <>No earnings results yet. Run <span style={{ fontFamily: "monospace", color: "#fbbf24" }}>09g_earnings_calendar.py</span> after market hours.</>
-                  : "No movers in current results."}
-              </div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: hasSessionData ? 1050 : 900 }}>
-                  <thead>
-                    {hasSessionData && (
-                      <tr style={{ borderBottom: "none" }}>
-                        <th colSpan={3}></th>
-                        <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                          color: "#a78bfa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
-                          borderBottom: "1px solid #a78bfa30" }}>PRE-MKT</th>
-                        <th colSpan={2} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                          color: "#60a5fa", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
-                          borderBottom: "1px solid #60a5fa30" }}>INTRADAY</th>
-                        <th style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                          color: "#f59e0b", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
-                          borderBottom: "1px solid #f59e0b30" }}>AFTER-HRS</th>
-                        <th></th>
-                        <th colSpan={4} style={{ padding: "2px 4px", textAlign: "center", fontSize: 8, fontWeight: 700,
-                          color: "#34d399", letterSpacing: "0.5px", fontFamily: "system-ui, -apple-system, sans-serif",
-                          borderBottom: "1px solid #34d39930" }}>FUNDAMENTALS</th>
-                        <th></th>
-                      </tr>
-                    )}
-                    <tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-                      <th style={{ ...thBase, width: 16, textAlign: "center" }}></th>
-                      <th style={{ ...thBase, textAlign: "left", width: 55 }}>Symbol</th>
-                      <th style={{ ...thBase, textAlign: "left", width: 120 }}>Name</th>
-                      {hasSessionData ? (<>
-                        <th onClick={() => toggleSort("pm_chg")} style={{ ...thClick, width: 55, color: "#a78bfa" }}>Chg%{sortArrow("pm_chg")}</th>
-                        <th onClick={() => toggleSort("id_chg")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Chg%{sortArrow("id_chg")}</th>
-                        <th onClick={() => toggleSort("id_vol")} style={{ ...thClick, width: 55, color: "#60a5fa" }}>Vol{sortArrow("id_vol")}</th>
-                        <th onClick={() => toggleSort("ah_chg")} style={{ ...thClick, width: 55, color: "#f59e0b" }}>Chg%{sortArrow("ah_chg")}</th>
-                        <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
-                      </>) : (<>
-                        <th onClick={() => toggleSort("change")} style={{ ...thClick, width: 95 }}>Change{sortArrow("change")}</th>
-                        <th onClick={() => toggleSort("volume")} style={{ ...thClick, width: 70 }}>Volume{sortArrow("volume")}</th>
-                        <th onClick={() => toggleSort("rvol")} style={{ ...thClick, width: 45 }}>RVol{sortArrow("rvol")}</th>
-                      </>)}
-                      <th onClick={() => toggleSort("rev_yoy")} style={{ ...thClick, width: 55, color: "#34d399" }} title="Revenue Growth YoY">Rev%{sortArrow("rev_yoy")}</th>
-                      <th onClick={() => toggleSort("eps_yoy")} style={{ ...thClick, width: 55, color: "#34d399" }} title="EPS Growth YoY">EPS%{sortArrow("eps_yoy")}</th>
-                      <th onClick={() => toggleSort("gm")} style={{ ...thClick, width: 45, color: "#34d399" }} title="Gross Margin">GM{sortArrow("gm")}</th>
-                      <th onClick={() => toggleSort("nm")} style={{ ...thClick, width: 45, color: "#34d399" }} title="Net Margin">NM{sortArrow("nm")}</th>
-                      <th style={{ ...thBase, textAlign: "left" }}>Headline</th>
+        {/* Unified Table */}
+        {sortedRows.length > 0 ? (
+          <div style={{ overflowX: "auto", maxHeight: 500, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, minWidth: 1200 }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
+                  <th onClick={() => setSort(prev => prev.col === "type" ? { col: "type", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "type", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "center", color: sort.col === "type" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Type{sort.col === "type" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "ticker" ? { col: "ticker", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "ticker", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "left", color: sort.col === "ticker" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Ticker{sort.col === "ticker" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "grade" ? { col: "grade", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "grade", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "grade" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Grade{sort.col === "grade" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "days" ? { col: "days", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "days", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "days" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Days{sort.col === "days" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "gap" ? { col: "gap", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "gap", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "gap" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Gap%{sort.col === "gap" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "change" ? { col: "change", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "change", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "change" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Chg%{sort.col === "change" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "vol" ? { col: "vol", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "vol", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "vol" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    VolX{sort.col === "vol" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "status" ? { col: "status", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "status", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "left", color: sort.col === "status" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Status{sort.col === "status" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "rev" ? { col: "rev", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "rev", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "rev" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Rev%{sort.col === "rev" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "eps" ? { col: "eps", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "eps", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "eps" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    EPS%{sort.col === "eps" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "pct_from_high" ? { col: "pct_from_high", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "pct_from_high", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "pct_from_high" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    FrHi%{sort.col === "pct_from_high" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "rs" ? { col: "rs", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "rs", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "right", color: sort.col === "rs" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    RS{sort.col === "rs" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                  <th onClick={() => setSort(prev => prev.col === "theme" ? { col: "theme", dir: prev.dir === "desc" ? "asc" : "desc" } : { col: "theme", dir: "desc" })}
+                    style={{ padding: "4px 4px", textAlign: "left", color: sort.col === "theme" ? "#fbbf24" : "#686878",
+                      fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                    Theme{sort.col === "theme" ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRows.map(row => {
+                  const s = stockMap[row.ticker] || {};
+                  const isActive = row.ticker === activeTicker;
+                  const borderColor = getSourceBorderColor(row._source);
+
+                  const displayGap = row.gap_pct != null ? `+${row.gap_pct.toFixed(1)}%` : "—";
+                  const displayChg = row._chg != null ? `${row._chg >= 0 ? "+" : ""}${row._chg.toFixed(1)}%` :
+                                     row.change_pct != null ? `${row.change_pct >= 0 ? "+" : ""}${row.change_pct.toFixed(1)}%` : "—";
+                  const displayVol = row.vol_ratio != null ? `${row.vol_ratio.toFixed(1)}x` :
+                                    row._rvol != null ? `${row._rvol.toFixed(1)}x` : "—";
+
+                  const statusDisplay = row.consol?.status
+                    ? STATUS_STYLE[row.consol.status] || STATUS_STYLE.holding
+                    : row._epsBeat != null
+                    ? { label: row._epsBeat ? "✓ Beat" : "✗ Miss", color: row._epsBeat ? "#2bb886" : "#f87171" }
+                    : null;
+
+                  const displayRev = row._revGrowthYoY != null ? `${row._revGrowthYoY >= 0 ? "+" : ""}${row._revGrowthYoY.toFixed(0)}%` : "—";
+                  const displayEps = row._epsGrowthYoY != null ? `${row._epsGrowthYoY >= 0 ? "+" : ""}${row._epsGrowthYoY.toFixed(0)}%` : "—";
+
+                  return (
+                    <tr key={row._key}
+                      onClick={() => onTickerClick(row.ticker)}
+                      style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer", borderLeft: `2px solid ${borderColor}`,
+                        background: isActive ? "#fbbf2420" : "transparent" }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                      {/* Type Badge */}
+                      <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
+                        <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
+                          color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
+                          {row._source === "manual" ? "✋" : row._source === "both" ? "EP+ER" :
+                           row._source === "upcoming" ? "AMC" : row._source.toUpperCase()}
+                        </span>
+                      </td>
+                      {/* Ticker */}
+                      <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
+                        color: isActive ? "#fbbf24" : manualEPSet?.has(row.ticker) ? "#f97316" : "#a8a8b8" }}>
+                        {row.ticker}
+                      </td>
+                      {/* Grade */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: gradeColor(s.grade) }}>
+                        {s.grade || "—"}
+                      </td>
+                      {/* Days */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (row.days_ago ?? 999) <= 1 ? "#2bb886" : (row.days_ago ?? 999) <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
+                        {row.days_ago != null ? `${row.days_ago}d` : "—"}
+                      </td>
+                      {/* Gap% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row.gap_pct >= 15 ? "#2bb886" : row.gap_pct >= 8 ? "#4a9a6a" : row.gap_pct > 0 ? "#686878" : "#3a3a4a" }}>
+                        {displayGap}
+                      </td>
+                      {/* Chg% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: chgColor(row._chg ?? row.change_pct) }}>
+                        {displayChg}
+                      </td>
+                      {/* VolX */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
+                        {displayVol}
+                      </td>
+                      {/* Status */}
+                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9 }}>
+                        {statusDisplay && (
+                          <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 600,
+                            background: statusDisplay.bg || getTypeBg(row._source),
+                            border: `1px solid ${statusDisplay.border || getSourceBorderColor(row._source)}`,
+                            color: statusDisplay.color || getTypeColor(row._source) }}>
+                            {statusDisplay.label}
+                          </span>
+                        )}
+                      </td>
+                      {/* Rev% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
+                        {displayRev}
+                      </td>
+                      {/* EPS% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
+                        {displayEps}
+                      </td>
+                      {/* FrHi% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
+                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
+                      </td>
+                      {/* RS */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
+                        {s.rs_rank ?? "—"}
+                      </td>
+                      {/* Theme */}
+                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9, color: "#4a4a5a",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>
+                        {s.themes?.[0]?.theme || "—"}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sorted.map(s => {
-                      const isActive = s.ticker === activeTicker;
-                      const er = s._er;
-                      const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
-                      const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
-                      const headlineColor = epsBeat && revBeat ? "#2bb886" : epsBeat === false && revBeat === false ? "#f87171" : epsBeat ? "#4a9a6a" : "#c06060";
-
-                      const chgCell = (val) => (
-                        <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10 }}>
-                          {val != null ? (
-                            <span style={{ color: chgColor(val) }}>{val > 0 ? "+" : ""}{val.toFixed(1)}%</span>
-                          ) : <span style={{ color: "#2a2a35" }}>—</span>}
-                        </td>
-                      );
-                      const volCell = (val) => (
-                        <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#606070" }}>
-                          {fmtVol(val)}
-                        </td>
-                      );
-
-                      return (
-                        <tr key={s.ticker} data-ticker={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                          style={{ cursor: "pointer", borderBottom: "1px solid #1a1a25",
-                            background: isActive ? "#fbbf2420" : "transparent",
-                            opacity: s._inUniverse ? 1 : 0.75 }}
-                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff06"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
-                          <td style={{ padding: "4px 3px", textAlign: "center", fontSize: 9 }}>
-                            {s._inUniverse ? <span style={{ color: "#fbbf24" }} title="In theme universe">{"★"}</span> : <span style={{ color: "#3a3a4a" }} title="External">{"·"}</span>}
-                          </td>
-                          <td style={{ padding: "4px 4px", fontWeight: 600, fontSize: 10,
-                            color: isActive ? "#fbbf24" : manualEPSet?.has(s.ticker) ? "#f97316" : s._inUniverse ? "#a8a8b8" : "#787888", fontFamily: "monospace" }}>
-                            {s.ticker}
-                          </td>
-                          <td style={{ padding: "4px 4px", color: "#686878", fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120,
-                            fontFamily: "system-ui, -apple-system, sans-serif" }}>
-                            {s.company || "—"}
-                          </td>
-                          {hasSessionData ? (<>
-                            {chgCell(s._pmChg)}
-                            {chgCell(s._idChg)}
-                            {volCell(s._idVol)}
-                            {chgCell(s._ahChg)}
-                            <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                              color: s._rvol >= 2 ? "#c084fc" : s._rvol >= 1.5 ? "#a78bfa" : s._rvol != null ? "#686878" : "#3a3a4a" }}>
-                              {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
-                            </td>
-                          </>) : (<>
-                            <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                              <span style={{ color: chgColor(s._chg), fontSize: 11 }}>
-                                {s._chg > 0 ? "+" : ""}{s._chg.toFixed(2)}%
-                              </span>
-                            </td>
-                            <td style={{ padding: "4px 8px", textAlign: "right", color: "#787888", fontSize: 10, fontFamily: "monospace" }}>
-                              {fmtVol(s._vol)}
-                            </td>
-                            <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                              color: s._rvol >= 2 ? "#c084fc" : s._rvol >= 1.5 ? "#a78bfa" : s._rvol != null ? "#686878" : "#3a3a4a" }}>
-                              {s._rvol != null ? `${Number(s._rvol).toFixed(1)}x` : "—"}
-                            </td>
-                          </>)}
-                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                            color: s._revGrowthYoY != null ? chgColor(s._revGrowthYoY) : "#2a2a35" }}>
-                            {s._revGrowthYoY != null ? `${s._revGrowthYoY > 0 ? "+" : ""}${s._revGrowthYoY.toFixed(0)}%` : "—"}
-                          </td>
-                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                            color: s._epsGrowthYoY != null ? chgColor(s._epsGrowthYoY) : "#2a2a35" }}>
-                            {s._epsGrowthYoY != null ? `${s._epsGrowthYoY > 0 ? "+" : ""}${s._epsGrowthYoY.toFixed(0)}%` : "—"}
-                          </td>
-                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                            color: s._grossMargin != null ? (s._grossMargin >= 50 ? "#2bb886" : s._grossMargin >= 30 ? "#4a9a6a" : "#686878") : "#2a2a35" }}>
-                            {s._grossMargin != null ? `${s._grossMargin.toFixed(0)}%` : "—"}
-                          </td>
-                          <td style={{ padding: "4px 4px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                            color: s._netMargin != null ? (s._netMargin >= 20 ? "#2bb886" : s._netMargin >= 10 ? "#4a9a6a" : s._netMargin >= 0 ? "#686878" : "#c06060") : "#2a2a35" }}>
-                            {s._netMargin != null ? `${s._netMargin.toFixed(0)}%` : "—"}
-                          </td>
-                          <td style={{ padding: "4px 6px", fontSize: 9, color: s._upcoming ? "#787888" : headlineColor, lineHeight: 1.3,
-                            fontFamily: "system-ui, -apple-system, sans-serif", fontStyle: s._upcoming ? "italic" : "normal" }}>
-                            {s._upcoming ? "Reports after close today" : s._headline}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        );
-      })()}
+        ) : (
+          <div style={{ padding: 16, textAlign: "center", color: "#4a4a5a", fontSize: 11 }}>
+            No catalysts matching filters
+          </div>
+        )}
+      </div>
+
+      {/* ── UPCOMING EARNINGS CALENDAR ── */}
+      {earningsCalendar.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Upcoming Earnings Calendar</span>
+          </div>
+          {earningsCalendar.map(week => (
+            <div key={week.weekKey} style={{ marginBottom: 12 }}>
+              <div onClick={() => toggleWeek(week.weekKey)}
+                style={{ padding: "4px 8px", background: week.isPast ? "#1a1a1f" : week.isCurrent ? "#202028" : "#0d0d14",
+                  borderRadius: 4, cursor: "pointer", userSelect: "none", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 9, fontWeight: 600, color: "#a8a8b8" }}>
+                  {week.isCurrent ? "▼" : collapsedWeeks.has(week.weekKey) ? "▶" : "▼"}
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: week.isCurrent ? "#fbbf24" : "#a8a8b8" }}>
+                  {week.weekKey}
+                </span>
+                {week.isPast && <span style={{ fontSize: 8, color: "#4a4a5a" }}>PAST</span>}
+              </div>
+              {!collapsedWeeks.has(week.days[0]?.dateKey) && (
+                <div style={{ paddingLeft: 16, paddingTop: 4 }}>
+                  {week.days.map(day => (
+                    <div key={day.dateKey} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: day.days < 0 ? "#4a4a5a" : day.days === 0 ? "#fbbf24" : "#a8a8b8", marginBottom: 4 }}>
+                        {day.dayLabel} ({day.days > 0 ? `+${day.days}d` : day.days === 0 ? "Today" : `${day.days}d`})
+                      </div>
+                      <div style={{ paddingLeft: 8 }}>
+                        {day.items.map((s, idx) => (
+                          <div key={idx} style={{ fontSize: 9, color: "#686878", padding: "2px 0", cursor: "pointer" }}
+                            onClick={() => onTickerClick(s.ticker)}>
+                            <span style={{ fontWeight: 600, color: manualEPSet?.has(s.ticker) ? "#f97316" : "#a8a8b8" }}>
+                              {s.ticker}
+                            </span>
+                            {" "}
+                            <span style={{ color: "#4a4a5a" }}>{s.company || "—"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
