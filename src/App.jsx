@@ -1846,7 +1846,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -1866,6 +1866,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [showLegend, setShowLegend] = useState(false);
   const [pmCollapsed, setPmCollapsed] = useState(false);
   const [ahCollapsed, setAhCollapsed] = useState(false);
+  const [histCollapsed, setHistCollapsed] = useState(false);
 
   const erSortedTickersRef = useRef([]);
 
@@ -1952,6 +1953,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         _netMargin: er.net_margin ?? null,
         _revGrowthYoY: er.rev_growth_yoy ?? null,
         _epsGrowthYoY: er.eps_growth_yoy ?? null,
+        days_ago: m.days_ago ?? 0,
       };
     });
 
@@ -2624,6 +2626,82 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>
                         <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
                           {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── HISTORICAL EARNINGS WINNERS (last 5 days) ── */}
+      {historicalEarningsMovers && historicalEarningsMovers.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div onClick={() => setHistCollapsed(p => !p)}
+            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px",
+              background: "#1a1a28", borderRadius: 4, cursor: "pointer", userSelect: "none",
+              borderLeft: "3px solid #f59e0b" }}>
+            <span style={{ fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>{histCollapsed ? "▶" : "▼"}</span>
+            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>Historical Earnings Winners (5d)</span>
+            <span style={{ fontSize: 9, color: "#4a4a5a" }}>({historicalEarningsMovers.length})</span>
+          </div>
+          {!histCollapsed && (
+            <div style={{ overflowX: "auto", maxHeight: 400 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Ticker</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Name</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Chg%</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Price</th>
+                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontWeight: 600 }}>Days</th>
+                    <th style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontWeight: 600 }}>Session</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Volume</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Headline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historicalEarningsMovers.map((m, i) => {
+                    const chg = m.change_pct;
+                    const daysAgo = m.days_ago ?? 1;
+                    const sess = m._session || m.er?.timing || "";
+                    return (
+                      <tr key={m.ticker + "_hist_" + i} onClick={() => onTickerClick(m.ticker)}
+                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
+                          background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
+                          {m.grade && <span style={{ fontSize: 8, color: gradeColor(m.grade), marginRight: 3 }}>{m.grade}</span>}
+                          {m.ticker}
+                        </td>
+                        <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.company || "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
+                          {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
+                          color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
+                          {daysAgo}d
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "center" }}>
+                          <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 3, fontWeight: 600,
+                            background: sess === "PM" ? "rgba(96,165,250,0.15)" : sess === "AH" ? "rgba(192,132,252,0.15)" : "rgba(100,100,120,0.1)",
+                            color: sess === "PM" ? "#60a5fa" : sess === "AH" ? "#c084fc" : "#686878" }}>
+                            {sess || "—"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                          {fmtVol(m.volume)}
+                        </td>
+                        <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
+                          {m.recent_headlines && m.recent_headlines.length > 0 ? m.recent_headlines[0] : "—"}
                         </td>
                       </tr>
                     );
@@ -6580,7 +6658,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} />}
+          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
