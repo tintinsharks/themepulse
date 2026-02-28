@@ -2896,7 +2896,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     {[
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
-                      { key: "name", label: "Name", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
                       { key: "rev_yoy", label: "Rev%", align: "right" },
                       { key: "eps_yoy", label: "EPS%", align: "right" },
@@ -2939,9 +2938,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
                           {m.ticker}
-                        </td>
-                        <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {m.company || "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(m.volume)}
