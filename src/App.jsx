@@ -2192,8 +2192,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         case "rs": cmp = (stockMap[a.ticker]?.rs_rank ?? a.rs_rank ?? 0) - (stockMap[b.ticker]?.rs_rank ?? b.rs_rank ?? 0); break;
         case "ticker": cmp = (a.ticker || "").localeCompare(b.ticker || ""); break;
         case "name": cmp = (a.name || a.company || "").localeCompare(b.name || b.company || ""); break;
-        case "volume": cmp = (a.volume || 0) - (b.volume || 0); break;
-        case "change": cmp = (a.change_pct ?? a.ext_hours_change_pct ?? -999) - (b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
+        case "volume": cmp = (stockMap[a.ticker]?.volume ?? a.volume ?? 0) - (stockMap[b.ticker]?.volume ?? b.volume ?? 0); break;
+        case "change": cmp = (stockMap[a.ticker]?.change_pct ?? a.change_pct ?? a.ext_hours_change_pct ?? -999) - (stockMap[b.ticker]?.change_pct ?? b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
         case "price": cmp = (a.price || 0) - (b.price || 0); break;
         case "rvol": cmp = (ea.rvol ?? -999) - (eb.rvol ?? -999); break;
         case "days": cmp = (a.days_ago ?? 999) - (b.days_ago ?? 999); break;
@@ -2222,8 +2222,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => {
       const er = m.er || {};
       const s = stockMap[m.ticker] || {};
+      const lv = s.volume ?? m.volume;
+      const la = s.avg_volume ?? m.avg_volume;
       return {
-        rvol: m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (s.rel_volume ?? null),
+        rvol: lv && la ? (lv / la) : (s.rel_volume ?? null),
         revYoY: s.sales_yoy ?? s.rev_growth_yoy ?? er.rev_growth_yoy ?? (s.quarterly_data?.[0]?.sales_yoy) ?? null,
         epsYoY: s.eps_yoy ?? s.eps_growth_yoy ?? er.eps_growth_yoy ?? (s.quarterly_data?.[0]?.eps_yoy) ?? null,
       };
@@ -2913,11 +2915,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 </thead>
                 <tbody>
                   {sortedHistMovers.map((m, i) => {
-                    const chg = m.change_pct;
-                    const daysAgo = m.days_ago ?? 1;
-                    const rvol = m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (stockMap[m.ticker]?.rel_volume ?? null);
-                    const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
                     const sMap = stockMap[m.ticker] || {};
+                    // Live data from stockMap, fallback to static mover data
+                    const liveVol = sMap.volume ?? m.volume;
+                    const liveAvgVol = sMap.avg_volume ?? m.avg_volume;
+                    const chg = sMap.change_pct ?? m.change_pct;
+                    const daysAgo = m.days_ago ?? 1;
+                    const rvol = liveVol && liveAvgVol ? (liveVol / liveAvgVol) : (sMap.rel_volume ?? null);
+                    const rs = sMap.rs_rank ?? m.rs_rank ?? null;
                     const er = m.er || {};
                     const revYoY = sMap.sales_yoy ?? sMap.rev_growth_yoy ?? er.rev_growth_yoy ?? (sMap.quarterly_data?.[0]?.sales_yoy) ?? null;
                     const epsYoY = sMap.eps_yoy ?? sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? (sMap.quarterly_data?.[0]?.eps_yoy) ?? null;
@@ -2945,7 +2950,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {m.ticker}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(m.volume)}
+                          {fmtVol(liveVol)}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: revYoY != null ? chgColor(revYoY) : "#3a3a4a" }}>
@@ -3032,10 +3037,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       const s = stockMap[f.ticker] || {};
                       const m = histMoverMap[f.ticker]; // historical mover object if exists
                       const er = m?.er || {};
-                      // Use historical mover data when available (same logic as Historical ER Winners table)
-                      const vol = m ? m.volume : s.volume;
-                      const avgVol = m ? m.avg_volume : s.avg_volume;
-                      const chgVal = m ? (m.change_pct ?? null) : (s.change_pct ?? null);
+                      // Live data from stockMap for Vol/Chg%/RVol, fallback to mover or stockMap
+                      const vol = s.volume ?? (m ? m.volume : null);
+                      const avgVol = s.avg_volume ?? (m ? m.avg_volume : null);
+                      const chgVal = s.change_pct ?? (m ? m.change_pct : null) ?? null;
                       const rv = vol && avgVol ? vol / avgVol : (s.rel_volume ?? null);
                       const daysAgo = m ? (m.days_ago ?? 1) : (f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null);
                       const sMap = s; // alias to match Historical table variable name
