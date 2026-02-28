@@ -1846,14 +1846,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus }) {
   // STATE: Unified table with source filter
-  const [sort, setSort] = useState({ col: "date", dir: "desc" });
+  const [sort, setSort] = useState({ col: "cur_vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
 
   // STATE: Filters
   const [minRS, setMinRS] = useState(0);
-  const [minDvol, setMinDvol] = useState(0); // min avg $Vol in millions
+  const [minDvol, setMinDvol] = useState(50); // min avg $Vol in millions
   const [maxDays, setMaxDays] = useState(60);
   const [noBio, setNoBio] = useState(true);
 
@@ -1871,7 +1871,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   // Sort state for PM/AH/Historical tables
   const [pmSort, setPmSort] = useState({ col: "change", dir: "desc" });
   const [ahSort, setAhSort] = useState({ col: "change", dir: "desc" });
-  const [histSort, setHistSort] = useState({ col: "days", dir: "asc" });
+  const [histSort, setHistSort] = useState({ col: "volume", dir: "desc" });
+  const [focusSort, setFocusSort] = useState({ col: "change", dir: "desc" });
+
+  // Focus list lookup set
+  const focusSet = useMemo(() => new Set((focusList || []).map(f => f.ticker)), [focusList]);
 
   const erSortedTickersRef = useRef([]);
 
@@ -2446,6 +2450,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           <div style={{ overflowX: "auto", maxHeight: 375, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, tableLayout: "fixed" }}>
               <colgroup>
+                <col style={{ width: 20 }} />{/* Focus + */}
                 <col style={{ width: 30 }} />{/* RS */}
                 <col style={{ width: 52 }} />{/* Type */}
                 <col style={{ width: 52 }} />{/* Ticker */}
@@ -2462,6 +2467,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
+                  <th style={{ padding: "4px 2px", textAlign: "center", color: "#f59e0b", fontWeight: 600, fontSize: 9, width: 20 }} title="Add to Focus List">★</th>
                   {[
                     { col: "rs", label: "RS", align: "right" },
                     { col: "type", label: "Type", align: "center" },
@@ -2527,6 +2533,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         background: isActive ? "#fbbf2420" : "transparent" }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                      {/* Focus + */}
+                      <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
+                        <span onClick={(e) => { e.stopPropagation(); focusSet.has(row.ticker) ? onRemoveFocus(row.ticker) : onAddFocus(row.ticker); }}
+                          style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(row.ticker) ? "#f59e0b" : "#3a3a4a",
+                            fontWeight: 700 }} title={focusSet.has(row.ticker) ? "Remove from Focus" : "Add to Focus"}>
+                          {focusSet.has(row.ticker) ? "★" : "+"}
+                        </span>
+                      </td>
                       {/* RS */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
@@ -2877,14 +2891,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                    <th style={{ padding: "4px 2px", textAlign: "center", color: "#f59e0b", fontWeight: 600, fontSize: 9, width: 20 }} title="Add to Focus List">★</th>
                     {[
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "name", label: "Name", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
-                      { key: "change", label: "Chg%", align: "right" },
                       { key: "rev_yoy", label: "Rev%", align: "right" },
                       { key: "eps_yoy", label: "EPS%", align: "right" },
+                      { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
                       { key: "days", label: "Days", align: "center" },
                       { key: "headline", label: "Headline", align: "left" },
@@ -2910,6 +2925,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
+                          <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
+                            style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(m.ticker) ? "#f59e0b" : "#3a3a4a",
+                              fontWeight: 700 }} title={focusSet.has(m.ticker) ? "Remove from Focus" : "Add to Focus"}>
+                            {focusSet.has(m.ticker) ? "★" : "+"}
+                          </span>
+                        </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                           color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
                           {rs != null ? rs : "—"}
@@ -2924,16 +2946,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {fmtVol(m.volume)}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
-                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: revYoY != null ? chgColor(revYoY) : "#3a3a4a" }}>
                           {revYoY != null ? `${revYoY >= 0 ? "+" : ""}${revYoY.toFixed(0)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: epsYoY != null ? chgColor(epsYoY) : "#3a3a4a" }}>
                           {epsYoY != null ? `${epsYoY >= 0 ? "+" : ""}${epsYoY.toFixed(0)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: rvol != null ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
@@ -6628,6 +6650,9 @@ function AppMain({ authToken, onLogout }) {
   const [trades, setTrades] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_trades") || "[]").map(migrateTrade); } catch { return []; }
   });
+  const [focusList, setFocusList] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_focus_list") || "[]"); } catch { return []; }
+  });
   const [serverLoaded, setServerLoaded] = useState(false);
 
   // Listen for external trade imports (from console) and storage changes from other tabs
@@ -6663,6 +6688,7 @@ function AppMain({ authToken, onLogout }) {
           if (d.data.pkn) setPkn(d.data.pkn);
           if (d.data.pknWatch) setPknWatch(d.data.pknWatch);
           if (d.data.trades) setTrades(d.data.trades.map(migrateTrade));
+          if (d.data.focusList) setFocusList(d.data.focusList);
           console.log("Loaded from server:", d.data);
         }
       })
@@ -6676,6 +6702,7 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => { localStorage.setItem("tp_pkn", JSON.stringify(pkn)); }, [pkn]);
   useEffect(() => { localStorage.setItem("tp_pkn_watch", JSON.stringify(pknWatch)); }, [pknWatch]);
   useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
+  useEffect(() => { localStorage.setItem("tp_focus_list", JSON.stringify(focusList)); }, [focusList]);
 
   // Save to server (debounced)
   const saveTimer = useRef(null);
@@ -6687,14 +6714,14 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch }),
+        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch, focusList }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, trades, pkn, pknWatch, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, pkn, pknWatch, focusList, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
@@ -6703,6 +6730,13 @@ function AppMain({ authToken, onLogout }) {
   const removeFromPkn = useCallback((t) => setPkn(p => p.filter(x => x !== t)), []);
   const addToPknWatch = useCallback((t) => { const u = t.toUpperCase(); if (!pknWatch.includes(u)) setPknWatch(p => [...p, u]); }, [pknWatch]);
   const removeFromPknWatch = useCallback((t) => setPknWatch(p => p.filter(x => x !== t)), []);
+  const addToFocusList = useCallback((t) => {
+    const u = t.toUpperCase();
+    if (!focusList.some(f => f.ticker === u)) {
+      setFocusList(p => [...p, { ticker: u, addedAt: new Date().toISOString().slice(0, 10) }]);
+    }
+  }, [focusList]);
+  const removeFromFocusList = useCallback((t) => setFocusList(p => p.filter(f => f.ticker !== t)), []);
   // Visible ticker list — reported by whichever view is active
   const [visibleTickers, setVisibleTickers] = useState([]);
   const onVisibleTickers = useCallback((tickers) => setVisibleTickers(tickers), []);
@@ -6906,7 +6940,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} />}
+          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
