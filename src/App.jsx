@@ -1864,6 +1864,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "ep" | "er"
 
   // STATE: EP Filters
+  const [minRS, setMinRS] = useState(0);
   const [minGap, setMinGap] = useState(8);
   const [minVol, setMinVol] = useState(4);
   const [maxDays, setMaxDays] = useState(60);
@@ -2148,13 +2149,18 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
     });
 
     // Filter by source
+    let filtered = rows;
     if (sourceFilter === "ep") {
-      return rows.filter(r => r._source === "ep" || r._source === "manual" || r._source === "both");
+      filtered = filtered.filter(r => r._source === "ep" || r._source === "manual" || r._source === "both");
     } else if (sourceFilter === "er") {
-      return rows.filter(r => r._source === "er" || r._source === "upcoming" || r._source === "both");
+      filtered = filtered.filter(r => r._source === "er" || r._source === "upcoming" || r._source === "both");
     }
-    return rows;
-  }, [filteredEPs, filteredEarnings, sourceFilter]);
+    // Filter by RS
+    if (minRS > 0) {
+      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? 0) >= minRS);
+    }
+    return filtered;
+  }, [filteredEPs, filteredEarnings, sourceFilter, minRS, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2378,17 +2384,15 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
             })}
           </div>
 
-          {/* Scan button */}
-          <button onClick={fetchLiveEPs} disabled={liveLoading}
-            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-              border: "1px solid #3a3a4a", background: liveLoading ? "#2bb88618" : "transparent",
-              color: liveLoading ? "#2bb886" : "#787888" }}>
-            {liveLoading ? "Scanning..." : "⟳ Scan"}
-          </button>
-          {lastScan && <span style={{ fontSize: 9, color: "#4a4a5a" }}>Last: {lastScan}</span>}
+          {/* RS slider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+            <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
+            <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
+              style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+          </div>
 
           {/* Days filter */}
-          <span style={{ fontSize: 9, color: "#4a4a5a", marginLeft: 8 }}>
+          <span style={{ fontSize: 9, color: "#4a4a5a" }}>
             Days≤<input type="number" value={maxDays} onChange={e => setMaxDays(+e.target.value)} min={1} max={120} step={1}
               style={{ width: 36, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
                 fontSize: 9, textAlign: "center", padding: "1px 2px" }} />
@@ -2406,16 +2410,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           {/* EP filters (show if All or EP) */}
           {(sourceFilter === "all" || sourceFilter === "ep") && (
             <>
-              <span style={{ fontSize: 9, color: "#4a4a5a" }}>
-                Gap≥<input type="number" value={minGap} onChange={e => setMinGap(+e.target.value)} min={0} max={50} step={1}
-                  style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
-                    fontSize: 9, textAlign: "center", padding: "1px 2px" }} />%
-              </span>
-              <span style={{ fontSize: 9, color: "#4a4a5a" }}>
-                Vol≥<input type="number" value={minVol} onChange={e => setMinVol(+e.target.value)} min={0} max={20} step={0.5}
-                  style={{ width: 32, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3, color: "#a8a8b8",
-                    fontSize: 9, textAlign: "center", padding: "1px 2px" }} />x
-              </span>
               {["consolidating", "fresh", "basing", "holding", "failed"].map(s => {
                 const st = STATUS_STYLE[s];
                 const isActive = statusFilter === s;
