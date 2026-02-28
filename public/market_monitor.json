@@ -1,12 +1,12 @@
 {
   "date": "2026-02-26",
-  "generated": "2026-02-27 20:58",
-  "total_stocks": 4846,
+  "generated": "2026-02-27 21:28",
+  "total_stocks": 4848,
   "current": {
     "date": "2026-02-26",
-    "up_4pct": 356,
+    "up_4pct": 357,
     "down_4pct": 174,
-    "up_25q": 872,
+    "up_25q": 873,
     "down_25q": 436,
     "up_25m": 181,
     "down_25m": 357,
@@ -15,7 +15,7 @@
     "up_13_34d": 906,
     "down_13_34d": 952,
     "t2108": 59.6,
-    "total_stocks": 4846,
+    "total_stocks": 4848,
     "ratio_5d": 2.58,
     "ratio_10d": 2.58
   },
@@ -287,9 +287,9 @@
     },
     {
       "date": "2026-02-26",
-      "up_4pct": 356,
+      "up_4pct": 357,
       "down_4pct": 174,
-      "up_25q": 872,
+      "up_25q": 873,
       "down_25q": 436,
       "up_25m": 181,
       "down_25m": 357,
@@ -298,7 +298,7 @@
       "up_13_34d": 906,
       "down_13_34d": 952,
       "t2108": 59.6,
-      "total_stocks": 4846,
+      "total_stocks": 4848,
       "ratio_5d": 2.58,
       "ratio_10d": 2.58
     }

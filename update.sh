@@ -1,24 +1,22 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# ThemePulse Daily Update — v04 (Streamlined)
+# ThemePulse Daily Update — v05
 # Run after market close (~4:30 PM ET)
 #
 # Usage:
 #   cd ~/themepulse && ./update.sh
 #
-# What it does:
+# Pipeline:
 #   1. Scrape Finviz (Overview, Valuation, Financial, Performance, Technical)
 #   2. Analyze: RS rankings, grades, theme scoring
 #   3. Export dashboard JSON
 #   4. Enrich: fundamentals from Finviz CSV (local, fast)
 #   5. Episodic Pivot scan
-#   6. Theme health scoring (ADD/REMOVE signals)
-#   7. Scrape TheStockCatalyst (earnings movers + headlines + session data)
-#   8. Market Monitor (breadth, 4% movers, theme sparklines, index MA)
-#   9. Copy JSONs to web app + git push to deploy
-#
-# Removed from v03: 09g (slow FMP/Nasdaq APIs), 09i (momentum burst),
-#                    07 (Excel dashboard — not needed for web)
+#   6. Theme health scoring
+#   7. Earnings Calendar (Nasdaq/FMP/Finviz — full ticker list)
+#   8. Scrape TheStockCatalyst (headlines + session data enrichment)
+#   9. Market Monitor (breadth, indices, theme sparklines)
+#  10. Copy JSONs + deploy to Vercel
 # ═══════════════════════════════════════════════════════════════
 
 set -e  # Exit on any error
@@ -42,42 +40,47 @@ source venv/bin/activate
 
 # ── Step 1: Scrape Finviz ──────────────────────────────────────
 echo ""
-echo "▶ [1/8] Finviz Extract (5 views)"
+echo "▶ [1/9] Finviz Extract (5 views)"
 python3 -u "$SCRIPTS/01_finviz_extract.py"
 
 # ── Step 2: Analyze ────────────────────────────────────────────
 echo ""
-echo "▶ [2/8] Analyze (RS rankings, grades, themes)"
+echo "▶ [2/9] Analyze (RS rankings, grades, themes)"
 python3 -u "$SCRIPTS/03_analyze.py"
 
 # ── Step 3: Export Dashboard JSON ──────────────────────────────
 echo ""
-echo "▶ [3/8] Export Web Data"
+echo "▶ [3/9] Export Web Data"
 python3 -u "$SCRIPTS/09_export_web_data.py"
 
 # ── Step 4: Enrich ─────────────────────────────────────────────
 echo ""
-echo "▶ [4/8] Enrich (fundamentals from Finviz CSV)"
+echo "▶ [4/9] Enrich (fundamentals from Finviz CSV)"
 python3 -u "$SCRIPTS/09b_enrich_web_data.py"
 
 # ── Step 5: Episodic Pivots ────────────────────────────────────
 echo ""
-echo "▶ [5/8] Episodic Pivot Scan"
+echo "▶ [5/9] Episodic Pivot Scan"
 python3 -u "$SCRIPTS/09d_episodic_pivots.py"
 
 # ── Step 6: Theme Health ───────────────────────────────────────
 echo ""
-echo "▶ [6/8] Theme Health Scoring"
+echo "▶ [6/9] Theme Health Scoring"
 python3 -u "$SCRIPTS/09e_theme_health.py"
 
-# ── Step 7: Scrape TheStockCatalyst ────────────────────────────
+# ── Step 7: Earnings Calendar (full list from Nasdaq/FMP/Finviz) ─
 echo ""
-echo "▶ [7/8] Earnings Movers + Headlines (TheStockCatalyst)"
+echo "▶ [7/9] Earnings Calendar"
+python3 -u "$SCRIPTS/09g_earnings_calendar.py"
+
+# ── Step 8: Enrich with TheStockCatalyst headlines ─────────────
+echo ""
+echo "▶ [8/9] Headlines + Session Data (TheStockCatalyst)"
 python3 -u "$SCRIPTS/09h_scrape_headlines.py"
 
-# ── Step 8: Market Monitor ─────────────────────────────────────
+# ── Step 9: Market Monitor ─────────────────────────────────────
 echo ""
-echo "▶ [8/8] Market Monitor (breadth, indices, theme sparklines)"
+echo "▶ [9/9] Market Monitor (breadth, indices, theme sparklines)"
 python3 -u "$SCRIPTS/10_market_monitor.py"
 
 # ── Copy JSONs to web app ──────────────────────────────────────
