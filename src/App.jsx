@@ -2096,6 +2096,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         const bv = b.vol_ratio ?? b._rvol ?? -999;
         return bv - av;
       },
+      cur_vol: (a, b) => ((stockMap[b.ticker]?.volume ?? b._vol ?? -999) - (stockMap[a.ticker]?.volume ?? a._vol ?? -999)),
       subtheme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.subtheme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.subtheme || "ZZZ"),
       pm: (a, b) => (b._pmChg ?? -999) - (a._pmChg ?? -999),
       id: (a, b) => (b._idChg ?? -999) - (a._idChg ?? -999),
@@ -2453,6 +2454,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <col />{/* Headline — takes remaining space */}
                 <col style={{ width: 55 }} />{/* $Vol */}
                 <col style={{ width: 42 }} />{/* Chg% */}
+                <col style={{ width: 50 }} />{/* Vol */}
                 <col style={{ width: 38 }} />{/* RVol */}
                 <col style={{ width: 80 }} />{/* Sub */}
                 <col style={{ width: 42 }} />{/* FrHi% */}
@@ -2478,6 +2480,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   {[
                     { col: "dvol", label: "$Vol", align: "right" },
                     { col: "change", label: "Chg%", align: "right" },
+                    { col: "cur_vol", label: "Vol", align: "right" },
                     { col: "vol", label: "RVol", align: "right" },
                     { col: "subtheme", label: "Sub", align: "left" },
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
@@ -2599,7 +2602,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {chgVal != null ? `${chgVal > 0 ? "+" : ""}${chgVal.toFixed(1)}%` : "—"}
                         </td>);
                       })()}
-                      {/* VolX */}
+                      {/* Current Volume */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#686878" }}>
+                        {fmtVol(s.volume ?? row._vol)}
+                      </td>
+                      {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
                         {displayVol}
