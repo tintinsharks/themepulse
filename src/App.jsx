@@ -1858,7 +1858,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers, headlinesMap }) {
+function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVisibleTickers, manualEPs, manualEPSet, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "date", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "ep" | "er"
@@ -1883,6 +1883,10 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
   const [liveLoading, setLiveLoading] = useState(false);
   const [lastScan, setLastScan] = useState(null);
   const [showLegend, setShowLegend] = useState(false);
+
+  // STATE: PM/AH collapsible sections
+  const [pmCollapsed, setPmCollapsed] = useState(false);
+  const [ahCollapsed, setAhCollapsed] = useState(false);
 
   const erSortedTickersRef = useRef([]);
 
@@ -2710,6 +2714,128 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
           </div>
         )}
       </div>
+
+      {/* ── PM EARNINGS MOVERS ── */}
+      {pmEarningsMovers && pmEarningsMovers.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div onClick={() => setPmCollapsed(p => !p)}
+            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px",
+              background: "#1a1a28", borderRadius: 4, cursor: "pointer", userSelect: "none",
+              borderLeft: "3px solid #60a5fa" }}>
+            <span style={{ fontSize: 9, color: "#60a5fa", fontWeight: 700 }}>{pmCollapsed ? "▶" : "▼"}</span>
+            <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>Pre-Market Earnings Movers</span>
+            <span style={{ fontSize: 9, color: "#4a4a5a" }}>({pmEarningsMovers.length})</span>
+          </div>
+          {!pmCollapsed && (
+            <div style={{ overflowX: "auto", maxHeight: 320 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Ticker</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Name</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Chg%</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Price</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Volume</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Headline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pmEarningsMovers.map((m, i) => {
+                    const chg = m.change_pct ?? m.ext_hours_change_pct;
+                    return (
+                      <tr key={m.ticker + i} onClick={() => onTickerClick(m.ticker)}
+                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
+                          background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
+                          {m.grade && <span style={{ fontSize: 8, color: gradeColor(m.grade), marginRight: 3 }}>{m.grade}</span>}
+                          {m.ticker}
+                        </td>
+                        <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.name || "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
+                          {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                          {fmtVol(m.volume)}
+                        </td>
+                        <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
+                          {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── AH EARNINGS MOVERS ── */}
+      {ahEarningsMovers && ahEarningsMovers.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div onClick={() => setAhCollapsed(p => !p)}
+            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px",
+              background: "#1a1a28", borderRadius: 4, cursor: "pointer", userSelect: "none",
+              borderLeft: "3px solid #c084fc" }}>
+            <span style={{ fontSize: 9, color: "#c084fc", fontWeight: 700 }}>{ahCollapsed ? "▶" : "▼"}</span>
+            <span style={{ fontSize: 11, color: "#c084fc", fontWeight: 600 }}>After-Hours Earnings Movers</span>
+            <span style={{ fontSize: 9, color: "#4a4a5a" }}>({ahEarningsMovers.length})</span>
+          </div>
+          {!ahCollapsed && (
+            <div style={{ overflowX: "auto", maxHeight: 320 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Ticker</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Name</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Chg%</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Price</th>
+                    <th style={{ padding: "4px 6px", textAlign: "right", color: "#505060", fontWeight: 600 }}>Volume</th>
+                    <th style={{ padding: "4px 6px", textAlign: "left", color: "#505060", fontWeight: 600 }}>Headline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ahEarningsMovers.map((m, i) => {
+                    const chg = m.change_pct ?? m.ext_hours_change_pct;
+                    return (
+                      <tr key={m.ticker + i} onClick={() => onTickerClick(m.ticker)}
+                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
+                          background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
+                          {m.grade && <span style={{ fontSize: 8, color: gradeColor(m.grade), marginRight: 3 }}>{m.grade}</span>}
+                          {m.ticker}
+                        </td>
+                        <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.name || "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
+                          {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                          {fmtVol(m.volume)}
+                        </td>
+                        <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
+                          {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── UPCOMING EARNINGS CALENDAR ── */}
       {earningsCalendar.length > 0 && (
@@ -6673,7 +6799,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} />}
+          {view === "ep" && <EpisodicPivots epSignals={data.ep_signals} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPs={manualEPs} manualEPSet={manualEPSet} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} manualEPSet={manualEPSet} />}
