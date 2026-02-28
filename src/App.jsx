@@ -2800,14 +2800,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         </div>
       )}
 
-      {/* ── HISTORICAL EARNINGS WINNERS (last 5 days) ── */}
-      {(historicalEarningsMovers && historicalEarningsMovers.length > 0) && (
-        <div style={{ marginBottom: 16 }}>
-          {/* Filter Bar */}
+      {/* ── HISTORICAL + FOCUS SIDE BY SIDE ── */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+        {/* ── LEFT: HISTORICAL EARNINGS WINNERS ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
             <span onClick={() => setHistCollapsed(p => !p)}
               style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
-              {histCollapsed ? "▶" : "▼"} Historical Earnings Winners ({sortedHistMovers.length})
+              {histCollapsed ? "▶" : "▼"} Historical ER Winners ({sortedHistMovers.length})
             </span>
 
             {/* Source toggles */}
@@ -2887,10 +2887,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           </div>
 
           {!histCollapsed && sortedHistMovers.length > 0 && (
-            <div style={{ overflowX: "auto", maxHeight: 400 }}>
+            <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                  <tr style={{ borderBottom: "1px solid #2a2a3a", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
                     <th style={{ padding: "4px 2px", textAlign: "center", color: "#f59e0b", fontWeight: 600, fontSize: 9, width: 20 }} title="Add to Focus List">★</th>
                     {[
                       { key: "rs", label: "RS", align: "right" },
@@ -2981,7 +2981,114 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
             </div>
           )}
         </div>
-      )}
+
+        {/* ── RIGHT: EP/SIP FOCUS LIST ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>
+              ★ EP/SIP Focus ({focusList.length})
+            </span>
+            {focusList.length > 0 && (
+              <button onClick={() => { if (confirm("Clear all focus tickers?")) onRemoveFocus("__ALL__"); }}
+                style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+                  border: "1px solid #3a3a4a", background: "transparent", color: "#686878" }}>
+                Clear All
+              </button>
+            )}
+          </div>
+          {focusList.length > 0 ? (
+            <div style={{ overflowX: "auto", maxHeight: 400, overflowY: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #2a2a3a", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
+                    <th style={{ padding: "4px 2px", textAlign: "center", color: "#f87171", fontWeight: 600, fontSize: 9, width: 20 }} title="Remove">✕</th>
+                    {[
+                      { key: "rs", label: "RS", align: "right" },
+                      { key: "ticker", label: "Ticker", align: "left" },
+                      { key: "name", label: "Name", align: "left" },
+                      { key: "volume", label: "Vol", align: "right" },
+                      { key: "change", label: "Chg%", align: "right" },
+                      { key: "rvol", label: "RVol", align: "right" },
+                      { key: "added", label: "Added", align: "center" },
+                    ].map(h => (
+                      <th key={h.key} onClick={(e) => { e.stopPropagation(); setFocusSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
+                        style={{ padding: "4px 6px", textAlign: h.align, color: focusSort.col === h.key ? "#f59e0b" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                        {h.label}{focusSort.col === h.key ? (focusSort.dir === "desc" ? " ▾" : " ▴") : ""}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const focusRows = focusList.map(f => {
+                      const s = stockMap[f.ticker] || {};
+                      const chgVal = s.change_pct ?? null;
+                      const rv = s.volume && s.avg_volume ? s.volume / s.avg_volume : (s.rel_volume ?? null);
+                      const addedDays = f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null;
+                      return { ...f, _s: s, _chg: chgVal, _rvol: rv, _addedDays: addedDays, _rs: s.rs_rank ?? 0, _vol: s.volume ?? 0 };
+                    });
+                    focusRows.sort((a, b) => {
+                      let cmp = 0;
+                      switch (focusSort.col) {
+                        case "rs": cmp = a._rs - b._rs; break;
+                        case "ticker": cmp = a.ticker.localeCompare(b.ticker); break;
+                        case "name": cmp = (a._s.company || "").localeCompare(b._s.company || ""); break;
+                        case "volume": cmp = a._vol - b._vol; break;
+                        case "change": cmp = (a._chg ?? -999) - (b._chg ?? -999); break;
+                        case "rvol": cmp = (a._rvol ?? -999) - (b._rvol ?? -999); break;
+                        case "added": cmp = (a._addedDays ?? 999) - (b._addedDays ?? 999); break;
+                        default: cmp = (a._chg ?? -999) - (b._chg ?? -999);
+                      }
+                      return focusSort.dir === "desc" ? -cmp : cmp;
+                    });
+                    return focusRows.map((f, i) => {
+                      const s = f._s;
+                      const rs = s.rs_rank ?? null;
+                      return (
+                        <tr key={f.ticker + "_focus"} data-ticker={f.ticker} onClick={() => onTickerClick(f.ticker)}
+                          style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
+                            background: activeTicker === f.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                          <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
+                            <span onClick={(e) => { e.stopPropagation(); onRemoveFocus(f.ticker); }}
+                              style={{ cursor: "pointer", fontSize: 10, color: "#f87171", fontWeight: 700 }} title="Remove from Focus">✕</span>
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
+                            {rs != null ? rs : "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", fontWeight: 600, color: "#f59e0b" }}>{f.ticker}</td>
+                          <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {s.company || "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
+                            {fmtVol(s.volume)}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#686878") : "#3a3a4a" }}>
+                            {f._chg != null ? `${f._chg > 0 ? "+" : ""}${f._chg.toFixed(1)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._rvol != null ? (f._rvol >= 3 ? "#f59e0b" : f._rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
+                            {f._rvol != null ? `${f._rvol.toFixed(1)}x` : "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 9,
+                            color: f._addedDays != null ? (f._addedDays <= 1 ? "#2bb886" : f._addedDays <= 3 ? "#a8a8b8" : "#686878") : "#4a4a5a" }}>
+                            {f._addedDays != null ? `${f._addedDays}d` : "—"}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ padding: 16, textAlign: "center", color: "#4a4a5a", fontSize: 11, border: "1px dashed #2a2a3a", borderRadius: 4 }}>
+              Click ★ on any row to add tickers here
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── UPCOMING EARNINGS CALENDAR ── */}
       {earningsCalendar.length > 0 && (
@@ -6736,7 +6843,7 @@ function AppMain({ authToken, onLogout }) {
       setFocusList(p => [...p, { ticker: u, addedAt: new Date().toISOString().slice(0, 10) }]);
     }
   }, [focusList]);
-  const removeFromFocusList = useCallback((t) => setFocusList(p => p.filter(f => f.ticker !== t)), []);
+  const removeFromFocusList = useCallback((t) => { if (t === "__ALL__") setFocusList([]); else setFocusList(p => p.filter(f => f.ticker !== t)); }, []);
   // Visible ticker list — reported by whichever view is active
   const [visibleTickers, setVisibleTickers] = useState([]);
   const onVisibleTickers = useCallback((tickers) => setVisibleTickers(tickers), []);
