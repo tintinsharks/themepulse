@@ -2478,9 +2478,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     { col: "rs", label: "RS", align: "right" },
                     { col: "type", label: "Type", align: "center" },
                     { col: "ticker", label: "Ticker", align: "left" },
-                  ].map(({ col, label, align }) => (
+                    { col: "rev", label: "Rev%", align: "right", color: "#34d399" },
+                    { col: "eps", label: "EPS%", align: "right", color: "#34d399" },
+                  ].map(({ col, label, align, color }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
-                      style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : "#686878",
+                      style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
                         fontWeight: 600, fontSize: 9, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
                       {label}{sort.col === col ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
                     </th>
@@ -2492,8 +2494,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
                     { col: "vol", label: "VolX", align: "right" },
                     { col: "status", label: "Status", align: "left" },
-                    { col: "rev", label: "Rev%", align: "right", color: "#34d399" },
-                    { col: "eps", label: "EPS%", align: "right", color: "#34d399" },
                   ].map(({ col, label, align, color }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
                       style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
@@ -2560,16 +2560,27 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         color: isActive ? "#fbbf24" : manualEPSet?.has(row.ticker) ? "#f97316" : "#a8a8b8" }}>
                         {row.ticker}
                       </td>
+                      {/* Rev% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
+                        {displayRev}
+                      </td>
+                      {/* EPS% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
+                        {displayEps}
+                      </td>
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
-                        lineHeight: 1.4, maxWidth: 400, minWidth: 150, verticalAlign: "top",
-                        fontStyle: row._upcoming ? "italic" : "normal" }}>
+                        lineHeight: 1.4, maxWidth: 200, minWidth: 100, verticalAlign: "top",
+                        fontStyle: row._upcoming ? "italic" : "normal", whiteSpace: "normal", wordWrap: "break-word" }}>
                         {row._upcoming ? (
                           <span style={{ color: "#787888" }}>Reports after close today</span>
                         ) : row._recentHeadlines && row._recentHeadlines.length > 0 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             {row._recentHeadlines.slice(0, 3).map((hl, hi) => (
-                              <div key={hi} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                              <div key={hi} style={{ overflow: "hidden", textOverflow: "ellipsis",
+                                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
                                 fontSize: hi === 0 ? 9 : 8, color: hi === 0 ? headlineColor : "#606070",
                                 fontWeight: hi === 0 ? 500 : 400 }}>
                                 {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
@@ -2577,7 +2588,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             ))}
                           </div>
                         ) : row._headline ? (
-                          <span style={{ color: headlineColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
+                          <span style={{ color: headlineColor, overflow: "hidden", textOverflow: "ellipsis",
+                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                             {row._headline}
                           </span>
                         ) : "—"}
@@ -2612,16 +2624,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             {statusDisplay.label}
                           </span>
                         )}
-                      </td>
-                      {/* Rev% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
-                        {displayRev}
-                      </td>
-                      {/* EPS% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
-                        {displayEps}
                       </td>
                     </tr>
                   );
