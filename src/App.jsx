@@ -6622,7 +6622,8 @@ function AppMain({ authToken, onLogout }) {
     return () => clearInterval(hpIv);
   }, []);
 
-  // Global theme universe live data fetch — batched for large universes, runs on load + every 30s
+  // Global theme universe live data fetch — batched for large universes
+  // Regular hours: every 30s | Extended hours (pre/post market): every 30 min
   useEffect(() => {
     if (!data?.themes) return;
     const tickers = new Set();
@@ -6631,10 +6632,13 @@ function AppMain({ authToken, onLogout }) {
     if (tickers.size === 0) return;
     const allTickers = [...tickers];
     const BATCH = 500;
+    let currentInterval = 30000; // start with 30s
+    let iv = null;
 
     const fetchUniverse = async () => {
       try {
         const results = [];
+        let isExtended = false;
         for (let i = 0; i < allTickers.length; i += BATCH) {
           const batch = allTickers.slice(i, i + BATCH);
           const params = new URLSearchParams();
@@ -6643,6 +6647,7 @@ function AppMain({ authToken, onLogout }) {
           if (resp.ok) {
             const d = await resp.json();
             if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
+            if (d?.extended_hours) isExtended = true;
           }
         }
         if (results.length > 0) {
@@ -6654,11 +6659,19 @@ function AppMain({ authToken, onLogout }) {
             return Object.values(map);
           });
         }
+        // Adjust polling interval based on market session
+        const newInterval = isExtended ? 1800000 : 30000; // 30 min vs 30s
+        if (newInterval !== currentInterval) {
+          currentInterval = newInterval;
+          if (iv) clearInterval(iv);
+          iv = setInterval(fetchUniverse, currentInterval);
+          console.log(`Live refresh: ${isExtended ? "extended hours (30 min)" : "regular hours (30s)"}`);
+        }
       } catch (e) { console.error("Theme universe fetch error:", e); }
     };
     fetchUniverse();
-    const iv = setInterval(fetchUniverse, 30000);
-    return () => clearInterval(iv);
+    iv = setInterval(fetchUniverse, currentInterval);
+    return () => { if (iv) clearInterval(iv); };
   }, [data?.themes]);
 
   const handleFile = useCallback((e) => {
@@ -6750,9 +6763,25 @@ function AppMain({ authToken, onLogout }) {
     // MF percentile for display
     const pMFall = pctRank(allStocks.map(s => s.mf));
     allStocks.forEach(s => { m[s.ticker]._mfPct = pMFall(s.mf); });
-    
+
+    // Merge live data into stockMap so ALL tabs see current prices/volume
+    if (liveThemeData) {
+      const parseVol = (v) => { if (v == null) return null; if (typeof v === "number") return v; return parseFloat(String(v).replace(/,/g, "")); };
+      liveThemeData.forEach(live => {
+        if (live.ticker && m[live.ticker]) {
+          if (live.change != null) m[live.ticker].change_pct = live.change;
+          if (live.price != null) m[live.ticker].price = live.price;
+          if (live.rel_volume != null) m[live.ticker].rel_volume = live.rel_volume;
+          const vol = parseVol(live.volume);
+          if (vol != null) m[live.ticker].volume = vol;
+          const avgV = parseVol(live.avg_volume);
+          if (avgV != null) m[live.ticker].avg_volume = avgV;
+        }
+      });
+    }
+
     return m;
-  }, [data]);
+  }, [data, liveThemeData]);
   // ER / SIP source lookup — lets every tab show where a ticker came from
   const erSipLookup = useMemo(() => {
     if (!data) return {};
