@@ -2183,6 +2183,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       const eb = getExtra ? getExtra(b) : {};
       let cmp = 0;
       switch (col) {
+        case "rs": cmp = (stockMap[a.ticker]?.rs_rank ?? a.rs_rank ?? 0) - (stockMap[b.ticker]?.rs_rank ?? b.rs_rank ?? 0); break;
         case "ticker": cmp = (a.ticker || "").localeCompare(b.ticker || ""); break;
         case "name": cmp = (a.name || a.company || "").localeCompare(b.name || b.company || ""); break;
         case "volume": cmp = (a.volume || 0) - (b.volume || 0); break;
@@ -2191,6 +2192,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         case "rvol": cmp = (ea.rvol ?? -999) - (eb.rvol ?? -999); break;
         case "days": cmp = (a.days_ago ?? 999) - (b.days_ago ?? 999); break;
         case "session": cmp = (a._session || a.er?.timing || "").localeCompare(b._session || b.er?.timing || ""); break;
+        case "rev_yoy": cmp = (ea.revYoY ?? -999) - (eb.revYoY ?? -999); break;
+        case "eps_yoy": cmp = (ea.epsYoY ?? -999) - (eb.epsYoY ?? -999); break;
         default: cmp = 0;
       }
       return dir === "desc" ? -cmp : cmp;
@@ -2210,9 +2213,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
   // Sorted Historical movers
   const sortedHistMovers = useMemo(() => {
-    return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => ({
-      rvol: m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (stockMap[m.ticker]?.rel_volume ?? null),
-    }));
+    return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => {
+      const er = m.er || {};
+      const s = stockMap[m.ticker] || {};
+      return {
+        rvol: m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (s.rel_volume ?? null),
+        revYoY: s.rev_growth_yoy ?? er.rev_growth_yoy ?? null,
+        epsYoY: s.eps_growth_yoy ?? er.eps_growth_yoy ?? null,
+      };
+    });
   }, [filteredHistoricalMovers, histSort, stockMap]);
 
   // Report visible tickers — Catalysts + Historical (deduplicated, in order)
@@ -2641,6 +2650,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
                     {[
+                      { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "name", label: "Name", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
@@ -2658,12 +2668,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <tbody>
                   {sortedPmMovers.map((m, i) => {
                     const chg = m.change_pct ?? m.ext_hours_change_pct;
+                    const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
                     return (
                       <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
+                          {rs != null ? rs : "—"}
+                        </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
-                          {m.grade && <span style={{ fontSize: 8, color: gradeColor(m.grade), marginRight: 3 }}>{m.grade}</span>}
                           {m.ticker}
                         </td>
                         <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2709,6 +2723,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
                     {[
+                      { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "name", label: "Name", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
@@ -2726,12 +2741,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <tbody>
                   {sortedAhMovers.map((m, i) => {
                     const chg = m.change_pct ?? m.ext_hours_change_pct;
+                    const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
                     return (
                       <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
+                          {rs != null ? rs : "—"}
+                        </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
-                          {m.grade && <span style={{ fontSize: 8, color: gradeColor(m.grade), marginRight: 3 }}>{m.grade}</span>}
                           {m.ticker}
                         </td>
                         <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2852,13 +2871,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
                     {[
+                      { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "name", label: "Name", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
+                      { key: "rev_yoy", label: "Rev%", align: "right" },
+                      { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
                       { key: "days", label: "Days", align: "center" },
-                      { key: "session", label: "Session", align: "center" },
                       { key: "headline", label: "Headline", align: "left" },
                     ].map(h => (
                       <th key={h.key} onClick={(e) => { e.stopPropagation(); setHistSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
@@ -2872,14 +2893,21 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   {sortedHistMovers.map((m, i) => {
                     const chg = m.change_pct;
                     const daysAgo = m.days_ago ?? 1;
-                    const sess = m._session || m.er?.timing || "";
                     const rvol = m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (stockMap[m.ticker]?.rel_volume ?? null);
+                    const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
+                    const sMap = stockMap[m.ticker] || {};
+                    const er = m.er || {};
+                    const revYoY = sMap.rev_growth_yoy ?? er.rev_growth_yoy ?? null;
+                    const epsYoY = sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? null;
                     return (
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
+                          {rs != null ? rs : "—"}
+                        </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
-                          {m.grade && <span style={{ fontSize: 8, color: gradeColor(m.grade), marginRight: 3 }}>{m.grade}</span>}
                           {m.ticker}
                         </td>
                         <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2893,19 +2921,20 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: revYoY != null ? chgColor(revYoY) : "#3a3a4a" }}>
+                          {revYoY != null ? `${revYoY >= 0 ? "+" : ""}${revYoY.toFixed(0)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: epsYoY != null ? chgColor(epsYoY) : "#3a3a4a" }}>
+                          {epsYoY != null ? `${epsYoY >= 0 ? "+" : ""}${epsYoY.toFixed(0)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: rvol != null ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
                           {rvol != null ? `${rvol.toFixed(1)}x` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
                           {daysAgo}d
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "center" }}>
-                          <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 3, fontWeight: 600,
-                            background: sess === "PM" ? "rgba(96,165,250,0.15)" : sess === "AH" ? "rgba(192,132,252,0.15)" : "rgba(100,100,120,0.1)",
-                            color: sess === "PM" ? "#60a5fa" : sess === "AH" ? "#c084fc" : "#686878" }}>
-                            {sess || "—"}
-                          </span>
                         </td>
                         <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
                           {m.recent_headlines && m.recent_headlines.length > 0 ? m.recent_headlines[0] : "—"}
