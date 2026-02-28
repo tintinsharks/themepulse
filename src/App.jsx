@@ -2475,11 +2475,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 <col style={{ width: 42 }} />{/* EPS% */}
                 <col />{/* Headline — takes remaining space */}
                 <col style={{ width: 55 }} />{/* $Vol */}
-                <col style={{ width: 30 }} />{/* Days */}
-                <col style={{ width: 42 }} />{/* FrHi% */}
                 <col style={{ width: 42 }} />{/* Chg% */}
                 <col style={{ width: 38 }} />{/* VolX */}
                 <col style={{ width: 90 }} />{/* Status */}
+                <col style={{ width: 42 }} />{/* FrHi% */}
+                <col style={{ width: 30 }} />{/* Days */}
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
@@ -2500,11 +2500,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   <th style={{ padding: "4px 4px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 9 }}>Headline</th>
                   {[
                     { col: "dvol", label: "$Vol", align: "right" },
-                    { col: "days", label: "Days", align: "right" },
-                    { col: "pct_from_high", label: "FrHi%", align: "right" },
                     { col: "change", label: "Chg%", align: "right" },
                     { col: "vol", label: "VolX", align: "right" },
                     { col: "status", label: "Status", align: "left" },
+                    { col: "pct_from_high", label: "FrHi%", align: "right" },
+                    { col: "days", label: "Days", align: "right" },
                   ].map(({ col, label, align, color }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
                       style={{ padding: "4px 4px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
@@ -2614,16 +2614,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                           color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
                           {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
                       </td>
-                      {/* Days */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (row.days_ago ?? 999) <= 1 ? "#2bb886" : (row.days_ago ?? 999) <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
-                        {row.days_ago != null ? `${row.days_ago}d` : "—"}
-                      </td>
-                      {/* FrHi% */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
-                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
-                      </td>
                       {/* Chg% — live from stockMap */}
                       <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: chgColor(s.change_pct) }}>
@@ -2644,6 +2634,16 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                             {statusDisplay.label}
                           </span>
                         )}
+                      </td>
+                      {/* FrHi% */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (s.pct_from_high ?? -999) >= -5 ? "#2bb886" : (s.pct_from_high ?? -999) >= -15 ? "#686878" : "#4a4a5a" }}>
+                        {s.pct_from_high != null ? `${s.pct_from_high.toFixed(0)}%` : "—"}
+                      </td>
+                      {/* Days */}
+                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (row.days_ago ?? 999) <= 1 ? "#2bb886" : (row.days_ago ?? 999) <= 5 ? "#a8a8b8" : "#4a4a5a" }}>
+                        {row.days_ago != null ? `${row.days_ago}d` : "—"}
                       </td>
                     </tr>
                   );
