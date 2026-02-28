@@ -2923,7 +2923,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const epsYoY = sMap.eps_yoy ?? sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? (sMap.quarterly_data?.[0]?.eps_yoy) ?? null;
                     const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps >= er.eps_estimated : null;
                     const revBeat = er.revenue != null && er.revenue_estimated != null ? er.revenue >= er.revenue_estimated : null;
-                    const hlColor = epsBeat && revBeat ? "#2bb886" : "#606070";
+                    // Double beat: use actual beat data if available, else proxy with EPS beat + positive rev growth
+                    const doubleBeat = (epsBeat && revBeat) || (epsBeat && revBeat == null && revYoY != null && revYoY > 0);
+                    const hlColor = doubleBeat ? "#2bb886" : "#606070";
                     return (
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
