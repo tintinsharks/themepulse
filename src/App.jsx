@@ -2218,8 +2218,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       const s = stockMap[m.ticker] || {};
       return {
         rvol: m.volume && m.avg_volume ? (m.volume / m.avg_volume) : (s.rel_volume ?? null),
-        revYoY: s.rev_growth_yoy ?? er.rev_growth_yoy ?? null,
-        epsYoY: s.eps_growth_yoy ?? er.eps_growth_yoy ?? null,
+        revYoY: s.sales_yoy ?? s.rev_growth_yoy ?? er.rev_growth_yoy ?? (s.quarterly_data?.[0]?.sales_yoy) ?? null,
+        epsYoY: s.eps_yoy ?? s.eps_growth_yoy ?? er.eps_growth_yoy ?? (s.quarterly_data?.[0]?.eps_yoy) ?? null,
       };
     });
   }, [filteredHistoricalMovers, histSort, stockMap]);
@@ -2897,8 +2897,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
                     const sMap = stockMap[m.ticker] || {};
                     const er = m.er || {};
-                    const revYoY = sMap.rev_growth_yoy ?? er.rev_growth_yoy ?? null;
-                    const epsYoY = sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? null;
+                    const revYoY = sMap.sales_yoy ?? sMap.rev_growth_yoy ?? er.rev_growth_yoy ?? (sMap.quarterly_data?.[0]?.sales_yoy) ?? null;
+                    const epsYoY = sMap.eps_yoy ?? sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? (sMap.quarterly_data?.[0]?.eps_yoy) ?? null;
                     return (
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
