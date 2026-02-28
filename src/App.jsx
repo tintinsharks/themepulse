@@ -663,7 +663,7 @@ function Ticker({ children, ticker, style, onClick, activeTicker, ...props }) {
 }
 
 // ── THEME LEADERS ──
-function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmData, onVisibleTickers, themeHealth, liveThemeData: externalLiveData, onThemeDrillDown }) {
+function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, onVisibleTickers, themeHealth, liveThemeData: externalLiveData, onThemeDrillDown }) {
   const [sort, setSort] = useState("rts");
   const [intradaySort, setIntradaySort] = useState("chg");
   const [localLiveData, setLocalLiveData] = useState(null);
@@ -769,12 +769,6 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
     return m;
   }, [themeHealth]);
 
-  const breadthMap = useMemo(() => {
-    const m = {};
-    if (mmData?.theme_breadth) mmData.theme_breadth.forEach(tb => { m[tb.theme] = tb; });
-    return m;
-  }, [mmData]);
-
   // Intraday ranked themes — show ALL themes, with or without live data
   const liveRanked = useMemo(() => {
     const ranked = themes.map(t => ({ ...t, live: liveThemePerf[t.theme] || null }));
@@ -853,7 +847,6 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, mmDat
         const barW = Math.max(5, Math.min(100, theme.rts));
         const h = healthMap[theme.theme];
         const lp = liveThemePerf[theme.theme];
-        const tb = breadthMap[theme.theme];
         const hBg = h ? ({ LEADING: "#2bb88618", EMERGING: "#fbbf2415", HOLDING: "#9090a010", WEAKENING: "#f9731615", LAGGING: "#f8717115" }[h.status] || "#1a1a2a") : "#1a1a2a";
         return (
           <div key={theme.theme} onClick={() => onThemeDrillDown && onThemeDrillDown(theme.theme)}
@@ -1123,7 +1116,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, mmData, themeHealth, momentumBurst, erSipLookup }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup }) {
   const [sortBy, setSortBy] = useState("default");
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
@@ -1835,7 +1828,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       <div style={{ width: "30%", minWidth: 280, borderLeft: "2px solid #3a3a4a", overflowY: "auto", flexShrink: 0,
         position: "sticky", top: 0, maxHeight: "100vh", alignSelf: "flex-start" }}>
         <Leaders themes={themes} stockMap={stockMap} filters={filters} onTickerClick={onTickerClick}
-          activeTicker={activeTicker} mmData={mmData} onVisibleTickers={() => {}} themeHealth={themeHealth}
+          activeTicker={activeTicker} onVisibleTickers={() => {}} themeHealth={themeHealth}
           liveThemeData={externalLiveData}
           onThemeDrillDown={(themeName) => { setActiveTheme(themeName); }} />
       </div>
@@ -6597,8 +6590,8 @@ function AppMain({ authToken, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chartTicker, setChartTicker] = useState(null);
-  const [mmData, setMmData] = useState(null);
   const [liveThemeData, setLiveThemeData] = useState(null);
+  const [liveMomentumBurst, setLiveMomentumBurst] = useState(null);
   const [showEarnings, setShowEarnings] = useState(false);
   const [showPipeline, setShowPipeline] = useState(false);
   const [earningsOpen, setEarningsOpen] = useState(false);
@@ -6608,8 +6601,6 @@ function AppMain({ authToken, onLogout }) {
     fetch("/dashboard_data.json").then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(p => { if (!p.stocks || !p.themes) throw new Error("Invalid data"); setData(p); setLoading(false); })
       .catch(e => { console.error("dashboard_data.json error:", e); setError(e.message); setLoading(false); });
-    // Also load market monitor data (optional, won't block)
-    fetch("/market_monitor.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setMmData(d); }).catch(() => {});
     // Fetch Finviz homepage data (futures, earnings, major news, market stats) + refresh every 60s
     const fetchHomepage = () => {
       fetch("/api/live?homepage=1")
@@ -6639,6 +6630,7 @@ function AppMain({ authToken, onLogout }) {
       try {
         const results = [];
         let isExtended = false;
+        let burstResults = [];
         for (let i = 0; i < allTickers.length; i += BATCH) {
           const batch = allTickers.slice(i, i + BATCH);
           const params = new URLSearchParams();
@@ -6648,6 +6640,7 @@ function AppMain({ authToken, onLogout }) {
             const d = await resp.json();
             if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
             if (d?.extended_hours) isExtended = true;
+            if (d?.momentum_burst) burstResults.push(...d.momentum_burst);
           }
         }
         if (results.length > 0) {
@@ -6658,6 +6651,9 @@ function AppMain({ authToken, onLogout }) {
             results.forEach(s => { map[s.ticker] = s; });
             return Object.values(map);
           });
+        }
+        if (burstResults.length > 0) {
+          setLiveMomentumBurst(burstResults);
         }
         // Adjust polling interval based on market session
         const newInterval = isExtended ? 1800000 : 30000; // 30 min vs 30s
@@ -7105,7 +7101,7 @@ function AppMain({ authToken, onLogout }) {
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
-            stockMap={stockMap} filters={filters} mmData={mmData} themeHealth={data.theme_health} momentumBurst={data.momentum_burst} erSipLookup={erSipLookup} />}
+            stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
           {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} />}

@@ -184,10 +184,72 @@ function normalizeRow(r) {
   };
 }
 
-// ── Fetch watchlist quotes ──
+// ── Fetch watchlist quotes (FMP primary, Finviz fallback) ──
 async function fetchWatchlist(cookies, tickers) {
   if (!tickers || tickers.length === 0) return [];
 
+  const fmpKey = process.env.FMP_API_KEY;
+  if (fmpKey) {
+    return fetchWatchlistFmp(tickers, fmpKey);
+  }
+  // Fallback to Finviz if no FMP key
+  return fetchWatchlistFinviz(cookies, tickers);
+}
+
+async function fetchWatchlistFmp(tickers, apiKey) {
+  const results = [];
+  const BATCH = 500;
+  const MAX_RETRIES = 2;
+
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH);
+    const symbolStr = batch.join(",");
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const url = `${FMP_BASE}/quote?symbol=${symbolStr}&apikey=${apiKey}`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.error(`FMP watchlist batch failed: ${resp.status}`);
+          if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 1000)); continue; }
+          break;
+        }
+        const data = await resp.json();
+        if (!Array.isArray(data)) break;
+
+        data.filter(q => q.symbol).forEach(q => {
+          results.push({
+            ticker: q.symbol,
+            company: q.name || q.symbol,
+            price: q.price ?? null,
+            change: q.changesPercentage ?? null,
+            gap: q.previousClose && q.open
+              ? Math.round(((q.open - q.previousClose) / q.previousClose) * 10000) / 100
+              : null,
+            volume: q.volume != null ? String(q.volume) : null,
+            avg_volume: q.avgVolume != null ? String(q.avgVolume) : null,
+            rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
+              ? Math.round((q.volume / q.avgVolume) * 100) / 100
+              : null,
+            market_cap: q.marketCap != null ? String(q.marketCap) : null,
+            pe: q.pe ?? null,
+            earnings: q.earningsAnnouncement || null,
+          });
+        });
+        break; // success
+      } catch (err) {
+        console.error(`FMP watchlist error: ${err.message}`);
+        if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    if (i + BATCH < tickers.length) await new Promise(r => setTimeout(r, 100));
+  }
+
+  console.log(`FMP Watchlist: ${results.length}/${tickers.length} tickers fetched`);
+  return results;
+}
+
+async function fetchWatchlistFinviz(cookies, tickers) {
   const results = [];
   const batchSize = 50;
   const MAX_RETRIES = 3;
@@ -233,7 +295,7 @@ async function fetchWatchlist(cookies, tickers) {
 
       const text = await resp.text();
       const rows = parseCSV(text, attempt === 1 && results.length === 0 ? "watchlist" : null);
-      
+
       const parsed = rows.map((raw) => {
         const r = normalizeRow(raw);
         return {
@@ -261,14 +323,7 @@ async function fetchWatchlist(cookies, tickers) {
           earnings: r["Earnings Date"],
         };
       });
-      
-      // Log missing tickers
-      const returned = new Set(parsed.map(p => p.ticker));
-      const missing = batch.filter(t => !returned.has(t));
-      if (missing.length > 0) {
-        console.log(`Watchlist batch: ${missing.length} tickers missing from response: ${missing.join(",")}`);
-      }
-      
+
       return parsed;
     } catch (err) {
       console.error("Watchlist fetch error:", err.message);
@@ -287,7 +342,7 @@ async function fetchWatchlist(cookies, tickers) {
     results.push(...batchResults);
   }
 
-  console.log(`Watchlist: ${results.length}/${tickers.length} tickers fetched, ${results.filter(r => r.change != null).length} with change data`);
+  console.log(`Finviz Watchlist: ${results.length}/${tickers.length} tickers fetched`);
   return results;
 }
 
@@ -992,10 +1047,11 @@ function isExtendedHours() {
 }
 
 async function fetchFmpUniverse(tickers, apiKey) {
-  if (!tickers || tickers.length === 0 || !apiKey) return [];
+  if (!tickers || tickers.length === 0 || !apiKey) return { universe: [], rawQuotes: [] };
   const BATCH = 500; // FMP Premium supports large batches
   const CONCURRENCY = 3; // parallel requests
-  const results = [];
+  const universe = [];
+  const rawQuotes = []; // keep full FMP data for burst scanner
   const batches = [];
 
   for (let i = 0; i < tickers.length; i += BATCH) {
@@ -1016,7 +1072,17 @@ async function fetchFmpUniverse(tickers, apiKey) {
         }
         const data = await resp.json();
         if (!Array.isArray(data)) return [];
-        return data.filter(q => q.symbol).map(q => ({
+        return data.filter(q => q.symbol);
+      } catch (err) {
+        console.error(`FMP universe batch error: ${err.message}`);
+        return [];
+      }
+    });
+    const groupResults = await Promise.all(promises);
+    groupResults.forEach(batch => {
+      batch.forEach(q => {
+        rawQuotes.push(q);
+        universe.push({
           ticker: q.symbol,
           price: q.price ?? null,
           change: q.changesPercentage ?? null,
@@ -1025,19 +1091,74 @@ async function fetchFmpUniverse(tickers, apiKey) {
           rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
             ? Math.round((q.volume / q.avgVolume) * 100) / 100
             : null,
-        }));
-      } catch (err) {
-        console.error(`FMP universe batch error: ${err.message}`);
-        return [];
-      }
+        });
+      });
     });
-    const groupResults = await Promise.all(promises);
-    groupResults.forEach(r => results.push(...r));
-    // Small delay between parallel groups to avoid rate limits
     if (g + CONCURRENCY < batches.length) await new Promise(r => setTimeout(r, 100));
   }
 
-  console.log(`FMP universe: ${results.length}/${tickers.length} quotes fetched`);
+  console.log(`FMP universe: ${universe.length}/${tickers.length} quotes fetched`);
+  return { universe, rawQuotes };
+}
+
+// ── Live Momentum Burst Scanner (Stockbee/Pradeep Bonde criteria) ──
+// Uses FMP real-time quote data — no extra API calls needed.
+// $ BREAKOUT: C-O >= $0.90, V > 100K, change > 2%
+// 4% BREAKOUT: C/prevClose >= 1.04, V > 100K, C >= $3, closing in upper 70% of range
+function scanMomentumBursts(rawQuotes) {
+  const results = [];
+  for (const q of rawQuotes) {
+    const C = q.price;
+    const O = q.open;
+    const H = q.dayHigh;
+    const L = q.dayLow;
+    const V = q.volume;
+    const C1 = q.previousClose;
+    const avgV = q.avgVolume;
+
+    // Skip bad/missing data
+    if (!C || !O || !H || !L || !V || !C1 || C1 === 0 || (H - L) === 0) continue;
+    // Skip penny stocks
+    if (C < 3) continue;
+    // Skip low volume
+    if (V < 100000) continue;
+
+    const scanTypes = [];
+    const dollarBody = C - O;
+    const changePct = ((C / C1) - 1) * 100;
+    const closeRange = (C - L) / (H - L);
+    const volRatio = avgV > 0 ? V / avgV : 0;
+
+    // $ BREAKOUT: big dollar body move with volume
+    if (dollarBody >= 0.90 && changePct > 2) {
+      scanTypes.push("$");
+    }
+
+    // 4% BREAKOUT: 4%+ gain, closing in upper range, volume surge
+    if (C / C1 >= 1.04 && closeRange >= 0.70) {
+      scanTypes.push("4%");
+    }
+
+    if (scanTypes.length === 0) continue;
+
+    results.push({
+      ticker: q.symbol,
+      scan: scanTypes,
+      close: Math.round(C * 100) / 100,
+      open: Math.round(O * 100) / 100,
+      high: Math.round(H * 100) / 100,
+      low: Math.round(L * 100) / 100,
+      volume: V,
+      change_pct: Math.round(changePct * 100) / 100,
+      dollar_move: Math.round(dollarBody * 100) / 100,
+      close_range: Math.round(closeRange * 1000) / 10,
+      vol_ratio: Math.round(volRatio * 100) / 100,
+    });
+  }
+
+  // Sort by change% descending
+  results.sort((a, b) => b.change_pct - a.change_pct);
+  console.log(`Live momentum burst: ${results.length} signals from ${rawQuotes.length} quotes`);
   return results;
 }
 
@@ -1055,17 +1176,15 @@ export default async function handler(req, res) {
   try {
     const cookies = await loginFinviz();
 
-    // Parse watchlist tickers from query
+    // Parse all ticker params — both go into a single FMP batch
     const tickerParam = req.query.tickers || "";
     const watchlistTickers = tickerParam
       ? tickerParam
           .split(",")
           .map((t) => t.trim().toUpperCase())
           .filter(Boolean)
-          .slice(0, 30) // cap at 30
       : [];
 
-    // Parse theme universe tickers (for live rotation)
     const universeParam = req.query.universe || "";
     const universeTickers = universeParam
       ? universeParam
@@ -1074,23 +1193,65 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
-    // Fetch watchlist tickers
-    const watchlist = watchlistTickers.length > 0
-      ? await fetchWatchlist(cookies, watchlistTickers)
-      : [];
-
-    // Fetch theme universe via FMP (fast, includes extended hours data)
+    // ── Single FMP batch for ALL tickers (watchlist + universe) ──
     const extSession = isExtendedHours();
     const fmpKey = process.env.FMP_API_KEY;
+    let watchlist = [];
     let themeUniverse = [];
-    if (universeTickers.length > 0) {
-      if (fmpKey) {
-        themeUniverse = await fetchFmpUniverse(universeTickers, fmpKey);
-      } else {
-        // Fallback to Finviz if no FMP key
+    let rawQuotes = [];
+
+    // Deduplicate all tickers into one set
+    const allTickers = [...new Set([...watchlistTickers, ...universeTickers])];
+    const watchlistSet = new Set(watchlistTickers);
+    const universeSet = new Set(universeTickers);
+
+    if (allTickers.length > 0 && fmpKey) {
+      // One FMP call for everything
+      const fmpResult = await fetchFmpUniverse(allTickers, fmpKey);
+      rawQuotes = fmpResult.rawQuotes;
+
+      // Split results back into watchlist vs universe
+      const quoteMap = {};
+      fmpResult.rawQuotes.forEach(q => { quoteMap[q.symbol] = q; });
+
+      // Build watchlist response from FMP data
+      watchlistTickers.forEach(tk => {
+        const q = quoteMap[tk];
+        if (q) {
+          watchlist.push({
+            ticker: q.symbol,
+            company: q.name || q.symbol,
+            price: q.price ?? null,
+            change: q.changesPercentage ?? null,
+            gap: q.previousClose && q.open
+              ? Math.round(((q.open - q.previousClose) / q.previousClose) * 10000) / 100
+              : null,
+            volume: q.volume != null ? String(q.volume) : null,
+            avg_volume: q.avgVolume != null ? String(q.avgVolume) : null,
+            rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
+              ? Math.round((q.volume / q.avgVolume) * 100) / 100
+              : null,
+            market_cap: q.marketCap != null ? String(q.marketCap) : null,
+            pe: q.pe ?? null,
+            earnings: q.earningsAnnouncement || null,
+          });
+        }
+      });
+
+      // Universe is already built by fetchFmpUniverse — filter to universe tickers only
+      themeUniverse = fmpResult.universe.filter(u => universeSet.has(u.ticker));
+    } else if (allTickers.length > 0) {
+      // Fallback to Finviz if no FMP key
+      if (watchlistTickers.length > 0) {
+        watchlist = await fetchWatchlistFinviz(cookies, watchlistTickers);
+      }
+      if (universeTickers.length > 0) {
         themeUniverse = await fetchThemeUniverse(cookies, universeTickers);
       }
     }
+
+    // Live momentum burst scan (uses FMP data already fetched — no extra API calls)
+    const momentumBurst = rawQuotes.length > 0 ? scanMomentumBursts(rawQuotes) : [];
 
     // Fetch news and peers for a single ticker if requested
     const newsTicker = (req.query.news || "").trim().toUpperCase();
@@ -1118,6 +1279,7 @@ export default async function handler(req, res) {
       analyst: tickerData?.analyst || null,
       homepage,
       ep_signals: epSignals,
+      momentum_burst: momentumBurst,
     });
   } catch (err) {
     console.error("Live API error:", err);
