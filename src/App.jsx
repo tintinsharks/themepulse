@@ -2191,10 +2191,7 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
         const bv = b.vol_ratio ?? b._rvol ?? -999;
         return bv - av;
       },
-      status: (a, b) => {
-        const order = { consolidating: 0, fresh: 1, basing: 2, holding: 3, extended_pullback: 4, failed: 5 };
-        return (order[a.consol?.status] ?? 9) - (order[b.consol?.status] ?? 9);
-      },
+      subtheme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.subtheme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.subtheme || "ZZZ"),
       pm: (a, b) => (b._pmChg ?? -999) - (a._pmChg ?? -999),
       id: (a, b) => (b._idChg ?? -999) - (a._idChg ?? -999),
       id_vol: (a, b) => (b._idVol ?? -999) - (a._idVol ?? -999),
@@ -2476,8 +2473,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                 <col />{/* Headline — takes remaining space */}
                 <col style={{ width: 55 }} />{/* $Vol */}
                 <col style={{ width: 42 }} />{/* Chg% */}
-                <col style={{ width: 38 }} />{/* VolX */}
-                <col style={{ width: 90 }} />{/* Status */}
+                <col style={{ width: 38 }} />{/* RVol */}
+                <col style={{ width: 80 }} />{/* Sub */}
                 <col style={{ width: 42 }} />{/* FrHi% */}
                 <col style={{ width: 30 }} />{/* Days */}
               </colgroup>
@@ -2501,8 +2498,8 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                   {[
                     { col: "dvol", label: "$Vol", align: "right" },
                     { col: "change", label: "Chg%", align: "right" },
-                    { col: "vol", label: "VolX", align: "right" },
-                    { col: "status", label: "Status", align: "left" },
+                    { col: "vol", label: "RVol", align: "right" },
+                    { col: "subtheme", label: "Sub", align: "left" },
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
                     { col: "days", label: "Days", align: "right" },
                   ].map(({ col, label, align, color }) => (
@@ -2525,12 +2522,6 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                                      row.change_pct != null ? `${row.change_pct >= 0 ? "+" : ""}${row.change_pct.toFixed(1)}%` : "—";
                   const displayVol = row.vol_ratio != null ? `${row.vol_ratio.toFixed(1)}x` :
                                     row._rvol != null ? `${row._rvol.toFixed(1)}x` : "—";
-
-                  const statusDisplay = row.consol?.status
-                    ? STATUS_STYLE[row.consol.status] || STATUS_STYLE.holding
-                    : row._epsBeat != null
-                    ? { label: row._epsBeat ? "✓ Beat" : "✗ Miss", color: row._epsBeat ? "#2bb886" : "#f87171" }
-                    : null;
 
                   const displayRev = row._revGrowthYoY != null ? `${row._revGrowthYoY >= 0 ? "+" : ""}${row._revGrowthYoY.toFixed(0)}%` : "—";
                   const displayEps = row._epsGrowthYoY != null ? `${row._epsGrowthYoY >= 0 ? "+" : ""}${row._epsGrowthYoY.toFixed(0)}%` : "—";
@@ -2624,16 +2615,11 @@ function EpisodicPivots({ epSignals, stockMap, onTickerClick, activeTicker, onVi
                         color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
                         {displayVol}
                       </td>
-                      {/* Status */}
-                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9 }}>
-                        {statusDisplay && (
-                          <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: 600,
-                            background: statusDisplay.bg || getTypeBg(row._source),
-                            border: `1px solid ${statusDisplay.border || getSourceBorderColor(row._source)}`,
-                            color: statusDisplay.color || getTypeColor(row._source) }}>
-                            {statusDisplay.label}
-                          </span>
-                        )}
+                      {/* Subtheme */}
+                      <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9, color: "#505060",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        title={s.themes?.[0]?.subtheme}>
+                        {s.themes?.[0]?.subtheme || "—"}
                       </td>
                       {/* FrHi% */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
