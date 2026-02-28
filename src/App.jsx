@@ -3020,15 +3020,25 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 </thead>
                 <tbody>
                   {(() => {
+                    // Build lookup from historicalEarningsMovers so Focus uses same data source as Historical table
+                    const histMoverMap = {};
+                    (historicalEarningsMovers || []).forEach(m => { if (m.ticker) histMoverMap[m.ticker] = m; });
                     const focusRows = focusList.map(f => {
                       const s = stockMap[f.ticker] || {};
-                      const chgVal = s.change_pct ?? null;
-                      const rv = s.volume && s.avg_volume ? s.volume / s.avg_volume : (s.rel_volume ?? null);
-                      const addedDays = f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null;
-                      const revYoY = s.sales_yoy ?? s.rev_growth_yoy ?? (s.er?.rev_growth_yoy) ?? (s.quarterly_data?.[0]?.sales_yoy) ?? null;
-                      const epsYoY = s.eps_yoy ?? s.eps_growth_yoy ?? (s.er?.eps_growth_yoy) ?? (s.quarterly_data?.[0]?.eps_yoy) ?? null;
-                      const headlines = s.recent_headlines || [];
-                      return { ...f, _s: s, _chg: chgVal, _rvol: rv, _addedDays: addedDays, _rs: s.rs_rank ?? 0, _vol: s.volume ?? 0, _revYoY: revYoY, _epsYoY: epsYoY, _headlines: headlines };
+                      const m = histMoverMap[f.ticker]; // historical mover object if exists
+                      const er = m?.er || {};
+                      // Use historical mover data when available (same logic as Historical ER Winners table)
+                      const vol = m ? m.volume : s.volume;
+                      const avgVol = m ? m.avg_volume : s.avg_volume;
+                      const chgVal = m ? (m.change_pct ?? null) : (s.change_pct ?? null);
+                      const rv = vol && avgVol ? vol / avgVol : (s.rel_volume ?? null);
+                      const daysAgo = m ? (m.days_ago ?? 1) : (f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null);
+                      const sMap = s; // alias to match Historical table variable name
+                      const revYoY = sMap.sales_yoy ?? sMap.rev_growth_yoy ?? er.rev_growth_yoy ?? (sMap.quarterly_data?.[0]?.sales_yoy) ?? null;
+                      const epsYoY = sMap.eps_yoy ?? sMap.eps_growth_yoy ?? er.eps_growth_yoy ?? (sMap.quarterly_data?.[0]?.eps_yoy) ?? null;
+                      const headlines = m ? (m.recent_headlines || []) : (s.recent_headlines || []);
+                      const rs = s.rs_rank ?? (m?.rs_rank) ?? 0;
+                      return { ...f, _s: s, _chg: chgVal, _rvol: rv, _addedDays: daysAgo, _rs: rs, _vol: vol ?? 0, _revYoY: revYoY, _epsYoY: epsYoY, _headlines: headlines };
                     });
                     focusRows.sort((a, b) => {
                       let cmp = 0;
