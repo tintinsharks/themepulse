@@ -1460,7 +1460,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       const isMFPos = s?.mf != null && s.mf >= mfPosThreshold && s.mf > 0;
       const isMFNeg = s?.mf != null && s.mf <= mfNegThreshold && s.mf < 0;
       const is9M = todayVol >= 8_900_000 && avgVol < 8_900_000;
-      return { ...b, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50,
+      // Compute vol_ratio from pipeline avg_volume since FMP batch-quote doesn't return avgVolume
+      const computedVolRatio = s?.avg_volume_raw > 0 ? Math.round(b.volume / s.avg_volume_raw * 100) / 100 : b.vol_ratio;
+      return { ...b, vol_ratio: computedVolRatio, _grade: s?.grade, _rs: s?.rs_rank, _company: s?.company, _themes: s?.themes, _atr50: s?.atr_to_50,
         _mcap: s?.market_cap_raw, _avgVol: s?.avg_volume_raw, _pctFromHigh: s?.pct_from_high,
         _above50ma: s?.above_50ma, _sma20_pct: s?.sma20_pct, _sma50_pct: s?.sma50_pct,
         _adr: s?.adr_pct, _aboveLow: s?.above_52w_low, _avgDolVol: s?.avg_dollar_vol_raw,

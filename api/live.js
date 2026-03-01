@@ -1242,7 +1242,8 @@ export default async function handler(req, res) {
     }
 
     // Live momentum burst scan (uses FMP data already fetched — no extra API calls)
-    const momentumBurst = rawQuotes.length > 0 ? scanMomentumBursts(rawQuotes) : [];
+    // Skip during extended hours — AH prices mix with regular OHLC causing false signals
+    const momentumBurst = rawQuotes.length > 0 && !extSession ? scanMomentumBursts(rawQuotes) : [];
 
     // Fetch news and peers for a single ticker if requested
     const newsTicker = (req.query.news || "").trim().toUpperCase();
