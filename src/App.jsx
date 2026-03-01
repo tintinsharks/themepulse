@@ -2055,7 +2055,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           _headline: m.headlines?.[0] || "",
           _recentHeadlines: m.headlines || [],
           _chg: m.change_pct,
-          vol_ratio: m.volume && s.avg_volume ? m.volume / s.avg_volume : null,
+          vol_ratio: m.volume && s.avg_volume_raw ? m.volume / s.avg_volume_raw : null,
           days_ago: 0,
           _sipData: m,
         });
@@ -2071,7 +2071,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     }
     // Filter by RS — fall back to row data for tickers not in stockMap
     if (minRS > 0) {
-      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? r._er?.rs_rank ?? r._sipData?.rs_rank ?? 0) >= minRS);
+      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? r.rs_rank ?? r._sipData?.rs_rank ?? 0) >= minRS);
     }
     // Filter by avg $Vol — fall back to mover's price*avg_volume for tickers not in stockMap
     if (minDvol > 0) {
@@ -2124,7 +2124,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       gm: (a, b) => (b._grossMargin ?? -999) - (a._grossMargin ?? -999),
       nm: (a, b) => (b._netMargin ?? -999) - (a._netMargin ?? -999),
       pct_from_high: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
-      rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? b._er?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? a._er?.rs_rank ?? 0),
+      rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? b.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? a.rs_rank ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
 
@@ -2236,7 +2236,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       const er = m.er || {};
       const s = stockMap[m.ticker] || {};
       const lv = s.volume ?? m.volume;
-      const la = s.avg_volume ?? m.avg_volume;
+      const la = s.avg_volume_raw ?? m.avg_volume;
       return {
         rvol: lv && la ? (lv / la) : (s.rel_volume ?? null),
         revYoY: s.sales_yoy ?? s.rev_growth_yoy ?? er.rev_growth_yoy ?? (s.quarterly_data?.[0]?.sales_yoy) ?? null,
@@ -2525,8 +2525,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   const displayGap = row.gap_pct != null ? `+${row.gap_pct.toFixed(1)}%` : "—";
                   const displayChg = row._chg != null ? `${row._chg >= 0 ? "+" : ""}${row._chg.toFixed(1)}%` :
                                      row.change_pct != null ? `${row.change_pct >= 0 ? "+" : ""}${row.change_pct.toFixed(1)}%` : "—";
-                  const displayVol = row.vol_ratio != null ? `${row.vol_ratio.toFixed(1)}x` :
-                                    row._rvol != null ? `${row._rvol.toFixed(1)}x` : "—";
+                  const _rv = row.vol_ratio ?? row._rvol ?? null;
+                  const displayVol = _rv != null && isFinite(_rv) ? `${_rv.toFixed(1)}x` : "—";
 
                   const displayRev = row._revGrowthYoY != null ? `${row._revGrowthYoY >= 0 ? "+" : ""}${row._revGrowthYoY.toFixed(0)}%` : "—";
                   const displayEps = row._epsGrowthYoY != null ? `${row._epsGrowthYoY >= 0 ? "+" : ""}${row._epsGrowthYoY.toFixed(0)}%` : "—";
@@ -2558,7 +2558,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </span>
                       </td>
                       {/* RS */}
-                      {(() => { const rsVal = s.rs_rank ?? row._er?.rs_rank ?? row._sipData?.rs_rank ?? null; return (
+                      {(() => { const rsVal = s.rs_rank ?? row.rs_rank ?? row._sipData?.rs_rank ?? null; return (
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (rsVal || 0) >= 80 ? "#2bb886" : (rsVal || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
                         {rsVal ?? "—"}
@@ -2639,7 +2639,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       </td>
                       {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (row.vol_ratio ?? row._rvol ?? -1) >= 8 ? "#c084fc" : (row.vol_ratio ?? row._rvol ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
+                        color: (_rv ?? -1) >= 8 ? "#c084fc" : (_rv ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
                         {displayVol}
                       </td>
                       {/* Subtheme */}
@@ -2932,7 +2932,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const sMap = stockMap[m.ticker] || {};
                     // Live data from stockMap, fallback to static mover data
                     const liveVol = sMap.volume ?? m.volume;
-                    const liveAvgVol = sMap.avg_volume ?? m.avg_volume;
+                    const liveAvgVol = sMap.avg_volume_raw ?? m.avg_volume;
                     const chg = sMap.change_pct ?? m.change_pct;
                     const daysAgo = m.days_ago ?? 1;
                     const rvol = liveVol && liveAvgVol ? (liveVol / liveAvgVol) : (sMap.rel_volume ?? null);
@@ -2979,8 +2979,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: rvol != null ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
-                          {rvol != null ? `${rvol.toFixed(1)}x` : "—"}
+                          color: rvol != null && isFinite(rvol) ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
+                          {rvol != null && isFinite(rvol) ? `${rvol.toFixed(1)}x` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
@@ -6590,6 +6590,92 @@ function LoginScreen({ onLogin }) {
   );
 }
 
+// ── Pipeline Status Indicator ──────────────────────────────
+function PipelineStatus({ meta }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!meta?.last_run) return null;
+
+  const runTime = new Date(meta.last_run);
+  const now = new Date();
+  const diffMs = now - runTime;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+
+  // Relative time string
+  let ago;
+  if (diffMin < 1) ago = "just now";
+  else if (diffMin < 60) ago = `${diffMin}m ago`;
+  else if (diffHr < 24) ago = `${diffHr}h ago`;
+  else ago = `${Math.floor(diffHr / 24)}d ago`;
+
+  // Freshness: green (<2h), yellow (2-6h), orange (6-18h), red (>18h)
+  let color, label;
+  if (diffHr < 2) { color = "#0d9163"; label = "Fresh"; }
+  else if (diffHr < 6) { color = "#fbbf24"; label = "OK"; }
+  else if (diffHr < 18) { color = "#f97316"; label = "Stale"; }
+  else { color = "#f87171"; label = "Old"; }
+
+  // Weekends: relax thresholds (data doesn't update)
+  const dayOfWeek = now.getDay();
+  if ((dayOfWeek === 0 || dayOfWeek === 6) && diffHr < 48) {
+    color = "#fbbf24"; label = "Weekend";
+  }
+
+  const runTypeLabel = {
+    full: "Full",
+    intraday: "Intraday",
+    "intraday-headlines": "Intraday+HL",
+    "headlines-only": "Headlines",
+    manual: "Manual",
+  }[meta.run_type] || meta.run_type;
+
+  const v = meta.validation || {};
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <span
+        onClick={() => setExpanded(p => !p)}
+        style={{ cursor: "pointer", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 4,
+          background: expanded ? `${color}15` : "transparent", border: expanded ? `1px solid ${color}50` : "1px solid transparent" }}
+      >
+        <span style={{ color, fontSize: 8 }}>&#9679;</span>
+        <span style={{ color: "#787888", fontSize: 11 }}>{ago}</span>
+      </span>
+      {expanded && (
+        <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: "#1a1a24", border: "1px solid #3a3a4a", borderRadius: 8, padding: 12, zIndex: 9999, minWidth: 260, fontSize: 11 }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ color, fontWeight: 700 }}>{label}</span>
+            <span style={{ color: "#686878", fontSize: 10 }}>{runTypeLabel}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", fontSize: 10, color: "#9090a0" }}>
+            <span style={{ color: "#686878" }}>Last run</span>
+            <span>{runTime.toLocaleString()}</span>
+            <span style={{ color: "#686878" }}>Duration</span>
+            <span>{meta.duration_sec ? `${Math.round(meta.duration_sec)}s` : "—"}</span>
+            <span style={{ color: "#686878" }}>Stocks</span>
+            <span>{meta.stock_count?.toLocaleString() || "—"}</span>
+            <span style={{ color: "#686878" }}>Themes</span>
+            <span>{meta.theme_count || "—"}</span>
+            <span style={{ color: "#686878" }}>Steps</span>
+            <span style={{ fontFamily: "monospace", fontSize: 9 }}>{(meta.steps_completed || []).join(", ") || "—"}</span>
+          </div>
+          {v.aapl_mcap_ok !== undefined && (
+            <div style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid #2a2a38", fontSize: 10 }}>
+              <div style={{ color: "#686878", fontWeight: 600, marginBottom: 4 }}>Validation</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span>{v.aapl_mcap_ok ? "\u2705" : "\u274C"} AAPL market cap</span>
+                <span>{(v.null_sectors_pct || 0) < 10 ? "\u2705" : "\u26A0\uFE0F"} Sectors: {(100 - (v.null_sectors_pct || 0)).toFixed(0)}% covered</span>
+                <span>{(v.null_earnings_pct || 0) < 50 ? "\u2705" : "\u26A0\uFE0F"} Earnings: {(100 - (v.null_earnings_pct || 0)).toFixed(0)}% covered</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AppMain({ authToken, onLogout }) {
   // Inject responsive CSS and viewport meta once
   useEffect(() => {
@@ -7055,6 +7141,8 @@ function AppMain({ authToken, onLogout }) {
           <span style={{ color: "#787888" }}>Strong: <span style={{ color: "#2bb886" }}>{strongC}</span></span>
           <span style={{ color: "#787888" }}>A Grades: <span style={{ color: "#2bb886" }}>{aCount}</span></span>
           <span style={{ color: "#787888" }}>Breadth: <span style={{ color: breadth >= 60 ? "#2bb886" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</span></span>
+          <span style={{ color: "#3a3a4a" }}>|</span>
+          <PipelineStatus meta={data.pipeline_meta} />
         </div>
       </div>
 
