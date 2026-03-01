@@ -2077,7 +2077,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (minDvol > 0) {
       filtered = filtered.filter(r => {
         const dv = stockMap[r.ticker]?.avg_dollar_vol_raw
-          ?? ((r.price || 0) * (r._avgVol || r._sipData?.avg_volume || 0)) || null;
+          ?? (((r.price || 0) * (r._avgVol || r._sipData?.avg_volume || 0)) || null);
         return dv != null && dv >= minDvol * 1_000_000;
       });
     }
@@ -2107,7 +2107,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       days: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       gap: (a, b) => (b.gap_pct ?? -999) - (a.gap_pct ?? -999),
       change: (a, b) => ((stockMap[b.ticker]?.change_pct ?? b._chg) ?? -999) - ((stockMap[a.ticker]?.change_pct ?? a._chg) ?? -999),
-      dvol: (a, b) => ((stockMap[b.ticker]?.avg_dollar_vol_raw ?? ((b.price || 0) * (b._avgVol || 0)) || -999) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? ((a.price || 0) * (a._avgVol || 0)) || -999)),
+      dvol: (a, b) => ((stockMap[b.ticker]?.avg_dollar_vol_raw ?? (((b.price || 0) * (b._avgVol || 0)) || -999)) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? (((a.price || 0) * (a._avgVol || 0)) || -999))),
       vol: (a, b) => {
         const av = a.vol_ratio ?? a._rvol ?? -999;
         const bv = b.vol_ratio ?? b._rvol ?? -999;
@@ -2186,7 +2186,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (minDvol > 0) {
       list = list.filter(m => {
         const dv = stockMap[m.ticker]?.avg_dollar_vol_raw
-          ?? ((m.price || 0) * (m.avg_volume || 0)) || null;
+          ?? (((m.price || 0) * (m.avg_volume || 0)) || null);
         return dv != null && dv >= minDvol * 1_000_000;
       });
     }
