@@ -2181,10 +2181,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       list = list.filter(m => (stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? 0) >= minRS);
     }
 
-    // $Vol slider
+    // $Vol slider — fall back to mover's own price*avg_volume when not in stockMap
     if (minDvol > 0) {
       list = list.filter(m => {
-        const dv = stockMap[m.ticker]?.avg_dollar_vol_raw;
+        const dv = stockMap[m.ticker]?.avg_dollar_vol_raw
+          ?? ((m.price || 0) * (m.avg_volume || 0)) || null;
         return dv != null && dv >= minDvol * 1_000_000;
       });
     }
