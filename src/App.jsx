@@ -1408,7 +1408,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     });
 
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
-    if (greenOnly && hasLive) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change; return chg != null && chg > 0; });
+    if (greenOnly && hasLive) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change ?? s.change_pct; return chg != null && chg > 0; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
     if (mcapFilter === "mid") list = list.filter(s => (s.market_cap_raw || 0) >= 2_000_000_000);
@@ -1440,7 +1440,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       dvol: safe(s => s.avg_dollar_vol_raw),
       vol: safe(s => { const lv = liveLookup[s.ticker]?.volume; return lv != null ? (typeof lv === 'string' ? parseFloat(lv) : lv) : (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null); }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
-      change: safe(s => liveLookup[s.ticker]?.change),
+      change: safe(s => liveLookup[s.ticker]?.change ?? s.change_pct),
       theme: (a, b) => (a.themes?.[0]?.theme || "").localeCompare(b.themes?.[0]?.theme || ""),
       subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
     };
@@ -1694,13 +1694,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
                 title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
                 {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
-              {/* Chg% */}
+              {/* Chg% — live during market hours, pipeline regular-session data during AH */}
               {(() => {
                 const lv = liveLookup[s.ticker];
-                const chg = lv?.change;
+                const chg = lv?.change ?? s.change_pct ?? null;
                 const chgColor = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
-                  {chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '—'}</td>;
+                  {chg != null ? `${chg > 0 ? '+' : ''}${Number(chg).toFixed(2)}%` : '—'}</td>;
               })()}
               {/* Vol */}
               {(() => {

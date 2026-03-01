@@ -1222,8 +1222,15 @@ export default async function handler(req, res) {
         }
       });
 
-      // Universe is already built by fetchFmpUniverse — filter to universe tickers only
-      themeUniverse = fmpResult.universe.filter(u => universeSet.has(u.ticker));
+      // Universe: filter to universe tickers only
+      // During extended hours, null out change/volume so frontend falls back to
+      // pipeline's regular-session data — keeps scanners accurate
+      themeUniverse = fmpResult.universe
+        .filter(u => universeSet.has(u.ticker))
+        .map(u => extSession
+          ? { ticker: u.ticker, price: u.price, change: null, volume: null }
+          : u
+        );
     } else if (allTickers.length > 0) {
       // Fallback to Finviz if no FMP key
       if (watchlistTickers.length > 0) {
