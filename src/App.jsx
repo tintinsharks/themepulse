@@ -2069,14 +2069,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     } else if (sourceFilter === "sip") {
       filtered = filtered.filter(r => r._source === "pm_sip" || r._source === "ah_sip");
     }
-    // Filter by RS
+    // Filter by RS — fall back to row data for tickers not in stockMap
     if (minRS > 0) {
-      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? 0) >= minRS);
+      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? r._er?.rs_rank ?? r._sipData?.rs_rank ?? 0) >= minRS);
     }
-    // Filter by avg $Vol (in millions)
+    // Filter by avg $Vol — fall back to mover's price*avg_volume for tickers not in stockMap
     if (minDvol > 0) {
       filtered = filtered.filter(r => {
-        const dv = stockMap[r.ticker]?.avg_dollar_vol_raw;
+        const dv = stockMap[r.ticker]?.avg_dollar_vol_raw
+          ?? ((r.price || 0) * (r._avgVol || r._sipData?.avg_volume || 0)) || null;
         return dv != null && dv >= minDvol * 1_000_000;
       });
     }
@@ -2100,13 +2101,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
       grade: (a, b) => {
         const go = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
-        return (go.indexOf(stockMap[a.ticker]?.grade || "G") - go.indexOf(stockMap[b.ticker]?.grade || "G"));
+        return (go.indexOf(stockMap[a.ticker]?.grade || a.grade || "G") - go.indexOf(stockMap[b.ticker]?.grade || b.grade || "G"));
       },
       date: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       days: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       gap: (a, b) => (b.gap_pct ?? -999) - (a.gap_pct ?? -999),
       change: (a, b) => ((stockMap[b.ticker]?.change_pct ?? b._chg) ?? -999) - ((stockMap[a.ticker]?.change_pct ?? a._chg) ?? -999),
-      dvol: (a, b) => (stockMap[b.ticker]?.avg_dollar_vol_raw ?? -999) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? -999),
+      dvol: (a, b) => ((stockMap[b.ticker]?.avg_dollar_vol_raw ?? ((b.price || 0) * (b._avgVol || 0)) || -999) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? ((a.price || 0) * (a._avgVol || 0)) || -999)),
       vol: (a, b) => {
         const av = a.vol_ratio ?? a._rvol ?? -999;
         const bv = b.vol_ratio ?? b._rvol ?? -999;
@@ -2123,7 +2124,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       gm: (a, b) => (b._grossMargin ?? -999) - (a._grossMargin ?? -999),
       nm: (a, b) => (b._netMargin ?? -999) - (a._netMargin ?? -999),
       pct_from_high: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
-      rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? 0),
+      rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? b._er?.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? a._er?.rs_rank ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
 
@@ -2557,10 +2558,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </span>
                       </td>
                       {/* RS */}
+                      {(() => { const rsVal = s.rs_rank ?? row._er?.rs_rank ?? row._sipData?.rs_rank ?? null; return (
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
-                        {s.rs_rank ?? "—"}
-                      </td>
+                        color: (rsVal || 0) >= 80 ? "#2bb886" : (rsVal || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
+                        {rsVal ?? "—"}
+                      </td>); })()}
                       {/* Type Badge */}
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
@@ -3079,7 +3081,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     });
                     return focusRows.map((f, i) => {
                       const s = f._s;
-                      const rs = s.rs_rank ?? null;
+                      const rs = f._rs || null;
                       return (
                         <tr key={f.ticker + "_focus"} data-ticker={f.ticker} onClick={() => onTickerClick(f.ticker)}
                           style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
@@ -3094,7 +3096,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           </td>
                           <td style={{ padding: "3px 6px", fontWeight: 600, color: "#f59e0b" }}>{f.ticker}</td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                            {fmtVol(s.volume)}
+                            {fmtVol(f._vol || s.volume)}
                           </td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                             color: f._revYoY != null ? chgColor(f._revYoY) : "#3a3a4a" }}>
