@@ -728,9 +728,16 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, onVis
 
   const liveLookup = useMemo(() => {
     const m = {};
-    if (liveThemeData) liveThemeData.forEach(s => { m[s.ticker] = s; });
+    if (liveThemeData) liveThemeData.forEach(s => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(e.volume / av * 100) / 100;
+      }
+      m[e.ticker] = e;
+    });
     return m;
-  }, [liveThemeData]);
+  }, [liveThemeData, stockMap]);
   const hasLive = Object.keys(liveLookup).length > 0;
 
   // Compute live theme performance + rotation score
@@ -1189,13 +1196,20 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   // Auto-fetch removed — parent now handles global theme universe refresh every 30s
 
-  // Build live lookup
+  // Build live lookup — derive rel_volume from live volume + static avg_volume
   const liveLookup = useMemo(() => {
     if (!themeData) return {};
     const m = {};
-    themeData.forEach(s => { m[s.ticker] = s; });
+    themeData.forEach(s => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(e.volume / av * 100) / 100;
+      }
+      m[e.ticker] = e;
+    });
     return m;
-  }, [themeData]);
+  }, [themeData, stockMap]);
 
   const hasLive = Object.keys(liveLookup).length > 0;
 
@@ -1424,7 +1438,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       fromhi: safe(s => s.pct_from_high),
       adr: safe(s => s.adr_pct),
       dvol: safe(s => s.avg_dollar_vol_raw),
-      vol: safe(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null; }),
+      vol: safe(s => { const lv = liveLookup[s.ticker]?.volume; return lv != null ? (typeof lv === 'string' ? parseFloat(lv) : lv) : (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null); }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       change: safe(s => liveLookup[s.ticker]?.change),
       theme: (a, b) => (a.themes?.[0]?.theme || "").localeCompare(b.themes?.[0]?.theme || ""),
@@ -1690,8 +1704,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               })()}
               {/* Vol */}
               {(() => {
+                const liveV = liveLookup[s.ticker]?.volume;
                 const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
-                const curVol = s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null;
+                const curVol = liveV != null ? (typeof liveV === 'string' ? parseFloat(liveV) : liveV)
+                  : (s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null);
                 const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
@@ -5296,12 +5312,19 @@ function TickerInput({ value, setValue, onAdd, placeholder }) {
 function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth, themes, onTickerClick }) {
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
 
-  // Build live lookup
+  // Build live lookup — derive rel_volume from live volume + static avg_volume
   const liveLookup = useMemo(() => {
     const m = {};
-    (liveData?.watchlist || []).forEach(s => { m[s.ticker] = s; });
+    (liveData?.watchlist || []).forEach(s => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round((typeof e.volume === 'string' ? parseFloat(e.volume) : e.volume) / av * 100) / 100;
+      }
+      m[e.ticker] = e;
+    });
     return m;
-  }, [liveData]);
+  }, [liveData, stockMap]);
 
   // 1. Gaps — tickers with significant change% (>3% or <-3%)
   const gaps = useMemo(() => {
@@ -5463,10 +5486,19 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
 
   const liveLookup = useMemo(() => {
     const m = {};
-    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = s; });
-    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
+    const enrich = (s) => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const v = typeof e.volume === 'string' ? parseFloat(e.volume) : e.volume;
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(v / av * 100) / 100;
+      }
+      return e;
+    };
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = enrich(s); });
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = enrich({ ...m[s.ticker], ...s }); });
     return m;
-  }, [liveData?.watchlist, liveThemeData]);
+  }, [liveData?.watchlist, liveThemeData, stockMap]);
 
   const mergeStock = useCallback((ticker) => {
     const live = liveLookup[ticker] || {};
@@ -5635,12 +5667,19 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   // Build merged lookup: live data + theme universe data + pipeline stockMap
   const liveLookup = useMemo(() => {
     const m = {};
-    // Theme universe data as base (has change/rel_volume for all ~2012 tickers)
-    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = s; });
-    // Watchlist-specific data overwrites (has more fields like perf_month, pe, etc.)
-    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
+    const enrich = (s) => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const v = typeof e.volume === 'string' ? parseFloat(e.volume) : e.volume;
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(v / av * 100) / 100;
+      }
+      return e;
+    };
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = enrich(s); });
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = enrich({ ...m[s.ticker], ...s }); });
     return m;
-  }, [liveData?.watchlist, liveThemeData]);
+  }, [liveData?.watchlist, liveThemeData, stockMap]);
 
   // Merge live + pipeline data for a ticker
   const mergeStock = useCallback((ticker) => {

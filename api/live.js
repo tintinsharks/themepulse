@@ -207,7 +207,7 @@ async function fetchWatchlistFmp(tickers, apiKey) {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const url = `${FMP_BASE}/quote?symbol=${symbolStr}&apikey=${apiKey}`;
+        const url = `${FMP_BASE}/batch-quote?symbols=${symbolStr}&apikey=${apiKey}`;
         const resp = await fetch(url);
         if (!resp.ok) {
           console.error(`FMP watchlist batch failed: ${resp.status}`);
@@ -222,18 +222,12 @@ async function fetchWatchlistFmp(tickers, apiKey) {
             ticker: q.symbol,
             company: q.name || q.symbol,
             price: q.price ?? null,
-            change: q.changesPercentage ?? null,
+            change: q.changePercentage ?? null,
             gap: q.previousClose && q.open
               ? Math.round(((q.open - q.previousClose) / q.previousClose) * 10000) / 100
               : null,
-            volume: q.volume != null ? String(q.volume) : null,
-            avg_volume: q.avgVolume != null ? String(q.avgVolume) : null,
-            rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
-              ? Math.round((q.volume / q.avgVolume) * 100) / 100
-              : null,
+            volume: q.volume ?? null,
             market_cap: q.marketCap != null ? String(q.marketCap) : null,
-            pe: q.pe ?? null,
-            earnings: q.earningsAnnouncement || null,
           });
         });
         break; // success
@@ -1064,7 +1058,7 @@ async function fetchFmpUniverse(tickers, apiKey) {
     const promises = group.map(async (batch) => {
       const symbolStr = batch.join(",");
       try {
-        const url = `${FMP_BASE}/quote?symbol=${symbolStr}&apikey=${apiKey}`;
+        const url = `${FMP_BASE}/batch-quote?symbols=${symbolStr}&apikey=${apiKey}`;
         const resp = await fetch(url);
         if (!resp.ok) {
           console.error(`FMP universe batch failed: ${resp.status}`);
@@ -1085,12 +1079,8 @@ async function fetchFmpUniverse(tickers, apiKey) {
         universe.push({
           ticker: q.symbol,
           price: q.price ?? null,
-          change: q.changesPercentage ?? null,
-          volume: q.volume != null ? String(q.volume) : null,
-          avg_volume: q.avgVolume != null ? String(q.avgVolume) : null,
-          rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
-            ? Math.round((q.volume / q.avgVolume) * 100) / 100
-            : null,
+          change: q.changePercentage ?? null,
+          volume: q.volume ?? null,
         });
       });
     });
@@ -1222,18 +1212,12 @@ export default async function handler(req, res) {
             ticker: q.symbol,
             company: q.name || q.symbol,
             price: q.price ?? null,
-            change: q.changesPercentage ?? null,
+            change: q.changePercentage ?? null,
             gap: q.previousClose && q.open
               ? Math.round(((q.open - q.previousClose) / q.previousClose) * 10000) / 100
               : null,
-            volume: q.volume != null ? String(q.volume) : null,
-            avg_volume: q.avgVolume != null ? String(q.avgVolume) : null,
-            rel_volume: q.volume && q.avgVolume && q.avgVolume > 0
-              ? Math.round((q.volume / q.avgVolume) * 100) / 100
-              : null,
+            volume: q.volume ?? null,
             market_cap: q.marketCap != null ? String(q.marketCap) : null,
-            pe: q.pe ?? null,
-            earnings: q.earningsAnnouncement || null,
           });
         }
       });
