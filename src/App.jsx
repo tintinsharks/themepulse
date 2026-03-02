@@ -1855,6 +1855,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [maxDays, setMaxDays] = useState(60);
   const [noBio, setNoBio] = useState(true);
 
+  // STATE: Chg filter
+  const [epGreenOnly, setEpGreenOnly] = useState(false);
+
   // STATE: ER Filters
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [er9M, setEr9M] = useState(false);
@@ -2105,8 +2108,12 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         return dv != null && dv >= minDvol * 1_000_000;
       });
     }
+    // Filter by Chg > 0%
+    if (epGreenOnly) {
+      filtered = filtered.filter(r => (stockMap[r.ticker]?.change_pct ?? r._chg ?? 0) > 0);
+    }
     return filtered;
-  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, stockMap]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2215,8 +2222,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       });
     }
 
+    // Chg > 0%
+    if (epGreenOnly) {
+      list = list.filter(m => (stockMap[m.ticker]?.change_pct ?? m.change_pct ?? 0) > 0);
+    }
+
     return list;
-  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, stockMap]);
+  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, stockMap]);
 
   // Generic sort helper for PM/AH/Historical tables
   const _sortSessionMovers = (list, sortState, getExtra) => {
@@ -2440,6 +2452,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               background: noBio ? "#f9731618" : "transparent",
               color: noBio ? "#f97316" : "#787888" }}>
             {noBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
+          </button>
+
+          {/* Chg > 0% filter */}
+          <button onClick={() => setEpGreenOnly(p => !p)}
+            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+              border: epGreenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
+              background: epGreenOnly ? "#2bb88620" : "transparent",
+              color: epGreenOnly ? "#2bb886" : "#787888" }}>
+            Chg &gt;0%
           </button>
 
           {/* ER filters */}
