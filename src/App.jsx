@@ -2207,19 +2207,19 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   // Sorted PM movers
   const sortedPmMovers = useMemo(() => {
     return _sortSessionMovers(pmEarningsMovers || [], pmSort);
-  }, [pmEarningsMovers, pmSort]);
+  }, [pmEarningsMovers, pmSort, liveLookup]);
 
   // Sorted AH movers
   const sortedAhMovers = useMemo(() => {
     return _sortSessionMovers(ahEarningsMovers || [], ahSort);
-  }, [ahEarningsMovers, ahSort]);
+  }, [ahEarningsMovers, ahSort, liveLookup]);
 
   // Sorted Historical movers
   const sortedHistMovers = useMemo(() => {
     return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => {
       const er = m.er || {};
       const s = stockMap[m.ticker] || {};
-      const lv = s.volume ?? m.volume;
+      const lv = liveLookup[m.ticker]?.volume ?? s.volume ?? m.volume;
       const la = s.avg_volume_raw ?? m.avg_volume;
       return {
         rvol: lv && la ? (lv / la) : (s.rel_volume ?? null),
@@ -2227,7 +2227,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         epsYoY: s.eps_yoy ?? s.eps_growth_yoy ?? er.eps_growth_yoy ?? (s.quarterly_data?.[0]?.eps_yoy) ?? null,
       };
     });
-  }, [filteredHistoricalMovers, histSort, stockMap]);
+  }, [filteredHistoricalMovers, histSort, stockMap, liveLookup]);
 
   // Report visible tickers — Catalysts + Historical (deduplicated, in order)
   useEffect(() => {
