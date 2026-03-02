@@ -2692,86 +2692,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         {/* ── LEFT: HISTORICAL EARNINGS WINNERS ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
             <span onClick={() => setHistCollapsed(p => !p)}
               style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
               {histCollapsed ? "▶" : "▼"} Historical ER Winners ({sortedHistMovers.length})
             </span>
-
-            {/* Source toggles */}
-            <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-              {["all", "er", "sip"].map(src => {
-                const label = src === "all" ? "All" : src === "er" ? "ER" : "SIP";
-                const isActive = sourceFilter === src;
-                return (
-                  <button key={src} onClick={() => setSourceFilter(src)}
-                    style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                      border: isActive ? `1px solid ${getTypeColor(src)}` : "1px solid #3a3a4a",
-                      background: isActive ? getTypeBg(src) : "transparent",
-                      color: isActive ? getTypeColor(src) : "#787888" }}>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* RS slider */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
-              <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
-              <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
-                style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
-            </div>
-
-            {/* $Vol slider */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 10, color: minDvol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥{minDvol}M</span>
-              <input type="range" min={0} max={100} step={5} value={minDvol} onChange={e => setMinDvol(Number(e.target.value))}
-                style={{ width: 60, height: 4, accentColor: "#fbbf24", cursor: "pointer" }} />
-            </div>
-
-            {/* Bio/REIT filter */}
-            <button onClick={() => setNoBio(prev => !prev)}
-              style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                border: noBio ? "1px solid #f97316" : "1px solid #3a3a4a",
-                background: noBio ? "#f9731618" : "transparent",
-                color: noBio ? "#f97316" : "#787888" }}>
-              {noBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}
-            </button>
-
-            {/* ER filters */}
-            {(sourceFilter === "all" || sourceFilter === "er") && (
-              <>
-                <button onClick={() => setErUniverseOnly(prev => !prev)}
-                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                    border: erUniverseOnly ? "1px solid #fbbf24" : "1px solid #3a3a4a",
-                    background: erUniverseOnly ? "#fbbf2418" : "transparent",
-                    color: erUniverseOnly ? "#fbbf24" : "#787888" }}>
-                  {"★ Theme Only"}
-                </button>
-                <button onClick={() => setEr9M(prev => !prev)}
-                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                    border: er9M ? "1px solid #e879f9" : "1px solid #3a3a4a",
-                    background: er9M ? "#e879f918" : "transparent",
-                    color: er9M ? "#e879f9" : "#787888" }}
-                  title="Today vol≥8.9M but avg vol<8.9M (unusual activity)">
-                  9M
-                </button>
-                <button onClick={() => setErBeatFilter(p => p === "beat" ? null : "beat")}
-                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                    border: erBeatFilter === "beat" ? "1px solid #2bb886" : "1px solid #3a3a4a",
-                    background: erBeatFilter === "beat" ? "#2bb88618" : "transparent",
-                    color: erBeatFilter === "beat" ? "#2bb886" : "#787888" }}>
-                  Beat
-                </button>
-                <button onClick={() => setErBeatFilter(p => p === "miss" ? null : "miss")}
-                  style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-                    border: erBeatFilter === "miss" ? "1px solid #f87171" : "1px solid #3a3a4a",
-                    background: erBeatFilter === "miss" ? "#f8717118" : "transparent",
-                    color: erBeatFilter === "miss" ? "#f87171" : "#787888" }}>
-                  Miss
-                </button>
-              </>
-            )}
           </div>
 
           {!histCollapsed && sortedHistMovers.length > 0 && (
