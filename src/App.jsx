@@ -88,6 +88,7 @@ const TV_LAYOUT = "nkNPuLqj";
 function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, pkn, onAddPkn, onRemovePkn, pknWatch, onAddPknWatch, onRemovePknWatch, liveThemeData, lwChartProps, erSipLookup }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
+  const [showIntraday, setShowIntraday] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
@@ -265,6 +266,14 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               {label}
             </button>
           ))}
+          <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
+          <button onClick={() => setShowIntraday(prev => !prev)}
+            style={{ padding: "2px 6px", borderRadius: 3, fontSize: 11, cursor: "pointer", fontWeight: 600,
+              border: showIntraday ? "1px solid #f59e0b" : "1px solid #3a3a4a",
+              background: showIntraday ? "#f59e0b20" : "transparent",
+              color: showIntraday ? "#f59e0b" : "#787888" }}>
+            ORB
+          </button>
           {stock && stock.off_52w_high != null && (<>
             <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
             <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
@@ -641,6 +650,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       ) : (
         <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
       )}
+      {showIntraday && <IntradayChart ticker={ticker} />}
     </div>
   );
 }
@@ -3584,6 +3594,157 @@ function loadLW(cb) {
   script.onload = () => { lwLoaded = true; lwCallbacks.forEach(fn => fn()); lwCallbacks.length = 0; };
   script.onerror = () => { lwLoading = false; console.error("Failed to load LW charts"); };
   document.head.appendChild(script);
+}
+
+// ── Intraday 5-Min Chart with Opening Range ──
+function IntradayChart({ ticker }) {
+  const containerRef = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  const volSeriesRef = useRef(null);
+  const linesRef = useRef([]);
+  const roRef = useRef(null);
+  const ivRef = useRef(null);
+  const [orRange, setOrRange] = useState(null);
+
+  useEffect(() => {
+    if (!ticker) return;
+    const el = document.createElement("div");
+    el.style.width = "100%";
+    el.style.height = "100%";
+    if (containerRef.current) containerRef.current.appendChild(el);
+
+    let disposed = false;
+
+    const init = () => {
+      if (disposed) return;
+      const LW = window.LightweightCharts;
+      if (!LW || !el.parentNode) return;
+
+      const chart = LW.createChart(el, {
+        width: el.clientWidth || 400, height: el.clientHeight || 300,
+        layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#787888", fontFamily: "monospace", fontSize: 10 },
+        grid: { vertLines: { color: "#1a1a24" }, horzLines: { color: "#1a1a24" } },
+        crosshair: { mode: 0 },
+        rightPriceScale: { borderColor: "#2a2a38" },
+        timeScale: { borderColor: "#2a2a38", timeVisible: true, secondsVisible: false, rightOffset: 5 },
+      });
+      chartRef.current = chart;
+
+      const cs = chart.addCandlestickSeries({
+        upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
+        wickUpColor: "#2bb886", wickDownColor: "#f87171",
+      });
+      seriesRef.current = cs;
+
+      const vs = chart.addHistogramSeries({
+        priceFormat: { type: "volume" }, priceScaleId: "vol", color: "#2bb88640",
+      });
+      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
+      volSeriesRef.current = vs;
+
+      roRef.current = new ResizeObserver(() => {
+        if (chartRef.current && el.parentNode) {
+          try { chartRef.current.resize(el.clientWidth || 400, el.clientHeight || 300); } catch {}
+        }
+      });
+      roRef.current.observe(el);
+
+      const fetchBars = () => {
+        if (disposed) return;
+        fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=5m`)
+          .then(r => r.json())
+          .then(d => {
+            if (disposed || !d?.ok || !d.ohlc?.length) return;
+            const bars = d.ohlc;
+            cs.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
+            vs.setData(bars.map(b => ({ time: b.time, value: b.volume, color: b.close >= b.open ? "#2bb88640" : "#f8717140" })));
+
+            // Clear old price lines
+            linesRef.current.forEach(l => { try { cs.removePriceLine(l); } catch {} });
+            linesRef.current = [];
+
+            // Find first regular-session bar (9:30 AM ET = bar after premarket)
+            // Regular session bar: hour >= 9:30 ET. Yahoo timestamps are UTC.
+            // ET = UTC-5 (EST) or UTC-4 (EDT). Check the bar time.
+            let firstBar = null;
+            for (const b of bars) {
+              const d = new Date(b.time * 1000);
+              const etHour = d.getUTCHours() - 5; // rough EST offset
+              const edtHour = d.getUTCHours() - 4; // rough EDT offset
+              // Regular session starts at 9:30 ET → 14:30 UTC (EST) or 13:30 UTC (EDT)
+              const utcH = d.getUTCHours();
+              const utcM = d.getUTCMinutes();
+              const utcMinutes = utcH * 60 + utcM;
+              // 9:30 ET = 13:30 UTC (EDT) or 14:30 UTC (EST)
+              // Accept first bar at 13:30 or 14:30 UTC
+              if ((utcMinutes === 13 * 60 + 30) || (utcMinutes === 14 * 60 + 30)) {
+                firstBar = b;
+                break;
+              }
+            }
+            // Fallback: if no exact match, find first bar after 13:00 UTC
+            if (!firstBar) {
+              for (const b of bars) {
+                const utcH = new Date(b.time * 1000).getUTCHours();
+                if (utcH >= 13) { firstBar = b; break; }
+              }
+            }
+
+            if (firstBar) {
+              setOrRange({ high: firstBar.high, low: firstBar.low });
+              // ORH — opening range high
+              try {
+                linesRef.current.push(cs.createPriceLine({
+                  price: firstBar.high, color: "#2bb886", lineWidth: 1, lineStyle: 2,
+                  axisLabelVisible: true, title: "ORH",
+                }));
+              } catch {}
+              // ORL — opening range low
+              try {
+                linesRef.current.push(cs.createPriceLine({
+                  price: firstBar.low, color: "#f87171", lineWidth: 1, lineStyle: 2,
+                  axisLabelVisible: true, title: "ORL",
+                }));
+              } catch {}
+            }
+
+            chart.timeScale().fitContent();
+          })
+          .catch(() => {});
+      };
+
+      fetchBars();
+      ivRef.current = setInterval(fetchBars, 30000);
+    };
+
+    loadLW(init);
+
+    return () => {
+      disposed = true;
+      if (ivRef.current) { clearInterval(ivRef.current); ivRef.current = null; }
+      if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+      if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; }
+      seriesRef.current = null; volSeriesRef.current = null; linesRef.current = [];
+      if (el.parentNode) el.parentNode.removeChild(el);
+    };
+  }, [ticker]);
+
+  return (
+    <div style={{ height: 300, borderTop: "1px solid #2a2a38", position: "relative" }}>
+      <div style={{ position: "absolute", top: 4, left: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b" }}>5m ORB</span>
+        {orRange && (<>
+          <span style={{ fontSize: 10, color: "#2bb886", fontFamily: "monospace" }}>ORH {orRange.high.toFixed(2)}</span>
+          <span style={{ fontSize: 10, color: "#f87171", fontFamily: "monospace" }}>ORL {orRange.low.toFixed(2)}</span>
+          <span style={{ fontSize: 10, color: "#787888", fontFamily: "monospace" }}>
+            Range ${(orRange.high - orRange.low).toFixed(2)} ({((orRange.high - orRange.low) / orRange.low * 100).toFixed(1)}%)
+          </span>
+        </>)}
+      </div>
+      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+    </div>
+  );
 }
 
 function LWChart({ ticker, entry, stop, target }) {
