@@ -3674,6 +3674,9 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
   const indContainerRef = useRef(null);
   const indChartRef = useRef(null);
   const indSeriesRef = useRef(null);
+  const zvrContainerRef = useRef(null);
+  const zvrChartRef = useRef(null);
+  const zvrSeriesRef = useRef(null);
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -3696,6 +3699,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
       if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; }
+      if (zvrChartRef.current) { try { zvrChartRef.current.remove(); } catch {} zvrChartRef.current = null; zvrSeriesRef.current = null; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -3754,6 +3758,9 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
         if (indChartRef.current && indContainerRef.current) {
           try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 80); } catch {}
         }
+        if (zvrChartRef.current && zvrContainerRef.current) {
+          try { zvrChartRef.current.resize(zvrContainerRef.current.clientWidth || 400, 60); } catch {}
+        }
         if (volChartRef.current && volContainerRef.current) {
           try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 120); } catch {}
         }
@@ -3781,8 +3788,28 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
         chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
           if (range) {
             if (indChartRef.current) try { indChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+            if (zvrChartRef.current) try { zvrChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
             if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
           }
+        });
+      }
+
+      // ── ZVR (Zanger Volume Ratio) pane ──
+      if (zvrContainerRef.current) {
+        const zvrChart = LW.createChart(zvrContainerRef.current, {
+          width: zvrContainerRef.current.clientWidth || 400, height: 60,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38" },
+          timeScale: { visible: false },
+          handleScroll: false,
+          handleScale: false,
+        });
+        zvrChartRef.current = zvrChart;
+        zvrSeriesRef.current = zvrChart.addHistogramSeries({
+          priceFormat: { type: "price", precision: 0, minMove: 1 },
+          lastValueVisible: false, priceLineVisible: false,
         });
       }
 
@@ -4211,6 +4238,24 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
           }
         }
 
+        // ── ZVR (Zanger Volume Ratio) — relative volume % vs 20-day avg ──
+        if (zvrSeriesRef.current) {
+          const zvrLookback = 20;
+          const zvrData = [];
+          for (let i = 0; i < bars.length; i++) {
+            if (i < zvrLookback) { zvrData.push({ time: bars[i].date, value: 0 }); continue; }
+            let vSum = 0;
+            for (let j = i - zvrLookback; j < i; j++) vSum += (bars[j].volume || 0);
+            const avgVol = vSum / zvrLookback;
+            const vol = bars[i].volume || 0;
+            const zvr = avgVol > 0 ? ((vol - avgVol) / avgVol * 100) + 100 : 100;
+            // Color thresholds from PineScript: >200 red, >150 pink, >110 purple, >85 blue-gray, else gray
+            const zvrColor = zvr > 200 ? "#ff5252" : zvr > 150 ? "#fb78c0" : zvr > 110 ? "#c393f2" : zvr > 85 ? "#878fc1" : "#787b86";
+            zvrData.push({ time: bars[i].date, value: Math.round(zvr), color: zvrColor });
+          }
+          zvrSeriesRef.current.setData(zvrData);
+        }
+
         // Show last ~3.5 months (74 trading days) — use logical range to preserve rightOffset
         const totalBars = bars.length;
         const fromBar = totalBars > 74 ? totalBars - 74 : 0;
@@ -4308,6 +4353,11 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
 
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 300, display: "flex", flexDirection: "column" }}>
+      {/* ZVR (Zanger Volume Ratio) pane */}
+      <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
+        <div ref={zvrContainerRef} style={{ width: "100%", height: 60 }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>ZVR</div>
+      </div>
       {/* 4% Days indicator pane */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
         <div ref={indContainerRef} style={{ width: "100%", height: 80 }} />
