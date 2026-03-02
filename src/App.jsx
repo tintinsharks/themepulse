@@ -1826,7 +1826,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "cur_vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -1854,6 +1854,21 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [ahSort, setAhSort] = useState({ col: "change", dir: "desc" });
   const [histSort, setHistSort] = useState({ col: "volume", dir: "desc" });
   const [focusSort, setFocusSort] = useState({ col: "change", dir: "desc" });
+
+  // Live data lookup — same pattern as Scan Watch
+  const liveLookup = useMemo(() => {
+    if (!liveThemeData) return {};
+    const m = {};
+    liveThemeData.forEach(s => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(e.volume / av * 100) / 100;
+      }
+      m[e.ticker] = e;
+    });
+    return m;
+  }, [liveThemeData, stockMap]);
 
   // Focus list lookup set
   const focusSet = useMemo(() => new Set((focusList || []).map(f => f.ticker)), [focusList]);
@@ -2593,18 +2608,19 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
                         </td>);
                       })()}
-                      {/* Chg% — stockMap first, then mover data */}
+                      {/* Chg% — live first, then stockMap, then mover data */}
                       {(() => {
-                        const chgVal = s.change_pct ?? row._chg ?? null;
+                        const lv = liveLookup[row.ticker];
+                        const chgVal = lv?.change ?? s.change_pct ?? row._chg ?? null;
                         return (
                         <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                           color: chgColor(chgVal) }}>
-                          {chgVal != null ? `${chgVal > 0 ? "+" : ""}${chgVal.toFixed(1)}%` : "—"}
+                          {chgVal != null ? `${chgVal > 0 ? "+" : ""}${Number(chgVal).toFixed(2)}%` : "—"}
                         </td>);
                       })()}
                       {/* Current Volume */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#686878" }}>
-                        {fmtVol(s.volume ?? row._vol)}
+                        {fmtVol(liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol)}
                       </td>
                       {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
@@ -2675,8 +2691,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 </thead>
                 <tbody>
                   {sortedPmMovers.map((m, i) => {
-                    const chg = m.change_pct ?? m.ext_hours_change_pct;
+                    const lv = liveLookup[m.ticker];
+                    const chg = lv?.change ?? m.change_pct ?? m.ext_hours_change_pct;
                     const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
+                    const vol = lv?.volume ?? m.volume;
                     return (
                       <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
@@ -2699,7 +2717,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {m.name || "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(m.volume)}
+                          {fmtVol(vol)}
                         </td>
                         <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
                           color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
@@ -2756,8 +2774,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 </thead>
                 <tbody>
                   {sortedAhMovers.map((m, i) => {
-                    const chg = m.change_pct ?? m.ext_hours_change_pct;
+                    const lv = liveLookup[m.ticker];
+                    const chg = lv?.change ?? m.change_pct ?? m.ext_hours_change_pct;
                     const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
+                    const vol = lv?.volume ?? m.volume;
                     return (
                       <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
@@ -2780,7 +2800,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {m.name || "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(m.volume)}
+                          {fmtVol(vol)}
                         </td>
                         <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
                           color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
@@ -2915,10 +2935,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <tbody>
                   {sortedHistMovers.map((m, i) => {
                     const sMap = stockMap[m.ticker] || {};
-                    // Live data from stockMap, fallback to static mover data
-                    const liveVol = sMap.volume ?? m.volume;
+                    const lv = liveLookup[m.ticker];
+                    // Live data: liveLookup first, then stockMap, then static mover data
+                    const liveVol = lv?.volume ?? sMap.volume ?? m.volume;
                     const liveAvgVol = sMap.avg_volume_raw ?? m.avg_volume;
-                    const chg = sMap.change_pct ?? m.change_pct;
+                    const chg = lv?.change ?? sMap.change_pct ?? m.change_pct;
                     const daysAgo = m.days_ago ?? 1;
                     const rvol = liveVol && liveAvgVol ? (liveVol / liveAvgVol) : (sMap.rel_volume ?? null);
                     const rs = sMap.rs_rank ?? m.rs_rank ?? null;
@@ -3036,10 +3057,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       const s = stockMap[f.ticker] || {};
                       const m = histMoverMap[f.ticker]; // historical mover object if exists
                       const er = m?.er || {};
-                      // Live data from stockMap for Vol/Chg%/RVol, fallback to mover or stockMap
-                      const vol = s.volume ?? (m ? m.volume : null);
+                      // Live data: liveLookup first, then stockMap, then mover data
+                      const lv = liveLookup[f.ticker];
+                      const vol = lv?.volume ?? s.volume ?? (m ? m.volume : null);
                       const avgVol = s.avg_volume ?? (m ? m.avg_volume : null);
-                      const chgVal = s.change_pct ?? (m ? m.change_pct : null) ?? null;
+                      const chgVal = lv?.change ?? s.change_pct ?? (m ? m.change_pct : null) ?? null;
                       const rv = vol && avgVol ? vol / avgVol : (s.rel_volume ?? null);
                       const daysAgo = m ? (m.days_ago ?? 1) : (f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null);
                       const sMap = s; // alias to match Historical table variable name
@@ -7403,7 +7425,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} />}
+          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} liveThemeData={liveThemeData} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
