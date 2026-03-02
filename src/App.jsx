@@ -2701,9 +2701,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(m.volume)}
                         </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
-                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                        <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+                          color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(2)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
                           {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
@@ -2782,9 +2782,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(m.volume)}
                         </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
-                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                        <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+                          color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(2)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
                           {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
