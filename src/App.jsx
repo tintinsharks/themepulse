@@ -1141,7 +1141,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [greenOnly, setGreenOnly] = useState(false);
   const [minRS, setMinRS] = useState(70);
   const [burstMinRS, setBurstMinRS] = useState(0);
-  const [scanFilters, setScanFilters] = useState(new Set(["T"]));
+  const [scanFilters, setScanFilters] = useState(new Set());
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
