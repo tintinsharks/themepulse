@@ -1134,9 +1134,9 @@ function computeStockQuality(s, leadingThemes) {
 }
 
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus }) {
-  const [sortBy, setSortBy] = useState("default");
+  const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
-  const [burstSort, setBurstSort] = useState({ col: "change", dir: "desc" });
+  const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
   const [minRS, setMinRS] = useState(70);
@@ -1846,7 +1846,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 // ── EPISODIC PIVOTS ──
 function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData }) {
   // STATE: Unified table with source filter
-  const [sort, setSort] = useState({ col: "cur_vol", dir: "desc" });
+  const [sort, setSort] = useState({ col: "vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
 
   // STATE: Filters
@@ -1856,7 +1856,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [noBio, setNoBio] = useState(true);
 
   // STATE: Chg filter
-  const [epGreenOnly, setEpGreenOnly] = useState(false);
+  const [epGreenOnly, setEpGreenOnly] = useState(true);
 
   // STATE: ER Filters
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
@@ -1869,8 +1869,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [focusCollapsed, setFocusCollapsed] = useState(true);
 
   // Sort state for Historical tables
-  const [histSort, setHistSort] = useState({ col: "volume", dir: "desc" });
-  const [focusSort, setFocusSort] = useState({ col: "change", dir: "desc" });
+  const [histSort, setHistSort] = useState({ col: "rvol", dir: "desc" });
+  const [focusSort, setFocusSort] = useState({ col: "rvol", dir: "desc" });
 
   // Live data lookup — same pattern as Scan Watch
   const liveLookup = useMemo(() => {
@@ -4289,7 +4289,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [tab, setTab] = useState("calc"); // open | closed | calc
-  const [pSort, setPSort] = useState("change");
+  const [pSort, setPSort] = useState("rvol");
   const [calcTicker, setCalcTicker] = useState("");
 
   // O(1) lookup for live prices instead of O(n) find() per row
@@ -5459,8 +5459,8 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("change");
-  const [wlSort, setWlSort] = useState("change");
+  const [pSort, setPSort] = useState("rel_volume");
+  const [wlSort, setWlSort] = useState("rel_volume");
 
   const allTickers = useMemo(() => [...new Set([...pkn, ...pknWatch])], [pkn, pknWatch]);
 
@@ -5637,8 +5637,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("change");
-  const [wlSort, setWlSort] = useState("change");
+  const [pSort, setPSort] = useState("rel_volume");
+  const [wlSort, setWlSort] = useState("rel_volume");
   const [marketOpen, setMarketOpen] = useState(true);
 
   // Combine all tickers for API call — watchlist + portfolio
