@@ -1765,11 +1765,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             </tr></thead>
             <tbody>{burstStocks.map(b => {
               const isActive = b.ticker === activeTicker;
+              const bInP = portfolio?.includes(b.ticker);
+              const bInW = watchlist?.includes(b.ticker);
               const scanTag = b.scan.join("+");
               const tagColor = b.scan.includes("$") && b.scan.includes("4%") ? "#f59e0b" : b.scan.includes("$") ? "#60a5fa" : "#2bb886";
               return (
                 <tr key={b.ticker} data-ticker={b.ticker} onClick={() => onTickerClick(b.ticker)}
                   style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                    borderLeft: bInP ? "3px solid #fbbf24" : bInW ? "3px solid #60a5fa" : "3px solid transparent",
                     background: isActive ? "#f59e0b18" : "transparent" }}>
                   <td style={{ padding: "5px 8px", fontFamily: "monospace", fontWeight: 700,
                     color: isActive ? "#f59e0b" : "#d4d4e0" }}>
@@ -1826,7 +1829,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           pmTopMovers={pmTopMovers} ahTopMovers={ahTopMovers}
           historicalEarningsMovers={historicalEarningsMovers}
           focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
-          liveThemeData={externalLiveData} />
+          liveThemeData={externalLiveData} portfolio={portfolio} watchlist={watchlist} />
       )}
     </div>
     {/* Theme Leaders side panel */}
@@ -1845,7 +1848,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -1890,6 +1893,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
   // Focus list lookup set
   const focusSet = useMemo(() => new Set((focusList || []).map(f => f.ticker)), [focusList]);
+  const portfolioSet = useMemo(() => new Set(portfolio || []), [portfolio]);
+  const watchlistSet = useMemo(() => new Set(watchlist || []), [watchlist]);
 
   const erSortedTickersRef = useRef([]);
 
@@ -2578,7 +2583,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 {sortedRows.map(row => {
                   const s = stockMap[row.ticker] || {};
                   const isActive = row.ticker === activeTicker;
-                  const borderColor = getSourceBorderColor(row._source);
+                  const epInP = portfolioSet.has(row.ticker);
+                  const epInW = watchlistSet.has(row.ticker);
+                  const borderColor = epInP ? "#fbbf24" : epInW ? "#60a5fa" : getSourceBorderColor(row._source);
 
                   const displayGap = row.gap_pct != null ? `+${row.gap_pct.toFixed(1)}%` : "—";
                   const displayChg = row._chg != null ? `${row._chg >= 0 ? "+" : ""}${row._chg.toFixed(1)}%` :
@@ -2603,7 +2610,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   return (
                     <tr key={row._key} data-ticker={row.ticker}
                       onClick={() => onTickerClick(row.ticker)}
-                      style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer", borderLeft: `2px solid ${borderColor}`,
+                      style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer", borderLeft: `3px solid ${borderColor}`,
                         background: isActive ? "#fbbf2420" : "transparent" }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
@@ -2786,6 +2793,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     return (
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
+                          borderLeft: portfolioSet.has(m.ticker) ? "3px solid #fbbf24" : watchlistSet.has(m.ticker) ? "3px solid #60a5fa" : "3px solid transparent",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
                         <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
                           <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
@@ -2924,6 +2932,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       return (
                         <tr key={f.ticker + "_focus"} data-ticker={f.ticker} onClick={() => onTickerClick(f.ticker)}
                           style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
+                            borderLeft: portfolioSet.has(f.ticker) ? "3px solid #fbbf24" : watchlistSet.has(f.ticker) ? "3px solid #60a5fa" : "3px solid transparent",
                             background: activeTicker === f.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
                           <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
                             <span onClick={(e) => { e.stopPropagation(); onRemoveFocus(f.ticker); }}
@@ -4340,7 +4349,7 @@ function migrateTrade(t) {
 // ── EXECUTION TAB ──
 const SETUP_TAGS = ["Breakout", "Pullback", "EP Gap", "VCP", "IPO Base", "Power Earnings Gap", "Other"];
 
-function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, removeFromPortfolio, liveThemeData, erSipLookup }) {
+function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, watchlist, removeFromPortfolio, liveThemeData, erSipLookup }) {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [tab, setTab] = useState("calc"); // open | closed | calc
@@ -4629,7 +4638,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       {portfolio.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#4aad8c", marginBottom: 4 }}>Portfolio ({portfolio.length})</div>
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} />
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
         </div>
       )}
 
@@ -5052,7 +5061,7 @@ const LiveSortHeader = memo(function LiveSortHeader({ setter, current }) {
   );
 });
 
-const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup }) {
+const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup, portfolio, watchlist }) {
   const isActive = s.ticker === activeTicker;
   const rowRef = useRef(null);
   useEffect(() => {
@@ -5060,8 +5069,11 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
   }, [isActive]);
   const near = s.pct_from_high != null && s.pct_from_high >= -5;
   const chg = (v) => !v && v !== 0 ? "#686878" : v > 0 ? "#2bb886" : v < 0 ? "#f87171" : "#9090a0";
+  const lrInP = portfolio?.includes(s.ticker);
+  const lrInW = watchlist?.includes(s.ticker);
   return (
     <tr ref={rowRef} data-ticker={s.ticker} onClick={() => onTickerClick(s.ticker)} style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+      borderLeft: lrInP ? "3px solid #fbbf24" : lrInW ? "3px solid #60a5fa" : "3px solid transparent",
       background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
       <td style={{ padding: "4px 4px", textAlign: "center", whiteSpace: "nowrap" }}>
         {onRemove && <span onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}
@@ -5168,13 +5180,13 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
   );
 });
 
-function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup }) {
+function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup, portfolio, watchlist }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
       <LiveSortHeader setter={setter} current={sortKey} />
       <tbody>
         {data.map(s => <LiveRow key={s.ticker} s={s} onRemove={onRemove} onAdd={onAdd} addLabel={addLabel}
-          activeTicker={activeTicker} onTickerClick={onTickerClick} erSipLookup={erSipLookup} />)}
+          activeTicker={activeTicker} onTickerClick={onTickerClick} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />)}
       </tbody>
     </table>
   );
@@ -5507,7 +5519,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
 }
 
 // ── PKN TAB ──
-function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData }) {
+function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData, portfolio, watchlist }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -5659,7 +5671,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
             Add tickers above or click <span style={{ color: "#e879f9" }}>+ PKN</span> on charts.
           </div>
         ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} />
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} portfolio={portfolio} watchlist={watchlist} />
         )}
       </div>
 
@@ -5677,7 +5689,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
           </div>
         ) : (
           <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} />
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} portfolio={portfolio} watchlist={watchlist} />
           </div>
         )}
       </div>
@@ -6047,7 +6059,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
             Add your holdings above to track live.
           </div>
         ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} />
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
         )}
       </div>
 
@@ -6065,7 +6077,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           </div>
         ) : (
           <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} erSipLookup={erSipLookup} />
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
           </div>
         )}
       </div>
@@ -7313,7 +7325,7 @@ function AppMain({ authToken, onLogout }) {
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
-            portfolio={portfolio} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} erSipLookup={erSipLookup} />}
+            portfolio={portfolio} watchlist={watchlist} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Performance">
           {view === "perf" && <TradePerformance trades={trades} stockMap={stockMap}
@@ -7330,7 +7342,7 @@ function AppMain({ authToken, onLogout }) {
             pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
             addToPkn={addToPkn} removeFromPkn={removeFromPkn}
             addToPknWatch={addToPknWatch} removeFromPknWatch={removeFromPknWatch}
-            liveThemeData={liveThemeData} />}
+            liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} />}
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <Suspense fallback={<div style={{ color: "#686878", padding: 20, textAlign: "center" }}>Loading...</div>}><USMarketQuadrant /></Suspense>}
