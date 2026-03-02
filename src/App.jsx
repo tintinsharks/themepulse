@@ -1133,7 +1133,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus }) {
   const [sortBy, setSortBy] = useState("default");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "change", dir: "desc" });
@@ -1471,6 +1471,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           border: scanTab === "burst" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "burst" ? "1px solid #121218" : "1px solid #3a3a4a",
           background: scanTab === "burst" ? "#121218" : "transparent", color: scanTab === "burst" ? "#f59e0b" : "#686878" }}>
           ⚡ Momentum Burst <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "burst" ? "#f59e0b" : "#505060" }}>{burstStocks.length}</span>
+        </button>
+        <button onClick={() => setScanTab("ep")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "ep" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "ep" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "ep" ? "#121218" : "transparent", color: scanTab === "ep" ? "#c084fc" : "#686878" }}>
+          EP Catalyst
         </button>
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
@@ -1813,6 +1818,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             })}</tbody>
           </table>
         </div>
+      )}
+      {scanTab === "ep" && (
+        <EpisodicPivots stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker}
+          onVisibleTickers={onVisibleTickers} earningsMovers={earningsMovers} headlinesMap={headlinesMap}
+          pmTopMovers={pmTopMovers} ahTopMovers={ahTopMovers}
+          historicalEarningsMovers={historicalEarningsMovers}
+          focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
+          liveThemeData={externalLiveData} />
       )}
     </div>
     {/* Theme Leaders side panel */}
@@ -7189,7 +7202,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["grid","Research"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"]].map(([id, label]) => (
+        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -7233,9 +7246,6 @@ function AppMain({ authToken, onLogout }) {
           })()}
         </div>
         <div className="tp-right-btns" style={{ display: "flex", gap: 4 }}>
-        <button onClick={() => { setView("ep"); setVisibleTickers([]); }} style={{ marginLeft: 8, padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-          background: view === "ep" ? "#c084fc20" : "transparent", border: view === "ep" ? "1px solid #c084fc" : "1px solid #3a3a4a",
-          color: view === "ep" ? "#c084fc" : "#787888" }}>Earnings</button>
         {/* Pipeline run button */}
         <div style={{ position: "relative" }}>
             <button onClick={() => setShowPipeline(p => !p)} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 10, cursor: "pointer",
@@ -7274,10 +7284,9 @@ function AppMain({ authToken, onLogout }) {
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
-            stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}} />}
-          </ErrorBoundary>
-          <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} liveThemeData={liveThemeData} />}
+            stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
+            earningsMovers={data.earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
+            historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
