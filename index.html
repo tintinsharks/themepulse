@@ -7,6 +7,13 @@
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { background: #0a0a0a; }
+      /* Thin, dark scrollbars */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+      ::-webkit-scrollbar-corner { background: transparent; }
+      * { scrollbar-width: thin; scrollbar-color: #2a2a3a transparent; }
     </style>
   </head>
   <body>

@@ -1439,6 +1439,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
+    if (scanTab === "ep") return;
     const burstTickers = burstStocks.map(b => b.ticker);
     const candidateTickers = candidates.map(s => s.ticker);
     if (onVisibleTickers) onVisibleTickers(scanTab === "burst" ? burstTickers : [...candidateTickers, ...burstTickers.filter(t => !candidateTickers.includes(t))]);
@@ -3632,6 +3633,9 @@ function LWChart({ ticker, entry, stop, target }) {
   const linesRef = useRef([]);
   const volMaRef = useRef(null);
   const maRefs = useRef({}); // ema10, ema21hi, ema21close, ema21lo, sma50, ema200
+  const indContainerRef = useRef(null);
+  const indChartRef = useRef(null);
+  const indSeriesRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
@@ -3651,6 +3655,7 @@ function LWChart({ ticker, entry, stop, target }) {
     chartContainerRef.current = el;
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; volSeriesRef.current = null; volMaRef.current = null; linesRef.current = []; }
+      if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
       chartContainerRef.current = null;
@@ -3708,14 +3713,42 @@ function LWChart({ ticker, entry, stop, target }) {
         color: "#fbbf2480", lineWidth: 1, priceScaleId: "vol",
         lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0.1 } });
 
       roRef.current = new ResizeObserver(() => {
         if (chartRef.current && chartContainerRef.current) {
           try { chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400); } catch {}
         }
+        if (indChartRef.current && indContainerRef.current) {
+          try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 60); } catch {}
+        }
       });
       roRef.current.observe(chartContainerRef.current);
+
+      // ── 4% Days indicator pane ──
+      if (indContainerRef.current) {
+        const indChart = LW.createChart(indContainerRef.current, {
+          width: indContainerRef.current.clientWidth || 400, height: 60,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38" },
+          timeScale: { visible: false },
+          handleScroll: false,
+          handleScale: false,
+        });
+        indChartRef.current = indChart;
+        indSeriesRef.current = indChart.addHistogramSeries({
+          priceFormat: { type: "price", precision: 1, minMove: 0.1 },
+          lastValueVisible: false, priceLineVisible: false,
+        });
+        // Sync indicator time scale from main chart
+        chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range && indChartRef.current) {
+            try { indChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+          }
+        });
+      }
     } catch (e) {
       console.error("LW chart init error:", e);
       setError("Chart init failed: " + e.message);
@@ -4075,9 +4108,23 @@ function LWChart({ ticker, entry, stop, target }) {
           }
         }
 
-        // Show last ~6 months (126 trading days) — use logical range to preserve rightOffset
+        // ── 4% Days indicator data ──
+        if (indSeriesRef.current) {
+          const fourPctData = [];
+          for (let i = 1; i < bars.length; i++) {
+            const prev = bars[i - 1].close;
+            const pct = ((bars[i].close - prev) / prev) * 100;
+            const volUp = (bars[i].volume || 0) > (bars[i - 1].volume || 0);
+            if (pct >= 4 && volUp) fourPctData.push({ time: bars[i].date, value: pct, color: "#2bb886" });
+            else if (pct <= -4 && volUp) fourPctData.push({ time: bars[i].date, value: pct, color: "#f87171" });
+            else fourPctData.push({ time: bars[i].date, value: 0 });
+          }
+          indSeriesRef.current.setData(fourPctData);
+        }
+
+        // Show last ~3.5 months (74 trading days) — use logical range to preserve rightOffset
         const totalBars = bars.length;
-        const fromBar = totalBars > 126 ? totalBars - 126 : 0;
+        const fromBar = totalBars > 74 ? totalBars - 74 : 0;
         chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + 27 });
 
         // ── Compute volume stats for data box ──
@@ -4171,7 +4218,14 @@ function LWChart({ ticker, entry, stop, target }) {
   };
 
   return (
-    <div ref={wrapperRef} style={{ width: "100%", height: "100%", minHeight: 300, position: "relative" }}>
+    <div style={{ width: "100%", height: "100%", minHeight: 300, display: "flex", flexDirection: "column" }}>
+      {/* 4% Days indicator pane */}
+      <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
+        <div ref={indContainerRef} style={{ width: "100%", height: 60 }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>4% Days</div>
+      </div>
+      {/* Main chart */}
+      <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
       {loading && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#fbbf24", zIndex: 5, pointerEvents: "none" }}>Loading {ticker}...</div>}
       {error && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#f87171", zIndex: 5, pointerEvents: "none" }}>⚠ {error}</div>}
       {!libReady && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 11, color: "#505060", zIndex: 5 }}>Loading chart library...</div>}
@@ -4227,6 +4281,7 @@ function LWChart({ ticker, entry, stop, target }) {
       )}
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
+      </div>
       </div>
     </div>
   );
