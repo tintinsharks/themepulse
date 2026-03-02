@@ -1130,6 +1130,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
   const [minRS, setMinRS] = useState(70);
+  const [burstMinRS, setBurstMinRS] = useState(0);
   const [scanFilters, setScanFilters] = useState(new Set(["T"]));
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
@@ -1472,8 +1473,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         _relVol: s?.rel_volume, _mf: s?.mf, _eps_this_y: s?.eps_this_y,
         _isMFPos: isMFPos, _isMFNeg: isMFNeg, _is9M: is9M };
     });
-    // Apply same filters as scan watch
-    if (minRS > 0) list = list.filter(b => (b._rs || 0) >= minRS);
+    // Apply burst-specific RS filter (default 0 = show all)
+    if (burstMinRS > 0) list = list.filter(b => (b._rs || 0) >= burstMinRS);
     if (nearPivot) list = list.filter(b => (b._pctFromHigh || -99) >= -3);
     if (greenOnly) list = list.filter(b => b.change_pct > 0);
     if (activeTheme) list = list.filter(b => b._themes?.some(t => t.theme === activeTheme));
@@ -1492,7 +1493,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, minRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, scanFilters, burstSort]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, scanFilters, burstSort]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1588,9 +1589,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           border: greenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
           background: greenOnly ? "#2bb88620" : "transparent", color: greenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
-          <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
-            style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+          {scanTab === "burst" ? <>
+            <span style={{ fontSize: 10, color: burstMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{burstMinRS}</span>
+            <input type="range" min={0} max={95} step={5} value={burstMinRS} onChange={e => setBurstMinRS(Number(e.target.value))}
+              style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+          </> : <>
+            <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
+            <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
+              style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
+          </>}
         </div>
         <span style={{ color: "#3a3a4a" }}>|</span>
         {[["small", "Small+"], ["mid", "Mid+"], ["large", "Large"]].map(([k, l]) => (
