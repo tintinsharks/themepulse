@@ -59,11 +59,11 @@ const Badge = memo(function Badge({ grade }) {
   return <span style={{ background: bg, color: light ? "#2a2a38" : "#d4d4e0", padding: "1px 5px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
 });
 
-// ── SOURCE BADGE (ER / PM-SIP / AH-SIP tag) ──
+// ── SOURCE BADGE (ER / PM / AH tag) ──
 const SOURCE_BADGE_STYLES = {
-  er:     { label: "ER",     color: "#c084fc", bg: "#c084fc18", border: "#c084fc30" },
-  pm_sip: { label: "PM-SIP", color: "#38bdf8", bg: "#38bdf818", border: "#38bdf830" },
-  ah_sip: { label: "AH-SIP", color: "#f97316", bg: "#f9731618", border: "#f9731630" },
+  er: { label: "ER", color: "#c084fc", bg: "#c084fc18", border: "#c084fc30" },
+  pm: { label: "PM", color: "#38bdf8", bg: "#38bdf818", border: "#38bdf830" },
+  ah: { label: "AH", color: "#f97316", bg: "#f9731618", border: "#f9731630" },
 };
 const SourceBadge = memo(function SourceBadge({ source }) {
   const s = SOURCE_BADGE_STYLES[source];
@@ -1826,7 +1826,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "cur_vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -1842,16 +1842,12 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [er9M, setEr9M] = useState(false);
   const [erBeatFilter, setErBeatFilter] = useState(null);
 
-  // STATE: Calendar & PM/AH collapsible sections
+  // STATE: Calendar & collapsible sections
   const [showLegend, setShowLegend] = useState(false);
-  const [pmCollapsed, setPmCollapsed] = useState(false);
-  const [ahCollapsed, setAhCollapsed] = useState(false);
   const [histCollapsed, setHistCollapsed] = useState(false);
   const [focusCollapsed, setFocusCollapsed] = useState(true);
 
-  // Sort state for PM/AH/Historical tables
-  const [pmSort, setPmSort] = useState({ col: "change", dir: "desc" });
-  const [ahSort, setAhSort] = useState({ col: "change", dir: "desc" });
+  // Sort state for Historical tables
   const [histSort, setHistSort] = useState({ col: "volume", dir: "desc" });
   const [focusSort, setFocusSort] = useState({ col: "change", dir: "desc" });
 
@@ -2026,22 +2022,55 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       }
     });
 
-    // Add SIP movers (PM and AH stocks in play) not already in ERs
-    const allSip = [...(pmSipMovers || []).map(m => ({ ...m, _sipSession: "PM" })), ...(ahSipMovers || []).map(m => ({ ...m, _sipSession: "AH" }))];
-    allSip.forEach(m => {
-      if (!seen.has(m.ticker + "_sip")) {
-        seen.add(m.ticker + "_sip");
+    // Add PM top movers not already in ERs
+    const erTickers = new Set(rows.map(r => r.ticker));
+    const pmSeen = new Set();
+    (pmTopMovers || []).forEach(m => {
+      if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
+        pmSeen.add(m.ticker);
         const s = stockMap[m.ticker] || {};
         rows.push({
           ticker: m.ticker,
-          _source: m._sipSession === "PM" ? "pm_sip" : "ah_sip",
-          _key: m.ticker + "_sip",
+          _source: "pm",
+          _key: m.ticker + "_pm",
           _headline: m.headlines?.[0] || "",
           _recentHeadlines: m.headlines || [],
           _chg: m.change_pct,
+          price: m.price ?? s.price ?? null,
+          company: m.company || m.name || s.company || m.ticker,
+          _vol: m.volume || 0,
           vol_ratio: m.volume && s.avg_volume_raw ? m.volume / s.avg_volume_raw : null,
           days_ago: 0,
-          _sipData: m,
+          grade: m.grade || s.grade || null,
+          rs_rank: m.rs_rank ?? s.rs_rank ?? null,
+          _industry: m.industry || s.industry || "",
+          _inUniverse: m.in_universe ?? (m.ticker in stockMap),
+          _moverData: m,
+        });
+      }
+    });
+
+    // Add AH top movers not already in ERs or PM
+    (ahTopMovers || []).forEach(m => {
+      if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
+        const s = stockMap[m.ticker] || {};
+        rows.push({
+          ticker: m.ticker,
+          _source: "ah",
+          _key: m.ticker + "_ah",
+          _headline: m.headlines?.[0] || "",
+          _recentHeadlines: m.headlines || [],
+          _chg: m.change_pct,
+          price: m.price ?? s.price ?? null,
+          company: m.company || m.name || s.company || m.ticker,
+          _vol: m.volume || 0,
+          vol_ratio: m.volume && s.avg_volume_raw ? m.volume / s.avg_volume_raw : null,
+          days_ago: 0,
+          grade: m.grade || s.grade || null,
+          rs_rank: m.rs_rank ?? s.rs_rank ?? null,
+          _industry: m.industry || s.industry || "",
+          _inUniverse: m.in_universe ?? (m.ticker in stockMap),
+          _moverData: m,
         });
       }
     });
@@ -2050,23 +2079,25 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     let filtered = rows;
     if (sourceFilter === "er") {
       filtered = filtered.filter(r => r._source === "er" || r._source === "upcoming");
-    } else if (sourceFilter === "sip") {
-      filtered = filtered.filter(r => r._source === "pm_sip" || r._source === "ah_sip");
+    } else if (sourceFilter === "pm") {
+      filtered = filtered.filter(r => r._source === "pm");
+    } else if (sourceFilter === "ah") {
+      filtered = filtered.filter(r => r._source === "ah");
     }
     // Filter by RS — fall back to row data for tickers not in stockMap
     if (minRS > 0) {
-      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? r.rs_rank ?? r._sipData?.rs_rank ?? 0) >= minRS);
+      filtered = filtered.filter(r => (stockMap[r.ticker]?.rs_rank ?? r.rs_rank ?? r._moverData?.rs_rank ?? 0) >= minRS);
     }
     // Filter by avg $Vol — fall back to mover's price*avg_volume for tickers not in stockMap
     if (minDvol > 0) {
       filtered = filtered.filter(r => {
         const dv = stockMap[r.ticker]?.avg_dollar_vol_raw
-          ?? (((r.price || 0) * (r._avgVol || r._sipData?.avg_volume || 0)) || null);
+          ?? (((r.price || 0) * (r._avgVol || r._moverData?.avg_volume || 0)) || null);
         return dv != null && dv >= minDvol * 1_000_000;
       });
     }
     return filtered;
-  }, [filteredEarnings, pmSipMovers, ahSipMovers, sourceFilter, minRS, minDvol, stockMap]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2079,7 +2110,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const sortedRows = useMemo(() => {
     const sorters = {
       type: (a, b) => {
-        const order = { er: 0, upcoming: 1, pm_sip: 2, ah_sip: 3 };
+        const order = { er: 0, upcoming: 1, pm: 2, ah: 3 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
       },
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
@@ -2121,8 +2152,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const filteredHistoricalMovers = useMemo(() => {
     let list = historicalEarningsMovers || [];
 
-    // Source filter: historical are all ER — hide when SIP-only
-    if (sourceFilter === "sip") return [];
+    // Source filter: historical are all ER — hide when PM-only or AH-only
+    if (sourceFilter === "pm" || sourceFilter === "ah") return [];
 
     // Bio/REIT filter
     if (noBio) {
@@ -2204,16 +2235,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     return sorted;
   };
 
-  // Sorted PM movers
-  const sortedPmMovers = useMemo(() => {
-    return _sortSessionMovers(pmEarningsMovers || [], pmSort);
-  }, [pmEarningsMovers, pmSort, liveLookup]);
-
-  // Sorted AH movers
-  const sortedAhMovers = useMemo(() => {
-    return _sortSessionMovers(ahEarningsMovers || [], ahSort);
-  }, [ahEarningsMovers, ahSort, liveLookup]);
-
   // Sorted Historical movers
   const sortedHistMovers = useMemo(() => {
     return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => {
@@ -2266,21 +2287,24 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const getTypeColor = (source) => {
     if (source === "er") return "#c084fc";
     if (source === "upcoming") return "#f59e0b";
-    if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf8";
+    if (source === "pm") return "#38bdf8";
+    if (source === "ah") return "#f97316";
     return "#686878";
   };
 
   const getTypeBg = (source) => {
     if (source === "er") return "#c084fc18";
     if (source === "upcoming") return "#f59e0b18";
-    if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf818";
+    if (source === "pm") return "#38bdf818";
+    if (source === "ah") return "#f9731618";
     return "#4a4a5a18";
   };
 
   const getSourceBorderColor = (source) => {
     if (source === "er") return "#c084fc40";
     if (source === "upcoming") return "#f59e0b40";
-    if (source === "sip" || source === "pm_sip" || source === "ah_sip") return "#38bdf840";
+    if (source === "pm") return "#38bdf840";
+    if (source === "ah") return "#f9731640";
     return "#4a4a5a40";
   };
 
@@ -2364,8 +2388,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-            {["all", "er", "sip"].map(src => {
-              const label = src === "all" ? "All" : src === "er" ? "ER" : "SIP";
+            {["all", "er", "pm", "ah"].map(src => {
+              const label = src === "all" ? "All" : src.toUpperCase();
               const isActive = sourceFilter === src;
               return (
                 <button key={src} onClick={() => setSourceFilter(src)}
@@ -2542,7 +2566,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </span>
                       </td>
                       {/* RS */}
-                      {(() => { const rsVal = s.rs_rank ?? row.rs_rank ?? row._sipData?.rs_rank ?? null; return (
+                      {(() => { const rsVal = s.rs_rank ?? row.rs_rank ?? row._moverData?.rs_rank ?? null; return (
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (rsVal || 0) >= 80 ? "#2bb886" : (rsVal || 0) >= 60 ? "#686878" : "#4a4a5a" }}>
                         {rsVal ?? "—"}
@@ -2551,8 +2575,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
-                          {row._source === "upcoming" ? "AMC" : row._source === "pm_sip" ? "PM-SIP" :
-                           row._source === "ah_sip" ? "AH-SIP" : row._source.toUpperCase()}
+                          {row._source === "upcoming" ? "AMC" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
@@ -2655,172 +2678,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           </div>
         )}
       </div>
-
-      {/* ── PM EARNINGS MOVERS ── */}
-      {pmEarningsMovers && pmEarningsMovers.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div onClick={() => setPmCollapsed(p => !p)}
-            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px",
-              background: "#1a1a28", borderRadius: 4, cursor: "pointer", userSelect: "none",
-              borderLeft: "3px solid #60a5fa" }}>
-            <span style={{ fontSize: 9, color: "#60a5fa", fontWeight: 700 }}>{pmCollapsed ? "▶" : "▼"}</span>
-            <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 600 }}>Pre-Market Earnings Movers</span>
-            <span style={{ fontSize: 9, color: "#4a4a5a" }}>({pmEarningsMovers.length})</span>
-          </div>
-          {!pmCollapsed && (
-            <div style={{ overflowX: "auto", maxHeight: 320 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    {[
-                      { key: "focus", label: "+", align: "center" },
-                      { key: "rs", label: "RS", align: "right" },
-                      { key: "ticker", label: "Ticker", align: "left" },
-                      { key: "name", label: "Name", align: "left" },
-                      { key: "volume", label: "Volume", align: "right" },
-                      { key: "change", label: "Chg%", align: "right" },
-                      { key: "price", label: "Price", align: "right" },
-                      { key: "headline", label: "Headline", align: "left" },
-                    ].map(h => (
-                      <th key={h.key} onClick={h.key === "focus" ? undefined : (e) => { e.stopPropagation(); setPmSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
-                        style={{ padding: "4px 6px", textAlign: h.align, color: pmSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: h.key === "focus" ? "default" : "pointer", userSelect: "none", width: h.key === "focus" ? 20 : undefined }}>
-                        {h.label}{pmSort.col === h.key ? (pmSort.dir === "desc" ? " ▾" : " ▴") : ""}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedPmMovers.map((m, i) => {
-                    const lv = liveLookup[m.ticker];
-                    const chg = lv?.change ?? m.change_pct ?? m.ext_hours_change_pct;
-                    const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
-                    const vol = lv?.volume ?? m.volume;
-                    return (
-                      <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
-                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
-                          background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
-                        <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
-                          <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
-                            style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(m.ticker) ? "#f59e0b" : "#3a3a4a",
-                              fontWeight: 700 }} title={focusSet.has(m.ticker) ? "Remove from Focus" : "Add to Focus"}>
-                            {focusSet.has(m.ticker) ? "\u2605" : "+"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                          color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
-                          {rs != null ? rs : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
-                          {m.ticker}
-                        </td>
-                        <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {m.name || "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(vol)}
-                        </td>
-                        <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-                          color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
-                          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(2)}%` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
-                          {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
-                          {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── AH EARNINGS MOVERS ── */}
-      {ahEarningsMovers && ahEarningsMovers.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div onClick={() => setAhCollapsed(p => !p)}
-            style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px",
-              background: "#1a1a28", borderRadius: 4, cursor: "pointer", userSelect: "none",
-              borderLeft: "3px solid #c084fc" }}>
-            <span style={{ fontSize: 9, color: "#c084fc", fontWeight: 700 }}>{ahCollapsed ? "▶" : "▼"}</span>
-            <span style={{ fontSize: 11, color: "#c084fc", fontWeight: 600 }}>After-Hours Earnings Movers</span>
-            <span style={{ fontSize: 9, color: "#4a4a5a" }}>({ahEarningsMovers.length})</span>
-          </div>
-          {!ahCollapsed && (
-            <div style={{ overflowX: "auto", maxHeight: 320 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
-                    {[
-                      { key: "focus", label: "+", align: "center" },
-                      { key: "rs", label: "RS", align: "right" },
-                      { key: "ticker", label: "Ticker", align: "left" },
-                      { key: "name", label: "Name", align: "left" },
-                      { key: "volume", label: "Volume", align: "right" },
-                      { key: "change", label: "Chg%", align: "right" },
-                      { key: "price", label: "Price", align: "right" },
-                      { key: "headline", label: "Headline", align: "left" },
-                    ].map(h => (
-                      <th key={h.key} onClick={h.key === "focus" ? undefined : (e) => { e.stopPropagation(); setAhSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
-                        style={{ padding: "4px 6px", textAlign: h.align, color: ahSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: h.key === "focus" ? "default" : "pointer", userSelect: "none", width: h.key === "focus" ? 20 : undefined }}>
-                        {h.label}{ahSort.col === h.key ? (ahSort.dir === "desc" ? " ▾" : " ▴") : ""}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedAhMovers.map((m, i) => {
-                    const lv = liveLookup[m.ticker];
-                    const chg = lv?.change ?? m.change_pct ?? m.ext_hours_change_pct;
-                    const rs = stockMap[m.ticker]?.rs_rank ?? m.rs_rank ?? null;
-                    const vol = lv?.volume ?? m.volume;
-                    return (
-                      <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
-                        style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
-                          background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
-                        <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
-                          <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
-                            style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(m.ticker) ? "#f59e0b" : "#3a3a4a",
-                              fontWeight: 700 }} title={focusSet.has(m.ticker) ? "Remove from Focus" : "Add to Focus"}>
-                            {focusSet.has(m.ticker) ? "\u2605" : "+"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                          color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
-                          {rs != null ? rs : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
-                          {m.ticker}
-                        </td>
-                        <td style={{ padding: "3px 6px", color: "#505060", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {m.name || "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
-                          {fmtVol(vol)}
-                        </td>
-                        <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-                          color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
-                          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(2)}%` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#a8a8b8" }}>
-                          {m.price != null ? `$${m.price.toFixed(2)}` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", color: "#606070", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
-                          {m.headlines && m.headlines.length > 0 ? m.headlines[0] : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── HISTORICAL + FOCUS SIDE BY SIDE ── */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
@@ -7097,7 +6954,7 @@ function AppMain({ authToken, onLogout }) {
     });
     return m;
   }, [baseStockMap, liveThemeData]);
-  // ER / SIP source lookup — lets every tab show where a ticker came from
+  // ER / PM / AH source lookup — lets every tab show where a ticker came from
   const erSipLookup = useMemo(() => {
     if (!data) return {};
     const m = {};
@@ -7107,10 +6964,10 @@ function AppMain({ authToken, onLogout }) {
     (data.pm_earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "er"; });
     // AH earnings movers → ER (reported after-hours)
     (data.ah_earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "er"; });
-    // PM SIP movers
-    (data.pm_sip_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "pm_sip"; });
-    // AH SIP movers
-    (data.ah_sip_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "ah_sip"; });
+    // PM movers (prefer new top movers, fall back to old SIP)
+    (data.pm_top_movers || data.pm_sip_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "pm"; });
+    // AH movers (prefer new top movers, fall back to old SIP)
+    (data.ah_top_movers || data.ah_sip_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "ah"; });
     return m;
   }, [data]);
 
@@ -7425,7 +7282,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
-          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmEarningsMovers={data.pm_earnings_movers || []} ahEarningsMovers={data.ah_earnings_movers || []} pmSipMovers={data.pm_sip_movers || []} ahSipMovers={data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} liveThemeData={liveThemeData} />}
+          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} liveThemeData={liveThemeData} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
