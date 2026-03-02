@@ -3672,30 +3672,25 @@ function IntradayChart({ ticker }) {
             linesRef.current.forEach(l => { try { cs.removePriceLine(l); } catch {} });
             linesRef.current = [];
 
-            // Find first regular-session bar (9:30 AM ET = bar after premarket)
-            // Regular session bar: hour >= 9:30 ET. Yahoo timestamps are UTC.
-            // ET = UTC-5 (EST) or UTC-4 (EDT). Check the bar time.
+            // Find the 9:30 AM ET bar (first bar of regular session)
+            // Convert to ET properly using Intl (handles DST automatically)
+            const toETMinutes = (unixSec) => {
+              const dt = new Date(unixSec * 1000);
+              const etStr = dt.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: "2-digit", minute: "2-digit" });
+              const [h, m] = etStr.split(":").map(Number);
+              return h * 60 + m; // minutes since midnight ET
+            };
+            // 9:30 AM ET = 570 minutes from midnight
             let firstBar = null;
             for (const b of bars) {
-              const d = new Date(b.time * 1000);
-              const etHour = d.getUTCHours() - 5; // rough EST offset
-              const edtHour = d.getUTCHours() - 4; // rough EDT offset
-              // Regular session starts at 9:30 ET → 14:30 UTC (EST) or 13:30 UTC (EDT)
-              const utcH = d.getUTCHours();
-              const utcM = d.getUTCMinutes();
-              const utcMinutes = utcH * 60 + utcM;
-              // 9:30 ET = 13:30 UTC (EDT) or 14:30 UTC (EST)
-              // Accept first bar at 13:30 or 14:30 UTC
-              if ((utcMinutes === 13 * 60 + 30) || (utcMinutes === 14 * 60 + 30)) {
-                firstBar = b;
-                break;
-              }
+              const etMin = toETMinutes(b.time);
+              if (etMin === 570) { firstBar = b; break; } // exact 9:30
             }
-            // Fallback: if no exact match, find first bar after 13:00 UTC
+            // Fallback: first bar at or after 9:30 ET (in case of slight offset)
             if (!firstBar) {
               for (const b of bars) {
-                const utcH = new Date(b.time * 1000).getUTCHours();
-                if (utcH >= 13) { firstBar = b; break; }
+                const etMin = toETMinutes(b.time);
+                if (etMin >= 570 && etMin < 600) { firstBar = b; break; } // between 9:30-9:59
               }
             }
 
