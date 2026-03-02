@@ -3525,13 +3525,13 @@ function IntradayChart({ ticker }) {
       const cs = chart.addCandlestickSeries({
         upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
         wickUpColor: "#2bb886", wickDownColor: "#f87171",
-        lastValueVisible: false,
+        lastValueVisible: false, priceLineVisible: false,
       });
       seriesRef.current = cs;
 
       const vs = chart.addHistogramSeries({
         priceFormat: { type: "volume" }, priceScaleId: "vol", color: "#2bb88640",
-        lastValueVisible: false,
+        lastValueVisible: false, priceLineVisible: false,
       });
       chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
       volSeriesRef.current = vs;
