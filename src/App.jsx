@@ -2836,6 +2836,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
                           {m.ticker}
+                          <PatternTags patterns={sMap.chart_patterns} />
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(liveVol)}
