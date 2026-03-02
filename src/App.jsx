@@ -3726,7 +3726,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
           try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 80); } catch {}
         }
         if (volChartRef.current && volContainerRef.current) {
-          try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 80); } catch {}
+          try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 120); } catch {}
         }
       });
       roRef.current.observe(chartContainerRef.current);
@@ -3760,7 +3760,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
       // ── Volume panel (bottom) ──
       if (volContainerRef.current) {
         const volChart = LW.createChart(volContainerRef.current, {
-          width: volContainerRef.current.clientWidth || 400, height: 80,
+          width: volContainerRef.current.clientWidth || 400, height: 120,
           layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
           grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
           crosshair: { mode: 0 },
@@ -4345,7 +4345,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
       </div>
       {/* Volume panel */}
       <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
-        <div ref={volContainerRef} style={{ width: "100%", height: 80 }} />
+        <div ref={volContainerRef} style={{ width: "100%", height: 120 }} />
         <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>Vol</div>
       </div>
     </div>
