@@ -2112,8 +2112,22 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (epGreenOnly) {
       filtered = filtered.filter(r => (stockMap[r.ticker]?.change_pct ?? r._chg ?? 0) > 0);
     }
+    // Bio/REIT filter for PM/AH rows (ER rows already filtered via filteredEarnings)
+    if (noBio) {
+      filtered = filtered.filter(r => {
+        if (r._source === "er" || r._source === "upcoming") return true; // already filtered
+        const ind = (r._industry || "").trim();
+        if (!ind) return true;
+        for (const ex of ER_EXCLUDED) { if (ind.toLowerCase() === ex.toLowerCase()) return false; }
+        return true;
+      });
+    }
+    // Days filter
+    if (maxDays < 120) {
+      filtered = filtered.filter(r => (r.days_ago ?? 0) <= maxDays);
+    }
     return filtered;
-  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, stockMap]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2227,8 +2241,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       list = list.filter(m => (stockMap[m.ticker]?.change_pct ?? m.change_pct ?? 0) > 0);
     }
 
+    // Days filter
+    if (maxDays < 120) {
+      list = list.filter(m => (m.days_ago ?? 0) <= maxDays);
+    }
+
     return list;
-  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, stockMap]);
+  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, maxDays, stockMap]);
 
   // Generic sort helper for PM/AH/Historical tables
   const _sortSessionMovers = (list, sortState, getExtra) => {
