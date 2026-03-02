@@ -2657,6 +2657,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
                     {[
+                      { key: "focus", label: "+", align: "center" },
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "name", label: "Name", align: "left" },
@@ -2665,8 +2666,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "price", label: "Price", align: "right" },
                       { key: "headline", label: "Headline", align: "left" },
                     ].map(h => (
-                      <th key={h.key} onClick={(e) => { e.stopPropagation(); setPmSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
-                        style={{ padding: "4px 6px", textAlign: h.align, color: pmSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                      <th key={h.key} onClick={h.key === "focus" ? undefined : (e) => { e.stopPropagation(); setPmSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
+                        style={{ padding: "4px 6px", textAlign: h.align, color: pmSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: h.key === "focus" ? "default" : "pointer", userSelect: "none", width: h.key === "focus" ? 20 : undefined }}>
                         {h.label}{pmSort.col === h.key ? (pmSort.dir === "desc" ? " ▾" : " ▴") : ""}
                       </th>
                     ))}
@@ -2680,6 +2681,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
+                          <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
+                            style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(m.ticker) ? "#f59e0b" : "#3a3a4a",
+                              fontWeight: 700 }} title={focusSet.has(m.ticker) ? "Remove from Focus" : "Add to Focus"}>
+                            {focusSet.has(m.ticker) ? "\u2605" : "+"}
+                          </span>
+                        </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                           color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
                           {rs != null ? rs : "—"}
@@ -2730,6 +2738,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
                     {[
+                      { key: "focus", label: "+", align: "center" },
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "name", label: "Name", align: "left" },
@@ -2738,8 +2747,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "price", label: "Price", align: "right" },
                       { key: "headline", label: "Headline", align: "left" },
                     ].map(h => (
-                      <th key={h.key} onClick={(e) => { e.stopPropagation(); setAhSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
-                        style={{ padding: "4px 6px", textAlign: h.align, color: ahSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+                      <th key={h.key} onClick={h.key === "focus" ? undefined : (e) => { e.stopPropagation(); setAhSort(prev => ({ col: h.key, dir: prev.col === h.key && prev.dir === "desc" ? "asc" : "desc" })); }}
+                        style={{ padding: "4px 6px", textAlign: h.align, color: ahSort.col === h.key ? "#a8a8b8" : "#505060", fontWeight: 600, cursor: h.key === "focus" ? "default" : "pointer", userSelect: "none", width: h.key === "focus" ? 20 : undefined }}>
                         {h.label}{ahSort.col === h.key ? (ahSort.dir === "desc" ? " ▾" : " ▴") : ""}
                       </th>
                     ))}
@@ -2753,6 +2762,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <tr key={m.ticker + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                        <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
+                          <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
+                            style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(m.ticker) ? "#f59e0b" : "#3a3a4a",
+                              fontWeight: 700 }} title={focusSet.has(m.ticker) ? "Remove from Focus" : "Add to Focus"}>
+                            {focusSet.has(m.ticker) ? "\u2605" : "+"}
+                          </span>
+                        </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                           color: rs != null ? (rs >= 80 ? "#2bb886" : rs >= 50 ? "#a8a8b8" : "#4a4a5a") : "#2a2a35" }}>
                           {rs != null ? rs : "—"}
