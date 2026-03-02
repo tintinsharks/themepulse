@@ -1125,6 +1125,8 @@ function computeStockQuality(s, leadingThemes) {
 
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup }) {
   const [sortBy, setSortBy] = useState("default");
+  const [sortDir, setSortDir] = useState("desc");
+  const [burstSort, setBurstSort] = useState({ col: "change", dir: "desc" });
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
   const [minRS, setMinRS] = useState(70);
@@ -1444,8 +1446,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       theme: (a, b) => (a.themes?.[0]?.theme || "").localeCompare(b.themes?.[0]?.theme || ""),
       subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
     };
-    return list.sort(sorters[sortBy] || sorters.hits);
-  }, [stocks, leading, sortBy, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup]);
+    const sorted = list.sort(sorters[sortBy] || sorters.hits);
+    return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup]);
 
   const burstStocks = useMemo(() => {
     // Compute MF thresholds (same as scan watch)
@@ -1481,8 +1484,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (scanFilters.has("MF+")) list = list.filter(b => b._isMFPos);
     if (scanFilters.has("MF-")) list = list.filter(b => b._isMFNeg);
     if (scanFilters.has("9M")) list = list.filter(b => b._is9M);
-    return list.sort((a, b) => b.change_pct - a.change_pct);
-  }, [momentumBurst, stocks, stockMap, minRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, scanFilters]);
+    const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
+    const bSorters = {
+      change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
+      range: safe(b => b.close_range), rvol: safe(b => b.vol_ratio), vol: safe(b => b.volume),
+      rs: safe(b => b._rs), grade: safe(b => ({"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1})[b._grade] ?? null),
+    };
+    const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
+    return burstSort.dir === "asc" ? sorted.reverse() : sorted;
+  }, [momentumBurst, stocks, stockMap, minRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, scanFilters, burstSort]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1627,10 +1637,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           {columns.map(([h, sk]) => (
-            <th key={h} onClick={sk ? () => setSortBy(prev => prev === sk ? "default" : sk) : undefined}
+            <th key={h} onClick={sk ? () => { if (sortBy === sk) { if (sortDir === "desc") setSortDir("asc"); else { setSortBy("default"); setSortDir("desc"); } } else { setSortBy(sk); setSortDir("desc"); } } : undefined}
               style={{ padding: "6px 8px", color: sortBy === sk ? "#4aad8c" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
-              {h}{sortBy === sk ? " ▼" : ""}</th>
+              {h}{sortBy === sk ? (sortDir === "desc" ? " ▼" : " ▲") : ""}</th>
           ))}
         </tr></thead>
         <tbody>{candidates.map(s => {
@@ -1770,6 +1780,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       </>)}
 
       {/* Momentum Burst tab */}
+      {scanTab === "burst" && burstStocks.length === 0 && (
+        <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>⚡</div>
+          <div style={{ fontSize: 13, color: "#686878", fontWeight: 600, marginBottom: 4 }}>No Momentum Burst signals</div>
+          <div style={{ fontSize: 11, color: "#505060" }}>Live signals appear during market hours (9:30 AM – 4:00 PM ET)</div>
+          <div style={{ fontSize: 10, color: "#3a3a4a", marginTop: 8 }}>Scans for $ breakout (≥$0.90 body + 2%+ gain) and 4% breakout (4%+ gain, closing in upper range)</div>
+        </div>
+      )}
       {scanTab === "burst" && burstStocks.length > 0 && (
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -1777,16 +1795,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 11 }}>Ticker</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "center", fontSize: 11 }}>Type</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>Chg%</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>$Move</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>Close</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>ClRng</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>RVol</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>Vol</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "right", fontSize: 11 }}>RS</th>
-              <th style={{ padding: "6px 8px", color: "#787888", fontWeight: 600, textAlign: "left", fontSize: 11 }}>Theme</th>
+              {[["Ticker", null, "left"], ["Type", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
+                ["Close", "close", "right"], ["ClRng", "range", "right"], ["RVol", "rvol", "right"], ["Vol", "vol", "right"],
+                ["RS", "rs", "right"], ["Theme", null, "left"]].map(([h, sk, align]) => (
+                <th key={h} onClick={sk ? () => setBurstSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
+                  style={{ padding: "6px 8px", color: burstSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: align, fontSize: 11,
+                    cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+                  {h}{burstSort.col === sk ? (burstSort.dir === "desc" ? " ▼" : " ▲") : ""}</th>
+              ))}
             </tr></thead>
             <tbody>{burstStocks.map(b => {
               const isActive = b.ticker === activeTicker;
