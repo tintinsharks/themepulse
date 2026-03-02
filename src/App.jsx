@@ -3717,9 +3717,6 @@ function LWChart({ ticker, entry, stop, target }) {
       maRefs.current.sma50 = chart.addLineSeries({
         color: "#2dd4bf", lineWidth: 1, lineStyle: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
-      maRefs.current.sma20 = chart.addLineSeries({
-        color: "#4169e1", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
-      });
       maRefs.current.ema200 = chart.addLineSeries({
         color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
@@ -3971,7 +3968,7 @@ function LWChart({ ticker, entry, stop, target }) {
         const toLine = (arr) => arr.map((v, i) => v != null ? { time: bars[i].date, value: Math.round(v * 100) / 100 } : null).filter(Boolean);
 
         if (maRefs.current.ema10) maRefs.current.ema10.setData(toLine(ema10));
-        if (maRefs.current.sma20) maRefs.current.sma20.setData(toLine(sma20));
+
         if (maRefs.current.sma50) maRefs.current.sma50.setData(toLine(sma50));
         if (maRefs.current.ema200) maRefs.current.ema200.setData(toLine(ema200));
         if (maRefs.current.ema21hi) maRefs.current.ema21hi.setData(toLine(ema21hi));
@@ -3989,7 +3986,7 @@ function LWChart({ ticker, entry, stop, target }) {
             ema21data.push({
               time: bars[i].date,
               value: Math.round(ema21close[i] * 100) / 100,
-              color: allRising ? "#00ff00" : allFalling ? "#ff00ff" : "#808080",
+              color: allRising ? "#6495ed" : allFalling ? "#1e3a8a" : "#4169e1",
             });
           }
           maRefs.current.ema21close.setData(ema21data);
