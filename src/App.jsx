@@ -1480,8 +1480,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
-      {/* Shared filters — apply to both tabs */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+      {/* Shared filters — apply to scan + burst tabs (EP has its own filter bar) */}
+      {scanTab !== "ep" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — scan tab gets all, burst tab gets MF+/MF-/9M */}
         {(scanTab === "scan" ? [
           ["T", "Theme", "#2bb886"], ["W", "Winners", "#c084fc"], ["L", "Liquid", "#60a5fa"],
@@ -1568,7 +1568,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             {activeTheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
           </button>
         )}
-      </div>
+      </div>}
 
       {scanTab === "scan" && (<>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
