@@ -1748,7 +1748,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-              {[["Ticker", null, "left"], ["Headlines", null, "left"], ["Type", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
+              {[["Ticker", null, "left"], ["Type", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
                 ["Close", "close", "right"], ["ClRng", "range", "right"], ["RVol", "rvol", "right"], ["Vol", "vol", "right"],
                 ["RS", "rs", "right"], ["Theme", null, "left"], ["Sub", null, "left"]].map(([h, sk, align]) => (
                 <th key={h} onClick={sk ? () => setBurstSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
@@ -1770,11 +1770,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     <Badge grade={b._grade} />{" "}{b.ticker}
                     {erSipLookup && erSipLookup[b.ticker] && <SourceBadge source={erSipLookup[b.ticker]} />}
                     <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{b._company}</span>
-                  </td>
-                  <td style={{ padding: "5px 6px", fontSize: 9, color: "#686878",
-                    maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                    title={headlinesMap[b.ticker]?.headlines?.join(" | ")}>
-                    {headlinesMap[b.ticker]?.headlines?.[0] || "—"}
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "center" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: tagColor, padding: "2px 6px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
