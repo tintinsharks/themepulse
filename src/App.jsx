@@ -3657,8 +3657,16 @@ function IntradayChart({ ticker }) {
           .then(d => {
             if (disposed || !d?.ok || !d.ohlc?.length) return;
             const bars = d.ohlc;
-            cs.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
-            vs.setData(bars.map(b => ({ time: b.time, value: b.volume, color: b.close >= b.open ? "#2bb88640" : "#f8717140" })));
+            // Shift timestamps to Pacific Time for display (lightweight-charts shows UTC by default)
+            const ptOff = (() => {
+              if (!bars.length) return -8 * 3600;
+              const d2 = new Date(bars[0].time * 1000);
+              const utcStr = d2.toLocaleString("en-US", { timeZone: "UTC" });
+              const pacStr = d2.toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+              return Math.round((new Date(pacStr) - new Date(utcStr)) / 1000);
+            })();
+            cs.setData(bars.map(b => ({ time: b.time + ptOff, open: b.open, high: b.high, low: b.low, close: b.close })));
+            vs.setData(bars.map(b => ({ time: b.time + ptOff, value: b.volume, color: b.close >= b.open ? "#2bb88640" : "#f8717140" })));
 
             // Clear old price lines
             linesRef.current.forEach(l => { try { cs.removePriceLine(l); } catch {} });
@@ -3734,6 +3742,7 @@ function IntradayChart({ ticker }) {
     <div style={{ height: 300, borderTop: "1px solid #2a2a38", position: "relative" }}>
       <div style={{ position: "absolute", top: 4, left: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b" }}>5m ORB</span>
+        <span style={{ fontSize: 9, color: "#555", fontFamily: "monospace" }}>PT</span>
         {orRange && (<>
           <span style={{ fontSize: 10, color: "#2bb886", fontFamily: "monospace" }}>ORH {orRange.high.toFixed(2)}</span>
           <span style={{ fontSize: 10, color: "#f87171", fontFamily: "monospace" }}>ORL {orRange.low.toFixed(2)}</span>
