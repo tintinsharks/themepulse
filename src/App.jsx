@@ -3715,7 +3715,7 @@ function LWChart({ ticker, entry, stop, target }) {
         color: "#808080", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       maRefs.current.sma50 = chart.addLineSeries({
-        color: "#00bc9a", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        color: "#2dd4bf", lineWidth: 1, lineStyle: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
       maRefs.current.sma20 = chart.addLineSeries({
         color: "#4169e1", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
