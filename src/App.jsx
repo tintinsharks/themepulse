@@ -1133,7 +1133,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap }) {
   const [sortBy, setSortBy] = useState("default");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "change", dir: "desc" });
@@ -1748,9 +1748,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-              {[["Ticker", null, "left"], ["Type", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
+              {[["Ticker", null, "left"], ["Headlines", null, "left"], ["Type", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
                 ["Close", "close", "right"], ["ClRng", "range", "right"], ["RVol", "rvol", "right"], ["Vol", "vol", "right"],
-                ["RS", "rs", "right"], ["Theme", null, "left"]].map(([h, sk, align]) => (
+                ["RS", "rs", "right"], ["Theme", null, "left"], ["Sub", null, "left"]].map(([h, sk, align]) => (
                 <th key={h} onClick={sk ? () => setBurstSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
                   style={{ padding: "6px 8px", color: burstSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: align, fontSize: 11,
                     cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
@@ -1770,6 +1770,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     <Badge grade={b._grade} />{" "}{b.ticker}
                     {erSipLookup && erSipLookup[b.ticker] && <SourceBadge source={erSipLookup[b.ticker]} />}
                     <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{b._company}</span>
+                  </td>
+                  <td style={{ padding: "5px 6px", fontSize: 9, color: "#686878",
+                    maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={headlinesMap[b.ticker]?.headlines?.join(" | ")}>
+                    {headlinesMap[b.ticker]?.headlines?.[0] || "—"}
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "center" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: tagColor, padding: "2px 6px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
@@ -1802,6 +1807,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     title={b._themes?.[0]?.theme}>
                     {b._themes?.[0]?.theme || "—"}
+                  </td>
+                  <td style={{ padding: "5px 8px", color: "#505060", fontSize: 10,
+                    maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    title={b._themes?.[0]?.subtheme}>
+                    {b._themes?.[0]?.subtheme || "—"}
                   </td>
                 </tr>
               );
@@ -7270,7 +7280,7 @@ function AppMain({ authToken, onLogout }) {
         <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
-            stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} />}
+            stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}} />}
           </ErrorBoundary>
           <ErrorBoundary name="Episodic Pivots">
           {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} earningsMovers={data.earnings_movers} headlinesMap={data.headlines || {}} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []} historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} liveThemeData={liveThemeData} />}
