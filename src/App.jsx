@@ -7344,7 +7344,8 @@ function AppMain({ authToken, onLogout }) {
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
                 pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
                 pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
-                liveThemeData={liveThemeData} erSipLookup={erSipLookup} />
+                liveThemeData={liveThemeData} erSipLookup={erSipLookup}
+                lwChartProps={{ entry: "", stop: "", target: "" }} />
             )}
             </ErrorBoundary>
           </div>
