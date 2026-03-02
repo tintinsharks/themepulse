@@ -72,6 +72,31 @@ const SourceBadge = memo(function SourceBadge({ source }) {
     color: s.color, background: s.bg, border: `1px solid ${s.border}`, verticalAlign: "super", marginLeft: 3 }}>{s.label}</span>;
 });
 
+// ── CHART PATTERN TAGS (VCP, C&H, FB, PP) ──
+const PATTERN_COLORS = {
+  vcp: "#ec4899", cup_and_handle: "#2bb886", flat_base: "#a78bfa", power_play: "#f59e0b",
+};
+const PATTERN_ABBREV = {
+  vcp: "VCP", cup_and_handle: "C&H", flat_base: "FB", power_play: "PP",
+};
+const PatternTags = memo(function PatternTags({ patterns }) {
+  if (!patterns || !patterns.length) return null;
+  return patterns.map((p, i) => {
+    const color = PATTERN_COLORS[p.pattern] || "#9090a0";
+    const abbrev = PATTERN_ABBREV[p.pattern] || p.pattern;
+    const statusIcon = p.status === "breakout" ? "!" : "";
+    return (
+      <span key={i}
+        title={`${abbrev} (${p.status}) Q:${p.quality} | Depth:${p.depth_pct}% ${p.length_days}d | Pivot:$${p.pivot_price}`}
+        style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700,
+          verticalAlign: "super", color, background: color + "20", border: `1px solid ${color}30`,
+          cursor: "default" }}>
+        {abbrev}{p.quality >= 80 ? statusIcon : ""}<span style={{ fontSize: 6, opacity: 0.7 }}>{p.quality}</span>
+      </span>
+    );
+  });
+});
+
 // ── STOCK STAT (label: value pair for chart panel) ──
 const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
   return (
@@ -1620,6 +1645,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
                 <span>{s.ticker}</span>
                 {erSipLookup && erSipLookup[s.ticker] && <SourceBadge source={erSipLookup[s.ticker]} />}
+                <PatternTags patterns={s.chart_patterns} />
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
                     style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
@@ -1778,6 +1804,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     color: isActive ? "#f59e0b" : "#d4d4e0" }}>
                     <Badge grade={b._grade} />{" "}{b.ticker}
                     {erSipLookup && erSipLookup[b.ticker] && <SourceBadge source={erSipLookup[b.ticker]} />}
+                    <PatternTags patterns={b.chart_patterns || stockMap[b.ticker]?.chart_patterns} />
                     <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{b._company}</span>
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "center" }}>
@@ -2639,6 +2666,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         {row.ticker}
+                        <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
                       </td>
                       {/* Rev% */}
                       <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
@@ -5140,6 +5168,7 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500, fontSize: 12 }}>
         <span>{s.ticker}</span>
         {erSipLookup && erSipLookup[s.ticker] && <SourceBadge source={erSipLookup[s.ticker]} />}
+        <PatternTags patterns={s.chart_patterns} />
         {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
           <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
             style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
