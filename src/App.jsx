@@ -1135,6 +1135,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
+  const [minDolVol, setMinDolVol] = useState(50); // in millions, default $50M
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan" or "burst"
 
@@ -1417,6 +1418,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (mcapFilter === "mid") list = list.filter(s => (s.market_cap_raw || 0) >= 2_000_000_000);
     if (mcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
     if (volFilter > 0) list = list.filter(s => (s.avg_volume_raw || 0) >= volFilter);
+    if (minDolVol > 0) list = list.filter(s => (s.avg_dollar_vol_raw || 0) >= minDolVol * 1_000_000);
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1449,7 +1451,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
     return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
-  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, liveLookup]);
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup]);
 
   const burstStocks = useMemo(() => {
     // Compute MF thresholds (same as scan watch)
@@ -1481,6 +1483,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (mcapFilter === "mid") list = list.filter(b => (b._mcap || 0) >= 2_000_000_000);
     if (mcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
     if (volFilter > 0) list = list.filter(b => (b._avgVol || 0) >= volFilter);
+    if (minDolVol > 0) list = list.filter(b => (b._avgDolVol || 0) >= minDolVol * 1_000_000);
     // Apply MF+/MF-/9M tag filters
     if (scanFilters.has("MF+")) list = list.filter(b => b._isMFPos);
     if (scanFilters.has("MF-")) list = list.filter(b => b._isMFNeg);
@@ -1493,7 +1496,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, scanFilters, burstSort]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1606,11 +1609,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             background: mcapFilter === k ? "#60a5fa20" : "transparent", color: mcapFilter === k ? "#60a5fa" : "#686878" }}>{l}</button>
         ))}
         <span style={{ color: "#3a3a4a" }}>|</span>
-        {[[0, "All Vol"], [50000, ">50K"], [100000, ">100K"]].map(([v, l]) => (
-          <button key={v} onClick={() => setVolFilter(v)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
-            border: volFilter === v ? "1px solid #fbbf24" : "1px solid #3a3a4a",
-            background: volFilter === v ? "#fbbf2420" : "transparent", color: volFilter === v ? "#fbbf24" : "#686878" }}>{l}</button>
-        ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span style={{ fontSize: 10, color: minDolVol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥</span>
+          <input type="text" value={minDolVol || ""} placeholder="0"
+            onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setMinDolVol(v === "" ? 0 : Number(v)); }}
+            style={{ width: 32, padding: "2px 4px", borderRadius: 4, fontSize: 10, fontFamily: "monospace", textAlign: "right",
+              border: minDolVol > 0 ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+              background: minDolVol > 0 ? "#fbbf2410" : "transparent", color: minDolVol > 0 ? "#fbbf24" : "#686878", outline: "none" }} />
+          <span style={{ fontSize: 9, color: "#686878" }}>M</span>
+        </div>
         {activeTheme && (
           <button onClick={() => setActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
             border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
