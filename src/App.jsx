@@ -2189,8 +2189,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         case "rs": cmp = (stockMap[a.ticker]?.rs_rank ?? a.rs_rank ?? 0) - (stockMap[b.ticker]?.rs_rank ?? b.rs_rank ?? 0); break;
         case "ticker": cmp = (a.ticker || "").localeCompare(b.ticker || ""); break;
         case "name": cmp = (a.name || a.company || "").localeCompare(b.name || b.company || ""); break;
-        case "volume": cmp = (stockMap[a.ticker]?.volume ?? a.volume ?? 0) - (stockMap[b.ticker]?.volume ?? b.volume ?? 0); break;
-        case "change": cmp = (stockMap[a.ticker]?.change_pct ?? a.change_pct ?? a.ext_hours_change_pct ?? -999) - (stockMap[b.ticker]?.change_pct ?? b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
+        case "volume": cmp = (liveLookup[a.ticker]?.volume ?? stockMap[a.ticker]?.volume ?? a.volume ?? 0) - (liveLookup[b.ticker]?.volume ?? stockMap[b.ticker]?.volume ?? b.volume ?? 0); break;
+        case "change": cmp = (liveLookup[a.ticker]?.change ?? stockMap[a.ticker]?.change_pct ?? a.change_pct ?? a.ext_hours_change_pct ?? -999) - (liveLookup[b.ticker]?.change ?? stockMap[b.ticker]?.change_pct ?? b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
         case "price": cmp = (a.price || 0) - (b.price || 0); break;
         case "rvol": cmp = (ea.rvol ?? -999) - (eb.rvol ?? -999); break;
         case "days": cmp = (a.days_ago ?? 999) - (b.days_ago ?? 999); break;
@@ -2613,8 +2613,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         const lv = liveLookup[row.ticker];
                         const chgVal = lv?.change ?? s.change_pct ?? row._chg ?? null;
                         return (
-                        <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                          color: chgColor(chgVal) }}>
+                        <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 12, fontFamily: "monospace",
+                          color: chgVal != null ? (chgVal > 0 ? "#2bb886" : chgVal < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
                           {chgVal != null ? `${chgVal > 0 ? "+" : ""}${Number(chgVal).toFixed(2)}%` : "—"}
                         </td>);
                       })()}
@@ -2980,9 +2980,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           color: epsYoY != null ? chgColor(epsYoY) : "#3a3a4a" }}>
                           {epsYoY != null ? `${epsYoY >= 0 ? "+" : ""}${epsYoY.toFixed(0)}%` : "—"}
                         </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
-                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                        <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+                          color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(2)}%` : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                           color: rvol != null && isFinite(rvol) ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
@@ -3113,9 +3113,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             color: f._epsYoY != null ? chgColor(f._epsYoY) : "#3a3a4a" }}>
                             {f._epsYoY != null ? `${f._epsYoY >= 0 ? "+" : ""}${f._epsYoY.toFixed(0)}%` : "—"}
                           </td>
-                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                            color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#686878") : "#3a3a4a" }}>
-                            {f._chg != null ? `${f._chg > 0 ? "+" : ""}${f._chg.toFixed(1)}%` : "—"}
+                          <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+                            color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
+                            {f._chg != null ? `${f._chg > 0 ? "+" : ""}${Number(f._chg).toFixed(2)}%` : "—"}
                           </td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
                             color: f._rvol != null ? (f._rvol >= 3 ? "#f59e0b" : f._rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
