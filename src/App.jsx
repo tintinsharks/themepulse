@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useRef, Fragment, memo, Component } from "react";
-import USMarketQuadrant from "./USMarketQuadrant.jsx";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment, memo, Component, lazy, Suspense } from "react";
+const USMarketQuadrant = lazy(() => import("./USMarketQuadrant.jsx"));
 
 // ── Error Boundary ──
 class ErrorBoundary extends Component {
@@ -1317,80 +1317,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (todayVol >= 8_900_000 && avgVol < 8_900_000) hitMap[s.ticker].push("9M");
     });
 
-    // ── Composite EPS Score (0-99 percentile) ──
-    // Weighted blend of CANSLIM fundamentals: C (current quarterly) + A (annual) + margins + consistency
-    const epsRawScores = {};
-    stocks.forEach(s => {
-      const qs = s.quarters || [];
-      const annuals = s.annual || [];
-      // Current Q EPS YoY (most recent)
-      const curEps = qs[0]?.eps_yoy;
-      // EPS acceleration: current Q vs prior Q growth rate
-      const prevEps = qs[1]?.eps_yoy;
-      const epsAccel = (curEps != null && prevEps != null && prevEps !== 0) ? curEps - prevEps : null;
-      // Current Q Sales YoY
-      const curSales = qs[0]?.sales_yoy;
-      // Annual EPS growth (most recent year)
-      const annEps = annuals[0]?.eps_yoy;
-      // Margin trend: current Q net margin vs prior Q
-      const curMargin = qs[0]?.net_margin ?? qs[0]?.op_margin ?? qs[0]?.gross_margin;
-      const prevMargin = qs[1]?.net_margin ?? qs[1]?.op_margin ?? qs[1]?.gross_margin;
-      const marginDelta = (curMargin != null && prevMargin != null) ? curMargin - prevMargin : null;
-      // Consistency: how many of last 4 quarters had positive EPS growth
-      const posQs = qs.slice(0, 4).filter(q => q.eps_yoy != null && q.eps_yoy > 0).length;
-      epsRawScores[s.ticker] = { curEps, epsAccel, curSales, annEps, marginDelta, posQs };
-    });
-
-    // Percentile rank helper
-    const pctRank = (arr) => {
-      const sorted = arr.filter(v => v != null).sort((a, b) => a - b);
-      if (sorted.length === 0) return () => null;
-      return (val) => {
-        if (val == null) return null;
-        let idx = 0;
-        for (let i = 0; i < sorted.length; i++) { if (sorted[i] <= val) idx = i + 1; }
-        return Math.round(idx / sorted.length * 99);
-      };
-    };
-
-    const allCurEps = stocks.map(s => epsRawScores[s.ticker]?.curEps);
-    const allAccel = stocks.map(s => epsRawScores[s.ticker]?.epsAccel);
-    const allCurSales = stocks.map(s => epsRawScores[s.ticker]?.curSales);
-    const allAnnEps = stocks.map(s => epsRawScores[s.ticker]?.annEps);
-    const allMarginD = stocks.map(s => epsRawScores[s.ticker]?.marginDelta);
-    const allPosQs = stocks.map(s => epsRawScores[s.ticker]?.posQs);
-
-    const pCurEps = pctRank(allCurEps);
-    const pAccel = pctRank(allAccel);
-    const pCurSales = pctRank(allCurSales);
-    const pAnnEps = pctRank(allAnnEps);
-    const pMarginD = pctRank(allMarginD);
-    const pPosQs = pctRank(allPosQs);
-
-    // Weighted composite: C(30%) + Accel(20%) + Sales(15%) + A(15%) + Margin(10%) + Consistency(10%)
-    const epsCompositeMap = {};
-    stocks.forEach(s => {
-      const r = epsRawScores[s.ticker];
-      const scores = [
-        { p: pCurEps(r.curEps), w: 0.30 },
-        { p: pAccel(r.epsAccel), w: 0.20 },
-        { p: pCurSales(r.curSales), w: 0.15 },
-        { p: pAnnEps(r.annEps), w: 0.15 },
-        { p: pMarginD(r.marginDelta), w: 0.10 },
-        { p: pPosQs(r.posQs), w: 0.10 },
-      ];
-      let totalW = 0, totalS = 0;
-      scores.forEach(({ p, w }) => { if (p != null) { totalS += p * w; totalW += w; } });
-      epsCompositeMap[s.ticker] = totalW > 0 ? Math.round(totalS / totalW) : null;
-    });
-
-    // Re-rank composites into final percentile
-    const allComposites = Object.values(epsCompositeMap).filter(v => v != null).sort((a, b) => a - b);
-    const pComposite = pctRank(allComposites);
+    // ── EPS Score: reuse pre-computed _epsScore from baseStockMap ──
     const epsFinalMap = {};
-    stocks.forEach(s => {
-      epsFinalMap[s.ticker] = pComposite(epsCompositeMap[s.ticker]);
-    });
+    stocks.forEach(s => { epsFinalMap[s.ticker] = stockMap[s.ticker]?._epsScore ?? null; });
 
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     if (scanFilters.size === 0) {
@@ -1718,7 +1647,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {/* MF */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
-                title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
+                title={s.mf_tooltip ? `P${s._mfPct ?? '—'} | ${s.mf_tooltip}` : ""}>
                 {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
               {/* Chg% — live during market hours, pipeline regular-session data during AH */}
               {(() => {
@@ -1759,7 +1688,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {/* VCS */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
-                title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
+                title={s.vcs_tooltip || ""}>
                 {s.vcs ?? "—"}</td>
               {/* EPS */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
@@ -4361,8 +4290,8 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       sales_qq: pipe.sales_qq, sales_yoy: pipe.sales_yoy, pe: pipe.pe, roe: pipe.roe, profit_margin: pipe.profit_margin,
       rsi: pipe.rsi, themes: pipe.themes || [], theme: pipe.themes?.[0]?.theme || "",
       subtheme: pipe.themes?.[0]?.subtheme || "",
-      company: pipe.company || "", vcs: pipe.vcs, vcs_components: pipe.vcs_components,
-      mf: pipe.mf, mf_components: pipe.mf_components, _mfPct: pipe._mfPct,
+      company: pipe.company || "", vcs: pipe.vcs, vcs_tooltip: pipe.vcs_tooltip,
+      mf: pipe.mf, mf_tooltip: pipe.mf_tooltip, _mfPct: pipe._mfPct,
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display,
@@ -5098,7 +5027,7 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       {/* MF */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s.mf > 30 ? "#2bb886" : s.mf > 0 ? "#4a9070" : s.mf < -30 ? "#f87171" : s.mf < 0 ? "#c06060" : s.mf != null ? "#686878" : "#3a3a4a" }}
-        title={s.mf_components ? `P${s._mfPct ?? '—'} | DVol:${s.mf_components.dvol_trend} RVPers:${s.mf_components.rvol_persistence} UpVol:${s.mf_components.up_vol_ratio} PVDir:${s.mf_components.price_vol_dir}` : ""}>
+        title={s.mf_tooltip ? `P${s._mfPct ?? '—'} | ${s.mf_tooltip}` : ""}>
         {s.mf != null ? <>{s.mf > 0 ? `+${s.mf}` : s.mf}<sup style={{ fontSize: 7, color: "#505060", marginLeft: 1 }}>{s._mfPct ?? ''}</sup></> : "—"}</td>
       {/* Chg% */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: chg(s.change), fontFamily: "monospace", fontSize: 12 }}>
@@ -5132,7 +5061,7 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       {/* VCS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s.vcs >= 80 ? "#2bb886" : s.vcs >= 60 ? "#fbbf24" : s.vcs != null ? "#686878" : "#3a3a4a" }}
-        title={s.vcs_components ? `ATR:${s.vcs_components.atr_contraction} Range:${s.vcs_components.range_compression} MA:${s.vcs_components.ma_convergence} Vol:${s.vcs_components.volume_dryup} Prox:${s.vcs_components.proximity_highs}` : ""}>
+        title={s.vcs_tooltip || ""}>
         {s.vcs ?? "—"}</td>
       {/* EPS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
@@ -5559,8 +5488,8 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
       theme: pipe.themes?.[0]?.theme || live.sector || "",
       subtheme: pipe.themes?.[0]?.subtheme || "",
       company: live.company || pipe.company || "",
-      vcs: pipe.vcs, vcs_components: pipe.vcs_components,
-      mf: pipe.mf, mf_components: pipe.mf_components, _mfPct: pipe._mfPct,
+      vcs: pipe.vcs, vcs_tooltip: pipe.vcs_tooltip,
+      mf: pipe.mf, mf_tooltip: pipe.mf_tooltip, _mfPct: pipe._mfPct,
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
@@ -5752,9 +5681,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       company: live.company || pipe.company || "",
       // Additional fields for column parity with Scan
       vcs: pipe.vcs,
-      vcs_components: pipe.vcs_components,
+      vcs_tooltip: pipe.vcs_tooltip,
       mf: pipe.mf,
-      mf_components: pipe.mf_components,
+      mf_tooltip: pipe.mf_tooltip,
       _mfPct: pipe._mfPct,
       avg_dollar_vol: pipe.avg_dollar_vol,
       avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
@@ -6769,8 +6698,14 @@ function AppMain({ authToken, onLogout }) {
         .catch(() => {});
     };
     fetchHomepage();
-    const hpIv = setInterval(fetchHomepage, 60000);
-    return () => clearInterval(hpIv);
+    let hpIv = setInterval(fetchHomepage, 60000);
+    // Pause polling when tab is hidden, resume on focus
+    const handleVisHP = () => {
+      if (document.hidden) { clearInterval(hpIv); hpIv = null; }
+      else { fetchHomepage(); hpIv = setInterval(fetchHomepage, 60000); }
+    };
+    document.addEventListener("visibilitychange", handleVisHP);
+    return () => { if (hpIv) clearInterval(hpIv); document.removeEventListener("visibilitychange", handleVisHP); };
   }, []);
 
   // Global theme universe live data fetch — batched for large universes
@@ -6791,18 +6726,20 @@ function AppMain({ authToken, onLogout }) {
         const results = [];
         let isExtended = false;
         let burstResults = [];
+        // Parallel fetch all batches simultaneously
+        const batchPromises = [];
         for (let i = 0; i < allTickers.length; i += BATCH) {
           const batch = allTickers.slice(i, i + BATCH);
           const params = new URLSearchParams();
           params.set("universe", batch.join(","));
-          const resp = await fetch(`/api/live?${params}`);
-          if (resp.ok) {
-            const d = await resp.json();
-            if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
-            if (d?.extended_hours) isExtended = true;
-            if (d?.momentum_burst) burstResults.push(...d.momentum_burst);
-          }
+          batchPromises.push(fetch(`/api/live?${params}`).then(r => r.ok ? r.json() : null).catch(() => null));
         }
+        const batchResults = await Promise.all(batchPromises);
+        batchResults.forEach(d => {
+          if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
+          if (d?.extended_hours) isExtended = true;
+          if (d?.momentum_burst) burstResults.push(...d.momentum_burst);
+        });
         if (results.length > 0) {
           setLiveThemeData(prev => {
             if (!prev || prev.length === 0) return results;
@@ -6827,7 +6764,13 @@ function AppMain({ authToken, onLogout }) {
     };
     fetchUniverse();
     iv = setInterval(fetchUniverse, currentInterval);
-    return () => { if (iv) clearInterval(iv); };
+    // Pause polling when tab is hidden, resume with immediate fetch on focus
+    const handleVisUni = () => {
+      if (document.hidden) { if (iv) { clearInterval(iv); iv = null; } }
+      else { fetchUniverse(); iv = setInterval(fetchUniverse, currentInterval); }
+    };
+    document.addEventListener("visibilitychange", handleVisUni);
+    return () => { if (iv) clearInterval(iv); document.removeEventListener("visibilitychange", handleVisUni); };
   }, [data?.themes]);
 
   const handleFile = useCallback((e) => {
@@ -6843,11 +6786,24 @@ function AppMain({ authToken, onLogout }) {
     reader.readAsText(file);
   }, []);
 
-  const stockMap = useMemo(() => {
+  // ── Static scores: runs ONCE when pipeline data loads (not on live updates) ──
+  const baseStockMap = useMemo(() => {
     if (!data) return {};
     const m = {};
     data.stocks.forEach(s => { m[s.ticker] = s; });
-    
+
+    // Percentile rank helper — binary search for O(log n) per lookup
+    const pctRank = (arr) => {
+      const sorted = arr.filter(v => v != null).sort((a, b) => a - b);
+      if (!sorted.length) return () => null;
+      return (val) => {
+        if (val == null) return null;
+        let lo = 0, hi = sorted.length;
+        while (lo < hi) { const mid = (lo + hi) >>> 1; if (sorted[mid] <= val) lo = mid + 1; else hi = mid; }
+        return Math.round(lo / sorted.length * 99);
+      };
+    };
+
     // Compute EPS composite scores for all stocks
     const allStocks = data.stocks;
     const rawScores = {};
@@ -6867,11 +6823,6 @@ function AppMain({ authToken, onLogout }) {
         posQs: qs.slice(0, 4).filter(q => q.eps_yoy != null && q.eps_yoy > 0).length,
       };
     });
-    const pctRank = (arr) => {
-      const sorted = arr.filter(v => v != null).sort((a, b) => a - b);
-      if (!sorted.length) return () => null;
-      return (val) => { if (val == null) return null; let idx = 0; for (let i = 0; i < sorted.length; i++) { if (sorted[i] <= val) idx = i + 1; } return Math.round(idx / sorted.length * 99); };
-    };
     const pCE = pctRank(allStocks.map(s => rawScores[s.ticker]?.curEps));
     const pAc = pctRank(allStocks.map(s => rawScores[s.ticker]?.epsAccel));
     const pCS = pctRank(allStocks.map(s => rawScores[s.ticker]?.curSales));
@@ -6887,7 +6838,7 @@ function AppMain({ authToken, onLogout }) {
     });
     const pFinal = pctRank(Object.values(composites).filter(v=>v!=null));
     allStocks.forEach(s => { m[s.ticker]._epsScore = pFinal(composites[s.ticker]); });
-    
+
     // ── Momentum Score (0-99) ──
     // Blend of price action + EPS quality for swing/momentum trading
     const pRS = pctRank(allStocks.map(s => s.rs_rank));
@@ -6897,7 +6848,7 @@ function AppMain({ authToken, onLogout }) {
     const pEPS = pctRank(allStocks.map(s => m[s.ticker]._epsScore));
     const pMF = pctRank(allStocks.map(s => s.mf));
     const pADR = pctRank(allStocks.map(s => s.adr_pct));
-    
+
     const msComposites = {};
     allStocks.forEach(s => {
       const scores = [
@@ -6915,29 +6866,34 @@ function AppMain({ authToken, onLogout }) {
     });
     const pMS = pctRank(Object.values(msComposites).filter(v => v != null));
     allStocks.forEach(s => { m[s.ticker]._msScore = pMS(msComposites[s.ticker]); });
-    
+
     // MF percentile for display
     const pMFall = pctRank(allStocks.map(s => s.mf));
     allStocks.forEach(s => { m[s.ticker]._mfPct = pMFall(s.mf); });
 
-    // Merge live data into stockMap so ALL tabs see current prices/volume
-    if (liveThemeData) {
-      const parseVol = (v) => { if (v == null) return null; if (typeof v === "number") return v; return parseFloat(String(v).replace(/,/g, "")); };
-      liveThemeData.forEach(live => {
-        if (live.ticker && m[live.ticker]) {
-          if (live.change != null) m[live.ticker].change_pct = live.change;
-          if (live.price != null) m[live.ticker].price = live.price;
-          if (live.rel_volume != null) m[live.ticker].rel_volume = live.rel_volume;
-          const vol = parseVol(live.volume);
-          if (vol != null) m[live.ticker].volume = vol;
-          const avgV = parseVol(live.avg_volume);
-          if (avgV != null) m[live.ticker].avg_volume = avgV;
-        }
-      });
-    }
-
     return m;
-  }, [data, liveThemeData]);
+  }, [data]);
+
+  // ── Live merge: runs every 30s but only updates price/volume (O(700), <1ms) ──
+  const stockMap = useMemo(() => {
+    if (!baseStockMap || Object.keys(baseStockMap).length === 0) return baseStockMap || {};
+    if (!liveThemeData || liveThemeData.length === 0) return baseStockMap;
+    const m = { ...baseStockMap };
+    const parseVol = (v) => { if (v == null) return null; if (typeof v === "number") return v; return parseFloat(String(v).replace(/,/g, "")); };
+    liveThemeData.forEach(live => {
+      if (live.ticker && m[live.ticker]) {
+        m[live.ticker] = { ...m[live.ticker] };  // shallow clone only updated stocks
+        if (live.change != null) m[live.ticker].change_pct = live.change;
+        if (live.price != null) m[live.ticker].price = live.price;
+        if (live.rel_volume != null) m[live.ticker].rel_volume = live.rel_volume;
+        const vol = parseVol(live.volume);
+        if (vol != null) m[live.ticker].volume = vol;
+        const avgV = parseVol(live.avg_volume);
+        if (avgV != null) m[live.ticker].avg_volume = avgV;
+      }
+    });
+    return m;
+  }, [baseStockMap, liveThemeData]);
   // ER / SIP source lookup — lets every tab show where a ticker came from
   const erSipLookup = useMemo(() => {
     if (!data) return {};
@@ -7293,7 +7249,7 @@ function AppMain({ authToken, onLogout }) {
             liveThemeData={liveThemeData} />}
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
-          {view === "quad" && <USMarketQuadrant />}
+          {view === "quad" && <Suspense fallback={<div style={{ color: "#686878", padding: 20, textAlign: "center" }}>Loading...</div>}><USMarketQuadrant /></Suspense>}
           </ErrorBoundary>
         </div>
 
