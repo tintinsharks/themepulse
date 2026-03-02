@@ -645,7 +645,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
 
       {lwChartProps ? (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <LWChart ticker={ticker} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} />
+          <LWChart ticker={ticker} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} quarters={stock?.quarters} />
         </div>
       ) : (
         <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
@@ -3632,7 +3632,7 @@ function IntradayChart({ ticker }) {
   );
 }
 
-function LWChart({ ticker, entry, stop, target }) {
+function LWChart({ ticker, entry, stop, target, quarters }) {
   const wrapperRef = useRef(null);
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
@@ -3645,6 +3645,8 @@ function LWChart({ ticker, entry, stop, target }) {
   const indContainerRef = useRef(null);
   const indChartRef = useRef(null);
   const indSeriesRef = useRef(null);
+  const volChartRef = useRef(null);
+  const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
@@ -3663,8 +3665,9 @@ function LWChart({ ticker, entry, stop, target }) {
     wrapperRef.current.appendChild(el);
     chartContainerRef.current = el;
     return () => {
-      if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; volSeriesRef.current = null; volMaRef.current = null; linesRef.current = []; }
+      if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
       if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; }
+      if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
       chartContainerRef.current = null;
@@ -3713,23 +3716,17 @@ function LWChart({ ticker, entry, stop, target }) {
         color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
 
-      // ── Volume as overlay in bottom 20% ──
-      volSeriesRef.current = chart.addHistogramSeries({
-        priceFormat: { type: "volume" }, priceScaleId: "vol",
-        color: "#2bb88640",
-      });
-      volMaRef.current = chart.addLineSeries({
-        color: "#fbbf2480", lineWidth: 1, priceScaleId: "vol",
-        lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
-      });
-      chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.8, bottom: 0.1 } });
+      // Volume series are on a separate chart panel (created below)
 
       roRef.current = new ResizeObserver(() => {
         if (chartRef.current && chartContainerRef.current) {
           try { chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400); } catch {}
         }
         if (indChartRef.current && indContainerRef.current) {
-          try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 60); } catch {}
+          try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 80); } catch {}
+        }
+        if (volChartRef.current && volContainerRef.current) {
+          try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 80); } catch {}
         }
       });
       roRef.current.observe(chartContainerRef.current);
@@ -3737,7 +3734,7 @@ function LWChart({ ticker, entry, stop, target }) {
       // ── 4% Days indicator pane ──
       if (indContainerRef.current) {
         const indChart = LW.createChart(indContainerRef.current, {
-          width: indContainerRef.current.clientWidth || 400, height: 60,
+          width: indContainerRef.current.clientWidth || 400, height: 80,
           layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
           grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
           crosshair: { mode: 0 },
@@ -3751,11 +3748,36 @@ function LWChart({ ticker, entry, stop, target }) {
           priceFormat: { type: "price", precision: 1, minMove: 0.1 },
           lastValueVisible: false, priceLineVisible: false,
         });
-        // Sync indicator time scale from main chart
+        // Sync indicator time scale from main chart (volume chart also synced below)
         chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-          if (range && indChartRef.current) {
-            try { indChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+          if (range) {
+            if (indChartRef.current) try { indChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+            if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
           }
+        });
+      }
+
+      // ── Volume panel (bottom) ──
+      if (volContainerRef.current) {
+        const volChart = LW.createChart(volContainerRef.current, {
+          width: volContainerRef.current.clientWidth || 400, height: 80,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38" },
+          timeScale: { visible: false },
+          handleScroll: false,
+          handleScale: false,
+        });
+        volChartRef.current = volChart;
+        volSeriesRef.current = volChart.addHistogramSeries({
+          priceFormat: { type: "volume" },
+          color: "#2bb88640",
+          lastValueVisible: false, priceLineVisible: false,
+        });
+        volMaRef.current = volChart.addLineSeries({
+          color: "#fbbf2480", lineWidth: 1,
+          lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
         });
       }
     } catch (e) {
@@ -4129,6 +4151,35 @@ function LWChart({ ticker, entry, stop, target }) {
             else fourPctData.push({ time: bars[i].date, value: 0 });
           }
           indSeriesRef.current.setData(fourPctData);
+
+          // ── Earnings markers (EPS | Sales YoY) ──
+          if (quarters && quarters.length > 0) {
+            const barDates = new Set(bars.map(b => b.date));
+            const erMarkers = [];
+            for (const q of quarters) {
+              if (!q.report_date) continue;
+              // Find closest trading day on or after report_date
+              let matchDate = q.report_date;
+              if (!barDates.has(matchDate)) {
+                // Look forward up to 5 days for nearest trading day
+                const d = new Date(matchDate + "T00:00:00");
+                for (let j = 1; j <= 5; j++) {
+                  d.setDate(d.getDate() + 1);
+                  const ds = d.toISOString().slice(0, 10);
+                  if (barDates.has(ds)) { matchDate = ds; break; }
+                }
+              }
+              if (!barDates.has(matchDate)) continue;
+              const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
+              const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
+              if (!ePct && !sPct) continue;
+              const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
+              const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
+              erMarkers.push({ time: matchDate, position: "aboveBar", color: clr, shape: "square", size: 0, text: txt });
+            }
+            erMarkers.sort((a, b) => a.time.localeCompare(b.time));
+            indSeriesRef.current.setMarkers(erMarkers);
+          }
         }
 
         // Show last ~3.5 months (74 trading days) — use logical range to preserve rightOffset
@@ -4230,7 +4281,7 @@ function LWChart({ ticker, entry, stop, target }) {
     <div style={{ width: "100%", height: "100%", minHeight: 300, display: "flex", flexDirection: "column" }}>
       {/* 4% Days indicator pane */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
-        <div ref={indContainerRef} style={{ width: "100%", height: 60 }} />
+        <div ref={indContainerRef} style={{ width: "100%", height: 80 }} />
         <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>4% Days</div>
       </div>
       {/* Main chart */}
@@ -4291,6 +4342,11 @@ function LWChart({ ticker, entry, stop, target }) {
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
+      </div>
+      {/* Volume panel */}
+      <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
+        <div ref={volContainerRef} style={{ width: "100%", height: 80 }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>Vol</div>
       </div>
     </div>
   );
