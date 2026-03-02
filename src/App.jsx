@@ -2025,53 +2025,44 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     // Add PM top movers not already in ERs
     const erTickers = new Set(rows.map(r => r.ticker));
     const pmSeen = new Set();
+    const _buildMoverRow = (m, source, key) => {
+      const s = stockMap[m.ticker] || {};
+      return {
+        ticker: m.ticker,
+        _source: source,
+        _key: key,
+        _headline: m.headlines?.[0] || "",
+        _recentHeadlines: m.headlines || [],
+        _chg: m.change_pct,
+        price: m.price ?? s.price ?? null,
+        company: m.company || m.name || s.company || m.ticker,
+        _vol: m.volume || 0,
+        _avgVol: s.avg_volume_raw ?? null,
+        vol_ratio: m.volume && s.avg_volume_raw ? m.volume / s.avg_volume_raw : null,
+        days_ago: 0,
+        grade: m.grade || s.grade || null,
+        rs_rank: m.rs_rank ?? s.rs_rank ?? null,
+        _industry: m.industry || s.industry || "",
+        _inUniverse: m.in_universe ?? !!stockMap[m.ticker],
+        _revGrowthYoY: s.sales_yoy ?? null,
+        _epsGrowthYoY: s.eps_yoy ?? null,
+        _grossMargin: s.profit_margin ?? null,
+        _netMargin: s.oper_margin ?? null,
+        _moverData: m,
+      };
+    };
+
     (pmTopMovers || []).forEach(m => {
       if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
         pmSeen.add(m.ticker);
-        const s = stockMap[m.ticker] || {};
-        rows.push({
-          ticker: m.ticker,
-          _source: "pm",
-          _key: m.ticker + "_pm",
-          _headline: m.headlines?.[0] || "",
-          _recentHeadlines: m.headlines || [],
-          _chg: m.change_pct,
-          price: m.price ?? s.price ?? null,
-          company: m.company || m.name || s.company || m.ticker,
-          _vol: m.volume || 0,
-          vol_ratio: m.volume && s.avg_volume_raw ? m.volume / s.avg_volume_raw : null,
-          days_ago: 0,
-          grade: m.grade || s.grade || null,
-          rs_rank: m.rs_rank ?? s.rs_rank ?? null,
-          _industry: m.industry || s.industry || "",
-          _inUniverse: m.in_universe ?? (m.ticker in stockMap),
-          _moverData: m,
-        });
+        rows.push(_buildMoverRow(m, "pm", m.ticker + "_pm"));
       }
     });
 
     // Add AH top movers not already in ERs or PM
     (ahTopMovers || []).forEach(m => {
       if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
-        const s = stockMap[m.ticker] || {};
-        rows.push({
-          ticker: m.ticker,
-          _source: "ah",
-          _key: m.ticker + "_ah",
-          _headline: m.headlines?.[0] || "",
-          _recentHeadlines: m.headlines || [],
-          _chg: m.change_pct,
-          price: m.price ?? s.price ?? null,
-          company: m.company || m.name || s.company || m.ticker,
-          _vol: m.volume || 0,
-          vol_ratio: m.volume && s.avg_volume_raw ? m.volume / s.avg_volume_raw : null,
-          days_ago: 0,
-          grade: m.grade || s.grade || null,
-          rs_rank: m.rs_rank ?? s.rs_rank ?? null,
-          _industry: m.industry || s.industry || "",
-          _inUniverse: m.in_universe ?? (m.ticker in stockMap),
-          _moverData: m,
-        });
+        rows.push(_buildMoverRow(m, "ah", m.ticker + "_ah"));
       }
     });
 
