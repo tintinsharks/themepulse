@@ -3532,6 +3532,7 @@ function IntradayChart({ ticker, avgVolume }) {
   const avgVolRef = useRef(avgVolume);
   avgVolRef.current = avgVolume;
   const [orRange, setOrRange] = useState(null);
+  const [pmRange, setPmRange] = useState(null);
   const [zvrPct, setZvrPct] = useState(null);
 
   useEffect(() => {
@@ -3653,6 +3654,25 @@ function IntradayChart({ ticker, avgVolume }) {
               try { linesRef.current.push(cs.createPriceLine({ price: firstBar.low, color: "#f87171", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "ORL" })); } catch {}
             }
 
+            // ── Premarket High/Low — scan 4:00 AM to 9:29 AM ET ──
+            let pmHigh = -Infinity, pmLow = Infinity, hasPM = false;
+            for (const b of bars) {
+              const etMin = toETMinutes(b.time);
+              if (etMin >= 570) break;
+              if (etMin >= 240) {
+                pmHigh = Math.max(pmHigh, b.high);
+                pmLow = Math.min(pmLow, b.low);
+                hasPM = true;
+              }
+            }
+            if (hasPM) {
+              setPmRange({ high: pmHigh, low: pmLow });
+              try { linesRef.current.push(cs.createPriceLine({ price: pmHigh, color: "#38bdf8", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "PMH" })); } catch {}
+              try { linesRef.current.push(cs.createPriceLine({ price: pmLow,  color: "#fb923c", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "PML" })); } catch {}
+            } else {
+              setPmRange(null);
+            }
+
             // ── ZVR (Zanger Volume Ratio) — intraday cumulative vs time-adjusted avg ──
             const aVol = avgVolRef.current;
             if (zvrSeriesRef.current && aVol > 0) {
@@ -3714,6 +3734,10 @@ function IntradayChart({ ticker, avgVolume }) {
             <span style={{ fontSize: 10, color: "#787888", fontFamily: "monospace" }}>
               Range ${(orRange.high - orRange.low).toFixed(2)} ({((orRange.high - orRange.low) / orRange.low * 100).toFixed(1)}%)
             </span>
+          </>)}
+          {pmRange && (<>
+            <span style={{ fontSize: 10, color: "#38bdf8", fontFamily: "monospace" }}>PMH {pmRange.high.toFixed(2)}</span>
+            <span style={{ fontSize: 10, color: "#fb923c", fontFamily: "monospace" }}>PML {pmRange.low.toFixed(2)}</span>
           </>)}
         </div>
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
