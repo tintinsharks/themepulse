@@ -5835,6 +5835,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [pSort, setPSort] = useState("rel_volume");
   const [wlSort, setWlSort] = useState("rel_volume");
   const [marketOpen, setMarketOpen] = useState(true);
+  // Watchlist filters
+  const [wlNearPivot, setWlNearPivot] = useState(false);
+  const [wlGreenOnly, setWlGreenOnly] = useState(true);
+  const [wlMinRS, setWlMinRS] = useState(0);
+  const [wlMinDvol, setWlMinDvol] = useState(50);
+  const [wl9M, setWl9M] = useState(false);
 
   // Combine all tickers for API call — watchlist + portfolio
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -5967,7 +5973,19 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   };
 
   const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort, liveLookup]);
-  const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
+  const watchlistAll = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort, liveLookup]);
+  const watchlistMerged = useMemo(() => {
+    let list = watchlistAll;
+    if (wlNearPivot) list = list.filter(s => (s.pct_from_high ?? -100) >= -3);
+    if (wlGreenOnly) list = list.filter(s => { const chg = s.change ?? stockMap[s.ticker]?.change_pct; return chg != null && chg > 0; });
+    if (wlMinRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= wlMinRS);
+    if (wlMinDvol > 0) list = list.filter(s => (s.avg_dollar_vol_raw ?? 0) >= wlMinDvol * 1e6);
+    if (wl9M) list = list.filter(s => {
+      const vol = s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : 0;
+      return vol >= 8_900_000 && (s.avg_volume_raw ?? 0) < 8_900_000;
+    });
+    return list;
+  }, [watchlistAll, wlNearPivot, wlGreenOnly, wlMinRS, wlMinDvol, wl9M, stockMap]);
   useEffect(() => {
     if (!onVisibleTickers) return;
     const pTickers = portfolioMerged.map(s => s.ticker);
@@ -6188,9 +6206,29 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ color: "#0d9163", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            Watchlist ({watchlist.length})
+            Watchlist ({watchlistMerged.length}/{watchlist.length})
           </span>
           <TickerInput value={addTickerW} setValue={setAddTickerW} onAdd={handleAddW} />
+        </div>
+        {/* Watchlist filters */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <button onClick={() => setWlNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wlNearPivot ? "1px solid #60a5fa" : "1px solid #3a3a4a",
+            background: wlNearPivot ? "#60a5fa20" : "transparent", color: wlNearPivot ? "#60a5fa" : "#787888" }}>Near Pivot (&lt;3%)</button>
+          <button onClick={() => setWlGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wlGreenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
+            background: wlGreenOnly ? "#2bb88620" : "transparent", color: wlGreenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
+          <button onClick={() => setWl9M(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wl9M ? "1px solid #f59e0b" : "1px solid #3a3a4a",
+            background: wl9M ? "#f59e0b20" : "transparent", color: wl9M ? "#f59e0b" : "#787888" }}>9M</button>
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontSize: 10, color: wlMinDvol > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>${wlMinDvol}M</span>
+          <input type="range" min={0} max={200} step={10} value={wlMinDvol} onChange={e => setWlMinDvol(Number(e.target.value))}
+            style={{ width: 60, accentColor: "#4aad8c" }} title={`Min $Vol: $${wlMinDvol}M`} />
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontSize: 10, color: wlMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{wlMinRS}</span>
+          <input type="range" min={0} max={95} step={5} value={wlMinRS} onChange={e => setWlMinRS(Number(e.target.value))}
+            style={{ width: 60, accentColor: "#4aad8c" }} title={`Min RS: ${wlMinRS}`} />
         </div>
         {watchlist.length === 0 ? (
           <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
