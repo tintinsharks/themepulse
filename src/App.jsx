@@ -1197,7 +1197,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession }) {
   const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
@@ -1860,7 +1860,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           historicalEarningsMovers={historicalEarningsMovers}
           focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
           liveThemeData={externalLiveData} portfolio={portfolio} watchlist={watchlist}
-          pipelineMeta={pipelineMeta} />
+          pipelineMeta={pipelineMeta} marketSession={marketSession} />
       )}
     </div>
     {/* Theme Leaders side panel */}
@@ -1879,7 +1879,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist, pipelineMeta }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist, pipelineMeta, marketSession }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -2610,8 +2610,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   <th style={{ padding: "4px 4px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 9 }}>Headline</th>
                   {[
                     { col: "dvol", label: "$Vol", align: "right" },
-                    { col: "change", label: "Chg%", align: "right" },
-                    { col: "cur_vol", label: "Vol", align: "right" },
+                    { col: "change", label: marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%", align: "right" },
+                    { col: "cur_vol", label: marketSession === "premarket" ? "PMVol" : marketSession === "aftermarket" ? "AHVol" : "Vol", align: "right" },
                     { col: "vol", label: "RVol", align: "right" },
                     { col: "subtheme", label: "Sub", align: "left" },
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
@@ -2745,19 +2745,19 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
                         </td>);
                       })()}
-                      {/* Chg% — live first, then stockMap, then mover data */}
+                      {/* Chg% — session-aware: PM% in premarket, AH% in afterhours, Chg% in regular */}
                       {(() => {
                         const lv = liveLookup[row.ticker];
-                        const chgVal = lv?.change ?? lv?.ext_change ?? s.change_pct ?? row._chg ?? null;
+                        const chgVal = marketSession ? (lv?.ext_change ?? row._chg ?? null) : (lv?.change ?? s.change_pct ?? row._chg ?? null);
                         return (
                         <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 12, fontFamily: "monospace",
                           color: chgVal != null ? (chgVal > 0 ? "#2bb886" : chgVal < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
                           {chgVal != null ? `${chgVal > 0 ? "+" : ""}${Number(chgVal).toFixed(2)}%` : "—"}
                         </td>);
                       })()}
-                      {/* Current Volume */}
+                      {/* Current Volume — session-aware */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#686878" }}>
-                        {fmtVol(liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol)}
+                        {fmtVol(marketSession ? (liveLookup[row.ticker]?.ext_volume ?? row._vol) : (liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol))}
                       </td>
                       {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
@@ -7053,6 +7053,7 @@ function AppMain({ authToken, onLogout }) {
   const [chartTicker, setChartTicker] = useState(null);
   const [liveThemeData, setLiveThemeData] = useState(null);
   const [liveMomentumBurst, setLiveMomentumBurst] = useState(null);
+  const [marketSession, setMarketSession] = useState(null); // "premarket" | "aftermarket" | null (regular)
   const [showEarnings, setShowEarnings] = useState(false);
   const [showPipeline, setShowPipeline] = useState(false);
   const [earningsOpen, setEarningsOpen] = useState(false);
@@ -7109,7 +7110,7 @@ function AppMain({ authToken, onLogout }) {
         const batchResults = await Promise.all(batchPromises);
         batchResults.forEach(d => {
           if (d?.ok && d.theme_universe) results.push(...d.theme_universe);
-          if (d?.extended_hours) isExtended = true;
+          if (d?.extended_hours) { isExtended = true; setMarketSession(d.extended_hours); }
           if (d?.momentum_burst) burstResults.push(...d.momentum_burst);
         });
         if (results.length > 0) {
@@ -7124,6 +7125,7 @@ function AppMain({ authToken, onLogout }) {
         if (burstResults.length > 0) {
           setLiveMomentumBurst(burstResults);
         }
+        if (!isExtended) setMarketSession(null);
         // Adjust polling interval based on market session
         const newInterval = isExtended ? 1800000 : 30000; // 30 min vs 30s
         if (newInterval !== currentInterval) {
@@ -7582,7 +7584,7 @@ function AppMain({ authToken, onLogout }) {
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
-            historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} />}
+            historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
           {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
