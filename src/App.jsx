@@ -399,9 +399,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             <span>3M:<Ret v={stock.return_3m} /></span>
             <span>6M:<Ret v={stock.return_6m} /></span>
           </div>
-          {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
-            color={stock.shares_float_raw < 10000000 ? "#2bb886" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
-          {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
           {/* Custom catalyst note */}
           {editingNote ? (
             <div style={{ width: "100%", marginTop: 2 }}>
@@ -436,15 +433,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9, color: "#3a3a4a", cursor: "default" }}
               title="Double-click to add a catalyst note">
               dbl-click to add note
-            </div>
-          )}
-          {(stock.inst_own != null || stock.inst_trans != null) && (
-            <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
-              {stock.inst_own != null && <StockStat label="Inst" value={`${stock.inst_own}%`}
-                color={stock.inst_own >= 80 ? "#2bb886" : stock.inst_own >= 50 ? "#9090a0" : "#f97316"} />}
-              {stock.inst_own != null && stock.inst_trans != null && <span style={{ color: "#3a3a4a", margin: "0 6px" }}>│</span>}
-              {stock.inst_trans != null && <StockStat label="Trans" value={`${stock.inst_trans > 0 ? '+' : ''}${stock.inst_trans}%`}
-                color={stock.inst_trans > 0 ? "#2bb886" : stock.inst_trans < 0 ? "#f87171" : "#686878"} />}
             </div>
           )}
           </div>
