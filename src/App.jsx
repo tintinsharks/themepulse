@@ -2194,7 +2194,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     }
     // Filter by Chg > 0%
     if (epGreenOnly) {
-      filtered = filtered.filter(r => (stockMap[r.ticker]?.change_pct ?? r._chg ?? 0) > 0);
+      filtered = filtered.filter(r => (liveLookup[r.ticker]?.change ?? liveLookup[r.ticker]?.ext_change ?? stockMap[r.ticker]?.change_pct ?? r._chg ?? 0) > 0);
     }
     // Bio/REIT filter for PM/AH rows (ER rows already filtered via filteredEarnings)
     if (noBio) {
@@ -2211,7 +2211,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       filtered = filtered.filter(r => (r.days_ago ?? 0) <= maxDays);
     }
     return filtered;
-  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, stockMap]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, stockMap, liveLookup]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2235,7 +2235,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       date: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       days: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
       gap: (a, b) => (b.gap_pct ?? -999) - (a.gap_pct ?? -999),
-      change: (a, b) => ((stockMap[b.ticker]?.change_pct ?? b._chg) ?? -999) - ((stockMap[a.ticker]?.change_pct ?? a._chg) ?? -999),
+      change: (a, b) => ((liveLookup[b.ticker]?.change ?? liveLookup[b.ticker]?.ext_change ?? stockMap[b.ticker]?.change_pct ?? b._chg) ?? -999) - ((liveLookup[a.ticker]?.change ?? liveLookup[a.ticker]?.ext_change ?? stockMap[a.ticker]?.change_pct ?? a._chg) ?? -999),
       dvol: (a, b) => ((stockMap[b.ticker]?.avg_dollar_vol_raw ?? (((b.price || 0) * (b._avgVol || 0)) || -999)) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? (((a.price || 0) * (a._avgVol || 0)) || -999))),
       vol: (a, b) => {
         const av = a.vol_ratio ?? a._rvol ?? -999;
@@ -2260,7 +2260,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     const sorted = [...unifiedRows].sort(sorters[sort.col] || sorters.date);
     if (sort.dir === "asc") sorted.reverse();
     return sorted;
-  }, [unifiedRows, sort, stockMap]);
+  }, [unifiedRows, sort, stockMap, liveLookup]);
 
   // Filter historical earnings movers using the same filters as the main table
   const filteredHistoricalMovers = useMemo(() => {
@@ -2322,7 +2322,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
     // Chg > 0%
     if (epGreenOnly) {
-      list = list.filter(m => (stockMap[m.ticker]?.change_pct ?? m.change_pct ?? 0) > 0);
+      list = list.filter(m => (liveLookup[m.ticker]?.change ?? liveLookup[m.ticker]?.ext_change ?? stockMap[m.ticker]?.change_pct ?? m.change_pct ?? 0) > 0);
     }
 
     // Days filter
@@ -2331,7 +2331,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     }
 
     return list;
-  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, maxDays, stockMap]);
+  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, maxDays, stockMap, liveLookup]);
 
   // Generic sort helper for PM/AH/Historical tables
   const _sortSessionMovers = (list, sortState, getExtra) => {
@@ -2364,7 +2364,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     return _sortSessionMovers(filteredHistoricalMovers || [], histSort, (m) => {
       const er = m.er || {};
       const s = stockMap[m.ticker] || {};
-      const lv = liveLookup[m.ticker]?.volume ?? s.volume ?? m.volume;
+      const lv = liveLookup[m.ticker]?.volume ?? liveLookup[m.ticker]?.ext_volume ?? s.volume ?? m.volume;
       const la = s.avg_volume_raw ?? m.avg_volume;
       return {
         rvol: lv && la ? (lv / la) : (s.rel_volume ?? null),
