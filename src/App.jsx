@@ -1356,14 +1356,23 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const epsFinalMap = {};
     stocks.forEach(s => { epsFinalMap[s.ticker] = stockMap[s.ticker]?._epsScore ?? null; });
 
+    // Pattern tag abbrev → pattern key mapping
+    const PATTERN_TAG_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play" };
+    const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP"]);
+
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     if (scanFilters.size === 0) {
       list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker], _epsScore: epsFinalMap[s.ticker] }));
     } else {
       list = stocks.filter(s => {
         const hits = new Set(hitMap[s.ticker] || []);
+        const pats = new Set((s.chart_patterns || []).map(p => p.pattern));
         for (const f of scanFilters) {
-          if (!hits.has(f)) return false;
+          if (patternFilterTags.has(f)) {
+            if (!pats.has(PATTERN_TAG_MAP[f])) return false;
+          } else {
+            if (!hits.has(f)) return false;
+          }
         }
         return true;
       }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _mfPct: mfRankMap[s.ticker], _epsScore: epsFinalMap[s.ticker] }));
@@ -1452,6 +1461,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (scanFilters.has("MF+")) list = list.filter(b => b._isMFPos);
     if (scanFilters.has("MF-")) list = list.filter(b => b._isMFNeg);
     if (scanFilters.has("9M")) list = list.filter(b => b._is9M);
+    // Apply pattern tag filters on burst tab
+    const BURST_PAT_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play" };
+    for (const [tag, key] of Object.entries(BURST_PAT_MAP)) {
+      if (scanFilters.has(tag)) list = list.filter(b => {
+        const pats = b.chart_patterns || stockMap[b.ticker]?.chart_patterns || [];
+        return pats.some(p => p.pattern === key);
+      });
+    }
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
     const bSorters = {
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
@@ -1510,11 +1527,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       {scanTab !== "ep" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — scan tab gets all, burst tab gets MF+/MF-/9M */}
         {(scanTab === "scan" ? [
-          ["T", "Theme", "#2bb886"], ["W", "Winners", "#c084fc"], ["L", "Liquid", "#60a5fa"],
-          ["E", "Early", "#fbbf24"], ["EP", "EP", "#f97316"], ["CS", "CANSLIM", "#22d3ee"], ["ZM", "Zanger", "#a78bfa"],
+          ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
           ["9M", "9M", "#e879f9"]
         ] : [
+          ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
           ["9M", "9M", "#e879f9"]
         ]).map(([tag, label, color]) => {
@@ -1541,13 +1558,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {scanTab === "scan" && scanFilters.size > 0 && (
           <span style={{ color: "#9090a0", fontSize: 9, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {(() => {
-              const descs = { T: "A/B+ grade, leading theme, 3M≥21%, >50MA",
-                W: "ADR>4.5%, ab52WL≥70%, $Vol>7M, >20/50MA",
-                L: "MCap>300M, AvgVol>1M, $Vol>100M, ADR>3%, EPS>20%",
-                E: ">50MA(<10%), >200MA, RS:50-85, FrHi<-10%",
-                EP: "Gap + volume surge on earnings/news",
-                CS: "EPS≥40%, near highs, RS≥80, supply/demand",
-                ZM: "Leading theme, >MAs, near highs, tight to 50MA",
+              const descs = { VCP: "Volatility Contraction Pattern — tightening pullbacks",
+                "C&H": "Cup & Handle — U-shaped base near highs",
+                FB: "Flat Base — tight <15% consolidation after advance",
+                PP: "Power Play / 3 Weeks Tight — consecutive tight weekly closes",
                 "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)" };
               const active = [...scanFilters];
               if (active.length === 1) return descs[active[0]] || "";
@@ -1645,7 +1659,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
                 <span>{s.ticker}</span>
                 {erSipLookup && erSipLookup[s.ticker] && <SourceBadge source={erSipLookup[s.ticker]} />}
-                <PatternTags patterns={s.chart_patterns} />
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
                     style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
@@ -1661,21 +1674,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   </span>
                 )}
               </td>
-              {/* Tags: scan hits + methodology tags */}
+              {/* Tags: chart pattern tags */}
               <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                <div style={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
-                  {(s._scanHits || []).map(h => {
-                    const hc = { T: { bg: "#05966920", color: "#2bb886", label: "T" }, W: { bg: "#c084fc20", color: "#c084fc", label: "W" },
-                      L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" },
-                      EP: { bg: "#f9731620", color: "#f97316", label: "EP" },
-                      CS: { bg: "#22d3ee20", color: "#22d3ee", label: "CS" },
-                      ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" },
-                      "9M": { bg: "#e879f920", color: "#e879f9", label: "9M" } }[h];
-                    if (!hc) return null;
-                    return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
-                      color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
-                  })}
-                </div>
+                <PatternTags patterns={s.chart_patterns} />
               </td>
               {/* Grade */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
@@ -1780,7 +1781,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-              {[["Ticker", null, "left"], ["Type", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
+              {[["Ticker", null, "left"], ["Type", null, "center"], ["Pat", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
                 ["Close", "close", "right"], ["ClRng", "range", "right"], ["RVol", "rvol", "right"], ["Vol", "vol", "right"],
                 ["RS", "rs", "right"], ["Theme", null, "left"], ["Sub", null, "left"]].map(([h, sk, align]) => (
                 <th key={h} onClick={sk ? () => setBurstSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
@@ -1804,11 +1805,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     color: isActive ? "#f59e0b" : "#d4d4e0" }}>
                     <Badge grade={b._grade} />{" "}{b.ticker}
                     {erSipLookup && erSipLookup[b.ticker] && <SourceBadge source={erSipLookup[b.ticker]} />}
-                    <PatternTags patterns={b.chart_patterns || stockMap[b.ticker]?.chart_patterns} />
                     <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{b._company}</span>
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "center" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: tagColor, padding: "2px 6px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
+                  </td>
+                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                    <PatternTags patterns={b.chart_patterns || stockMap[b.ticker]?.chart_patterns} />
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
                     color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0", fontWeight: 600 }}>
@@ -5225,7 +5228,6 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500, fontSize: 12 }}>
         <span>{s.ticker}</span>
         {erSipLookup && erSipLookup[s.ticker] && <SourceBadge source={erSipLookup[s.ticker]} />}
-        <PatternTags patterns={s.chart_patterns} />
         {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
           <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
             style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, verticalAlign: "super",
@@ -5241,21 +5243,9 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
           </span>
         )}
       </td>
-      {/* Tags */}
+      {/* Tags: chart pattern tags */}
       <td style={{ padding: "4px 6px", textAlign: "center" }}>
-        <div style={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
-          {(s._scanHits || []).map(h => {
-            const hc = { T: { bg: "#05966920", color: "#2bb886", label: "T" }, W: { bg: "#c084fc20", color: "#c084fc", label: "W" },
-              L: { bg: "#60a5fa20", color: "#60a5fa", label: "L" }, E: { bg: "#fbbf2420", color: "#fbbf24", label: "E" },
-              EP: { bg: "#f9731620", color: "#f97316", label: "EP" },
-              CS: { bg: "#22d3ee20", color: "#22d3ee", label: "CS" },
-              ZM: { bg: "#a78bfa20", color: "#a78bfa", label: "ZM" },
-              "9M": { bg: "#e879f920", color: "#e879f9", label: "9M" } }[h];
-            if (!hc) return null;
-            return <span key={h} style={{ padding: "0px 3px", borderRadius: 2, fontSize: 8, fontWeight: 700,
-              color: hc.color, background: hc.bg, border: `1px solid ${hc.color}30` }}>{hc.label}</span>;
-          })}
-        </div>
+        <PatternTags patterns={s.chart_patterns} />
       </td>
       {/* Grade */}
       <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
