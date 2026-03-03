@@ -399,30 +399,45 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             <span>3M:<Ret v={stock.return_3m} /></span>
             <span>6M:<Ret v={stock.return_6m} /></span>
           </div>
-          {stock.avg_dollar_vol && <StockStat label="Avg $Vol" value={`$${stock.avg_dollar_vol}`}
-            color={stock.avg_dollar_vol_raw > 20000000 ? "#2bb886" : stock.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : stock.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171"} />}
-          {stock.avg_volume && <StockStat label="Avg Vol" value={stock.avg_volume}
-            color={stock.avg_volume_raw > 1000000 ? "#2bb886" : "#f97316"} />}
-          {stock.volume != null && <StockStat label="Vol" value={(() => { const v = stock.volume; if (v >= 1e9) return (v/1e9).toFixed(2)+"B"; if (v >= 1e6) return (v/1e6).toFixed(2)+"M"; if (v >= 1e3) return (v/1e3).toFixed(0)+"K"; return v; })()}
-            color={stock.avg_volume_raw && stock.volume > stock.avg_volume_raw ? "#2bb886" : "#f97316"} />}
           {stock.shares_float && <StockStat label="Float" value={stock.shares_float}
             color={stock.shares_float_raw < 10000000 ? "#2bb886" : stock.shares_float_raw < 25000000 ? "#fbbf24" : "#f97316"} />}
           {stock.short_float != null && <StockStat label="Short%" value={`${stock.short_float}%`} />}
-          {stock.sma20_pct != null && stock.dist_20dma_atrx != null && (() => {
-            const atrx = Math.abs(stock.dist_20dma_atrx);
-            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="20d" value={`${stock.sma20_pct > 0 ? '+' : ''}${stock.sma20_pct}% / ${stock.dist_20dma_atrx}x`} color={col} />;
-          })()}
-          {stock.sma50_pct != null && stock.dist_50sma_atrx != null && (() => {
-            const atrx = Math.abs(stock.dist_50sma_atrx);
-            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="50d" value={`${stock.sma50_pct > 0 ? '+' : ''}${stock.sma50_pct}% / ${stock.dist_50sma_atrx}x`} color={col} />;
-          })()}
-          {stock.sma200_pct != null && stock.dist_200sma_atrx != null && (() => {
-            const atrx = Math.abs(stock.dist_200sma_atrx);
-            const col = atrx >= 10 ? "#f87171" : atrx >= 6 ? "#fbbf24" : "#f97316";
-            return <StockStat label="200d" value={`${stock.sma200_pct > 0 ? '+' : ''}${stock.sma200_pct}% / ${stock.dist_200sma_atrx}x`} color={col} />;
-          })()}
+          {/* Custom catalyst note */}
+          {editingNote ? (
+            <div style={{ width: "100%", marginTop: 2 }}>
+              <textarea autoFocus rows={2}
+                defaultValue={chartNotes[ticker]?.text || ""}
+                placeholder="Add catalyst note..."
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.target.blur(); } if (e.key === "Escape") setEditingNote(false); }}
+                onBlur={e => {
+                  const val = e.target.value.trim();
+                  if (val) {
+                    setChartNotes(prev => ({ ...prev, [ticker]: { text: val, ts: Date.now() } }));
+                  } else {
+                    setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; });
+                  }
+                  setEditingNote(false);
+                }}
+                style={{ width: "100%", background: "#1a1a28", border: "1px solid #10b981", borderRadius: 3,
+                  color: "#a8a8b8", padding: "3px 6px", fontSize: 10, fontFamily: "monospace", outline: "none",
+                  resize: "none", boxSizing: "border-box", lineHeight: 1.4 }} />
+            </div>
+          ) : chartNotes[ticker] ? (
+            <div onDoubleClick={(e) => { e.stopPropagation(); setEditingNote(true); }}
+              style={{ width: "100%", marginTop: 2, padding: "3px 6px", background: "#10b98112", border: "1px solid #10b98130",
+                borderRadius: 3, fontSize: 10, fontFamily: "monospace", color: "#10b981", cursor: "default",
+                display: "flex", alignItems: "flex-start", gap: 4, lineHeight: 1.4 }}>
+              <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{chartNotes[ticker].text}</span>
+              <span onClick={(e) => { e.stopPropagation(); setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; }); }}
+                style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove note">✕</span>
+            </div>
+          ) : (
+            <div onDoubleClick={(e) => { e.stopPropagation(); setEditingNote(true); }}
+              style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9, color: "#3a3a4a", cursor: "default" }}
+              title="Double-click to add a catalyst note">
+              dbl-click to add note
+            </div>
+          )}
           {(stock.inst_own != null || stock.inst_trans != null) && (
             <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
               {stock.inst_own != null && <StockStat label="Inst" value={`${stock.inst_own}%`}
@@ -453,39 +468,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })()}
             </div>
-            {/* Custom catalyst note — double-click to edit */}
-            {editingNote ? (
-              <input autoFocus
-                defaultValue={chartNotes[ticker]?.text || ""}
-                placeholder="Add catalyst note..."
-                onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") setEditingNote(false); }}
-                onBlur={e => {
-                  const val = e.target.value.trim();
-                  if (val) {
-                    setChartNotes(prev => ({ ...prev, [ticker]: { text: val, ts: Date.now() } }));
-                  } else {
-                    setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; });
-                  }
-                  setEditingNote(false);
-                }}
-                style={{ width: "100%", background: "#1a1a28", border: "1px solid #10b981", borderRadius: 3,
-                  color: "#a8a8b8", padding: "3px 6px", fontSize: 10, fontFamily: "monospace", outline: "none", marginBottom: 4, boxSizing: "border-box" }} />
-            ) : chartNotes[ticker] ? (
-              <div onDoubleClick={() => setEditingNote(true)}
-                style={{ padding: "3px 6px", marginBottom: 4, background: "#10b98112", border: "1px solid #10b98130",
-                  borderRadius: 3, fontSize: 10, fontFamily: "monospace", color: "#10b981", cursor: "default",
-                  display: "flex", alignItems: "flex-start", gap: 4, maxWidth: "100%" }}>
-                <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.4 }}>{chartNotes[ticker].text}</span>
-                <span onClick={() => setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; })}
-                  style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove note">✕</span>
-              </div>
-            ) : (
-              <div onDoubleClick={() => setEditingNote(true)}
-                style={{ padding: "2px 6px", marginBottom: 2, fontSize: 9, color: "#3a3a4a", cursor: "default" }}
-                title="Double-click to add a catalyst note">
-                dbl-click to add note
-              </div>
-            )}
             {/* Earnings beat/miss from 09g — show if er data present */}
             {stock.er && stock.er.eps != null && (() => {
               const er = stock.er;
