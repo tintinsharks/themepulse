@@ -11,7 +11,8 @@ on:
         options:
           - full
           - intraday
-          - quick
+          - weekly
+          - deploy
 
   schedule:
     # Full pipeline: 5:30 AM and 1:15 PM PT (Mon-Fri)
@@ -49,19 +50,7 @@ jobs:
         run: |
           MODE="${{ steps.mode.outputs.mode }}"
           echo "Running in $MODE mode..."
-
-          if [ "$MODE" = "full" ]; then
-            bash "$HOME/Claude Theme/stock-pipeline/run_daily.sh"
-          elif [ "$MODE" = "intraday" ]; then
-            bash "$HOME/Claude Theme/stock-pipeline/run_intraday.sh"
-          elif [ "$MODE" = "quick" ]; then
-            cd "$HOME/Claude Theme/stock-pipeline" && source venv/bin/activate
-            python scripts/01_finviz_extract.py
-            python scripts/09_export_web_data.py
-            python scripts/09b_enrich_web_data.py
-            cp "$HOME/Claude Theme/stock-pipeline/output/dashboard_data.json" "$HOME/themepulse/public/"
-            cd "$HOME/themepulse" && git add -A && git commit -m "Quick refresh $(date +%Y-%m-%d' '%H:%M)" --allow-empty && git push
-          fi
+          bash "$HOME/Claude Theme/stock-pipeline/run.sh" "$MODE"
 
       - name: Verify output
         run: |
