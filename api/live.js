@@ -1099,15 +1099,44 @@ export default async function handler(req, res) {
       });
 
       // Universe: filter to universe tickers only
-      // During extended hours, null out change/volume so scanners fall back to
-      // pipeline's regular-session data — but pass ext_change/ext_volume so
-      // EP/Catalyst can still show live extended-hours changes
-      themeUniverse = fmpResult.universe
-        .filter(u => universeSet.has(u.ticker))
-        .map(u => extSession
-          ? { ticker: u.ticker, price: u.price, change: null, volume: null, ext_change: u.change, ext_volume: u.volume }
-          : u
-        );
+      // During extended hours, fetch actual PM/AH quotes for real ext_change/ext_volume
+      if (extSession && universeTickers.length > 0) {
+        const extEndpoint = extSession === "premarket" ? "batch-premarket-quote" : "batch-aftermarket-quote";
+        const extMap = {};
+        // Fetch extended hours quotes in batches of 500
+        for (let i = 0; i < universeTickers.length; i += 500) {
+          const batch = universeTickers.slice(i, i + 500).join(",");
+          try {
+            const resp = await fetch(`${FMP_BASE}/${extEndpoint}?symbols=${batch}&apikey=${fmpKey}`);
+            if (resp.ok) {
+              const data = await resp.json();
+              if (Array.isArray(data)) data.forEach(q => { if (q.symbol) extMap[q.symbol] = q; });
+            }
+          } catch (e) { console.error(`Extended hours fetch error: ${e.message}`); }
+        }
+        themeUniverse = fmpResult.universe
+          .filter(u => universeSet.has(u.ticker))
+          .map(u => {
+            const eq = extMap[u.ticker];
+            const regQ = quoteMap[u.ticker];
+            const prevClose = regQ?.previousClose;
+            // Compute ext change% from mid-price vs previousClose
+            let extChg = null;
+            let extPrice = u.price;
+            let extVol = null;
+            if (eq && prevClose) {
+              const midPrice = (eq.bidPrice && eq.askPrice) ? (eq.bidPrice + eq.askPrice) / 2 : null;
+              if (midPrice) {
+                extChg = Math.round(((midPrice - prevClose) / prevClose) * 10000) / 100;
+                extPrice = Math.round(midPrice * 100) / 100;
+              }
+              extVol = eq.volume ?? null;
+            }
+            return { ticker: u.ticker, price: extPrice, change: null, volume: null, ext_change: extChg, ext_volume: extVol };
+          });
+      } else {
+        themeUniverse = fmpResult.universe.filter(u => universeSet.has(u.ticker));
+      }
     } else if (allTickers.length > 0) {
       // Fallback to Finviz if no FMP key
       if (watchlistTickers.length > 0) {
