@@ -1859,7 +1859,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           pmTopMovers={pmTopMovers} ahTopMovers={ahTopMovers}
           historicalEarningsMovers={historicalEarningsMovers}
           focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
-          liveThemeData={externalLiveData} portfolio={portfolio} watchlist={watchlist} />
+          liveThemeData={externalLiveData} portfolio={portfolio} watchlist={watchlist}
+          pipelineMeta={data.pipeline_meta} />
       )}
     </div>
     {/* Theme Leaders side panel */}
@@ -1878,7 +1879,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist, pipelineMeta }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -2452,6 +2453,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     return next;
   });
 
+  // Pipeline last-updated in PST
+  const lastUpdatedPST = useMemo(() => {
+    if (!pipelineMeta?.last_run) return null;
+    try {
+      const d = new Date(pipelineMeta.last_run + (pipelineMeta.last_run.endsWith("Z") ? "" : "Z"));
+      if (isNaN(d)) return null;
+      return d.toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+    } catch { return null; }
+  }, [pipelineMeta]);
+
   return (
     <div>
       {/* ── UNIFIED CATALYSTS TABLE ── */}
@@ -2461,6 +2472,11 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>
             Catalysts ({sortedRows.length})
           </span>
+          {lastUpdatedPST && (
+            <span style={{ fontSize: 9, color: "#505060", marginLeft: 4 }}>
+              Updated {lastUpdatedPST} PST
+            </span>
+          )}
 
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
