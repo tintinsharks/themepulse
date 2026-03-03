@@ -72,12 +72,16 @@ const SourceBadge = memo(function SourceBadge({ source }) {
     color: s.color, background: s.bg, border: `1px solid ${s.border}`, verticalAlign: "super", marginLeft: 3 }}>{s.label}</span>;
 });
 
-// ── CHART PATTERN TAGS (VCP, C&H, FB, PP) ──
+// ── CHART PATTERN TAGS ──
 const PATTERN_COLORS = {
   vcp: "#ec4899", cup_and_handle: "#2bb886", flat_base: "#a78bfa", power_play: "#f59e0b",
+  double_bottom: "#3b82f6", high_tight_flag: "#ef4444", ascending_base: "#14b8a6",
+  symmetrical_triangle: "#f97316", ipo_base: "#8b5cf6",
 };
 const PATTERN_ABBREV = {
   vcp: "VCP", cup_and_handle: "C&H", flat_base: "FB", power_play: "PP",
+  double_bottom: "DB", high_tight_flag: "HTF", ascending_base: "AB",
+  symmetrical_triangle: "ST", ipo_base: "IPO",
 };
 const PatternTags = memo(function PatternTags({ patterns }) {
   if (!patterns || !patterns.length) return null;
@@ -1357,8 +1361,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     stocks.forEach(s => { epsFinalMap[s.ticker] = stockMap[s.ticker]?._epsScore ?? null; });
 
     // Pattern tag abbrev → pattern key mapping
-    const PATTERN_TAG_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play" };
-    const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP"]);
+    const PATTERN_TAG_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play", DB: "double_bottom", HTF: "high_tight_flag", AB: "ascending_base", ST: "symmetrical_triangle", IPO: "ipo_base" };
+    const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP", "DB", "HTF", "AB", "ST", "IPO"]);
 
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     if (scanFilters.size === 0) {
@@ -1462,7 +1466,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (scanFilters.has("MF-")) list = list.filter(b => b._isMFNeg);
     if (scanFilters.has("9M")) list = list.filter(b => b._is9M);
     // Apply pattern tag filters on burst tab
-    const BURST_PAT_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play" };
+    const BURST_PAT_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play", DB: "double_bottom", HTF: "high_tight_flag", AB: "ascending_base", ST: "symmetrical_triangle", IPO: "ipo_base" };
     for (const [tag, key] of Object.entries(BURST_PAT_MAP)) {
       if (scanFilters.has(tag)) list = list.filter(b => {
         const pats = b.chart_patterns || stockMap[b.ticker]?.chart_patterns || [];
@@ -1528,10 +1532,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {/* Tag filters — scan tab gets all, burst tab gets MF+/MF-/9M */}
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
+          ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
           ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
           ["9M", "9M", "#e879f9"]
         ] : [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
+          ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
           ["MF+", "MF+", "#2bb886"], ["MF-", "MF−", "#f87171"],
           ["9M", "9M", "#e879f9"]
         ]).map(([tag, label, color]) => {
@@ -2669,6 +2675,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         {row.ticker}
+                        <a href={`https://claude.com/plugins/equity-research?prompt=${encodeURIComponent(`Generate a morning note summarizing overnight developments and key catalysts for ${row.ticker} (${row.company})`)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title={`Claude: Morning note for ${row.ticker}`}
+                          style={{ marginLeft: 3, fontSize: 8, color: "#d4a574", opacity: 0.6, textDecoration: "none",
+                            verticalAlign: "super", cursor: "pointer" }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = "0.6"; }}>
+                          ✦
+                        </a>
                         <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
                       </td>
                       {/* Rev% */}
