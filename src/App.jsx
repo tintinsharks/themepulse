@@ -675,7 +675,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       ) : (
         <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
       )}
-      {showIntraday && <IntradayChart ticker={ticker} />}
+      {showIntraday && <IntradayChart ticker={ticker} avgVolume={stock?.avg_volume_raw} />}
     </div>
   );
 }
@@ -3504,16 +3504,22 @@ function loadLW(cb) {
   document.head.appendChild(script);
 }
 
-// ── Intraday 5-Min Chart with Opening Range ──
-function IntradayChart({ ticker }) {
+// ── Intraday 5-Min Chart with Opening Range + ZVR Pane ──
+function IntradayChart({ ticker, avgVolume }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const volSeriesRef = useRef(null);
+  const zvrContainerRef = useRef(null);
+  const zvrChartRef = useRef(null);
+  const zvrSeriesRef = useRef(null);
   const linesRef = useRef([]);
   const roRef = useRef(null);
   const ivRef = useRef(null);
+  const avgVolRef = useRef(avgVolume);
+  avgVolRef.current = avgVolume;
   const [orRange, setOrRange] = useState(null);
+  const [zvrPct, setZvrPct] = useState(null);
 
   useEffect(() => {
     if (!ticker) return;
@@ -3530,7 +3536,7 @@ function IntradayChart({ ticker }) {
       if (!LW || !el.parentNode) return;
 
       const chart = LW.createChart(el, {
-        width: el.clientWidth || 400, height: el.clientHeight || 300,
+        width: el.clientWidth || 400, height: el.clientHeight || 280,
         layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#787888", fontFamily: "monospace", fontSize: 10 },
         grid: { vertLines: { color: "#1a1a24" }, horzLines: { color: "#1a1a24" } },
         crosshair: { mode: 0 },
@@ -3553,12 +3559,47 @@ function IntradayChart({ ticker }) {
       chart.priceScale("vol").applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
       volSeriesRef.current = vs;
 
+      // ── ZVR pane (below main chart) ──
+      if (zvrContainerRef.current) {
+        const zvrChart = LW.createChart(zvrContainerRef.current, {
+          width: zvrContainerRef.current.clientWidth || 400, height: 55,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38" },
+          timeScale: { visible: false },
+          handleScroll: false, handleScale: false,
+        });
+        zvrChartRef.current = zvrChart;
+        zvrSeriesRef.current = zvrChart.addHistogramSeries({
+          priceFormat: { type: "price", precision: 0, minMove: 1 },
+          lastValueVisible: false, priceLineVisible: false,
+        });
+        // Sync time scales: main chart drives ZVR pane
+        chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range && zvrChartRef.current) {
+            try { zvrChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+          }
+        });
+      }
+
       roRef.current = new ResizeObserver(() => {
         if (chartRef.current && el.parentNode) {
-          try { chartRef.current.resize(el.clientWidth || 400, el.clientHeight || 300); } catch {}
+          try { chartRef.current.resize(el.clientWidth || 400, el.clientHeight || 280); } catch {}
+        }
+        if (zvrChartRef.current && zvrContainerRef.current) {
+          try { zvrChartRef.current.resize(zvrContainerRef.current.clientWidth || 400, 55); } catch {}
         }
       });
       roRef.current.observe(el);
+
+      // ET minutes helper (handles DST via Intl)
+      const toETMinutes = (unixSec) => {
+        const dt = new Date(unixSec * 1000);
+        const etStr = dt.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: "2-digit", minute: "2-digit" });
+        const [h, m] = etStr.split(":").map(Number);
+        return h * 60 + m;
+      };
 
       const fetchBars = () => {
         if (disposed) return;
@@ -3567,7 +3608,6 @@ function IntradayChart({ ticker }) {
           .then(d => {
             if (disposed || !d?.ok || !d.ohlc?.length) return;
             const bars = d.ohlc;
-            // Shift timestamps to Pacific Time for display (lightweight-charts shows UTC by default)
             const ptOff = (() => {
               if (!bars.length) return -8 * 3600;
               const d2 = new Date(bars[0].time * 1000);
@@ -3582,44 +3622,48 @@ function IntradayChart({ ticker }) {
             linesRef.current.forEach(l => { try { cs.removePriceLine(l); } catch {} });
             linesRef.current = [];
 
-            // Find the 9:30 AM ET bar (first bar of regular session)
-            // Convert to ET properly using Intl (handles DST automatically)
-            const toETMinutes = (unixSec) => {
-              const dt = new Date(unixSec * 1000);
-              const etStr = dt.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: "2-digit", minute: "2-digit" });
-              const [h, m] = etStr.split(":").map(Number);
-              return h * 60 + m; // minutes since midnight ET
-            };
-            // 9:30 AM ET = 570 minutes from midnight
+            // ORB: find 9:30 AM ET bar
             let firstBar = null;
             for (const b of bars) {
-              const etMin = toETMinutes(b.time);
-              if (etMin === 570) { firstBar = b; break; } // exact 9:30
+              if (toETMinutes(b.time) === 570) { firstBar = b; break; }
             }
-            // Fallback: first bar at or after 9:30 ET (in case of slight offset)
             if (!firstBar) {
               for (const b of bars) {
                 const etMin = toETMinutes(b.time);
-                if (etMin >= 570 && etMin < 600) { firstBar = b; break; } // between 9:30-9:59
+                if (etMin >= 570 && etMin < 600) { firstBar = b; break; }
               }
             }
 
             if (firstBar) {
               setOrRange({ high: firstBar.high, low: firstBar.low });
-              // ORH — opening range high
-              try {
-                linesRef.current.push(cs.createPriceLine({
-                  price: firstBar.high, color: "#2bb886", lineWidth: 1, lineStyle: 2,
-                  axisLabelVisible: true, title: "ORH",
-                }));
-              } catch {}
-              // ORL — opening range low
-              try {
-                linesRef.current.push(cs.createPriceLine({
-                  price: firstBar.low, color: "#f87171", lineWidth: 1, lineStyle: 2,
-                  axisLabelVisible: true, title: "ORL",
-                }));
-              } catch {}
+              try { linesRef.current.push(cs.createPriceLine({ price: firstBar.high, color: "#2bb886", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "ORH" })); } catch {}
+              try { linesRef.current.push(cs.createPriceLine({ price: firstBar.low, color: "#f87171", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "ORL" })); } catch {}
+            }
+
+            // ── ZVR (Zanger Volume Ratio) — intraday cumulative vs time-adjusted avg ──
+            const aVol = avgVolRef.current;
+            if (zvrSeriesRef.current && aVol > 0) {
+              // 78 five-min bars in a 6.5hr trading day (9:30-4:00 ET)
+              const BARS_IN_DAY = 78;
+              const avgBarVol = aVol / BARS_IN_DAY;
+              let cumVol = 0, sessionBars = 0;
+              const zvrData = [];
+              for (let i = 0; i < bars.length; i++) {
+                const etMin = toETMinutes(bars[i].time);
+                const vol = bars[i].volume || 0;
+                cumVol += vol;
+                if (etMin >= 570 && etMin < 960) sessionBars++;
+                // Per-bar ZVR: bar volume vs average 5-min bar volume
+                const barZvr = avgBarVol > 0 ? Math.round((vol / avgBarVol) * 100) : 100;
+                const c = barZvr > 200 ? "#ff5252" : barZvr > 150 ? "#fb78c0" : barZvr > 110 ? "#c393f2" : barZvr > 85 ? "#878fc1" : "#787b86";
+                zvrData.push({ time: bars[i].time + ptOff, value: barZvr, color: c });
+              }
+              zvrSeriesRef.current.setData(zvrData);
+              // Cumulative ZVR %: total volume so far / expected volume at this time of day
+              const expectedCum = sessionBars > 0 ? aVol * (sessionBars / BARS_IN_DAY) : aVol;
+              const cumZvr = expectedCum > 0 ? Math.round((cumVol / expectedCum) * 100) : 100;
+              const cumColor = cumZvr > 200 ? "#ff5252" : cumZvr > 150 ? "#fb78c0" : cumZvr > 110 ? "#c393f2" : cumZvr > 85 ? "#878fc1" : "#787b86";
+              setZvrPct({ value: cumZvr, color: cumColor });
             }
 
             chart.timeScale().fitContent();
@@ -3637,26 +3681,40 @@ function IntradayChart({ ticker }) {
       disposed = true;
       if (ivRef.current) { clearInterval(ivRef.current); ivRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+      if (zvrChartRef.current) { try { zvrChartRef.current.remove(); } catch {} zvrChartRef.current = null; }
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; }
-      seriesRef.current = null; volSeriesRef.current = null; linesRef.current = [];
+      seriesRef.current = null; volSeriesRef.current = null; zvrSeriesRef.current = null; linesRef.current = [];
       if (el.parentNode) el.parentNode.removeChild(el);
     };
   }, [ticker]);
 
   return (
-    <div style={{ height: 300, borderTop: "1px solid #2a2a38", position: "relative" }}>
-      <div style={{ position: "absolute", top: 4, left: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b" }}>5m ORB</span>
-        <span style={{ fontSize: 9, color: "#555", fontFamily: "monospace" }}>PT</span>
-        {orRange && (<>
-          <span style={{ fontSize: 10, color: "#2bb886", fontFamily: "monospace" }}>ORH {orRange.high.toFixed(2)}</span>
-          <span style={{ fontSize: 10, color: "#f87171", fontFamily: "monospace" }}>ORL {orRange.low.toFixed(2)}</span>
-          <span style={{ fontSize: 10, color: "#787888", fontFamily: "monospace" }}>
-            Range ${(orRange.high - orRange.low).toFixed(2)} ({((orRange.high - orRange.low) / orRange.low * 100).toFixed(1)}%)
-          </span>
-        </>)}
+    <div style={{ height: 340, borderTop: "1px solid #2a2a38", display: "flex", flexDirection: "column" }}>
+      {/* Main 5m ORB chart */}
+      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+        <div style={{ position: "absolute", top: 4, left: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b" }}>5m ORB</span>
+          <span style={{ fontSize: 9, color: "#555", fontFamily: "monospace" }}>PT</span>
+          {orRange && (<>
+            <span style={{ fontSize: 10, color: "#2bb886", fontFamily: "monospace" }}>ORH {orRange.high.toFixed(2)}</span>
+            <span style={{ fontSize: 10, color: "#f87171", fontFamily: "monospace" }}>ORL {orRange.low.toFixed(2)}</span>
+            <span style={{ fontSize: 10, color: "#787888", fontFamily: "monospace" }}>
+              Range ${(orRange.high - orRange.low).toFixed(2)} ({((orRange.high - orRange.low) / orRange.low * 100).toFixed(1)}%)
+            </span>
+          </>)}
+        </div>
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
       </div>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      {/* ZVR pane */}
+      <div style={{ position: "relative", height: 55, borderTop: "1px solid #2a2a38", flexShrink: 0 }}>
+        <div ref={zvrContainerRef} style={{ width: "100%", height: "100%" }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>ZVR</div>
+        {zvrPct && (
+          <div style={{ position: "absolute", top: 1, right: 8, fontSize: 12, fontWeight: 700, color: zvrPct.color, zIndex: 5, pointerEvents: "none", fontFamily: "monospace" }}>
+            {zvrPct.value}%
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -3673,8 +3731,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
   const maRefs = useRef({}); // ema10, ema21hi, ema21close, ema21lo, sma50, ema200
   const indContainerRef = useRef(null);
   const indChartRef = useRef(null);
-  const indSeriesRef = useRef(null);  // 4% days
-  const zvrSeriesRef = useRef(null);  // ZVR on same chart
+  const indSeriesRef = useRef(null);
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -3696,7 +3753,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
     chartContainerRef.current = el;
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
-      if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; zvrSeriesRef.current = null; }
+      if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -3774,14 +3831,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
           handleScale: false,
         });
         indChartRef.current = indChart;
-        // ZVR histogram (background layer — separate price scale)
-        zvrSeriesRef.current = indChart.addHistogramSeries({
-          priceFormat: { type: "price", precision: 0, minMove: 1 },
-          priceScaleId: "zvr",
-          lastValueVisible: false, priceLineVisible: false,
-        });
-        indChart.priceScale("zvr").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
-        // 4% days histogram (foreground layer — default price scale)
+        // 4% days histogram
         indSeriesRef.current = indChart.addHistogramSeries({
           priceFormat: { type: "price", precision: 1, minMove: 0.1 },
           lastValueVisible: false, priceLineVisible: false,
@@ -4220,24 +4270,6 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
           }
         }
 
-        // ── ZVR (Zanger Volume Ratio) — relative volume % vs 20-day avg ──
-        if (zvrSeriesRef.current) {
-          const zvrLookback = 20;
-          const zvrData = [];
-          for (let i = 0; i < bars.length; i++) {
-            if (i < zvrLookback) { zvrData.push({ time: bars[i].date, value: 0 }); continue; }
-            let vSum = 0;
-            for (let j = i - zvrLookback; j < i; j++) vSum += (bars[j].volume || 0);
-            const avgVol = vSum / zvrLookback;
-            const vol = bars[i].volume || 0;
-            const zvr = avgVol > 0 ? ((vol - avgVol) / avgVol * 100) + 100 : 100;
-            // Color thresholds from PineScript: >200 red, >150 pink, >110 purple, >85 blue-gray, else gray
-            const zvrColor = zvr > 200 ? "#ff5252" : zvr > 150 ? "#fb78c0" : zvr > 110 ? "#c393f2" : zvr > 85 ? "#878fc1" : "#787b86";
-            zvrData.push({ time: bars[i].date, value: Math.round(zvr), color: zvrColor });
-          }
-          zvrSeriesRef.current.setData(zvrData);
-        }
-
         // Show last ~3.5 months (74 trading days) — use logical range to preserve rightOffset
         const totalBars = bars.length;
         const fromBar = totalBars > 74 ? totalBars - 74 : 0;
@@ -4335,10 +4367,10 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
 
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 300, display: "flex", flexDirection: "column" }}>
-      {/* 4% Days + ZVR combined pane */}
+      {/* 4% Days indicator pane */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
         <div ref={indContainerRef} style={{ width: "100%", height: 80 }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>4% Days + ZVR</div>
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>4% Days</div>
       </div>
       {/* Main chart */}
       <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
