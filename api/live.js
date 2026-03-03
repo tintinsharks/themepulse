@@ -1223,12 +1223,13 @@ export default async function handler(req, res) {
       });
 
       // Universe: filter to universe tickers only
-      // During extended hours, null out change/volume so frontend falls back to
-      // pipeline's regular-session data — keeps scanners accurate
+      // During extended hours, null out change/volume so scanners fall back to
+      // pipeline's regular-session data — but pass ext_change/ext_volume so
+      // EP/Catalyst can still show live extended-hours changes
       themeUniverse = fmpResult.universe
         .filter(u => universeSet.has(u.ticker))
         .map(u => extSession
-          ? { ticker: u.ticker, price: u.price, change: null, volume: null }
+          ? { ticker: u.ticker, price: u.price, change: null, volume: null, ext_change: u.change, ext_volume: u.volume }
           : u
         );
     } else if (allTickers.length > 0) {

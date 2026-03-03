@@ -2344,8 +2344,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         case "rs": cmp = (stockMap[a.ticker]?.rs_rank ?? a.rs_rank ?? 0) - (stockMap[b.ticker]?.rs_rank ?? b.rs_rank ?? 0); break;
         case "ticker": cmp = (a.ticker || "").localeCompare(b.ticker || ""); break;
         case "name": cmp = (a.name || a.company || "").localeCompare(b.name || b.company || ""); break;
-        case "volume": cmp = (liveLookup[a.ticker]?.volume ?? stockMap[a.ticker]?.volume ?? a.volume ?? 0) - (liveLookup[b.ticker]?.volume ?? stockMap[b.ticker]?.volume ?? b.volume ?? 0); break;
-        case "change": cmp = (liveLookup[a.ticker]?.change ?? stockMap[a.ticker]?.change_pct ?? a.change_pct ?? a.ext_hours_change_pct ?? -999) - (liveLookup[b.ticker]?.change ?? stockMap[b.ticker]?.change_pct ?? b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
+        case "volume": cmp = (liveLookup[a.ticker]?.volume ?? liveLookup[a.ticker]?.ext_volume ?? stockMap[a.ticker]?.volume ?? a.volume ?? 0) - (liveLookup[b.ticker]?.volume ?? liveLookup[b.ticker]?.ext_volume ?? stockMap[b.ticker]?.volume ?? b.volume ?? 0); break;
+        case "change": cmp = (liveLookup[a.ticker]?.change ?? liveLookup[a.ticker]?.ext_change ?? stockMap[a.ticker]?.change_pct ?? a.change_pct ?? a.ext_hours_change_pct ?? -999) - (liveLookup[b.ticker]?.change ?? liveLookup[b.ticker]?.ext_change ?? stockMap[b.ticker]?.change_pct ?? b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
         case "price": cmp = (a.price || 0) - (b.price || 0); break;
         case "rvol": cmp = (ea.rvol ?? -999) - (eb.rvol ?? -999); break;
         case "days": cmp = (a.days_ago ?? 999) - (b.days_ago ?? 999); break;
@@ -2780,7 +2780,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       {/* Chg% — live first, then stockMap, then mover data */}
                       {(() => {
                         const lv = liveLookup[row.ticker];
-                        const chgVal = lv?.change ?? s.change_pct ?? row._chg ?? null;
+                        const chgVal = lv?.change ?? lv?.ext_change ?? s.change_pct ?? row._chg ?? null;
                         return (
                         <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 12, fontFamily: "monospace",
                           color: chgVal != null ? (chgVal > 0 ? "#2bb886" : chgVal < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
@@ -2865,9 +2865,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const sMap = stockMap[m.ticker] || {};
                     const lv = liveLookup[m.ticker];
                     // Live data: liveLookup first, then stockMap, then static mover data
-                    const liveVol = lv?.volume ?? sMap.volume ?? m.volume;
+                    const liveVol = lv?.volume ?? lv?.ext_volume ?? sMap.volume ?? m.volume;
                     const liveAvgVol = sMap.avg_volume_raw ?? m.avg_volume;
-                    const chg = lv?.change ?? sMap.change_pct ?? m.change_pct;
+                    const chg = lv?.change ?? lv?.ext_change ?? sMap.change_pct ?? m.change_pct;
                     const daysAgo = m.days_ago ?? 1;
                     const rvol = liveVol && liveAvgVol ? (liveVol / liveAvgVol) : (sMap.rel_volume ?? null);
                     const rs = sMap.rs_rank ?? m.rs_rank ?? null;
@@ -2989,9 +2989,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       const er = m?.er || {};
                       // Live data: liveLookup first, then stockMap, then mover data
                       const lv = liveLookup[f.ticker];
-                      const vol = lv?.volume ?? s.volume ?? (m ? m.volume : null);
+                      const vol = lv?.volume ?? lv?.ext_volume ?? s.volume ?? (m ? m.volume : null);
                       const avgVol = s.avg_volume ?? (m ? m.avg_volume : null);
-                      const chgVal = lv?.change ?? s.change_pct ?? (m ? m.change_pct : null) ?? null;
+                      const chgVal = lv?.change ?? lv?.ext_change ?? s.change_pct ?? (m ? m.change_pct : null) ?? null;
                       const rv = vol && avgVol ? vol / avgVol : (s.rel_volume ?? null);
                       const daysAgo = m ? (m.days_ago ?? 1) : (f.addedAt ? Math.floor((Date.now() - new Date(f.addedAt + "T00:00:00").getTime()) / 86400000) : null);
                       const sMap = s; // alias to match Historical table variable name
