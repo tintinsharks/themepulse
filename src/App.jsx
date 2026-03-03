@@ -3082,6 +3082,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   const [showLegend, setShowLegend] = useState(false);
   const [filterOn, setFilterOn] = useState(true);
   const [activeBox, setActiveBox] = useState(null); // track which box was last clicked
+  const [selectedPattern, setSelectedPattern] = useState(null);
   const grades = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
 
   // Filter out excluded industries
@@ -3236,6 +3237,25 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
       .sort((a, b) => (b._comboCount - a._comboCount) || ((b.rs_rank || 0) - (a.rs_rank || 0)));
   }, [weekMovers, monthMovers, strongestStocks, momentumStocks]);
 
+  // Chart Patterns: group stocks by pattern type, sorted by quality desc
+  const patternGroups = useMemo(() => {
+    const groups = {};
+    const order = ["vcp", "cup_and_handle", "flat_base", "power_play", "double_bottom", "high_tight_flag", "ascending_base", "symmetrical_triangle", "ipo_base"];
+    order.forEach(p => { groups[p] = []; });
+    filteredStocks.forEach(s => {
+      (s.chart_patterns || []).forEach(p => {
+        if (groups[p.pattern]) groups[p.pattern].push({ ...s, _pat: p });
+      });
+    });
+    order.forEach(p => { groups[p].sort((a, b) => b._pat.quality - a._pat.quality); });
+    return { groups, order: order.filter(p => groups[p].length > 0) };
+  }, [filteredStocks]);
+
+  const patternTickers = useMemo(() => {
+    if (!selectedPattern || !patternGroups.groups[selectedPattern]) return [];
+    return patternGroups.groups[selectedPattern];
+  }, [selectedPattern, patternGroups]);
+
   // Build box-grouped ticker lists for keyboard navigation
   const boxLists = useMemo(() => ({
     rts: grades.flatMap(gr => groups[gr].slice(0, 60).map(s => s.ticker)),
@@ -3244,7 +3264,8 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
     m1: monthMovers.map(s => s.ticker),
     strong: strongestStocks.map(s => s.ticker),
     mom: momentumStocks.map(s => s.ticker),
-  }), [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks]);
+    pat: patternTickers.map(s => s.ticker),
+  }), [groups, comboStocks, weekMovers, monthMovers, strongestStocks, momentumStocks, patternTickers]);
 
   const boxListsRef = useRef(boxLists);
   boxListsRef.current = boxLists;
@@ -3459,6 +3480,58 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           </div>
         </div>
       </div>
+
+      {/* Chart Patterns */}
+      {patternGroups.order.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#ec4899" }}>Chart Patterns</span>
+            <span style={{ fontSize: 10, color: "#686878" }}>Click pattern to view tickers</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: selectedPattern ? 8 : 0 }}>
+            {patternGroups.order.map(p => {
+              const color = PATTERN_COLORS[p] || "#9090a0";
+              const abbrev = PATTERN_ABBREV[p] || p;
+              const count = patternGroups.groups[p].length;
+              const isActive = selectedPattern === p;
+              return (
+                <div key={p} onClick={() => { setSelectedPattern(isActive ? null : p); setActiveBox("pat"); }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 4,
+                    fontSize: 11, fontWeight: 700, cursor: "pointer", userSelect: "none",
+                    background: isActive ? color + "30" : color + "15",
+                    border: `1px solid ${isActive ? color : color + "40"}`,
+                    color: isActive ? color : color + "cc" }}>
+                  {abbrev} <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7 }}>{count}</span>
+                </div>
+              );
+            })}
+          </div>
+          {selectedPattern && patternTickers.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+              {patternTickers.map(s => {
+                const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
+                const pc = PATTERN_COLORS[selectedPattern] || "#9090a0";
+                const isActive = s.ticker === activeTicker;
+                return (
+                  <div key={s.ticker} data-ticker={s.ticker} onClick={() => clickInBox(s.ticker, "pat")}
+                    title={`${s.company} | ${PATTERN_ABBREV[selectedPattern]} Q:${s._pat.quality} ${s._pat.status} | Depth:${s._pat.depth_pct}% ${s._pat.length_days}d | Pivot:$${s._pat.pivot_price} | RS:${s.rs_rank} | Grade:${s.grade}`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
+                      fontSize: 11, fontFamily: "monospace", cursor: "pointer",
+                      background: isActive ? pc + "30" : gc + "20",
+                      border: isActive ? `1px solid ${pc}` : `1px solid ${gc}40`,
+                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
+                      fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400 }}>
+                    <Badge grade={s.grade} />
+                    <Tk ticker={s.ticker} />
+                    <span style={{ fontSize: 7, color: pc, fontWeight: 700 }}>{s._pat.quality}</span>
+                    {s._pat.status === "breakout" && <span style={{ fontSize: 7, color: "#ef4444", fontWeight: 700 }}>!</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* RTS Grade Grid */}
       <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
