@@ -3708,12 +3708,9 @@ function IntradayChart({ ticker, avgVolume }) {
       {/* ZVR pane */}
       <div style={{ position: "relative", height: 55, borderTop: "1px solid #2a2a38", flexShrink: 0 }}>
         <div ref={zvrContainerRef} style={{ width: "100%", height: "100%" }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>ZVR</div>
-        {zvrPct && (
-          <div style={{ position: "absolute", top: 1, right: 8, fontSize: 12, fontWeight: 700, color: zvrPct.color, zIndex: 5, pointerEvents: "none", fontFamily: "monospace" }}>
-            {zvrPct.value}%
-          </div>
-        )}
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none", display: "flex", alignItems: "baseline", gap: 4 }}>
+          ZVR{zvrPct && <span style={{ fontSize: 12, fontWeight: 700, color: zvrPct.color, fontFamily: "monospace" }}>{zvrPct.value}%</span>}
+        </div>
       </div>
     </div>
   );
