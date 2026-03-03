@@ -390,7 +390,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       )}
 
       {/* Stock detail row — metrics left, news right */}
-      {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: catalyst note */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4, overflow: "hidden", wordBreak: "break-all" }}>
@@ -432,6 +431,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           )}
           </div>
           {/* Earnings Timeline */}
+          {stock && <>
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
           <div style={{ flex: "0 0 auto", minWidth: 203, maxWidth: 240, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -638,6 +638,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </>)}
             {/* End of earnings timeline */}
           </div>
+          </>}
           {/* Divider */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
           {/* Right: news */}
@@ -702,7 +703,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             )}
           </div>
         </div>
-      )}
 
 
       </>)}
