@@ -1119,15 +1119,18 @@ export default async function handler(req, res) {
           .map(u => {
             const eq = extMap[u.ticker];
             const regQ = quoteMap[u.ticker];
-            const prevClose = regQ?.previousClose;
-            // Compute ext change% from mid-price vs previousClose
+            const todayClose = regQ?.price; // today's regular session close
+            // Compute ext change% from mid-price vs today's close
+            // AH%: how much the stock moved AFTER today's close
+            // PM%: how much the stock moved BEFORE today's open (vs prior close)
             let extChg = null;
             let extPrice = u.price;
             let extVol = null;
-            if (eq && prevClose) {
+            const refPrice = extSession === "premarket" ? regQ?.previousClose : todayClose;
+            if (eq && refPrice) {
               const midPrice = (eq.bidPrice && eq.askPrice) ? (eq.bidPrice + eq.askPrice) / 2 : null;
               if (midPrice) {
-                extChg = Math.round(((midPrice - prevClose) / prevClose) * 10000) / 100;
+                extChg = Math.round(((midPrice - refPrice) / refPrice) * 10000) / 100;
                 extPrice = Math.round(midPrice * 100) / 100;
               }
               // AH/PM volume = cumulative ext volume minus regular session volume
