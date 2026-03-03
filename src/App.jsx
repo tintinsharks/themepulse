@@ -125,6 +125,28 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [description, setDescription] = useState(null);
   const [finvizQuarters, setFinvizQuarters] = useState(null);
 
+  // Custom headline notes (persisted 2 weeks)
+  const [chartNotes, setChartNotes] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("tp_chart_notes") || "{}");
+      const now = Date.now(), twoWeeks = 14 * 24 * 60 * 60 * 1000;
+      const valid = {};
+      for (const [k, v] of Object.entries(stored)) {
+        if (v.ts && now - v.ts < twoWeeks) valid[k] = v;
+      }
+      return valid;
+    } catch { return {}; }
+  });
+  const [editingNote, setEditingNote] = useState(false);
+
+  // Persist chart notes
+  useEffect(() => {
+    localStorage.setItem("tp_chart_notes", JSON.stringify(chartNotes));
+  }, [chartNotes]);
+
+  // Reset edit state on ticker change
+  useEffect(() => { setEditingNote(false); }, [ticker]);
+
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
     if (!liveThemeData) return null;
@@ -409,6 +431,39 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })()}
             </div>
+            {/* Custom catalyst note — double-click to edit */}
+            {editingNote ? (
+              <input autoFocus
+                defaultValue={chartNotes[ticker]?.text || ""}
+                placeholder="Add catalyst note..."
+                onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") setEditingNote(false); }}
+                onBlur={e => {
+                  const val = e.target.value.trim();
+                  if (val) {
+                    setChartNotes(prev => ({ ...prev, [ticker]: { text: val, ts: Date.now() } }));
+                  } else {
+                    setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; });
+                  }
+                  setEditingNote(false);
+                }}
+                style={{ width: "100%", background: "#1a1a28", border: "1px solid #10b981", borderRadius: 3,
+                  color: "#a8a8b8", padding: "3px 6px", fontSize: 10, fontFamily: "monospace", outline: "none", marginBottom: 4, boxSizing: "border-box" }} />
+            ) : chartNotes[ticker] ? (
+              <div onDoubleClick={() => setEditingNote(true)}
+                style={{ padding: "3px 6px", marginBottom: 4, background: "#10b98112", border: "1px solid #10b98130",
+                  borderRadius: 3, fontSize: 10, fontFamily: "monospace", color: "#10b981", cursor: "default",
+                  display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chartNotes[ticker].text}</span>
+                <span onClick={() => setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; })}
+                  style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0 }} title="Remove note">✕</span>
+              </div>
+            ) : (
+              <div onDoubleClick={() => setEditingNote(true)}
+                style={{ padding: "2px 6px", marginBottom: 2, fontSize: 9, color: "#3a3a4a", cursor: "default" }}
+                title="Double-click to add a catalyst note">
+                dbl-click to add note
+              </div>
+            )}
             {/* Earnings beat/miss from 09g — show if er data present */}
             {stock.er && stock.er.eps != null && (() => {
               const er = stock.er;
