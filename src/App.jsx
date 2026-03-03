@@ -374,31 +374,26 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {showDetails && (<>
 
       {stock && (
-        <div style={{ display: "flex", gap: 12, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, alignItems: "center" }}>
-          <span style={{ color: "#9090a0" }}>{stock.company}</span>
-          <span style={{ color: "#505060", fontSize: 10 }}>{stock.sector} · {stock.industry}</span>
+        <div style={{ display: "flex", gap: 8, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ color: "#9090a0", fontSize: 11 }}>{stock.company}</span>
+          <span style={{ color: "#505060" }}>{stock.sector} · {stock.industry}</span>
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          {stock.adr_pct != null && <span style={{ fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
+          {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
+            return rv != null ? <span style={{ fontFamily: "monospace", color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878" }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
+          })()}
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontFamily: "monospace" }}>1M:<Ret v={stock.return_1m} /></span>
+          <span style={{ fontFamily: "monospace" }}>3M:<Ret v={stock.return_3m} /></span>
+          <span style={{ fontFamily: "monospace" }}>6M:<Ret v={stock.return_6m} /></span>
         </div>
       )}
 
       {/* Stock detail row — metrics left, news right */}
       {stock && (
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
-          {/* Left: metrics */}
+          {/* Left: catalyst note */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4, overflow: "hidden", wordBreak: "break-all" }}>
-          {/* ADR | RVol */}
-          <div style={{ width: "100%", display: "flex", gap: 0, alignItems: "center" }}>
-            {stock.adr_pct != null && <span style={{ color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
-            {stock.adr_pct != null && <span style={{ color: "#3a3a4a", margin: "0 6px" }}>│</span>}
-            {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
-              return rv != null ? <span style={{ color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878" }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
-            })()}
-          </div>
-          {/* 1M / 3M / 6M */}
-          <div style={{ width: "100%", display: "flex", gap: 8 }}>
-            <span>1M:<Ret v={stock.return_1m} /></span>
-            <span>3M:<Ret v={stock.return_3m} /></span>
-            <span>6M:<Ret v={stock.return_6m} /></span>
-          </div>
           {/* Custom catalyst note */}
           {editingNote ? (
             <div style={{ width: "100%", marginTop: 2 }}>
