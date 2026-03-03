@@ -411,13 +411,13 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   setEditingNote(false);
                 }}
                 style={{ width: "100%", background: "#1a1a28", border: "1px solid #10b981", borderRadius: 3,
-                  color: "#a8a8b8", padding: "2px 5px", fontSize: 9, fontFamily: "monospace", outline: "none",
+                  color: "#a8a8b8", padding: "2px 5px", fontSize: 7, fontFamily: "monospace", outline: "none",
                   resize: "none", boxSizing: "border-box", lineHeight: 1.4 }} />
             </div>
           ) : chartNotes[ticker] ? (
             <div onDoubleClick={(e) => { e.stopPropagation(); setEditingNote(true); }}
               style={{ width: "100%", marginTop: 2, padding: "2px 5px", background: "#10b98112", border: "1px solid #10b98130",
-                borderRadius: 3, fontSize: 9, fontFamily: "monospace", color: "#10b981", cursor: "default",
+                borderRadius: 3, fontSize: 7, fontFamily: "monospace", color: "#10b981", cursor: "default",
                 display: "flex", alignItems: "flex-start", gap: 4, lineHeight: 1.4 }}>
               <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{chartNotes[ticker].text}</span>
               <span onClick={(e) => { e.stopPropagation(); setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; }); }}
