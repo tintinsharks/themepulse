@@ -1903,6 +1903,36 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [er9M, setEr9M] = useState(false);
   const [erBeatFilter, setErBeatFilter] = useState(null);
 
+  // STATE: Manual catalyst tickers
+  const [manualTickers, setManualTickers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_manual_catalysts") || "[]"); } catch { return []; }
+  });
+  const [manualData, setManualData] = useState({});
+  const [manualInput, setManualInput] = useState("");
+  const [manualLoading, setManualLoading] = useState(false);
+
+  // STATE: Custom headline overrides (any row in catalyst table)
+  const [customHeadlines, setCustomHeadlines] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("tp_custom_headlines") || "{}");
+      const now = Date.now();
+      const twoWeeks = 14 * 24 * 60 * 60 * 1000;
+      // Prune expired entries
+      const valid = {};
+      for (const [k, v] of Object.entries(stored)) {
+        if (v.ts && now - v.ts < twoWeeks) valid[k] = v;
+      }
+      return valid;
+    } catch { return {}; }
+  });
+  const [editingHeadlineTicker, setEditingHeadlineTicker] = useState(null);
+
+  // STATE: Live scrape from TheStockCatalyst
+  const [liveMode, setLiveMode] = useState(false);
+  const [liveData, setLiveData] = useState(null); // { earnings_movers, pm_movers, ah_movers, headlines }
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveTs, setLiveTs] = useState(null);
+
   // STATE: Calendar & collapsible sections
   const [showLegend, setShowLegend] = useState(false);
   const [histCollapsed, setHistCollapsed] = useState(false);
@@ -1911,6 +1941,47 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   // Sort state for Historical tables
   const [histSort, setHistSort] = useState({ col: "rvol", dir: "desc" });
   const [focusSort, setFocusSort] = useState({ col: "rvol", dir: "desc" });
+
+  // Persist manual tickers to localStorage
+  useEffect(() => {
+    localStorage.setItem("tp_manual_catalysts", JSON.stringify(manualTickers));
+  }, [manualTickers]);
+
+  // Persist custom headlines to localStorage
+  useEffect(() => {
+    localStorage.setItem("tp_custom_headlines", JSON.stringify(customHeadlines));
+  }, [customHeadlines]);
+
+  // Fetch headlines for manual tickers
+  useEffect(() => {
+    if (manualTickers.length === 0) { setManualData({}); return; }
+    let cancelled = false;
+    setManualLoading(true);
+    fetch(`/api/headlines?tickers=${manualTickers.join(",")}`)
+      .then(r => r.json())
+      .then(json => {
+        if (!cancelled && json.ok) setManualData(json.results || {});
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setManualLoading(false); });
+    return () => { cancelled = true; };
+  }, [manualTickers]);
+
+  // Live scrape: fetch all movers from TheStockCatalyst on demand
+  const doLiveScrape = () => {
+    setLiveLoading(true);
+    fetch("/api/headlines?mode=all")
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) {
+          setLiveData(json);
+          setLiveTs(Date.now());
+          setLiveMode(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLiveLoading(false));
+  };
 
   // Live data lookup — same pattern as Scan Watch
   const liveLookup = useMemo(() => {
@@ -2115,7 +2186,29 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       };
     };
 
-    (pmTopMovers || []).forEach(m => {
+    // Use live-scraped data when available, otherwise pipeline data
+    const effectivePM = (liveMode && liveData) ? liveData.pm_movers : (pmTopMovers || []);
+    const effectiveAH = (liveMode && liveData) ? liveData.ah_movers : (ahTopMovers || []);
+
+    // When live, also inject live earnings movers not already in ER rows
+    if (liveMode && liveData) {
+      (liveData.earnings_movers || []).forEach(m => {
+        if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
+          pmSeen.add(m.ticker);
+          rows.push(_buildMoverRow(m, "er", m.ticker + "_er_live"));
+        }
+      });
+      // Merge live headlines into existing ER rows
+      rows.forEach(r => {
+        const liveHL = liveData.headlines?.[r.ticker]?.headlines;
+        if (liveHL && liveHL.length > 0 && (!r._recentHeadlines || r._recentHeadlines.length === 0)) {
+          r._recentHeadlines = liveHL;
+          r._headline = liveHL[0] || r._headline;
+        }
+      });
+    }
+
+    effectivePM.forEach(m => {
       if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
         pmSeen.add(m.ticker);
         rows.push(_buildMoverRow(m, "pm", m.ticker + "_pm"));
@@ -2123,10 +2216,26 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     });
 
     // Add AH top movers not already in ERs or PM
-    (ahTopMovers || []).forEach(m => {
+    effectiveAH.forEach(m => {
       if (!erTickers.has(m.ticker) && !pmSeen.has(m.ticker)) {
         rows.push(_buildMoverRow(m, "ah", m.ticker + "_ah"));
       }
+    });
+
+    // Add manual catalyst tickers
+    manualTickers.forEach(ticker => {
+      if (erTickers.has(ticker) || pmSeen.has(ticker)) return; // already in table from another source
+      const md = manualData[ticker]; // from /api/headlines
+      const moverLike = {
+        ticker,
+        company: md?.company || stockMap[ticker]?.company || ticker,
+        price: md?.price ?? null,
+        change_pct: md?.change_pct ?? null,
+        volume: md?.volume ?? null,
+        headlines: md?.headlines || [],
+        in_universe: !!stockMap[ticker],
+      };
+      rows.push(_buildMoverRow(moverLike, "manual", ticker + "_manual"));
     });
 
     // Filter by source
@@ -2137,6 +2246,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       filtered = filtered.filter(r => r._source === "pm");
     } else if (sourceFilter === "ah") {
       filtered = filtered.filter(r => r._source === "ah");
+    } else if (sourceFilter === "manual") {
+      filtered = filtered.filter(r => r._source === "manual");
     }
     // Filter by RS — fall back to row data for tickers not in stockMap
     if (minRS > 0) {
@@ -2169,7 +2280,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       filtered = filtered.filter(r => (r.days_ago ?? 0) <= maxDays);
     }
     return filtered;
-  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, stockMap]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, manualTickers, manualData, liveMode, liveData, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, stockMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2182,7 +2293,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const sortedRows = useMemo(() => {
     const sorters = {
       type: (a, b) => {
-        const order = { er: 0, upcoming: 1, pm: 2, ah: 3 };
+        const order = { er: 0, upcoming: 1, pm: 2, ah: 3, manual: 4 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
       },
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
@@ -2371,6 +2482,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (source === "upcoming") return "#f59e0b";
     if (source === "pm") return "#38bdf8";
     if (source === "ah") return "#f97316";
+    if (source === "manual") return "#10b981";
     return "#686878";
   };
 
@@ -2379,6 +2491,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (source === "upcoming") return "#f59e0b18";
     if (source === "pm") return "#38bdf818";
     if (source === "ah") return "#f9731618";
+    if (source === "manual") return "#10b98118";
     return "#4a4a5a18";
   };
 
@@ -2387,6 +2500,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (source === "upcoming") return "#f59e0b40";
     if (source === "pm") return "#38bdf840";
     if (source === "ah") return "#f9731640";
+    if (source === "manual") return "#10b98140";
     return "#4a4a5a40";
   };
 
@@ -2468,10 +2582,29 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
             Catalysts ({sortedRows.length})
           </span>
 
+          {/* Live scrape button */}
+          <button onClick={() => { if (liveMode) { setLiveMode(false); } else { doLiveScrape(); } }}
+            disabled={liveLoading}
+            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: liveLoading ? "wait" : "pointer", fontWeight: 600,
+              border: liveMode ? "1px solid #f43f5e" : "1px solid #3a3a4a",
+              background: liveMode ? "#f43f5e20" : "transparent",
+              color: liveMode ? "#f43f5e" : "#787888" }}
+            title={liveMode ? `Live data from ${liveTs ? new Date(liveTs).toLocaleTimeString() : "—"}. Click to revert to pipeline data.` : "Scrape TheStockCatalyst live"}>
+            {liveLoading ? "..." : liveMode ? "LIVE" : "Live"}
+          </button>
+          {liveMode && (
+            <button onClick={doLiveScrape} disabled={liveLoading}
+              style={{ padding: "3px 6px", borderRadius: 4, fontSize: 9, cursor: liveLoading ? "wait" : "pointer",
+                border: "1px solid #3a3a4a", background: "transparent", color: "#787888" }}
+              title="Refresh live data">
+              {liveLoading ? "..." : "↻"}
+            </button>
+          )}
+
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-            {["all", "er", "pm", "ah"].map(src => {
-              const label = src === "all" ? "All" : src.toUpperCase();
+            {["all", "er", "pm", "ah", "manual"].map(src => {
+              const label = src === "all" ? "All" : src === "manual" ? "Manual" : src.toUpperCase();
               const isActive = sourceFilter === src;
               return (
                 <button key={src} onClick={() => setSourceFilter(src)}
@@ -2558,6 +2691,30 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               </button>
             </>
           )}
+
+          {/* Manual ticker input */}
+          <span style={{ display: "inline-flex", gap: 4, alignItems: "center", marginLeft: 8 }}>
+            <input value={manualInput} onChange={e => setManualInput(e.target.value.toUpperCase())}
+              onKeyDown={e => {
+                if (e.key === "Enter" && manualInput.trim()) {
+                  const t = manualInput.trim();
+                  if (!manualTickers.includes(t)) setManualTickers(prev => [...prev, t]);
+                  setManualInput("");
+                }
+              }}
+              placeholder="+ ticker"
+              style={{ width: 60, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3,
+                color: "#a8a8b8", padding: "2px 4px", fontSize: 10 }} />
+            <button onClick={() => {
+              const t = manualInput.trim();
+              if (t && !manualTickers.includes(t)) setManualTickers(prev => [...prev, t]);
+              setManualInput("");
+            }} style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10,
+              background: "#10b981", color: "#000", cursor: "pointer", fontWeight: 600, border: "none" }}>
+              +
+            </button>
+            {manualLoading && <span style={{ fontSize: 9, color: "#10b981" }}>...</span>}
+          </span>
         </div>
 
         {/* Unified Table */}
@@ -2668,23 +2825,18 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
-                          {row._source === "upcoming" ? "AMC" : row._source.toUpperCase()}
+                          {row._source === "upcoming" ? "AMC" : row._source === "manual" ? "MAN" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         {row.ticker}
-                        <a href={`https://claude.com/plugins/equity-research?prompt=${encodeURIComponent(`Generate a morning note summarizing overnight developments and key catalysts for ${row.ticker} (${row.company})`)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          title={`Claude: Morning note for ${row.ticker}`}
-                          style={{ marginLeft: 3, fontSize: 8, color: "#d4a574", opacity: 0.6, textDecoration: "none",
-                            verticalAlign: "super", cursor: "pointer" }}
-                          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = "0.6"; }}>
-                          ✦
-                        </a>
+                        {row._source === "manual" && (
+                          <span onClick={(e) => { e.stopPropagation(); setManualTickers(prev => prev.filter(t => t !== row.ticker)); }}
+                            style={{ cursor: "pointer", fontSize: 8, color: "#686878", marginLeft: 3, fontWeight: 400 }}
+                            title="Remove manual ticker">✕</span>
+                        )}
                         <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
                       </td>
                       {/* Rev% */}
@@ -2700,26 +2852,60 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
                         lineHeight: 1.4, verticalAlign: "top", overflow: "hidden",
-                        fontStyle: row._upcoming ? "italic" : "normal", whiteSpace: "normal", wordWrap: "break-word" }}>
-                        {row._upcoming ? (
-                          <span style={{ color: "#787888" }}>Reports after close today</span>
-                        ) : row._recentHeadlines && row._recentHeadlines.length > 0 ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            {row._recentHeadlines.slice(0, 3).map((hl, hi) => (
-                              <div key={hi} style={{ overflow: "hidden", textOverflow: "ellipsis",
-                                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                                fontSize: hi === 0 ? 9 : 8, color: hi === 0 ? headlineColor : "#606070",
-                                fontWeight: hi === 0 ? 500 : 400 }}>
-                                {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
+                        fontStyle: row._upcoming ? "italic" : "normal", whiteSpace: "normal", wordWrap: "break-word" }}
+                        onDoubleClick={(e) => { e.stopPropagation(); if (!row._upcoming) setEditingHeadlineTicker(row.ticker); }}>
+                        {editingHeadlineTicker === row.ticker ? (
+                          <input autoFocus
+                            defaultValue={customHeadlines[row.ticker]?.text || ""}
+                            placeholder="Custom note..."
+                            onClick={e => e.stopPropagation()}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { e.target.blur(); }
+                              if (e.key === "Escape") { setEditingHeadlineTicker(null); }
+                            }}
+                            onBlur={e => {
+                              const val = e.target.value.trim();
+                              if (val) {
+                                setCustomHeadlines(prev => ({ ...prev, [row.ticker]: { text: val, ts: Date.now() } }));
+                              } else {
+                                setCustomHeadlines(prev => { const next = { ...prev }; delete next[row.ticker]; return next; });
+                              }
+                              setEditingHeadlineTicker(null);
+                            }}
+                            style={{ width: "100%", background: "#1a1a28", border: "1px solid #10b981", borderRadius: 3,
+                              color: "#a8a8b8", padding: "2px 4px", fontSize: 9, outline: "none" }} />
+                        ) : (
+                          <>
+                            {customHeadlines[row.ticker] && (
+                              <div style={{ color: "#10b981", fontSize: 9, fontWeight: 600, marginBottom: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
+                                  {customHeadlines[row.ticker].text}
+                                </span>
+                                <span onClick={(e) => { e.stopPropagation(); setCustomHeadlines(prev => { const next = { ...prev }; delete next[row.ticker]; return next; }); }}
+                                  style={{ cursor: "pointer", fontSize: 7, color: "#686878", flexShrink: 0 }} title="Remove note">✕</span>
                               </div>
-                            ))}
-                          </div>
-                        ) : row._headline ? (
-                          <span style={{ color: headlineColor, overflow: "hidden", textOverflow: "ellipsis",
-                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                            {row._headline}
-                          </span>
-                        ) : "—"}
+                            )}
+                            {row._upcoming ? (
+                              <span style={{ color: "#787888" }}>Reports after close today</span>
+                            ) : row._recentHeadlines && row._recentHeadlines.length > 0 ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                {row._recentHeadlines.slice(0, 3).map((hl, hi) => (
+                                  <div key={hi} style={{ overflow: "hidden", textOverflow: "ellipsis",
+                                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                                    fontSize: hi === 0 ? 9 : 8, color: hi === 0 ? headlineColor : "#606070",
+                                    fontWeight: hi === 0 ? 500 : 400 }}>
+                                    {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : row._headline ? (
+                              <span style={{ color: headlineColor, overflow: "hidden", textOverflow: "ellipsis",
+                                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                {row._headline}
+                              </span>
+                            ) : "—"}
+                          </>
+                        )}
                       </td>
                       {/* $Vol */}
                       {(() => {
