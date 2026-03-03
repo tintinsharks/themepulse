@@ -52,6 +52,27 @@ const Ret = memo(function Ret({ v, bold }) {
   return <span style={{ color: c, fontWeight: 400, fontFamily: "monospace" }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
 });
 
+// Chart notes set — tickers with custom catalyst notes (read from localStorage)
+let _chartNotesCache = null;
+let _chartNotesCacheTs = 0;
+function getChartNotesSet() {
+  const now = Date.now();
+  if (_chartNotesCache && now - _chartNotesCacheTs < 2000) return _chartNotesCache;
+  try {
+    const stored = JSON.parse(localStorage.getItem("tp_chart_notes") || "{}");
+    const twoWeeks = 14 * 24 * 60 * 60 * 1000;
+    _chartNotesCache = new Set(Object.entries(stored).filter(([, v]) => v.ts && now - v.ts < twoWeeks).map(([k]) => k));
+  } catch { _chartNotesCache = new Set(); }
+  _chartNotesCacheTs = now;
+  return _chartNotesCache;
+}
+// Render ticker with orange first letter if it has a chart note
+function Tk({ ticker, style }) {
+  const hasNote = getChartNotesSet().has(ticker);
+  if (!hasNote) return <span style={style}>{ticker}</span>;
+  return <span style={style}><span style={{ color: "#f59e0b" }}>{ticker[0]}</span>{ticker.slice(1)}</span>;
+}
+
 const Badge = memo(function Badge({ grade }) {
   if (!grade) return null;
   const bg = GRADE_COLORS[grade] || "#505060";
@@ -139,9 +160,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   });
   const [editingNote, setEditingNote] = useState(false);
 
-  // Persist chart notes
+  // Persist chart notes + invalidate global cache
   useEffect(() => {
     localStorage.setItem("tp_chart_notes", JSON.stringify(chartNotes));
+    _chartNotesCacheTs = 0;
   }, [chartNotes]);
 
   // Reset edit state on ticker change
@@ -244,7 +266,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px",
         borderBottom: "1px solid #2a2a38", flexShrink: 0, background: "#1a1a24" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}>{ticker}</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: "#d4d4e0" }}><Tk ticker={ticker} /></span>
           {erSipLookup && erSipLookup[ticker] && <SourceBadge source={erSipLookup[ticker]} />}
           {watchlist && (
             watchlist.includes(ticker)
@@ -413,7 +435,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           </div>
           {/* Earnings Timeline */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
-          <div style={{ flex: "0 0 auto", minWidth: 203, fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ flex: "0 0 auto", minWidth: 203, maxWidth: 240, fontSize: 10, fontFamily: "monospace" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
               <span>Earnings</span>
               {(stock.earnings_display || stock.earnings_date) && (() => {
@@ -452,10 +474,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               <div onDoubleClick={() => setEditingNote(true)}
                 style={{ padding: "3px 6px", marginBottom: 4, background: "#10b98112", border: "1px solid #10b98130",
                   borderRadius: 3, fontSize: 10, fontFamily: "monospace", color: "#10b981", cursor: "default",
-                  display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{chartNotes[ticker].text}</span>
+                  display: "flex", alignItems: "flex-start", gap: 4, maxWidth: "100%" }}>
+                <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.4 }}>{chartNotes[ticker].text}</span>
                 <span onClick={() => setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; })}
-                  style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0 }} title="Remove note">✕</span>
+                  style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove note">✕</span>
               </div>
             ) : (
               <div onDoubleClick={() => setEditingNote(true)}
@@ -1718,7 +1740,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
                 background: isActive ? "rgba(251, 191, 36, 0.10)" : "transparent" }}>
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500 }}>
-                <span>{s.ticker}</span>
+                <Tk ticker={s.ticker} />
                 {erSipLookup && erSipLookup[s.ticker] && <SourceBadge source={erSipLookup[s.ticker]} />}
                 {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
                   <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
@@ -2729,7 +2751,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       {/* Ticker */}
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
-                        {row.ticker}
+                        <Tk ticker={row.ticker} />
                         <a href={`https://claude.com/plugins/equity-research?prompt=${encodeURIComponent(`Generate a morning note summarizing overnight developments and key catalysts for ${row.ticker} (${row.company})`)}`}
                           target="_blank" rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
@@ -3118,7 +3140,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           <div key={idx} style={{ fontSize: 9, color: "#686878", padding: "2px 0", cursor: "pointer" }}
                             onClick={() => onTickerClick(s.ticker)}>
                             <span style={{ fontWeight: 600, color: "#a8a8b8" }}>
-                              {s.ticker}
+                              <Tk ticker={s.ticker} />
                             </span>
                             {" "}
                             <span style={{ color: "#4a4a5a" }}>{s.company || "—"}</span>
@@ -3426,7 +3448,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400 }}>
                   <Badge grade={s.grade} />
-                  {s.ticker}
+                  <Tk ticker={s.ticker} />
                   <sup style={{ fontSize: 7, color: "#fbbf24", marginLeft: 1 }}>{s._comboCount}</sup>
                 </div>
               );
@@ -3456,7 +3478,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     background: isActive ? "#fbbf2430" : "#c084fc25",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
-                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}><Tk ticker={s.ticker} /></div>
                 );
               })}
             </div>
@@ -3475,7 +3497,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     background: isActive ? "#fbbf2430" : "#60a5fa25",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
-                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}><Tk ticker={s.ticker} /></div>
                 );
               })}
             </div>
@@ -3494,7 +3516,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     background: isActive ? "#fbbf2430" : "#2bb88625",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
-                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}><Tk ticker={s.ticker} /></div>
                 );
               })}
             </div>
@@ -3513,7 +3535,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                     background: isActive ? "#fbbf2430" : "#f9731625",
                     color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                     fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
-                    outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                    outline: isActive ? "1px solid #fbbf24" : "none" }}><Tk ticker={s.ticker} /></div>
                 );
               })}
             </div>
@@ -3539,7 +3561,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
                       background: isActive ? "#fbbf2430" : GRADE_COLORS[g] + "25",
                       color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
                       fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400, cursor: "pointer",
-                      outline: isActive ? "1px solid #fbbf24" : "none" }}>{s.ticker}</div>
+                      outline: isActive ? "1px solid #fbbf24" : "none" }}><Tk ticker={s.ticker} /></div>
                   );
                 })}
               </div>
@@ -5297,7 +5319,7 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
           style={{ color: "#0d9163", cursor: "pointer", fontSize: 11 }}>{addLabel || "+watch"}</span>}
       </td>
       <td style={{ padding: "4px 6px", textAlign: "center", color: isActive ? "#0d9163" : "#a8a8b8", fontWeight: 500, fontSize: 12 }}>
-        <span>{s.ticker}</span>
+        <Tk ticker={s.ticker} />
         {erSipLookup && erSipLookup[s.ticker] && <SourceBadge source={erSipLookup[s.ticker]} />}
         {s.earnings_days != null && s.earnings_days >= 0 && s.earnings_days <= 14 && (
           <span title={s.er && s.er.eps != null ? `EPS: $${s.er.eps.toFixed(2)} vs est $${(s.er.eps_estimated ?? 0).toFixed(2)}${s.er.revenue ? ` | Rev: $${(s.er.revenue/1e6).toFixed(0)}M` : ''}` : (s.earnings_display || s.earnings_date || `${s.earnings_days}d`)}
@@ -5537,7 +5559,7 @@ function EarningsCalendar({ stockMap, onTickerClick, onClose }) {
                   cursor: "pointer", marginBottom: 1 }}
                 onMouseEnter={ev => ev.currentTarget.style.background = "#1a1a24"}
                 onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}>
-                <span style={{ fontWeight: 500, fontSize: 12, color: "#a8a8b8", width: 50 }}>{e.ticker}</span>
+                <span style={{ fontWeight: 500, fontSize: 12, color: "#a8a8b8", width: 50 }}><Tk ticker={e.ticker} /></span>
                 {e.grade && <Badge grade={e.grade} />}
                 <span style={{ fontSize: 11, color: "#9090a0", fontFamily: "monospace", width: 28, textAlign: "right" }}>{e.rs_rank ?? '—'}</span>
                 <span style={{ fontSize: 11, fontFamily: "monospace", width: 45, textAlign: "right",
@@ -5672,7 +5694,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
               {gaps.map(g => (
                 <span key={g.ticker} onClick={() => onTickerClick(g.ticker)}
                   style={chipStyle(g.change > 0 ? "#0d916318" : "#f8717118", g.change > 0 ? "#2bb886" : "#f87171")}>
-                  {g.ticker} <span style={{ fontSize: 10 }}>{g.change > 0 ? "+" : ""}{g.change.toFixed(1)}%</span>
+                  <Tk ticker={g.ticker} /> <span style={{ fontSize: 10 }}>{g.change > 0 ? "+" : ""}{g.change.toFixed(1)}%</span>
                 </span>
               ))}
             </div>
@@ -5689,7 +5711,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
               {earnings.map(e => (
                 <span key={e.ticker} onClick={() => onTickerClick(e.ticker)}
                   style={chipStyle(e.days <= 1 ? "#f8717118" : "#c084fc18", e.days <= 1 ? "#f87171" : "#c084fc")}>
-                  {e.ticker} <span style={{ fontSize: 10 }}>{e.days === 0 ? "TODAY" : e.days === 1 ? "TMR" : `${e.days}d`}</span>
+                  <Tk ticker={e.ticker} /> <span style={{ fontSize: 10 }}>{e.days === 0 ? "TODAY" : e.days === 1 ? "TMR" : `${e.days}d`}</span>
                 </span>
               ))}
             </div>
