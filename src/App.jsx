@@ -83,8 +83,8 @@ const Badge = memo(function Badge({ grade }) {
 // ── SOURCE BADGE (ER / PM / AH tag) ──
 const SOURCE_BADGE_STYLES = {
   er: { label: "ER", color: "#c084fc", bg: "#c084fc18", border: "#c084fc30" },
-  pm: { label: "PM", color: "#38bdf8", bg: "#38bdf818", border: "#38bdf830" },
-  ah: { label: "AH", color: "#f97316", bg: "#f9731618", border: "#f9731630" },
+  pm: { label: "PreM", color: "#38bdf8", bg: "#38bdf818", border: "#38bdf830" },
+  ah: { label: "AftM", color: "#f97316", bg: "#f9731618", border: "#f9731630" },
 };
 const SourceBadge = memo(function SourceBadge({ source }) {
   const s = SOURCE_BADGE_STYLES[source];
@@ -2481,7 +2481,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
             {["all", "er", "pm", "ah"].map(src => {
-              const label = src === "all" ? "All" : src.toUpperCase();
+              const label = src === "all" ? "All" : src === "er" ? "ER" : src === "pm" ? "PreM" : src === "ah" ? "AftM" : src.toUpperCase();
               const isActive = sourceFilter === src;
               return (
                 <button key={src} onClick={() => setSourceFilter(src)}
@@ -2678,7 +2678,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
-                          {row._source === "upcoming" ? "AMC" : row._source.toUpperCase()}
+                          {row._source === "upcoming" ? "AMC" : row._source === "pm" ? "PreM" : row._source === "ah" ? "AftM" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
