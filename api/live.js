@@ -1130,7 +1130,9 @@ export default async function handler(req, res) {
                 extChg = Math.round(((midPrice - prevClose) / prevClose) * 10000) / 100;
                 extPrice = Math.round(midPrice * 100) / 100;
               }
-              extVol = eq.volume ?? null;
+              // AH/PM volume = cumulative ext volume minus regular session volume
+              const regVol = regQ?.volume ?? 0;
+              extVol = eq.volume != null ? Math.max(0, Math.round(eq.volume - regVol)) : null;
             }
             return { ticker: u.ticker, price: extPrice, change: null, volume: null, ext_change: extChg, ext_volume: extVol };
           });
