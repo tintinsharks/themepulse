@@ -2800,6 +2800,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
+                      { key: "rev_yoy", label: "Rev%", align: "right" },
+                      { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
                       { key: "days", label: "Days", align: "center" },
@@ -2853,6 +2855,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(liveVol)}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: revYoY != null ? chgColor(revYoY) : "#3a3a4a" }}>
+                          {revYoY != null ? `${revYoY >= 0 ? "+" : ""}${revYoY.toFixed(0)}%` : "—"}
+                        </td>
+                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: epsYoY != null ? chgColor(epsYoY) : "#3a3a4a" }}>
+                          {epsYoY != null ? `${epsYoY >= 0 ? "+" : ""}${epsYoY.toFixed(0)}%` : "—"}
                         </td>
                         <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
                           color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
@@ -2908,6 +2918,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
+                      { key: "rev_yoy", label: "Rev%", align: "right" },
+                      { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
                       { key: "days", label: "Days", align: "center" },
@@ -2977,6 +2989,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           <td style={{ padding: "3px 6px", fontWeight: 600, color: "#f59e0b" }}>{f.ticker}</td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                             {fmtVol(f._vol || s.volume)}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._revYoY != null ? chgColor(f._revYoY) : "#3a3a4a" }}>
+                            {f._revYoY != null ? `${f._revYoY >= 0 ? "+" : ""}${f._revYoY.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._epsYoY != null ? chgColor(f._epsYoY) : "#3a3a4a" }}>
+                            {f._epsYoY != null ? `${f._epsYoY >= 0 ? "+" : ""}${f._epsYoY.toFixed(0)}%` : "—"}
                           </td>
                           <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
                             color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
