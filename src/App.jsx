@@ -3667,10 +3667,15 @@ function IntradayChart({ ticker, avgVolume }) {
   const ivRef = useRef(null);
   const avgVolRef = useRef(avgVolume);
   avgVolRef.current = avgVolume;
+  const pmVolContainerRef = useRef(null);
+  const pmVolChartRef = useRef(null);
+  const pmVolSeriesRef = useRef(null);
+  const pmVolAvgRef = useRef(null);
   const [orRange, setOrRange] = useState(null);
   const [pmRange, setPmRange] = useState(null);
   const [zvrPct, setZvrPct] = useState(null);
   const [ahInfo, setAhInfo] = useState(null); // { chg, vol }
+  const [pmVolInfo, setPmVolInfo] = useState(null); // { total }
 
   useEffect(() => {
     if (!ticker) return;
@@ -3750,9 +3755,39 @@ function IntradayChart({ ticker, avgVolume }) {
         });
       }
 
+      // ── PM Volume Profile pane (below main chart) ──
+      if (pmVolContainerRef.current) {
+        const pmVolChart = LW.createChart(pmVolContainerRef.current, {
+          width: pmVolContainerRef.current.clientWidth || 400, height: 45,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38" },
+          timeScale: { visible: false },
+          handleScroll: false, handleScale: false,
+        });
+        pmVolChartRef.current = pmVolChart;
+        pmVolSeriesRef.current = pmVolChart.addHistogramSeries({
+          priceFormat: { type: "volume" },
+          lastValueVisible: false, priceLineVisible: false,
+        });
+        pmVolAvgRef.current = pmVolChart.addLineSeries({
+          color: "#f97316", lineWidth: 1, lineStyle: 2,
+          lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+        });
+        chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range && pmVolChartRef.current) {
+            try { pmVolChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+          }
+        });
+      }
+
       roRef.current = new ResizeObserver(() => {
         if (chartRef.current && el.parentNode) {
           try { chartRef.current.resize(el.clientWidth || 400, el.clientHeight || 280); } catch {}
+        }
+        if (pmVolChartRef.current && pmVolContainerRef.current) {
+          try { pmVolChartRef.current.resize(pmVolContainerRef.current.clientWidth || 400, 45); } catch {}
         }
         if (zvrChartRef.current && zvrContainerRef.current) {
           try { zvrChartRef.current.resize(zvrContainerRef.current.clientWidth || 400, 55); } catch {}
@@ -3803,6 +3838,27 @@ function IntradayChart({ ticker, avgVolume }) {
             }
             pmBgRef.setData(pmBgData);
             ahBgRef.setData(ahBgData);
+
+            // ── PM Volume Profile: histogram + EMA × 2.5 threshold ──
+            if (pmVolSeriesRef.current) {
+              const pmVolBars = [], pmVolAvgData = [];
+              let pmEma = null, pmVolTotal = 0;
+              const pmAlpha = 2 / 22; // EMA(21)
+              for (const b of bars) {
+                const etMin = toETMinutes(b.time);
+                if (etMin >= 240 && etMin < 570) {
+                  const vol = b.volume || 0;
+                  pmVolTotal += vol;
+                  pmEma = pmEma === null ? vol : vol * pmAlpha + pmEma * (1 - pmAlpha);
+                  const threshold = pmEma * 2.5;
+                  pmVolBars.push({ time: b.time + ptOff, value: vol, color: vol > threshold ? "#38bdf8" : "#38bdf850" });
+                  pmVolAvgData.push({ time: b.time + ptOff, value: threshold });
+                }
+              }
+              pmVolSeriesRef.current.setData(pmVolBars);
+              if (pmVolAvgRef.current && pmVolAvgData.length > 0) pmVolAvgRef.current.setData(pmVolAvgData);
+              setPmVolInfo(pmVolBars.length > 0 ? { total: pmVolTotal } : null);
+            }
 
             // Clear old price lines
             linesRef.current.forEach(l => { try { cs.removePriceLine(l); } catch {} });
@@ -3906,15 +3962,16 @@ function IntradayChart({ ticker, avgVolume }) {
       disposed = true;
       if (ivRef.current) { clearInterval(ivRef.current); ivRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+      if (pmVolChartRef.current) { try { pmVolChartRef.current.remove(); } catch {} pmVolChartRef.current = null; }
       if (zvrChartRef.current) { try { zvrChartRef.current.remove(); } catch {} zvrChartRef.current = null; }
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; }
-      seriesRef.current = null; volSeriesRef.current = null; zvrSeriesRef.current = null; linesRef.current = [];
+      seriesRef.current = null; volSeriesRef.current = null; zvrSeriesRef.current = null; pmVolSeriesRef.current = null; pmVolAvgRef.current = null; linesRef.current = [];
       if (el.parentNode) el.parentNode.removeChild(el);
     };
   }, [ticker]);
 
   return (
-    <div style={{ height: 340, borderTop: "1px solid #2a2a38", display: "flex", flexDirection: "column" }}>
+    <div style={{ height: 385, borderTop: "1px solid #2a2a38", display: "flex", flexDirection: "column" }}>
       {/* Main 5m ORB chart */}
       <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <div style={{ position: "absolute", top: 4, left: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
@@ -3939,8 +3996,22 @@ function IntradayChart({ ticker, avgVolume }) {
               {ahInfo.vol >= 1e6 ? (ahInfo.vol / 1e6).toFixed(1) + "M" : ahInfo.vol >= 1e3 ? (ahInfo.vol / 1e3).toFixed(0) + "K" : ahInfo.vol}
             </span>
           </>)}
+          {pmVolInfo && (
+            <span style={{ fontSize: 10, color: "#38bdf8", fontFamily: "monospace" }}>
+              PM Vol {pmVolInfo.total >= 1e6 ? (pmVolInfo.total / 1e6).toFixed(1) + "M" : pmVolInfo.total >= 1e3 ? (pmVolInfo.total / 1e3).toFixed(0) + "K" : pmVolInfo.total}
+            </span>
+          )}
         </div>
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      </div>
+      {/* PM Volume Profile pane */}
+      <div style={{ position: "relative", height: 45, borderTop: "1px solid #2a2a38", flexShrink: 0 }}>
+        <div ref={pmVolContainerRef} style={{ width: "100%", height: "100%" }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none", display: "flex", alignItems: "baseline", gap: 4 }}>
+          PM Vol{pmVolInfo && <span style={{ fontSize: 10, fontWeight: 700, color: "#38bdf8", fontFamily: "monospace" }}>
+            {pmVolInfo.total >= 1e6 ? (pmVolInfo.total / 1e6).toFixed(1) + "M" : pmVolInfo.total >= 1e3 ? Math.round(pmVolInfo.total / 1e3) + "K" : pmVolInfo.total}
+          </span>}
+        </div>
       </div>
       {/* ZVR pane */}
       <div style={{ position: "relative", height: 55, borderTop: "1px solid #2a2a38", flexShrink: 0 }}>
