@@ -2178,10 +2178,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       filtered = filtered.filter(r => {
         const lv = liveLookup[r.ticker];
         const chg = marketSession
-          ? (lv?.ext_change ?? null)
+          ? (lv?.ext_change ?? lv?.change ?? stockMap[r.ticker]?.change_pct ?? r._chg ?? null)
           : (lv?.change ?? stockMap[r.ticker]?.change_pct ?? r._chg ?? null);
         const vol = marketSession
-          ? (lv?.ext_volume ?? null)
+          ? (lv?.ext_volume ?? lv?.volume ?? stockMap[r.ticker]?.volume ?? r._vol ?? null)
           : (lv?.volume ?? stockMap[r.ticker]?.volume ?? r._vol ?? null);
         return chg != null && vol != null && chg >= 4 && vol >= 100000;
       });
@@ -2306,15 +2306,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       list = list.filter(m => (m.days_ago ?? 0) <= maxDays);
     }
 
-    // Gap filter: ≥4% change AND ≥100K volume — session-aware
+    // Gap filter: ≥4% change AND ≥100K volume — session-aware with fallback
     if (gapOnly) {
       list = list.filter(m => {
         const lv = liveLookup[m.ticker];
         const chg = marketSession
-          ? (lv?.ext_change ?? null)
+          ? (lv?.ext_change ?? lv?.change ?? stockMap[m.ticker]?.change_pct ?? m.change_pct ?? null)
           : (lv?.change ?? stockMap[m.ticker]?.change_pct ?? m.change_pct ?? null);
         const vol = marketSession
-          ? (lv?.ext_volume ?? null)
+          ? (lv?.ext_volume ?? lv?.volume ?? stockMap[m.ticker]?.volume ?? m.volume ?? null)
           : (lv?.volume ?? stockMap[m.ticker]?.volume ?? m.volume ?? null);
         return chg != null && vol != null && chg >= 4 && vol >= 100000;
       });
@@ -2700,8 +2700,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                   );
 
                   const _gapLv = liveLookup[row.ticker];
-                  const _gapChg = marketSession ? (_gapLv?.ext_change ?? null) : (_gapLv?.change ?? stockMap[row.ticker]?.change_pct ?? row._chg ?? null);
-                  const _gapVol = marketSession ? (_gapLv?.ext_volume ?? null) : (_gapLv?.volume ?? stockMap[row.ticker]?.volume ?? row._vol ?? null);
+                  const _gapChg = marketSession ? (_gapLv?.ext_change ?? _gapLv?.change ?? stockMap[row.ticker]?.change_pct ?? row._chg ?? null) : (_gapLv?.change ?? stockMap[row.ticker]?.change_pct ?? row._chg ?? null);
+                  const _gapVol = marketSession ? (_gapLv?.ext_volume ?? _gapLv?.volume ?? stockMap[row.ticker]?.volume ?? row._vol ?? null) : (_gapLv?.volume ?? stockMap[row.ticker]?.volume ?? row._vol ?? null);
                   const isGapUp = (_gapChg ?? 0) >= 4 && (_gapVol ?? 0) >= 100000;
                   const rowBg = isActive ? "#fbbf2420" : isGapUp ? "#f9731610" : "transparent";
 
@@ -2787,19 +2787,23 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
                         </td>);
                       })()}
-                      {/* Chg% — session-aware: PM% in premarket, AH% in afterhours, Chg% in regular */}
+                      {/* Chg% — session-aware: ext hours data if available, fallback to regular */}
                       {(() => {
                         const lv = liveLookup[row.ticker];
-                        const chgVal = marketSession ? (lv?.ext_change ?? null) : (lv?.change ?? s.change_pct ?? row._chg ?? null);
+                        const extChg = lv?.ext_change ?? null;
+                        const regChg = lv?.change ?? s.change_pct ?? row._chg ?? null;
+                        const chgVal = marketSession ? (extChg ?? regChg) : regChg;
+                        const isExt = marketSession && extChg != null;
                         return (
                         <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 12, fontFamily: "monospace",
-                          color: chgVal != null ? (chgVal > 0 ? "#2bb886" : chgVal < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
+                          color: chgVal != null ? (chgVal > 0 ? "#2bb886" : chgVal < 0 ? "#f87171" : "#9090a0") : "#3a3a4a",
+                          opacity: marketSession && !isExt ? 0.5 : 1 }}>
                           {chgVal != null ? `${chgVal > 0 ? "+" : ""}${Number(chgVal).toFixed(2)}%` : "—"}
                         </td>);
                       })()}
-                      {/* Current Volume — session-aware */}
+                      {/* Current Volume — ext hours if available, fallback to regular */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#686878" }}>
-                        {fmtVol(marketSession ? (liveLookup[row.ticker]?.ext_volume ?? null) : (liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol))}
+                        {fmtVol(marketSession ? (liveLookup[row.ticker]?.ext_volume ?? liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol) : (liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol))}
                       </td>
                       {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
@@ -2890,8 +2894,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     const doubleBeat = (epsBeat && revBeat) || (epsBeat && revBeat == null && revYoY != null && revYoY > 0);
                     const hlColor = doubleBeat ? "#2bb886" : "#606070";
                     const _hgLv = liveLookup[m.ticker];
-                    const _hgChg = marketSession ? (_hgLv?.ext_change ?? null) : (_hgLv?.change ?? sMap.change_pct ?? m.change_pct ?? null);
-                    const _hgVol = marketSession ? (_hgLv?.ext_volume ?? null) : (_hgLv?.volume ?? sMap.volume ?? m.volume ?? null);
+                    const _hgChg = marketSession ? (_hgLv?.ext_change ?? _hgLv?.change ?? sMap.change_pct ?? m.change_pct ?? null) : (_hgLv?.change ?? sMap.change_pct ?? m.change_pct ?? null);
+                    const _hgVol = marketSession ? (_hgLv?.ext_volume ?? _hgLv?.volume ?? sMap.volume ?? m.volume ?? null) : (_hgLv?.volume ?? sMap.volume ?? m.volume ?? null);
                     const histGapUp = (_hgChg ?? 0) >= 4 && (_hgVol ?? 0) >= 100000;
                     const histBg = activeTicker === m.ticker ? "#2a2a3a" : histGapUp ? "#f9731610" : i % 2 === 0 ? "#0d0d14" : "transparent";
                     return (

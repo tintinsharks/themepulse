@@ -1178,7 +1178,7 @@ export default async function handler(req, res) {
               extVol = quote.volume > regVol ? Math.round(quote.volume - regVol) : quote.volume;
             }
 
-            return { ticker: u.ticker, price: extPrice, change: null, volume: null, ext_change: extChg, ext_volume: extVol };
+            return { ticker: u.ticker, price: extPrice, change: u.change, volume: u.volume, ext_change: extChg, ext_volume: extVol };
           });
       } else {
         themeUniverse = fmpResult.universe.filter(u => universeSet.has(u.ticker));
