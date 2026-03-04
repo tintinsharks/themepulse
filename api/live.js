@@ -1124,6 +1124,16 @@ export default async function handler(req, res) {
           fetchBatches(quoteEndpoint, extQuoteMap),
         ]);
 
+        // Determine current session start time (for filtering stale trades)
+        const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+        const sessionStartET = new Date(nowET);
+        if (extSession === "aftermarket") {
+          sessionStartET.setHours(16, 0, 0, 0); // 4:00 PM ET
+        } else {
+          sessionStartET.setHours(4, 0, 0, 0);  // 4:00 AM ET
+        }
+        const sessionStartMs = sessionStartET.getTime();
+
         themeUniverse = fmpResult.universe
           .filter(u => universeSet.has(u.ticker))
           .map(u => {
@@ -1138,16 +1148,17 @@ export default async function handler(req, res) {
             let extPrice = u.price;
             let extVol = null;
 
-            // Check if ticker has actual extended hours activity via quote volume
-            const regVol = regQ?.volume ?? 0;
-            const extSessionVol = (quote?.volume != null) ? Math.max(0, Math.round(quote.volume - regVol)) : 0;
-
-            // Only compute ext change if there's real extended hours volume
-            // (avoids showing stale trade prices as AH/PM moves for inactive tickers)
-            if (refPrice && extSessionVol > 0) {
-              // Priority 1: actual last trade price (most accurate for active tickers)
-              const tradePrice = trade?.price ?? null;
-              // Priority 2: bid/ask midpoint as fallback
+            if (refPrice) {
+              // Priority 1: trade price — only if from current session (timestamp check)
+              let tradePrice = null;
+              if (trade?.price && trade.timestamp) {
+                const tradeMs = typeof trade.timestamp === "number" && trade.timestamp < 1e12
+                  ? trade.timestamp * 1000 : trade.timestamp; // handle sec vs ms
+                if (tradeMs >= sessionStartMs) {
+                  tradePrice = trade.price;
+                }
+              }
+              // Priority 2: bid/ask midpoint (only if both sides present)
               const midPrice = (quote?.bidPrice && quote?.askPrice) ? (quote.bidPrice + quote.askPrice) / 2 : null;
               const bestPrice = tradePrice || midPrice;
 
@@ -1155,7 +1166,12 @@ export default async function handler(req, res) {
                 extChg = Math.round(((bestPrice - refPrice) / refPrice) * 10000) / 100;
                 extPrice = Math.round(bestPrice * 100) / 100;
               }
-              extVol = extSessionVol;
+            }
+
+            // Volume: use quote volume if available, subtract regular volume if it looks cumulative
+            if (quote?.volume != null) {
+              const regVol = regQ?.volume ?? 0;
+              extVol = quote.volume > regVol ? Math.round(quote.volume - regVol) : quote.volume;
             }
 
             return { ticker: u.ticker, price: extPrice, change: null, volume: null, ext_change: extChg, ext_volume: extVol };

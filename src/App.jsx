@@ -2769,7 +2769,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       {/* Chg% — session-aware: PM% in premarket, AH% in afterhours, Chg% in regular */}
                       {(() => {
                         const lv = liveLookup[row.ticker];
-                        const chgVal = marketSession ? (lv?.ext_change ?? row._chg ?? null) : (lv?.change ?? s.change_pct ?? row._chg ?? null);
+                        const chgVal = marketSession ? (lv?.ext_change ?? null) : (lv?.change ?? s.change_pct ?? row._chg ?? null);
                         return (
                         <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 12, fontFamily: "monospace",
                           color: chgVal != null ? (chgVal > 0 ? "#2bb886" : chgVal < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
@@ -2778,7 +2778,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       })()}
                       {/* Current Volume — session-aware */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#686878" }}>
-                        {fmtVol(marketSession ? (liveLookup[row.ticker]?.ext_volume ?? row._vol) : (liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol))}
+                        {fmtVol(marketSession ? (liveLookup[row.ticker]?.ext_volume ?? null) : (liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol))}
                       </td>
                       {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
