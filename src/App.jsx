@@ -3646,6 +3646,7 @@ function IntradayChart({ ticker, avgVolume }) {
   const [orRange, setOrRange] = useState(null);
   const [pmRange, setPmRange] = useState(null);
   const [zvrPct, setZvrPct] = useState(null);
+  const [ahInfo, setAhInfo] = useState(null); // { chg, vol }
 
   useEffect(() => {
     if (!ticker) return;
@@ -3820,6 +3821,26 @@ function IntradayChart({ ticker, avgVolume }) {
               setPmRange(null);
             }
 
+            // ── Aftermarket Change% & Volume ──
+            let regClose = null, ahLastClose = null, ahVol = 0, hasAH = false;
+            for (let i = bars.length - 1; i >= 0; i--) {
+              const etMin = toETMinutes(bars[i].time);
+              if (etMin >= 570 && etMin < 960 && regClose == null) {
+                regClose = bars[i].close; // last regular session bar close
+              }
+              if (etMin >= 960) {
+                hasAH = true;
+                if (ahLastClose == null) ahLastClose = bars[i].close; // last AH bar
+                ahVol += bars[i].volume || 0;
+              }
+            }
+            if (hasAH && regClose && ahLastClose) {
+              const chg = Math.round(((ahLastClose - regClose) / regClose) * 10000) / 100;
+              setAhInfo({ chg, vol: ahVol, price: ahLastClose });
+            } else {
+              setAhInfo(null);
+            }
+
             // ── ZVR (Zanger Volume Ratio) — intraday cumulative vs time-adjusted avg ──
             const aVol = avgVolRef.current;
             if (zvrSeriesRef.current && aVol > 0) {
@@ -3885,6 +3906,14 @@ function IntradayChart({ ticker, avgVolume }) {
           {pmRange && (<>
             <span style={{ fontSize: 10, color: "#38bdf8", fontFamily: "monospace" }}>PMH {pmRange.high.toFixed(2)}</span>
             <span style={{ fontSize: 10, color: "#fb923c", fontFamily: "monospace" }}>PML {pmRange.low.toFixed(2)}</span>
+          </>)}
+          {ahInfo && (<>
+            <span style={{ fontSize: 10, color: ahInfo.chg >= 0 ? "#2bb886" : "#f87171", fontFamily: "monospace" }}>
+              AH {ahInfo.chg > 0 ? "+" : ""}{ahInfo.chg.toFixed(2)}%
+            </span>
+            <span style={{ fontSize: 9, color: "#f9731680", fontFamily: "monospace" }}>
+              {ahInfo.vol >= 1e6 ? (ahInfo.vol / 1e6).toFixed(1) + "M" : ahInfo.vol >= 1e3 ? (ahInfo.vol / 1e3).toFixed(0) + "K" : ahInfo.vol}
+            </span>
           </>)}
         </div>
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
