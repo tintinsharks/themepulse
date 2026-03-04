@@ -1138,8 +1138,14 @@ export default async function handler(req, res) {
             let extPrice = u.price;
             let extVol = null;
 
-            if (refPrice) {
-              // Priority 1: actual last trade price (most accurate)
+            // Check if ticker has actual extended hours activity via quote volume
+            const regVol = regQ?.volume ?? 0;
+            const extSessionVol = (quote?.volume != null) ? Math.max(0, Math.round(quote.volume - regVol)) : 0;
+
+            // Only compute ext change if there's real extended hours volume
+            // (avoids showing stale trade prices as AH/PM moves for inactive tickers)
+            if (refPrice && extSessionVol > 0) {
+              // Priority 1: actual last trade price (most accurate for active tickers)
               const tradePrice = trade?.price ?? null;
               // Priority 2: bid/ask midpoint as fallback
               const midPrice = (quote?.bidPrice && quote?.askPrice) ? (quote.bidPrice + quote.askPrice) / 2 : null;
@@ -1149,12 +1155,7 @@ export default async function handler(req, res) {
                 extChg = Math.round(((bestPrice - refPrice) / refPrice) * 10000) / 100;
                 extPrice = Math.round(bestPrice * 100) / 100;
               }
-            }
-
-            // Volume from quote endpoint (trade endpoint only has per-trade size)
-            if (quote?.volume != null) {
-              const regVol = regQ?.volume ?? 0;
-              extVol = Math.max(0, Math.round(quote.volume - regVol));
+              extVol = extSessionVol;
             }
 
             return { ticker: u.ticker, price: extPrice, change: null, volume: null, ext_change: extChg, ext_volume: extVol };
