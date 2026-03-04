@@ -2579,8 +2579,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <col style={{ width: 30 }} />{/* RS */}
                 <col style={{ width: 52 }} />{/* Type */}
                 <col style={{ width: 52 }} />{/* Ticker */}
-                <col style={{ width: 42 }} />{/* Rev% */}
-                <col style={{ width: 42 }} />{/* EPS% */}
                 <col />{/* Headline — takes remaining space */}
                 <col style={{ width: 55 }} />{/* $Vol */}
                 <col style={{ width: 42 }} />{/* Chg% */}
@@ -2597,8 +2595,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     { col: "rs", label: "RS", align: "right" },
                     { col: "type", label: "Type", align: "center" },
                     { col: "ticker", label: "Ticker", align: "left" },
-                    { col: "rev", label: "Rev%", align: "right", color: "#34d399" },
-                    { col: "eps", label: "EPS%", align: "right", color: "#34d399" },
                   ].map(({ col, label, align, color }) => (
                     <th key={col} onClick={() => setSort(prev => prev.col === col ? { col, dir: prev.dir === "desc" ? "asc" : "desc" } : { col, dir: "desc" })}
                       style={{ padding: "4px 2px", textAlign: align, color: sort.col === col ? "#fbbf24" : (color || "#686878"),
@@ -2696,16 +2692,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           ✦
                         </a>
                         <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
-                      </td>
-                      {/* Rev% */}
-                      <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        width: 42, maxWidth: 42, color: row._revGrowthYoY != null ? chgColor(row._revGrowthYoY) : "#3a3a4a" }}>
-                        {displayRev}
-                      </td>
-                      {/* EPS% */}
-                      <td style={{ padding: "3px 2px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
-                        width: 42, maxWidth: 42, color: row._epsGrowthYoY != null ? chgColor(row._epsGrowthYoY) : "#3a3a4a" }}>
-                        {displayEps}
                       </td>
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
@@ -2814,8 +2800,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
-                      { key: "rev_yoy", label: "Rev%", align: "right" },
-                      { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
                       { key: "days", label: "Days", align: "center" },
@@ -2869,14 +2853,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(liveVol)}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: revYoY != null ? chgColor(revYoY) : "#3a3a4a" }}>
-                          {revYoY != null ? `${revYoY >= 0 ? "+" : ""}${revYoY.toFixed(0)}%` : "—"}
-                        </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: epsYoY != null ? chgColor(epsYoY) : "#3a3a4a" }}>
-                          {epsYoY != null ? `${epsYoY >= 0 ? "+" : ""}${epsYoY.toFixed(0)}%` : "—"}
                         </td>
                         <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
                           color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
@@ -2932,8 +2908,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "rs", label: "RS", align: "right" },
                       { key: "ticker", label: "Ticker", align: "left" },
                       { key: "volume", label: "Volume", align: "right" },
-                      { key: "rev_yoy", label: "Rev%", align: "right" },
-                      { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
                       { key: "days", label: "Days", align: "center" },
@@ -3003,14 +2977,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           <td style={{ padding: "3px 6px", fontWeight: 600, color: "#f59e0b" }}>{f.ticker}</td>
                           <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                             {fmtVol(f._vol || s.volume)}
-                          </td>
-                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                            color: f._revYoY != null ? chgColor(f._revYoY) : "#3a3a4a" }}>
-                            {f._revYoY != null ? `${f._revYoY >= 0 ? "+" : ""}${f._revYoY.toFixed(0)}%` : "—"}
-                          </td>
-                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                            color: f._epsYoY != null ? chgColor(f._epsYoY) : "#3a3a4a" }}>
-                            {f._epsYoY != null ? `${f._epsYoY >= 0 ? "+" : ""}${f._epsYoY.toFixed(0)}%` : "—"}
                           </td>
                           <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
                             color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
