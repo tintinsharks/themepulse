@@ -1898,6 +1898,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   // STATE: ER Filters
   const [erUniverseOnly, setErUniverseOnly] = useState(false);
   const [er9M, setEr9M] = useState(false);
+  const [gapOnly, setGapOnly] = useState(false);
   const [erBeatFilter, setErBeatFilter] = useState(null);
 
   // STATE: Calendar & collapsible sections
@@ -2172,8 +2173,12 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (maxDays < 120) {
       filtered = filtered.filter(r => (r.days_ago ?? 0) <= maxDays);
     }
+    // Gap filter: ≥4% change AND ≥100K volume
+    if (gapOnly) {
+      filtered = filtered.filter(r => (r._chg ?? 0) >= 4 && (r._vol ?? 0) >= 100000);
+    }
     return filtered;
-  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, stockMap, liveLookup]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, gapOnly, stockMap, liveLookup]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -2292,8 +2297,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       list = list.filter(m => (m.days_ago ?? 0) <= maxDays);
     }
 
+    // Gap filter: ≥4% change AND ≥100K volume
+    if (gapOnly) {
+      list = list.filter(m => (m.change_pct ?? 0) >= 4 && (m.volume ?? 0) >= 100000);
+    }
+
     return list;
-  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, maxDays, stockMap, liveLookup]);
+  }, [historicalEarningsMovers, sourceFilter, noBio, erUniverseOnly, er9M, erBeatFilter, minRS, minDvol, epGreenOnly, maxDays, gapOnly, stockMap, liveLookup]);
 
   // Generic sort helper for PM/AH/Historical tables
   const _sortSessionMovers = (list, sortState, getExtra) => {
@@ -2508,6 +2518,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 </button>
               );
             })}
+            <button onClick={() => setGapOnly(g => !g)}
+              style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: 2,
+                border: gapOnly ? "1px solid #f97316" : "1px solid #3a3a4a",
+                background: gapOnly ? "#f9731618" : "transparent",
+                color: gapOnly ? "#f97316" : "#787888" }}>
+              Gap
+            </button>
           </div>
 
           {/* RS slider */}
