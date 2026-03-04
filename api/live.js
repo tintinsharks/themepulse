@@ -998,8 +998,8 @@ async function fetchSingleYahooExt(ticker, session) {
   const closes = result.indicators?.quote?.[0]?.close || [];
   const volumes = result.indicators?.quote?.[0]?.volume || [];
 
-  // PM ref = chartPreviousClose (yesterday's close), AH ref = regularMarketPrice (today's close)
-  const refPrice = session === "premarket" ? meta.chartPreviousClose : meta.regularMarketPrice;
+  // regularMarketPrice = last regular session close (yesterday for PM, today for AH)
+  const refPrice = meta.regularMarketPrice;
   if (!refPrice) return null;
 
   // Filter bars to the correct session
