@@ -80,8 +80,10 @@ const Badge = memo(function Badge({ grade }) {
   return <span style={{ background: bg, color: light ? "#2a2a38" : "#d4d4e0", padding: "1px 5px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "monospace" }}>{grade}</span>;
 });
 
-// ── SOURCE BADGE (ER / PM / AH tag) ──
+// ── SOURCE BADGE (PER / AER / PreM / AftM tag) ──
 const SOURCE_BADGE_STYLES = {
+  per: { label: "PER", color: "#c084fc", bg: "#c084fc18", border: "#c084fc30" },
+  aer: { label: "AER", color: "#a855f7", bg: "#a855f718", border: "#a855f730" },
   er: { label: "ER", color: "#c084fc", bg: "#c084fc18", border: "#c084fc30" },
   pm: { label: "PreM", color: "#38bdf8", bg: "#38bdf818", border: "#38bdf830" },
   ah: { label: "AftM", color: "#f97316", bg: "#f9731618", border: "#f9731630" },
@@ -1197,7 +1199,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession }) {
   const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
@@ -1855,7 +1857,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       )}
       {scanTab === "ep" && (
         <EpisodicPivots stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker}
-          onVisibleTickers={onVisibleTickers} earningsMovers={earningsMovers} headlinesMap={headlinesMap}
+          onVisibleTickers={onVisibleTickers} earningsMovers={earningsMovers} pmErTickers={pmErTickers} ahErTickers={ahErTickers} headlinesMap={headlinesMap}
           pmTopMovers={pmTopMovers} ahTopMovers={ahTopMovers}
           historicalEarningsMovers={historicalEarningsMovers}
           focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
@@ -1879,7 +1881,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
 
 // ── EPISODIC PIVOTS ──
-function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist, pipelineMeta, marketSession }) {
+function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, pmErTickers, ahErTickers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist, pipelineMeta, marketSession }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "vol", dir: "desc" });
   const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
@@ -1921,6 +1923,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     });
     return m;
   }, [liveThemeData, stockMap]);
+
+  // PM/AH earnings session lookup — determines PER vs AER tag
+  const pmErSet = useMemo(() => new Set((pmErTickers || []).map(m => m.ticker)), [pmErTickers]);
+  const ahErSet = useMemo(() => new Set((ahErTickers || []).map(m => m.ticker)), [ahErTickers]);
 
   // Focus list lookup set
   const focusSet = useMemo(() => new Set((focusList || []).map(f => f.ticker)), [focusList]);
@@ -2076,7 +2082,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       const key = `${er.ticker}_er`;
       if (!seen.has(key)) {
         seen.add(key);
-        rows.push({ ...er, _source: er._upcoming ? "upcoming" : "er", _key: key });
+        const erSource = er._upcoming ? "upcoming" : pmErSet.has(er.ticker) ? "per" : ahErSet.has(er.ticker) ? "aer" : "er";
+        rows.push({ ...er, _source: erSource, _key: key });
       }
     });
 
@@ -2127,7 +2134,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     // Filter by source
     let filtered = rows;
     if (sourceFilter === "er") {
-      filtered = filtered.filter(r => r._source === "er" || r._source === "upcoming");
+      filtered = filtered.filter(r => r._source === "per" || r._source === "aer" || r._source === "er" || r._source === "upcoming");
     } else if (sourceFilter === "pm") {
       filtered = filtered.filter(r => r._source === "pm");
     } else if (sourceFilter === "ah") {
@@ -2152,7 +2159,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     // Bio/REIT filter for PM/AH rows (ER rows already filtered via filteredEarnings)
     if (noBio) {
       filtered = filtered.filter(r => {
-        if (r._source === "er" || r._source === "upcoming") return true; // already filtered
+        if (r._source === "per" || r._source === "aer" || r._source === "er" || r._source === "upcoming") return true; // already filtered
         const ind = (r._industry || "").trim();
         if (!ind) return true;
         for (const ex of ER_EXCLUDED) { if (ind.toLowerCase() === ex.toLowerCase()) return false; }
@@ -2177,7 +2184,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const sortedRows = useMemo(() => {
     const sorters = {
       type: (a, b) => {
-        const order = { er: 0, upcoming: 1, pm: 2, ah: 3 };
+        const order = { per: 0, aer: 1, er: 2, upcoming: 3, pm: 4, ah: 5 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
       },
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
@@ -2362,6 +2369,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   };
 
   const getTypeColor = (source) => {
+    if (source === "per") return "#c084fc";
+    if (source === "aer") return "#a855f7";
     if (source === "er") return "#c084fc";
     if (source === "upcoming") return "#f59e0b";
     if (source === "pm") return "#38bdf8";
@@ -2370,6 +2379,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   };
 
   const getTypeBg = (source) => {
+    if (source === "per") return "#c084fc18";
+    if (source === "aer") return "#a855f718";
     if (source === "er") return "#c084fc18";
     if (source === "upcoming") return "#f59e0b18";
     if (source === "pm") return "#38bdf818";
@@ -2378,6 +2389,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   };
 
   const getSourceBorderColor = (source) => {
+    if (source === "per") return "#c084fc40";
+    if (source === "aer") return "#a855f740";
     if (source === "er") return "#c084fc40";
     if (source === "upcoming") return "#f59e0b40";
     if (source === "pm") return "#38bdf840";
@@ -2674,7 +2687,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
-                          {row._source === "upcoming" ? "AMC" : row._source === "pm" ? "PreM" : row._source === "ah" ? "AftM" : row._source.toUpperCase()}
+                          {row._source === "upcoming" ? "AMC" : row._source === "per" ? "PER" : row._source === "aer" ? "AER" : row._source === "pm" ? "PreM" : row._source === "ah" ? "AftM" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
@@ -7250,12 +7263,12 @@ function AppMain({ authToken, onLogout }) {
   const erSipLookup = useMemo(() => {
     if (!data) return {};
     const m = {};
-    // Earnings movers → ER
-    (data.earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "er"; });
-    // PM earnings movers → ER (reported pre-market)
-    (data.pm_earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "er"; });
-    // AH earnings movers → ER (reported after-hours)
-    (data.ah_earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "er"; });
+    // PM earnings movers → PER (reported pre-market)
+    const pmErSet = new Set((data.pm_earnings_movers || []).map(e => e.ticker));
+    const ahErSet = new Set((data.ah_earnings_movers || []).map(e => e.ticker));
+    (data.earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = pmErSet.has(e.ticker) ? "per" : ahErSet.has(e.ticker) ? "aer" : "er"; });
+    (data.pm_earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "per"; });
+    (data.ah_earnings_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "aer"; });
     // PM movers (prefer new top movers, fall back to old SIP)
     (data.pm_top_movers || data.pm_sip_movers || []).forEach(e => { if (e.ticker && !m[e.ticker]) m[e.ticker] = "pm"; });
     // AH movers (prefer new top movers, fall back to old SIP)
@@ -7569,7 +7582,7 @@ function AppMain({ authToken, onLogout }) {
           <ErrorBoundary name="Scan Watch">
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
-            earningsMovers={data.earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
+            earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession} />}
           </ErrorBoundary>
           <ErrorBoundary name="Research">
