@@ -2199,7 +2199,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       date: r => r.days_ago ?? null,
       days: r => r.days_ago ?? null,
       gap: r => r.gap_pct ?? null,
-      change: r => liveLookup[r.ticker]?.change ?? liveLookup[r.ticker]?.ext_change ?? stockMap[r.ticker]?.change_pct ?? r._chg ?? null,
+      change: r => liveLookup[r.ticker]?.ext_change ?? liveLookup[r.ticker]?.change ?? stockMap[r.ticker]?.change_pct ?? r._chg ?? null,
       dvol: r => stockMap[r.ticker]?.avg_dollar_vol_raw ?? (((r.price || 0) * (r._avgVol || 0)) || null),
       vol: r => r.vol_ratio ?? r._rvol ?? null,
       cur_vol: r => stockMap[r.ticker]?.volume ?? r._vol ?? null,
