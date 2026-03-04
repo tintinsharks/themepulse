@@ -969,77 +969,74 @@ async function fetchFmpUniverse(tickers, apiKey) {
   return { universe, rawQuotes };
 }
 
-// ── Yahoo Finance Extended Hours ──
-const etFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/New_York",
-  hour: "numeric", minute: "numeric", hour12: false,
-});
+// ── Yahoo Finance Extended Hours (v7 batch quote with crumb) ──
+let yahooCrumb = null;
+let yahooCookies = null;
+let yahooCrumbExpiry = 0;
 
-function getETMinutes(unixSec) {
-  const parts = etFormatter.formatToParts(new Date(unixSec * 1000));
-  const h = parseInt(parts.find(p => p.type === "hour").value, 10);
-  const m = parseInt(parts.find(p => p.type === "minute").value, 10);
-  return h * 60 + m;
-}
-
-async function fetchSingleYahooExt(ticker, session) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=5m&includePrePost=true`;
-  const resp = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-    signal: AbortSignal.timeout(5000),
-  });
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  const result = data?.chart?.result?.[0];
-  if (!result) return null;
-
-  const meta = result.meta;
-  const timestamps = result.timestamp || [];
-  const closes = result.indicators?.quote?.[0]?.close || [];
-  const volumes = result.indicators?.quote?.[0]?.volume || [];
-
-  // regularMarketPrice = last regular session close (yesterday for PM, today for AH)
-  const refPrice = meta.regularMarketPrice;
-  if (!refPrice) return null;
-
-  // Filter bars to the correct session
-  let sessionBars = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    if (closes[i] == null) continue;
-    const mins = getETMinutes(timestamps[i]);
-    if (session === "premarket" && mins >= 240 && mins < 570) {
-      sessionBars.push({ close: closes[i], volume: volumes[i] || 0 });
-    } else if (session === "aftermarket" && mins >= 960) {
-      sessionBars.push({ close: closes[i], volume: volumes[i] || 0 });
-    }
+async function getYahooCrumb() {
+  if (yahooCrumb && yahooCookies && Date.now() < yahooCrumbExpiry) {
+    return { crumb: yahooCrumb, cookies: yahooCookies };
   }
+  // Step 1: Get cookies from fc.yahoo.com
+  const initResp = await fetch("https://fc.yahoo.com", {
+    headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+    redirect: "manual",
+  });
+  const setCookies = initResp.headers.getSetCookie?.() || [];
+  const cookieStr = setCookies.map(c => c.split(";")[0]).join("; ");
 
-  if (sessionBars.length === 0) return null;
+  // Step 2: Get crumb
+  const crumbResp = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      Cookie: cookieStr,
+    },
+  });
+  if (!crumbResp.ok) throw new Error(`Yahoo crumb failed: ${crumbResp.status}`);
+  const crumb = await crumbResp.text();
 
-  const lastBar = sessionBars[sessionBars.length - 1];
-  const extVol = sessionBars.reduce((sum, b) => sum + b.volume, 0);
-
-  return {
-    extPrice: Math.round(lastBar.close * 100) / 100,
-    extChange: Math.round(((lastBar.close - refPrice) / refPrice) * 10000) / 100,
-    extVolume: extVol,
-  };
+  yahooCrumb = crumb;
+  yahooCookies = cookieStr;
+  yahooCrumbExpiry = Date.now() + 10 * 60 * 1000; // 10 min cache
+  console.log(`Yahoo crumb refreshed (${crumb.length} chars)`);
+  return { crumb, cookies: cookieStr };
 }
 
 async function fetchYahooExtHours(tickers, session) {
-  const WAVE = 25;
+  const BATCH = 200; // safe URL length for ~200 tickers
   const results = new Map();
+  const { crumb, cookies } = await getYahooCrumb();
 
-  for (let i = 0; i < tickers.length; i += WAVE) {
-    const wave = tickers.slice(i, i + WAVE);
-    const settled = await Promise.allSettled(
-      wave.map(tk => fetchSingleYahooExt(tk, session).then(r => ({ tk, r })))
-    );
-    for (const s of settled) {
-      if (s.status === "fulfilled" && s.value?.r) {
-        results.set(s.value.tk, s.value.r);
+  const pmFields = "symbol,preMarketPrice,preMarketChangePercent";
+  const ahFields = "symbol,postMarketPrice,postMarketChangePercent";
+  const fields = session === "premarket" ? pmFields : ahFields;
+
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH).join(",");
+    try {
+      const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${batch}&crumb=${encodeURIComponent(crumb)}&fields=${fields}`;
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+          Cookie: cookies,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!resp.ok) { console.error(`Yahoo v7 batch ${resp.status}`); continue; }
+      const data = await resp.json();
+      const quotes = data?.quoteResponse?.result || [];
+      for (const q of quotes) {
+        const price = session === "premarket" ? q.preMarketPrice : q.postMarketPrice;
+        const changePct = session === "premarket" ? q.preMarketChangePercent : q.postMarketChangePercent;
+        if (price != null && changePct != null) {
+          results.set(q.symbol, {
+            extPrice: Math.round(price * 100) / 100,
+            extChange: Math.round(changePct * 100) / 100,
+          });
+        }
       }
-    }
+    } catch (e) { console.error(`Yahoo ext hours batch error: ${e.message}`); }
   }
 
   console.log(`Yahoo ext hours (${session}): ${results.size}/${tickers.length} tickers with data`);
@@ -1192,7 +1189,7 @@ export default async function handler(req, res) {
               change: u.change,
               volume: u.volume,
               ext_change: ext ? ext.extChange : null,
-              ext_volume: ext ? ext.extVolume : null,
+              ext_volume: null,
             };
           });
       } else {
