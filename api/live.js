@@ -7,6 +7,8 @@
 //   FINVIZ_EMAIL
 //   FINVIZ_PASSWORD
 
+export const config = { maxDuration: 30 };
+
 const FINVIZ_LOGIN_URL = "https://finviz.com/login_submit.ashx";
 const FINVIZ_SCREENER_URL = "https://elite.finviz.com/screener.ashx";
 const FINVIZ_EXPORT_URL = "https://elite.finviz.com/export.ashx";
@@ -967,6 +969,83 @@ async function fetchFmpUniverse(tickers, apiKey) {
   return { universe, rawQuotes };
 }
 
+// ── Yahoo Finance Extended Hours ──
+const etFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  hour: "numeric", minute: "numeric", hour12: false,
+});
+
+function getETMinutes(unixSec) {
+  const parts = etFormatter.formatToParts(new Date(unixSec * 1000));
+  const h = parseInt(parts.find(p => p.type === "hour").value, 10);
+  const m = parseInt(parts.find(p => p.type === "minute").value, 10);
+  return h * 60 + m;
+}
+
+async function fetchSingleYahooExt(ticker, session) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=5m&includePrePost=true`;
+  const resp = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const result = data?.chart?.result?.[0];
+  if (!result) return null;
+
+  const meta = result.meta;
+  const timestamps = result.timestamp || [];
+  const closes = result.indicators?.quote?.[0]?.close || [];
+  const volumes = result.indicators?.quote?.[0]?.volume || [];
+
+  // PM ref = chartPreviousClose (yesterday's close), AH ref = regularMarketPrice (today's close)
+  const refPrice = session === "premarket" ? meta.chartPreviousClose : meta.regularMarketPrice;
+  if (!refPrice) return null;
+
+  // Filter bars to the correct session
+  let sessionBars = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    if (closes[i] == null) continue;
+    const mins = getETMinutes(timestamps[i]);
+    if (session === "premarket" && mins >= 240 && mins < 570) {
+      sessionBars.push({ close: closes[i], volume: volumes[i] || 0 });
+    } else if (session === "aftermarket" && mins >= 960) {
+      sessionBars.push({ close: closes[i], volume: volumes[i] || 0 });
+    }
+  }
+
+  if (sessionBars.length === 0) return null;
+
+  const lastBar = sessionBars[sessionBars.length - 1];
+  const extVol = sessionBars.reduce((sum, b) => sum + b.volume, 0);
+
+  return {
+    extPrice: Math.round(lastBar.close * 100) / 100,
+    extChange: Math.round(((lastBar.close - refPrice) / refPrice) * 10000) / 100,
+    extVolume: extVol,
+  };
+}
+
+async function fetchYahooExtHours(tickers, session) {
+  const WAVE = 25;
+  const results = new Map();
+
+  for (let i = 0; i < tickers.length; i += WAVE) {
+    const wave = tickers.slice(i, i + WAVE);
+    const settled = await Promise.allSettled(
+      wave.map(tk => fetchSingleYahooExt(tk, session).then(r => ({ tk, r })))
+    );
+    for (const s of settled) {
+      if (s.status === "fulfilled" && s.value?.r) {
+        results.set(s.value.tk, s.value.r);
+      }
+    }
+  }
+
+  console.log(`Yahoo ext hours (${session}): ${results.size}/${tickers.length} tickers with data`);
+  return results;
+}
+
 // ── Live Momentum Burst Scanner (Stockbee/Pradeep Bonde criteria) ──
 // Uses FMP real-time quote data — no extra API calls needed.
 // $ BREAKOUT: C-O >= $0.90, V > 100K, change > 2%
@@ -1099,86 +1178,22 @@ export default async function handler(req, res) {
       });
 
       // Universe: filter to universe tickers only
-      // During extended hours, fetch actual trade prices + quote bid/ask as fallback
+      // During extended hours, fetch actual trade prices from Yahoo Finance
       if (extSession && universeTickers.length > 0) {
-        const tradeEndpoint = extSession === "premarket" ? "batch-premarket-trade" : "batch-aftermarket-trade";
-        const quoteEndpoint = extSession === "premarket" ? "batch-premarket-quote" : "batch-aftermarket-quote";
-        const tradeMap = {};
-        const extQuoteMap = {};
-
-        // Fetch trade data (actual last price) and quote data (bid/ask fallback) in parallel
-        const fetchBatches = async (endpoint, targetMap) => {
-          for (let i = 0; i < universeTickers.length; i += 500) {
-            const batch = universeTickers.slice(i, i + 500).join(",");
-            try {
-              const resp = await fetch(`${FMP_BASE}/${endpoint}?symbols=${batch}&apikey=${fmpKey}`);
-              if (resp.ok) {
-                const data = await resp.json();
-                if (Array.isArray(data)) data.forEach(q => { if (q.symbol) targetMap[q.symbol] = q; });
-              }
-            } catch (e) { console.error(`Extended hours ${endpoint} fetch error: ${e.message}`); }
-          }
-        };
-        await Promise.all([
-          fetchBatches(tradeEndpoint, tradeMap),
-          fetchBatches(quoteEndpoint, extQuoteMap),
-        ]);
-
-        // Determine current session start time (for filtering stale trades)
-        const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-        const sessionStartET = new Date(nowET);
-        if (extSession === "aftermarket") {
-          sessionStartET.setHours(16, 0, 0, 0); // 4:00 PM ET
-          // After midnight (before 4 AM), session started yesterday at 4 PM
-          if (nowET.getHours() < 4) {
-            sessionStartET.setDate(sessionStartET.getDate() - 1);
-          }
-        } else {
-          sessionStartET.setHours(4, 0, 0, 0);  // 4:00 AM ET
-        }
-        const sessionStartMs = sessionStartET.getTime();
+        const yahooExt = await fetchYahooExtHours(universeTickers, extSession);
 
         themeUniverse = fmpResult.universe
           .filter(u => universeSet.has(u.ticker))
           .map(u => {
-            const trade = tradeMap[u.ticker];   // { symbol, price, size, timestamp }
-            const quote = extQuoteMap[u.ticker]; // { symbol, bidPrice, askPrice, volume, ... }
-            const regQ = quoteMap[u.ticker];
-            const todayClose = regQ?.price; // regular session close (FMP quote API doesn't update in AH)
-            // AH%: change from today's close. PM%: change from yesterday's close
-            const refPrice = extSession === "premarket" ? regQ?.previousClose : todayClose;
-
-            let extChg = null;
-            let extPrice = u.price;
-            let extVol = null;
-
-            if (refPrice) {
-              // Priority 1: trade price — only if from current session (timestamp check)
-              let tradePrice = null;
-              if (trade?.price && trade.timestamp) {
-                const tradeMs = typeof trade.timestamp === "number" && trade.timestamp < 1e12
-                  ? trade.timestamp * 1000 : trade.timestamp; // handle sec vs ms
-                if (tradeMs >= sessionStartMs) {
-                  tradePrice = trade.price;
-                }
-              }
-              // Priority 2: bid/ask midpoint (only if both sides present)
-              const midPrice = (quote?.bidPrice && quote?.askPrice) ? (quote.bidPrice + quote.askPrice) / 2 : null;
-              const bestPrice = tradePrice || midPrice;
-
-              if (bestPrice) {
-                extChg = Math.round(((bestPrice - refPrice) / refPrice) * 10000) / 100;
-                extPrice = Math.round(bestPrice * 100) / 100;
-              }
-            }
-
-            // Volume: use quote volume if available, subtract regular volume if it looks cumulative
-            if (quote?.volume != null) {
-              const regVol = regQ?.volume ?? 0;
-              extVol = quote.volume > regVol ? Math.round(quote.volume - regVol) : quote.volume;
-            }
-
-            return { ticker: u.ticker, price: extPrice, change: u.change, volume: u.volume, ext_change: extChg, ext_volume: extVol };
+            const ext = yahooExt.get(u.ticker);
+            return {
+              ticker: u.ticker,
+              price: ext ? ext.extPrice : u.price,
+              change: u.change,
+              volume: u.volume,
+              ext_change: ext ? ext.extChange : null,
+              ext_volume: ext ? ext.extVolume : null,
+            };
           });
       } else {
         themeUniverse = fmpResult.universe.filter(u => universeSet.has(u.ticker));
