@@ -3671,6 +3671,22 @@ function IntradayChart({ ticker, avgVolume }) {
       });
       chartRef.current = chart;
 
+      // ── Session background shading (rendered behind candles) ──
+      const pmBg = chart.addAreaSeries({
+        topColor: "rgba(56, 189, 248, 0.06)", bottomColor: "rgba(56, 189, 248, 0.02)",
+        lineColor: "rgba(0,0,0,0)", lineWidth: 0,
+        lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+        priceScaleId: "session-bg",
+      });
+      const ahBg = chart.addAreaSeries({
+        topColor: "rgba(249, 115, 22, 0.06)", bottomColor: "rgba(249, 115, 22, 0.02)",
+        lineColor: "rgba(0,0,0,0)", lineWidth: 0,
+        lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+        priceScaleId: "session-bg",
+      });
+      chart.priceScale("session-bg").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
+      const pmBgRef = pmBg, ahBgRef = ahBg;
+
       const cs = chart.addCandlestickSeries({
         upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
         wickUpColor: "#2bb886", wickDownColor: "#f87171",
@@ -3743,6 +3759,25 @@ function IntradayChart({ ticker, avgVolume }) {
             })();
             cs.setData(bars.map(b => ({ time: b.time + ptOff, open: b.open, high: b.high, low: b.low, close: b.close })));
             vs.setData(bars.map(b => ({ time: b.time + ptOff, value: b.volume, color: b.close >= b.open ? "#2bb88640" : "#f8717140" })));
+
+            // ── Session background shading data ──
+            const pmBgData = [], ahBgData = [];
+            for (const b of bars) {
+              const t = b.time + ptOff;
+              const etMin = toETMinutes(b.time);
+              if (etMin >= 240 && etMin < 570) {
+                pmBgData.push({ time: t, value: 1 });
+                ahBgData.push({ time: t });
+              } else if (etMin >= 960) {
+                pmBgData.push({ time: t });
+                ahBgData.push({ time: t, value: 1 });
+              } else {
+                pmBgData.push({ time: t });
+                ahBgData.push({ time: t });
+              }
+            }
+            pmBgRef.setData(pmBgData);
+            ahBgRef.setData(ahBgData);
 
             // Clear old price lines
             linesRef.current.forEach(l => { try { cs.removePriceLine(l); } catch {} });
