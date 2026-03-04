@@ -2630,13 +2630,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <col style={{ width: 52 }} />{/* Type */}
                 <col style={{ width: 52 }} />{/* Ticker */}
                 <col />{/* Headline — takes remaining space */}
-                <col style={{ width: 55 }} />{/* $Vol */}
-                <col style={{ width: 42 }} />{/* Chg% */}
-                <col style={{ width: 50 }} />{/* Vol */}
-                <col style={{ width: 38 }} />{/* RVol */}
-                <col style={{ width: 80 }} />{/* Sub */}
-                <col style={{ width: 42 }} />{/* FrHi% */}
-                <col style={{ width: 30 }} />{/* Days */}
+                <col style={{ width: 50 }} />{/* $Vol */}
+                <col style={{ width: 40 }} />{/* Chg% */}
+                <col style={{ width: 46 }} />{/* Vol */}
+                <col style={{ width: 34 }} />{/* RVol */}
+                <col style={{ width: 72 }} />{/* Sub */}
+                <col style={{ width: 38 }} />{/* FrHi% */}
+                <col style={{ width: 28 }} />{/* Days */}
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
@@ -2760,7 +2760,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {row._recentHeadlines.slice(0, 3).map((hl, hi) => (
                               <div key={hi} style={{ overflow: "hidden", textOverflow: "ellipsis",
                                 display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                                fontSize: hi === 0 ? 9 : 8, color: hi === 0 ? headlineColor : "#606070",
+                                fontSize: hi === 0 ? 8.5 : 7.5, color: hi === 0 ? headlineColor : "#606070",
                                 fontWeight: hi === 0 ? 500 : 400 }}>
                                 {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
                               </div>
