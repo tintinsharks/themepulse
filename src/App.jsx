@@ -1912,6 +1912,34 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [histSort, setHistSort] = useState({ col: "rvol", dir: "desc" });
   const [focusSort, setFocusSort] = useState({ col: "rvol", dir: "desc" });
 
+  // STATE: Inline catalyst summaries (AI-generated)
+  const [catalystSummaries, setCatalystSummaries] = useState({});
+
+  const fetchCatalystSummary = async (row) => {
+    if (catalystSummaries[row.ticker]?.summary || catalystSummaries[row.ticker]?.loading) return;
+    setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { loading: true } }));
+    const params = new URLSearchParams({
+      ticker: row.ticker,
+      company: row.company || "",
+      change: String(row._chg ?? row.change_pct ?? ""),
+      source: row._source || "",
+      headlines: (row._recentHeadlines || []).slice(0, 3).map(h => typeof h === "string" ? h : h.text || h.headline || "").join("|"),
+      eps_beat: String(row._epsBeat ?? ""),
+      rev_beat: String(row._revBeat ?? ""),
+      eps_growth: String(row._epsGrowthYoY ?? ""),
+      rev_growth: String(row._revGrowthYoY ?? ""),
+    });
+    try {
+      const resp = await fetch(`/api/catalyst-summary?${params}`);
+      const data = await resp.json();
+      setCatalystSummaries(prev => ({ ...prev, [row.ticker]: data.ok
+        ? { summary: data.summary, sources: data.sources }
+        : { error: data.error || "Unknown error" } }));
+    } catch (e) {
+      setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { error: e.message } }));
+    }
+  };
+
   // Live data lookup — same pattern as Scan Watch
   const liveLookup = useMemo(() => {
     if (!liveThemeData) return {};
@@ -2752,16 +2780,15 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         <Tk ticker={row.ticker} />
-                        <a href={`https://claude.com/plugins/equity-research?prompt=${encodeURIComponent(`Generate a morning note summarizing overnight developments and key catalysts for ${row.ticker} (${row.company})`)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          title={`Claude: Morning note for ${row.ticker}`}
-                          style={{ marginLeft: 3, fontSize: 8, color: "#d4a574", opacity: 0.6, textDecoration: "none",
-                            verticalAlign: "super", cursor: "pointer" }}
+                        <span
+                          onClick={e => { e.stopPropagation(); fetchCatalystSummary(row); }}
+                          title={catalystSummaries[row.ticker]?.summary ? "AI catalyst summary loaded" : `AI catalyst summary for ${row.ticker}`}
+                          style={{ marginLeft: 3, fontSize: 8, color: "#d4a574", opacity: catalystSummaries[row.ticker]?.summary ? 1 : 0.6,
+                            verticalAlign: "super", cursor: "pointer", userSelect: "none" }}
                           onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = "0.6"; }}>
-                          ✦
-                        </a>
+                          onMouseLeave={e => { e.currentTarget.style.opacity = catalystSummaries[row.ticker]?.summary ? "1" : "0.6"; }}>
+                          {catalystSummaries[row.ticker]?.loading ? "⟳" : "✦"}
+                        </span>
                         <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
                       </td>
                       {/* Headline */}
@@ -2787,6 +2814,24 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {row._headline}
                           </span>
                         ) : "—"}
+                        {catalystSummaries[row.ticker]?.summary && (
+                          <div style={{ fontSize: 8, color: "#d4a574", fontStyle: "italic", marginTop: 2,
+                            borderTop: "1px solid #2a2a3a", paddingTop: 2, lineHeight: 1.3 }}>
+                            ✦ {catalystSummaries[row.ticker].summary}
+                            {catalystSummaries[row.ticker].sources?.[0] && (
+                              <a href={catalystSummaries[row.ticker].sources[0].url} target="_blank" rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                style={{ color: "#606070", fontSize: 7, marginLeft: 4, textDecoration: "none" }}>
+                                [source]
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {catalystSummaries[row.ticker]?.error && (
+                          <div style={{ fontSize: 7, color: "#f87171", fontStyle: "italic", marginTop: 1 }}>
+                            ✦ {catalystSummaries[row.ticker].error}
+                          </div>
+                        )}
                       </td>
                       {/* $Vol */}
                       {(() => {
