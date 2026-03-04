@@ -1884,7 +1884,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTickers, earningsMovers, pmErTickers, ahErTickers, headlinesMap, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, liveThemeData, portfolio, watchlist, pipelineMeta, marketSession }) {
   // STATE: Unified table with source filter
   const [sort, setSort] = useState({ col: "vol", dir: "desc" });
-  const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "er" | "sip"
+  const [sourceFilter, setSourceFilter] = useState("all"); // "all" | "per" | "aer" | "pm" | "ah"
 
   // STATE: Filters
   const [minRS, setMinRS] = useState(0);
@@ -2133,8 +2133,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
     // Filter by source
     let filtered = rows;
-    if (sourceFilter === "er") {
-      filtered = filtered.filter(r => r._source === "per" || r._source === "aer" || r._source === "er" || r._source === "upcoming");
+    if (sourceFilter === "per") {
+      filtered = filtered.filter(r => r._source === "per" || r._source === "upcoming");
+    } else if (sourceFilter === "aer") {
+      filtered = filtered.filter(r => r._source === "aer");
     } else if (sourceFilter === "pm") {
       filtered = filtered.filter(r => r._source === "pm");
     } else if (sourceFilter === "ah") {
@@ -2493,8 +2495,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-            {["all", "er", "pm", "ah"].map(src => {
-              const label = src === "all" ? "All" : src === "er" ? "ER" : src === "pm" ? "PreM" : src === "ah" ? "AftM" : src.toUpperCase();
+            {["all", "per", "aer", "pm", "ah"].map(src => {
+              const label = src === "all" ? "All" : src === "per" ? "PER" : src === "aer" ? "AER" : src === "pm" ? "PreM" : src === "ah" ? "AftM" : src.toUpperCase();
               const isActive = sourceFilter === src;
               return (
                 <button key={src} onClick={() => setSourceFilter(src)}
@@ -2548,7 +2550,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           </button>
 
           {/* ER filters */}
-          {(sourceFilter === "all" || sourceFilter === "er") && (
+          {(sourceFilter === "all" || sourceFilter === "per" || sourceFilter === "aer") && (
             <>
               <button onClick={() => setErUniverseOnly(prev => !prev)}
                 style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
