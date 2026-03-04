@@ -2194,7 +2194,29 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
 
   // Sort unified rows
   const sortedRows = useMemo(() => {
-    const sorters = {
+    // Value extractors for numeric columns (return null for missing data)
+    const numVal = {
+      date: r => r.days_ago ?? null,
+      days: r => r.days_ago ?? null,
+      gap: r => r.gap_pct ?? null,
+      change: r => liveLookup[r.ticker]?.change ?? liveLookup[r.ticker]?.ext_change ?? stockMap[r.ticker]?.change_pct ?? r._chg ?? null,
+      dvol: r => stockMap[r.ticker]?.avg_dollar_vol_raw ?? (((r.price || 0) * (r._avgVol || 0)) || null),
+      vol: r => r.vol_ratio ?? r._rvol ?? null,
+      cur_vol: r => stockMap[r.ticker]?.volume ?? r._vol ?? null,
+      pm: r => r._pmChg ?? null,
+      id: r => r._idChg ?? null,
+      id_vol: r => r._idVol ?? null,
+      ah: r => r._ahChg ?? null,
+      rev: r => r._revGrowthYoY ?? null,
+      eps: r => r._epsGrowthYoY ?? null,
+      gm: r => r._grossMargin ?? null,
+      nm: r => r._netMargin ?? null,
+      pct_from_high: r => stockMap[r.ticker]?.pct_from_high ?? null,
+      rs: r => stockMap[r.ticker]?.rs_rank ?? r.rs_rank ?? null,
+    };
+
+    // Non-numeric sorters (special comparison logic)
+    const specialSorters = {
       type: (a, b) => {
         const order = { per: 0, aer: 1, er: 2, upcoming: 3, pm: 4, ah: 5 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
@@ -2204,33 +2226,32 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         const go = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","E+","E","E-","F+","F","F-","G+","G"];
         return (go.indexOf(stockMap[a.ticker]?.grade || a.grade || "G") - go.indexOf(stockMap[b.ticker]?.grade || b.grade || "G"));
       },
-      date: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
-      days: (a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999),
-      gap: (a, b) => (b.gap_pct ?? -999) - (a.gap_pct ?? -999),
-      change: (a, b) => ((liveLookup[b.ticker]?.change ?? liveLookup[b.ticker]?.ext_change ?? stockMap[b.ticker]?.change_pct ?? b._chg) ?? -999) - ((liveLookup[a.ticker]?.change ?? liveLookup[a.ticker]?.ext_change ?? stockMap[a.ticker]?.change_pct ?? a._chg) ?? -999),
-      dvol: (a, b) => ((stockMap[b.ticker]?.avg_dollar_vol_raw ?? (((b.price || 0) * (b._avgVol || 0)) || -999)) - (stockMap[a.ticker]?.avg_dollar_vol_raw ?? (((a.price || 0) * (a._avgVol || 0)) || -999))),
-      vol: (a, b) => {
-        const av = a.vol_ratio ?? a._rvol ?? -999;
-        const bv = b.vol_ratio ?? b._rvol ?? -999;
-        return bv - av;
-      },
-      cur_vol: (a, b) => ((stockMap[b.ticker]?.volume ?? b._vol ?? -999) - (stockMap[a.ticker]?.volume ?? a._vol ?? -999)),
       subtheme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.subtheme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.subtheme || "ZZZ"),
-      pm: (a, b) => (b._pmChg ?? -999) - (a._pmChg ?? -999),
-      id: (a, b) => (b._idChg ?? -999) - (a._idChg ?? -999),
-      id_vol: (a, b) => (b._idVol ?? -999) - (a._idVol ?? -999),
-      ah: (a, b) => (b._ahChg ?? -999) - (a._ahChg ?? -999),
-      rev: (a, b) => (b._revGrowthYoY ?? -999) - (a._revGrowthYoY ?? -999),
-      eps: (a, b) => (b._epsGrowthYoY ?? -999) - (a._epsGrowthYoY ?? -999),
-      gm: (a, b) => (b._grossMargin ?? -999) - (a._grossMargin ?? -999),
-      nm: (a, b) => (b._netMargin ?? -999) - (a._netMargin ?? -999),
-      pct_from_high: (a, b) => (stockMap[b.ticker]?.pct_from_high ?? -999) - (stockMap[a.ticker]?.pct_from_high ?? -999),
-      rs: (a, b) => (stockMap[b.ticker]?.rs_rank ?? b.rs_rank ?? 0) - (stockMap[a.ticker]?.rs_rank ?? a.rs_rank ?? 0),
       theme: (a, b) => (stockMap[a.ticker]?.themes?.[0]?.theme || "ZZZ").localeCompare(stockMap[b.ticker]?.themes?.[0]?.theme || "ZZZ"),
     };
 
-    const sorted = [...unifiedRows].sort(sorters[sort.col] || sorters.date);
-    if (sort.dir === "asc") sorted.reverse();
+    const asc = sort.dir === "asc";
+    const getter = numVal[sort.col];
+    let sorted;
+
+    if (getter) {
+      // Numeric: null-safe, nulls always at bottom regardless of direction
+      // "desc" for most columns means highest first; "asc" for date/days means newest first
+      const descByDefault = sort.col !== "date" && sort.col !== "days";
+      sorted = [...unifiedRows].sort((a, b) => {
+        const av = getter(a);
+        const bv = getter(b);
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (descByDefault ? !asc : asc) ? bv - av : av - bv;
+      });
+    } else {
+      // String/special sorters: natural order, reverse for opposite direction
+      const fn = specialSorters[sort.col] || specialSorters.type;
+      sorted = [...unifiedRows].sort((a, b) => asc ? -fn(a, b) : fn(a, b));
+    }
+
     return sorted;
   }, [unifiedRows, sort, stockMap, liveLookup]);
 
