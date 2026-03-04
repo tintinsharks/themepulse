@@ -1099,44 +1099,64 @@ export default async function handler(req, res) {
       });
 
       // Universe: filter to universe tickers only
-      // During extended hours, fetch actual PM/AH quotes for real ext_change/ext_volume
+      // During extended hours, fetch actual trade prices + quote bid/ask as fallback
       if (extSession && universeTickers.length > 0) {
-        const extEndpoint = extSession === "premarket" ? "batch-premarket-quote" : "batch-aftermarket-quote";
-        const extMap = {};
-        // Fetch extended hours quotes in batches of 500
-        for (let i = 0; i < universeTickers.length; i += 500) {
-          const batch = universeTickers.slice(i, i + 500).join(",");
-          try {
-            const resp = await fetch(`${FMP_BASE}/${extEndpoint}?symbols=${batch}&apikey=${fmpKey}`);
-            if (resp.ok) {
-              const data = await resp.json();
-              if (Array.isArray(data)) data.forEach(q => { if (q.symbol) extMap[q.symbol] = q; });
-            }
-          } catch (e) { console.error(`Extended hours fetch error: ${e.message}`); }
-        }
+        const tradeEndpoint = extSession === "premarket" ? "batch-premarket-trade" : "batch-aftermarket-trade";
+        const quoteEndpoint = extSession === "premarket" ? "batch-premarket-quote" : "batch-aftermarket-quote";
+        const tradeMap = {};
+        const extQuoteMap = {};
+
+        // Fetch trade data (actual last price) and quote data (bid/ask fallback) in parallel
+        const fetchBatches = async (endpoint, targetMap) => {
+          for (let i = 0; i < universeTickers.length; i += 500) {
+            const batch = universeTickers.slice(i, i + 500).join(",");
+            try {
+              const resp = await fetch(`${FMP_BASE}/${endpoint}?symbols=${batch}&apikey=${fmpKey}`);
+              if (resp.ok) {
+                const data = await resp.json();
+                if (Array.isArray(data)) data.forEach(q => { if (q.symbol) targetMap[q.symbol] = q; });
+              }
+            } catch (e) { console.error(`Extended hours ${endpoint} fetch error: ${e.message}`); }
+          }
+        };
+        await Promise.all([
+          fetchBatches(tradeEndpoint, tradeMap),
+          fetchBatches(quoteEndpoint, extQuoteMap),
+        ]);
+
         themeUniverse = fmpResult.universe
           .filter(u => universeSet.has(u.ticker))
           .map(u => {
-            const eq = extMap[u.ticker];
+            const trade = tradeMap[u.ticker];   // { symbol, price, size, timestamp }
+            const quote = extQuoteMap[u.ticker]; // { symbol, bidPrice, askPrice, volume, ... }
             const regQ = quoteMap[u.ticker];
-            const todayClose = regQ?.price; // today's regular session close
-            // Compute ext change% from mid-price vs today's close
-            // AH%: how much the stock moved AFTER today's close
-            // PM%: how much the stock moved BEFORE today's open (vs prior close)
+            const todayClose = regQ?.price; // regular session close (FMP quote API doesn't update in AH)
+            // AH%: change from today's close. PM%: change from yesterday's close
+            const refPrice = extSession === "premarket" ? regQ?.previousClose : todayClose;
+
             let extChg = null;
             let extPrice = u.price;
             let extVol = null;
-            const refPrice = extSession === "premarket" ? regQ?.previousClose : todayClose;
-            if (eq && refPrice) {
-              const midPrice = (eq.bidPrice && eq.askPrice) ? (eq.bidPrice + eq.askPrice) / 2 : null;
-              if (midPrice) {
-                extChg = Math.round(((midPrice - refPrice) / refPrice) * 10000) / 100;
-                extPrice = Math.round(midPrice * 100) / 100;
+
+            if (refPrice) {
+              // Priority 1: actual last trade price (most accurate)
+              const tradePrice = trade?.price ?? null;
+              // Priority 2: bid/ask midpoint as fallback
+              const midPrice = (quote?.bidPrice && quote?.askPrice) ? (quote.bidPrice + quote.askPrice) / 2 : null;
+              const bestPrice = tradePrice || midPrice;
+
+              if (bestPrice) {
+                extChg = Math.round(((bestPrice - refPrice) / refPrice) * 10000) / 100;
+                extPrice = Math.round(bestPrice * 100) / 100;
               }
-              // AH/PM volume = cumulative ext volume minus regular session volume
-              const regVol = regQ?.volume ?? 0;
-              extVol = eq.volume != null ? Math.max(0, Math.round(eq.volume - regVol)) : null;
             }
+
+            // Volume from quote endpoint (trade endpoint only has per-trade size)
+            if (quote?.volume != null) {
+              const regVol = regQ?.volume ?? 0;
+              extVol = Math.max(0, Math.round(quote.volume - regVol));
+            }
+
             return { ticker: u.ticker, price: extPrice, change: null, volume: null, ext_change: extChg, ext_volume: extVol };
           });
       } else {
