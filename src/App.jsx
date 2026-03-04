@@ -2625,18 +2625,18 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           <div style={{ overflowX: "auto", maxHeight: 375, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, tableLayout: "fixed" }}>
               <colgroup>
-                <col style={{ width: 20 }} />{/* Focus + */}
-                <col style={{ width: 30 }} />{/* RS */}
-                <col style={{ width: 52 }} />{/* Type */}
-                <col style={{ width: 52 }} />{/* Ticker */}
+                <col style={{ width: 18 }} />{/* Focus + */}
+                <col style={{ width: 26 }} />{/* RS */}
+                <col style={{ width: 46 }} />{/* Type */}
+                <col style={{ width: 48 }} />{/* Ticker */}
                 <col />{/* Headline — takes remaining space */}
-                <col style={{ width: 50 }} />{/* $Vol */}
-                <col style={{ width: 40 }} />{/* Chg% */}
-                <col style={{ width: 46 }} />{/* Vol */}
-                <col style={{ width: 34 }} />{/* RVol */}
-                <col style={{ width: 72 }} />{/* Sub */}
-                <col style={{ width: 38 }} />{/* FrHi% */}
-                <col style={{ width: 28 }} />{/* Days */}
+                <col style={{ width: 44 }} />{/* $Vol */}
+                <col style={{ width: 38 }} />{/* Chg% */}
+                <col style={{ width: 42 }} />{/* Vol */}
+                <col style={{ width: 30 }} />{/* RVol */}
+                <col style={{ width: 62 }} />{/* Sub */}
+                <col style={{ width: 34 }} />{/* FrHi% */}
+                <col style={{ width: 26 }} />{/* Days */}
               </colgroup>
               <thead>
                 <tr style={{ borderBottom: "1px solid #222230", position: "sticky", top: 0, background: "#0d0d14", zIndex: 1 }}>
