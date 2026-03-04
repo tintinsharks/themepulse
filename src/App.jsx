@@ -2664,13 +2664,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     </td>
                   );
 
+                  const isGapUp = (row._chg ?? 0) >= 4 && (row._vol ?? 0) >= 100000;
+                  const rowBg = isActive ? "#fbbf2420" : isGapUp ? "#f9731610" : "transparent";
+
                   return (
                     <tr key={row._key} data-ticker={row.ticker}
                       onClick={() => onTickerClick(row.ticker)}
                       style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer", borderLeft: `3px solid ${borderColor}`,
-                        background: isActive ? "#fbbf2420" : "transparent" }}
-                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isActive ? "#fbbf2420" : "transparent"; }}>
+                        background: rowBg }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = isGapUp ? "#f9731618" : "#ffffff08"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}>
                       {/* Focus + */}
                       <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
                         <span onClick={(e) => { e.stopPropagation(); focusSet.has(row.ticker) ? onRemoveFocus(row.ticker) : onAddFocus(row.ticker); }}
@@ -2848,11 +2851,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     // Double beat: use actual beat data if available, else proxy with EPS beat + positive rev growth
                     const doubleBeat = (epsBeat && revBeat) || (epsBeat && revBeat == null && revYoY != null && revYoY > 0);
                     const hlColor = doubleBeat ? "#2bb886" : "#606070";
+                    const histGapUp = (m.change_pct ?? 0) >= 4 && (m.volume ?? 0) >= 100000;
+                    const histBg = activeTicker === m.ticker ? "#2a2a3a" : histGapUp ? "#f9731610" : i % 2 === 0 ? "#0d0d14" : "transparent";
                     return (
                       <tr key={m.ticker + "_hist_" + i} data-ticker={m.ticker} onClick={() => onTickerClick(m.ticker)}
                         style={{ cursor: "pointer", borderBottom: "1px solid #1a1a28",
                           borderLeft: portfolioSet.has(m.ticker) ? "3px solid #fbbf24" : watchlistSet.has(m.ticker) ? "3px solid #60a5fa" : "3px solid transparent",
-                          background: activeTicker === m.ticker ? "#2a2a3a" : i % 2 === 0 ? "#0d0d14" : "transparent" }}>
+                          background: histBg }}>
                         <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
                           <span onClick={(e) => { e.stopPropagation(); focusSet.has(m.ticker) ? onRemoveFocus(m.ticker) : onAddFocus(m.ticker); }}
                             style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(m.ticker) ? "#f59e0b" : "#3a3a4a",
