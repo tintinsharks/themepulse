@@ -1486,6 +1486,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
       range: safe(b => b.close_range), rvol: safe(b => b.vol_ratio), vol: safe(b => b.volume),
       rs: safe(b => b._rs), grade: safe(b => ({"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1})[b._grade] ?? null),
+      adr: safe(b => b._adr),
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
@@ -1783,7 +1784,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-              {[["Ticker", null, "left"], ["Type", null, "center"], ["Pat", null, "center"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
+              {[["Ticker", null, "left"], ["Type", null, "center"], ["ADR%", "adr", "right"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
                 ["Close", "close", "right"], ["ClRng", "range", "right"], ["RVol", "rvol", "right"], ["Vol", "vol", "right"],
                 ["RS", "rs", "right"], ["Theme", null, "left"], ["Sub", null, "left"]].map(([h, sk, align]) => (
                 <th key={h} onClick={sk ? () => setBurstSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
@@ -1812,8 +1813,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   <td style={{ padding: "5px 8px", textAlign: "center" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: tagColor, padding: "2px 6px", borderRadius: 3, background: tagColor + "20" }}>{scanTag}</span>
                   </td>
-                  <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                    <PatternTags patterns={b.chart_patterns || stockMap[b.ticker]?.chart_patterns} />
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", fontSize: 11,
+                    color: (b._adr ?? 0) > 8 ? "#2dd4bf" : (b._adr ?? 0) > 5 ? "#2bb886" : (b._adr ?? 0) > 3 ? "#fbbf24" : "#f97316" }}>
+                    {b._adr != null ? `${b._adr.toFixed(1)}%` : "—"}
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
                     color: b.change_pct >= 8 ? "#2bb886" : b.change_pct >= 4 ? "#60a5fa" : "#9090a0", fontWeight: 600 }}>
