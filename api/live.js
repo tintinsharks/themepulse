@@ -912,8 +912,8 @@ function isExtendedHours() {
   const et = new Date(etStr);
   const mins = et.getHours() * 60 + et.getMinutes();
   if (mins >= 240 && mins < 570) return "premarket";   // 4:00 AM - 9:29 AM ET
-  if (mins >= 960 && mins < 1200) return "aftermarket"; // 4:00 PM - 8:00 PM ET
-  return null;
+  if (mins >= 570 && mins < 960) return null;           // 9:30 AM - 3:59 PM ET (regular)
+  return "aftermarket"; // 4:00 PM - 3:59 AM ET (post-market through overnight)
 }
 
 async function fetchFmpUniverse(tickers, apiKey) {
@@ -1129,6 +1129,10 @@ export default async function handler(req, res) {
         const sessionStartET = new Date(nowET);
         if (extSession === "aftermarket") {
           sessionStartET.setHours(16, 0, 0, 0); // 4:00 PM ET
+          // After midnight (before 4 AM), session started yesterday at 4 PM
+          if (nowET.getHours() < 4) {
+            sessionStartET.setDate(sessionStartET.getDate() - 1);
+          }
         } else {
           sessionStartET.setHours(4, 0, 0, 0);  // 4:00 AM ET
         }
