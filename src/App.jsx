@@ -1918,6 +1918,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const fetchCatalystSummary = async (row) => {
     if (catalystSummaries[row.ticker]?.summary || catalystSummaries[row.ticker]?.loading) return;
     setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { loading: true } }));
+    const s = stockMap[row.ticker] || {};
     const params = new URLSearchParams({
       ticker: row.ticker,
       company: row.company || "",
@@ -1928,6 +1929,16 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       rev_beat: String(row._revBeat ?? ""),
       eps_growth: String(row._epsGrowthYoY ?? ""),
       rev_growth: String(row._revGrowthYoY ?? ""),
+      market_cap: String(s.market_cap_raw ?? ""),
+      inst_own: String(s.inst_own ?? ""),
+      gap_pct: String(row._chg ?? ""),
+      volume: String(row._vol ?? ""),
+      rev_prev_q: String(s.sales_yoy_prev ?? ""),
+      eps_raw: String(s.quarters?.[0]?.eps ?? ""),
+      eps_prev_raw: String(s.quarters?.[1]?.eps ?? ""),
+      rev_raw: String(s.quarters?.[0]?.revenue ?? ""),
+      ipo_date: String(s.ipo_date ?? ""),
+      shares_float: String(s.shares_float_raw ?? ""),
     });
     try {
       const resp = await fetch(`/api/catalyst-summary?${params}`);
@@ -2814,10 +2825,17 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {row._headline}
                           </span>
                         ) : "—"}
-                        {catalystSummaries[row.ticker]?.summary && (
+                        {catalystSummaries[row.ticker]?.summary && (() => {
+                          const text = catalystSummaries[row.ticker].summary;
+                          const lines = text.split('\n');
+                          const tagLine = lines.find(l => l.trim().startsWith('['));
+                          const mainText = lines.filter(l => !l.trim().startsWith('[')).join(' ').trim();
+                          return (
                           <div style={{ fontSize: 8, color: "#d4a574", fontStyle: "italic", marginTop: 2,
                             borderTop: "1px solid #2a2a3a", paddingTop: 2, lineHeight: 1.3 }}>
-                            {catalystSummaries[row.ticker].summary}
+                            {mainText}
+                            {tagLine && <span style={{ color: "#fbbf24", fontWeight: 600, fontStyle: "normal",
+                              marginLeft: 4, fontSize: 7 }}>{tagLine.trim()}</span>}
                             {catalystSummaries[row.ticker].sources?.[0] && (
                               <a href={catalystSummaries[row.ticker].sources[0].url} target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
@@ -2826,7 +2844,8 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                               </a>
                             )}
                           </div>
-                        )}
+                          );
+                        })()}
                         {catalystSummaries[row.ticker]?.error && (
                           <div style={{ fontSize: 7, color: "#f87171", fontStyle: "italic", marginTop: 1 }}>
                             ✦ {catalystSummaries[row.ticker].error}
