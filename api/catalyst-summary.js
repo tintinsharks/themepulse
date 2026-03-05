@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 Example: ALM 03/03 — Up 53% on a 9-day winning streak, B. Riley upgrade to $17. Why: Tungsten is a critical mineral for defense and semiconductors with a China-dominated supply chain — ALM's Sangdong mine in South Korea is a rare Western-aligned source, and the strategic minerals narrative is red hot.
 
 Rules:
-- One continuous line, no line breaks
+- Maximum 2 lines total: one catalyst line + one MAGNA/SIP tag line. Keep it tight — no more than 3-4 short sentences
 - Be specific with numbers (EPS, revenue, price targets, % beats)
 - The "Why" should explain the narrative/theme driving the move, not just restate the catalyst
 - No disclaimers, no hedging, no preamble, no thinking notes — start DIRECTLY with the ticker symbol. Never write "Based on...", "Let me...", "I'll search...", "There's a discrepancy...", or any meta-commentary. Just the facts.
