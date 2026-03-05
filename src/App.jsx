@@ -1250,6 +1250,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(true);
+  const [zvrOnly, setZvrOnly] = useState(false);
   const [minRS, setMinRS] = useState(0);
   const [burstMinRS, setBurstMinRS] = useState(0);
   const [scanFilters, setScanFilters] = useState(new Set());
@@ -1454,6 +1455,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
     if (nearPivot) list = list.filter(s => s.pct_from_high >= -3);
     if (greenOnly && hasLive) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change ?? s.change_pct; return chg != null && chg > 0; });
+    if (zvrOnly) list = list.filter(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return rv != null && projectedRVol(rv) >= 1.5; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
     if (mcapFilter === "mid") list = list.filter(s => (s.market_cap_raw || 0) >= 2_000_000_000);
@@ -1490,7 +1492,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
     return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
-  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup]);
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup]);
 
   const burstStocks = useMemo(() => {
     let list = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
@@ -1511,6 +1513,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (burstMinRS > 0) list = list.filter(b => (b._rs || 0) >= burstMinRS);
     if (nearPivot) list = list.filter(b => (b._pctFromHigh || -99) >= -3);
     if (greenOnly) list = list.filter(b => b.change_pct > 0);
+    if (zvrOnly) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= 1.5; });
     if (activeTheme) list = list.filter(b => b._themes?.some(t => t.theme === activeTheme));
     if (mcapFilter === "mid") list = list.filter(b => (b._mcap || 0) >= 2_000_000_000);
     if (mcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
@@ -1535,7 +1538,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1633,6 +1636,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <button onClick={() => setGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           border: greenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
           background: greenOnly ? "#2bb88620" : "transparent", color: greenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
+        <button onClick={() => setZvrOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: zvrOnly ? "1px solid #a78bfa" : "1px solid #3a3a4a",
+          background: zvrOnly ? "#a78bfa20" : "transparent", color: zvrOnly ? "#a78bfa" : "#787888" }}>ZVR 1.5x+</button>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {scanTab === "burst" ? <>
             <span style={{ fontSize: 10, color: burstMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{burstMinRS}</span>
