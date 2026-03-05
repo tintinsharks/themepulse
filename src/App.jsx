@@ -1504,16 +1504,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (mcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
     if (volFilter > 0) list = list.filter(s => (s.avg_volume_raw || 0) >= volFilter);
     if (minDolVol > 0) list = list.filter(s => (s.avg_dollar_vol_raw || 0) >= minDolVol * 1_000_000);
-    // ORH filter: price above 5-min Opening Range High (first 10 readings ≈ 9:30–9:35 ET)
+    // ORH filter: price above 5-min Opening Range High (server-side cached dayHigh from 9:30–9:40 ET)
     if (scanFilters.has("ORH")) {
       list = list.filter(s => {
-        const arr = persistRef.current.get(s.ticker);
-        if (!arr || arr.length < 10) return false;
-        const orSlice = arr.slice(0, 10);
-        const orHigh = Math.max(...orSlice.map(r => r.price).filter(p => p != null));
-        if (!isFinite(orHigh)) return false;
-        const curPrice = liveLookup[s.ticker]?.price;
-        return curPrice != null && curPrice > orHigh;
+        const lv = liveLookup[s.ticker];
+        return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
     const safe = (fn) => (a, b) => {
@@ -1587,12 +1582,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     // ORH filter on burst tab
     if (scanFilters.has("ORH")) {
       list = list.filter(b => {
-        const arr = persistRef.current.get(b.ticker);
-        if (!arr || arr.length < 10) return false;
-        const orHigh = Math.max(...arr.slice(0, 10).map(r => r.price).filter(p => p != null));
-        if (!isFinite(orHigh)) return false;
-        const curPrice = liveLookup[b.ticker]?.price ?? b.close;
-        return curPrice != null && curPrice > orHigh;
+        const lv = liveLookup[b.ticker];
+        return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };

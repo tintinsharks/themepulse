@@ -908,6 +908,11 @@ async function fetchHomepage(cookies) {
 // ── FMP Live Quotes (replaces Finviz for theme universe) ──
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
+// ── Opening Range High cache (server-side, persists across warm invocations) ──
+// Captures dayHigh from FMP batch-quote during 9:30–9:40 ET as the 5-min ORH
+let orhCache = new Map();  // ticker -> { high, date }
+let orhDate = null;        // YYYY-MM-DD, reset on new trading day
+
 function isExtendedHours() {
   const now = new Date();
   const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
@@ -969,6 +974,37 @@ async function fetchFmpUniverse(tickers, apiKey) {
   }
 
   console.log(`FMP universe: ${universe.length}/${tickers.length} quotes fetched`);
+
+  // ── Update ORH cache: capture dayHigh during 9:30–9:40 ET window ──
+  const now = new Date();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const etDate = et.toISOString().slice(0, 10);
+  const etMinutes = et.getHours() * 60 + et.getMinutes(); // minutes since midnight ET
+  const marketOpen = 9 * 60 + 30;  // 9:30 = 570
+  const orhWindow = 9 * 60 + 40;   // 9:40 = 580
+
+  // Reset cache on new trading day
+  if (orhDate !== etDate) {
+    orhCache = new Map();
+    orhDate = etDate;
+  }
+
+  // During 9:30–9:40 ET, update ORH with max of current dayHigh
+  if (etMinutes >= marketOpen && etMinutes <= orhWindow) {
+    universe.forEach(u => {
+      if (u.high != null) {
+        const prev = orhCache.get(u.ticker);
+        if (!prev || u.high > prev) orhCache.set(u.ticker, u.high);
+      }
+    });
+    console.log(`ORH cache updated: ${orhCache.size} tickers (${etMinutes - marketOpen}min into session)`);
+  }
+
+  // Attach ORH to each universe entry
+  universe.forEach(u => {
+    u.orh = orhCache.get(u.ticker) ?? null;
+  });
+
   return { universe, rawQuotes };
 }
 
@@ -1194,6 +1230,7 @@ export default async function handler(req, res) {
               open: u.open,
               high: u.high,
               low: u.low,
+              orh: u.orh,
               ext_change: ext ? ext.extChange : null,
               ext_volume: null,
             };
