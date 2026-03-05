@@ -959,6 +959,9 @@ async function fetchFmpUniverse(tickers, apiKey) {
           price: q.price ?? null,
           change: q.changePercentage ?? null,
           volume: q.volume ?? null,
+          open: q.open ?? null,
+          high: q.dayHigh ?? null,
+          low: q.dayLow ?? null,
         });
       });
     });
@@ -1188,6 +1191,9 @@ export default async function handler(req, res) {
               price: ext ? ext.extPrice : u.price,
               change: u.change,
               volume: u.volume,
+              open: u.open,
+              high: u.high,
+              low: u.low,
               ext_change: ext ? ext.extChange : null,
               ext_volume: null,
             };

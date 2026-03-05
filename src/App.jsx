@@ -157,6 +157,18 @@ function projectedRVol(rv) {
   return frac > 0 ? rv / frac : rv;
 }
 
+// ── Persistence trend: compare avg of first N vs last N readings ──
+function persistTrend(readings, field, threshold) {
+  if (!readings || readings.length < 10) return null;
+  const first = readings.slice(0, 10);
+  const last = readings.slice(-10);
+  const avg = arr => arr.reduce((s, r) => s + (r[field] ?? 0), 0) / arr.length;
+  const diff = avg(last) - avg(first);
+  if (diff > threshold) return "up";
+  if (diff < -threshold) return "down";
+  return "flat";
+}
+
 // ── Projected 9M volume check (run-rate extrapolation to EOD) ──
 function projectedEodVol(currentVol) {
   if (!currentVol || currentVol <= 0) return 0;
@@ -1261,6 +1273,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan" or "burst"
 
+  // Persistence accumulator — tracks intraday readings per ticker for trend arrows
+  const persistRef = useRef(new Map()); // Map<ticker, [{ts, chg, prv, cr}]>
+
   // Apply theme filter from Leaders drill-down
   useEffect(() => {
     if (initialThemeFilter) {
@@ -1332,12 +1347,37 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         const av = stockMap[e.ticker]?.avg_volume_raw;
         if (av > 0) e.rel_volume = Math.round(e.volume / av * 100) / 100;
       }
+      if (e.high != null && e.low != null && e.price != null) {
+        const range = e.high - e.low;
+        e.close_range = range > 0 ? Math.round((e.price - e.low) / range * 1000) / 10 : null;
+      }
       m[e.ticker] = e;
     });
     return m;
   }, [themeData, stockMap]);
 
   const hasLive = Object.keys(liveLookup).length > 0;
+
+  // Accumulate persistence readings from liveLookup (~every 30s poll)
+  useEffect(() => {
+    if (!hasLive) return;
+    const now = Date.now();
+    // Clear stale data from before today's 9:30 AM ET
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const todayOpen = new Date(et); todayOpen.setHours(9, 30, 0, 0);
+    const todayOpenMs = todayOpen.getTime() - (et.getTime() - now); // approx UTC of today's 9:30 ET
+    for (const [tk, arr] of persistRef.current) {
+      if (arr.length > 0 && arr[0].ts < todayOpenMs) persistRef.current.delete(tk);
+    }
+    for (const [tk, e] of Object.entries(liveLookup)) {
+      if (e.change == null) continue;
+      const arr = persistRef.current.get(tk) || [];
+      const prv = e.rel_volume != null ? projectedRVol(e.rel_volume) : null;
+      arr.push({ ts: now, chg: e.change, prv, cr: e.close_range ?? null });
+      if (arr.length > 120) arr.splice(0, arr.length - 120); // cap ~60 min
+      persistRef.current.set(tk, arr);
+    }
+  }, [liveLookup, hasLive]);
 
   const candidates = useMemo(() => {
     // Individual scan filters
@@ -1486,6 +1526,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       dvol: safe(s => s.avg_dollar_vol_raw),
       vol: safe(s => { const lv = liveLookup[s.ticker]?.volume; return lv != null ? (typeof lv === 'string' ? parseFloat(lv) : lv) : (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null); }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
+      cr: safe(s => liveLookup[s.ticker]?.close_range ?? null),
       change: safe(s => liveLookup[s.ticker]?.change ?? s.change_pct),
       theme: (a, b) => (a.themes?.[0]?.theme || "").localeCompare(b.themes?.[0]?.theme || ""),
       subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
@@ -1556,7 +1597,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
-    ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rvol"],
+    ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rvol"], ["CR%", "cr"],
     ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
@@ -1756,8 +1797,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 const lv = liveLookup[s.ticker];
                 const chg = lv?.change ?? s.change_pct ?? null;
                 const chgColor = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
+                const chgTrend = persistTrend(persistRef.current.get(s.ticker), "chg", 0.3);
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
-                  {chg != null ? `${chg > 0 ? '+' : ''}${Number(chg).toFixed(2)}%` : '—'}</td>;
+                  {chg != null ? `${chg > 0 ? '+' : ''}${Number(chg).toFixed(2)}%` : '—'}
+                  {chgTrend && <span style={{ fontSize: 8, marginLeft: 2, color: chgTrend === "up" ? "#2bb886" : chgTrend === "down" ? "#f87171" : "#505060" }}>
+                    {chgTrend === "up" ? "▲" : chgTrend === "down" ? "▼" : "─"}</span>}</td>;
               })()}
               {/* Vol */}
               {(() => {
@@ -1772,9 +1816,22 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 {curVol != null ? fmt(curVol) : '—'}</td>; })()}
               {/* RVol */}
               {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; const prv = projectedRVol(rv);
+                const rvolTrend = persistTrend(persistRef.current.get(s.ticker), "prv", 0.15);
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
-                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
+                {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}
+                {rvolTrend && <span style={{ fontSize: 8, marginLeft: 2, color: rvolTrend === "up" ? "#2bb886" : rvolTrend === "down" ? "#f87171" : "#505060" }}>
+                  {rvolTrend === "up" ? "▲" : rvolTrend === "down" ? "▼" : "─"}</span>}</td>; })()}
+              {/* CR% */}
+              {(() => {
+                const cr = liveLookup[s.ticker]?.close_range;
+                const crTrend = persistTrend(persistRef.current.get(s.ticker), "cr", 3);
+                const crColor = cr != null ? (cr >= 70 ? "#2bb886" : cr < 40 ? "#f87171" : "#686878") : "#3a3a4a";
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", color: crColor }}>
+                  {cr != null ? `${Math.round(cr)}%` : '—'}
+                  {crTrend && <span style={{ fontSize: 8, marginLeft: 2, color: crTrend === "up" ? "#2bb886" : crTrend === "down" ? "#f87171" : "#505060" }}>
+                    {crTrend === "up" ? "▲" : crTrend === "down" ? "▼" : "─"}</span>}</td>;
+              })()}
               {/* $Vol */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}
