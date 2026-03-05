@@ -181,6 +181,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     } catch { return {}; }
   });
   const [catalystLoading, setCatalystLoading] = useState(false);
+  const [catalystError, setCatalystError] = useState(null);
 
   useEffect(() => {
     localStorage.setItem("tp_catalyst_notes", JSON.stringify(catalystNotes));
@@ -189,6 +190,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const fetchChartCatalyst = useCallback(async () => {
     if (catalystNotes[ticker]?.summary || catalystLoading) return;
     setCatalystLoading(true);
+    setCatalystError(null);
     const s = stock || {};
     const params = new URLSearchParams({
       ticker,
@@ -215,8 +217,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       const data = await resp.json();
       if (data.ok) {
         setCatalystNotes(prev => ({ ...prev, [ticker]: { summary: data.summary, sources: data.sources, ts: Date.now() } }));
+      } else {
+        setCatalystError(data.error || "API error");
       }
-    } catch {}
+    } catch (e) {
+      setCatalystError(e.message || "Network error");
+    }
     setCatalystLoading(false);
   }, [ticker, stock, erSipLookup, catalystNotes, catalystLoading]);
 
@@ -504,9 +510,9 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           })() : (
             <div onClick={fetchChartCatalyst}
               style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9,
-                color: catalystLoading ? "#d4a574" : "#3a3a4a", cursor: "pointer", userSelect: "none" }}
-              title="Generate AI catalyst summary">
-              {catalystLoading ? "⟳ generating..." : "✦ generate catalyst"}
+                color: catalystLoading ? "#d4a574" : catalystError ? "#f87171" : "#3a3a4a", cursor: "pointer", userSelect: "none" }}
+              title={catalystError || "Generate AI catalyst summary"}>
+              {catalystLoading ? "⟳ generating..." : catalystError ? `✦ ${catalystError} — click to retry` : "✦ generate catalyst"}
             </div>
           )}
           </div>

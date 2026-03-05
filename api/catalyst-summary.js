@@ -100,7 +100,7 @@ Only include tags that are MET. Brackets for MAGNA tags, then space, then SIP ty
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 25000);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
