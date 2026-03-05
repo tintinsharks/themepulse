@@ -446,7 +446,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {/* Stock detail row — metrics left, news right */}
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
           {/* Left: catalyst note */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 27%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4, overflow: "hidden", wordBreak: "break-all" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 38%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4, overflow: "hidden", wordBreak: "break-all" }}>
           {/* Custom catalyst note */}
           {editingNote ? (
             <div style={{ width: "100%", marginTop: 2 }}>
@@ -727,7 +727,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {/* Divider */}
           <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
           {/* Right: news */}
-          <div style={{ flex: "1 1 55%", minWidth: 200, overflow: "hidden" }}>
+          <div style={{ flex: "1 1 44%", minWidth: 200, overflow: "hidden" }}>
             {news === null ? (
               <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>Loading news...</span>
             ) : news.length > 0 ? (
