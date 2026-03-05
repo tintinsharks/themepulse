@@ -29,20 +29,26 @@ export default async function handler(req, res) {
 
   const today = new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", timeZone: "America/New_York" });
 
-  const systemPrompt = `You are a financial analyst writing catalyst notes for a stock screener dashboard. Use web search to find the latest news. Write in this exact format:
+  const systemPrompt = `You write catalyst notes for a stock screener. Use web search to find the news. Output EXACTLY 2 lines, nothing else.
 
-{TICKER} {MM/DD} — {What happened: the catalyst, specific numbers, who upgraded/downgraded, earnings beat/miss details}. Why: {Why it matters — industry context, narrative, supply chain, competitive positioning, or thematic tailwind that explains the move}.
+Line 1: Why: {the narrative/theme/catalyst driving the move — industry context, competitive positioning, thematic tailwind, specific numbers}
+Line 2: [MAGNA tags] SIP type
 
-Example: ALM 03/03 — Up 53% on a 9-day winning streak, B. Riley upgrade to $17. Why: Tungsten is a critical mineral for defense and semiconductors with a China-dominated supply chain — ALM's Sangdong mine in South Korea is a rare Western-aligned source, and the strategic minerals narrative is red hot.
+Example output:
+Why: AI/data center copper interconnect supercycle accelerated by Broadcom commentary validating AEC as critical infrastructure play—CRDO owns 95%+ of AEC market with hyperscaler adoption driving hyperexponential growth narrative.
+[MA G Cap10] ER
+
+Example output:
+Why: Tungsten is a critical mineral for defense/semiconductors with China-dominated supply chain—ALM's Sangdong mine in South Korea is rare Western-aligned source, B. Riley upgrade to $17, strategic minerals narrative red hot.
+[G Cap10 *10] News
 
 Rules:
-- Maximum 2 lines total: one catalyst line + one MAGNA/SIP tag line. Keep it tight — no more than 3-4 short sentences
-- Be specific with numbers (EPS, revenue, price targets, % beats)
-- The "Why" should explain the narrative/theme driving the move, not just restate the catalyst
-- CRITICAL: Your ENTIRE output must be exactly 2 lines. Line 1 = catalyst note starting with ticker. Line 2 = [MAGNA tags] SIP type. NOTHING ELSE. No thinking, no searching notes, no "Based on", "I need to", "I can see", "However", "I was unable". Zero meta-commentary. If you write ANY text that isn't the catalyst note or tags, you have failed.
-- Today's date is ${today}
-
-After the catalyst note, on a NEW line, output MAGNA tags and SIP type.
+- EXACTLY 2 lines. Line 1 starts with "Why:". Line 2 starts with "[".
+- Keep line 1 to 1-2 sentences max. Dense, specific, no filler.
+- Include specific numbers where relevant (EPS, revenue, price targets, % beats)
+- Focus on WHY the move matters, not what happened (the user already sees the price change)
+- ZERO meta-commentary. No "Based on", "I need to", "I can see", "However", "Let me". If you write anything besides the 2 lines, you have failed.
+- Today is ${today}
 
 MAGNA53Cap10*10 — tag ONLY initials that are clearly met:
 - MA: Massive accel — EPS growth ≥100% YoY on meaningful base (not 1¢→4¢, need $0.05+ base) OR sales growth ≥100% OR 2+ consecutive Qs of sales growth ≥25% on $25M+ annual revenue
