@@ -124,6 +124,51 @@ const PatternTags = memo(function PatternTags({ patterns }) {
   });
 });
 
+// ── Projected EOD RVol (Zanger-style volume signal) ──
+// Uses empirical U-shaped cumulative volume curve instead of linear extrapolation.
+// The first/last hours of trading carry ~22%/~28% of daily volume respectively,
+// while midday half-hours carry only ~5% each. Linear projection (390/elapsed)
+// massively over-projects early in the day; this curve corrects for that.
+// Formula: projectedRVol = actualRVol / expectedCumulativeFraction(timeOfDay)
+const _volCurve = [ // [minutesSinceOpen, cumulativeFraction]
+  [0,0],[30,.117],[60,.205],[90,.275],[120,.335],[150,.388],
+  [180,.438],[210,.488],[240,.538],[270,.592],[300,.652],
+  [330,.722],[360,.817],[390,1]
+];
+function _cumVolFrac(mins) {
+  if (mins <= 0) return 0;
+  if (mins >= 390) return 1;
+  for (let i = 1; i < _volCurve.length; i++) {
+    if (mins <= _volCurve[i][0]) {
+      const [m0, f0] = _volCurve[i - 1], [m1, f1] = _volCurve[i];
+      return f0 + (f1 - f0) * ((mins - m0) / (m1 - m0));
+    }
+  }
+  return 1;
+}
+function projectedRVol(rv) {
+  if (!rv || rv <= 0) return rv || 0;
+  const now = new Date();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const open = new Date(et); open.setHours(9, 30, 0, 0);
+  const close = new Date(et); close.setHours(16, 0, 0, 0);
+  if (et <= open || et >= close) return rv; // pre-market or after close
+  const frac = _cumVolFrac((et - open) / 60000);
+  return frac > 0 ? rv / frac : rv;
+}
+
+// ── Projected 9M volume check (run-rate extrapolation to EOD) ──
+function projectedEodVol(currentVol) {
+  if (!currentVol || currentVol <= 0) return 0;
+  const now = new Date();
+  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const open = new Date(et); open.setHours(9, 30, 0, 0);
+  const close = new Date(et); close.setHours(16, 0, 0, 0);
+  const elapsed = (et - open) / 60000; // minutes since open
+  if (elapsed <= 0 || et >= close) return currentVol; // pre-market or after close, use actual
+  return currentVol * (390 / Math.min(elapsed, 390));
+}
+
 // ── STOCK STAT (label: value pair for chart panel) ──
 const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
   return (
@@ -381,8 +426,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           <span style={{ color: "#505060" }}>{stock.sector} · {stock.industry}</span>
           <span style={{ color: "#3a3a4a" }}>│</span>
           {stock.adr_pct != null && <span style={{ fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
-          {(() => { const rv = live?.rel_volume ?? stock.rel_volume;
-            return rv != null ? <span style={{ fontFamily: "monospace", color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878" }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
+          {(() => { const rv = live?.rel_volume ?? stock.rel_volume; const prv = projectedRVol(rv);
+            return rv != null ? <span style={{ fontFamily: "monospace", color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : "#686878" }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
           })()}
           <span style={{ color: "#3a3a4a" }}>│</span>
           <span style={{ fontFamily: "monospace" }}>1M:<Ret v={stock.return_1m} /></span>
@@ -1715,13 +1760,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 const curVol = liveV != null ? (typeof liveV === 'string' ? parseFloat(liveV) : liveV)
                   : (s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null);
                 const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+                const proj9M = curVol && s.avg_volume_raw < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
+                color: proj9M ? "#f87171" : rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
                 {curVol != null ? fmt(curVol) : '—'}</td>; })()}
               {/* RVol */}
-              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume;
+              {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; const prv = projectedRVol(rv);
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
+                color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
                 {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}</td>; })()}
               {/* $Vol */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
@@ -1835,7 +1881,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     color: b.vol_ratio >= 3 ? "#c084fc" : b.vol_ratio >= 2 ? "#a78bfa" : "#9090a0" }}>
                     {b.vol_ratio.toFixed(1)}x
                   </td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: "#9090a0" }}>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
+                    color: (b._avgVol || 0) < 8_900_000 && projectedEodVol(b.volume) >= 8_900_000 ? "#f87171" : "#9090a0" }}>
                     {b.volume >= 1e6 ? (b.volume / 1e6).toFixed(1) + "M" : (b.volume / 1e3).toFixed(0) + "K"}
                   </td>
                   <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace",
@@ -2803,9 +2850,13 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>);
                       })()}
                       {/* Volume — prefer ext hours, fallback to regular */}
-                      <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: "#686878" }}>
-                        {fmtVol(liveLookup[row.ticker]?.ext_volume ?? liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol)}
-                      </td>
+                      {(() => {
+                        const epVol = liveLookup[row.ticker]?.ext_volume ?? liveLookup[row.ticker]?.volume ?? s.volume ?? row._vol;
+                        const epProj9M = epVol && (s.avg_volume_raw || 0) < 8_900_000 && projectedEodVol(epVol) >= 8_900_000;
+                        return <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9, fontFamily: "monospace", color: epProj9M ? "#f87171" : "#686878" }}>
+                          {fmtVol(epVol)}
+                        </td>;
+                      })()}
                       {/* RVol */}
                       <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
                         color: (_rv ?? -1) >= 8 ? "#c084fc" : (_rv ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
@@ -2934,10 +2985,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           color: chg != null ? (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
                           {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(2)}%` : "—"}
                         </td>
-                        <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: rvol != null && isFinite(rvol) ? (rvol >= 3 ? "#f59e0b" : rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
+                        {(() => { const prvol = projectedRVol(rvol); return <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: rvol != null && isFinite(rvol) ? (prvol >= 3 ? "#f59e0b" : prvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
                           {rvol != null && isFinite(rvol) ? `${rvol.toFixed(1)}x` : "—"}
-                        </td>
+                        </td>; })()}
                         <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
                           {daysAgo}d
@@ -3068,10 +3119,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             color: f._chg != null ? (f._chg > 0 ? "#2bb886" : f._chg < 0 ? "#f87171" : "#9090a0") : "#3a3a4a" }}>
                             {f._chg != null ? `${f._chg > 0 ? "+" : ""}${Number(f._chg).toFixed(2)}%` : "—"}
                           </td>
-                          <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
-                            color: f._rvol != null ? (f._rvol >= 3 ? "#f59e0b" : f._rvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
+                          {(() => { const prv = projectedRVol(f._rvol); return <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace",
+                            color: f._rvol != null ? (prv >= 3 ? "#f59e0b" : prv >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
                             {f._rvol != null ? `${f._rvol.toFixed(1)}x` : "—"}
-                          </td>
+                          </td>; })()}
                           <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                             color: f._addedDays != null ? (f._addedDays <= 1 ? "#2bb886" : f._addedDays <= 3 ? "#a8a8b8" : "#686878") : "#4a4a5a" }}>
                             {f._addedDays != null ? `${f._addedDays}d` : "—"}
@@ -5574,14 +5625,15 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
         const rv = s.rel_volume;
         const curVol = s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null;
         const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+        const proj9M = curVol && s.avg_volume_raw < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
         return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-          color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
+          color: proj9M ? "#f87171" : rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
           {curVol != null ? fmt(curVol) : '—'}</td>;
       })()}
       {/* RVol */}
-      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.rel_volume >= 2 ? "#c084fc" : s.rel_volume >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
-        {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>
+      {(() => { const prv = projectedRVol(s.rel_volume); return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+        color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
+        {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : '—'}</td>; })()}
       {/* $Vol */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}
