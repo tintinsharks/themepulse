@@ -1274,7 +1274,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [scanTab, setScanTab] = useState("scan"); // "scan" or "burst"
 
   // Persistence accumulator — tracks intraday readings per ticker for trend arrows
-  const persistRef = useRef(new Map()); // Map<ticker, [{ts, chg, prv, cr}]>
+  const persistRef = useRef(new Map()); // Map<ticker, [{ts, chg, prv, cr, price}]>
 
   // Apply theme filter from Leaders drill-down
   useEffect(() => {
@@ -1373,7 +1373,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (e.change == null) continue;
       const arr = persistRef.current.get(tk) || [];
       const prv = e.rel_volume != null ? projectedRVol(e.rel_volume) : null;
-      arr.push({ ts: now, chg: e.change, prv, cr: e.close_range ?? null });
+      arr.push({ ts: now, chg: e.change, prv, cr: e.close_range ?? null, price: e.price ?? null });
       if (arr.length > 120) arr.splice(0, arr.length - 120); // cap ~60 min
       persistRef.current.set(tk, arr);
     }
@@ -1470,13 +1470,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP", "DB", "HTF", "AB", "ST", "IPO"]);
 
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
-    if (scanFilters.size === 0) {
+    const nonOrhFilters = new Set([...scanFilters].filter(f => f !== "ORH"));
+    if (nonOrhFilters.size === 0) {
       list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _epsScore: epsFinalMap[s.ticker] }));
     } else {
       list = stocks.filter(s => {
         const hits = new Set(hitMap[s.ticker] || []);
         const pats = new Set((s.chart_patterns || []).map(p => p.pattern));
         for (const f of scanFilters) {
+          if (f === "ORH") continue; // handled separately via persistRef
           if (patternFilterTags.has(f)) {
             if (!pats.has(PATTERN_TAG_MAP[f])) return false;
           } else {
@@ -1502,6 +1504,18 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (mcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
     if (volFilter > 0) list = list.filter(s => (s.avg_volume_raw || 0) >= volFilter);
     if (minDolVol > 0) list = list.filter(s => (s.avg_dollar_vol_raw || 0) >= minDolVol * 1_000_000);
+    // ORH filter: price above 5-min Opening Range High (first 10 readings ≈ 9:30–9:35 ET)
+    if (scanFilters.has("ORH")) {
+      list = list.filter(s => {
+        const arr = persistRef.current.get(s.ticker);
+        if (!arr || arr.length < 10) return false;
+        const orSlice = arr.slice(0, 10);
+        const orHigh = Math.max(...orSlice.map(r => r.price).filter(p => p != null));
+        if (!isFinite(orHigh)) return false;
+        const curPrice = liveLookup[s.ticker]?.price;
+        return curPrice != null && curPrice > orHigh;
+      });
+    }
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1570,6 +1584,17 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         return pats.some(p => p.pattern === key);
       });
     }
+    // ORH filter on burst tab
+    if (scanFilters.has("ORH")) {
+      list = list.filter(b => {
+        const arr = persistRef.current.get(b.ticker);
+        if (!arr || arr.length < 10) return false;
+        const orHigh = Math.max(...arr.slice(0, 10).map(r => r.price).filter(p => p != null));
+        if (!isFinite(orHigh)) return false;
+        const curPrice = liveLookup[b.ticker]?.price ?? b.close;
+        return curPrice != null && curPrice > orHigh;
+      });
+    }
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
     const bSorters = {
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
@@ -1631,11 +1656,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["9M", "9M", "#e879f9"]
+          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"]
         ] : [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["9M", "9M", "#e879f9"]
+          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"]
         ]).map(([tag, label, color]) => {
           const active = scanFilters.has(tag);
           return (
@@ -1664,7 +1689,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 "C&H": "Cup & Handle — U-shaped base near highs",
                 FB: "Flat Base — tight <15% consolidation after advance",
                 PP: "Power Play / 3 Weeks Tight — consecutive tight weekly closes",
-                "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)" };
+                "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)",
+                ORH: "Price above 5-min Opening Range High (9:30–9:35 ET)" };
               const active = [...scanFilters];
               if (active.length === 1) return descs[active[0]] || "";
               return active.map(f => f).join(" + ");
