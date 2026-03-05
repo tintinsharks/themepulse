@@ -496,11 +496,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                 {mainText}
                 {tagLine && <span style={{ color: "#fbbf24", fontWeight: 600, fontStyle: "normal", marginLeft: 4, fontSize: 7 }}>{tagLine.trim()}</span>}
-                {catalystNotes[ticker].sources?.[0] && (
-                  <a href={catalystNotes[ticker].sources[0].url} target="_blank" rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    style={{ color: "#606070", fontSize: 7, marginLeft: 4, textDecoration: "none" }}>[source]</a>
-                )}
               </span>
               <span onClick={() => setCatalystNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; })}
                 style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove catalyst note">✕</span>
