@@ -39,7 +39,7 @@ Rules:
 - One continuous line, no line breaks
 - Be specific with numbers (EPS, revenue, price targets, % beats)
 - The "Why" should explain the narrative/theme driving the move, not just restate the catalyst
-- No disclaimers, no hedging, no preamble — start DIRECTLY with the ticker symbol, never with "Based on..." or "Let me..."
+- No disclaimers, no hedging, no preamble, no thinking notes — start DIRECTLY with the ticker symbol. Never write "Based on...", "Let me...", "I'll search...", "There's a discrepancy...", or any meta-commentary. Just the facts.
 - Today's date is ${today}
 
 After the catalyst note, on a NEW line, output MAGNA tags and SIP type.
