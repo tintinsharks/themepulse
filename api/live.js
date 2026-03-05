@@ -1000,9 +1000,9 @@ async function fetchFmpUniverse(tickers, apiKey) {
     console.log(`ORH cache updated: ${orhCache.size} tickers (${etMinutes - marketOpen}min into session)`);
   }
 
-  // Attach ORH to each universe entry
+  // Attach ORH to each universe entry (fall back to open price if no cached ORH)
   universe.forEach(u => {
-    u.orh = orhCache.get(u.ticker) ?? null;
+    u.orh = orhCache.get(u.ticker) ?? u.open ?? null;
   });
 
   return { universe, rawQuotes };
