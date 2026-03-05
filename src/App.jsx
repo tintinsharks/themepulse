@@ -168,64 +168,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     _chartNotesCacheTs = 0;
   }, [chartNotes]);
 
-  // AI catalyst summaries (persisted 2 weeks in localStorage)
-  const [catalystNotes, setCatalystNotes] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("tp_catalyst_notes") || "{}");
-      const now = Date.now(), twoWeeks = 14 * 24 * 60 * 60 * 1000;
-      const valid = {};
-      for (const [k, v] of Object.entries(stored)) {
-        if (v.ts && now - v.ts < twoWeeks) valid[k] = v;
-      }
-      return valid;
-    } catch { return {}; }
-  });
-  const [catalystLoading, setCatalystLoading] = useState(false);
-  const [catalystError, setCatalystError] = useState(null);
-
-  useEffect(() => {
-    localStorage.setItem("tp_catalyst_notes", JSON.stringify(catalystNotes));
-  }, [catalystNotes]);
-
-  const fetchChartCatalyst = useCallback(async () => {
-    if (catalystNotes[ticker]?.summary || catalystLoading) return;
-    setCatalystLoading(true);
-    setCatalystError(null);
-    const s = stock || {};
-    const params = new URLSearchParams({
-      ticker,
-      company: s.company || "",
-      change: String(s.change_pct ?? ""),
-      source: erSipLookup?.[ticker] || "",
-      headlines: "",
-      eps_beat: "", rev_beat: "",
-      eps_growth: String(s.eps_yoy ?? ""),
-      rev_growth: String(s.sales_yoy ?? ""),
-      market_cap: String(s.market_cap_raw ?? ""),
-      inst_own: String(s.inst_own ?? ""),
-      gap_pct: String(s.change_pct ?? ""),
-      volume: String(s.volume ?? s.avg_volume_raw ?? ""),
-      rev_prev_q: String(s.sales_yoy_prev ?? ""),
-      eps_raw: String(s.quarters?.[0]?.eps ?? ""),
-      eps_prev_raw: String(s.quarters?.[1]?.eps ?? ""),
-      rev_raw: String(s.quarters?.[0]?.revenue ?? ""),
-      ipo_date: String(s.ipo_date ?? ""),
-      shares_float: String(s.shares_float_raw ?? ""),
-    });
-    try {
-      const resp = await fetch(`/api/catalyst-summary?${params}`);
-      const data = await resp.json();
-      if (data.ok) {
-        setCatalystNotes(prev => ({ ...prev, [ticker]: { summary: data.summary, sources: data.sources, ts: Date.now() } }));
-      } else {
-        setCatalystError(data.error || "API error");
-      }
-    } catch (e) {
-      setCatalystError(e.message || "Network error");
-    }
-    setCatalystLoading(false);
-  }, [ticker, stock, erSipLookup, catalystNotes, catalystLoading]);
-
   // Reset edit state on ticker change
   useEffect(() => { setEditingNote(false); }, [ticker]);
 
@@ -487,32 +429,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9, color: "#3a3a4a", cursor: "default" }}
               title="Double-click to add a catalyst note">
               dbl-click to add note
-            </div>
-          )}
-          {/* AI Catalyst Summary */}
-          {catalystNotes[ticker]?.summary ? (() => {
-            const text = catalystNotes[ticker].summary;
-            const lines = text.split('\n');
-            const tagLine = lines.find(l => l.trim().startsWith('['));
-            const mainText = lines.filter(l => !l.trim().startsWith('[')).join(' ').trim();
-            return (
-            <div style={{ width: "100%", marginTop: 2, padding: "2px 5px", background: "#d4a57410", border: "1px solid #d4a57425",
-              borderRadius: 3, fontSize: 8, color: "#d4a574", fontStyle: "italic", lineHeight: 1.4,
-              display: "flex", alignItems: "flex-start", gap: 4 }}>
-              <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                {mainText}
-                {tagLine && <span style={{ color: "#fbbf24", fontWeight: 600, fontStyle: "normal", marginLeft: 4, fontSize: 7 }}>{tagLine.trim()}</span>}
-              </span>
-              <span onClick={() => setCatalystNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; })}
-                style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove catalyst note">✕</span>
-            </div>
-            );
-          })() : (
-            <div onClick={fetchChartCatalyst}
-              style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9,
-                color: catalystLoading ? "#d4a574" : catalystError ? "#f87171" : "#3a3a4a", cursor: "pointer", userSelect: "none" }}
-              title={catalystError || "Generate AI catalyst summary"}>
-              {catalystLoading ? "⟳ generating..." : catalystError ? `✦ ${catalystError} — click to retry` : "✦ generate catalyst"}
             </div>
           )}
           </div>
@@ -1996,53 +1912,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [histSort, setHistSort] = useState({ col: "rvol", dir: "desc" });
   const [focusSort, setFocusSort] = useState({ col: "rvol", dir: "desc" });
 
-  // STATE: Inline catalyst summaries (AI-generated)
-  const [catalystSummaries, setCatalystSummaries] = useState({});
-
-  const fetchCatalystSummary = async (row) => {
-    if (catalystSummaries[row.ticker]?.summary || catalystSummaries[row.ticker]?.loading) return;
-    setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { loading: true } }));
-    const s = stockMap[row.ticker] || {};
-    const params = new URLSearchParams({
-      ticker: row.ticker,
-      company: row.company || "",
-      change: String(row._chg ?? row.change_pct ?? ""),
-      source: row._source || "",
-      headlines: (row._recentHeadlines || []).slice(0, 3).map(h => typeof h === "string" ? h : h.text || h.headline || "").join("|"),
-      eps_beat: String(row._epsBeat ?? ""),
-      rev_beat: String(row._revBeat ?? ""),
-      eps_growth: String(row._epsGrowthYoY ?? ""),
-      rev_growth: String(row._revGrowthYoY ?? ""),
-      market_cap: String(s.market_cap_raw ?? ""),
-      inst_own: String(s.inst_own ?? ""),
-      gap_pct: String(row._chg ?? ""),
-      volume: String(row._vol ?? ""),
-      rev_prev_q: String(s.sales_yoy_prev ?? ""),
-      eps_raw: String(s.quarters?.[0]?.eps ?? ""),
-      eps_prev_raw: String(s.quarters?.[1]?.eps ?? ""),
-      rev_raw: String(s.quarters?.[0]?.revenue ?? ""),
-      ipo_date: String(s.ipo_date ?? ""),
-      shares_float: String(s.shares_float_raw ?? ""),
-    });
-    try {
-      const resp = await fetch(`/api/catalyst-summary?${params}`);
-      const data = await resp.json();
-      if (data.ok) {
-        setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { summary: data.summary, sources: data.sources } }));
-        // Persist to localStorage for chart panel (14 day TTL)
-        try {
-          const stored = JSON.parse(localStorage.getItem("tp_catalyst_notes") || "{}");
-          stored[row.ticker] = { summary: data.summary, sources: data.sources, ts: Date.now() };
-          localStorage.setItem("tp_catalyst_notes", JSON.stringify(stored));
-        } catch {}
-      } else {
-        setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { error: data.error || "Unknown error" } }));
-      }
-    } catch (e) {
-      setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { error: e.message } }));
-    }
-  };
-
   // Live data lookup — same pattern as Scan Watch
   const liveLookup = useMemo(() => {
     if (!liveThemeData) return {};
@@ -2883,15 +2752,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         <Tk ticker={row.ticker} />
-                        <span
-                          onClick={e => { e.stopPropagation(); fetchCatalystSummary(row); }}
-                          title={catalystSummaries[row.ticker]?.summary ? "AI catalyst summary loaded" : `AI catalyst summary for ${row.ticker}`}
-                          style={{ marginLeft: 3, fontSize: 8, color: "#d4a574", opacity: catalystSummaries[row.ticker]?.summary ? 1 : 0.6,
-                            verticalAlign: "super", cursor: "pointer", userSelect: "none" }}
-                          onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = catalystSummaries[row.ticker]?.summary ? "1" : "0.6"; }}>
-                          {catalystSummaries[row.ticker]?.loading ? "⟳" : "✦"}
-                        </span>
                         <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
                       </td>
                       {/* Headline */}
@@ -2917,14 +2777,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {row._headline}
                           </span>
                         ) : "—"}
-                        {catalystSummaries[row.ticker]?.summary && (
-                          <div style={{ fontSize: 7, color: "#d4a57480", marginTop: 1 }}>✦ saved to chart panel</div>
-                        )}
-                        {catalystSummaries[row.ticker]?.error && (
-                          <div style={{ fontSize: 7, color: "#f87171", fontStyle: "italic", marginTop: 1 }}>
-                            ✦ {catalystSummaries[row.ticker].error}
-                          </div>
-                        )}
                       </td>
                       {/* $Vol */}
                       {(() => {
