@@ -26,7 +26,20 @@ export default async function handler(req, res) {
   const chgNum = parseFloat(change) || 0;
   const direction = chgNum >= 0 ? "up" : "down";
 
-  const systemPrompt = `You are a financial analyst. Given a stock that is moving today, provide a concise 2-sentence catalyst summary. Sentence 1: What happened (the catalyst). Sentence 2: Why it matters (context/implications). Use web search to find the latest news if the provided headlines are insufficient. Be specific with numbers. No disclaimers.`;
+  const today = new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", timeZone: "America/New_York" });
+
+  const systemPrompt = `You are a financial analyst writing catalyst notes for a stock screener dashboard. Use web search to find the latest news. Write in this exact format:
+
+{TICKER} {MM/DD} — {What happened: the catalyst, specific numbers, who upgraded/downgraded, earnings beat/miss details}. Why: {Why it matters — industry context, narrative, supply chain, competitive positioning, or thematic tailwind that explains the move}.
+
+Example: ALM 03/03 — Up 53% on a 9-day winning streak, B. Riley upgrade to $17. Why: Tungsten is a critical mineral for defense and semiconductors with a China-dominated supply chain — ALM's Sangdong mine in South Korea is a rare Western-aligned source, and the strategic minerals narrative is red hot.
+
+Rules:
+- One continuous line, no line breaks
+- Be specific with numbers (EPS, revenue, price targets, % beats)
+- The "Why" should explain the narrative/theme driving the move, not just restate the catalyst
+- No disclaimers, no hedging
+- Today's date is ${today}`;
 
   let userMsg = `${ticker}${company ? ` (${company})` : ""} is ${direction} ${Math.abs(chgNum).toFixed(1)}% ${sourceLabel}.`;
   if (headlines) userMsg += `\nScraped headlines: ${headlines.replace(/\|/g, "; ")}`;
@@ -36,7 +49,7 @@ export default async function handler(req, res) {
   if (rev_beat === "false") userMsg += " Revenue missed estimates.";
   if (eps_growth) userMsg += ` EPS growth YoY: ${eps_growth}%.`;
   if (rev_growth) userMsg += ` Revenue growth YoY: ${rev_growth}%.`;
-  userMsg += "\n\nProvide a 2-sentence catalyst summary.";
+  userMsg += `\n\nWrite a catalyst note in the specified format. Today is ${today}.`;
 
   try {
     const controller = new AbortController();
@@ -51,7 +64,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 200,
+        max_tokens: 300,
         tools: [{
           type: "web_search_20250305",
           name: "web_search",

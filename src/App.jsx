@@ -2817,7 +2817,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         {catalystSummaries[row.ticker]?.summary && (
                           <div style={{ fontSize: 8, color: "#d4a574", fontStyle: "italic", marginTop: 2,
                             borderTop: "1px solid #2a2a3a", paddingTop: 2, lineHeight: 1.3 }}>
-                            ✦ {catalystSummaries[row.ticker].summary}
+                            {catalystSummaries[row.ticker].summary}
                             {catalystSummaries[row.ticker].sources?.[0] && (
                               <a href={catalystSummaries[row.ticker].sources[0].url} target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
