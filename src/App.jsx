@@ -158,12 +158,14 @@ function projectedRVol(rv) {
 }
 
 // ── Persistence trend: compare avg of first N vs last N readings ──
-function persistTrend(readings, field, threshold) {
+function persistTrend(readings, field, threshold, orhBoost) {
   if (!readings || readings.length < 10) return null;
   const first = readings.slice(0, 10);
   const last = readings.slice(-10);
   const avg = arr => arr.reduce((s, r) => s + (r[field] ?? 0), 0) / arr.length;
-  const diff = avg(last) - avg(first);
+  let diff = avg(last) - avg(first);
+  // ORH boost for CR%: if holding above ORH, nudge trend up; if below, nudge down
+  if (orhBoost != null) diff += orhBoost;
   if (diff > threshold) return "up";
   if (diff < -threshold) return "down";
   return "flat";
@@ -1373,7 +1375,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (e.change == null) continue;
       const arr = persistRef.current.get(tk) || [];
       const prv = e.rel_volume != null ? projectedRVol(e.rel_volume) : null;
-      arr.push({ ts: now, chg: e.change, prv, cr: e.close_range ?? null, price: e.price ?? null });
+      arr.push({ ts: now, chg: e.change, prv, cr: e.close_range ?? null, price: e.price ?? null, orh: e.orh ?? null });
       if (arr.length > 120) arr.splice(0, arr.length - 120); // cap ~60 min
       persistRef.current.set(tk, arr);
     }
@@ -1841,10 +1843,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   {rvolTrend === "up" ? "▲" : rvolTrend === "down" ? "▼" : "─"}</span>}</td>; })()}
               {/* CR% */}
               {(() => {
-                const cr = liveLookup[s.ticker]?.close_range;
-                const crTrend = persistTrend(persistRef.current.get(s.ticker), "cr", 3);
+                const lv = liveLookup[s.ticker];
+                const cr = lv?.close_range;
+                // ORH boost: +2pp if holding above ORH, -2pp if below (nudges CR% trend arrow)
+                const orhBoost = (lv?.orh != null && lv?.price != null) ? (lv.price > lv.orh ? 2 : -2) : null;
+                const crTrend = persistTrend(persistRef.current.get(s.ticker), "cr", 3, orhBoost);
                 const crColor = cr != null ? (cr >= 70 ? "#2bb886" : cr < 40 ? "#f87171" : "#686878") : "#3a3a4a";
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", color: crColor }}>
+                const aboveOrh = lv?.orh != null && lv?.price != null && lv.price > lv.orh;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", color: crColor }}
+                  title={lv?.orh != null ? `ORH: $${Number(lv.orh).toFixed(2)}${aboveOrh ? ' (above)' : ' (below)'}` : ''}>
                   {cr != null ? `${Math.round(cr)}%` : '—'}
                   {crTrend && <span style={{ fontSize: 8, marginLeft: 2, color: crTrend === "up" ? "#2bb886" : crTrend === "down" ? "#f87171" : "#505060" }}>
                     {crTrend === "up" ? "▲" : crTrend === "down" ? "▼" : "─"}</span>}</td>;
