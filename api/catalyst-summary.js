@@ -39,7 +39,7 @@ Rules:
 - Maximum 2 lines total: one catalyst line + one MAGNA/SIP tag line. Keep it tight — no more than 3-4 short sentences
 - Be specific with numbers (EPS, revenue, price targets, % beats)
 - The "Why" should explain the narrative/theme driving the move, not just restate the catalyst
-- No disclaimers, no hedging, no preamble, no thinking notes — start DIRECTLY with the ticker symbol. Never write "Based on...", "Let me...", "I'll search...", "There's a discrepancy...", or any meta-commentary. Just the facts.
+- CRITICAL: Your ENTIRE output must be exactly 2 lines. Line 1 = catalyst note starting with ticker. Line 2 = [MAGNA tags] SIP type. NOTHING ELSE. No thinking, no searching notes, no "Based on", "I need to", "I can see", "However", "I was unable". Zero meta-commentary. If you write ANY text that isn't the catalyst note or tags, you have failed.
 - Today's date is ${today}
 
 After the catalyst note, on a NEW line, output MAGNA tags and SIP type.
@@ -145,6 +145,10 @@ Only include tags that are MET. Brackets for MAGNA tags, then space, then SIP ty
     }
 
     summary = summary.trim();
+    // Strip meta-commentary lines that precede the actual catalyst note
+    const metaPrefixes = /^(based on|i need to|i('ll| will) search|let me|i can see|i was unable|however,? i|the search|looking at|after search|from the search|unfortunately)/i;
+    const cleaned = summary.split('\n').filter(l => !metaPrefixes.test(l.trim())).join('\n').trim();
+    summary = cleaned || summary;
     if (!summary) throw new Error("Empty response from API");
 
     const result = { ok: true, summary, sources };
