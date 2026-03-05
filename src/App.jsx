@@ -168,6 +168,58 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     _chartNotesCacheTs = 0;
   }, [chartNotes]);
 
+  // AI catalyst summaries (persisted 2 weeks in localStorage)
+  const [catalystNotes, setCatalystNotes] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("tp_catalyst_notes") || "{}");
+      const now = Date.now(), twoWeeks = 14 * 24 * 60 * 60 * 1000;
+      const valid = {};
+      for (const [k, v] of Object.entries(stored)) {
+        if (v.ts && now - v.ts < twoWeeks) valid[k] = v;
+      }
+      return valid;
+    } catch { return {}; }
+  });
+  const [catalystLoading, setCatalystLoading] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("tp_catalyst_notes", JSON.stringify(catalystNotes));
+  }, [catalystNotes]);
+
+  const fetchChartCatalyst = useCallback(async () => {
+    if (catalystNotes[ticker]?.summary || catalystLoading) return;
+    setCatalystLoading(true);
+    const s = stock || {};
+    const params = new URLSearchParams({
+      ticker,
+      company: s.company || "",
+      change: String(s.change_pct ?? ""),
+      source: erSipLookup?.[ticker] || "",
+      headlines: "",
+      eps_beat: "", rev_beat: "",
+      eps_growth: String(s.eps_yoy ?? ""),
+      rev_growth: String(s.sales_yoy ?? ""),
+      market_cap: String(s.market_cap_raw ?? ""),
+      inst_own: String(s.inst_own ?? ""),
+      gap_pct: String(s.change_pct ?? ""),
+      volume: String(s.volume ?? s.avg_volume_raw ?? ""),
+      rev_prev_q: String(s.sales_yoy_prev ?? ""),
+      eps_raw: String(s.quarters?.[0]?.eps ?? ""),
+      eps_prev_raw: String(s.quarters?.[1]?.eps ?? ""),
+      rev_raw: String(s.quarters?.[0]?.revenue ?? ""),
+      ipo_date: String(s.ipo_date ?? ""),
+      shares_float: String(s.shares_float_raw ?? ""),
+    });
+    try {
+      const resp = await fetch(`/api/catalyst-summary?${params}`);
+      const data = await resp.json();
+      if (data.ok) {
+        setCatalystNotes(prev => ({ ...prev, [ticker]: { summary: data.summary, sources: data.sources, ts: Date.now() } }));
+      }
+    } catch {}
+    setCatalystLoading(false);
+  }, [ticker, stock, erSipLookup, catalystNotes, catalystLoading]);
+
   // Reset edit state on ticker change
   useEffect(() => { setEditingNote(false); }, [ticker]);
 
@@ -429,6 +481,37 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9, color: "#3a3a4a", cursor: "default" }}
               title="Double-click to add a catalyst note">
               dbl-click to add note
+            </div>
+          )}
+          {/* AI Catalyst Summary */}
+          {catalystNotes[ticker]?.summary ? (() => {
+            const text = catalystNotes[ticker].summary;
+            const lines = text.split('\n');
+            const tagLine = lines.find(l => l.trim().startsWith('['));
+            const mainText = lines.filter(l => !l.trim().startsWith('[')).join(' ').trim();
+            return (
+            <div style={{ width: "100%", marginTop: 2, padding: "2px 5px", background: "#d4a57410", border: "1px solid #d4a57425",
+              borderRadius: 3, fontSize: 8, color: "#d4a574", fontStyle: "italic", lineHeight: 1.4,
+              display: "flex", alignItems: "flex-start", gap: 4 }}>
+              <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {mainText}
+                {tagLine && <span style={{ color: "#fbbf24", fontWeight: 600, fontStyle: "normal", marginLeft: 4, fontSize: 7 }}>{tagLine.trim()}</span>}
+                {catalystNotes[ticker].sources?.[0] && (
+                  <a href={catalystNotes[ticker].sources[0].url} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{ color: "#606070", fontSize: 7, marginLeft: 4, textDecoration: "none" }}>[source]</a>
+                )}
+              </span>
+              <span onClick={() => setCatalystNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; })}
+                style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove catalyst note">✕</span>
+            </div>
+            );
+          })() : (
+            <div onClick={fetchChartCatalyst}
+              style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9,
+                color: catalystLoading ? "#d4a574" : "#3a3a4a", cursor: "pointer", userSelect: "none" }}
+              title="Generate AI catalyst summary">
+              {catalystLoading ? "⟳ generating..." : "✦ generate catalyst"}
             </div>
           )}
           </div>
@@ -1943,9 +2026,17 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     try {
       const resp = await fetch(`/api/catalyst-summary?${params}`);
       const data = await resp.json();
-      setCatalystSummaries(prev => ({ ...prev, [row.ticker]: data.ok
-        ? { summary: data.summary, sources: data.sources }
-        : { error: data.error || "Unknown error" } }));
+      if (data.ok) {
+        setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { summary: data.summary, sources: data.sources } }));
+        // Persist to localStorage for chart panel (14 day TTL)
+        try {
+          const stored = JSON.parse(localStorage.getItem("tp_catalyst_notes") || "{}");
+          stored[row.ticker] = { summary: data.summary, sources: data.sources, ts: Date.now() };
+          localStorage.setItem("tp_catalyst_notes", JSON.stringify(stored));
+        } catch {}
+      } else {
+        setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { error: data.error || "Unknown error" } }));
+      }
     } catch (e) {
       setCatalystSummaries(prev => ({ ...prev, [row.ticker]: { error: e.message } }));
     }
@@ -2825,27 +2916,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             {row._headline}
                           </span>
                         ) : "—"}
-                        {catalystSummaries[row.ticker]?.summary && (() => {
-                          const text = catalystSummaries[row.ticker].summary;
-                          const lines = text.split('\n');
-                          const tagLine = lines.find(l => l.trim().startsWith('['));
-                          const mainText = lines.filter(l => !l.trim().startsWith('[')).join(' ').trim();
-                          return (
-                          <div style={{ fontSize: 8, color: "#d4a574", fontStyle: "italic", marginTop: 2,
-                            borderTop: "1px solid #2a2a3a", paddingTop: 2, lineHeight: 1.3 }}>
-                            {mainText}
-                            {tagLine && <span style={{ color: "#fbbf24", fontWeight: 600, fontStyle: "normal",
-                              marginLeft: 4, fontSize: 7 }}>{tagLine.trim()}</span>}
-                            {catalystSummaries[row.ticker].sources?.[0] && (
-                              <a href={catalystSummaries[row.ticker].sources[0].url} target="_blank" rel="noopener noreferrer"
-                                onClick={e => e.stopPropagation()}
-                                style={{ color: "#606070", fontSize: 7, marginLeft: 4, textDecoration: "none" }}>
-                                [source]
-                              </a>
-                            )}
-                          </div>
-                          );
-                        })()}
+                        {catalystSummaries[row.ticker]?.summary && (
+                          <div style={{ fontSize: 7, color: "#d4a57480", marginTop: 1 }}>✦ saved to chart panel</div>
+                        )}
                         {catalystSummaries[row.ticker]?.error && (
                           <div style={{ fontSize: 7, color: "#f87171", fontStyle: "italic", marginTop: 1 }}>
                             ✦ {catalystSummaries[row.ticker].error}
