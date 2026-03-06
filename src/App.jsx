@@ -1268,6 +1268,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [minRS, setMinRS] = useState(0);
   const [burstMinRS, setBurstMinRS] = useState(0);
   const [minChg, setMinChg] = useState(0); // min Chg% filter (0 = off)
+  const [minRVol, setMinRVol] = useState(0); // min RVol filter (0 = off)
   const [scanFilters, setScanFilters] = useState(new Set());
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
@@ -1502,6 +1503,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (greenOnly && hasLive) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change ?? s.change_pct; return chg != null && chg > 0; });
     if (minChg > 0) list = list.filter(s => { const chg = liveLookup[s.ticker]?.change ?? s.change_pct; return chg != null && chg >= minChg; });
     if (zvrOnly) list = list.filter(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return rv != null && projectedRVol(rv) >= 1.5; });
+    if (minRVol > 0) list = list.filter(s => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; return rv != null && projectedRVol(rv) >= minRVol; });
     if (minRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= minRS);
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
     if (mcapFilter === "mid") list = list.filter(s => (s.market_cap_raw || 0) >= 2_000_000_000);
@@ -1546,7 +1548,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
     return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
-  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup]);
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup]);
 
   const burstStocks = useMemo(() => {
     let list = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
@@ -1569,6 +1571,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (greenOnly) list = list.filter(b => b.change_pct > 0);
     if (minChg > 0) list = list.filter(b => b.change_pct >= minChg);
     if (zvrOnly) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= 1.5; });
+    if (minRVol > 0) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= minRVol; });
     if (activeTheme) list = list.filter(b => b._themes?.some(t => t.theme === activeTheme));
     if (mcapFilter === "mid") list = list.filter(b => (b._mcap || 0) >= 2_000_000_000);
     if (mcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
@@ -1600,7 +1603,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, minChg, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, minChg, minRVol, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -1717,6 +1720,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           <span style={{ fontSize: 10, color: minChg > 0 ? "#2bb886" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≥{minChg}%</span>
           <input type="range" min={0} max={20} step={1} value={minChg} onChange={e => setMinChg(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#2bb886", cursor: "pointer" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10, color: minRVol > 0 ? "#a78bfa" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RV≥{minRVol.toFixed(1)}x</span>
+          <input type="range" min={0} max={5} step={0.5} value={minRVol} onChange={e => setMinRVol(Number(e.target.value))}
+            style={{ width: 60, height: 4, accentColor: "#a78bfa", cursor: "pointer" }} />
         </div>
         <span style={{ color: "#3a3a4a" }}>|</span>
         {[["small", "Small+"], ["mid", "Mid+"], ["large", "Large"]].map(([k, l]) => (
