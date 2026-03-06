@@ -183,8 +183,58 @@ function SimpleMarkdown({ text }) {
     if (lastIdx < str.length) segs.push(str.slice(lastIdx));
     return segs.length > 0 ? segs : str;
   };
+  // Color-code CAN SLIM values: green for positive/acceleration, red for negative/deceleration
+  const colorVal = (text) => {
+    const num = parseFloat(text.replace(/[%,$B M]/g, ""));
+    if (isNaN(num)) return "#c8c8d8";
+    if (num >= 25) return "#2bb886";
+    if (num > 0) return "#60a5fa";
+    if (num < 0) return "#ef4444";
+    return "#c8c8d8";
+  };
+  const flushTable = (tableRows) => {
+    if (tableRows.length === 0) return;
+    const headers = tableRows[0];
+    const dataRows = tableRows.slice(2); // skip separator row
+    elements.push(
+      <div key={`tbl-${elements.length}`} style={{ overflowX: "auto", margin: "8px 0" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+          <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+            {headers.map((h, ci) => (
+              <th key={ci} style={{ padding: "4px 8px", color: "#888", fontWeight: 600, textAlign: ci === 0 ? "left" : "right", whiteSpace: "nowrap", fontSize: 10 }}>{h.trim()}</th>
+            ))}
+          </tr></thead>
+          <tbody>{dataRows.map((row, ri) => (
+            <tr key={ri} style={{ borderBottom: "1px solid #222230" }}>
+              {row.map((cell, ci) => {
+                const val = cell.trim();
+                return (
+                  <td key={ci} style={{ padding: "3px 8px", textAlign: ci === 0 ? "left" : "right", whiteSpace: "nowrap",
+                    color: ci === 0 ? "#e2e8f0" : colorVal(val), fontWeight: ci === 0 ? 600 : 400 }}>{val}</td>
+                );
+              })}
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    );
+  };
+  let tableRows = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    // Markdown table row detection
+    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+      const cells = line.split("|").slice(1, -1); // remove empty first/last from split
+      if (cells.every(c => /^[\s:-]+$/.test(c))) {
+        tableRows.push("SEP"); // separator row
+      } else {
+        tableRows.push(cells);
+      }
+      continue;
+    }
+    // Flush any accumulated table
+    if (tableRows.length >= 3) { flushList(); flushTable(tableRows); }
+    tableRows = [];
     if (line.startsWith("### ")) { flushList(); elements.push(<h4 key={i} style={{ color: "#e2e8f0", margin: "12px 0 4px", fontSize: 13 }}>{inlineFormat(line.slice(4), i)}</h4>); }
     else if (line.startsWith("## ")) { flushList(); elements.push(<h3 key={i} style={{ color: "#f1f5f9", margin: "16px 0 6px", fontSize: 14, borderBottom: "1px solid #2a2a3a", paddingBottom: 4 }}>{inlineFormat(line.slice(3), i)}</h3>); }
     else if (line.startsWith("# ")) { flushList(); elements.push(<h2 key={i} style={{ color: "#f8fafc", margin: "16px 0 8px", fontSize: 16 }}>{inlineFormat(line.slice(2), i)}</h2>); }
@@ -192,6 +242,7 @@ function SimpleMarkdown({ text }) {
     else if (line.trim() === "") { flushList(); elements.push(<div key={i} style={{ height: 6 }} />); }
     else { flushList(); elements.push(<p key={i} style={{ color: "#c8c8d8", fontSize: 12, margin: "2px 0", lineHeight: 1.5 }}>{inlineFormat(line, i)}</p>); }
   }
+  if (tableRows.length >= 3) { flushList(); flushTable(tableRows); }
   flushList();
   return <>{elements}</>;
 }

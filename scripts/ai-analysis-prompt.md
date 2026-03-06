@@ -88,7 +88,8 @@ Each tab is a markdown string. Use **only** these markdown features (the rendere
 - `**bold**` and `*italic*`
 - `- ` bullet lists
 - Blank lines for spacing
-- **NO** tables, links, images, or HTML
+- `| col | col |` markdown tables (supported — use in revenue tab)
+- **NO** links, images, or HTML
 
 #### Tab content requirements:
 
@@ -106,19 +107,44 @@ Each tab is a markdown string. Use **only** these markdown features (the rendere
 and specific actionable levels (buy above X, stop below Y).
 ```
 
-**revenue** (~200-400 words)
+**revenue** — CAN SLIM Quarterly + Annual data tables
+
+This tab MUST use markdown tables. Research the last 6 reported quarters plus the next estimate, and the last 3 fiscal years. Use the exact table format below. Color coding is automatic in the renderer (green ≥25%, blue >0%, red <0%).
+
 ```
-### Quarterly Revenue Progression
-- Specific quarterly numbers with YoY comparisons
+### Quarterly
 
-### Annual Revenue Trajectory
-- 3-4 year trend with growth rates
+| Metric | Q-6 | Q-5 | Q-4 | Q-3 | Q-2 | Q-1 | Est. |
+|--------|-----|-----|-----|-----|-----|-----|------|
+| EPS ($) | 0.43 | 0.60 | 0.62 | 0.67 | 0.76 | 0.80 | 0.79 |
+| EPS YoY % | 4.9% | 30.4% | 158.3% | 123.3% | 76.7% | 33.3% | 28% |
+| Sales ($) | 1.5B | 1.8B | 1.9B | 2.0B | 2.1B | 2.2B | 2.4B |
+| Sales YoY % | 6.9% | 27.4% | 63.3% | 57.6% | 36.8% | 22.1% | 26.7% |
+| Net Margin % | -44.6% | 11% | 9.4% | 9.7% | 91.7% | 17.9% | – |
 
-### Segment Breakdown
-- Revenue by business line/geography with mix percentages
+### Annual
 
-### Forward Guidance
-- Management guidance vs consensus with upside/downside
+| Metric | FY-2 | FY-1 | FY Est. |
+|--------|------|------|---------|
+| EPS ($) | -1.08 | -1.02 | 3.07 |
+| EPS YoY % | -464.4% | 5.6% | 400.2% |
+| Sales ($) | 5.5B | 5.8B | 8.2B |
+| Sales YoY % | -7% | 4.7% | 42.1% |
+| Net Margin % | -16.9% | -15.3% | 32.6% |
+```
+
+Use actual quarter-end dates as column headers (e.g., "Oct-24", "Jan-25"). Fill in real data from earnings reports. If a value is unavailable, use "–".
+
+### CAN SLIM Checklist (below the tables)
+
+After the tables, add a brief CAN SLIM assessment:
+
+```
+### CAN SLIM Assessment
+- **C (Current EPS)** — Is the latest quarter EPS accelerating? State the YoY % and trend
+- **A (Annual EPS)** — 3-year annual EPS growth rate. Is it 25%+?
+- **S (Sales)** — Is revenue accelerating quarter over quarter? Sales growth 25%+?
+- **Verdict** — How many C-A-N-S-L-I-M criteria does this stock pass? (e.g., "Passes 5/7 CAN SLIM criteria")
 ```
 
 **margins** (~200-400 words)
@@ -176,6 +202,6 @@ git push
 3. **Source recent data.** Search for earnings within the last 90 days. If no recent earnings, note the date of last report
 4. **Grade and RS come from the JSON.** Don't make these up — use the `grade` and `rs_rank` fields from dashboard_data.json
 5. **Market cap and change_pct come from the JSON.** Format market_cap as "$X.XB" or "$X.XM"
-6. **Tab content must render in SimpleMarkdown.** No tables, no links, no images, no HTML tags
+6. **Tab content must render in SimpleMarkdown.** No links, no images, no HTML tags. **Markdown tables ARE supported** — use them in the revenue tab
 7. **Aim for 35-50KB total JSON.** Each ticker should have ~5-7KB across all 5 tabs
 8. **Order tickers by verdict: BUY first, then HOLD, then AVOID.** Within each group, order by RS rank descending
