@@ -1303,11 +1303,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(true);
-  const [zvrOnly, setZvrOnly] = useState(false);
+  const [zvrOnly, setZvrOnly] = useState(true);
   const [minRS, setMinRS] = useState(0);
   const [burstMinRS, setBurstMinRS] = useState(0);
-  const [minChg, setMinChg] = useState(0); // min Chg% filter (0 = off)
-  const [minRVol, setMinRVol] = useState(0); // min RVol filter (0 = off)
+  const [minChg, setMinChg] = useState(4); // min Chg% filter (0 = off)
+  const [minRVol, setMinRVol] = useState(2); // min RVol filter (0 = off)
   const [scanFilters, setScanFilters] = useState(new Set());
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
