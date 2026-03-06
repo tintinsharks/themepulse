@@ -52,7 +52,9 @@ fi
 
 # ── Pull latest before running ──
 cd "$REPO_DIR"
+git stash --quiet 2>/dev/null
 git pull --rebase origin main || echo "⚠️  git pull failed — continuing with local state"
+git stash pop --quiet 2>/dev/null || true
 
 # ── Timestamp ──
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
