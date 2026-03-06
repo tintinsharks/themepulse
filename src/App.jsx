@@ -1723,8 +1723,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ fontSize: 10, color: minRVol > 0 ? "#a78bfa" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RV≥{minRVol.toFixed(1)}x</span>
-          <input type="range" min={0} max={5} step={0.5} value={minRVol} onChange={e => setMinRVol(Number(e.target.value))}
-            style={{ width: 60, height: 4, accentColor: "#a78bfa", cursor: "pointer" }} />
+          <input type="range" min={0} max={5} step={0.1} value={minRVol} onChange={e => setMinRVol(Math.round(Number(e.target.value) * 10) / 10)}
+            style={{ width: 70, height: 4, accentColor: "#a78bfa", cursor: "pointer" }} />
         </div>
         <span style={{ color: "#3a3a4a" }}>|</span>
         {[["small", "Small+"], ["mid", "Mid+"], ["large", "Large"]].map(([k, l]) => (
