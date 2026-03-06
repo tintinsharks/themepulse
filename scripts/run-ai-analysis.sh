@@ -14,6 +14,9 @@
 
 set -euo pipefail
 
+# ── Ensure nvm node/claude are on PATH (needed for launchd + non-interactive shells) ──
+export PATH="$HOME/.nvm/versions/node/v20.20.0/bin:/opt/homebrew/bin:$PATH"
+
 # ── Weekday guard — skip on Saturday/Sunday ──
 DOW=$(date +%u)  # 1=Mon … 7=Sun
 if [[ "$DOW" -ge 6 ]]; then
