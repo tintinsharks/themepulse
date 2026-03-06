@@ -1847,11 +1847,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 const cr = lv?.close_range;
                 // ORH boost: +2pp if holding above ORH, -2pp if below (nudges CR% trend arrow)
                 const orhBoost = (lv?.orh != null && lv?.price != null) ? (lv.price > lv.orh ? 2 : -2) : null;
-                const crTrend = persistTrend(persistRef.current.get(s.ticker), "cr", 3, orhBoost);
+                const readings = persistRef.current.get(s.ticker);
+                const crTrend = persistTrend(readings, "cr", 3, orhBoost);
                 const crColor = cr != null ? (cr >= 70 ? "#2bb886" : cr < 40 ? "#f87171" : "#686878") : "#3a3a4a";
                 const aboveOrh = lv?.orh != null && lv?.price != null && lv.price > lv.orh;
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", color: crColor }}
-                  title={lv?.orh != null ? `ORH: $${Number(lv.orh).toFixed(2)}${aboveOrh ? ' (above)' : ' (below)'}` : ''}>
+                  title={`${lv?.orh != null ? `ORH: $${Number(lv.orh).toFixed(2)}${aboveOrh ? ' (above)' : ' (below)'}` : ''}${readings ? ` | ${readings.length} readings` : ''}`}>
                   {cr != null ? `${Math.round(cr)}%` : '—'}
                   {crTrend && <span style={{ fontSize: 8, marginLeft: 2, color: crTrend === "up" ? "#2bb886" : crTrend === "down" ? "#f87171" : "#505060" }}>
                     {crTrend === "up" ? "▲" : crTrend === "down" ? "▼" : "─"}</span>}</td>;
