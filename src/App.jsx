@@ -106,6 +106,14 @@ const PATTERN_ABBREV = {
   double_bottom: "DB", high_tight_flag: "HTF", ascending_base: "AB",
   symmetrical_triangle: "ST", ipo_base: "IPO",
 };
+// ── SHORT SCAN TAGS ──
+const SHORT_TAG_COLORS = {
+  BD: "#f87171",  // Breakdown
+  DT: "#f97316",  // Distribution
+  WK: "#ef4444",  // Weak Fundamentals
+  LG: "#a78bfa",  // Laggard
+  MA: "#64748b",  // Below All MAs
+};
 const PatternTags = memo(function PatternTags({ patterns }) {
   if (!patterns || !patterns.length) return null;
   return patterns.map((p, i) => {
@@ -1442,8 +1450,19 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
   const [minDolVol, setMinDolVol] = useState(50); // in millions, default $50M
   const [showLeaders, setShowLeaders] = useState(false);
-  const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", or "ai"
+  const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  // Short Scan state
+  const [shortSort, setShortSort] = useState({ col: "change", dir: "asc" });
+  const [redOnly, setRedOnly] = useState(true);
+  const [maxChg, setMaxChg] = useState(-4);
+  const [belowMA, setBelowMA] = useState("50");     // "off" | "50" | "200" | "all"
+  const [maxRS, setMaxRS] = useState(30);
+  const [nearLow, setNearLow] = useState(false);
+  const [shortMinRVol, setShortMinRVol] = useState(1.5);
+  const [shortMinDolVol, setShortMinDolVol] = useState(50);
+  const [shortMcapFilter, setShortMcapFilter] = useState("small");
+  const [shortTagFilters, setShortTagFilters] = useState(new Set());
 
   // Fetch AI analysis data
   useEffect(() => {
@@ -1778,13 +1797,91 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
   }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, minChg, minRVol, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
 
+  // ── Short Scan candidates ──
+  const themeHealthMap = useMemo(() => {
+    const m = {};
+    if (themeHealth) themeHealth.forEach(h => { m[h.theme] = h; });
+    return m;
+  }, [themeHealth]);
+
+  const shortCandidates = useMemo(() => {
+    // Compute short-specific tags per stock
+    let list = stocks.filter(s => (s.price || 0) > 1 && (s.avg_dollar_vol_raw || 0) >= 5_000_000).map(s => {
+      const hits = [];
+      // BD (Breakdown): Below 50MA by >2%, and >15% off high
+      if (s.sma50_pct != null && s.sma50_pct < -2 && s.pct_from_high != null && s.pct_from_high < -15) hits.push("BD");
+      // DT (Distribution): Down >2% on heavy volume (projected RVol ≥ 2x)
+      const chg = s.change_pct ?? 0;
+      const rv = s.rel_volume;
+      const prv = rv != null ? projectedRVol(rv) : 0;
+      if (chg < -2 && prv >= 2) hits.push("DT");
+      // WK (Weak Fundamentals): Both EPS YoY and Sales YoY negative
+      const epsYoy = s.eps_yoy ?? s.eps_this_y;
+      const salesYoy = s.sales_yoy ?? s.sales_qq;
+      if (epsYoy != null && epsYoy < 0 && salesYoy != null && salesYoy < 0) hits.push("WK");
+      // LG (Laggard): RS ≤ 20 in a theme with RTS < 30
+      if ((s.rs_rank ?? 100) <= 20 && s.themes?.some(t => {
+        const h = themeHealthMap[t.theme];
+        return h && (h.rts ?? 100) < 30;
+      })) hits.push("LG");
+      // MA (Below All MAs): Below 20MA, 50MA, and 200MA
+      if (s.sma20_pct != null && s.sma20_pct < 0 && s.sma50_pct != null && s.sma50_pct < 0 && s.sma200_pct != null && s.sma200_pct < 0) hits.push("MA");
+
+      return { ...s, _shortHits: hits, _epsScore: stockMap[s.ticker]?._epsScore ?? null, _prv: prv };
+    });
+
+    // Filter: tag filters (AND logic)
+    if (shortTagFilters.size > 0) {
+      list = list.filter(s => {
+        const h = new Set(s._shortHits);
+        for (const f of shortTagFilters) { if (!h.has(f)) return false; }
+        return true;
+      });
+    }
+    // Red only
+    if (redOnly) list = list.filter(s => (s.change_pct ?? 0) < 0);
+    // Max change (e.g., -4 means only show stocks ≤ -4%)
+    if (maxChg < 0) list = list.filter(s => (s.change_pct ?? 0) <= maxChg);
+    // Below MA filter
+    if (belowMA === "50") list = list.filter(s => s.sma50_pct != null && s.sma50_pct < 0);
+    else if (belowMA === "200") list = list.filter(s => s.sma200_pct != null && s.sma200_pct < 0);
+    else if (belowMA === "all") list = list.filter(s => s.sma20_pct != null && s.sma20_pct < 0 && s.sma50_pct != null && s.sma50_pct < 0 && s.sma200_pct != null && s.sma200_pct < 0);
+    // Max RS
+    if (maxRS < 99) list = list.filter(s => (s.rs_rank ?? 100) <= maxRS);
+    // Near Low (<10% from 52-week low)
+    if (nearLow) list = list.filter(s => (s.above_52w_low ?? 100) <= 10);
+    // RVol filter
+    if (shortMinRVol > 0) list = list.filter(s => s._prv >= shortMinRVol);
+    // Market cap
+    if (shortMcapFilter === "mid") list = list.filter(s => (s.market_cap_raw || 0) >= 2_000_000_000);
+    if (shortMcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
+    // $Vol
+    if (shortMinDolVol > 0) list = list.filter(s => (s.avg_dollar_vol_raw || 0) >= shortMinDolVol * 1_000_000);
+    // Theme filter
+    if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
+
+    // Sort
+    const gradeVal = g => ({"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1})[g] ?? null;
+    const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
+    const sorters = {
+      change: safe(s => s.change_pct), rs: safe(s => s.rs_rank), grade: safe(s => gradeVal(s.grade)),
+      rvol: safe(s => s._prv), vol: safe(s => s.avg_volume_raw), dvol: safe(s => s.avg_dollar_vol_raw),
+      adr: safe(s => s.adr_pct), eps_score: safe(s => s._epsScore), ret3m: safe(s => s.return_3m),
+      fromlo: safe(s => s.above_52w_low), si: safe(s => s.short_float), hits: safe(s => s._shortHits.length),
+    };
+    const sorted = list.sort(sorters[shortSort.col] || sorters.change);
+    // Default "asc" for change means most negative first (smallest value first) — reverse the default desc sort
+    return shortSort.dir === "asc" ? sorted.reverse() : sorted;
+  }, [stocks, stockMap, themeHealthMap, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
+
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
     if (scanTab === "ep") return;
+    if (scanTab === "short") { if (onVisibleTickers) onVisibleTickers(shortCandidates.map(s => s.ticker)); return; }
     const burstTickers = burstStocks.map(b => b.ticker);
     const candidateTickers = candidates.map(s => s.ticker);
     if (onVisibleTickers) onVisibleTickers(scanTab === "burst" ? burstTickers : [...candidateTickers, ...burstTickers.filter(t => !candidateTickers.includes(t))]);
-  }, [candidates, burstStocks, scanTab, onVisibleTickers]);
+  }, [candidates, burstStocks, shortCandidates, scanTab, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
     const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, "9M": 0 };
@@ -1824,11 +1921,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "ai" ? "#121218" : "transparent", color: scanTab === "ai" ? "#22d3ee" : "#686878" }}>
           AI Analysis
         </button>
+        <button onClick={() => setScanTab("short")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "short" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "short" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "short" ? "#121218" : "transparent", color: scanTab === "short" ? "#f87171" : "#686878" }}>
+          Short Scan <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "short" ? "#f87171" : "#505060" }}>{shortCandidates.length}</span>
+        </button>
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
-      {/* Shared filters — apply to scan + burst tabs (EP/AI have their own content) */}
-      {scanTab !== "ep" && scanTab !== "ai" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+      {/* Shared filters — apply to scan + burst tabs (EP/AI/Short have their own content) */}
+      {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — scan tab gets all, burst tab gets pattern + 9M */}
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
@@ -2186,6 +2288,183 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </table>
         </div>
       )}
+      {/* ── Short Scan tab ── */}
+      {scanTab === "short" && (<>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        {/* Short tag filter pills */}
+        {[["BD", "Breakdown", "#f87171"], ["DT", "Distribution", "#f97316"], ["WK", "Weak Fundamentals", "#ef4444"], ["LG", "Laggard", "#a78bfa"], ["MA", "Below All MAs", "#64748b"]].map(([tag, label, color]) => {
+          const active = shortTagFilters.has(tag);
+          return (
+            <button key={tag} onClick={() => setShortTagFilters(prev => {
+              const next = new Set(prev);
+              if (next.has(tag)) next.delete(tag); else next.add(tag);
+              return next;
+            })} title={label} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+              border: `1px solid ${active ? color : "#3a3a4a"}`,
+              background: active ? `${color}20` : "transparent",
+              color: active ? color : "#686878" }}>
+              {tag}
+            </button>
+          );
+        })}
+        {shortTagFilters.size > 0 && (
+          <button onClick={() => setShortTagFilters(new Set())} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+            border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
+        )}
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        <span style={{ color: "#f87171", fontWeight: 600, fontSize: 12 }}>{shortCandidates.length}</span>
+        {/* Toggles */}
+        <button onClick={() => setRedOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: redOnly ? "1px solid #f87171" : "1px solid #3a3a4a",
+          background: redOnly ? "#f8717120" : "transparent", color: redOnly ? "#f87171" : "#787888" }}>Chg &lt;0%</button>
+        <button onClick={() => setShortMinRVol(p => p > 0 ? 0 : 1.5)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: shortMinRVol > 0 ? "1px solid #a78bfa" : "1px solid #3a3a4a",
+          background: shortMinRVol > 0 ? "#a78bfa20" : "transparent", color: shortMinRVol > 0 ? "#a78bfa" : "#787888" }}>RVol 1.5x+</button>
+        <button onClick={() => setNearLow(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: nearLow ? "1px solid #f97316" : "1px solid #3a3a4a",
+          background: nearLow ? "#f9731620" : "transparent", color: nearLow ? "#f97316" : "#787888" }}>Near Low (&lt;10%)</button>
+        {/* RS slider (inverted — max RS) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10, color: maxRS < 99 ? "#f87171" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≤{maxRS}</span>
+          <input type="range" min={5} max={99} step={5} value={maxRS} onChange={e => setMaxRS(Number(e.target.value))}
+            style={{ width: 60, height: 4, accentColor: "#f87171", cursor: "pointer" }} />
+        </div>
+        {/* Max change slider */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10, color: maxChg < 0 ? "#f87171" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≤{maxChg}%</span>
+          <input type="range" min={-20} max={0} step={1} value={maxChg} onChange={e => setMaxChg(Number(e.target.value))}
+            style={{ width: 60, height: 4, accentColor: "#f87171", cursor: "pointer" }} />
+        </div>
+        {/* Below MA selector */}
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        {[["off", "Any MA"], ["50", "<50MA"], ["200", "<200MA"], ["all", "<All MA"]].map(([k, l]) => (
+          <button key={k} onClick={() => setBelowMA(k)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
+            border: belowMA === k ? "1px solid #64748b" : "1px solid #3a3a4a",
+            background: belowMA === k ? "#64748b20" : "transparent", color: belowMA === k ? "#94a3b8" : "#686878" }}>{l}</button>
+        ))}
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        {/* Market cap */}
+        {[["small", "Small+"], ["mid", "Mid+"], ["large", "Large"]].map(([k, l]) => (
+          <button key={k} onClick={() => setShortMcapFilter(k)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
+            border: shortMcapFilter === k ? "1px solid #60a5fa" : "1px solid #3a3a4a",
+            background: shortMcapFilter === k ? "#60a5fa20" : "transparent", color: shortMcapFilter === k ? "#60a5fa" : "#686878" }}>{l}</button>
+        ))}
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        {/* $Vol */}
+        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span style={{ fontSize: 10, color: shortMinDolVol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥</span>
+          <input type="text" value={shortMinDolVol || ""} placeholder="0"
+            onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setShortMinDolVol(v === "" ? 0 : Number(v)); }}
+            style={{ width: 32, padding: "2px 4px", borderRadius: 4, fontSize: 10, fontFamily: "monospace", textAlign: "right",
+              border: shortMinDolVol > 0 ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+              background: shortMinDolVol > 0 ? "#fbbf2410" : "transparent", color: shortMinDolVol > 0 ? "#fbbf24" : "#686878", outline: "none" }} />
+          <span style={{ fontSize: 9, color: "#686878" }}>M</span>
+        </div>
+        {activeTheme && (
+          <button onClick={() => setActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
+            {activeTheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize: 10, color: "#505060", marginBottom: 8 }}>Short candidates — stocks breaking down, lagging, below MAs, weak fundamentals</div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+          {[["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"], ["Chg%", "change"], ["Vol", "vol"],
+            ["RVol", "rvol"], ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["3M%", "ret3m"],
+            ["FrLo%", "fromlo"], ["SI%", "si"], ["Theme", "theme"], ["Sub", "subtheme"]].map(([h, sk]) => (
+            <th key={h} onClick={sk ? () => setShortSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: sk === "change" ? "asc" : "desc" }) : undefined}
+              style={{ padding: "6px 8px", color: shortSort.col === sk ? "#f87171" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
+                cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+              {h}{shortSort.col === sk ? (shortSort.dir === "desc" ? " ▼" : " ▲") : ""}</th>
+          ))}
+        </tr></thead>
+        <tbody>{shortCandidates.map(s => {
+          const isActive = s.ticker === activeTicker;
+          const inPortfolio = portfolio?.includes(s.ticker);
+          const inWatchlist = watchlist?.includes(s.ticker);
+          return (
+            <tr key={s.ticker} data-ticker={s.ticker}
+              onClick={() => onTickerClick(s.ticker)}
+              style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
+                background: isActive ? "rgba(248, 113, 113, 0.10)" : "transparent" }}>
+              {/* Ticker */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#f87171" : "#a8a8b8", fontWeight: 500 }}>
+                <Tk ticker={s.ticker} />
+                <span style={{ fontSize: 9, color: "#505060", fontWeight: 400, marginLeft: 4 }}>{s.company}</span>
+              </td>
+              {/* Tags */}
+              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                {s._shortHits.map((tag, i) => (
+                  <span key={i} style={{ display: "inline-block", padding: "1px 4px", borderRadius: 3, fontSize: 8, fontWeight: 700,
+                    color: SHORT_TAG_COLORS[tag] || "#9090a0", background: (SHORT_TAG_COLORS[tag] || "#9090a0") + "20",
+                    border: `1px solid ${(SHORT_TAG_COLORS[tag] || "#9090a0")}40`, marginRight: 2 }}>{tag}</span>
+                ))}
+              </td>
+              {/* Grade */}
+              <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+              {/* RS — inverted colors: low RS = red (bearish confirmation) */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: (s.rs_rank ?? 99) <= 20 ? "#f87171" : (s.rs_rank ?? 99) <= 40 ? "#f97316" : "#9090a0" }}>{s.rs_rank ?? "—"}</td>
+              {/* Chg% — inverted: big drops = red */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+                color: (s.change_pct ?? 0) <= -5 ? "#f87171" : (s.change_pct ?? 0) < 0 ? "#f97316" : (s.change_pct ?? 0) > 0 ? "#2bb886" : "#9090a0" }}>
+                {s.change_pct != null ? `${s.change_pct > 0 ? '+' : ''}${Number(s.change_pct).toFixed(2)}%` : '—'}</td>
+              {/* Vol */}
+              {(() => {
+                const rv = s.rel_volume;
+                const curVol = s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null;
+                const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                  color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
+                  {curVol != null ? fmt(curVol) : '—'}</td>;
+              })()}
+              {/* RVol */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s._prv >= 2 ? "#c084fc" : s._prv >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
+                {s.rel_volume != null ? `${Number(s.rel_volume).toFixed(1)}x` : '—'}</td>
+              {/* $Vol */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
+                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
+              {/* ADR% */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              {/* EPS — inverted: low = red */}
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: (s._epsScore ?? 99) <= 20 ? "#f87171" : (s._epsScore ?? 99) <= 40 ? "#f97316" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
+                {s._epsScore ?? "—"}</td>
+              {/* 3M% */}
+              <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
+              {/* FrLo% — distance from 52-week low */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: (s.above_52w_low ?? 100) <= 5 ? "#f87171" : (s.above_52w_low ?? 100) <= 15 ? "#f97316" : "#9090a0" }}>
+                {s.above_52w_low != null ? `${s.above_52w_low}%` : '—'}</td>
+              {/* SI% — short interest */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: (s.short_float ?? 0) >= 20 ? "#f87171" : (s.short_float ?? 0) >= 10 ? "#f97316" : s.short_float != null ? "#686878" : "#3a3a4a" }}>
+                {s.short_float != null ? `${s.short_float.toFixed(1)}%` : '—'}</td>
+              {/* Theme */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                cursor: s.themes?.[0]?.theme ? "pointer" : "default" }}
+                onClick={e => { if (s.themes?.[0]?.theme) { e.stopPropagation(); setActiveTheme(s.themes[0].theme); } }}
+                title={s.themes?.[0]?.theme}>{s.themes?.[0]?.theme || "—"}</td>
+              {/* Subtheme */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={s.themes?.[0]?.subtheme}>{s.themes?.[0]?.subtheme || "—"}</td>
+            </tr>
+          );
+        })}</tbody>
+      </table>
+      {shortCandidates.length === 0 && (
+        <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: "#686878", fontWeight: 600, marginBottom: 4 }}>No short candidates match current filters</div>
+          <div style={{ fontSize: 11, color: "#505060" }}>Try relaxing RS, change%, or MA filters</div>
+        </div>
+      )}
+      </>)}
       {scanTab === "ep" && (
         <EpisodicPivots stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker}
           onVisibleTickers={onVisibleTickers} earningsMovers={earningsMovers} pmErTickers={pmErTickers} ahErTickers={ahErTickers} headlinesMap={headlinesMap}
