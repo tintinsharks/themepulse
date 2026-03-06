@@ -196,6 +196,80 @@ function SimpleMarkdown({ text }) {
   return <>{elements}</>;
 }
 
+// ── TabbedAnalysis: deep per-ticker analysis with 5 tabs ──
+function TabbedAnalysis({ data, SimpleMarkdownComponent }) {
+  const [expandedTicker, setExpandedTicker] = useState(null);
+  const [activeTab, setActiveTab] = useState({});
+  const tabs = [
+    { key: "key_takeaways", label: "Key Takeaways" },
+    { key: "revenue", label: "Revenue" },
+    { key: "margins", label: "Margins" },
+    { key: "thesis", label: "Thesis" },
+    { key: "risks", label: "Risks" },
+  ];
+  const verdictColor = v => v === "BUY" ? "#2bb886" : v === "HOLD" ? "#e6a627" : "#ef4444";
+  const verdictBg = v => v === "BUY" ? "rgba(43,184,134,0.12)" : v === "HOLD" ? "rgba(230,166,39,0.12)" : "rgba(239,68,68,0.12)";
+
+  if (!data?.tickers?.length) return <div style={{ textAlign: "center", color: "#505060", padding: "40px 0", fontSize: 12 }}>No AI analysis available yet.</div>;
+
+  return (
+    <div>
+      {/* Summary header */}
+      {data.content && (
+        <div style={{ marginBottom: 12 }}>
+          <SimpleMarkdownComponent text={data.content} />
+        </div>
+      )}
+      {/* Ticker cards */}
+      {data.tickers.map((t, idx) => {
+        const isOpen = expandedTicker === t.ticker;
+        const curTab = activeTab[t.ticker] || "key_takeaways";
+        return (
+          <div key={t.ticker} style={{ marginBottom: 8, border: "1px solid #2a2a3a", borderRadius: 8, background: "#12121e", overflow: "hidden" }}>
+            {/* Card header */}
+            <div onClick={() => { setExpandedTicker(isOpen ? null : t.ticker); if (!activeTab[t.ticker]) setActiveTab(p => ({...p, [t.ticker]: "key_takeaways"})); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer",
+                background: isOpen ? "#1a1a2e" : "#14141f", borderBottom: isOpen ? "1px solid #2a2a3a" : "none" }}>
+              <span style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 14, letterSpacing: 0.5 }}>{t.ticker}</span>
+              <span style={{ color: "#707080", fontSize: 11, flex: 1 }}>{t.company}</span>
+              {t.change_pct != null && <span style={{ color: t.change_pct >= 0 ? "#2bb886" : "#ef4444", fontSize: 11, fontWeight: 600 }}>{t.change_pct >= 0 ? "+" : ""}{t.change_pct.toFixed(1)}%</span>}
+              {t.market_cap && <span style={{ color: "#888", fontSize: 10 }}>{t.market_cap}</span>}
+              {t.grade && <span style={{ color: "#22d3ee", fontSize: 10, fontWeight: 600, border: "1px solid #22d3ee33", borderRadius: 3, padding: "1px 5px" }}>{t.grade}</span>}
+              <span style={{ color: verdictColor(t.verdict), background: verdictBg(t.verdict), fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, letterSpacing: 0.5 }}>{t.verdict}</span>
+              <span style={{ color: "#505060", fontSize: 10, transform: isOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>▼</span>
+            </div>
+            {/* Expanded content with tabs */}
+            {isOpen && (
+              <div>
+                {/* Tab bar */}
+                <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #2a2a3a", background: "#16162a" }}>
+                  {tabs.map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(p => ({...p, [t.ticker]: tab.key}))}
+                      style={{ flex: 1, padding: "8px 4px", fontSize: 10, fontWeight: curTab === tab.key ? 700 : 400, cursor: "pointer",
+                        color: curTab === tab.key ? "#22d3ee" : "#707080", background: "transparent", border: "none",
+                        borderBottom: curTab === tab.key ? "2px solid #22d3ee" : "2px solid transparent",
+                        transition: "all 0.15s" }}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Tab content */}
+                <div style={{ padding: "12px 14px", maxHeight: "50vh", overflowY: "auto" }}>
+                  {t.tabs?.[curTab] ? (
+                    <SimpleMarkdownComponent text={t.tabs[curTab]} />
+                  ) : (
+                    <div style={{ color: "#505060", fontSize: 11, textAlign: "center", padding: 20 }}>No data for this section.</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Persistence trend: compare avg of first N vs last N readings ──
 function persistTrend(readings, field, threshold, orhBoost) {
   if (!readings || readings.length < 10) return null;
@@ -2116,7 +2190,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               </div>
             );
           })()}
-          {aiAnalysis?.content ? (
+          {aiAnalysis?.tickers ? (
+            <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} />
+          ) : aiAnalysis?.content ? (
             <SimpleMarkdown text={aiAnalysis.content} />
           ) : (
             <div style={{ textAlign: "center", color: "#505060", padding: "40px 0", fontSize: 12 }}>No AI analysis available yet.</div>
