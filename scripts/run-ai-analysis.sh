@@ -96,7 +96,7 @@ else
   cd "$REPO_DIR"
   claude --print \
     --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
-    --prompt-file "$PROMPT_FILE"
+    "$(cat "$PROMPT_FILE")"
 
   echo ""
 fi
