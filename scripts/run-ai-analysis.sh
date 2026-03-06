@@ -89,14 +89,49 @@ if [[ "$COUNT" == "0" ]]; then
 }
 EOJSON
 else
-  echo "🔬 Launching Claude Code to research $COUNT tickers..."
-  echo ""
+  # ── Detect full vs incremental mode ──
+  # Compare current filtered tickers against existing ai_analysis.json
+  UPDATE_PROMPT_FILE="$REPO_DIR/scripts/ai-analysis-update-prompt.md"
+  RUN_MODE=$(python3 -c "
+import json, sys
+# Current filtered tickers
+with open('$REPO_DIR/public/dashboard_data.json') as f:
+    d = json.load(f)
+current = sorted(s['ticker'] for s in d.get('stocks', [])
+    if s.get('change_pct', 0) > 0
+    and s.get('change_pct', 0) >= 4
+    and s.get('rel_volume', 0) >= 1.5
+    and s.get('market_cap_raw', 0) >= 300000000
+    and s.get('avg_dollar_vol_raw', 0) >= 50000000)
+# Existing analysis tickers
+try:
+    with open('$OUTPUT_FILE') as f:
+        existing = json.load(f)
+    prev = sorted(t['ticker'] for t in existing.get('tickers', []))
+except:
+    prev = []
+# New tickers not in previous analysis
+new_tickers = [t for t in current if t not in prev]
+if prev and not new_tickers:
+    print('update')
+else:
+    print('full')
+" 2>/dev/null || echo "full")
 
-  # ── Run Claude Code with the prompt ──
   cd "$REPO_DIR"
-  claude --print \
-    --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
-    "$(cat "$PROMPT_FILE")"
+  if [[ "$RUN_MODE" == "update" ]]; then
+    echo "♻️  Same tickers as last run — incremental price-action update only"
+    echo ""
+    claude --print \
+      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
+      "$(cat "$UPDATE_PROMPT_FILE")"
+  else
+    echo "🔬 New tickers detected — full research for $COUNT tickers..."
+    echo ""
+    claude --print \
+      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
+      "$(cat "$PROMPT_FILE")"
+  fi
 
   echo ""
 fi
