@@ -1615,7 +1615,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
-    ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rvol"], ["CR%", "cr"],
+    ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"],
     ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
