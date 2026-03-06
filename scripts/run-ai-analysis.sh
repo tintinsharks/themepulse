@@ -122,15 +122,13 @@ else:
   if [[ "$RUN_MODE" == "update" ]]; then
     echo "♻️  Same tickers as last run — incremental price-action update only"
     echo ""
-    claude --print \
-      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
-      "$(cat "$UPDATE_PROMPT_FILE")"
+    cat "$UPDATE_PROMPT_FILE" | claude --print \
+      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep"
   else
     echo "🔬 New tickers detected — full research for $COUNT tickers..."
     echo ""
-    claude --print \
-      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
-      "$(cat "$PROMPT_FILE")"
+    cat "$PROMPT_FILE" | claude --print \
+      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep"
   fi
 
   echo ""
