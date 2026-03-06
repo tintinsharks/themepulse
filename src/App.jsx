@@ -157,6 +157,45 @@ function projectedRVol(rv) {
   return frac > 0 ? rv / frac : rv;
 }
 
+// ── SimpleMarkdown: lightweight markdown→JSX for AI analysis tab ──
+function SimpleMarkdown({ text }) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  const elements = [];
+  let listItems = [];
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(<ul key={`ul-${elements.length}`} style={{ margin: "4px 0 8px 16px", padding: 0 }}>{listItems}</ul>);
+      listItems = [];
+    }
+  };
+  const inlineFormat = (str, key) => {
+    const rx = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+    const segs = [];
+    let lastIdx = 0, m;
+    while ((m = rx.exec(str)) !== null) {
+      if (m.index > lastIdx) segs.push(str.slice(lastIdx, m.index));
+      if (m[2]) segs.push(<strong key={`${key}-b${m.index}`}>{m[2]}</strong>);
+      else if (m[3]) segs.push(<em key={`${key}-i${m.index}`}>{m[3]}</em>);
+      else if (m[4]) segs.push(<code key={`${key}-c${m.index}`} style={{ background: "#1e1e2e", padding: "1px 4px", borderRadius: 3, fontSize: 11 }}>{m[4]}</code>);
+      lastIdx = m.index + m[0].length;
+    }
+    if (lastIdx < str.length) segs.push(str.slice(lastIdx));
+    return segs.length > 0 ? segs : str;
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith("### ")) { flushList(); elements.push(<h4 key={i} style={{ color: "#e2e8f0", margin: "12px 0 4px", fontSize: 13 }}>{inlineFormat(line.slice(4), i)}</h4>); }
+    else if (line.startsWith("## ")) { flushList(); elements.push(<h3 key={i} style={{ color: "#f1f5f9", margin: "16px 0 6px", fontSize: 14, borderBottom: "1px solid #2a2a3a", paddingBottom: 4 }}>{inlineFormat(line.slice(3), i)}</h3>); }
+    else if (line.startsWith("# ")) { flushList(); elements.push(<h2 key={i} style={{ color: "#f8fafc", margin: "16px 0 8px", fontSize: 16 }}>{inlineFormat(line.slice(2), i)}</h2>); }
+    else if (line.startsWith("- ") || line.startsWith("* ")) { listItems.push(<li key={i} style={{ color: "#c8c8d8", fontSize: 12, marginBottom: 2 }}>{inlineFormat(line.slice(2), i)}</li>); }
+    else if (line.trim() === "") { flushList(); elements.push(<div key={i} style={{ height: 6 }} />); }
+    else { flushList(); elements.push(<p key={i} style={{ color: "#c8c8d8", fontSize: 12, margin: "2px 0", lineHeight: 1.5 }}>{inlineFormat(line, i)}</p>); }
+  }
+  flushList();
+  return <>{elements}</>;
+}
+
 // ── Persistence trend: compare avg of first N vs last N readings ──
 function persistTrend(readings, field, threshold, orhBoost) {
   if (!readings || readings.length < 10) return null;
@@ -1275,7 +1314,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
   const [minDolVol, setMinDolVol] = useState(50); // in millions, default $50M
   const [showLeaders, setShowLeaders] = useState(false);
-  const [scanTab, setScanTab] = useState("scan"); // "scan" or "burst"
+  const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", or "ai"
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+
+  // Fetch AI analysis data
+  useEffect(() => {
+    fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setAiAnalysis(d); }).catch(() => {});
+  }, []);
 
   // Persistence accumulator — tracks intraday readings per ticker for trend arrows
   const persistRef = useRef(new Map()); // Map<ticker, [{ts, chg, prv, cr, price}]>
@@ -1646,11 +1691,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "ep" ? "#121218" : "transparent", color: scanTab === "ep" ? "#c084fc" : "#686878" }}>
           EP Catalyst
         </button>
+        <button onClick={() => setScanTab("ai")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "ai" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "ai" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "ai" ? "#121218" : "transparent", color: scanTab === "ai" ? "#22d3ee" : "#686878" }}>
+          AI Analysis
+        </button>
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
-      {/* Shared filters — apply to scan + burst tabs (EP has its own filter bar) */}
-      {scanTab !== "ep" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+      {/* Shared filters — apply to scan + burst tabs (EP/AI have their own content) */}
+      {scanTab !== "ep" && scanTab !== "ai" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — scan tab gets all, burst tab gets pattern + 9M */}
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
@@ -2016,6 +2066,62 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
           liveThemeData={externalLiveData} portfolio={portfolio} watchlist={watchlist}
           pipelineMeta={pipelineMeta} marketSession={marketSession} />
+      )}
+      {scanTab === "ai" && (
+        <div style={{ padding: "8px 4px", maxHeight: "70vh", overflowY: "auto" }}>
+          {/* Schedule status bar */}
+          {(() => {
+            const now = new Date();
+            const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+            const day = et.getDay(); // 0=Sun
+            const h = et.getHours();
+            const m = et.getMinutes();
+            const minsNow = h * 60 + m;
+            const schedStart = 8 * 60, schedEnd = 17 * 60; // 8am-5pm ET
+            const isWeekday = day >= 1 && day <= 5;
+            // Find next run
+            let nextLabel;
+            if (isWeekday && minsNow < schedEnd) {
+              const nextHour = minsNow < schedStart ? schedStart : (Math.floor(minsNow / 60) + 1) * 60;
+              if (nextHour <= schedEnd) {
+                const diff = nextHour - minsNow;
+                nextLabel = diff <= 60 ? `~${diff}m` : `~${Math.floor(diff / 60)}h ${diff % 60}m`;
+              } else { nextLabel = "Mon 8:00 AM"; }
+            } else if (isWeekday && minsNow >= schedEnd) {
+              nextLabel = day === 5 ? "Mon 8:00 AM" : "Tomorrow 8:00 AM";
+            } else {
+              nextLabel = day === 0 ? "Mon 8:00 AM" : "Mon 8:00 AM";
+            }
+            // Last run age
+            let lastLabel = "—";
+            if (aiAnalysis?.updated_at) {
+              const ago = Math.floor((now - new Date(aiAnalysis.updated_at)) / 60000);
+              if (ago < 1) lastLabel = "just now";
+              else if (ago < 60) lastLabel = `${ago}m ago`;
+              else if (ago < 1440) lastLabel = `${Math.floor(ago / 60)}h ${ago % 60}m ago`;
+              else lastLabel = `${Math.floor(ago / 1440)}d ago`;
+            }
+            const isActive = isWeekday && minsNow >= schedStart && minsNow < schedEnd;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, padding: "6px 10px",
+                background: "#1a1a2a", borderRadius: 6, border: "1px solid #2a2a3a", fontSize: 10 }}>
+                <span style={{ color: isActive ? "#2bb886" : "#686878" }}>{isActive ? "●" : "○"} {isActive ? "Live" : "Idle"}</span>
+                <span style={{ color: "#3a3a4a" }}>|</span>
+                <span style={{ color: "#888" }}>Last: <span style={{ color: "#c8c8d8" }}>{lastLabel}</span></span>
+                <span style={{ color: "#3a3a4a" }}>|</span>
+                <span style={{ color: "#888" }}>Next: <span style={{ color: "#22d3ee" }}>{nextLabel}</span></span>
+                <span style={{ color: "#3a3a4a" }}>|</span>
+                <span style={{ color: "#505060" }}>Hourly 8a–5p ET, weekdays</span>
+                {aiAnalysis?.filters && <><span style={{ color: "#3a3a4a" }}>|</span><span style={{ color: "#22d3ee" }}>{aiAnalysis.filters}</span></>}
+              </div>
+            );
+          })()}
+          {aiAnalysis?.content ? (
+            <SimpleMarkdown text={aiAnalysis.content} />
+          ) : (
+            <div style={{ textAlign: "center", color: "#505060", padding: "40px 0", fontSize: 12 }}>No AI analysis available yet.</div>
+          )}
+        </div>
       )}
     </div>
     {/* Theme Leaders side panel */}
