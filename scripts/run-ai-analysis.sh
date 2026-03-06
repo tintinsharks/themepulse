@@ -170,14 +170,14 @@ for line in sys.stdin:
     echo "♻️  Same tickers as last run — incremental price-action update only"
     echo ""
     cat "$UPDATE_PROMPT_FILE" | claude --print \
-      --output-format stream-json \
+      --output-format stream-json --verbose \
       --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
       | progress_filter
   else
     echo "🔬 New tickers detected — full research for $COUNT tickers..."
     echo ""
     cat "$PROMPT_FILE" | claude --print \
-      --output-format stream-json \
+      --output-format stream-json --verbose \
       --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
       | progress_filter
   fi
