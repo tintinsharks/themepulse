@@ -121,16 +121,65 @@ else:
 " 2>/dev/null || echo "full")
 
   cd "$REPO_DIR"
+
+  # ── Progress filter: parse stream-json and show live status ──
+  progress_filter() {
+    python3 -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        msg = json.loads(line)
+    except:
+        continue
+    mtype = msg.get('type', '')
+    if mtype == 'assistant' and msg.get('message', {}).get('content'):
+        for block in msg['message']['content']:
+            if block.get('type') == 'tool_use':
+                name = block.get('name', '')
+                inp = block.get('input', {})
+                if name == 'WebSearch':
+                    print(f'  🔍 Searching: {inp.get(\"query\", \"\")[:80]}', flush=True)
+                elif name == 'WebFetch':
+                    url = inp.get('url', '')
+                    print(f'  🌐 Fetching: {url[:80]}', flush=True)
+                elif name == 'Read':
+                    print(f'  📖 Reading: {inp.get(\"file_path\", \"\").split(\"/\")[-1]}', flush=True)
+                elif name == 'Write':
+                    print(f'  ✏️  Writing: {inp.get(\"file_path\", \"\").split(\"/\")[-1]}', flush=True)
+                elif name == 'Bash':
+                    cmd = inp.get('command', '')[:60]
+                    print(f'  💻 Running: {cmd}', flush=True)
+                elif name == 'Grep':
+                    print(f'  🔎 Grep: {inp.get(\"pattern\", \"\")[:60]}', flush=True)
+            elif block.get('type') == 'text':
+                text = block.get('text', '').strip()
+                if text and len(text) < 200:
+                    print(f'  💬 {text[:120]}', flush=True)
+    elif mtype == 'result':
+        cost = msg.get('cost_usd', 0)
+        duration = msg.get('duration_ms', 0)
+        mins = duration / 60000
+        print(f'  ✅ Done — {mins:.1f}m, \${cost:.2f}', flush=True)
+"
+  }
+
   if [[ "$RUN_MODE" == "update" ]]; then
     echo "♻️  Same tickers as last run — incremental price-action update only"
     echo ""
     cat "$UPDATE_PROMPT_FILE" | claude --print \
-      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep"
+      --output-format stream-json \
+      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
+      | progress_filter
   else
     echo "🔬 New tickers detected — full research for $COUNT tickers..."
     echo ""
     cat "$PROMPT_FILE" | claude --print \
-      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep"
+      --output-format stream-json \
+      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
+      | progress_filter
   fi
 
   echo ""
