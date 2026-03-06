@@ -137,15 +137,32 @@ Use actual quarter-end dates as column headers (e.g., "Oct-24", "Jan-25"). Fill 
 
 ### CAN SLIM Checklist (below the tables)
 
-After the tables, add a brief CAN SLIM assessment:
+After the tables, add the full 7-criteria CAN SLIM assessment. Use a PASS/FAIL table:
 
 ```
 ### CAN SLIM Assessment
-- **C (Current EPS)** — Is the latest quarter EPS accelerating? State the YoY % and trend
-- **A (Annual EPS)** — 3-year annual EPS growth rate. Is it 25%+?
-- **S (Sales)** — Is revenue accelerating quarter over quarter? Sales growth 25%+?
-- **Verdict** — How many C-A-N-S-L-I-M criteria does this stock pass? (e.g., "Passes 5/7 CAN SLIM criteria")
+
+| Criteria | Score | Detail |
+|----------|-------|--------|
+| C - Current Quarterly EPS | PASS | +76.7% YoY, accelerating 3 of last 4 quarters |
+| A - Annual Earnings Growth | PASS | 3-yr EPS CAGR 45%, ROE 28% |
+| N - New Product/Price High | PASS | Within 5% of 52-week high, new AI chip launch |
+| S - Supply/Demand | PASS | Float 45M shares, vol surge 4x avg on breakout |
+| L - Leader or Laggard | PASS | RS rank 92, #1 in semiconductor group |
+| I - Institutional Sponsorship | FAIL | Inst ownership 35%, declining last 2 quarters |
+| M - Market Direction | PASS | S&P above 50-day, market in confirmed uptrend |
+
+**Score: 6/7 CAN SLIM criteria passed**
 ```
+
+Criteria guidelines:
+- **C** — PASS if latest quarter EPS YoY ≥ 25% and accelerating vs prior quarters
+- **A** — PASS if annual EPS growth ≥ 25% over 3 years, ROE ≥ 17%
+- **N** — PASS if within 15% of 52-week high OR has a significant new catalyst (product, contract, management change)
+- **S** — PASS if float is reasonable for its cap size AND recent volume shows accumulation (up days on heavy vol)
+- **L** — PASS if RS rank ≥ 80 (from dashboard_data.json `rs_rank` field)
+- **I** — PASS if institutional ownership is rising. Search for recent 13F filings or fund activity
+- **M** — PASS if broad market (S&P 500) is in a confirmed uptrend (above 50-day MA). This is the same for all tickers on a given day
 
 **margins** (~200-400 words)
 ```

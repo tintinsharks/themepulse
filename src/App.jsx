@@ -185,7 +185,10 @@ function SimpleMarkdown({ text }) {
   };
   // Color-code CAN SLIM values: green for positive/acceleration, red for negative/deceleration
   const colorVal = (text) => {
-    const num = parseFloat(text.replace(/[%,$B M]/g, ""));
+    const v = text.trim();
+    if (v === "PASS") return "#2bb886";
+    if (v === "FAIL") return "#ef4444";
+    const num = parseFloat(v.replace(/[%,$B M]/g, ""));
     if (isNaN(num)) return "#c8c8d8";
     if (num >= 25) return "#2bb886";
     if (num > 0) return "#60a5fa";
