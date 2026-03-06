@@ -18,14 +18,30 @@ Print the filtered tickers so I can see what passed. Expect 3–12 stocks on a t
 
 ## STEP 2 — Research each ticker
 
-For each passing ticker, search the web for:
-- Most recent quarterly earnings: revenue, EPS, margins, YoY growth
-- Forward guidance and analyst consensus estimates
+### Primary data source: stockanalysis.com
+
+For each passing ticker, fetch these URLs using WebFetch (replace TICK with the lowercase ticker):
+
+1. **Quarterly financials**: `https://stockanalysis.com/stocks/TICK/financials/?p=quarterly`
+   - Extract: Revenue, Revenue YoY%, EPS, EPS YoY%, Net Income for last 6 quarters
+2. **Annual financials**: `https://stockanalysis.com/stocks/TICK/financials/`
+   - Extract: Revenue, EPS, Net Income for last 3 fiscal years
+3. **Quarterly margins**: `https://stockanalysis.com/stocks/TICK/financials/?p=quarterly` (same page)
+   - Extract: Gross Margin%, Operating Margin%, Net Margin%
+4. **Forecast/estimates**: `https://stockanalysis.com/stocks/TICK/forecast/`
+   - Extract: Analyst consensus EPS and Revenue estimates for current + next quarter/year
+
+### Secondary sources (web search)
+
+After fetching stockanalysis.com data, search the web for:
 - Key catalysts (product launches, contracts, regulatory events)
 - Competitive positioning and sector dynamics
 - Recent news within the last 7 days
+- Institutional ownership changes (13F filings)
 
-Use the stock object fields from dashboard_data.json for context:
+### Dashboard context
+
+Use the stock object fields from dashboard_data.json for technicals:
 - `ticker`, `company`, `sector`, `industry`, `close`/`price`, `change_pct`
 - `rel_volume`, `rs_rank`, `market_cap`, `eps_yoy`, `sales_yoy`
 - `off_52w_high`, `grade`, `atr_pct`, `rsi`, `themes`
