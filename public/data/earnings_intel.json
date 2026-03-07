@@ -1,16 +1,1057 @@
 {
-  "updated_at": "2026-03-07T00:00:00Z",
+  "updated_at": "2026-03-07T17:00:00Z",
   "quarter": "Q4 2025",
-  "companies_analyzed": 0,
+  "companies_analyzed": 497,
   "kpis": {
-    "total_companies": 0,
-    "themes_tracked": 0,
-    "momentum_signals": 0,
-    "avg_sentiment": 0,
-    "sectors_covered": 0
+    "total_companies": 497,
+    "themes_tracked": 12,
+    "momentum_signals": 12,
+    "avg_sentiment": 0.65,
+    "sectors_covered": 11
   },
-  "themes": [],
-  "sectors": [],
-  "momentum_signals": [],
-  "quotes": []
+  "themes": [
+    {
+      "name": "AI Infrastructure Spending",
+      "frequency": 87,
+      "sentiment": 0.84,
+      "sectors": {
+        "Information Technology": "NVDA data center revenue $62.3B (+66% YoY); AVGO AI chip revenue doubling YoY to $8.2B; CSCO AI infrastructure orders $2.1B in single quarter",
+        "Communication Services": "Alphabet 2026 capex guided $175-185B; Meta 2026 capex $115-135B for AI infrastructure; combined hyperscaler AI spend approaching $400B",
+        "Industrials": "Data center construction boom driving Eaton, GE Vernova power equipment orders; Quanta Services secured 765kV transmission partnership with AEP",
+        "Utilities": "AEP contracted 56 GW incremental load by 2030 (doubled from 28 GW); OpenAI 1.2 GW Stargate campus; Amazon 1 GW data center in Indiana",
+        "Real Estate": "Equinix and Digital Realty benefiting from hyperscaler leasing; data center REIT development pipelines at record levels"
+      },
+      "keywords": ["artificial intelligence", "capex", "data centers", "GPU", "cloud infrastructure"],
+      "trend": "accelerating",
+      "tickers": ["NVDA", "MSFT", "GOOGL", "META", "AMZN", "AVGO", "ORCL", "CEG"]
+    },
+    {
+      "name": "Agentic AI Platform Shift",
+      "frequency": 52,
+      "sentiment": 0.82,
+      "sectors": {
+        "Information Technology": "Salesforce Agentforce hit $800M ARR (+169% YoY), 20 trillion tokens consumed; Accenture AI bookings $2.2B nearly doubling YoY",
+        "Communication Services": "Zuckerberg pursuing 'personal superintelligence'; Pichai cut Gemini serving costs 78% through optimization",
+        "Financials": "JPMorgan deploying AI agents across payments and risk; Goldman Sachs automating deal analysis",
+        "Consumer Discretionary": "Amazon Rufus AI assistant used by 300M customers; users 60% more likely to complete purchase"
+      },
+      "keywords": ["agentic AI", "autonomous agents", "tokens", "inference", "LLM"],
+      "trend": "accelerating",
+      "tickers": ["CRM", "MSFT", "NVDA", "GOOGL", "META", "ACN", "AMZN", "PLTR"]
+    },
+    {
+      "name": "Record Profit Margin Expansion",
+      "frequency": 65,
+      "sentiment": 0.76,
+      "sectors": {
+        "Information Technology": "Net margins 29.0%, up from 26.8% prior year; AI-driven automation of coding, customer service, supply chain",
+        "Financials": "Banking industry ROA 1.20%; JPMorgan ROTCE 20%; Goldman Sachs ROE 15.0%",
+        "Industrials": "Net margins 12.5% vs 10.7% in Q4 2024; GE Aerospace manufacturing efficiencies driving expansion",
+        "Communication Services": "Netflix operating profit growth ~30%; Disney DTC swung from $4B annual loss to $375M quarterly profit"
+      },
+      "keywords": ["margin expansion", "efficiency", "automation", "profitability", "operating leverage"],
+      "trend": "stable",
+      "tickers": ["AAPL", "MSFT", "NVDA", "NFLX", "JPM", "GE", "META", "GS"]
+    },
+    {
+      "name": "Dealmaking and Capital Markets Revival",
+      "frequency": 38,
+      "sentiment": 0.80,
+      "sectors": {
+        "Financials": "Global M&A volume ~$5 trillion in 2025 (+40% YoY); Goldman record revenue $58.28B; Morgan Stanley IB revenue +47%",
+        "Information Technology": "Tech M&A accelerating; Broadcom integrated VMware; Oracle RPO hit $138B on cloud deals",
+        "Real Estate": "Commercial real estate transaction activity improving as capital markets liquidity returns"
+      },
+      "keywords": ["M&A", "investment banking", "IPO", "dealmaking", "capital markets"],
+      "trend": "accelerating",
+      "tickers": ["GS", "MS", "JPM", "BLK", "BX", "KKR", "SCHW", "ARES"]
+    },
+    {
+      "name": "Consumer Bifurcation K-Shape",
+      "frequency": 45,
+      "sentiment": 0.45,
+      "sectors": {
+        "Consumer Discretionary": "Upper-income driving travel/dining spend; lower-income pulling back on discretionary; sector earnings -3.5% YoY",
+        "Consumer Staples": "PepsiCo cut snack prices up to 15% targeting 'biggest friction'; Walmart comps +4.6% as value-seeking consumers trade down",
+        "Financials": "Visa cross-border volume +11%; Mastercard noted 'healthy consumer spending' but concentrated in higher-income segments",
+        "Communication Services": "Netflix crossed 325M subs as entertainment spend resilient among affluent; ad-tier growing in price-sensitive segments"
+      },
+      "keywords": ["consumer spending", "value seeking", "bifurcation", "affordability", "trade down"],
+      "trend": "stable",
+      "tickers": ["WMT", "COST", "MCD", "AMZN", "TGT", "NKE", "SBUX", "HD"]
+    },
+    {
+      "name": "GLP-1 and Obesity Drug Revolution",
+      "frequency": 28,
+      "sentiment": 0.88,
+      "sectors": {
+        "Health Care": "Lilly Mounjaro $22.97B full-year (+99% YoY); Zepbound $13.54B (+175% YoY); Amgen MariTide in late-stage development",
+        "Consumer Staples": "PepsiCo CEO on GLP-1s: 'more opportunities than threats but there are both'; snack companies adjusting portion strategies",
+        "Financials": "Employers expect ~10% increases in healthcare benefits costs driven partly by GLP-1 coverage expansion"
+      },
+      "keywords": ["GLP-1", "obesity", "Mounjaro", "Zepbound", "weight loss"],
+      "trend": "accelerating",
+      "tickers": ["LLY", "AMGN", "NVO", "ABBV", "UNH", "CI", "HUM"]
+    },
+    {
+      "name": "Tariff Uncertainty and Trade Risk",
+      "frequency": 58,
+      "sentiment": 0.35,
+      "sectors": {
+        "Consumer Staples": "Highest percentage of earnings calls citing tariffs; P&G quantified $400M tariff impact for fiscal 2026",
+        "Industrials": "Highest number of earnings calls citing tariff concerns; Caterpillar and Deere navigating supply chain shifts",
+        "Materials": "Chemical and mining companies facing input cost uncertainty from trade policy changes",
+        "Consumer Discretionary": "Nike and apparel makers managing sourcing shifts; Home Depot absorbing cost pressures"
+      },
+      "keywords": ["tariffs", "trade policy", "supply chain", "reshoring", "import costs"],
+      "trend": "accelerating",
+      "tickers": ["PG", "CAT", "DE", "NKE", "HD", "AAPL", "WMT", "COST"]
+    },
+    {
+      "name": "Cloud Revenue Acceleration",
+      "frequency": 42,
+      "sentiment": 0.85,
+      "sectors": {
+        "Information Technology": "Azure grew 39%; Oracle cloud infrastructure +52% YoY guiding to 70%+ in FY26; RPO $138B",
+        "Communication Services": "Google Cloud revenue up 48% to $17.7B; AWS revenue $35.6B (+24% YoY)",
+        "Financials": "Cloud adoption accelerating across financial services for AI workloads and real-time analytics"
+      },
+      "keywords": ["cloud computing", "Azure", "AWS", "Google Cloud", "SaaS"],
+      "trend": "accelerating",
+      "tickers": ["MSFT", "AMZN", "GOOGL", "ORCL", "CRM", "SNOW", "NOW"]
+    },
+    {
+      "name": "Aerospace and Defense Surge",
+      "frequency": 32,
+      "sentiment": 0.78,
+      "sectors": {
+        "Industrials": "Sector earnings surged 27% YoY led by aerospace; RTX record backlog $268B with $107B in defense awards; Boeing recovery gaining traction",
+        "Information Technology": "Defense tech spending on cybersecurity and AI-enabled systems accelerating",
+        "Materials": "Specialty metals and composites demand rising from aerospace production ramp"
+      },
+      "keywords": ["aerospace", "defense", "backlog", "military spending", "commercial aviation"],
+      "trend": "accelerating",
+      "tickers": ["GE", "RTX", "LMT", "BA", "GD", "NOC", "HWM", "TDG"]
+    },
+    {
+      "name": "Power Grid Modernization",
+      "frequency": 35,
+      "sentiment": 0.75,
+      "sectors": {
+        "Utilities": "Utilities plan $208B in grid upgrades for 2025 and $1T+ through 2029; AEP partnered with Quanta for 765kV transmission buildout",
+        "Industrials": "Eaton, GE Vernova, and Quanta benefiting from electrification and grid hardening demand",
+        "Real Estate": "Data center developers driving transmission interconnection queues to record levels"
+      },
+      "keywords": ["grid modernization", "transmission", "electrification", "power demand", "infrastructure"],
+      "trend": "accelerating",
+      "tickers": ["NEE", "CEG", "VST", "ETN", "PWR", "GEV", "AEP", "SRE"]
+    },
+    {
+      "name": "Pharma Patent Cliff Pivots",
+      "frequency": 24,
+      "sentiment": 0.52,
+      "sectors": {
+        "Health Care": "$150B in annual pharma revenues face patent expiration by 2030; Merck preparing for Keytruda LOE; AbbVie navigated Humira cliff with Skyrizi/Rinvoq at $25.9B combined"
+      },
+      "keywords": ["patent cliff", "biosimilars", "pipeline", "loss of exclusivity", "R&D"],
+      "trend": "stable",
+      "tickers": ["MRK", "ABBV", "PFE", "BMY", "JNJ", "AMGN", "GILD"]
+    },
+    {
+      "name": "Digital Advertising Resilience",
+      "frequency": 30,
+      "sentiment": 0.80,
+      "sectors": {
+        "Communication Services": "Meta ad revenue surged 24% YoY to $59.9B; Alphabet ad revenue +13.5% to $82.3B; Netflix ad revenue doubled to $1.5B in 2025",
+        "Consumer Discretionary": "Amazon advertising $21.3B (+22% YoY); retail media networks becoming material revenue streams",
+        "Information Technology": "AppLovin 84% EBITDA margin on AI-optimized ad placement; programmatic advertising efficiency gains"
+      },
+      "keywords": ["digital advertising", "ad revenue", "programmatic", "retail media", "streaming ads"],
+      "trend": "stable",
+      "tickers": ["META", "GOOGL", "AMZN", "NFLX", "TTD", "APP", "DIS"]
+    }
+  ],
+  "sectors": [
+    {
+      "name": "Financials",
+      "sentiment": 0.82,
+      "companies": 71,
+      "top_themes": ["Dealmaking and Capital Markets Revival", "Record Profit Margin Expansion", "Consumer Bifurcation K-Shape"],
+      "companies_detail": [
+        {
+          "ticker": "JPM",
+          "sentiment": 0.82,
+          "themes": ["Dealmaking and Capital Markets Revival", "Record Profit Margin Expansion"],
+          "key_quote": "Geopolitical is an enormous amount of risk... it's just a big matter of risk that may or may not determine the state of the economy. -- Jamie Dimon, CEO"
+        },
+        {
+          "ticker": "GS",
+          "sentiment": 0.80,
+          "themes": ["Dealmaking and Capital Markets Revival", "Record Profit Margin Expansion"],
+          "key_quote": "We are not yet in the middle of the potential for a full-on M&A and sponsor cycle. -- David Solomon, CEO"
+        },
+        {
+          "ticker": "MS",
+          "sentiment": 0.80,
+          "themes": ["Dealmaking and Capital Markets Revival"],
+          "key_quote": "The U.S. economy proved resilient as ever. Capital markets are kicking in with well-capitalized corporates and higher-end consumers driving the economy forward. -- Ted Pick, CEO"
+        },
+        {
+          "ticker": "V",
+          "sentiment": 0.78,
+          "themes": ["Consumer Bifurcation K-Shape", "Digital Advertising Resilience"],
+          "key_quote": "Visa has become a hyperscaler, enabling anyone that wants to be in the money movement or payments business to build on top of the Visa as a Service stack. -- Ryan McInerney, CEO"
+        },
+        {
+          "ticker": "MA",
+          "sentiment": 0.80,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "The macroeconomic environment continues to perform well, and it is underpinned by healthy consumer spending. -- Michael Miebach, CEO"
+        },
+        {
+          "ticker": "BLK",
+          "sentiment": 0.85,
+          "themes": ["Dealmaking and Capital Markets Revival"],
+          "key_quote": "Q4 adjusted EPS $13.16 vs $12.41 est; AUM hit record $14 trillion with $342B in Q4 net inflows. -- Larry Fink, CEO"
+        },
+        {
+          "ticker": "BAC",
+          "sentiment": 0.75,
+          "themes": ["Dealmaking and Capital Markets Revival", "Record Profit Margin Expansion"],
+          "key_quote": "We delivered on our commitments to shareholders across the year with solid growth across revenue, earnings, and returns. -- Brian Moynihan, CEO"
+        },
+        {
+          "ticker": "BRK.B",
+          "sentiment": 0.55,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "Q4 operating earnings $10.2B, down 29% YoY on insurance weakness. Buffett announced he is 'going quiet' in his final CEO shareholder letter."
+        }
+      ]
+    },
+    {
+      "name": "Information Technology",
+      "sentiment": 0.78,
+      "companies": 91,
+      "top_themes": ["AI Infrastructure Spending", "Agentic AI Platform Shift", "Cloud Revenue Acceleration"],
+      "companies_detail": [
+        {
+          "ticker": "NVDA",
+          "sentiment": 0.92,
+          "themes": ["AI Infrastructure Spending", "Agentic AI Platform Shift"],
+          "key_quote": "Computing demand is growing exponentially -- the agentic AI inflection point has arrived. Grace Blackwell with NVLink is the king of inference today. -- Jensen Huang, CEO"
+        },
+        {
+          "ticker": "AAPL",
+          "sentiment": 0.82,
+          "themes": ["AI Infrastructure Spending", "Record Profit Margin Expansion"],
+          "key_quote": "The demand for iPhone was simply staggering, with revenue growing 23% YoY and all-time records across every geographic segment. Revenue $143.8B, EPS $2.84 beating by 6.4%. -- Tim Cook, CEO"
+        },
+        {
+          "ticker": "MSFT",
+          "sentiment": 0.85,
+          "themes": ["Cloud Revenue Acceleration", "Agentic AI Platform Shift"],
+          "key_quote": "We are only at the beginning phases of AI diffusion and already Microsoft has built an AI business that is larger than some of our biggest franchises. -- Satya Nadella, CEO"
+        },
+        {
+          "ticker": "AVGO",
+          "sentiment": 0.88,
+          "themes": ["AI Infrastructure Spending"],
+          "key_quote": "We have line of sight to achieve AI revenue from chips, just chips, in excess of $100 billion in 2027. We have also secured the supply chain required. -- Hock Tan, CEO"
+        },
+        {
+          "ticker": "ORCL",
+          "sentiment": 0.85,
+          "themes": ["Cloud Revenue Acceleration", "AI Infrastructure Spending"],
+          "key_quote": "Someone called us, we'll take all the capacity you have that's currently not being used anywhere in the world... that was for inferencing, not training. -- Larry Ellison, Chairman"
+        },
+        {
+          "ticker": "CRM",
+          "sentiment": 0.70,
+          "themes": ["Agentic AI Platform Shift"],
+          "key_quote": "We've rebuilt Salesforce to become the operating system for the Agentic Enterprise, bringing humans and agents together on one trusted platform. Agentforce ARR $800M (+169% YoY). -- Marc Benioff, CEO"
+        },
+        {
+          "ticker": "AMD",
+          "sentiment": 0.62,
+          "themes": ["AI Infrastructure Spending"],
+          "key_quote": "2025 was a defining year for AMD, with record revenue of $10.3B (+34% YoY) and earnings driven by strong execution and broad-based demand. Stock fell 17% on guidance concerns. -- Dr. Lisa Su, CEO"
+        },
+        {
+          "ticker": "CSCO",
+          "sentiment": 0.75,
+          "themes": ["AI Infrastructure Spending", "Cloud Revenue Acceleration"],
+          "key_quote": "AI infrastructure orders $2.1B in Q2 (up from $1.3B in Q1). Raised FY26 AI order target to $5B+. Revenue $15.3B, up 10% YoY. -- Chuck Robbins, CEO"
+        },
+        {
+          "ticker": "ADBE",
+          "sentiment": 0.68,
+          "themes": ["Agentic AI Platform Shift"],
+          "key_quote": "In fiscal 2025, Adobe delivered significant AI-influenced and AI-first ending ARR, which accelerated through the year. Revenue $6.19B (+10% YoY). -- Shantanu Narayen, CEO"
+        },
+        {
+          "ticker": "ACN",
+          "sentiment": 0.72,
+          "themes": ["Agentic AI Platform Shift", "AI Infrastructure Spending"],
+          "key_quote": "The real opportunity is not proving AI works. It is making it work everywhere. Advanced AI bookings $2.2B, nearly 2x YoY. -- Julie Sweet, CEO"
+        }
+      ]
+    },
+    {
+      "name": "Communication Services",
+      "sentiment": 0.78,
+      "companies": 19,
+      "top_themes": ["AI Infrastructure Spending", "Digital Advertising Resilience", "Cloud Revenue Acceleration"],
+      "companies_detail": [
+        {
+          "ticker": "GOOGL",
+          "sentiment": 0.82,
+          "themes": ["AI Infrastructure Spending", "Cloud Revenue Acceleration", "Digital Advertising Resilience"],
+          "key_quote": "We were able to lower Gemini serving unit costs by 78% over 2025 through model optimizations, efficiency and utilization improvements. Revenue $113.8B (+18% YoY). -- Sundar Pichai, CEO"
+        },
+        {
+          "ticker": "META",
+          "sentiment": 0.88,
+          "themes": ["AI Infrastructure Spending", "Digital Advertising Resilience"],
+          "key_quote": "I'm looking forward to advancing personal superintelligence for people around the world in 2026. Revenue $59.89B (+24% YoY), EPS $8.88 beating by 8.4%. -- Mark Zuckerberg, CEO"
+        },
+        {
+          "ticker": "NFLX",
+          "sentiment": 0.85,
+          "themes": ["Digital Advertising Resilience"],
+          "key_quote": "We're just about 7% of the addressable market in terms of consumer and ad spend. So tons of room ahead of us. Crossed 325M subscribers. -- Ted Sarandos, Co-CEO"
+        },
+        {
+          "ticker": "DIS",
+          "sentiment": 0.65,
+          "themes": ["Digital Advertising Resilience"],
+          "key_quote": "Not bad, considering DTC was running with a $4 billion annual operating loss just three years ago. DTC now $375M quarterly OI. -- Bob Iger, CEO"
+        },
+        {
+          "ticker": "T",
+          "sentiment": 0.72,
+          "themes": ["Power Grid Modernization"],
+          "key_quote": "We achieved or surpassed all of our consolidated full-year guidance for 2025. EPS $0.52 vs $0.46 est. 2026 adj EPS guided $2.25-$2.35. -- John Stankey, CEO"
+        },
+        {
+          "ticker": "VZ",
+          "sentiment": 0.70,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "We will not rely on empty price increases to drive short-term revenue and earnings. That is not a sustainable financial model. 616K postpaid phone net adds, highest in 5 years. -- Hans Vestberg, CEO"
+        },
+        {
+          "ticker": "TMUS",
+          "sentiment": 0.80,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "Revenue $24.33B (+11.3% YoY); 2.4M postpaid net customer adds, industry-leading. Service revenues up 10% to $18.7B."
+        }
+      ]
+    },
+    {
+      "name": "Industrials",
+      "sentiment": 0.75,
+      "companies": 76,
+      "top_themes": ["Aerospace and Defense Surge", "Power Grid Modernization", "Record Profit Margin Expansion"],
+      "companies_detail": [
+        {
+          "ticker": "GE",
+          "sentiment": 0.85,
+          "themes": ["Aerospace and Defense Surge", "Record Profit Margin Expansion"],
+          "key_quote": "GE Aerospace posted record results benefiting from aerospace demand revival plus manufacturing efficiencies. Sector earnings surged 27% YoY with IT net margins 12.5% vs 10.7% prior year."
+        },
+        {
+          "ticker": "CAT",
+          "sentiment": 0.72,
+          "themes": ["Tariff Uncertainty and Trade Risk", "Power Grid Modernization"],
+          "key_quote": "Caterpillar reported record construction and power segment sales driven by data center and infrastructure demand, though tariff uncertainty weighed on forward guidance."
+        },
+        {
+          "ticker": "RTX",
+          "sentiment": 0.82,
+          "themes": ["Aerospace and Defense Surge"],
+          "key_quote": "We understand the urgency to deliver more and faster. We are aligned with the department's mandate to ramp production and invest in capacity. Record backlog $268B. -- Chris Calio, CEO"
+        },
+        {
+          "ticker": "BA",
+          "sentiment": 0.55,
+          "themes": ["Aerospace and Defense Surge"],
+          "key_quote": "Boeing recovery gaining traction with positive EPS surprises contributing to Industrials sector earnings growth turnaround from -0.3% expected to +25.6% actual."
+        },
+        {
+          "ticker": "DE",
+          "sentiment": 0.50,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Deere reported orders for over 24,000 precision ag kits; Operations Center now covers 500M+ engaged acres (+10% YoY). Q1 2026 margins expected in low single digits."
+        },
+        {
+          "ticker": "LMT",
+          "sentiment": 0.78,
+          "themes": ["Aerospace and Defense Surge"],
+          "key_quote": "Lockheed Martin benefited from defense spending acceleration with strong backlog growth amid rising geopolitical tensions."
+        },
+        {
+          "ticker": "UNP",
+          "sentiment": 0.68,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Union Pacific reported solid operational efficiency gains though freight volumes were mixed amid trade policy uncertainty."
+        },
+        {
+          "ticker": "HON",
+          "sentiment": 0.65,
+          "themes": ["AI Infrastructure Spending", "Aerospace and Defense Surge"],
+          "key_quote": "Honeywell planning three-way breakup into separate aerospace, automation, and advanced materials companies to unlock shareholder value."
+        }
+      ]
+    },
+    {
+      "name": "Utilities",
+      "sentiment": 0.73,
+      "companies": 31,
+      "top_themes": ["Power Grid Modernization", "AI Infrastructure Spending"],
+      "companies_detail": [
+        {
+          "ticker": "NEE",
+          "sentiment": 0.78,
+          "themes": ["Power Grid Modernization"],
+          "key_quote": "NextEra Energy continues to lead in renewable energy development and grid modernization with $208B sector-wide grid upgrade plans through 2029."
+        },
+        {
+          "ticker": "CEG",
+          "sentiment": 0.80,
+          "themes": ["AI Infrastructure Spending", "Power Grid Modernization"],
+          "key_quote": "Full-year 2025 adjusted EPS $9.39; closed Calpine acquisition; raised dividend 10%; secured $1B DOE-backed loan for Crane nuclear restart. Q4 EPS $2.30 vs $2.23 est."
+        },
+        {
+          "ticker": "SO",
+          "sentiment": 0.70,
+          "themes": ["Power Grid Modernization"],
+          "key_quote": "Southern Company benefiting from data center load growth in the Southeast while maintaining regulated utility earnings stability."
+        },
+        {
+          "ticker": "DUK",
+          "sentiment": 0.68,
+          "themes": ["Power Grid Modernization"],
+          "key_quote": "Duke Energy investing heavily in grid hardening and transmission capacity expansion to serve growing data center demand in the Carolinas."
+        },
+        {
+          "ticker": "AEP",
+          "sentiment": 0.78,
+          "themes": ["AI Infrastructure Spending", "Power Grid Modernization"],
+          "key_quote": "AEP now has 56 GW of firm incremental contracted load by 2030, doubled from 28 GW. AEP Texas load increased from 13 GW to 36 GW backed by hyperscaler agreements. -- Bill Fehrman, CEO"
+        },
+        {
+          "ticker": "SRE",
+          "sentiment": 0.72,
+          "themes": ["Power Grid Modernization"],
+          "key_quote": "Sempra Energy advancing LNG export infrastructure and California grid modernization amid growing electrification demand."
+        }
+      ]
+    },
+    {
+      "name": "Health Care",
+      "sentiment": 0.68,
+      "companies": 57,
+      "top_themes": ["GLP-1 and Obesity Drug Revolution", "Pharma Patent Cliff Pivots"],
+      "companies_detail": [
+        {
+          "ticker": "LLY",
+          "sentiment": 0.90,
+          "themes": ["GLP-1 and Obesity Drug Revolution"],
+          "key_quote": "2025 was an important year for Lilly. We reached millions more patients -- launching Inluriyo, expanding Mounjaro and Kisunla globally. Revenue $19.29B (+43% YoY), EPS $7.54 beat. 2026 guidance $80-83B. -- David A. Ricks, CEO"
+        },
+        {
+          "ticker": "UNH",
+          "sentiment": 0.48,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "2026 revenue guided >$439B (2% decline) reflecting right-sizing across the enterprise under new leadership. Q4 adj EPS $2.11, revenue $113.2B slightly missed."
+        },
+        {
+          "ticker": "JNJ",
+          "sentiment": 0.75,
+          "themes": ["Pharma Patent Cliff Pivots"],
+          "key_quote": "We said 2025 would be a catapult year and that's exactly what it was. Revenue $24.6B (+9.1% YoY). 2026 guidance $100.5B, first company to cross $100B in healthcare. -- Joaquin Duato, CEO"
+        },
+        {
+          "ticker": "ABBV",
+          "sentiment": 0.80,
+          "themes": ["Pharma Patent Cliff Pivots"],
+          "key_quote": "We are entering 2026 with substantial momentum. Skyrizi and Rinvoq combined $25.9B full-year (+$8B YoY). 2026 guidance $67B revenue (+9.5%). -- Rob Michael, CEO"
+        },
+        {
+          "ticker": "MRK",
+          "sentiment": 0.55,
+          "themes": ["Pharma Patent Cliff Pivots"],
+          "key_quote": "We now have line of sight to over $70B of potential commercial opportunity by mid-2030s. But Keytruda LOE and Gardasil -40% YoY weigh on near-term. 2026 EPS guided $5.00-5.15 vs $8.98 in 2025. -- Rob Davis, CEO"
+        },
+        {
+          "ticker": "TMO",
+          "sentiment": 0.72,
+          "themes": ["Pharma Patent Cliff Pivots"],
+          "key_quote": "We enter 2026 from a position of strength. Growth strategy is resonating with customers. Q4 revenue $12.21B (+7% YoY), adj EPS $6.57 beat by 1.9%. -- Marc Casper, CEO"
+        },
+        {
+          "ticker": "ABT",
+          "sentiment": 0.65,
+          "themes": ["GLP-1 and Obesity Drug Revolution"],
+          "key_quote": "Medical Devices grew 10.4% organically, 12th consecutive quarter of double-digit growth. CGM sales $2.0B (+12.2%). 2026 adj EPS guided $5.55-$5.80 (+10%). -- Robert Ford, CEO"
+        },
+        {
+          "ticker": "AMGN",
+          "sentiment": 0.75,
+          "themes": ["GLP-1 and Obesity Drug Revolution"],
+          "key_quote": "MariTide is the only therapy in late-stage development offering strong efficacy and favorable tolerability at monthly-to-quarterly dosing. Revenue $9.9B (+9% YoY), adj EPS $5.29 beat by 11.1%."
+        }
+      ]
+    },
+    {
+      "name": "Consumer Staples",
+      "sentiment": 0.62,
+      "companies": 34,
+      "top_themes": ["Consumer Bifurcation K-Shape", "Tariff Uncertainty and Trade Risk"],
+      "companies_detail": [
+        {
+          "ticker": "WMT",
+          "sentiment": 0.75,
+          "themes": ["Consumer Bifurcation K-Shape", "Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Tariffs are something we've managed for many years, we'll just continue to manage that. We're wired to try and save people money. Revenue $190.7B, comps +4.6%, e-commerce +24%. -- Doug McMillon, CEO"
+        },
+        {
+          "ticker": "COST",
+          "sentiment": 0.78,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "We will never succumb to not being the best price and driving prices down for our members. That will always be our leading mantra. Membership fees $1.329B (+14%). -- Ron Vachris, CEO"
+        },
+        {
+          "ticker": "PG",
+          "sentiment": 0.60,
+          "themes": ["Tariff Uncertainty and Trade Risk", "Record Profit Margin Expansion"],
+          "key_quote": "The second quarter will be the softest quarter of the year for growth with stronger results in the second half. Quantified $400M tariff impact for fiscal 2026. -- Jon Moeller, CEO"
+        },
+        {
+          "ticker": "KO",
+          "sentiment": 0.58,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "Called the revenue miss a 'weird anomaly.' Described macro as a 'light drizzle.' EPS beat $0.58 vs $0.56 est but revenue missed $11.8B vs $12.05B est. -- James Quincey, CEO"
+        },
+        {
+          "ticker": "PEP",
+          "sentiment": 0.60,
+          "themes": ["Consumer Bifurcation K-Shape", "GLP-1 and Obesity Drug Revolution"],
+          "key_quote": "On GLP-1 drugs: 'There are more opportunities than threats, but there are both.' Cut snack prices up to 15% as a 'surgical investment.' EPS $2.26 (+15.3% YoY). -- Ramon Laguarta, CEO"
+        },
+        {
+          "ticker": "PM",
+          "sentiment": 0.72,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "The shift of adult smokers to better alternatives is a lasting, structural movement. Smoke-free volumes +12.8%, gross profit +18.7%. Full-year adj EPS $7.54 (+14.8%). -- Jacek Olczak, CEO"
+        },
+        {
+          "ticker": "MO",
+          "sentiment": 0.50,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "Revenue $5.85B beat but adj EPS $1.30 missed by $0.02. Full-year adj EPS $5.42 (+4.4%). Returned $8B to shareholders. Smokeable volumes continued declining."
+        }
+      ]
+    },
+    {
+      "name": "Real Estate",
+      "sentiment": 0.58,
+      "companies": 28,
+      "top_themes": ["AI Infrastructure Spending", "Power Grid Modernization"],
+      "companies_detail": [
+        {
+          "ticker": "EQIX",
+          "sentiment": 0.75,
+          "themes": ["AI Infrastructure Spending"],
+          "key_quote": "Equinix benefiting from hyperscaler leasing demand for AI workloads with data center development pipelines at record levels."
+        },
+        {
+          "ticker": "AMT",
+          "sentiment": 0.62,
+          "themes": ["AI Infrastructure Spending"],
+          "key_quote": "American Tower navigating tower consolidation while expanding data center portfolio to capture AI-driven demand growth."
+        },
+        {
+          "ticker": "SPG",
+          "sentiment": 0.58,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "Simon Property Group seeing divergent performance between premium outlet malls (strong) and lower-tier retail properties (weak)."
+        },
+        {
+          "ticker": "PLD",
+          "sentiment": 0.55,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Prologis industrial logistics demand steady but supply-demand balance normalizing after pandemic-era tightness. E-commerce continues to drive long-term demand."
+        },
+        {
+          "ticker": "O",
+          "sentiment": 0.58,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "Realty Income has evolved from a US-centric retail-only business to a more diversified platform. Over the next 3-5 years, aiming to mature international and private capital channels. -- Sumit Roy, CEO"
+        },
+        {
+          "ticker": "PSA",
+          "sentiment": 0.52,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "It's a submarket story in storage. Markets with limited supply like Minneapolis, Chicago, SF seeing move-in rate growth. New supply continues in Sunbelt markets."
+        }
+      ]
+    },
+    {
+      "name": "Consumer Discretionary",
+      "sentiment": 0.55,
+      "companies": 48,
+      "top_themes": ["Consumer Bifurcation K-Shape", "Agentic AI Platform Shift"],
+      "companies_detail": [
+        {
+          "ticker": "AMZN",
+          "sentiment": 0.72,
+          "themes": ["AI Infrastructure Spending", "Agentic AI Platform Shift", "Digital Advertising Resilience"],
+          "key_quote": "Every customer experience that we know of today is going to be reinvented. Revenue $213.4B (+12% YoY), AWS $35.6B (+24%). 2026 capex guided $200B. -- Andy Jassy, CEO"
+        },
+        {
+          "ticker": "TSLA",
+          "sentiment": 0.60,
+          "themes": ["Agentic AI Platform Shift"],
+          "key_quote": "We're really moving into a future that is based on autonomy. EPS $0.50 beat (+11%). Gross margin improved to 20.1%. CyberCab production starting April 2026. -- Elon Musk, CEO"
+        },
+        {
+          "ticker": "MCD",
+          "sentiment": 0.72,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "McDonald's is not going to get beat on value and affordability. Same-store sales +5.7% globally, +6.8% U.S. 210M loyalty members. Revenue $7.01B (+10%). -- Chris Kempczinski, CEO"
+        },
+        {
+          "ticker": "BKNG",
+          "sentiment": 0.78,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "These are exciting times in our industry. Gross bookings $41.9B, revenue $6.35B (+16.1% YoY). Announced 25-for-1 stock split. -- Glenn Fogel, CEO"
+        },
+        {
+          "ticker": "HD",
+          "sentiment": 0.52,
+          "themes": ["Consumer Bifurcation K-Shape", "Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Our customers are telling us that they're not investing due to the housing market stalemate. EPS $2.72 beat but total sales -3.8% YoY. Housing turnover at historical lows. -- Ted Decker, CEO"
+        },
+        {
+          "ticker": "NKE",
+          "sentiment": 0.48,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "I say we're in the middle inning of our comeback. EPS $0.53 beat $0.37 est (+43% surprise) but gross margin fell 300bps to 40.6%. Net income -32% YoY. -- Elliott Hill, CEO"
+        },
+        {
+          "ticker": "SBUX",
+          "sentiment": 0.55,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "Our Back to Starbucks strategy is working and we believe we're ahead of schedule. First U.S. comparable transaction growth in 8 quarters. Revenue $9.9B (+6%). -- Brian Niccol, CEO"
+        },
+        {
+          "ticker": "LOW",
+          "sentiment": 0.58,
+          "themes": ["Consumer Bifurcation K-Shape", "Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Revenue $20.6B (+10.8% YoY), comps +1.3%. Growth driven by Pro ecosystem and acquisitions. FY2026 guided $92-94B total sales."
+        }
+      ]
+    },
+    {
+      "name": "Materials",
+      "sentiment": 0.50,
+      "companies": 31,
+      "top_themes": ["Tariff Uncertainty and Trade Risk", "Power Grid Modernization"],
+      "companies_detail": [
+        {
+          "ticker": "LIN",
+          "sentiment": 0.65,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "Linde continues to deliver consistent earnings growth through pricing power and operational efficiency in industrial gases."
+        },
+        {
+          "ticker": "SHW",
+          "sentiment": 0.60,
+          "themes": ["Consumer Bifurcation K-Shape"],
+          "key_quote": "Sherwin-Williams navigating housing market weakness with architectural coatings growth offset by residential remodel softness."
+        },
+        {
+          "ticker": "FCX",
+          "sentiment": 0.55,
+          "themes": ["Power Grid Modernization"],
+          "key_quote": "Freeport-McMoRan benefiting from copper demand for electrification and grid modernization but navigating commodity price volatility."
+        },
+        {
+          "ticker": "APD",
+          "sentiment": 0.52,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "We have been working hard to right the ship and bring the company back to maximum shareholder value. Strategic reset halted new spending on Louisiana; core gas capex limited to $1.5B annually. -- Eduardo Menezes, CEO"
+        },
+        {
+          "ticker": "NEM",
+          "sentiment": 0.58,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Newmont benefiting from elevated gold prices driven by geopolitical uncertainty and central bank buying."
+        },
+        {
+          "ticker": "ECL",
+          "sentiment": 0.60,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "Ecolab delivering steady earnings growth through water treatment and hygiene solutions pricing gains."
+        }
+      ]
+    },
+    {
+      "name": "Energy",
+      "sentiment": 0.42,
+      "companies": 18,
+      "top_themes": ["Tariff Uncertainty and Trade Risk"],
+      "companies_detail": [
+        {
+          "ticker": "XOM",
+          "sentiment": 0.50,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "ExxonMobil navigating WTI at $55-60/bbl range with focus on Golden Pass LNG project first gas and Permian Basin production growth."
+        },
+        {
+          "ticker": "CVX",
+          "sentiment": 0.48,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "Chevron maintaining capital discipline while advancing LNG expansion and Permian production amid crude surplus pressure."
+        },
+        {
+          "ticker": "COP",
+          "sentiment": 0.45,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "ConocoPhillips delivered strong operational execution but lower commodity prices compressed margins. Capital returns to shareholders remain priority."
+        },
+        {
+          "ticker": "EOG",
+          "sentiment": 0.55,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "2025 was remarkable, marked by disciplined capital allocation and robust free cash flow of $4.7B. Returned 100% of free cash flow to shareholders. Breakeven $50 WTI. -- Ezra Yacob, CEO"
+        },
+        {
+          "ticker": "SLB",
+          "sentiment": 0.40,
+          "themes": ["Tariff Uncertainty and Trade Risk"],
+          "key_quote": "SLB faces headwinds from subdued international E&P spending as operators cautious on near-term commodity pricing outlook."
+        },
+        {
+          "ticker": "MPC",
+          "sentiment": 0.45,
+          "themes": ["Record Profit Margin Expansion"],
+          "key_quote": "Marathon Petroleum achieved 105% margin capture and 94% refining utilization in 2025, demonstrating operational competitiveness."
+        }
+      ]
+    }
+  ],
+  "momentum_signals": [
+    {
+      "signal": "Hyperscaler AI Capex Supercycle",
+      "type": "bullish",
+      "description": "Combined 2026 capex guidance from Alphabet ($175-185B), Meta ($115-135B), Amazon ($200B), and Microsoft exceeds $500B. NVIDIA guided Q1 FY27 revenue to $78B, implying continued sequential growth. AI infrastructure spending is translating into accelerating cloud revenue: Azure +39%, Google Cloud +48%, AWS +24%.",
+      "tickers": ["NVDA", "AVGO", "MSFT", "GOOGL", "META", "AMZN"],
+      "confidence": 0.92
+    },
+    {
+      "signal": "Agentic AI Monetization",
+      "type": "bullish",
+      "description": "Salesforce Agentforce reached $800M ARR (+169% YoY) consuming 20 trillion tokens. Accenture AI bookings nearly doubled to $2.2B. Jensen Huang declared 'the agentic AI inflection point has arrived.' Companies shifting from generative AI experimentation to autonomous agent deployment at enterprise scale.",
+      "tickers": ["CRM", "ACN", "MSFT", "PLTR", "NOW", "AMZN"],
+      "confidence": 0.82
+    },
+    {
+      "signal": "Investment Banking Cycle Acceleration",
+      "type": "bullish",
+      "description": "Global M&A volume hit ~$5T in 2025 (+40% YoY). Goldman Sachs posted record revenue of $58.28B; Morgan Stanley IB revenue surged 47%; JPMorgan equities trading +40%. Goldman CEO Solomon noted they are 'not yet in the middle of the potential for a full-on M&A cycle,' suggesting significant upside remains.",
+      "tickers": ["GS", "MS", "JPM", "BLK", "BX", "KKR"],
+      "confidence": 0.85
+    },
+    {
+      "signal": "GLP-1 Market Dominance",
+      "type": "bullish",
+      "description": "Eli Lilly's Mounjaro reached $22.97B full-year revenue (+99% YoY) and Zepbound $13.54B (+175% YoY). Lilly guided 2026 revenue to $80-83B (+25%). Medicare obesity coverage expansion represents a 'big multiplier on the eligible pool.' Amgen's MariTide entering late-stage development as next-gen competitor.",
+      "tickers": ["LLY", "AMGN", "ABBV", "NVO"],
+      "confidence": 0.88
+    },
+    {
+      "signal": "Data Center Power Demand Surge",
+      "type": "bullish",
+      "description": "AEP contracted 56 GW incremental load by 2030 (doubled from 28 GW prior disclosure). Utilities sector planning $208B in grid upgrades for 2025 and $1T+ through 2029. Constellation Energy acquired Calpine and secured DOE loan for Crane nuclear restart. OpenAI 1.2 GW Stargate campus and Amazon 1 GW Indiana data center driving unprecedented utility demand.",
+      "tickers": ["CEG", "NEE", "VST", "AEP", "ETN", "PWR"],
+      "confidence": 0.85
+    },
+    {
+      "signal": "Consumer Value Seeking Intensifies",
+      "type": "caution",
+      "description": "Consumer Discretionary posted -3.5% earnings growth, the weakest of all sectors. PepsiCo cut snack prices up to 15%. Home Depot CEO said 'customers are telling us they're not investing.' McDonald's leaned into value with Extra Value Meals targeting low-income diners. Housing turnover at historical lows is suppressing home improvement spend.",
+      "tickers": ["HD", "LOW", "NKE", "TGT", "DG", "SBUX"],
+      "confidence": 0.80
+    },
+    {
+      "signal": "Tariff Overhang Broadening",
+      "type": "caution",
+      "description": "Consumer Staples and Industrials had the highest percentage of earnings calls citing tariffs. P&G quantified a $400M tariff impact for fiscal 2026. Analysts cut Q1 2026 S&P 500 EPS estimates by 1.5% in Jan-Feb, the first such cut since Q2 2025. Front-month WTI dipped to ~$55/bbl partly on trade uncertainty.",
+      "tickers": ["PG", "CAT", "NKE", "DE", "AAPL", "WMT"],
+      "confidence": 0.78
+    },
+    {
+      "signal": "Aerospace Defense Backlog Record",
+      "type": "bullish",
+      "description": "RTX achieved record backlog of $268B including $107B in defense awards. Industrials sector earnings surged 27% YoY vs initial expectation of -0.3%, driven primarily by aerospace/defense. GE Aerospace and RTX leading with double-digit revenue growth. Global defense budgets expanding amid rising geopolitical tensions.",
+      "tickers": ["RTX", "GE", "LMT", "GD", "BA", "HWM"],
+      "confidence": 0.83
+    },
+    {
+      "signal": "Energy Sector Margin Compression",
+      "type": "caution",
+      "description": "Energy was one of only two sectors reporting YoY earnings decline (-1.7% to -2.8%). Crude oil averaged $11/bbl lower than prior year period with WTI in the $55-60 range. Global crude surplus persists despite geopolitical tensions. SLB faces subdued international E&P spending outlook.",
+      "tickers": ["XOM", "CVX", "COP", "SLB", "HAL", "OXY"],
+      "confidence": 0.75
+    },
+    {
+      "signal": "Streaming Profitability Inflection",
+      "type": "transition",
+      "description": "Netflix crossed 325M subscribers with operating profit growth ~30% and ad revenue exceeding $1.5B (expected to double to ~$3B in 2026). Disney DTC swung from $4B annual loss to $375M quarterly profit. Leadership rotating from subscriber growth metrics to profitability and ad-tier monetization.",
+      "tickers": ["NFLX", "DIS", "WBD", "PARA"],
+      "confidence": 0.80
+    },
+    {
+      "signal": "Pharma Pipeline Repricing",
+      "type": "transition",
+      "description": "Merck guided 2026 EPS of $5.00-5.15 vs $8.98 in 2025 as Keytruda LOE approaches and Gardasil sales fell 40%. AbbVie navigated the Humira cliff with Skyrizi/Rinvoq at $25.9B combined (+$8B YoY). The market is actively repricing pipelines as $150B in annual pharma revenues face patent expiration by 2030.",
+      "tickers": ["MRK", "ABBV", "PFE", "BMY", "JNJ"],
+      "confidence": 0.77
+    },
+    {
+      "signal": "Magnificent Seven Concentration Risk",
+      "type": "caution",
+      "description": "Magnificent Seven delivered +27.2% YoY earnings growth in Q4, contributing 66% of S&P 500 total EPS growth. The remaining 493 companies posted only 9.8% growth, below Q3's 12.2%. This widening divergence raises concentration risk concerns as Q1 2026 estimates are being cut for the broader market.",
+      "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META"],
+      "confidence": 0.82
+    }
+  ],
+  "quotes": [
+    {
+      "ticker": "NVDA",
+      "company": "NVIDIA",
+      "sector": "Information Technology",
+      "executive": "Jensen Huang, CEO",
+      "quote": "Computing demand is growing exponentially -- the agentic AI inflection point has arrived. Grace Blackwell with NVLink is the king of inference today -- delivering an order-of-magnitude lower cost per token.",
+      "theme": "AI Infrastructure Spending",
+      "sentiment": 0.95
+    },
+    {
+      "ticker": "MSFT",
+      "company": "Microsoft",
+      "sector": "Information Technology",
+      "executive": "Satya Nadella, CEO",
+      "quote": "We are only at the beginning phases of AI diffusion and already Microsoft has built an AI business that is larger than some of our biggest franchises. The key metric we are optimizing for is tokens per watt per dollar.",
+      "theme": "AI Infrastructure Spending",
+      "sentiment": 0.88
+    },
+    {
+      "ticker": "AVGO",
+      "company": "Broadcom",
+      "sector": "Information Technology",
+      "executive": "Hock Tan, CEO",
+      "quote": "We have line of sight to achieve AI revenue from chips, just chips, in excess of $100 billion in 2027. We have also secured the supply chain required to achieve this.",
+      "theme": "AI Infrastructure Spending",
+      "sentiment": 0.92
+    },
+    {
+      "ticker": "AAPL",
+      "company": "Apple",
+      "sector": "Information Technology",
+      "executive": "Tim Cook, CEO",
+      "quote": "The demand for iPhone was simply staggering, with revenue growing 23% year-over-year and all-time records across every geographic segment.",
+      "theme": "Record Profit Margin Expansion",
+      "sentiment": 0.88
+    },
+    {
+      "ticker": "GOOGL",
+      "company": "Alphabet",
+      "sector": "Communication Services",
+      "executive": "Sundar Pichai, CEO",
+      "quote": "We were able to lower Gemini serving unit costs by 78% over 2025 through model optimizations, efficiency and utilization improvements.",
+      "theme": "AI Infrastructure Spending",
+      "sentiment": 0.85
+    },
+    {
+      "ticker": "META",
+      "company": "Meta Platforms",
+      "sector": "Communication Services",
+      "executive": "Mark Zuckerberg, CEO",
+      "quote": "I'm looking forward to advancing personal superintelligence for people around the world in 2026.",
+      "theme": "Agentic AI Platform Shift",
+      "sentiment": 0.90
+    },
+    {
+      "ticker": "CRM",
+      "company": "Salesforce",
+      "sector": "Information Technology",
+      "executive": "Marc Benioff, CEO",
+      "quote": "We've rebuilt Salesforce to become the operating system for the Agentic Enterprise, bringing humans and agents together on one trusted platform.",
+      "theme": "Agentic AI Platform Shift",
+      "sentiment": 0.82
+    },
+    {
+      "ticker": "ACN",
+      "company": "Accenture",
+      "sector": "Information Technology",
+      "executive": "Julie Sweet, CEO",
+      "quote": "The real opportunity is not proving AI works. It is making it work everywhere.",
+      "theme": "Agentic AI Platform Shift",
+      "sentiment": 0.80
+    },
+    {
+      "ticker": "GS",
+      "company": "Goldman Sachs",
+      "sector": "Financials",
+      "executive": "David Solomon, CEO",
+      "quote": "We are not yet in the middle of the potential for a full-on M&A and sponsor cycle.",
+      "theme": "Dealmaking and Capital Markets Revival",
+      "sentiment": 0.82
+    },
+    {
+      "ticker": "JPM",
+      "company": "JPMorgan Chase",
+      "sector": "Financials",
+      "executive": "Jamie Dimon, CEO",
+      "quote": "Geopolitical is an enormous amount of risk... it's just a big matter of risk that may or may not determine the state of the economy.",
+      "theme": "Tariff Uncertainty and Trade Risk",
+      "sentiment": 0.50
+    },
+    {
+      "ticker": "LLY",
+      "company": "Eli Lilly",
+      "sector": "Health Care",
+      "executive": "David A. Ricks, CEO",
+      "quote": "2025 was an important year for Lilly. We reached millions more patients -- launching Inluriyo, expanding Mounjaro and Kisunla globally, and submitting orforglipron for approval.",
+      "theme": "GLP-1 and Obesity Drug Revolution",
+      "sentiment": 0.92
+    },
+    {
+      "ticker": "MRK",
+      "company": "Merck",
+      "sector": "Health Care",
+      "executive": "Rob Davis, CEO",
+      "quote": "We now have line of sight to over $70 billion of potential commercial opportunity by the mid-2030s.",
+      "theme": "Pharma Patent Cliff Pivots",
+      "sentiment": 0.60
+    },
+    {
+      "ticker": "NFLX",
+      "company": "Netflix",
+      "sector": "Communication Services",
+      "executive": "Ted Sarandos, Co-CEO",
+      "quote": "We're just about 7% of the addressable market in terms of consumer and ad spend. So tons of room ahead of us.",
+      "theme": "Digital Advertising Resilience",
+      "sentiment": 0.85
+    },
+    {
+      "ticker": "DIS",
+      "company": "Walt Disney",
+      "sector": "Communication Services",
+      "executive": "Bob Iger, CEO",
+      "quote": "Not bad, considering DTC was running with a $4 billion annual operating loss just three years ago.",
+      "theme": "Digital Advertising Resilience",
+      "sentiment": 0.75
+    },
+    {
+      "ticker": "MCD",
+      "company": "McDonald's",
+      "sector": "Consumer Discretionary",
+      "executive": "Chris Kempczinski, CEO",
+      "quote": "McDonald's is not going to get beat on value and affordability.",
+      "theme": "Consumer Bifurcation K-Shape",
+      "sentiment": 0.65
+    },
+    {
+      "ticker": "HD",
+      "company": "Home Depot",
+      "sector": "Consumer Discretionary",
+      "executive": "Ted Decker, CEO",
+      "quote": "Our customers are telling us that they're not investing. We're certainly bouncing along what we hope would be a bottom in things like housing turnover.",
+      "theme": "Consumer Bifurcation K-Shape",
+      "sentiment": 0.40
+    },
+    {
+      "ticker": "WMT",
+      "company": "Walmart",
+      "sector": "Consumer Staples",
+      "executive": "Doug McMillon, CEO",
+      "quote": "Tariffs are something we've managed for many years, we'll just continue to manage that. We're wired to try and save people money.",
+      "theme": "Tariff Uncertainty and Trade Risk",
+      "sentiment": 0.62
+    },
+    {
+      "ticker": "ORCL",
+      "company": "Oracle",
+      "sector": "Information Technology",
+      "executive": "Larry Ellison, Chairman",
+      "quote": "Someone called us, we'll take all the capacity you have that's currently not being used anywhere in the world... that was for inferencing, not training.",
+      "theme": "Cloud Revenue Acceleration",
+      "sentiment": 0.90
+    },
+    {
+      "ticker": "RTX",
+      "company": "RTX Corporation",
+      "sector": "Industrials",
+      "executive": "Chris Calio, CEO",
+      "quote": "We understand the urgency to deliver more and faster. We are aligned with the department's mandate to ramp production and invest in capacity.",
+      "theme": "Aerospace and Defense Surge",
+      "sentiment": 0.80
+    },
+    {
+      "ticker": "SBUX",
+      "company": "Starbucks",
+      "sector": "Consumer Discretionary",
+      "executive": "Brian Niccol, CEO",
+      "quote": "Our Q1 results demonstrate our Back to Starbucks strategy is working and we believe we're ahead of schedule. We are turning around the top line, and the earnings growth will follow.",
+      "theme": "Consumer Bifurcation K-Shape",
+      "sentiment": 0.60
+    },
+    {
+      "ticker": "V",
+      "company": "Visa",
+      "sector": "Financials",
+      "executive": "Ryan McInerney, CEO",
+      "quote": "Visa has become a hyperscaler, enabling anyone that wants to be in the money movement or payments business to build on top of the Visa as a Service stack.",
+      "theme": "Dealmaking and Capital Markets Revival",
+      "sentiment": 0.78
+    },
+    {
+      "ticker": "AMZN",
+      "company": "Amazon",
+      "sector": "Consumer Discretionary",
+      "executive": "Andy Jassy, CEO",
+      "quote": "Every customer experience that we know of today is going to be reinvented.",
+      "theme": "Agentic AI Platform Shift",
+      "sentiment": 0.85
+    },
+    {
+      "ticker": "PEP",
+      "company": "PepsiCo",
+      "sector": "Consumer Staples",
+      "executive": "Ramon Laguarta, CEO",
+      "quote": "On GLP-1 drugs: There are more opportunities than threats, but there are both. We expect Frito-Lay to grow volume, net revenue, and operating margin this year with double-digit shelf-space gains.",
+      "theme": "GLP-1 and Obesity Drug Revolution",
+      "sentiment": 0.58
+    },
+    {
+      "ticker": "JNJ",
+      "company": "Johnson & Johnson",
+      "sector": "Health Care",
+      "executive": "Joaquin Duato, CEO",
+      "quote": "We said 2025 would be a catapult year for Johnson & Johnson, and that's exactly what it was. It launched us into a new era of accelerated growth.",
+      "theme": "Pharma Patent Cliff Pivots",
+      "sentiment": 0.78
+    },
+    {
+      "ticker": "AEP",
+      "company": "American Electric Power",
+      "sector": "Utilities",
+      "executive": "Bill Fehrman, CEO",
+      "quote": "AEP's approach to large load customers is serving as a model for the industry. We now have 56 gigawatts of firm, incremental contracted load additions by 2030.",
+      "theme": "Power Grid Modernization",
+      "sentiment": 0.80
+    }
+  ]
 }
