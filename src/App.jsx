@@ -7866,6 +7866,324 @@ function PipelineStatus({ meta }) {
   );
 }
 
+// ── Earnings Intelligence Dashboard ──────────────────────────────────────────
+function EarningsIntel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeSection, setActiveSection] = useState("overview");
+  const [sectorFilter, setSectorFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedSector, setExpandedSector] = useState(null);
+  const [quotePage, setQuotePage] = useState(0);
+
+  useEffect(() => {
+    fetch("/data/earnings_intel.json")
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center" }}>Loading earnings intelligence...</div>;
+  if (error) return <div style={{ color: "#f87171", padding: 40, textAlign: "center" }}>Failed to load earnings intel: {error}<br/><span style={{ fontSize: 11, color: "#686878" }}>Run: ./scripts/run-earnings-intel.sh --dry</span></div>;
+  if (!data) return null;
+
+  const CYAN = "#22d3ee";
+  const CYAN_DIM = "#22d3ee30";
+  const CYAN_BG = "#22d3ee12";
+  const sections = [["overview","Overview"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
+  const kpis = data.kpis || {};
+  const themes = data.themes || [];
+  const sectors = data.sectors || [];
+  const signals = data.momentum_signals || [];
+  const quotes = data.quotes || [];
+  const maxFreq = Math.max(...themes.map(t => t.frequency || 0), 1);
+  const maxSentiment = Math.max(...sectors.map(s => s.sentiment || 0), 1);
+
+  // Sentiment color helper
+  const sentColor = (v) => v >= 0.7 ? "#2bb886" : v >= 0.5 ? "#22d3ee" : v >= 0.3 ? "#fbbf24" : "#f87171";
+  const sentLabel = (v) => v >= 0.7 ? "Bullish" : v >= 0.5 ? "Positive" : v >= 0.3 ? "Cautious" : "Bearish";
+  const typeColor = (t) => t === "bullish" ? "#2bb886" : t === "caution" ? "#f87171" : "#fbbf24";
+
+  // Filtered quotes
+  const filteredQuotes = quotes.filter(q => {
+    if (sectorFilter !== "All" && q.sector !== sectorFilter) return false;
+    if (searchQuery) {
+      const sq = searchQuery.toLowerCase();
+      return (q.ticker?.toLowerCase().includes(sq) || q.company?.toLowerCase().includes(sq) || q.quote?.toLowerCase().includes(sq) || q.executive?.toLowerCase().includes(sq) || q.theme?.toLowerCase().includes(sq));
+    }
+    return true;
+  });
+  const QUOTES_PER_PAGE = 20;
+  const totalQuotePages = Math.ceil(filteredQuotes.length / QUOTES_PER_PAGE);
+  const pagedQuotes = filteredQuotes.slice(quotePage * QUOTES_PER_PAGE, (quotePage + 1) * QUOTES_PER_PAGE);
+  const uniqueSectors = ["All", ...new Set(quotes.map(q => q.sector).filter(Boolean))];
+
+  return (
+    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 4 }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: CYAN }}>Earnings Intelligence</span>
+          <span style={{ fontSize: 13, color: "#9090a0", fontWeight: 600 }}>{data.quarter}</span>
+        </div>
+        <div style={{ fontSize: 10, color: "#505060" }}>
+          Updated {new Date(data.updated_at).toLocaleDateString()} — {data.companies_analyzed} companies analyzed
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+        {[
+          ["Companies", kpis.total_companies, "#d4d4e0"],
+          ["Themes", kpis.themes_tracked, CYAN],
+          ["Signals", kpis.momentum_signals, "#fbbf24"],
+          ["Avg Sentiment", kpis.avg_sentiment?.toFixed(2), sentColor(kpis.avg_sentiment || 0)],
+          ["Sectors", kpis.sectors_covered, "#a78bfa"]
+        ].map(([label, value, color]) => (
+          <div key={label} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color, fontFamily: "monospace" }}>{value ?? "—"}</div>
+            <div style={{ fontSize: 10, color: "#686878", marginTop: 2 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Section tabs */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {sections.map(([id, label]) => (
+          <button key={id} onClick={() => { setActiveSection(id); if (id === "quotes") setQuotePage(0); }}
+            style={{ padding: "5px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: activeSection === id ? `1px solid ${CYAN}50` : "1px solid transparent",
+              background: activeSection === id ? CYAN_BG : "transparent",
+              color: activeSection === id ? CYAN : "#787888" }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ── OVERVIEW ── */}
+      {activeSection === "overview" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* Left: Top Themes by Frequency */}
+          <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", marginBottom: 12 }}>Top Themes by Frequency</div>
+            {themes.slice(0, 10).map(t => (
+              <div key={t.name} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                  <span style={{ color: "#d4d4e0" }}>{t.name}</span>
+                  <span style={{ color: "#686878", fontFamily: "monospace" }}>{t.frequency}</span>
+                </div>
+                <div style={{ height: 6, background: "#0a0a0f", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${(t.frequency / maxFreq) * 100}%`, background: `linear-gradient(90deg, ${CYAN}40, ${CYAN})`, borderRadius: 3, transition: "width 0.3s" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Right: Sector Sentiment Ranking */}
+          <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", marginBottom: 12 }}>Sector Sentiment</div>
+            {[...sectors].sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0)).map(s => (
+              <div key={s.name} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
+                  <span style={{ color: "#d4d4e0" }}>{s.name}</span>
+                  <span style={{ color: sentColor(s.sentiment), fontFamily: "monospace", fontWeight: 600 }}>{(s.sentiment || 0).toFixed(2)}</span>
+                </div>
+                <div style={{ height: 6, background: "#0a0a0f", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${(s.sentiment / maxSentiment) * 100}%`, background: `linear-gradient(90deg, ${sentColor(s.sentiment)}40, ${sentColor(s.sentiment)})`, borderRadius: 3, transition: "width 0.3s" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── THEMES ── */}
+      {activeSection === "themes" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {themes.map(t => (
+            <div key={t.name} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#d4d4e0" }}>{t.name}</span>
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600,
+                  background: t.trend === "accelerating" ? "#2bb88618" : t.trend === "decelerating" ? "#f8717118" : "#fbbf2418",
+                  color: t.trend === "accelerating" ? "#2bb886" : t.trend === "decelerating" ? "#f87171" : "#fbbf24",
+                  border: `1px solid ${t.trend === "accelerating" ? "#2bb88640" : t.trend === "decelerating" ? "#f8717140" : "#fbbf2440"}`
+                }}>{t.trend || "stable"}</span>
+                <span style={{ fontSize: 11, color: sentColor(t.sentiment), fontFamily: "monospace" }}>{(t.sentiment || 0).toFixed(2)}</span>
+                <span style={{ fontSize: 10, color: "#686878" }}>freq: {t.frequency}</span>
+              </div>
+              {/* Sector breakdown chips */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                {Object.entries(t.sectors || {}).map(([sec, note]) => (
+                  <span key={sec} title={note} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: CYAN_BG, border: `1px solid ${CYAN}30`, color: CYAN, cursor: "default" }}>{sec}</span>
+                ))}
+              </div>
+              {/* Sector notes */}
+              <div style={{ fontSize: 11, color: "#9090a0", lineHeight: 1.5, marginBottom: 8 }}>
+                {Object.entries(t.sectors || {}).map(([sec, note]) => (
+                  <div key={sec}><span style={{ color: "#686878" }}>{sec}:</span> {note}</div>
+                ))}
+              </div>
+              {/* Keywords */}
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                {(t.keywords || []).map(kw => (
+                  <span key={kw} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: "#0a0a0f", color: "#686878", border: "1px solid #2a2a38" }}>{kw}</span>
+                ))}
+              </div>
+              {/* Tickers */}
+              {t.tickers?.length > 0 && (
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {t.tickers.map(tk => (
+                    <span key={tk} style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 600, padding: "2px 6px", borderRadius: 3, background: "#22d3ee08", color: CYAN }}>{tk}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── SECTORS ── */}
+      {activeSection === "sectors" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[...sectors].sort((a, b) => (b.sentiment || 0) - (a.sentiment || 0)).map(s => {
+            const isOpen = expandedSector === s.name;
+            const details = s.companies_detail || [];
+            return (
+              <div key={s.name} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
+                {/* Accordion header */}
+                <div onClick={() => setExpandedSector(isOpen ? null : s.name)}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#1a1a26"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <span style={{ fontSize: 12, color: "#686878", fontFamily: "monospace", width: 14 }}>{isOpen ? "\u25BC" : "\u25B6"}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", flex: 1 }}>{s.name}</span>
+                  <span style={{ fontSize: 11, color: sentColor(s.sentiment), fontWeight: 600 }}>{sentLabel(s.sentiment)} ({(s.sentiment || 0).toFixed(2)})</span>
+                  <span style={{ fontSize: 10, color: "#686878" }}>{s.companies} cos</span>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {(s.top_themes || []).slice(0, 3).map(th => (
+                      <span key={th} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, background: CYAN_BG, color: CYAN, border: `1px solid ${CYAN}25` }}>{th}</span>
+                    ))}
+                  </div>
+                </div>
+                {/* Expanded: company table */}
+                {isOpen && details.length > 0 && (
+                  <div style={{ borderTop: "1px solid #2a2a38", padding: "8px 16px 12px" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                          <th style={{ textAlign: "left", padding: "6px 8px", color: "#686878", fontWeight: 600 }}>Ticker</th>
+                          <th style={{ textAlign: "center", padding: "6px 8px", color: "#686878", fontWeight: 600 }}>Sentiment</th>
+                          <th style={{ textAlign: "left", padding: "6px 8px", color: "#686878", fontWeight: 600 }}>Themes</th>
+                          <th style={{ textAlign: "left", padding: "6px 8px", color: "#686878", fontWeight: 600 }}>Key Quote</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {details.map(c => (
+                          <tr key={c.ticker} style={{ borderBottom: "1px solid #1a1a24" }}
+                            onMouseEnter={e => e.currentTarget.style.background = "#1a1a26"}
+                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: CYAN }}>{c.ticker}</td>
+                            <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              <span style={{ color: sentColor(c.sentiment), fontFamily: "monospace" }}>{(c.sentiment || 0).toFixed(2)}</span>
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                {(c.themes || []).map(th => (
+                                  <span key={th} style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "#0a0a0f", color: "#9090a0", border: "1px solid #2a2a38" }}>{th}</span>
+                                ))}
+                              </div>
+                            </td>
+                            <td style={{ padding: "6px 8px", color: "#9090a0", fontStyle: "italic", maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.key_quote || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── SIGNALS ── */}
+      {activeSection === "signals" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340, 1fr))", gap: 12 }}>
+          {signals.map((sig, i) => (
+            <div key={i} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", padding: "2px 8px", borderRadius: 4,
+                  background: `${typeColor(sig.type)}18`, color: typeColor(sig.type), border: `1px solid ${typeColor(sig.type)}40` }}>{sig.type}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", flex: 1 }}>{sig.signal}</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#9090a0", lineHeight: 1.5, marginBottom: 10 }}>{sig.description}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {(sig.tickers || []).map(tk => (
+                    <span key={tk} style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 600, padding: "2px 6px", borderRadius: 3, background: "#22d3ee08", color: CYAN }}>{tk}</span>
+                  ))}
+                </div>
+                <span style={{ fontSize: 10, color: "#686878", fontFamily: "monospace" }}>conf: {(sig.confidence || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── QUOTES ── */}
+      {activeSection === "quotes" && (
+        <div>
+          {/* Search + sector filter */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <input type="text" placeholder="Search quotes..." value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setQuotePage(0); }}
+              style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 6, padding: "6px 12px", fontSize: 12, color: "#d4d4e0", width: 220, outline: "none", fontFamily: "monospace" }} />
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {uniqueSectors.map(sec => (
+                <button key={sec} onClick={() => { setSectorFilter(sec); setQuotePage(0); }}
+                  style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, cursor: "pointer", fontWeight: 600,
+                    background: sectorFilter === sec ? CYAN_BG : "transparent",
+                    border: sectorFilter === sec ? `1px solid ${CYAN}50` : "1px solid #2a2a38",
+                    color: sectorFilter === sec ? CYAN : "#686878" }}>{sec}</button>
+              ))}
+            </div>
+            <span style={{ fontSize: 10, color: "#505060", marginLeft: "auto" }}>{filteredQuotes.length} quotes</span>
+          </div>
+          {/* Quote cards */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {pagedQuotes.map((q, i) => (
+              <div key={i} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: "12px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontFamily: "monospace", fontWeight: 700, color: CYAN, fontSize: 12 }}>{q.ticker}</span>
+                  <span style={{ color: "#9090a0", fontSize: 11 }}>{q.company}</span>
+                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: CYAN_BG, color: CYAN, border: `1px solid ${CYAN}25` }}>{q.sector}</span>
+                  <span style={{ marginLeft: "auto", color: sentColor(q.sentiment), fontSize: 10, fontFamily: "monospace" }}>{(q.sentiment || 0).toFixed(2)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#d4d4e0", lineHeight: 1.5, fontStyle: "italic", marginBottom: 6 }}>"{q.quote}"</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 10, color: "#686878" }}>{q.executive}</span>
+                  {q.theme && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: "#0a0a0f", color: "#686878", border: "1px solid #2a2a38" }}>{q.theme}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Pagination */}
+          {totalQuotePages > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 12, alignItems: "center" }}>
+              <button onClick={() => setQuotePage(p => Math.max(0, p - 1))} disabled={quotePage === 0}
+                style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, cursor: quotePage === 0 ? "default" : "pointer",
+                  background: "transparent", border: "1px solid #2a2a38", color: quotePage === 0 ? "#3a3a4a" : "#9090a0" }}>&lt; Prev</button>
+              <span style={{ fontSize: 11, color: "#686878", fontFamily: "monospace" }}>{quotePage + 1} / {totalQuotePages}</span>
+              <button onClick={() => setQuotePage(p => Math.min(totalQuotePages - 1, p + 1))} disabled={quotePage >= totalQuotePages - 1}
+                style={{ padding: "4px 12px", borderRadius: 4, fontSize: 11, cursor: quotePage >= totalQuotePages - 1 ? "default" : "pointer",
+                  background: "transparent", border: "1px solid #2a2a38", color: quotePage >= totalQuotePages - 1 ? "#3a3a4a" : "#9090a0" }}>Next &gt;</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AppMain({ authToken, onLogout }) {
   // Inject responsive CSS and viewport meta once
   useEffect(() => {
@@ -8359,7 +8677,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"]].map(([id, label]) => (
+        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"],["intel","Earnings Intel"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -8471,6 +8789,9 @@ function AppMain({ authToken, onLogout }) {
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <Suspense fallback={<div style={{ color: "#686878", padding: 20, textAlign: "center" }}>Loading...</div>}><USMarketQuadrant /></Suspense>}
+          </ErrorBoundary>
+          <ErrorBoundary name="Earnings Intel">
+          {view === "intel" && <EarningsIntel />}
           </ErrorBoundary>
         </div>
 
