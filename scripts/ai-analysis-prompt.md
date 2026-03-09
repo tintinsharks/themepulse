@@ -1,20 +1,22 @@
 # ThemePulse AI Analysis Generator
 
-You are the ThemePulse AI Analysis engine. Read the dashboard data, filter for qualifying stocks, research each one, and write a JSON report.
+You are the ThemePulse AI Analysis engine. Read the Momentum Burst signals from dashboard data, research each one, and write a JSON report.
 
-## STEP 1 — Read and filter dashboard_data.json
+## STEP 1 — Read momentum_burst from dashboard_data.json
 
-Read the file at `public/dashboard_data.json` in the current repo. The `stocks` array contains ~3,400 objects. Filter using ALL of these criteria (a stock must pass every one):
+Read the file at `public/dashboard_data.json` in the current repo. Use the `momentum_burst` array — these are Stockbee $ breakout and 4% breakout signals (stocks that were quiet yesterday but are bursting today).
 
-```
-change_pct > 0            # positive movers only
-change_pct >= 4            # at least 4% change
-rel_volume >= 1.5          # proxy for ZVR ≥ 1.5x (ZVR isn't in the JSON)
-market_cap_raw >= 300000000  # Small-cap+ ($300M minimum)
-avg_dollar_vol_raw >= 50000000  # $50M+ average dollar volume
-```
+Each entry has: `ticker`, `scan` (["$"], ["4%"], or ["$","4%"]), `close`, `change_pct`, `dollar_move`, `close_range`, `vol_ratio`, `volume`, and optionally `grade`, `rs_rank`, `themes`.
 
-Print the filtered tickers so I can see what passed. Expect 3–12 stocks on a typical day. If zero stocks pass, write a minimal JSON with `"content": "No stocks passed Scan Watch filters today."` and `"tickers": []`, then exit.
+Also look up each ticker in the `stocks` array to get additional context: `company`, `sector`, `industry`, `market_cap`, `market_cap_raw`, `rs_rank`, `grade`, `eps_yoy`, `sales_yoy`, `rel_volume`, `adr_pct`, `themes`, `avg_dollar_vol`, `avg_dollar_vol_raw`.
+
+Print the momentum burst tickers so I can see what's being analyzed. Expect 5–30 stocks on a typical day. If zero momentum burst signals exist, write a minimal JSON with `"content": "No Momentum Burst signals today."` and `"tickers": []`, then exit.
+
+**Priority**: If there are more than 12 momentum burst tickers, prioritize analysis for stocks that:
+1. Have both "$" and "4%" scan types
+2. Have `in_universe: true` (they're in our stock universe with RS/grade data)
+3. Have higher `change_pct`
+Analyze up to 12 tickers max. List the remaining tickers in the summary as "Also bursting" without full analysis.
 
 ## STEP 2 — Research each ticker
 
@@ -41,7 +43,10 @@ After fetching stockanalysis.com data, search the web for:
 
 ### Dashboard context
 
-Use the stock object fields from dashboard_data.json for technicals:
+From the `momentum_burst` entry:
+- `scan` (breakout types), `change_pct`, `dollar_move`, `close_range`, `vol_ratio`, `volume`
+
+From the `stocks` array (look up by ticker):
 - `ticker`, `company`, `sector`, `industry`, `close`/`price`, `change_pct`
 - `rel_volume`, `rs_rank`, `market_cap`, `eps_yoy`, `sales_yoy`
 - `off_52w_high`, `grade`, `atr_pct`, `rsi`, `themes`
@@ -126,7 +131,7 @@ Write the output to `public/data/ai_analysis.json` with this exact schema:
 {
   "content": "<summary markdown — see format below>",
   "updated_at": "<ISO 8601 UTC timestamp>",
-  "filters": "Chg≥4% + Chg>0% + ZVR 1.5x+ + Small+ + $Vol≥50M",
+  "filters": "Momentum Burst ($ + 4% Breakout)",
   "tickers": [
     {
       "ticker": "AAOI",
@@ -151,14 +156,14 @@ Write the output to `public/data/ai_analysis.json` with this exact schema:
 ### `content` field (summary)
 
 ```
-# EP Catalyst Analysis
+# Momentum Burst Analysis
 
-**N stocks** passed Scan Watch filters on YYYY-MM-DD.
+**N stocks** triggered Momentum Burst signals on YYYY-MM-DD.
 **X BUY** | **Y HOLD** | **Z AVOID**
 
 ### Top BUY Candidates
-- **TICK** — one-line thesis with key numbers
-- **TICK** — one-line thesis with key numbers
+- **TICK** ($+4%) — one-line thesis with key numbers
+- **TICK** (4%) — one-line thesis with key numbers
 ```
 
 ### `tickers[].tabs` — five tabs per ticker

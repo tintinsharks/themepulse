@@ -9,12 +9,13 @@ The tickers in this run are the same as the previous analysis. Do NOT re-researc
 
 ## STEP 2 — Update each ticker's live data
 
-For each ticker in the existing analysis, pull fresh values from `dashboard_data.json`:
+For each ticker in the existing analysis, pull fresh values from `dashboard_data.json` (check both `stocks` array and `momentum_burst` array):
 - `change_pct` — updated intraday change
 - `close` / `price` — current price
-- `rel_volume` — current relative volume
+- `rel_volume` / `vol_ratio` — current relative volume
 - `volume` — current volume
 - `rs_rank` — current RS rank
+- `dollar_move`, `close_range` — from momentum_burst entry if available
 
 ## STEP 3 — Update key_takeaways with price action
 
@@ -39,9 +40,9 @@ Keep this section to 2-4 bullets max. Be specific about price levels and volume 
 Update the `content` field's header to note this is a price-action refresh:
 
 ```
-# EP Catalyst Analysis
+# Momentum Burst Analysis
 
-**N stocks** passed Scan Watch filters on YYYY-MM-DD.
+**N stocks** triggered Momentum Burst signals on YYYY-MM-DD.
 **X BUY** | **Y HOLD** | **Z AVOID**
 *Updated HH:MM ET — price action refresh*
 

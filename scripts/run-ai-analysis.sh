@@ -61,32 +61,28 @@ NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 TODAY=$(date +"%Y-%m-%d")
 echo "🕐 Starting AI analysis at $NOW"
 
-# ── Count stocks that pass filter (quick preview) ──
+# ── Count momentum burst signals (quick preview) ──
 PASSING=$(python3 -c "
 import json
 with open('$REPO_DIR/public/dashboard_data.json') as f:
     d = json.load(f)
-stocks = [s for s in d.get('stocks', [])
-    if s.get('change_pct', 0) > 0
-    and s.get('change_pct', 0) >= 4
-    and s.get('rel_volume', 0) >= 1.5
-    and s.get('market_cap_raw', 0) >= 300000000
-    and s.get('avg_dollar_vol_raw', 0) >= 50000000]
-for s in sorted(stocks, key=lambda x: -x.get('change_pct', 0)):
-    print(f\"  {s['ticker']:6s} chg={s['change_pct']:+.1f}%  rv={s.get('rel_volume',0):.1f}x  rs={s.get('rs_rank','?')}  mc={s.get('market_cap','?')}\")
+burst = d.get('momentum_burst', [])
+for s in sorted(burst, key=lambda x: -x.get('change_pct', 0)):
+    scan = '+'.join(s.get('scan', []))
+    print(f\"  {s['ticker']:6s} [{scan:5s}]  chg={s['change_pct']:+.1f}%  \$mv={s.get('dollar_move',0):+.2f}  rv={s.get('vol_ratio',0):.1f}x  rs={s.get('rs_rank','?')}\")
 print(f'---')
-print(f'{len(stocks)} stocks pass filters')
-" 2>/dev/null || echo "0 stocks pass filters")
+print(f'{len(burst)} momentum burst signals')
+" 2>/dev/null || echo "0 momentum burst signals")
 echo "$PASSING"
 
 COUNT=$(echo "$PASSING" | tail -1 | grep -oE '^[0-9]+')
 if [[ "$COUNT" == "0" ]]; then
-  echo "⚠️  No stocks pass filters today. Writing empty analysis."
+  echo "⚠️  No momentum burst signals today. Writing empty analysis."
   cat > "$OUTPUT_FILE" << EOJSON
 {
-  "content": "# EP Catalyst Analysis\n\nNo stocks passed Scan Watch filters on $TODAY.",
+  "content": "# Momentum Burst Analysis\n\nNo Momentum Burst signals on $TODAY.",
   "updated_at": "$NOW",
-  "filters": "Chg≥4% + Chg>0% + ZVR 1.5x+ + Small+ + \$Vol≥50M",
+  "filters": "Momentum Burst ($ + 4% Breakout)",
   "tickers": []
 }
 EOJSON
@@ -96,15 +92,10 @@ else
   UPDATE_PROMPT_FILE="$REPO_DIR/scripts/ai-analysis-update-prompt.md"
   RUN_MODE=$(python3 -c "
 import json, sys
-# Current filtered tickers
+# Current momentum burst tickers
 with open('$REPO_DIR/public/dashboard_data.json') as f:
     d = json.load(f)
-current = sorted(s['ticker'] for s in d.get('stocks', [])
-    if s.get('change_pct', 0) > 0
-    and s.get('change_pct', 0) >= 4
-    and s.get('rel_volume', 0) >= 1.5
-    and s.get('market_cap_raw', 0) >= 300000000
-    and s.get('avg_dollar_vol_raw', 0) >= 50000000)
+current = sorted(s['ticker'] for s in d.get('momentum_burst', []))
 # Existing analysis tickers
 try:
     with open('$OUTPUT_FILE') as f:
@@ -167,14 +158,14 @@ for line in sys.stdin:
   }
 
   if [[ "$RUN_MODE" == "update" ]]; then
-    echo "♻️  Same tickers as last run — incremental price-action update only"
+    echo "♻️  Same burst tickers as last run — incremental price-action update only"
     echo ""
     cat "$UPDATE_PROMPT_FILE" | claude --print \
       --output-format stream-json --verbose \
       --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
       | progress_filter
   else
-    echo "🔬 New tickers detected — full research for $COUNT tickers..."
+    echo "🔬 Momentum burst — full research for $COUNT tickers..."
     echo ""
     cat "$PROMPT_FILE" | claude --print \
       --output-format stream-json --verbose \
