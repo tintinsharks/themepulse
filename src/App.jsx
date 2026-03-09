@@ -371,70 +371,90 @@ const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
   );
 });
 
-// ── POSITION CALCULATOR ──
-function PositionCalculator({ price, adr }) {
-  const [accountSize, setAccountSize] = useState(() => parseFloat(localStorage.getItem("calc_account") || "100000"));
-  const [riskPct, setRiskPct] = useState(() => parseFloat(localStorage.getItem("calc_risk") || "1"));
-  const [entryPrice, setEntryPrice] = useState("");
-  const [stopPrice, setStopPrice] = useState("");
+// ── EARNINGS CALL ANALYSIS ──
+function EarningsCallPanel({ ticker, company, quarters }) {
+  const [analysis, setAnalysis] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [sources, setSources] = useState([]);
+  const cacheRef = useRef({});
 
-  useEffect(() => { if (price) setEntryPrice(String(price.toFixed(2))); }, [price]);
-  useEffect(() => { localStorage.setItem("calc_account", String(accountSize)); }, [accountSize]);
-  useEffect(() => { localStorage.setItem("calc_risk", String(riskPct)); }, [riskPct]);
+  const runAnalysis = useCallback(() => {
+    if (!ticker) return;
+    if (cacheRef.current[ticker]) {
+      setAnalysis(cacheRef.current[ticker].analysis);
+      setSources(cacheRef.current[ticker].sources || []);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setAnalysis(null);
+    setSources([]);
+    const qs = (quarters || []).slice(0, 4).map(q =>
+      `${q.report_date || "?"}: EPS ${q.eps_yoy != null ? q.eps_yoy.toFixed(0) + "% YoY" : "?"}, Sales ${q.sales_yoy != null ? q.sales_yoy.toFixed(0) + "% YoY" : "?"}`
+    ).join("; ");
+    fetch(`/api/earnings-call?ticker=${encodeURIComponent(ticker)}&company=${encodeURIComponent(company || "")}&quarters=${encodeURIComponent(qs)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          setAnalysis(d.analysis);
+          setSources(d.sources || []);
+          cacheRef.current[ticker] = { analysis: d.analysis, sources: d.sources };
+        } else {
+          setError(d.error || "Failed");
+        }
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [ticker, company, quarters]);
 
-  const entry = parseFloat(entryPrice) || 0;
-  const stop = parseFloat(stopPrice) || 0;
-  const riskPerShare = entry > 0 && stop > 0 ? Math.abs(entry - stop) : 0;
-  const riskDollars = accountSize * (riskPct / 100);
-  const shares = riskPerShare > 0 ? Math.floor(riskDollars / riskPerShare) : 0;
-  const positionSize = shares * entry;
-  const positionPct = accountSize > 0 ? (positionSize / accountSize * 100) : 0;
-  const rr1 = entry + riskPerShare;
-  const rr2 = entry + riskPerShare * 2;
-  const rr3 = entry + riskPerShare * 3;
+  // Reset when ticker changes
+  useEffect(() => { setAnalysis(null); setError(null); setSources([]); }, [ticker]);
 
-  const inputStyle = { background: "#1a1a28", border: "1px solid #3a3a4a", borderRadius: 3, color: "#d4d4e0",
-    padding: "3px 6px", fontSize: 10, fontFamily: "monospace", width: "100%", outline: "none", boxSizing: "border-box" };
-  const labelStyle = { color: "#686878", fontSize: 9, marginBottom: 1 };
-  const valStyle = { color: "#b8b8c8", fontFamily: "monospace", fontSize: 11 };
+  // Simple markdown-ish rendering: ## headers, - bullets, **bold**
+  const renderMd = (text) => {
+    return text.split("\n").map((line, i) => {
+      if (line.startsWith("## ")) return <div key={i} style={{ color: "#4aad8c", fontWeight: 700, fontSize: 11, marginTop: i > 0 ? 6 : 0, marginBottom: 2 }}>{line.slice(3)}</div>;
+      if (line.startsWith("- ")) {
+        const content = line.slice(2).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+        return <div key={i} style={{ paddingLeft: 8, color: "#b8b8c8", lineHeight: 1.5 }}><span style={{ color: "#505060" }}>  </span><span dangerouslySetInnerHTML={{ __html: content }} /></div>;
+      }
+      if (line.trim() === "") return null;
+      const content = line.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      return <div key={i} style={{ color: "#b8b8c8", lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: content }} />;
+    });
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-        <div>
-          <div style={labelStyle}>Account $</div>
-          <input type="number" value={accountSize} onChange={e => setAccountSize(parseFloat(e.target.value) || 0)} style={inputStyle} />
-        </div>
-        <div>
-          <div style={labelStyle}>Risk %</div>
-          <input type="number" value={riskPct} step="0.25" onChange={e => setRiskPct(parseFloat(e.target.value) || 0)} style={inputStyle} />
-        </div>
-        <div>
-          <div style={labelStyle}>Entry</div>
-          <input type="number" value={entryPrice} step="0.01" onChange={e => setEntryPrice(e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <div style={labelStyle}>Stop</div>
-          <input type="number" value={stopPrice} step="0.01" onChange={e => setStopPrice(e.target.value)} style={inputStyle}
-            placeholder={entry > 0 && adr ? (entry - entry * adr / 100).toFixed(2) : ""} />
-        </div>
-      </div>
-      {riskPerShare > 0 && (
-        <div style={{ background: "#ffffff06", border: "1px solid #2a2a3a", borderRadius: 4, padding: "6px 8px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
-            <div><span style={labelStyle}>Risk/share: </span><span style={valStyle}>${riskPerShare.toFixed(2)}</span></div>
-            <div><span style={labelStyle}>Risk $: </span><span style={{ ...valStyle, color: "#f87171" }}>${riskDollars.toFixed(0)}</span></div>
-            <div><span style={labelStyle}>Shares: </span><span style={{ ...valStyle, color: "#22d3ee", fontWeight: 700 }}>{shares.toLocaleString()}</span></div>
-            <div><span style={labelStyle}>Position: </span><span style={valStyle}>${positionSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-            <div><span style={labelStyle}>% of acct: </span><span style={{ ...valStyle, color: positionPct > 25 ? "#f87171" : positionPct > 15 ? "#fbbf24" : "#2bb886" }}>{positionPct.toFixed(1)}%</span></div>
-            <div><span style={labelStyle}>Stop %: </span><span style={valStyle}>{entry > 0 ? ((riskPerShare / entry) * 100).toFixed(1) : 0}%</span></div>
-          </div>
-          <div style={{ borderTop: "1px solid #2a2a38", marginTop: 5, paddingTop: 4, display: "flex", gap: 12 }}>
-            <span style={labelStyle}>R targets:</span>
-            <span style={{ color: "#2bb886", fontFamily: "monospace", fontSize: 10 }}>1R ${rr1.toFixed(2)}</span>
-            <span style={{ color: "#4aad8c", fontFamily: "monospace", fontSize: 10 }}>2R ${rr2.toFixed(2)}</span>
-            <span style={{ color: "#22d3ee", fontFamily: "monospace", fontSize: 10 }}>3R ${rr3.toFixed(2)}</span>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {!analysis && !loading && !error && (
+        <button onClick={runAnalysis}
+          style={{ padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontWeight: 700, fontSize: 10,
+            background: "#0d916320", border: "1px solid #0d9163", color: "#4aad8c", fontFamily: "monospace" }}>
+          Analyze Last Earnings Call
+        </button>
+      )}
+      {loading && <div style={{ color: "#686878", fontSize: 10 }}>Searching and analyzing earnings call...</div>}
+      {error && <div style={{ color: "#f87171", fontSize: 10 }}>Error: {error}</div>}
+      {analysis && (
+        <div style={{ fontSize: 10, lineHeight: 1.5 }}>
+          {renderMd(analysis)}
+          {sources.length > 0 && (
+            <div style={{ marginTop: 6, borderTop: "1px solid #2a2a38", paddingTop: 4 }}>
+              {sources.map((s, i) => (
+                <div key={i}><a href={s.url} target="_blank" rel="noopener noreferrer"
+                  style={{ color: "#505060", fontSize: 9, textDecoration: "none" }}
+                  onMouseEnter={e => e.target.style.color = "#0d9163"}
+                  onMouseLeave={e => e.target.style.color = "#505060"}>
+                  {s.title || s.url}</a></div>
+              ))}
+            </div>
+          )}
+          <button onClick={() => { cacheRef.current[ticker] = null; runAnalysis(); }}
+            style={{ marginTop: 4, padding: "2px 8px", borderRadius: 3, cursor: "pointer", fontSize: 9,
+              background: "transparent", border: "1px solid #3a3a4a", color: "#686878" }}>
+            Refresh
+          </button>
         </div>
       )}
     </div>
@@ -794,12 +814,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {stock && (
           <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
-              {["earnings", "calculator"].map(tab => (
+              {["earnings", "call"].map(tab => (
                 <span key={tab} onClick={() => setEarningsTab(tab)}
                   style={{ cursor: "pointer", color: earningsTab === tab ? "#4aad8c" : "#505060",
                     borderBottom: earningsTab === tab ? "1px solid #4aad8c" : "1px solid transparent",
                     paddingBottom: 1 }}>
-                  {tab === "earnings" ? "Earnings" : "Calculator"}
+                  {tab === "earnings" ? "Earnings" : "Call"}
                 </span>
               ))}
               {(stock.earnings_display || stock.earnings_date) && (() => {
@@ -1009,8 +1029,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               </div>
             </>)}
             </>)}
-            {earningsTab === "calculator" && (
-              <PositionCalculator price={stock.price} adr={stock.adr_pct} />
+            {earningsTab === "call" && (
+              <EarningsCallPanel ticker={ticker} company={stock.company} quarters={stock.quarters} />
             )}
           </div>
           )}
