@@ -20,7 +20,9 @@ Also look up each ticker in the `stocks` array to get additional context: `compa
 
 Print the momentum burst tickers so I can see what's being analyzed. If zero momentum burst signals exist, write a minimal JSON with `"content": "No Momentum Burst signals today."` and `"tickers": []`, then exit.
 
-**Priority**: If there are more than 8 momentum burst tickers, prioritize:
+**Exclusions**: Skip any ticker whose `industry` field contains: Biotechnology, Drug Manufacturers, Pharmaceutical, REIT, Real Estate Investment Trust. These are excluded from analysis entirely — do not count them, do not list them.
+
+**Priority**: If there are more than 8 momentum burst tickers (after exclusions), prioritize:
 1. Have both "$" and "4%" scan types
 2. Have `in_universe: true` (they're in our stock universe with RS/grade data)
 3. Have higher `change_pct`
