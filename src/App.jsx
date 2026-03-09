@@ -7867,7 +7867,7 @@ function PipelineStatus({ meta }) {
 }
 
 // ── Earnings Intelligence Dashboard ──────────────────────────────────────────
-function EarningsIntel() {
+function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], stockMap = {} }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -7891,7 +7891,7 @@ function EarningsIntel() {
   const CYAN = "#22d3ee";
   const CYAN_DIM = "#22d3ee30";
   const CYAN_BG = "#22d3ee12";
-  const sections = [["overview","Overview"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
+  const sections = [["overview","Overview"],["movers","Movers"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
   const kpis = data.kpis || {};
   const themes = data.themes || [];
   const sectors = data.sectors || [];
@@ -7994,6 +7994,138 @@ function EarningsIntel() {
           </div>
         </div>
       )}
+
+      {/* ── MOVERS ── */}
+      {activeSection === "movers" && (() => {
+        // Build ticker → themes lookup from earnings intel
+        const tickerThemes = {};
+        themes.forEach(t => (t.tickers || []).forEach(tk => {
+          (tickerThemes[tk] = tickerThemes[tk] || []).push({ name: t.name, sentiment: t.sentiment, trend: t.trend });
+        }));
+
+        // Combine all movers, dedup by ticker (prefer earnings over SIP)
+        const seen = new Set();
+        const allMovers = [];
+        for (const m of [...earningsMovers, ...pmSipMovers, ...ahSipMovers]) {
+          const tk = m.ticker || m.symbol;
+          if (tk && !seen.has(tk)) { seen.add(tk); allMovers.push({ ...m, ticker: tk }); }
+        }
+
+        // Group by theme (use matching_themes from pipeline if available, else client-side lookup)
+        const themeMoversMap = {};
+        const unmatchedMovers = [];
+        allMovers.forEach(m => {
+          const matched = m.matching_themes || (tickerThemes[m.ticker] || []).map(t => t.name);
+          if (matched.length > 0) {
+            matched.forEach(th => {
+              (themeMoversMap[th] = themeMoversMap[th] || []).push(m);
+            });
+          } else {
+            unmatchedMovers.push(m);
+          }
+        });
+
+        // Sort themes by confirmation count
+        const sortedThemes = Object.entries(themeMoversMap)
+          .map(([name, movers]) => {
+            const themeObj = themes.find(t => t.name === name) || {};
+            return { name, movers, total: (themeObj.tickers || []).length, sentiment: themeObj.sentiment, trend: themeObj.trend };
+          })
+          .sort((a, b) => b.movers.length - a.movers.length);
+
+        const totalMatched = new Set(allMovers.filter(m => (m.matching_themes || (tickerThemes[m.ticker] || []).map(t => t.name)).length > 0).map(m => m.ticker)).size;
+
+        // Build narrative
+        const narrativeParts = sortedThemes.slice(0, 3).map(t => {
+          const tickers = t.movers.slice(0, 3).map(m => `${m.ticker} ${(m.change_pct || m.ext_hours_change_pct || 0) >= 0 ? "+" : ""}${(m.change_pct || m.ext_hours_change_pct || 0).toFixed(1)}%`).join(", ");
+          return `**${t.name}** (${t.movers.length}/${t.total} tickers: ${tickers})`;
+        });
+
+        const chgColor = v => v >= 0 ? "#2bb886" : "#f87171";
+
+        return (
+          <div>
+            {/* Narrative */}
+            {allMovers.length > 0 ? (
+              <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", marginBottom: 8 }}>Live Theme Confirmation</div>
+                <div style={{ fontSize: 12, color: "#9090a0", lineHeight: 1.6 }}>
+                  {sortedThemes.length > 0
+                    ? <>{totalMatched} of {allMovers.length} movers match {sortedThemes.length} tracked earnings theme{sortedThemes.length !== 1 ? "s" : ""}. {narrativeParts.map((p, i) => <span key={i}>{i > 0 ? ". " : ""}<span dangerouslySetInnerHTML={{ __html: p.replace(/\*\*(.*?)\*\*/g, '<span style="color:#22d3ee;font-weight:700">$1</span>') }} /></span>)}.</>
+                    : <>No movers currently match tracked earnings themes. Check back during market hours.</>}
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>
+                No movers data available. Pipeline updates movers during market hours.
+              </div>
+            )}
+
+            {/* Theme confirmation cards */}
+            {sortedThemes.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 12, marginBottom: 16 }}>
+                {sortedThemes.map(t => (
+                  <div key={t.name} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", flex: 1 }}>{t.name}</span>
+                      {t.trend && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 8, fontWeight: 600,
+                        background: t.trend === "accelerating" ? "#2bb88618" : t.trend === "decelerating" ? "#f8717118" : "#fbbf2418",
+                        color: t.trend === "accelerating" ? "#2bb886" : t.trend === "decelerating" ? "#f87171" : "#fbbf24" }}>{t.trend}</span>}
+                      {t.sentiment != null && <span style={{ fontSize: 10, color: sentColor(t.sentiment), fontFamily: "monospace" }}>{t.sentiment.toFixed(2)}</span>}
+                    </div>
+                    {/* Confirmation bar */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      <div style={{ flex: 1, height: 6, background: "#0a0a0f", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${t.total > 0 ? (t.movers.length / t.total) * 100 : 0}%`, background: `linear-gradient(90deg, ${CYAN}40, ${CYAN})`, borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontSize: 10, color: CYAN, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>{t.movers.length}/{t.total}</span>
+                    </div>
+                    {/* Mover rows */}
+                    {t.movers.map(m => {
+                      const chg = m.change_pct || m.ext_hours_change_pct || 0;
+                      const s = stockMap[m.ticker] || {};
+                      return (
+                        <div key={m.ticker} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderTop: "1px solid #1a1a24" }}>
+                          <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: CYAN, width: 50 }}>{m.ticker}</span>
+                          <span style={{ fontSize: 10, color: "#686878", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</span>
+                          <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 600, color: chgColor(chg) }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
+                          {(s.rs_rank || m.rs_rank) != null && <span style={{ fontSize: 9, color: "#686878", fontFamily: "monospace" }}>RS {s.rs_rank || m.rs_rank}</span>}
+                          {m.er && m.er.eps != null && m.er.eps_estimated != null && (
+                            <span style={{ fontSize: 9, padding: "1px 4px", borderRadius: 3, fontWeight: 600,
+                              background: m.er.eps > m.er.eps_estimated ? "#2bb88618" : "#f8717118",
+                              color: m.er.eps > m.er.eps_estimated ? "#2bb886" : "#f87171" }}>
+                              EPS {m.er.eps > m.er.eps_estimated ? "BEAT" : "MISS"}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Unmatched movers */}
+            {unmatchedMovers.length > 0 && (
+              <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#686878", marginBottom: 10 }}>Movers Outside Tracked Themes ({unmatchedMovers.length})</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {unmatchedMovers.slice(0, 30).map(m => {
+                    const chg = m.change_pct || m.ext_hours_change_pct || 0;
+                    return (
+                      <span key={m.ticker} style={{ fontSize: 10, fontFamily: "monospace", padding: "3px 8px", borderRadius: 4, background: "#0a0a0f", border: "1px solid #2a2a38" }}>
+                        <span style={{ color: CYAN, fontWeight: 600 }}>{m.ticker}</span>
+                        <span style={{ color: chgColor(chg), marginLeft: 4 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
+                      </span>
+                    );
+                  })}
+                  {unmatchedMovers.length > 30 && <span style={{ fontSize: 10, color: "#505060", alignSelf: "center" }}>+{unmatchedMovers.length - 30} more</span>}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── THEMES ── */}
       {activeSection === "themes" && (
@@ -8791,7 +8923,12 @@ function AppMain({ authToken, onLogout }) {
           {view === "quad" && <Suspense fallback={<div style={{ color: "#686878", padding: 20, textAlign: "center" }}>Loading...</div>}><USMarketQuadrant /></Suspense>}
           </ErrorBoundary>
           <ErrorBoundary name="Earnings Intel">
-          {view === "intel" && <EarningsIntel />}
+          {view === "intel" && <EarningsIntel
+            earningsMovers={data?.earnings_movers || []}
+            pmSipMovers={data?.pm_top_movers || data?.pm_sip_movers || []}
+            ahSipMovers={data?.ah_top_movers || data?.ah_sip_movers || []}
+            stockMap={stockMap}
+          />}
           </ErrorBoundary>
         </div>
 
