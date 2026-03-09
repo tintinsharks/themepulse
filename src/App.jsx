@@ -868,7 +868,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               })}
             </>)}
             {/* EPS + MS Scores */}
-            {(stock._epsScore != null || stock._msScore != null) && (<>
+            {(stock._epsScore != null || stock._msScore != null || stock._caScore != null) && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                 {stock._epsScore != null && <span style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
@@ -885,6 +885,25 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     fontWeight: 700, fontSize: 14 }}>{stock._msScore}</span>
                   <span style={{ color: "#505060", fontSize: 9 }}>/ 99</span>
                 </span>}
+                {stock._caScore != null && (() => {
+                  const qs = stock.quarters || [];
+                  const epsG = qs[0]?.eps_yoy; const salesG = qs[0]?.sales_yoy;
+                  const accel = qs[1]?.eps_yoy != null && qs[2]?.eps_yoy != null;
+                  const roe = stock.roe;
+                  const tip = [
+                    `EPS ≥25%: ${epsG != null ? (epsG >= 25 ? "PASS" : "FAIL") + ` (${epsG.toFixed(0)}%)` : "N/A"} [2pt]`,
+                    `Sales ≥25%: ${salesG != null ? (salesG >= 25 ? "PASS" : "FAIL") + ` (${salesG.toFixed(0)}%)` : "N/A"} [2pt]`,
+                    `EPS Accel: ${accel ? (qs[0].eps_yoy > qs[1].eps_yoy && qs[1].eps_yoy > qs[2].eps_yoy ? "PASS" : "FAIL") + ` (${qs[0].eps_yoy.toFixed(0)}>${qs[1].eps_yoy.toFixed(0)}>${qs[2].eps_yoy.toFixed(0)})` : "N/A"} [2pt]`,
+                    `ROE ≥17%: ${roe != null ? (roe >= 0.17 ? "PASS" : "FAIL") + ` (${(roe * 100).toFixed(1)}%)` : "N/A"} [1pt]`,
+                  ].join("\n");
+                  return <span style={{ display: "flex", alignItems: "baseline", gap: 4 }} title={tip}>
+                    <span style={{ color: "#686878", fontWeight: 700 }}>C&A</span>
+                    <span style={{
+                      color: stock._caScore >= 6 ? "#f59e0b" : stock._caScore >= 4 ? "#60a5fa" : stock._caScore >= 2 ? "#9090a0" : "#686878",
+                      fontWeight: 700, fontSize: 14 }}>{stock._caScore}</span>
+                    <span style={{ color: "#505060", fontSize: 9 }}>/ 7</span>
+                  </span>;
+                })()}
               </div>
             </>)}
           </div>
@@ -1781,6 +1800,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       quality: safe(s => s._quality),
       eps_score: safe(s => s._epsScore),
       ms_score: safe(s => s._msScore),
+      ca_score: safe(s => s._caScore),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       grade: safe(s => GRADE_ORDER[s.grade] ?? null),
       rs: safe(s => s.rs_rank),
@@ -1938,7 +1958,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const sorters = {
       change: safe(s => s.change_pct), rs: safe(s => s.rs_rank), grade: safe(s => gradeVal(s.grade)),
       rvol: safe(s => s._prv), vol: safe(s => s.avg_volume_raw), dvol: safe(s => s.avg_dollar_vol_raw),
-      adr: safe(s => s.adr_pct), eps_score: safe(s => s._epsScore), ret3m: safe(s => s.return_3m),
+      adr: safe(s => s.adr_pct), eps_score: safe(s => s._epsScore), ca_score: safe(s => s._caScore), ret3m: safe(s => s.return_3m),
       fromlo: safe(s => s.above_52w_low), offhi: safe(s => s.pct_from_high != null ? -s.pct_from_high : null),
       si: safe(s => s.short_float), hits: safe(s => s._shortHits.length),
     };
@@ -2035,7 +2055,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
     ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"],
-    ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"],
+    ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["C&A", "ca_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
 
@@ -2344,6 +2364,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   return parts.join("\n");
                 })()}>
                 {s._epsScore ?? "—"}</td>
+              {/* C&A */}
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: s._caScore >= 6 ? "#f59e0b" : s._caScore >= 4 ? "#60a5fa" : s._caScore >= 2 ? "#9090a0" : s._caScore != null ? "#686878" : "#3a3a4a" }}>
+                {s._caScore ?? "—"}</td>
               {/* 3M% */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               {/* FrHi% */}
@@ -4667,7 +4691,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
   ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
-  ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"],
+  ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["C&A", "ca_score"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
 ];
 
@@ -5879,7 +5903,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display,
       earnings_date: pipe.earnings_date, er: pipe.er, _scanHits: pipe._scanHits || [],
-      _epsScore: pipe._epsScore, _msScore: pipe._msScore, _quality: quality, _q_factors: q_factors,
+      _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore, _quality: quality, _q_factors: q_factors,
     };
   }, [stockMap]);
 
@@ -5890,7 +5914,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   };
   const sortList = (list, sk) => {
     const sorters = { ticker: (a, b) => a.ticker.localeCompare(b.ticker), quality: sortFn("_quality"),
-      eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"),
+      eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), ca_score: sortFn("_caScore"),
       change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
       fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
       adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"), rel_volume: sortFn("rel_volume"),
@@ -6632,6 +6656,10 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
         {s._epsScore ?? "—"}</td>
+      {/* C&A */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+        color: s._caScore >= 6 ? "#f59e0b" : s._caScore >= 4 ? "#60a5fa" : s._caScore >= 2 ? "#9090a0" : s._caScore != null ? "#686878" : "#3a3a4a" }}>
+        {s._caScore ?? "—"}</td>
       {/* 3M% */}
       <td style={{ padding: "4px 6px", textAlign: "center" }}><Ret v={s.return_3m} /></td>
       {/* FrHi% */}
@@ -7056,7 +7084,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
-      _scanHits: pipe._scanHits || [], _epsScore: pipe._epsScore, _msScore: pipe._msScore,
+      _scanHits: pipe._scanHits || [], _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore,
       _quality: quality, _q_factors: q_factors,
     };
   }, [liveLookup, stockMap]);
@@ -7071,7 +7099,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   };
   const makeSorters = () => ({
     ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-    quality: sortFn("_quality"), eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"),
+    quality: sortFn("_quality"), eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), ca_score: sortFn("_caScore"),
     hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
     change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
     fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
@@ -7260,6 +7288,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       _scanHits: pipe._scanHits || [],
       _epsScore: pipe._epsScore,
       _msScore: pipe._msScore,
+      _caScore: pipe._caScore,
       _quality: quality,
       _q_factors: q_factors,
     };
@@ -7280,6 +7309,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     quality: sortFn("_quality"),
     eps_score: sortFn("_epsScore"),
     ms_score: sortFn("_msScore"),
+    ca_score: sortFn("_caScore"),
     hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)) || ((b.rs_rank ?? 0) - (a.rs_rank ?? 0)),
     change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
     fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
@@ -9149,6 +9179,21 @@ function AppMain({ authToken, onLogout }) {
     });
     const pMS = pctRank(Object.values(msComposites).filter(v => v != null));
     allStocks.forEach(s => { m[s.ticker]._msScore = pMS(msComposites[s.ticker]); });
+
+    // C&A Score (CAN SLIM + Acceleration, 0-7)
+    allStocks.forEach(s => {
+      const qs = s.quarters || [];
+      let score = null;
+      if (qs[0]?.eps_yoy != null) {
+        score = 0;
+        if (qs[0].eps_yoy >= 25) score += 2;
+        if (qs[0].sales_yoy != null && qs[0].sales_yoy >= 25) score += 2;
+        if (qs[1]?.eps_yoy != null && qs[2]?.eps_yoy != null &&
+            qs[0].eps_yoy > qs[1].eps_yoy && qs[1].eps_yoy > qs[2].eps_yoy) score += 2;
+        if (s.roe != null && s.roe >= 0.17) score += 1;
+      }
+      m[s.ticker]._caScore = score;
+    });
 
     return m;
   }, [data]);
