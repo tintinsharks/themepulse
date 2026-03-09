@@ -451,7 +451,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
   const tfOptions = [
-    ["1", "1m"], ["5", "5m"], ["15", "15m"], ["60", "1H"],
     ["D", "D"], ["W", "W"], ["M", "M"],
   ];
 
