@@ -8303,6 +8303,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       const er = m.er || {};
                       const epsBM = beatMiss(er.eps, er.eps_estimated);
                       const revBM = er.revenue && er.revenue_estimated ? beatMiss(er.revenue, er.revenue_estimated) : null;
+                      const notReported = er.eps == null && er.eps_estimated != null;
+                      const timing = m.er_timing || (m.sources?.some(s => s.includes("pm")) ? "BMO" : m.sources?.some(s => s.includes("ah")) ? "AMC" : null);
                       const mt = m.matching_themes || tickerThemes[m.ticker] || [];
                       const s = stockMap[m.ticker] || {};
                       const dateStr = m._current ? "Today" : (m._report_date ? new Date(m._report_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
@@ -8319,13 +8321,17 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                           <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: reaction != null ? chgColor(reaction) : "#3a3a4a" }}>{reaction != null ? `${reaction >= 0 ? "+" : ""}${reaction.toFixed(1)}%` : "—"}</td>
                           <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: nextDay != null ? chgColor(nextDay) : "#3a3a4a" }}>{nextDay != null ? `${nextDay >= 0 ? "+" : ""}${nextDay.toFixed(1)}%` : "—"}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                            {epsBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(epsBM), color: bmColor(epsBM) }}>{epsBM}</span>}
+                            {epsBM ? <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(epsBM), color: bmColor(epsBM) }}>{epsBM}</span>
+                              : notReported && timing ? <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 4px", borderRadius: 3, background: "#fbbf2418", color: "#fbbf24" }}>{timing}</span>
+                              : null}
                           </td>
                           <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: er.eps_growth_yoy != null ? chgColor(er.eps_growth_yoy) : "#3a3a4a" }}>
-                            {er.eps_growth_yoy != null ? `${er.eps_growth_yoy >= 0 ? "+" : ""}${er.eps_growth_yoy.toFixed(0)}%` : "—"}
+                            {er.eps_growth_yoy != null ? `${er.eps_growth_yoy >= 0 ? "+" : ""}${er.eps_growth_yoy.toFixed(0)}%` : notReported && er.eps_estimated != null ? <span style={{ color: "#686878", fontSize: 10 }}>Est {er.eps_estimated >= 0 ? "" : ""}{er.eps_estimated.toFixed(2)}</span> : "—"}
                           </td>
                           <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                            {revBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(revBM), color: bmColor(revBM) }}>{revBM}</span>}
+                            {revBM ? <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(revBM), color: bmColor(revBM) }}>{revBM}</span>
+                              : notReported && timing ? <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 4px", borderRadius: 3, background: "#fbbf2418", color: "#fbbf24" }}>{timing}</span>
+                              : null}
                           </td>
                           <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: er.rev_growth_yoy != null ? chgColor(er.rev_growth_yoy) : "#3a3a4a" }}>
                             {er.rev_growth_yoy != null ? `${er.rev_growth_yoy >= 0 ? "+" : ""}${er.rev_growth_yoy.toFixed(0)}%` : "—"}
