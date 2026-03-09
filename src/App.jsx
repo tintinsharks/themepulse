@@ -7867,7 +7867,7 @@ function PipelineStatus({ meta }) {
 }
 
 // ── Earnings Intelligence Dashboard ──────────────────────────────────────────
-function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {} }) {
+function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, onTickerClick, activeTicker }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8094,7 +8094,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       const s = stockMap[m.ticker] || {};
                       return (
                         <div key={m.ticker} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", borderTop: "1px solid #1a1a24" }}>
-                          <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: CYAN, width: 50 }}>{m.ticker}</span>
+                          <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: m.ticker === activeTicker ? "#fff" : CYAN, width: 50, cursor: "pointer" }} onClick={() => onTickerClick && onTickerClick(m.ticker)}>{m.ticker}</span>
                           <span style={{ fontSize: 10, color: "#686878", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</span>
                           <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 600, color: chgColor(chg) }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
                           {(s.rs_rank || m.rs_rank) != null && <span style={{ fontSize: 9, color: "#686878", fontFamily: "monospace" }}>RS {s.rs_rank || m.rs_rank}</span>}
@@ -8122,7 +8122,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                     const chg = m.change_pct || m.ext_hours_change_pct || 0;
                     return (
                       <span key={m.ticker} style={{ fontSize: 10, fontFamily: "monospace", padding: "3px 8px", borderRadius: 4, background: "#0a0a0f", border: "1px solid #2a2a38" }}>
-                        <span style={{ color: CYAN, fontWeight: 600 }}>{m.ticker}</span>
+                        <span style={{ color: m.ticker === activeTicker ? "#fff" : CYAN, fontWeight: 600, cursor: "pointer" }} onClick={() => onTickerClick && onTickerClick(m.ticker)}>{m.ticker}</span>
                         <span style={{ color: chgColor(chg), marginLeft: 4 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
                       </span>
                     );
@@ -8316,7 +8316,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                           onMouseEnter={e => e.currentTarget.style.background = "#1a1a26"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                           <td style={{ padding: "6px 8px", fontSize: 10, color: "#686878", fontFamily: "monospace", textAlign: "right" }}>{dateStr}</td>
-                          <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: CYAN }}>{m.ticker}</td>
+                          <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: m.ticker === activeTicker ? "#fff" : CYAN, cursor: "pointer", textDecoration: "underline", textDecorationColor: `${CYAN}40`, textUnderlineOffset: 2 }} onClick={() => onTickerClick && onTickerClick(m.ticker)}>{m.ticker}</td>
                           <td style={{ padding: "6px 8px", color: "#9090a0", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</td>
                           <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: reaction != null ? chgColor(reaction) : "#3a3a4a" }}>{reaction != null ? `${reaction >= 0 ? "+" : ""}${reaction.toFixed(1)}%` : "—"}</td>
                           <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: nextDay != null ? chgColor(nextDay) : "#3a3a4a" }}>{nextDay != null ? `${nextDay >= 0 ? "+" : ""}${nextDay.toFixed(1)}%` : "—"}</td>
@@ -8453,7 +8453,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                           <tr key={c.ticker} style={{ borderBottom: "1px solid #1a1a24" }}
                             onMouseEnter={e => e.currentTarget.style.background = "#1a1a26"}
                             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                            <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: CYAN }}>{c.ticker}</td>
+                            <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: c.ticker === activeTicker ? "#fff" : CYAN, cursor: "pointer" }} onClick={() => onTickerClick && onTickerClick(c.ticker)}>{c.ticker}</td>
                             <td style={{ padding: "6px 8px", textAlign: "center" }}>
                               <span style={{ color: sentColor(c.sentiment), fontFamily: "monospace" }}>{(c.sentiment || 0).toFixed(2)}</span>
                             </td>
@@ -8525,7 +8525,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
             {pagedQuotes.map((q, i) => (
               <div key={i} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: "12px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: "monospace", fontWeight: 700, color: CYAN, fontSize: 12 }}>{q.ticker}</span>
+                  <span style={{ fontFamily: "monospace", fontWeight: 700, color: q.ticker === activeTicker ? "#fff" : CYAN, fontSize: 12, cursor: "pointer" }} onClick={() => onTickerClick && onTickerClick(q.ticker)}>{q.ticker}</span>
                   <span style={{ color: "#9090a0", fontSize: 11 }}>{q.company}</span>
                   <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: CYAN_BG, color: CYAN, border: `1px solid ${CYAN}25` }}>{q.sector}</span>
                   <span style={{ marginLeft: "auto", color: sentColor(q.sentiment), fontSize: 10, fontFamily: "monospace" }}>{(q.sentiment || 0).toFixed(2)}</span>
@@ -9169,6 +9169,8 @@ function AppMain({ authToken, onLogout }) {
             ahSipMovers={data?.ah_top_movers || data?.ah_sip_movers || []}
             historicalEarningsMovers={data?.historical_earnings_movers || []}
             stockMap={stockMap}
+            onTickerClick={openChart}
+            activeTicker={chartTicker}
           />}
           </ErrorBoundary>
         </div>
