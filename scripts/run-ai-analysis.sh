@@ -157,21 +157,60 @@ for line in sys.stdin:
 "
   }
 
+  # Timeout: 15 min for updates, 30 min for full research. Retry once on failure.
+  MAX_ATTEMPTS=2
   if [[ "$RUN_MODE" == "update" ]]; then
+    TIMEOUT_SECS=900
     echo "♻️  Same burst tickers as last run — incremental price-action update only"
-    echo ""
-    cat "$UPDATE_PROMPT_FILE" | claude --print \
-      --output-format stream-json --verbose \
-      --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
-      | progress_filter
   else
+    TIMEOUT_SECS=1800
     echo "🔬 Momentum burst — full research for $COUNT tickers..."
-    echo ""
-    cat "$PROMPT_FILE" | claude --print \
+  fi
+
+  # run_with_timeout <seconds> <prompt_file>
+  run_with_timeout() {
+    local secs=$1 prompt=$2
+    cat "$prompt" | claude --print \
       --output-format stream-json --verbose \
       --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
-      | progress_filter
-  fi
+      | progress_filter &
+    local pid=$!
+    # Watchdog: kill after timeout
+    ( sleep "$secs" && kill $pid 2>/dev/null && echo "  ⏰ Timed out after $((secs / 60)) minutes" ) &
+    local wdog=$!
+    wait $pid 2>/dev/null
+    local exit_code=$?
+    kill $wdog 2>/dev/null 2>&1; wait $wdog 2>/dev/null
+    return $exit_code
+  }
+
+  ATTEMPT=0
+  while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
+    ATTEMPT=$((ATTEMPT + 1))
+    echo ""
+    echo "⏱️  Attempt $ATTEMPT/$MAX_ATTEMPTS (timeout: $((TIMEOUT_SECS / 60))m)"
+
+    if [[ "$RUN_MODE" == "update" ]]; then
+      PROMPT_TO_USE="$UPDATE_PROMPT_FILE"
+    else
+      PROMPT_TO_USE="$PROMPT_FILE"
+    fi
+
+    if run_with_timeout "$TIMEOUT_SECS" "$PROMPT_TO_USE"; then
+      echo "  ✅ Claude finished successfully"
+      break
+    else
+      EXIT_CODE=$?
+      echo "  ❌ Claude exited with code $EXIT_CODE"
+      if [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; then
+        echo "  🔄 Retrying..."
+        pkill -f "claude.*--print.*stream-json" 2>/dev/null || true
+        sleep 5
+      else
+        echo "  ❌ All $MAX_ATTEMPTS attempts failed"
+      fi
+    fi
+  done
 
   echo ""
 fi
