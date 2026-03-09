@@ -44,7 +44,7 @@ Rules:
 - Be specific with numbers. No vague statements.
 - Keep total output under 300 words.
 - If you cannot find the earnings call, say so clearly in 1 line.
-- ZERO meta-commentary. No "Based on my search", "Let me analyze". Just output the sections.`;
+- ABSOLUTELY ZERO meta-commentary or narration about your search process. No "I'll search", "I need to search", "Let me analyze", "Based on my search", "I found", "Looking at". Your output must start IMMEDIATELY with "## Key Numbers". If your first line is not "## Key Numbers", you have failed.`;
 
   const userMsg = `Analyze the most recent earnings call for ${ticker}${company ? ` (${company})` : ""}.${quarters ? `\nRecent quarterly data from our pipeline: ${quarters}` : ""}\n\nSearch for the latest earnings call transcript/recap and provide analysis.`;
 
@@ -99,6 +99,15 @@ Rules:
     }
 
     analysis = analysis.trim();
+    // Strip meta-commentary lines before the actual analysis
+    const metaRe = /^(I('ll| will| need to| found| can)|\blet me\b|\bbased on\b|\blooking at\b|\bafter search\b|\bfrom the search\b|\bthe search\b|\bsearching\b|\bunfortunately\b|\bhowever\b)/i;
+    const lines = analysis.split("\n");
+    const firstSection = lines.findIndex(l => l.startsWith("## "));
+    if (firstSection > 0) {
+      analysis = lines.slice(firstSection).join("\n");
+    } else {
+      analysis = lines.filter(l => !metaRe.test(l.trim())).join("\n").trim();
+    }
     if (!analysis) throw new Error("Empty response from API");
 
     const result = { ok: true, analysis, sources };
