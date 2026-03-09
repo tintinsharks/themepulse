@@ -405,8 +405,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
     _chartNotesCacheTs = 0;
   }, [chartNotes]);
 
-  // Reset edit state on ticker change
-  useEffect(() => { setEditingNote(false); }, [ticker]);
+  // Reset edit state + reload notes from localStorage on ticker change (picks up auto-appended reasoning)
+  useEffect(() => {
+    setEditingNote(false);
+    try {
+      const stored = JSON.parse(localStorage.getItem("tp_chart_notes") || "{}");
+      const now = Date.now(), twoWeeks = 14 * 24 * 60 * 60 * 1000;
+      const valid = {};
+      for (const [k, v] of Object.entries(stored)) {
+        if (v.ts && now - v.ts < twoWeeks) valid[k] = v;
+      }
+      setChartNotes(valid);
+    } catch {}
+  }, [ticker]);
 
   // Live data for this ticker from theme universe
   const live = useMemo(() => {
@@ -1963,7 +1974,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         _shortFloat: dig.short_float, _floatShares: dig.float_shares, _shortRatio: dig.short_ratio, _instOwn: dig.inst_own };
     });
     const safe = fn => (a, b) => (fn(b) ?? -Infinity) - (fn(a) ?? -Infinity);
-    const sorters = { change: safe(s => s.change_pct), rvol: safe(s => s._liveRv), rs: safe(s => s.rs_rank), vol: safe(s => s._liveVol), dvol: safe(s => s.avg_dollar_vol_raw) };
+    const sorters = { change: safe(s => s.change_pct), rvol: safe(s => s._liveRv), rs: safe(s => s.rs_rank), vol: safe(s => s._liveVol), dvol: safe(s => s.avg_dollar_vol_raw),
+      cr: safe(s => s._cr), si: safe(s => s._shortFloat), float: safe(s => s._floatShares ? parseFloat(s._floatShares) : null), grade: safe(s => ({ "A+": 7, A: 6, "A-": 5, "B+": 4, B: 3, "B-": 2, C: 1 })[s.grade]),
+      ticker: (a, b) => a.ticker.localeCompare(b.ticker), industry: (a, b) => (a.industry || "").localeCompare(b.industry || "") };
     const sorted = [...list].sort(sorters[gapperSort.col] || sorters.change);
     return gapperSort.dir === "asc" ? sorted.reverse() : sorted;
   }, [stocks, liveLookup, gapperDigest, gapperSort, GAPPER_EXCLUDED_IND]);
@@ -1982,7 +1995,26 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       finvizFetchedRef.current.add(t);
       fetch(`/api/gapper-reasoning?ticker=${encodeURIComponent(t)}`)
         .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.ok) setGapperDigest(prev => ({ ...prev, [t]: d })); })
+        .then(d => {
+          if (!d?.ok) return;
+          setGapperDigest(prev => ({ ...prev, [t]: d }));
+          // Auto-append reasoning to chart note (localStorage) with date prefix
+          if (d.reasoning) {
+            try {
+              const now = new Date();
+              const prefix = `${String(now.getMonth() + 1).padStart(2, "0")}/${now.getDate()}/${String(now.getFullYear()).slice(2)}`;
+              const line = `${prefix}: ${d.reasoning}`;
+              const stored = JSON.parse(localStorage.getItem("tp_chart_notes") || "{}");
+              const existing = stored[t]?.text || "";
+              // Don't duplicate if already has today's reasoning
+              if (!existing.includes(prefix + ":")) {
+                stored[t] = { text: existing ? `${line}\n${existing}` : line, ts: Date.now() };
+                localStorage.setItem("tp_chart_notes", JSON.stringify(stored));
+                _chartNotesCacheTs = 0; // invalidate global cache
+              }
+            } catch {}
+          }
+        })
         .catch(() => {});
     });
   }, [scanTab, gapperCandidates, burstStocks, shortCandidates]);
@@ -2670,9 +2702,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           <th style={{ padding: "6px 4px", width: 24 }}></th>
-          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", null], ["$Vol", "dvol"], ["SI%", null], ["Float", null], ["Industry", null], ["Grade", null], ["Reasoning", null]].map(([h, sk]) => (
+          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"], ["$Vol", "dvol"], ["SI%", "si"], ["Float", "float"], ["Industry", "industry"], ["Grade", "grade"]].map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setGapperSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
-              style={{ padding: "6px 8px", color: gapperSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: h === "Reasoning" ? "left" : "center", fontSize: 11,
+              style={{ padding: "6px 8px", color: gapperSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
               {h}{gapperSort.col === sk ? (gapperSort.dir === "desc" ? " ▼" : " ▲") : ""}</th>
           ))}
@@ -2739,17 +2771,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 title={s.industry}>{s.industry || '—'}</td>
               {/* Grade */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-              {/* Reasoning — from Finviz whyMoving */}
-              <td style={{ padding: "4px 8px", textAlign: "left", color: s._sentiment === "good" ? "#2bb886" : s._sentiment === "bad" ? "#f87171" : "#9090a0", fontSize: 10,
-                maxWidth: 350, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                title={s._reasoning || ''}>
-                {s._reasoning || <span style={{ color: "#505060", fontSize: 9 }}>loading...</span>}
-              </td>
             </tr>
             {/* Expanded row — bullet points from Finviz daily digest */}
             {isExpanded && (
               <tr style={{ background: "#0d0d15" }}>
-                <td colSpan={12} style={{ padding: "12px 16px 16px 40px" }}>
+                <td colSpan={11} style={{ padding: "12px 16px 16px 40px" }}>
                   {s._bullets.length > 0 ? (
                     <ul style={{ margin: 0, paddingLeft: 16, listStyleType: "disc" }}>
                       {s._bullets.map((b, i) => (
