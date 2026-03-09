@@ -598,21 +598,32 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               color: showIntraday ? "#f59e0b" : "#787888" }}>
             ORB
           </button>
-          {stock && stock.off_52w_high != null && (<>
+          {stock && (<>
+            {stock.off_52w_high != null && (<>
+              <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
+                Off 52W Hi:{stock.off_52w_high}%</span>
+            </>)}
+            {stock.hv52_vol != null && (<>
+              <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: "#60a5fa" }}
+                title={`Highest Volume 52W: ${stock.hv52_date}`}>
+                HV52:{stock.hv52_date?.slice(5)} {stock.hv52_vol >= 1e9 ? (stock.hv52_vol/1e9).toFixed(1)+"B" : stock.hv52_vol >= 1e6 ? (stock.hv52_vol/1e6).toFixed(1)+"M" : stock.hv52_vol >= 1e3 ? (stock.hv52_vol/1e3).toFixed(0)+"K" : stock.hv52_vol}</span>
+            </>)}
+            {stock.hvq_vol != null && (
+              <span style={{ fontSize: 10, fontFamily: "monospace", color: "#a78bfa", marginLeft: 4 }}
+                title={`Highest Volume Quarter: ${stock.hvq_date}`}>
+                HVQ:{stock.hvq_date?.slice(5)} {stock.hvq_vol >= 1e9 ? (stock.hvq_vol/1e9).toFixed(1)+"B" : stock.hvq_vol >= 1e6 ? (stock.hvq_vol/1e6).toFixed(1)+"M" : stock.hvq_vol >= 1e3 ? (stock.hvq_vol/1e3).toFixed(0)+"K" : stock.hvq_vol}</span>
+            )}
             <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
-            <span style={{ fontSize: 11, fontFamily: "monospace", color: stock.off_52w_high >= -25 ? "#2bb886" : "#f97316" }}>
-              Off 52W Hi:{stock.off_52w_high}%</span>
-          </>)}
-          {stock && stock.hv52_vol != null && (<>
+            {stock.adr_pct != null && <span style={{ fontSize: 10, fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
+            {(() => { const rv = live?.rel_volume ?? stock.rel_volume; const prv = projectedRVol(rv);
+              return rv != null ? <span style={{ fontSize: 10, fontFamily: "monospace", color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : "#686878", marginLeft: 4 }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
+            })()}
             <span style={{ color: "#3a3a4a", margin: "0 2px" }}>|</span>
-            <span style={{ fontSize: 10, fontFamily: "monospace", color: "#60a5fa" }}
-              title={`Highest Volume 52W: ${stock.hv52_date}`}>
-              HV52:{stock.hv52_date?.slice(5)} {stock.hv52_vol >= 1e9 ? (stock.hv52_vol/1e9).toFixed(1)+"B" : stock.hv52_vol >= 1e6 ? (stock.hv52_vol/1e6).toFixed(1)+"M" : stock.hv52_vol >= 1e3 ? (stock.hv52_vol/1e3).toFixed(0)+"K" : stock.hv52_vol}</span>
-          </>)}
-          {stock && stock.hvq_vol != null && (<>
-            <span style={{ fontSize: 10, fontFamily: "monospace", color: "#a78bfa", marginLeft: 4 }}
-              title={`Highest Volume Quarter: ${stock.hvq_date}`}>
-              HVQ:{stock.hvq_date?.slice(5)} {stock.hvq_vol >= 1e9 ? (stock.hvq_vol/1e9).toFixed(1)+"B" : stock.hvq_vol >= 1e6 ? (stock.hvq_vol/1e6).toFixed(1)+"M" : stock.hvq_vol >= 1e3 ? (stock.hvq_vol/1e3).toFixed(0)+"K" : stock.hvq_vol}</span>
+            <span style={{ fontSize: 10, fontFamily: "monospace" }}>1M:<Ret v={stock.return_1m} /></span>
+            <span style={{ fontSize: 10, fontFamily: "monospace" }}>3M:<Ret v={stock.return_3m} /></span>
+            <span style={{ fontSize: 10, fontFamily: "monospace" }}>6M:<Ret v={stock.return_6m} /></span>
           </>)}
         </div>
         <span onClick={() => setShowDetails(p => !p)}
@@ -620,23 +631,6 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {showDetails ? "◂ details" : "▸ details"}
         </span>
       </div>
-
-      {/* Always-visible: sector, ADR, returns */}
-      {stock && (
-        <div style={{ display: "flex", gap: 8, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ color: "#9090a0", fontSize: 11 }}>{stock.company}</span>
-          <span style={{ color: "#505060" }}>{stock.sector} · {stock.industry}</span>
-          <span style={{ color: "#3a3a4a" }}>│</span>
-          {stock.adr_pct != null && <span style={{ fontFamily: "monospace", color: stock.adr_pct > 8 ? "#2dd4bf" : stock.adr_pct > 5 ? "#2bb886" : stock.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>ADR:{stock.adr_pct}%</span>}
-          {(() => { const rv = live?.rel_volume ?? stock.rel_volume; const prv = projectedRVol(rv);
-            return rv != null ? <span style={{ fontFamily: "monospace", color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : "#686878" }}>RVol:{Number(rv).toFixed(1)}x</span> : null;
-          })()}
-          <span style={{ color: "#3a3a4a" }}>│</span>
-          <span style={{ fontFamily: "monospace" }}>1M:<Ret v={stock.return_1m} /></span>
-          <span style={{ fontFamily: "monospace" }}>3M:<Ret v={stock.return_3m} /></span>
-          <span style={{ fontFamily: "monospace" }}>6M:<Ret v={stock.return_6m} /></span>
-        </div>
-      )}
 
       {/* Chart + right detail panel */}
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
