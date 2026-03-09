@@ -671,6 +671,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         <div style={{ flex: 1, borderLeft: "1px solid #2a2a38", background: "#141420",
           overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", fontSize: 10, fontFamily: "monospace" }}>
 
+          {/* Sector / Industry */}
+          {stock && (stock.sector || stock.industry) && (
+            <div style={{ padding: "6px 10px", borderBottom: "1px solid #222230", color: "#686878", fontSize: 10 }}>
+              {stock.sector && <span>{stock.sector}</span>}
+              {stock.sector && stock.industry && <span style={{ color: "#3a3a4a" }}> › </span>}
+              {stock.industry && <span style={{ color: "#505060" }}>{stock.industry}</span>}
+            </div>
+          )}
+
           {/* Catalyst note */}
           <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230" }}>
           {editingNote ? (
