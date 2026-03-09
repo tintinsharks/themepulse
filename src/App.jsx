@@ -383,15 +383,16 @@ function EarningsCallPanel({ ticker, company, quarters, earningsDate }) {
   const [sources, setSources] = useState([]);
   const [cachedDate, setCachedDate] = useState(null);
 
-  // Load from localStorage on ticker change — invalidate if earnings date changed
+  // Load from localStorage on mount and ticker change
   useEffect(() => {
     setError(null);
+    setLoading(false);
     const cache = ecLoadCache();
     const entry = cache[ticker];
     if (entry && entry.analysis) {
-      // Invalidate if a new earnings date exists and is after the cached report date
-      if (earningsDate && entry.earningsDate && earningsDate !== entry.earningsDate) {
-        // New earnings happened — clear stale cache
+      const lastQ = quarters?.[0]?.report_date || null;
+      const stale = lastQ && entry.earningsDate && lastQ !== entry.earningsDate;
+      if (stale) {
         setAnalysis(null); setSources([]); setCachedDate(null);
       } else {
         setAnalysis(entry.analysis);
@@ -401,18 +402,22 @@ function EarningsCallPanel({ ticker, company, quarters, earningsDate }) {
     } else {
       setAnalysis(null); setSources([]); setCachedDate(null);
     }
-  }, [ticker, earningsDate]);
+  }, [ticker, earningsDate, quarters]);
 
   const runAnalysis = useCallback((force) => {
     if (!ticker) return;
     if (!force) {
       const cache = ecLoadCache();
       const entry = cache[ticker];
-      if (entry && entry.analysis && !(earningsDate && entry.earningsDate && earningsDate !== entry.earningsDate)) {
-        setAnalysis(entry.analysis);
-        setSources(entry.sources || []);
-        setCachedDate(entry.ts ? new Date(entry.ts).toLocaleDateString() : null);
-        return;
+      if (entry && entry.analysis) {
+        const lastQ = quarters?.[0]?.report_date || null;
+        const stale = lastQ && entry.earningsDate && lastQ !== entry.earningsDate;
+        if (!stale) {
+          setAnalysis(entry.analysis);
+          setSources(entry.sources || []);
+          setCachedDate(entry.ts ? new Date(entry.ts).toLocaleDateString() : null);
+          return;
+        }
       }
     }
     setLoading(true);
