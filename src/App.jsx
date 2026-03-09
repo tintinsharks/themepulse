@@ -7876,6 +7876,12 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSector, setExpandedSector] = useState(null);
   const [quotePage, setQuotePage] = useState(0);
+  const [feedDate, setFeedDate] = useState("All");
+  const [feedMinChg, setFeedMinChg] = useState("");
+  const [feedMinEps, setFeedMinEps] = useState("");
+  const [feedMinRev, setFeedMinRev] = useState("");
+  const [feedBeatOnly, setFeedBeatOnly] = useState(false);
+  const [feedThemeOnly, setFeedThemeOnly] = useState(false);
 
   useEffect(() => {
     fetch("/data/earnings_intel.json")
@@ -8140,42 +8146,109 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         const allER = [];
         for (const m of earningsMovers) {
           const tk = m.ticker;
-          if (tk && !seen.has(tk)) { seen.add(tk); allER.push({ ...m, _current: true, _date: "Today" }); }
+          if (tk && !seen.has(tk)) { seen.add(tk); allER.push({ ...m, _current: true, _dateKey: "Today" }); }
         }
         for (const m of historicalEarningsMovers) {
           const tk = m.ticker;
-          if (tk && !seen.has(tk)) { seen.add(tk); allER.push({ ...m, _current: false, _date: m._report_date || `${m.days_ago}d ago` }); }
+          if (tk && !seen.has(tk)) { seen.add(tk); allER.push({ ...m, _current: false, _dateKey: m._report_date || "Unknown" }); }
         }
 
-        // Group by date
-        const byDate = {};
-        allER.forEach(m => {
-          const key = m._current ? "Today" : (m._report_date || "Unknown");
-          (byDate[key] = byDate[key] || []).push(m);
-        });
-        // Sort dates descending
-        const sortedDates = Object.keys(byDate).sort((a, b) => {
-          if (a === "Today") return -1;
-          if (b === "Today") return 1;
-          return b.localeCompare(a);
-        });
+        // Available dates for filter
+        const allDatesSet = new Set(allER.map(m => m._dateKey));
+        const availDates = ["All", ...["Today", ...[...allDatesSet].filter(d => d !== "Today" && d !== "Unknown").sort().reverse()]];
 
-        // Theme frequency across all earnings
-        const themeFreq = {};
-        allER.forEach(m => {
-          const mt = m.matching_themes || tickerThemes[m.ticker] || [];
-          mt.forEach(th => { themeFreq[th] = (themeFreq[th] || 0) + 1; });
-        });
-        const topThemes = Object.entries(themeFreq).sort((a, b) => b[1] - a[1]).slice(0, 8);
-
+        // Helper
         const chgColor = v => v >= 0 ? "#2bb886" : "#f87171";
         const beatMiss = (actual, est) => {
           if (actual == null || est == null) return null;
           return actual > est ? "BEAT" : actual < est ? "MISS" : "MET";
         };
 
+        // Parse filter thresholds
+        const minChg = feedMinChg !== "" ? parseFloat(feedMinChg) : null;
+        const minEps = feedMinEps !== "" ? parseFloat(feedMinEps) : null;
+        const minRev = feedMinRev !== "" ? parseFloat(feedMinRev) : null;
+
+        // Filter
+        const filtered = allER.filter(m => {
+          if (feedDate !== "All" && m._dateKey !== feedDate) return false;
+          const chg = Math.abs(m.change_pct || m.ext_hours_change_pct || 0);
+          if (minChg != null && chg < minChg) return false;
+          const er = m.er || {};
+          if (minEps != null) {
+            if (er.eps_growth_yoy == null || Math.abs(er.eps_growth_yoy) < minEps) return false;
+          }
+          if (minRev != null) {
+            if (er.rev_growth_yoy == null || Math.abs(er.rev_growth_yoy) < minRev) return false;
+          }
+          if (feedBeatOnly) {
+            const epsBM = beatMiss(er.eps, er.eps_estimated);
+            if (epsBM !== "BEAT") return false;
+          }
+          if (feedThemeOnly) {
+            const mt = m.matching_themes || tickerThemes[m.ticker] || [];
+            if (mt.length === 0) return false;
+          }
+          return true;
+        });
+
+        // Group by date
+        const byDate = {};
+        filtered.forEach(m => { (byDate[m._dateKey] = byDate[m._dateKey] || []).push(m); });
+        const sortedDates = Object.keys(byDate).sort((a, b) => {
+          if (a === "Today") return -1;
+          if (b === "Today") return 1;
+          return b.localeCompare(a);
+        });
+
+        // Theme frequency across filtered earnings
+        const themeFreq = {};
+        filtered.forEach(m => {
+          const mt = m.matching_themes || tickerThemes[m.ticker] || [];
+          mt.forEach(th => { themeFreq[th] = (themeFreq[th] || 0) + 1; });
+        });
+        const topThemes = Object.entries(themeFreq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+        const inputStyle = { background: "#0a0a0f", border: "1px solid #2a2a38", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "#d4d4e0", width: 64, outline: "none", fontFamily: "monospace", textAlign: "center" };
+        const toggleStyle = (active) => ({ padding: "4px 10px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+          background: active ? CYAN_BG : "transparent", border: active ? `1px solid ${CYAN}50` : "1px solid #2a2a38", color: active ? CYAN : "#686878" });
+
         return (
           <div>
+            {/* Filter bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap", padding: "8px 12px", background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8 }}>
+              {/* Date filter */}
+              <select value={feedDate} onChange={e => setFeedDate(e.target.value)}
+                style={{ background: "#0a0a0f", border: "1px solid #2a2a38", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "#d4d4e0", outline: "none", fontFamily: "monospace" }}>
+                {availDates.map(d => (
+                  <option key={d} value={d}>{d === "All" ? "All Dates" : d === "Today" ? "Today" : new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</option>
+                ))}
+              </select>
+              <span style={{ color: "#3a3a4a" }}>|</span>
+              {/* Change % min */}
+              <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
+                Chg%&ge;
+                <input type="number" value={feedMinChg} onChange={e => setFeedMinChg(e.target.value)} placeholder="0" step="1" style={inputStyle} />
+              </label>
+              {/* EPS Growth % min */}
+              <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
+                EPS%&ge;
+                <input type="number" value={feedMinEps} onChange={e => setFeedMinEps(e.target.value)} placeholder="0" step="5" style={inputStyle} />
+              </label>
+              {/* Rev Growth % min */}
+              <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
+                Rev%&ge;
+                <input type="number" value={feedMinRev} onChange={e => setFeedMinRev(e.target.value)} placeholder="0" step="5" style={inputStyle} />
+              </label>
+              <span style={{ color: "#3a3a4a" }}>|</span>
+              {/* Beat only toggle */}
+              <button onClick={() => setFeedBeatOnly(v => !v)} style={toggleStyle(feedBeatOnly)}>Beat Only</button>
+              {/* Theme only toggle */}
+              <button onClick={() => setFeedThemeOnly(v => !v)} style={toggleStyle(feedThemeOnly)}>Theme Only</button>
+              {/* Result count */}
+              <span style={{ fontSize: 10, color: "#505060", marginLeft: "auto", fontFamily: "monospace" }}>{filtered.length}/{allER.length}</span>
+            </div>
+
             {/* Theme summary bar */}
             {topThemes.length > 0 && (
               <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 14, marginBottom: 16 }}>
@@ -8211,28 +8284,21 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       return (
                         <div key={m.ticker} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 6, padding: "10px 14px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: mt.length > 0 || headline ? 6 : 0 }}>
-                            {/* Ticker + company */}
                             <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: CYAN, width: 56 }}>{m.ticker}</span>
                             <span style={{ fontSize: 11, color: "#9090a0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</span>
-                            {/* Session badge */}
                             {m._session && <span style={{ fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "#0a0a0f", color: "#505060", border: "1px solid #2a2a38" }}>{m._session}</span>}
-                            {/* Change % */}
                             <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: chgColor(chg), minWidth: 56, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
-                            {/* EPS beat/miss */}
                             {epsBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
                               background: epsBM === "BEAT" ? "#2bb88618" : epsBM === "MISS" ? "#f8717118" : "#fbbf2418",
                               color: epsBM === "BEAT" ? "#2bb886" : epsBM === "MISS" ? "#f87171" : "#fbbf24" }}>EPS {epsBM}</span>}
-                            {/* Rev beat/miss */}
                             {revBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
                               background: revBM === "BEAT" ? "#2bb88618" : revBM === "MISS" ? "#f8717118" : "#fbbf2418",
                               color: revBM === "BEAT" ? "#2bb886" : revBM === "MISS" ? "#f87171" : "#fbbf24" }}>REV {revBM}</span>}
-                            {/* EPS growth */}
                             {er.eps_growth_yoy != null && <span style={{ fontSize: 9, fontFamily: "monospace", color: er.eps_growth_yoy >= 0 ? "#2bb886" : "#f87171" }}>EPS {er.eps_growth_yoy >= 0 ? "+" : ""}{er.eps_growth_yoy.toFixed(0)}%</span>}
-                            {/* RS + Grade */}
+                            {er.rev_growth_yoy != null && <span style={{ fontSize: 9, fontFamily: "monospace", color: er.rev_growth_yoy >= 0 ? "#2bb886" : "#f87171" }}>Rev {er.rev_growth_yoy >= 0 ? "+" : ""}{er.rev_growth_yoy.toFixed(0)}%</span>}
                             {(s.rs_rank || m.rs_rank) != null && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>RS {s.rs_rank || m.rs_rank}</span>}
                             {(s.grade || m.grade) && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>{s.grade || m.grade}</span>}
                           </div>
-                          {/* Theme tags + headline */}
                           {(mt.length > 0 || headline) && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               {mt.map(th => (
@@ -8249,6 +8315,11 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               );
             })}
 
+            {filtered.length === 0 && allER.length > 0 && (
+              <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>
+                No reports match current filters. Try relaxing the criteria.
+              </div>
+            )}
             {allER.length === 0 && (
               <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>
                 No earnings reports available. Pipeline updates during market hours.
