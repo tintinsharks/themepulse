@@ -1806,14 +1806,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [themeHealth]);
 
   const shortCandidates = useMemo(() => {
-    // Compute short-specific tags per stock
+    // Compute short-specific tags per stock, overlaying live data
     let list = stocks.filter(s => (s.price || 0) > 1 && (s.avg_dollar_vol_raw || 0) >= 5_000_000).map(s => {
+      const lv = liveLookup[s.ticker];
       const hits = [];
       // BD (Breakdown): Below 50MA by >2%, and >15% off high
       if (s.sma50_pct != null && s.sma50_pct < -2 && s.pct_from_high != null && s.pct_from_high < -15) hits.push("BD");
       // DT (Distribution): Down >2% on heavy volume (projected RVol ≥ 2x)
-      const chg = s.change_pct ?? 0;
-      const rv = s.rel_volume;
+      const chg = lv?.change ?? s.change_pct ?? 0;
+      const rv = lv?.rel_volume ?? s.rel_volume;
       const prv = rv != null ? projectedRVol(rv) : 0;
       if (chg < -2 && prv >= 2) hits.push("DT");
       // WK (Weak Fundamentals): Both EPS YoY and Sales YoY negative
@@ -1828,7 +1829,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       // MA (Below All MAs): Below 20MA, 50MA, and 200MA
       if (s.sma20_pct != null && s.sma20_pct < 0 && s.sma50_pct != null && s.sma50_pct < 0 && s.sma200_pct != null && s.sma200_pct < 0) hits.push("MA");
 
-      return { ...s, _shortHits: hits, _epsScore: stockMap[s.ticker]?._epsScore ?? null, _prv: prv };
+      // Overlay live values for display
+      const liveChg = lv?.change ?? s.change_pct;
+      const liveVol = lv?.volume ?? (s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null);
+      const liveRv = rv;
+      return { ...s, change_pct: liveChg, _liveVol: liveVol, _liveRv: liveRv, _shortHits: hits, _epsScore: stockMap[s.ticker]?._epsScore ?? null, _prv: prv };
     });
 
     // Filter: tag filters (AND logic)
@@ -1873,7 +1878,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const sorted = list.sort(sorters[shortSort.col] || sorters.change);
     // Default "asc" for change means most negative first (smallest value first) — reverse the default desc sort
     return shortSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [stocks, stockMap, themeHealthMap, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
+  }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -2414,8 +2419,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 {s.change_pct != null ? `${s.change_pct > 0 ? '+' : ''}${Number(s.change_pct).toFixed(2)}%` : '—'}</td>
               {/* Vol */}
               {(() => {
-                const rv = s.rel_volume;
-                const curVol = s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null;
+                const curVol = s._liveVol;
+                const rv = s._liveRv;
                 const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
                 return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                   color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
@@ -2423,8 +2428,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               })()}
               {/* RVol */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s._prv >= 2 ? "#c084fc" : s._prv >= 1.5 ? "#a78bfa" : s.rel_volume != null ? "#686878" : "#3a3a4a" }}>
-                {s.rel_volume != null ? `${Number(s.rel_volume).toFixed(1)}x` : '—'}</td>
+                color: s._prv >= 2 ? "#c084fc" : s._prv >= 1.5 ? "#a78bfa" : s._liveRv != null ? "#686878" : "#3a3a4a" }}>
+                {s._liveRv != null ? `${Number(s._liveRv).toFixed(1)}x` : '—'}</td>
               {/* $Vol */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.avg_dollar_vol_raw > 20000000 ? "#2bb886" : s.avg_dollar_vol_raw > 10000000 ? "#fbbf24" : s.avg_dollar_vol_raw > 5000000 ? "#f97316" : "#f87171" }}>
