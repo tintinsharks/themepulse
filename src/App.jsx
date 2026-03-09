@@ -372,19 +372,48 @@ const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
 });
 
 // ── EARNINGS CALL ANALYSIS ──
-function EarningsCallPanel({ ticker, company, quarters }) {
+const EC_STORE_KEY = "ec_analysis_cache";
+const ecLoadCache = () => { try { return JSON.parse(localStorage.getItem(EC_STORE_KEY) || "{}"); } catch { return {}; } };
+const ecSaveCache = (cache) => { try { localStorage.setItem(EC_STORE_KEY, JSON.stringify(cache)); } catch {} };
+
+function EarningsCallPanel({ ticker, company, quarters, earningsDate }) {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sources, setSources] = useState([]);
-  const cacheRef = useRef({});
+  const [cachedDate, setCachedDate] = useState(null);
 
-  const runAnalysis = useCallback(() => {
+  // Load from localStorage on ticker change — invalidate if earnings date changed
+  useEffect(() => {
+    setError(null);
+    const cache = ecLoadCache();
+    const entry = cache[ticker];
+    if (entry && entry.analysis) {
+      // Invalidate if a new earnings date exists and is after the cached report date
+      if (earningsDate && entry.earningsDate && earningsDate !== entry.earningsDate) {
+        // New earnings happened — clear stale cache
+        setAnalysis(null); setSources([]); setCachedDate(null);
+      } else {
+        setAnalysis(entry.analysis);
+        setSources(entry.sources || []);
+        setCachedDate(entry.ts ? new Date(entry.ts).toLocaleDateString() : null);
+      }
+    } else {
+      setAnalysis(null); setSources([]); setCachedDate(null);
+    }
+  }, [ticker, earningsDate]);
+
+  const runAnalysis = useCallback((force) => {
     if (!ticker) return;
-    if (cacheRef.current[ticker]) {
-      setAnalysis(cacheRef.current[ticker].analysis);
-      setSources(cacheRef.current[ticker].sources || []);
-      return;
+    if (!force) {
+      const cache = ecLoadCache();
+      const entry = cache[ticker];
+      if (entry && entry.analysis && !(earningsDate && entry.earningsDate && earningsDate !== entry.earningsDate)) {
+        setAnalysis(entry.analysis);
+        setSources(entry.sources || []);
+        setCachedDate(entry.ts ? new Date(entry.ts).toLocaleDateString() : null);
+        return;
+      }
     }
     setLoading(true);
     setError(null);
@@ -399,17 +428,19 @@ function EarningsCallPanel({ ticker, company, quarters }) {
         if (d.ok) {
           setAnalysis(d.analysis);
           setSources(d.sources || []);
-          cacheRef.current[ticker] = { analysis: d.analysis, sources: d.sources };
+          const now = Date.now();
+          setCachedDate(new Date(now).toLocaleDateString());
+          // Persist to localStorage with earnings date for invalidation
+          const cache = ecLoadCache();
+          cache[ticker] = { analysis: d.analysis, sources: d.sources, ts: now, earningsDate: earningsDate || quarters?.[0]?.report_date || null };
+          ecSaveCache(cache);
         } else {
           setError(d.error || "Failed");
         }
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [ticker, company, quarters]);
-
-  // Reset when ticker changes
-  useEffect(() => { setAnalysis(null); setError(null); setSources([]); }, [ticker]);
+  }, [ticker, company, quarters, earningsDate]);
 
   // Simple markdown-ish rendering: ## headers, - bullets, **bold**
   const renderMd = (text) => {
@@ -450,7 +481,8 @@ function EarningsCallPanel({ ticker, company, quarters }) {
               ))}
             </div>
           )}
-          <button onClick={() => { cacheRef.current[ticker] = null; runAnalysis(); }}
+          {cachedDate && <span style={{ color: "#3a3a4a", fontSize: 8, marginTop: 4 }}>Cached {cachedDate}</span>}
+          <button onClick={() => runAnalysis(true)}
             style={{ marginTop: 4, padding: "2px 8px", borderRadius: 3, cursor: "pointer", fontSize: 9,
               background: "transparent", border: "1px solid #3a3a4a", color: "#686878" }}>
             Refresh
@@ -1030,7 +1062,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </>)}
             </>)}
             {earningsTab === "call" && (
-              <EarningsCallPanel ticker={ticker} company={stock.company} quarters={stock.quarters} />
+              <EarningsCallPanel ticker={ticker} company={stock.company} quarters={stock.quarters} earningsDate={stock.earnings_date} />
             )}
           </div>
           )}
