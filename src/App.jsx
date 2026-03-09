@@ -1453,7 +1453,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
   const [aiAnalysis, setAiAnalysis] = useState(null);
-  const [gapperData, setGapperData] = useState(null);
   const [expandedGapper, setExpandedGapper] = useState(null);
   const [gapperSort, setGapperSort] = useState({ col: "change", dir: "desc" });
   // Short Scan state
@@ -1471,10 +1470,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   // Fetch AI analysis data
   useEffect(() => {
     fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setAiAnalysis(d); }).catch(() => {});
-  }, []);
-  // Fetch Gapper analysis data
-  useEffect(() => {
-    fetch("/data/gapper_analysis.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setGapperData(d); }).catch(() => {});
   }, []);
 
   // Persistence accumulator — tracks intraday readings per ticker for trend arrows
@@ -1887,33 +1882,56 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     return shortSort.dir === "asc" ? sorted.reverse() : sorted;
   }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
 
-  // Gapper candidates — stocks passing Chg≥4%, RVol≥2x, Small+, $Vol≥50M
+  // Gapper candidates — stocks passing Chg≥4%, RVol>1.1x, Small+, $Vol≥50M, no Bio/REIT
+  const GAPPER_EXCLUDED_IND = useMemo(() => new Set([
+    "Biotechnology", "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+    "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+    "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
+    "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
+    "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
+  ]), []);
+  const [gapperDigest, setGapperDigest] = useState({}); // ticker → {reasoning, bullets, short_float, float_shares, ...}
   const gapperCandidates = useMemo(() => {
     if (!stocks?.length) return [];
-    const gapperAi = {};
-    if (gapperData?.gappers) gapperData.gappers.forEach(g => { gapperAi[g.ticker] = g; });
     const list = stocks.filter(s => {
       const lv = liveLookup[s.ticker];
       const chg = lv?.change ?? s.change_pct ?? 0;
       const rv = lv?.rel_volume ?? s.rel_volume ?? 0;
       const mcap = s.market_cap_raw ?? 0;
       const dvol = s.avg_dollar_vol_raw ?? 0;
-      return chg > 0 && chg >= 4 && rv >= 2.0 && mcap >= 300000000 && dvol >= 50000000;
+      if (GAPPER_EXCLUDED_IND.has(s.industry)) return false;
+      return chg > 0 && chg >= 4 && rv > 1.1 && mcap >= 300000000 && dvol >= 50000000;
     }).map(s => {
       const lv = liveLookup[s.ticker];
-      const ai = gapperAi[s.ticker] || {};
+      const dig = gapperDigest[s.ticker] || {};
       const liveChg = lv?.change ?? s.change_pct;
       const liveVol = lv?.volume ?? (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null);
       const liveRv = lv?.rel_volume ?? s.rel_volume;
       const cr = lv?.close_range ?? s.close_range;
       return { ...s, change_pct: liveChg, _liveVol: liveVol, _liveRv: liveRv, _cr: cr,
-        _category: ai.category || null, _reasoning: ai.reasoning || null, _analysis: ai.analysis_sections || [], _analysisTitle: ai.analysis_title || null };
+        _reasoning: dig.reasoning || null, _bullets: dig.bullets || [], _sentiment: dig.sentiment || null,
+        _shortFloat: dig.short_float, _floatShares: dig.float_shares, _shortRatio: dig.short_ratio, _instOwn: dig.inst_own };
     });
     const safe = fn => (a, b) => (fn(b) ?? -Infinity) - (fn(a) ?? -Infinity);
     const sorters = { change: safe(s => s.change_pct), rvol: safe(s => s._liveRv), rs: safe(s => s.rs_rank), vol: safe(s => s._liveVol), dvol: safe(s => s.avg_dollar_vol_raw) };
     const sorted = [...list].sort(sorters[gapperSort.col] || sorters.change);
     return gapperSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [stocks, liveLookup, gapperData, gapperSort]);
+  }, [stocks, liveLookup, gapperDigest, gapperSort, GAPPER_EXCLUDED_IND]);
+
+  // Fetch Finviz daily digest for each gapper when tab is active
+  const gapperFetchedRef = useRef(new Set());
+  useEffect(() => {
+    if (scanTab !== "gapper" || !gapperCandidates.length) return;
+    const toFetch = gapperCandidates.filter(s => !gapperFetchedRef.current.has(s.ticker)).slice(0, 8);
+    if (!toFetch.length) return;
+    toFetch.forEach(s => {
+      gapperFetchedRef.current.add(s.ticker);
+      fetch(`/api/gapper-reasoning?ticker=${encodeURIComponent(s.ticker)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.ok) setGapperDigest(prev => ({ ...prev, [s.ticker]: d })); })
+        .catch(() => {});
+    });
+  }, [scanTab, gapperCandidates]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -2527,14 +2545,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       {scanTab === "gapper" && (<>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 10, color: "#505060" }}>
         <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: 12 }}>{gapperCandidates.length}</span>
-        <span>Gappers — Chg≥4% + RVol≥2x + Small+ + $Vol≥50M</span>
-        {gapperData?.updated_at && <span style={{ marginLeft: "auto", color: "#3a3a4a" }}>AI: {(() => { const ago = Math.floor((Date.now() - new Date(gapperData.updated_at).getTime()) / 60000); return ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.floor(ago / 60)}h ago` : `${Math.floor(ago / 1440)}d ago`; })()}</span>}
+        <span>Gappers — Chg≥4% + RVol&gt;1.1x + Small+ + $Vol≥50M + No Bio/REIT</span>
       </div>
       <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           <th style={{ padding: "6px 4px", width: 24 }}></th>
-          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", null], ["$Vol", "dvol"], ["ADR%", null], ["Industry", null], ["Category", null], ["Grade", null], ["Reasoning", null]].map(([h, sk]) => (
+          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", null], ["$Vol", "dvol"], ["SI%", null], ["Float", null], ["Industry", null], ["Grade", null], ["Reasoning", null]].map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setGapperSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
               style={{ padding: "6px 8px", color: gapperSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: h === "Reasoning" ? "left" : "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
@@ -2550,9 +2567,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const rv = s._liveRv ?? s.rel_volume ?? 0;
           const curVol = s._liveVol;
           const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
-          const catColors = { "New Contracts / Partnerships": "#3b82f6", "Themes / Narratives": "#8b5cf6", "FDA / Regulatory": "#a855f7",
-            "Earnings Beat": "#2bb886", "Technical Breakout": "#22d3ee", "Insider / Institutional": "#fbbf24", "Others": "#64748b" };
-          const catColor = catColors[s._category] || "#64748b";
           return (<Fragment key={s.ticker}>
             <tr onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
@@ -2594,45 +2608,47 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.avg_dollar_vol_raw > 100000000 ? "#2bb886" : s.avg_dollar_vol_raw > 50000000 ? "#fbbf24" : "#686878" }}>
                 {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
-              {/* ADR% */}
+              {/* SI% — from Finviz */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
-                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+                color: (s._shortFloat ?? 0) >= 20 ? "#f87171" : (s._shortFloat ?? 0) >= 10 ? "#f97316" : s._shortFloat != null ? "#686878" : "#3a3a4a" }}>
+                {s._shortFloat != null ? `${s._shortFloat.toFixed(1)}%` : '—'}</td>
+              {/* Float — from Finviz */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", color: "#686878", fontSize: 10 }}>
+                {s._floatShares || '—'}</td>
               {/* Industry */}
               <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 10, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 title={s.industry}>{s.industry || '—'}</td>
-              {/* Category badge */}
-              <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                {s._category ? (
-                  <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-                    color: catColor, background: catColor + "20", border: `1px solid ${catColor}40`, whiteSpace: "nowrap" }}>
-                    {s._category}</span>
-                ) : <span style={{ color: "#3a3a4a", fontSize: 9 }}>—</span>}
-              </td>
               {/* Grade */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
-              {/* Reasoning */}
-              <td style={{ padding: "4px 8px", textAlign: "left", color: "#9090a0", fontSize: 10, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              {/* Reasoning — from Finviz whyMoving */}
+              <td style={{ padding: "4px 8px", textAlign: "left", color: s._sentiment === "good" ? "#2bb886" : s._sentiment === "bad" ? "#f87171" : "#9090a0", fontSize: 10,
+                maxWidth: 350, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 title={s._reasoning || ''}>
-                {s._reasoning || <span style={{ color: "#3a3a4a", fontStyle: "italic" }}>Run AI analysis to populate</span>}
+                {s._reasoning || <span style={{ color: "#505060", fontSize: 9 }}>loading...</span>}
               </td>
             </tr>
-            {/* Expanded analysis row */}
+            {/* Expanded row — bullet points from Finviz daily digest */}
             {isExpanded && (
               <tr style={{ background: "#0d0d15" }}>
                 <td colSpan={12} style={{ padding: "12px 16px 16px 40px" }}>
-                  {s._analysis.length > 0 ? s._analysis.map((section, i) => (
-                    <div key={i} style={{ marginBottom: i < s._analysis.length - 1 ? 16 : 0 }}>
-                      <div style={{ fontWeight: 700, color: "#c8c8d8", fontSize: 12, marginBottom: 4 }}>
-                        {section.title}</div>
-                      <div style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                        {section.content}</div>
-                    </div>
-                  )) : s._reasoning ? (
+                  {s._bullets.length > 0 ? (
+                    <ul style={{ margin: 0, paddingLeft: 16, listStyleType: "disc" }}>
+                      {s._bullets.map((b, i) => (
+                        <li key={i} style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.6, marginBottom: 4 }}>{b}</li>
+                      ))}
+                    </ul>
+                  ) : s._reasoning ? (
                     <div style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.5 }}>{s._reasoning}</div>
                   ) : (
-                    <div style={{ color: "#505060", fontSize: 11, fontStyle: "italic" }}>
-                      No AI analysis available. Run the gapper analysis script to generate insights.</div>
+                    <div style={{ color: "#505060", fontSize: 11, fontStyle: "italic" }}>Loading Finviz data...</div>
+                  )}
+                  {/* Supplementary data row */}
+                  {(s._instOwn != null || s._shortRatio != null) && (
+                    <div style={{ marginTop: 8, display: "flex", gap: 16, fontSize: 10, color: "#686878" }}>
+                      {s._instOwn != null && <span>Inst Own: <span style={{ color: s._instOwn >= 60 ? "#2bb886" : "#9090a0" }}>{s._instOwn}%</span></span>}
+                      {s._shortRatio != null && <span>Short Ratio: <span style={{ color: s._shortRatio >= 5 ? "#f87171" : "#9090a0" }}>{s._shortRatio}</span></span>}
+                      {s._shortFloat != null && <span>Short Float: <span style={{ color: s._shortFloat >= 20 ? "#f87171" : "#9090a0" }}>{s._shortFloat}%</span></span>}
+                    </div>
                   )}
                 </td>
               </tr>
