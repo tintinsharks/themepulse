@@ -616,7 +616,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         </div>
         <span onClick={() => setShowDetails(p => !p)}
           style={{ color: "#686878", fontSize: 11, cursor: "pointer", padding: "2px 6px" }}>
-          {showDetails ? "▾ details" : "▸ details"}
+          {showDetails ? "◂ details" : "▸ details"}
         </span>
       </div>
 
@@ -637,17 +637,31 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         </div>
       )}
 
-      {/* Collapsible: notes, stats, earnings */}
-      {showDetails && (<>
+      {/* Chart + right detail panel */}
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
 
-      {/* Stock detail row — metrics left, news right */}
-        <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
-          {/* Left: catalyst note */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: "0 1 38%", minWidth: 0, fontSize: 10, fontFamily: "monospace", lineHeight: 1.4, overflow: "hidden", wordBreak: "break-all" }}>
-          {/* Custom catalyst note */}
+      {/* Chart area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      {lwChartProps ? (
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <LWChart ticker={ticker} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} quarters={stock?.quarters} />
+        </div>
+      ) : (
+        <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
+      )}
+      {showIntraday && <IntradayChart ticker={ticker} avgVolume={stock?.avg_volume_raw} />}
+      </div>{/* end chart area */}
+
+      {/* Right detail panel — collapsible */}
+      {showDetails && (
+        <div style={{ width: 320, flexShrink: 0, borderLeft: "1px solid #2a2a38", background: "#141420",
+          overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", fontSize: 10, fontFamily: "monospace" }}>
+
+          {/* Catalyst note */}
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230" }}>
           {editingNote ? (
-            <div style={{ width: "100%", marginTop: 2 }}>
-              <textarea autoFocus rows={2}
+            <div>
+              <textarea autoFocus rows={3}
                 defaultValue={chartNotes[ticker]?.text || ""}
                 placeholder="Add catalyst note..."
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.target.blur(); } if (e.key === "Escape") setEditingNote(false); }}
@@ -661,30 +675,30 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                   setEditingNote(false);
                 }}
                 style={{ width: "100%", background: "#1a1a28", border: "1px solid #10b981", borderRadius: 3,
-                  color: "#a8a8b8", padding: "2px 5px", fontSize: 8, fontFamily: "monospace", outline: "none",
-                  resize: "none", boxSizing: "border-box", lineHeight: 1.4 }} />
+                  color: "#a8a8b8", padding: "4px 6px", fontSize: 9, fontFamily: "monospace", outline: "none",
+                  resize: "vertical", boxSizing: "border-box", lineHeight: 1.4 }} />
             </div>
           ) : chartNotes[ticker] ? (
             <div onDoubleClick={(e) => { e.stopPropagation(); setEditingNote(true); }}
-              style={{ width: "100%", marginTop: 2, padding: "2px 5px", background: "#10b98112", border: "1px solid #10b98130",
-                borderRadius: 3, fontSize: 8, fontFamily: "monospace", color: "#10b981", cursor: "default",
-                display: "flex", alignItems: "flex-start", gap: 4, lineHeight: 1.4 }}>
+              style={{ padding: "4px 6px", background: "#10b98112", border: "1px solid #10b98130",
+                borderRadius: 3, fontSize: 9, fontFamily: "monospace", color: "#10b981", cursor: "default",
+                display: "flex", alignItems: "flex-start", gap: 4, lineHeight: 1.5 }}>
               <span style={{ flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{chartNotes[ticker].text}</span>
               <span onClick={(e) => { e.stopPropagation(); setChartNotes(prev => { const next = { ...prev }; delete next[ticker]; return next; }); }}
                 style={{ cursor: "pointer", fontSize: 8, color: "#686878", flexShrink: 0, marginTop: 1 }} title="Remove note">✕</span>
             </div>
           ) : (
             <div onDoubleClick={(e) => { e.stopPropagation(); setEditingNote(true); }}
-              style={{ width: "100%", marginTop: 2, padding: "2px 6px", fontSize: 9, color: "#3a3a4a", cursor: "default" }}
+              style={{ padding: "4px 6px", fontSize: 9, color: "#3a3a4a", cursor: "default" }}
               title="Double-click to add a catalyst note">
               dbl-click to add note
             </div>
           )}
           </div>
+
           {/* Earnings Timeline */}
-          {stock && <>
-          <div style={{ width: 1, background: "#3a3a4a", margin: "0 8px", flexShrink: 0, alignSelf: "stretch" }} />
-          <div style={{ flex: "0 0 auto", minWidth: 203, maxWidth: 240, fontSize: 10, fontFamily: "monospace" }}>
+          {stock && (
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
               <span>Earnings</span>
               {(stock.earnings_display || stock.earnings_date) && (() => {
@@ -702,7 +716,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })()}
             </div>
-            {/* Earnings beat/miss from 09g — show if er data present */}
+            {/* Earnings beat/miss */}
             {stock.er && stock.er.eps != null && (() => {
               const er = stock.er;
               const epsBeat = er.eps != null && er.eps_estimated != null ? er.eps - er.eps_estimated : null;
@@ -712,7 +726,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               const fmtRev = (v) => { if (!v) return "—"; const n = Math.abs(v); return n >= 1e9 ? `$${(v/1e9).toFixed(2)}B` : n >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : `$${v.toLocaleString()}`; };
               return (
                 <div style={{ padding: "3px 6px", marginBottom: 4, background: "#ffffff06", border: "1px solid #2a2a3a",
-                  borderRadius: 3, fontSize: 10, fontFamily: "monospace", display: "flex", gap: 10, alignItems: "center" }}>
+                  borderRadius: 3, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <span>
                     <span style={{ color: "#686878" }}>EPS </span>
                     <span style={{ color: "#a8a8b8", fontWeight: 600 }}>${er.eps?.toFixed(2)}</span>
@@ -728,24 +742,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 </div>
               );
             })()}
-            {/* Past earnings from quarterly data — CANSLIM C: Current Quarterly */}
-            {/* Code 33: 3 consecutive quarters of acceleration in EPS, Sales, and Profit Margins */}
+            {/* Quarterly earnings with CANSLIM analysis */}
             {(() => {
               const qs = stock.quarters || [];
-              // Detect acceleration sequences (each quarter vs next older quarter)
               const accel = qs.map((q, i) => {
                 const prev = qs[i + 1];
                 if (!prev) return null;
                 const epsA = q.eps_yoy != null && prev.eps_yoy != null && q.eps_yoy > prev.eps_yoy && q.eps_yoy > 0;
                 const salesA = q.sales_yoy != null && prev.sales_yoy != null && q.sales_yoy > prev.sales_yoy && q.sales_yoy > 0;
-                // Margin: use real net_margin from FMP if available, else fall back to op_margin, then gross_margin
                 const qMargin = q.net_margin ?? q.op_margin ?? q.gross_margin;
                 const pMargin = prev.net_margin ?? prev.op_margin ?? prev.gross_margin;
                 const marginA = qMargin != null && pMargin != null && qMargin > pMargin;
-                const marginExp = qMargin != null && pMargin != null && qMargin > pMargin;
-                return { eps: epsA, sales: salesA, margin: marginA, marginExp };
+                return { eps: epsA, sales: salesA, margin: marginA, marginExp: marginA };
               });
-              // Code 33: 3 consecutive quarters (indices 0,1,2) all show acceleration in all three
               const code33 = accel[0] && accel[1] && accel[2]
                 && accel[0].eps && accel[1].eps && accel[2].eps
                 && accel[0].sales && accel[1].sales && accel[2].sales
@@ -759,27 +768,22 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 </div>
               )}
               {qs.map((q, i) => {
-                // Quarterly EPS tiers (O'Neil): ≥25% minimum, 50-100%+ winner standard
                 const epsYoy = q.eps_yoy;
                 const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 50 ? 2 : epsYoy >= 25 ? 1 : 0;
                 const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
                 const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
-                // Quarterly Sales tiers (O'Neil): ≥20% minimum, 25%+ strong
                 const salesYoy = q.sales_yoy;
                 const salesTier = salesYoy >= 50 ? 3 : salesYoy >= 25 ? 2 : salesYoy >= 20 ? 1 : 0;
                 const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
-                // Acceleration/deceleration for this quarter
                 const a = accel[i];
                 const isEpsAccel = a?.eps;
                 const isEpsDecel = !isEpsAccel && epsYoy != null && qs[i+1]?.eps_yoy != null && epsYoy < qs[i+1].eps_yoy && epsYoy > 0 && qs[i+1].eps_yoy > 0;
                 const isSalesAccel = a?.sales;
                 const isMarginAccel = a?.marginExp;
-                // Real margin data (prefer net > op > gross)
                 const margin = q.net_margin ?? q.op_margin ?? q.gross_margin;
                 const marginLabel = q.net_margin != null ? "NM" : q.op_margin != null ? "OM" : q.gross_margin != null ? "GM" : null;
                 const prevMargin = qs[i+1] ? (qs[i+1].net_margin ?? qs[i+1].op_margin ?? qs[i+1].gross_margin) : null;
                 const marginDelta = margin != null && prevMargin != null ? margin - prevMargin : null;
-                // Code 33 quarter highlighting (blue)
                 const isCode33Q = code33 && i <= 2 && accel[i]?.eps && accel[i]?.sales && accel[i]?.margin;
                 const rowBorder = isCode33Q ? "1px solid rgba(96, 165, 250, 0.30)"
                   : isEpsAccel ? "1px solid #2bb88650" : isEpsDecel ? "1px solid #f8717130" : "none";
@@ -793,15 +797,15 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     {q.eps != null ? <>
                       {epsIcon && <span style={{ fontSize: 8, marginRight: 1 }}>{epsIcon}</span>}
                       E:{q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : q.eps}
-                      {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="EPS accelerating vs prior quarter">▲</span>}
-                      {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 3 }} title="EPS decelerating vs prior quarter">▼</span>}
+                      {isEpsAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="EPS accelerating">▲</span>}
+                      {isEpsDecel && <span style={{ color: "#f87171", fontSize: 10, marginLeft: 3 }} title="EPS decelerating">▼</span>}
                     </> : ""}
                   </span>
                   <span style={{ color: q.sales_yoy >= 20 ? "#2bb886" : q.sales_yoy > 0 ? "#9090a0" : q.sales_yoy < 0 ? "#f87171" : "#505060",
                     width: 56, flexShrink: 0, background: salesBg, borderRadius: 2, padding: "0 2px" }}>
                     {q.sales_yoy != null ? <>
                       S:{q.sales_yoy > 0 ? "+" : ""}{q.sales_yoy.toFixed(0)}%
-                      {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }} title="Sales accelerating vs prior quarter">▲</span>}
+                      {isSalesAccel && <span style={{ color: isCode33Q ? "#60a5fa" : "#2bb886", fontSize: 10, marginLeft: 3 }}>▲</span>}
                     </> : ""}
                   </span>
                   <span style={{
@@ -815,27 +819,23 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
               })}
               </>);
             })()}
-            {/* Annual EPS/Sales/Margins — CANSLIM A: Annual Earnings */}
+            {/* Annual */}
             {stock.annual && stock.annual.length > 0 && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
               <div style={{ color: "#686878", fontWeight: 700, marginBottom: 1 }}>Annual</div>
               {stock.annual.slice(0, 3).map((a, i) => {
-                // Annual EPS tiers (O'Neil): ≥25% CAGR minimum over 3-5 years
                 const epsYoy = a.eps_yoy;
                 const epsTier = epsYoy >= 100 ? 3 : epsYoy >= 50 ? 2 : epsYoy >= 25 ? 1 : 0;
                 const epsBg = epsTier === 3 ? "rgba(43, 184, 134, 0.18)" : epsTier === 2 ? "rgba(43, 184, 134, 0.10)" : epsTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
                 const epsIcon = epsTier === 3 ? "★" : epsTier === 2 ? "●" : epsTier === 1 ? "○" : "";
-                // Annual Sales tiers (O'Neil): ≥20-25% annual growth
                 const salesYoy = a.sales_yoy;
                 const salesTier = salesYoy >= 50 ? 3 : salesYoy >= 25 ? 2 : salesYoy >= 20 ? 1 : 0;
                 const salesBg = salesTier === 3 ? "rgba(43, 184, 134, 0.18)" : salesTier === 2 ? "rgba(43, 184, 134, 0.10)" : salesTier === 1 ? "rgba(43, 184, 134, 0.05)" : "transparent";
-                // Annual margin
                 const margin = a.net_margin ?? a.op_margin ?? a.gross_margin;
                 const marginLabel = a.net_margin != null ? "NM" : a.op_margin != null ? "OM" : a.gross_margin != null ? "GM" : null;
                 const prevA = stock.annual[i + 1];
                 const prevMargin = prevA ? (prevA.net_margin ?? prevA.op_margin ?? prevA.gross_margin) : null;
                 const marginDelta = margin != null && prevMargin != null ? margin - prevMargin : null;
-                // Annual acceleration: compare growth rate vs prior year
                 const isEpsAccel = epsYoy != null && prevA?.eps_yoy != null && epsYoy > prevA.eps_yoy && epsYoy > 0;
                 const isEpsDecel = epsYoy != null && prevA?.eps_yoy != null && epsYoy < prevA.eps_yoy && epsYoy > 0 && prevA.eps_yoy > 0;
                 const isSalesAccel = salesYoy != null && prevA?.sales_yoy != null && salesYoy > prevA.sales_yoy && salesYoy > 0;
@@ -867,7 +867,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })}
             </>)}
-            {/* EPS + MS Composite Scores */}
+            {/* EPS + MS Scores */}
             {(stock._epsScore != null || stock._msScore != null) && (<>
               <div style={{ borderTop: "1px solid #2a2a38", margin: "5px 0 4px", width: "100%" }} />
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
@@ -887,20 +887,17 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 </span>}
               </div>
             </>)}
-            {/* End of earnings timeline */}
           </div>
-          </>}
-          {/* Divider */}
-          <div style={{ width: 1, background: "#3a3a4a", margin: "0 12px", flexShrink: 0, alignSelf: "stretch" }} />
-          {/* Right: news */}
-          <div style={{ flex: "1 1 44%", minWidth: 200, overflow: "hidden" }}>
+          )}
+
+          {/* News */}
+          <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230" }}>
             {news === null ? (
-              <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>Loading news...</span>
+              <span style={{ color: "#505060" }}>Loading news...</span>
             ) : news.length > 0 ? (
-              <div style={{ fontSize: 10, fontFamily: "monospace" }}>
+              <div>
                 <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>News</div>
                 {news.map((n, i) => {
-                  // Shorten date: "Feb-19-26 08:00AM" → "Feb 19" or "2/19 8AM"
                   const shortDate = (() => {
                     if (!n.date) return '';
                     const parts = n.date.replace(/-/g, ' ').split(' ');
@@ -908,10 +905,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                     return n.date;
                   })();
                   return (
-                  <div key={i} style={{ display: "flex", gap: 6, padding: "1px 0" }}>
-                    <span style={{ color: "#505060", whiteSpace: "nowrap", flexShrink: 0, fontSize: 9 }}>{shortDate}</span>
+                  <div key={i} style={{ padding: "1px 0", lineHeight: 1.4 }}>
+                    <span style={{ color: "#505060", fontSize: 9 }}>{shortDate} </span>
                     <a href={n.url} target="_blank" rel="noopener noreferrer"
-                      style={{ color: "#b8b8c8", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      style={{ color: "#b8b8c8", textDecoration: "none", fontSize: 10 }}
                       onMouseEnter={e => e.target.style.color = "#0d9163"}
                       onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
                       {n.headline}
@@ -921,51 +918,46 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 })}
               </div>
             ) : (
-              <span style={{ color: "#505060", fontSize: 10, fontFamily: "monospace" }}>No news found</span>
-            )}
-            {peers && peers.length > 0 && (
-              <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid #3a3a4a", fontSize: 10, fontFamily: "monospace", display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ color: "#686878", fontWeight: 700 }}>Peers:</span>
-                {peers.map(p => (
-                  <span key={p} onClick={() => { if (onTickerClick) onTickerClick(p); }}
-                    style={{ color: "#9090a0", cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: "#222230" }}
-                    onMouseEnter={e => { e.target.style.color = "#0d9163"; e.target.style.background = "#0d916318"; }}
-                    onMouseLeave={e => { e.target.style.color = "#9090a0"; e.target.style.background = "#222230"; }}>
-                    {p}
-                  </span>
-                ))}
-                {analyst && analyst.target_price && (<>
-                  <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
-                  <span style={{ color: "#686878", fontWeight: 700 }}>Analyst</span>
-                  <span style={{ color: "#9090a0" }}>
-                    {analyst.recommendation != null && <span style={{
-                      color: analyst.recommendation <= 2 ? "#2bb886" : analyst.recommendation <= 3 ? "#fbbf24" : "#f87171",
-                      fontWeight: 700, marginRight: 4
-                    }}>{analyst.recommendation <= 1.5 ? "Buy" : analyst.recommendation <= 2.5 ? "Outperform" : analyst.recommendation <= 3.5 ? "Hold" : analyst.recommendation <= 4.5 ? "Underperform" : "Sell"}</span>}
-                    PT:{analyst.target_price}
-                  </span>
-                </>)}
-              </div>
-            )}
-            {description && (
-              <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid #3a3a4a", fontSize: 10, color: "#787888", lineHeight: 1.4, maxHeight: 50, overflowY: "auto" }}>
-                {description}
-              </div>
+              <span style={{ color: "#505060" }}>No news found</span>
             )}
           </div>
+
+          {/* Peers + Analyst */}
+          {peers && peers.length > 0 && (
+            <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230", display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ color: "#686878", fontWeight: 700 }}>Peers:</span>
+              {peers.map(p => (
+                <span key={p} onClick={() => { if (onTickerClick) onTickerClick(p); }}
+                  style={{ color: "#9090a0", cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: "#222230" }}
+                  onMouseEnter={e => { e.target.style.color = "#0d9163"; e.target.style.background = "#0d916318"; }}
+                  onMouseLeave={e => { e.target.style.color = "#9090a0"; e.target.style.background = "#222230"; }}>
+                  {p}
+                </span>
+              ))}
+              {analyst && analyst.target_price && (<>
+                <span style={{ color: "#3a3a4a", margin: "0 2px" }}>│</span>
+                <span style={{ color: "#686878", fontWeight: 700 }}>Analyst</span>
+                <span style={{ color: "#9090a0" }}>
+                  {analyst.recommendation != null && <span style={{
+                    color: analyst.recommendation <= 2 ? "#2bb886" : analyst.recommendation <= 3 ? "#fbbf24" : "#f87171",
+                    fontWeight: 700, marginRight: 4
+                  }}>{analyst.recommendation <= 1.5 ? "Buy" : analyst.recommendation <= 2.5 ? "Outperform" : analyst.recommendation <= 3.5 ? "Hold" : analyst.recommendation <= 4.5 ? "Underperform" : "Sell"}</span>}
+                  PT:{analyst.target_price}
+                </span>
+              </>)}
+            </div>
+          )}
+
+          {/* Description */}
+          {description && (
+            <div style={{ padding: "8px 10px", fontSize: 10, color: "#787888", lineHeight: 1.4 }}>
+              {description}
+            </div>
+          )}
+
         </div>
-
-
-      </>)}
-
-      {lwChartProps ? (
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <LWChart ticker={ticker} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} quarters={stock?.quarters} />
-        </div>
-      ) : (
-        <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
       )}
-      {showIntraday && <IntradayChart ticker={ticker} avgVolume={stock?.avg_volume_raw} />}
+      </div>{/* end chart + panel row */}
     </div>
   );
 }
