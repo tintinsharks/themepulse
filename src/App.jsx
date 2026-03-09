@@ -1630,6 +1630,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     }
   }, [liveLookup, hasLive]);
 
+  // Shared biotech/pharma/REIT exclusion set for NoBio filter
+  const BIO_REIT_IND = useMemo(() => new Set([
+    "Biotechnology", "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
+    "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
+    "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
+    "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
+    "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
+  ]), []);
+
   const candidates = useMemo(() => {
     // Individual scan filters
     const winnersFilter = s => {
@@ -1721,7 +1730,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP", "DB", "HTF", "AB", "ST", "IPO"]);
 
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
-    const nonOrhFilters = new Set([...scanFilters].filter(f => f !== "ORH"));
+    const nonOrhFilters = new Set([...scanFilters].filter(f => f !== "ORH" && f !== "NoBio"));
     if (nonOrhFilters.size === 0) {
       list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _epsScore: epsFinalMap[s.ticker] }));
     } else {
@@ -1729,7 +1738,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         const hits = new Set(hitMap[s.ticker] || []);
         const pats = new Set((s.chart_patterns || []).map(p => p.pattern));
         for (const f of scanFilters) {
-          if (f === "ORH") continue; // handled separately via persistRef
+          if (f === "ORH" || f === "NoBio") continue; // handled separately
           if (patternFilterTags.has(f)) {
             if (!pats.has(PATTERN_TAG_MAP[f])) return false;
           } else {
@@ -1764,6 +1773,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
+    if (scanFilters.has("NoBio")) list = list.filter(s => !BIO_REIT_IND.has(s.industry));
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
       if (av == null && bv == null) return 0;
@@ -1795,7 +1805,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
     return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
-  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup]);
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup, BIO_REIT_IND]);
 
   const burstStocks = useMemo(() => {
     let list = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
@@ -1841,6 +1851,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
+    if (scanFilters.has("NoBio")) list = list.filter(b => !BIO_REIT_IND.has(stockMap[b.ticker]?.industry));
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
     const bSorters = {
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
@@ -1850,7 +1861,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, minChg, minRVol, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, minChg, minRVol, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort, BIO_REIT_IND]);
 
   // ── Short Scan candidates ──
   const themeHealthMap = useMemo(() => {
@@ -1944,13 +1955,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
 
   // Gapper candidates — stocks passing Chg≥4%, RVol>1.1x, Small+, $Vol≥50M, no Bio/REIT
-  const GAPPER_EXCLUDED_IND = useMemo(() => new Set([
-    "Biotechnology", "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
-    "Pharmaceutical Retailers", "Pharmaceuticals: Generic", "Pharmaceuticals: Major", "Pharmaceuticals: Other",
-    "REIT - Diversified", "REIT - Healthcare Facilities", "REIT - Hotel & Motel",
-    "REIT - Industrial", "REIT - Mortgage", "REIT - Office", "REIT - Residential",
-    "REIT - Retail", "REIT - Specialty", "Real Estate Investment Trusts",
-  ]), []);
   const [gapperDigest, setGapperDigest] = useState({}); // ticker → {reasoning, bullets, short_float, float_shares, ...}
   const gapperCandidates = useMemo(() => {
     if (!stocks?.length) return [];
@@ -1960,7 +1964,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       const rv = lv?.rel_volume ?? s.rel_volume ?? 0;
       const mcap = s.market_cap_raw ?? 0;
       const dvol = s.avg_dollar_vol_raw ?? 0;
-      if (GAPPER_EXCLUDED_IND.has(s.industry)) return false;
+      if (BIO_REIT_IND.has(s.industry)) return false;
       return chg > 0 && chg >= 4 && rv > 1.1 && mcap >= 300000000 && dvol >= 50000000;
     }).map(s => {
       const lv = liveLookup[s.ticker];
@@ -1979,7 +1983,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       ticker: (a, b) => a.ticker.localeCompare(b.ticker), industry: (a, b) => (a.industry || "").localeCompare(b.industry || "") };
     const sorted = [...list].sort(sorters[gapperSort.col] || sorters.change);
     return gapperSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [stocks, liveLookup, gapperDigest, gapperSort, GAPPER_EXCLUDED_IND]);
+  }, [stocks, liveLookup, gapperDigest, gapperSort, BIO_REIT_IND]);
 
   // Fetch Finviz daily digest for gappers and burst stocks when their tab is active
   const finvizFetchedRef = useRef(new Set());
@@ -2086,11 +2090,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"]
+          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
         ] : [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"]
+          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
         ]).map(([tag, label, color]) => {
           const active = scanFilters.has(tag);
           return (
