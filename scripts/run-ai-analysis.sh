@@ -73,17 +73,42 @@ burst = d.get('momentum_burst', [])
 if len(burst) == 0:
     print('  📡 Static file has 0 burst signals — fetching live data from API...', file=sys.stderr)
     try:
-        # Fetch live burst from the Vercel API (uses FMP real-time quotes)
-        url = 'https://themepulse.vercel.app/api/live?universe=SPY'
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            live = json.loads(resp.read())
-        if live.get('ok') and live.get('momentum_burst'):
-            burst = live['momentum_burst']
+        # Collect all tickers from themes + stocks for the API call
+        tickers = set()
+        for t in d.get('themes', []):
+            for s in t.get('subthemes', []):
+                for tk in s.get('tickers', []):
+                    tickers.add(tk)
+        for s in d.get('stocks', []):
+            if s.get('ticker'):
+                tickers.add(s['ticker'])
+        all_tickers = list(tickers)
+        print(f'  📡 Sending {len(all_tickers)} tickers to live API...', file=sys.stderr)
+        # Batch in groups of 500 (same as frontend)
+        all_burst = []
+        for i in range(0, len(all_tickers), 500):
+            batch = all_tickers[i:i+500]
+            url = 'https://themepulse.vercel.app/api/live?universe=' + ','.join(batch)
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                live = json.loads(resp.read())
+            if live.get('ok') and live.get('momentum_burst'):
+                all_burst.extend(live['momentum_burst'])
+        if all_burst:
+            # Deduplicate by ticker
+            seen = set()
+            deduped = []
+            for b in all_burst:
+                if b['ticker'] not in seen:
+                    seen.add(b['ticker'])
+                    deduped.append(b)
+            burst = deduped
             d['momentum_burst'] = burst
             with open('$REPO_DIR/public/dashboard_data.json', 'w') as f:
                 json.dump(d, f)
             print(f'  ✅ Injected {len(burst)} live burst signals into dashboard_data.json', file=sys.stderr)
+        else:
+            print('  ⚠️  Live API returned 0 burst signals', file=sys.stderr)
     except Exception as e:
         print(f'  ⚠️  Live fetch failed: {e}', file=sys.stderr)
 " 2>&1
