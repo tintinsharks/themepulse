@@ -1453,6 +1453,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [gapperData, setGapperData] = useState(null);
+  const [expandedGapper, setExpandedGapper] = useState(null);
+  const [gapperSort, setGapperSort] = useState({ col: "change", dir: "desc" });
   // Short Scan state
   const [shortSort, setShortSort] = useState({ col: "change", dir: "asc" });
   const [redOnly, setRedOnly] = useState(true);
@@ -1468,6 +1471,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   // Fetch AI analysis data
   useEffect(() => {
     fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setAiAnalysis(d); }).catch(() => {});
+  }, []);
+  // Fetch Gapper analysis data
+  useEffect(() => {
+    fetch("/data/gapper_analysis.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setGapperData(d); }).catch(() => {});
   }, []);
 
   // Persistence accumulator — tracks intraday readings per ticker for trend arrows
@@ -1880,10 +1887,39 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     return shortSort.dir === "asc" ? sorted.reverse() : sorted;
   }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
 
+  // Gapper candidates — stocks passing Chg≥4%, RVol≥2x, Small+, $Vol≥50M
+  const gapperCandidates = useMemo(() => {
+    if (!stocks?.length) return [];
+    const gapperAi = {};
+    if (gapperData?.gappers) gapperData.gappers.forEach(g => { gapperAi[g.ticker] = g; });
+    const list = stocks.filter(s => {
+      const lv = liveLookup[s.ticker];
+      const chg = lv?.change ?? s.change_pct ?? 0;
+      const rv = lv?.rel_volume ?? s.rel_volume ?? 0;
+      const mcap = s.market_cap_raw ?? 0;
+      const dvol = s.avg_dollar_vol_raw ?? 0;
+      return chg > 0 && chg >= 4 && rv >= 2.0 && mcap >= 300000000 && dvol >= 50000000;
+    }).map(s => {
+      const lv = liveLookup[s.ticker];
+      const ai = gapperAi[s.ticker] || {};
+      const liveChg = lv?.change ?? s.change_pct;
+      const liveVol = lv?.volume ?? (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null);
+      const liveRv = lv?.rel_volume ?? s.rel_volume;
+      const cr = lv?.close_range ?? s.close_range;
+      return { ...s, change_pct: liveChg, _liveVol: liveVol, _liveRv: liveRv, _cr: cr,
+        _category: ai.category || null, _reasoning: ai.reasoning || null, _analysis: ai.analysis_sections || [], _analysisTitle: ai.analysis_title || null };
+    });
+    const safe = fn => (a, b) => (fn(b) ?? -Infinity) - (fn(a) ?? -Infinity);
+    const sorters = { change: safe(s => s.change_pct), rvol: safe(s => s._liveRv), rs: safe(s => s.rs_rank), vol: safe(s => s._liveVol), dvol: safe(s => s.avg_dollar_vol_raw) };
+    const sorted = [...list].sort(sorters[gapperSort.col] || sorters.change);
+    return gapperSort.dir === "asc" ? sorted.reverse() : sorted;
+  }, [stocks, liveLookup, gapperData, gapperSort]);
+
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
     if (scanTab === "ep") return;
     if (scanTab === "short") { if (onVisibleTickers) onVisibleTickers(shortCandidates.map(s => s.ticker)); return; }
+    if (scanTab === "gapper") { if (onVisibleTickers) onVisibleTickers(gapperCandidates.map(s => s.ticker)); return; }
     const burstTickers = burstStocks.map(b => b.ticker);
     const candidateTickers = candidates.map(s => s.ticker);
     if (onVisibleTickers) onVisibleTickers(scanTab === "burst" ? burstTickers : [...candidateTickers, ...burstTickers.filter(t => !candidateTickers.includes(t))]);
@@ -1932,11 +1968,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "short" ? "#121218" : "transparent", color: scanTab === "short" ? "#f87171" : "#686878" }}>
           Short Scan <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "short" ? "#f87171" : "#505060" }}>{shortCandidates.length}</span>
         </button>
+        <button onClick={() => setScanTab("gapper")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "gapper" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "gapper" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "gapper" ? "#121218" : "transparent", color: scanTab === "gapper" ? "#f59e0b" : "#686878" }}>
+          Gappers <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "gapper" ? "#f59e0b" : "#505060" }}>{gapperCandidates.length}</span>
+        </button>
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
       {/* Shared filters — apply to scan + burst tabs (EP/AI/Short have their own content) */}
-      {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+      {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && scanTab !== "gapper" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — scan tab gets all, burst tab gets pattern + 9M */}
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
@@ -2480,6 +2521,130 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <div style={{ padding: "40px 20px", textAlign: "center" }}>
           <div style={{ fontSize: 13, color: "#686878", fontWeight: 600, marginBottom: 4 }}>No short candidates match current filters</div>
           <div style={{ fontSize: 11, color: "#505060" }}>Try relaxing RS, change%, or MA filters</div>
+        </div>
+      )}
+      </>)}
+      {scanTab === "gapper" && (<>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 10, color: "#505060" }}>
+        <span style={{ color: "#f59e0b", fontWeight: 600, fontSize: 12 }}>{gapperCandidates.length}</span>
+        <span>Gappers — Chg≥4% + RVol≥2x + Small+ + $Vol≥50M</span>
+        {gapperData?.updated_at && <span style={{ marginLeft: "auto", color: "#3a3a4a" }}>AI: {(() => { const ago = Math.floor((Date.now() - new Date(gapperData.updated_at).getTime()) / 60000); return ago < 60 ? `${ago}m ago` : ago < 1440 ? `${Math.floor(ago / 60)}h ago` : `${Math.floor(ago / 1440)}d ago`; })()}</span>}
+      </div>
+      <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+          <th style={{ padding: "6px 4px", width: 24 }}></th>
+          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", null], ["$Vol", "dvol"], ["ADR%", null], ["Industry", null], ["Category", null], ["Grade", null], ["Reasoning", null]].map(([h, sk]) => (
+            <th key={h} onClick={sk ? () => setGapperSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
+              style={{ padding: "6px 8px", color: gapperSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: h === "Reasoning" ? "left" : "center", fontSize: 11,
+                cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
+              {h}{gapperSort.col === sk ? (gapperSort.dir === "desc" ? " ▼" : " ▲") : ""}</th>
+          ))}
+        </tr></thead>
+        <tbody>{gapperCandidates.map(s => {
+          const isActive = s.ticker === activeTicker;
+          const isExpanded = expandedGapper === s.ticker;
+          const inPortfolio = portfolio?.includes(s.ticker);
+          const inWatchlist = watchlist?.includes(s.ticker);
+          const chg = s.change_pct ?? 0;
+          const rv = s._liveRv ?? s.rel_volume ?? 0;
+          const curVol = s._liveVol;
+          const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+          const catColors = { "New Contracts / Partnerships": "#3b82f6", "Themes / Narratives": "#8b5cf6", "FDA / Regulatory": "#a855f7",
+            "Earnings Beat": "#2bb886", "Technical Breakout": "#22d3ee", "Insider / Institutional": "#fbbf24", "Others": "#64748b" };
+          const catColor = catColors[s._category] || "#64748b";
+          return (<React.Fragment key={s.ticker}>
+            <tr onClick={() => onTickerClick(s.ticker)}
+              style={{ borderBottom: "1px solid #222230", cursor: "pointer",
+                borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
+                background: isActive ? "rgba(245, 158, 11, 0.08)" : "transparent" }}>
+              {/* Expand toggle */}
+              <td style={{ padding: "4px 4px", textAlign: "center", cursor: "pointer" }}
+                onClick={e => { e.stopPropagation(); setExpandedGapper(isExpanded ? null : s.ticker); }}>
+                <span style={{ color: isExpanded ? "#f59e0b" : "#505060", fontSize: 14, fontWeight: 700 }}>{isExpanded ? "−" : "+"}</span>
+              </td>
+              {/* Ticker */}
+              <td style={{ padding: "4px 8px", textAlign: "center" }}>
+                <span style={{ color: isActive ? "#f59e0b" : "#e8e8f0", fontWeight: 700, fontSize: 13 }}>{s.ticker}</span>
+                <div style={{ fontSize: 9, color: "#505060", fontWeight: 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>{s.company}</div>
+              </td>
+              {/* Chg% with bar */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 13, fontWeight: 700, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(Math.abs(chg) * 5, 100)}%`, background: chg >= 0 ? "#2bb88612" : "#f8717112", transition: "width 0.3s" }} />
+                <span style={{ position: "relative", color: chg >= 10 ? "#22c55e" : chg >= 5 ? "#2bb886" : "#4ade80" }}>+{Number(chg).toFixed(2)}%</span>
+              </td>
+              {/* Vol with bar */}
+              {(() => {
+                const volPct = curVol && s.avg_volume_raw ? Math.min((curVol / s.avg_volume_raw) * 50, 100) : 0;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${volPct}%`, background: rv >= 2 ? "#c084fc10" : "#68687810", transition: "width 0.3s" }} />
+                  <span style={{ position: "relative", color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : "#686878" }}>{curVol != null ? fmt(curVol) : '—'}</span>
+                </td>;
+              })()}
+              {/* RVol with bar */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(rv * 33, 100)}%`, background: rv >= 2 ? "#c084fc12" : "#68687810", transition: "width 0.3s" }} />
+                <span style={{ position: "relative", color: rv >= 3 ? "#c084fc" : rv >= 2 ? "#a78bfa" : "#686878" }}>{rv ? `${Number(rv).toFixed(1)}x` : '—'}</span>
+              </td>
+              {/* CR% */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: (s._cr ?? 0) >= 80 ? "#2bb886" : (s._cr ?? 0) >= 50 ? "#fbbf24" : "#f97316" }}>
+                {s._cr != null ? `${Math.round(s._cr)}%` : '—'}</td>
+              {/* $Vol */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.avg_dollar_vol_raw > 100000000 ? "#2bb886" : s.avg_dollar_vol_raw > 50000000 ? "#fbbf24" : "#686878" }}>
+                {s.avg_dollar_vol ? `$${s.avg_dollar_vol}` : '—'}</td>
+              {/* ADR% */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              {/* Industry */}
+              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 10, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={s.industry}>{s.industry || '—'}</td>
+              {/* Category badge */}
+              <td style={{ padding: "4px 6px", textAlign: "center" }}>
+                {s._category ? (
+                  <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700,
+                    color: catColor, background: catColor + "20", border: `1px solid ${catColor}40`, whiteSpace: "nowrap" }}>
+                    {s._category}</span>
+                ) : <span style={{ color: "#3a3a4a", fontSize: 9 }}>—</span>}
+              </td>
+              {/* Grade */}
+              <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+              {/* Reasoning */}
+              <td style={{ padding: "4px 8px", textAlign: "left", color: "#9090a0", fontSize: 10, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={s._reasoning || ''}>
+                {s._reasoning || <span style={{ color: "#3a3a4a", fontStyle: "italic" }}>Run AI analysis to populate</span>}
+              </td>
+            </tr>
+            {/* Expanded analysis row */}
+            {isExpanded && (
+              <tr style={{ background: "#0d0d15" }}>
+                <td colSpan={12} style={{ padding: "12px 16px 16px 40px" }}>
+                  {s._analysis.length > 0 ? s._analysis.map((section, i) => (
+                    <div key={i} style={{ marginBottom: i < s._analysis.length - 1 ? 16 : 0 }}>
+                      <div style={{ fontWeight: 700, color: "#c8c8d8", fontSize: 12, marginBottom: 4 }}>
+                        {section.title}</div>
+                      <div style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                        {section.content}</div>
+                    </div>
+                  )) : s._reasoning ? (
+                    <div style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.5 }}>{s._reasoning}</div>
+                  ) : (
+                    <div style={{ color: "#505060", fontSize: 11, fontStyle: "italic" }}>
+                      No AI analysis available. Run the gapper analysis script to generate insights.</div>
+                  )}
+                </td>
+              </tr>
+            )}
+          </React.Fragment>);
+        })}</tbody>
+      </table>
+      </div>
+      {gapperCandidates.length === 0 && (
+        <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: "#686878", fontWeight: 600, marginBottom: 4 }}>No gappers match filters today</div>
+          <div style={{ fontSize: 11, color: "#505060" }}>Requires Chg≥4% + RVol≥2x + Small+ + $Vol≥50M</div>
         </div>
       )}
       </>)}
