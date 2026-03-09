@@ -214,8 +214,8 @@ for line in sys.stdin:
     TIMEOUT_SECS=600
     echo "♻️  Same burst tickers as last run — incremental price-action update only"
   else
-    TIMEOUT_SECS=1200
-    echo "🔬 Momentum burst — full research (max 8 tickers, 20m timeout)..."
+    TIMEOUT_SECS=1500
+    echo "🔬 Momentum burst — full research (max 8 tickers, 25m timeout)..."
   fi
 
   # run_with_timeout <seconds> <prompt_file>
