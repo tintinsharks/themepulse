@@ -7882,6 +7882,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [feedMinRev, setFeedMinRev] = useState("");
   const [feedBeatOnly, setFeedBeatOnly] = useState(false);
   const [feedThemeOnly, setFeedThemeOnly] = useState(false);
+  const [feedSort, setFeedSort] = useState("date");
+  const [feedSortAsc, setFeedSortAsc] = useState(false);
 
   useEffect(() => {
     fetch("/data/earnings_intel.json")
@@ -8192,13 +8194,26 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           return true;
         });
 
-        // Group by date
-        const byDate = {};
-        filtered.forEach(m => { (byDate[m._dateKey] = byDate[m._dateKey] || []).push(m); });
-        const sortedDates = Object.keys(byDate).sort((a, b) => {
-          if (a === "Today") return -1;
-          if (b === "Today") return 1;
-          return b.localeCompare(a);
+        // Sort filtered results
+        const sortVal = (m, key) => {
+          const er = m.er || {};
+          const s = stockMap[m.ticker] || {};
+          switch (key) {
+            case "date": return m._current ? "9999-99-99" : (m._report_date || "0000");
+            case "ticker": return m.ticker || "";
+            case "chg": return Math.abs(m.change_pct || m.ext_hours_change_pct || 0);
+            case "eps_yoy": return er.eps_growth_yoy ?? -9999;
+            case "rev_yoy": return er.rev_growth_yoy ?? -9999;
+            case "rs": return s.rs_rank || m.rs_rank || 0;
+            default: return 0;
+          }
+        };
+        const sorted = [...filtered].sort((a, b) => {
+          const av = sortVal(a, feedSort), bv = sortVal(b, feedSort);
+          if (feedSort === "ticker" || feedSort === "date") {
+            return feedSortAsc ? (av < bv ? -1 : av > bv ? 1 : 0) : (bv < av ? -1 : bv > av ? 1 : 0);
+          }
+          return feedSortAsc ? av - bv : bv - av;
         });
 
         // Theme frequency across filtered earnings
@@ -8213,11 +8228,18 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         const toggleStyle = (active) => ({ padding: "4px 10px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
           background: active ? CYAN_BG : "transparent", border: active ? `1px solid ${CYAN}50` : "1px solid #2a2a38", color: active ? CYAN : "#686878" });
 
+        const handleSort = (col) => {
+          if (feedSort === col) { setFeedSortAsc(v => !v); }
+          else { setFeedSort(col); setFeedSortAsc(false); }
+        };
+        const sortArrow = (col) => feedSort === col ? (feedSortAsc ? " \u25B2" : " \u25BC") : "";
+        const thStyle = (col, w) => ({ padding: "6px 8px", textAlign: col === "ticker" ? "left" : "right", color: feedSort === col ? CYAN : "#686878",
+          fontWeight: 600, fontSize: 10, cursor: "pointer", userSelect: "none", width: w, whiteSpace: "nowrap", borderBottom: "1px solid #2a2a38" });
+
         return (
           <div>
             {/* Filter bar */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap", padding: "8px 12px", background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8 }}>
-              {/* Date filter */}
               <select value={feedDate} onChange={e => setFeedDate(e.target.value)}
                 style={{ background: "#0a0a0f", border: "1px solid #2a2a38", borderRadius: 4, padding: "4px 8px", fontSize: 11, color: "#d4d4e0", outline: "none", fontFamily: "monospace" }}>
                 {availDates.map(d => (
@@ -8225,27 +8247,18 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                 ))}
               </select>
               <span style={{ color: "#3a3a4a" }}>|</span>
-              {/* Change % min */}
               <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
-                Chg%&ge;
-                <input type="number" value={feedMinChg} onChange={e => setFeedMinChg(e.target.value)} placeholder="0" step="1" style={inputStyle} />
+                Chg%&ge;<input type="number" value={feedMinChg} onChange={e => setFeedMinChg(e.target.value)} placeholder="0" step="1" style={inputStyle} />
               </label>
-              {/* EPS Growth % min */}
               <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
-                EPS%&ge;
-                <input type="number" value={feedMinEps} onChange={e => setFeedMinEps(e.target.value)} placeholder="0" step="5" style={inputStyle} />
+                EPS%&ge;<input type="number" value={feedMinEps} onChange={e => setFeedMinEps(e.target.value)} placeholder="0" step="5" style={inputStyle} />
               </label>
-              {/* Rev Growth % min */}
               <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
-                Rev%&ge;
-                <input type="number" value={feedMinRev} onChange={e => setFeedMinRev(e.target.value)} placeholder="0" step="5" style={inputStyle} />
+                Rev%&ge;<input type="number" value={feedMinRev} onChange={e => setFeedMinRev(e.target.value)} placeholder="0" step="5" style={inputStyle} />
               </label>
               <span style={{ color: "#3a3a4a" }}>|</span>
-              {/* Beat only toggle */}
               <button onClick={() => setFeedBeatOnly(v => !v)} style={toggleStyle(feedBeatOnly)}>Beat Only</button>
-              {/* Theme only toggle */}
               <button onClick={() => setFeedThemeOnly(v => !v)} style={toggleStyle(feedThemeOnly)}>Theme Only</button>
-              {/* Result count */}
               <span style={{ fontSize: 10, color: "#505060", marginLeft: "auto", fontFamily: "monospace" }}>{filtered.length}/{allER.length}</span>
             </div>
 
@@ -8263,57 +8276,72 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               </div>
             )}
 
-            {/* Earnings feed by date */}
-            {sortedDates.map(date => {
-              const movers = byDate[date].sort((a, b) => Math.abs(b.change_pct || b.ext_hours_change_pct || 0) - Math.abs(a.change_pct || a.ext_hours_change_pct || 0));
-              const dateLabel = date === "Today" ? "Today" : new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-              return (
-                <div key={date} style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, paddingLeft: 4 }}>
-                    {dateLabel} <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {movers.length} reports</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {movers.map(m => {
+            {/* Sortable table */}
+            {sorted.length > 0 && (
+              <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ background: "#1a1a24" }}>
+                      <th onClick={() => handleSort("date")} style={thStyle("date", 72)}>Date{sortArrow("date")}</th>
+                      <th onClick={() => handleSort("ticker")} style={{ ...thStyle("ticker", 56), textAlign: "left" }}>Ticker{sortArrow("ticker")}</th>
+                      <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, borderBottom: "1px solid #2a2a38" }}>Company</th>
+                      <th onClick={() => handleSort("chg")} style={thStyle("chg", 64)}>Chg%{sortArrow("chg")}</th>
+                      <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 44, borderBottom: "1px solid #2a2a38" }}>EPS</th>
+                      <th onClick={() => handleSort("eps_yoy")} style={thStyle("eps_yoy", 64)}>EPS%{sortArrow("eps_yoy")}</th>
+                      <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 44, borderBottom: "1px solid #2a2a38" }}>Rev</th>
+                      <th onClick={() => handleSort("rev_yoy")} style={thStyle("rev_yoy", 64)}>Rev%{sortArrow("rev_yoy")}</th>
+                      <th onClick={() => handleSort("rs")} style={thStyle("rs", 40)}>RS{sortArrow("rs")}</th>
+                      <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, borderBottom: "1px solid #2a2a38" }}>Themes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map(m => {
                       const chg = m.change_pct || m.ext_hours_change_pct || 0;
                       const er = m.er || {};
                       const epsBM = beatMiss(er.eps, er.eps_estimated);
                       const revBM = er.revenue && er.revenue_estimated ? beatMiss(er.revenue, er.revenue_estimated) : null;
                       const mt = m.matching_themes || tickerThemes[m.ticker] || [];
                       const s = stockMap[m.ticker] || {};
-                      const headline = (m.recent_headlines || [])[0];
+                      const dateStr = m._current ? "Today" : (m._report_date ? new Date(m._report_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
+                      const rs = s.rs_rank || m.rs_rank;
+                      const bmBg = (bm) => bm === "BEAT" ? "#2bb88618" : bm === "MISS" ? "#f8717118" : "#fbbf2418";
+                      const bmColor = (bm) => bm === "BEAT" ? "#2bb886" : bm === "MISS" ? "#f87171" : "#fbbf24";
                       return (
-                        <div key={m.ticker} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 6, padding: "10px 14px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: mt.length > 0 || headline ? 6 : 0 }}>
-                            <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: CYAN, width: 56 }}>{m.ticker}</span>
-                            <span style={{ fontSize: 11, color: "#9090a0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</span>
-                            {m._session && <span style={{ fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "#0a0a0f", color: "#505060", border: "1px solid #2a2a38" }}>{m._session}</span>}
-                            <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: chgColor(chg), minWidth: 56, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
-                            {epsBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
-                              background: epsBM === "BEAT" ? "#2bb88618" : epsBM === "MISS" ? "#f8717118" : "#fbbf2418",
-                              color: epsBM === "BEAT" ? "#2bb886" : epsBM === "MISS" ? "#f87171" : "#fbbf24" }}>EPS {epsBM}</span>}
-                            {revBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
-                              background: revBM === "BEAT" ? "#2bb88618" : revBM === "MISS" ? "#f8717118" : "#fbbf2418",
-                              color: revBM === "BEAT" ? "#2bb886" : revBM === "MISS" ? "#f87171" : "#fbbf24" }}>REV {revBM}</span>}
-                            {er.eps_growth_yoy != null && <span style={{ fontSize: 9, fontFamily: "monospace", color: er.eps_growth_yoy >= 0 ? "#2bb886" : "#f87171" }}>EPS {er.eps_growth_yoy >= 0 ? "+" : ""}{er.eps_growth_yoy.toFixed(0)}%</span>}
-                            {er.rev_growth_yoy != null && <span style={{ fontSize: 9, fontFamily: "monospace", color: er.rev_growth_yoy >= 0 ? "#2bb886" : "#f87171" }}>Rev {er.rev_growth_yoy >= 0 ? "+" : ""}{er.rev_growth_yoy.toFixed(0)}%</span>}
-                            {(s.rs_rank || m.rs_rank) != null && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>RS {s.rs_rank || m.rs_rank}</span>}
-                            {(s.grade || m.grade) && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>{s.grade || m.grade}</span>}
-                          </div>
-                          {(mt.length > 0 || headline) && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              {mt.map(th => (
-                                <span key={th} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: CYAN_BG, border: `1px solid ${CYAN}25`, color: CYAN, fontWeight: 600 }}>{th}</span>
+                        <tr key={m.ticker} style={{ borderBottom: "1px solid #1a1a24" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#1a1a26"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <td style={{ padding: "6px 8px", fontSize: 10, color: "#686878", fontFamily: "monospace", textAlign: "right" }}>{dateStr}</td>
+                          <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: CYAN }}>{m.ticker}</td>
+                          <td style={{ padding: "6px 8px", color: "#9090a0", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: chgColor(chg) }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</td>
+                          <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                            {epsBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(epsBM), color: bmColor(epsBM) }}>{epsBM}</span>}
+                          </td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: er.eps_growth_yoy != null ? chgColor(er.eps_growth_yoy) : "#3a3a4a" }}>
+                            {er.eps_growth_yoy != null ? `${er.eps_growth_yoy >= 0 ? "+" : ""}${er.eps_growth_yoy.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                            {revBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(revBM), color: bmColor(revBM) }}>{revBM}</span>}
+                          </td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: er.rev_growth_yoy != null ? chgColor(er.rev_growth_yoy) : "#3a3a4a" }}>
+                            {er.rev_growth_yoy != null ? `${er.rev_growth_yoy >= 0 ? "+" : ""}${er.rev_growth_yoy.toFixed(0)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: rs != null ? "#9090a0" : "#3a3a4a" }}>{rs ?? "—"}</td>
+                          <td style={{ padding: "6px 8px" }}>
+                            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                              {mt.slice(0, 2).map(th => (
+                                <span key={th} style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: CYAN_BG, border: `1px solid ${CYAN}20`, color: CYAN, fontWeight: 600, whiteSpace: "nowrap" }}>{th}</span>
                               ))}
-                              {headline && <span style={{ fontSize: 10, color: "#686878", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{headline}</span>}
+                              {mt.length > 2 && <span style={{ fontSize: 8, color: "#505060" }}>+{mt.length - 2}</span>}
                             </div>
-                          )}
-                        </div>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </div>
-                </div>
-              );
-            })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {filtered.length === 0 && allER.length > 0 && (
               <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>
