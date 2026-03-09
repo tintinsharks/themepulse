@@ -2525,7 +2525,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             );
           })()}
           {aiAnalysis?.tickers ? (
-            <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={openChart} activeTicker={chartTicker} />
+            <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
           ) : aiAnalysis?.content ? (
             <SimpleMarkdown text={aiAnalysis.content} />
           ) : (
