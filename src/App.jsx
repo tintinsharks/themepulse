@@ -799,12 +799,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         <div style={{ flex: 1, borderLeft: "1px solid #2a2a38", background: "#141420",
           overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", fontSize: 10, fontFamily: "monospace" }}>
 
-          {/* Sector / Industry */}
+          {/* Sector / Industry + MCap / Float / SI */}
           {stock && (stock.sector || stock.industry) && (
             <div style={{ padding: "6px 10px", borderBottom: "1px solid #222230", color: "#686878", fontSize: 10 }}>
-              {stock.sector && <span>{stock.sector}</span>}
-              {stock.sector && stock.industry && <span style={{ color: "#3a3a4a" }}> › </span>}
-              {stock.industry && <span style={{ color: "#505060" }}>{stock.industry}</span>}
+              <div>
+                {stock.sector && <span>{stock.sector}</span>}
+                {stock.sector && stock.industry && <span style={{ color: "#3a3a4a" }}> › </span>}
+                {stock.industry && <span style={{ color: "#505060" }}>{stock.industry}</span>}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 3, color: "#505060" }}>
+                {stock.market_cap && <span>MCap:<span style={{ color: "#9090a0" }}>{stock.market_cap}</span></span>}
+                {stock.shares_float_raw != null && <span>Float:<span style={{ color: "#9090a0" }}>{stock.shares_float_raw >= 1e9 ? (stock.shares_float_raw/1e9).toFixed(1)+"B" : stock.shares_float_raw >= 1e6 ? (stock.shares_float_raw/1e6).toFixed(1)+"M" : stock.shares_float_raw >= 1e3 ? (stock.shares_float_raw/1e3).toFixed(0)+"K" : stock.shares_float_raw}</span></span>}
+                {stock.short_float != null && <span>SI:<span style={{ color: stock.short_float >= 20 ? "#f87171" : stock.short_float >= 10 ? "#f97316" : "#9090a0" }}>{stock.short_float.toFixed(1)}%</span></span>}
+              </div>
             </div>
           )}
 
