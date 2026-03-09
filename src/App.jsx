@@ -643,7 +643,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
       {lwChartProps ? (
         <div style={{ flex: 1, minHeight: 0 }}>
-          <LWChart ticker={ticker} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} quarters={stock?.quarters} />
+          <LWChart ticker={ticker} tf={tf} entry={lwChartProps.entry || ""} stop={lwChartProps.stop || ""} target={lwChartProps.target || ""} quarters={stock?.quarters} />
         </div>
       ) : (
         <div ref={containerRef} style={{ flex: 1, minHeight: 0 }} />
@@ -5085,7 +5085,7 @@ function IntradayChart({ ticker, avgVolume }) {
   );
 }
 
-function LWChart({ ticker, entry, stop, target, quarters }) {
+function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const wrapperRef = useRef(null);
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
@@ -5104,6 +5104,33 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
   const [volStats, setVolStats] = useState(null);
+  const [rawBars, setRawBars] = useState(null);
+
+  // Aggregate daily bars into weekly or monthly
+  const aggregateBars = useCallback((dailyBars, timeframe) => {
+    if (timeframe === "D") return dailyBars;
+    const groups = {};
+    for (const bar of dailyBars) {
+      let key;
+      if (timeframe === "W") {
+        const d = new Date(bar.date + "T12:00:00");
+        const day = d.getDay();
+        const mon = new Date(d); mon.setDate(d.getDate() - ((day + 6) % 7));
+        key = mon.toISOString().slice(0, 10);
+      } else {
+        key = bar.date.slice(0, 7) + "-01";
+      }
+      if (!groups[key]) groups[key] = { date: key, open: bar.open, high: bar.high, low: bar.low, close: bar.close, volume: bar.volume || 0 };
+      else {
+        const g = groups[key];
+        g.high = Math.max(g.high, bar.high);
+        g.low = Math.min(g.low, bar.low);
+        g.close = bar.close;
+        g.volume += (bar.volume || 0);
+      }
+    }
+    return Object.values(groups).sort((a, b) => a.date.localeCompare(b.date));
+  }, []);
 
   // Load library
   useEffect(() => {
@@ -5240,19 +5267,31 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
     }
   }, [libReady]);
 
-  // Fetch data when ticker changes
+  // Fetch raw daily data when ticker changes
   useEffect(() => {
     if (!ticker || !seriesRef.current || !chartRef.current) return;
     setLoading(true);
     setError(null);
+    setRawBars(null);
     let cancelled = false;
 
     fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(data => {
-        if (cancelled || !seriesRef.current) return;
+        if (cancelled) return;
         if (!data.ok || !data.ohlc || data.ohlc.length === 0) throw new Error(data.error || "No OHLC data");
-        const bars = data.ohlc;
+        setRawBars(data.ohlc);
+      })
+      .catch(e => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [ticker, libReady]);
+
+  // Process bars when ticker loads or timeframe changes
+  useEffect(() => {
+    if (!rawBars || !seriesRef.current || !chartRef.current) return;
+    const bars = aggregateBars(rawBars, tf);
 
         // ── Pocket Pivot Volume Detection ──
         // Track highest up volume ever and in last year (252 trading days)
@@ -5636,10 +5675,11 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
           }
         }
 
-        // Show last ~3.5 months (74 trading days) — use logical range to preserve rightOffset
+        // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
         const totalBars = bars.length;
-        const fromBar = totalBars > 74 ? totalBars - 74 : 0;
-        chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + 27 });
+        const visBars = tf === "W" ? 52 : tf === "M" ? 18 : 74;
+        const fromBar = totalBars > visBars ? totalBars - visBars : 0;
+        chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + (tf === "D" ? 27 : tf === "W" ? 8 : 3) });
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];
@@ -5716,12 +5756,7 @@ function LWChart({ ticker, entry, stop, target, quarters }) {
           // Reference prices
           wk52High, athHigh, dayLow: lastLow, prevDayLow: prevLow,
         });
-      })
-      .catch(e => { if (!cancelled) setError(e.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [ticker, libReady]);
+  }, [rawBars, tf, libReady, aggregateBars, entry, stop, target, quarters]);
 
   // Price lines now managed inside data fetch useEffect (with ATR ladder, risk stops, etc.)
 
