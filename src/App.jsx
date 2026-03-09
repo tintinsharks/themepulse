@@ -1470,6 +1470,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [shortMinDolVol, setShortMinDolVol] = useState(50);
   const [shortMcapFilter, setShortMcapFilter] = useState("small");
   const [shortTagFilters, setShortTagFilters] = useState(new Set());
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiRunMsg, setAiRunMsg] = useState("");
 
   // Fetch AI analysis data — merge with localStorage to preserve previously analyzed tickers for the day
   useEffect(() => {
@@ -2836,6 +2838,27 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 <span style={{ color: "#3a3a4a" }}>|</span>
                 <span style={{ color: "#505060" }}>Hourly 8a–5p ET, weekdays</span>
                 {aiAnalysis?.filters && <><span style={{ color: "#3a3a4a" }}>|</span><span style={{ color: "#22d3ee" }}>{aiAnalysis.filters}</span></>}
+                <span style={{ color: "#3a3a4a" }}>|</span>
+                <button onClick={() => {
+                  if (aiRunning) return;
+                  setAiRunning(true); setAiRunMsg("Triggered...");
+                  fetch("http://localhost:7829/trigger", { method: "POST" })
+                    .then(r => r.json())
+                    .then(d => { setAiRunMsg(d.ok ? "Running (~15m)" : d.error || "Failed"); if (!d.ok) setAiRunning(false); })
+                    .catch(() => { setAiRunMsg("Server offline"); setAiRunning(false); });
+                  // Poll status every 30s until done
+                  const poll = setInterval(() => {
+                    fetch("http://localhost:7829/status").then(r => r.json()).then(d => {
+                      if (!d.running) { clearInterval(poll); setAiRunning(false); setAiRunMsg("Done — reload to see results"); }
+                    }).catch(() => { clearInterval(poll); setAiRunning(false); });
+                  }, 30000);
+                }} disabled={aiRunning}
+                  style={{ background: aiRunning ? "#2a2a3a" : "#1a3a2a", border: "1px solid #2bb886", borderRadius: 4,
+                    color: aiRunning ? "#686878" : "#2bb886", padding: "2px 8px", cursor: aiRunning ? "default" : "pointer",
+                    fontSize: 10, fontWeight: 600 }}>
+                  {aiRunning ? "⏳ Running..." : "▶ Run Now"}
+                </button>
+                {aiRunMsg && <span style={{ color: "#888", fontSize: 10 }}>{aiRunMsg}</span>}
               </div>
             );
           })()}
