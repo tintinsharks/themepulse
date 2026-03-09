@@ -1103,6 +1103,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {peers && peers.length > 0 && (
             <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230", display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ color: "#686878", fontWeight: 700 }}>Peers:</span>
+              {stock?.ipo_date && <span style={{ color: "#505060", fontSize: 9 }} title={`IPO: ${stock.ipo_date}`}>IPO:{stock.ipo_date.slice(0, 7)}</span>}
               {peers.map(p => (
                 <span key={p} onClick={() => { if (onTickerClick) onTickerClick(p); }}
                   style={{ color: "#9090a0", cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: "#222230" }}
