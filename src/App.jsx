@@ -1471,9 +1471,44 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [shortMcapFilter, setShortMcapFilter] = useState("small");
   const [shortTagFilters, setShortTagFilters] = useState(new Set());
 
-  // Fetch AI analysis data
+  // Fetch AI analysis data — merge with localStorage to preserve previously analyzed tickers for the day
   useEffect(() => {
-    fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).then(d => { if (d) setAiAnalysis(d); }).catch(() => {});
+    const LS_KEY = "tp_ai_analysis";
+    const today = new Date().toISOString().slice(0, 10);
+    // Load cached analysis from localStorage (if it's from today)
+    let cached = null;
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed._cacheDate === today) cached = parsed;
+      }
+    } catch {}
+    // If we have a valid cache, use it immediately while fetching fresh data
+    if (cached) setAiAnalysis(cached);
+
+    fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).then(fresh => {
+      if (!fresh) return;
+      // Merge: cached tickers take priority (don't overwrite), fresh tickers fill in new ones
+      const base = cached || {};
+      const existingMap = {};
+      (base.tickers || []).forEach(t => { existingMap[t.ticker] = t; });
+      // Add fresh tickers only if not already cached
+      (fresh.tickers || []).forEach(t => {
+        if (!existingMap[t.ticker]) existingMap[t.ticker] = t;
+      });
+      const merged = {
+        ...fresh,
+        content: fresh.content, // always use latest summary
+        tickers: Object.values(existingMap),
+        _cacheDate: today,
+      };
+      // Sort: BUY first, then HOLD, then AVOID
+      const vOrder = { BUY: 0, HOLD: 1, AVOID: 2 };
+      merged.tickers.sort((a, b) => (vOrder[a.verdict] ?? 9) - (vOrder[b.verdict] ?? 9));
+      setAiAnalysis(merged);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
+    }).catch(() => {});
   }, []);
 
   // Persistence accumulator — tracks intraday readings per ticker for trend arrows
