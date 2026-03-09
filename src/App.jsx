@@ -2107,7 +2107,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {/* Grade */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
               {/* RS */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace" }}>{s.rs_rank}</td>
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(s.rs_rank ?? 0, 99)}%`, background: (s.rs_rank ?? 0) >= 80 ? "#2bb88615" : (s.rs_rank ?? 0) >= 60 ? "#60a5fa12" : "#68687810", transition: "width 0.3s" }} />
+                <span style={{ position: "relative", color: (s.rs_rank ?? 0) >= 80 ? "#2bb886" : (s.rs_rank ?? 0) >= 60 ? "#60a5fa" : "#b8b8c8" }}>{s.rs_rank}</span>
+              </td>
               {/* MS */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s._msScore >= 80 ? "#2bb886" : s._msScore >= 60 ? "#60a5fa" : s._msScore >= 40 ? "#9090a0" : s._msScore != null ? "#686878" : "#3a3a4a" }}
@@ -2119,10 +2122,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 const chg = lv?.change ?? s.change_pct ?? null;
                 const chgColor = chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#9090a0";
                 const chgTrend = persistTrend(persistRef.current.get(s.ticker), "chg", 0.3);
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, color: chg != null ? chgColor : "#3a3a4a" }}>
+                const chgBarW = chg != null ? Math.min(Math.abs(chg) * 5, 100) : 0;
+                const chgBarColor = chg > 0 ? "#2bb88615" : "#f8717115";
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 12, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${chgBarW}%`, background: chgBarColor, transition: "width 0.3s" }} />
+                  <span style={{ position: "relative", color: chg != null ? chgColor : "#3a3a4a" }}>
                   {chg != null ? `${chg > 0 ? '+' : ''}${Number(chg).toFixed(2)}%` : '—'}
                   {chgTrend && <span style={{ fontSize: 8, marginLeft: 2, color: chgTrend === "up" ? "#2bb886" : chgTrend === "down" ? "#f87171" : "#505060" }}>
-                    {chgTrend === "up" ? "▲" : chgTrend === "down" ? "▼" : "─"}</span>}</td>;
+                    {chgTrend === "up" ? "▲" : chgTrend === "down" ? "▼" : "─"}</span>}</span></td>;
               })()}
               {/* Vol */}
               {(() => {
@@ -2132,17 +2139,22 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   : (s.avg_volume_raw && rv ? s.avg_volume_raw * rv : null);
                 const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
                 const proj9M = curVol && s.avg_volume_raw < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: proj9M ? "#f87171" : rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a" }}>
-                {curVol != null ? fmt(curVol) : '—'}</td>; })()}
+                const volBarW = curVol != null && s.avg_volume_raw > 0 ? Math.min((curVol / s.avg_volume_raw) * 50, 100) : 0;
+                const volColor = proj9M ? "#f87171" : rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#3a3a4a";
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${volBarW}%`, background: rv >= 2 ? "#c084fc15" : rv >= 1.5 ? "#a78bfa12" : "#68687810", transition: "width 0.3s" }} />
+                <span style={{ position: "relative", color: volColor }}>
+                {curVol != null ? fmt(curVol) : '—'}</span></td>; })()}
               {/* RVol */}
               {(() => { const rv = liveLookup[s.ticker]?.rel_volume ?? s.rel_volume; const prv = projectedRVol(rv);
                 const rvolTrend = persistTrend(persistRef.current.get(s.ticker), "prv", 0.15);
-                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
+                const rvolBarW = rv != null ? Math.min(rv * 33, 100) : 0;
+                return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${rvolBarW}%`, background: prv >= 2 ? "#c084fc15" : prv >= 1.5 ? "#a78bfa12" : "#68687810", transition: "width 0.3s" }} />
+                <span style={{ position: "relative", color: prv >= 2 ? "#c084fc" : prv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#3a3a4a" }}>
                 {rv != null ? `${Number(rv).toFixed(1)}x` : '—'}
                 {rvolTrend && <span style={{ fontSize: 8, marginLeft: 2, color: rvolTrend === "up" ? "#2bb886" : rvolTrend === "down" ? "#f87171" : "#505060" }}>
-                  {rvolTrend === "up" ? "▲" : rvolTrend === "down" ? "▼" : "─"}</span>}</td>; })()}
+                  {rvolTrend === "up" ? "▲" : rvolTrend === "down" ? "▼" : "─"}</span>}</span></td>; })()}
               {/* CR% */}
               {(() => {
                 const lv = liveLookup[s.ticker];
