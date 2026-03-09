@@ -113,6 +113,9 @@ const SHORT_TAG_COLORS = {
   WK: "#ef4444",  // Weak Fundamentals
   LG: "#a78bfa",  // Laggard
   MA: "#64748b",  // Below All MAs
+  FL: "#e879f9",  // Former Leader (O'Neil: short former leaders)
+  DC: "#dc2626",  // Death Cross (50MA < 200MA)
+  SQ: "#fbbf24",  // Squeeze Risk WARNING (high SI%)
 };
 const PatternTags = memo(function PatternTags({ patterns }) {
   if (!patterns || !patterns.length) return null;
@@ -1832,6 +1835,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       })) hits.push("LG");
       // MA (Below All MAs): Below 20MA, 50MA, and 200MA
       if (s.sma20_pct != null && s.sma20_pct < 0 && s.sma50_pct != null && s.sma50_pct < 0 && s.sma200_pct != null && s.sma200_pct < 0) hits.push("MA");
+      // FL (Former Leader): RS collapsed from high levels — O'Neil's #1 short signal
+      // Proxy: RS now ≤ 40, >30% off 52w high (had a big run), and was recently strong (3M return deeply negative = fell from highs)
+      if ((s.rs_rank ?? 100) <= 40 && (s.pct_from_high ?? 0) < -30 && (s.return_3m ?? 0) < -20) hits.push("FL");
+      // DC (Death Cross): 50MA crossed below 200MA — strongest short timing signal per O'Neil
+      // When sma50_pct < sma200_pct, the 50MA is further below price than the 200MA (or less above), meaning 50MA < 200MA
+      if (s.sma50_pct != null && s.sma200_pct != null && s.sma50_pct < s.sma200_pct) hits.push("DC");
+      // SQ (Squeeze Risk): High short interest WARNING — crowded short, squeeze risk
+      if ((s.short_float ?? 0) >= 20) hits.push("SQ");
 
       // Overlay live values for display
       const liveChg = lv?.change ?? s.change_pct;
@@ -1877,7 +1888,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(s => s.change_pct), rs: safe(s => s.rs_rank), grade: safe(s => gradeVal(s.grade)),
       rvol: safe(s => s._prv), vol: safe(s => s.avg_volume_raw), dvol: safe(s => s.avg_dollar_vol_raw),
       adr: safe(s => s.adr_pct), eps_score: safe(s => s._epsScore), ret3m: safe(s => s.return_3m),
-      fromlo: safe(s => s.above_52w_low), si: safe(s => s.short_float), hits: safe(s => s._shortHits.length),
+      fromlo: safe(s => s.above_52w_low), offhi: safe(s => s.pct_from_high != null ? -s.pct_from_high : null),
+      si: safe(s => s.short_float), hits: safe(s => s._shortHits.length),
     };
     const sorted = list.sort(sorters[shortSort.col] || sorters.change);
     // Default "asc" for change means most negative first (smallest value first) — reverse the default desc sort
@@ -2407,7 +2419,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       {scanTab === "short" && (<>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Short tag filter pills */}
-        {[["BD", "Breakdown", "#f87171"], ["DT", "Distribution", "#f97316"], ["WK", "Weak Fundamentals", "#ef4444"], ["LG", "Laggard", "#a78bfa"], ["MA", "Below All MAs", "#64748b"]].map(([tag, label, color]) => {
+        {[["BD", "Breakdown", "#f87171"], ["DT", "Distribution", "#f97316"], ["WK", "Weak Fundamentals", "#ef4444"], ["LG", "Laggard", "#a78bfa"], ["MA", "Below All MAs", "#64748b"], ["FL", "Former Leader", "#e879f9"], ["DC", "Death Cross", "#dc2626"], ["SQ", "Squeeze Risk ⚠", "#fbbf24"]].map(([tag, label, color]) => {
           const active = shortTagFilters.has(tag);
           return (
             <button key={tag} onClick={() => setShortTagFilters(prev => {
@@ -2482,13 +2494,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           </button>
         )}
       </div>
-      <div style={{ fontSize: 10, color: "#505060", marginBottom: 8 }}>Short candidates — stocks breaking down, lagging, below MAs, weak fundamentals</div>
+      <div style={{ fontSize: 10, color: "#505060", marginBottom: 8 }}>O'Neil short scan — former leaders, death crosses, breakdowns, distribution, weak fundamentals</div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           <th style={{ padding: "6px 4px", width: 24 }}></th>
           {[["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"], ["Chg%", "change"], ["Vol", "vol"],
             ["RVol", "rvol"], ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["3M%", "ret3m"],
-            ["FrLo%", "fromlo"], ["SI%", "si"], ["Reasoning", null]].map(([h, sk]) => (
+            ["OffHi%", "offhi"], ["SI%", "si"], ["Reasoning", null]].map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setShortSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: sk === "change" ? "asc" : "desc" }) : undefined}
               style={{ padding: "6px 8px", color: shortSort.col === sk ? "#f87171" : "#787888", fontWeight: 600, textAlign: h === "Reasoning" ? "left" : "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
@@ -2561,10 +2573,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 {s._epsScore ?? "—"}</td>
               {/* 3M% */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
-              {/* FrLo% — distance from 52-week low */}
+              {/* OffHi% — distance from 52-week high (O'Neil: key metric for former leaders) */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: (s.above_52w_low ?? 100) <= 5 ? "#f87171" : (s.above_52w_low ?? 100) <= 15 ? "#f97316" : "#9090a0" }}>
-                {s.above_52w_low != null ? `${s.above_52w_low}%` : '—'}</td>
+                color: (s.pct_from_high ?? 0) < -50 ? "#f87171" : (s.pct_from_high ?? 0) < -30 ? "#f97316" : (s.pct_from_high ?? 0) < -15 ? "#fbbf24" : "#9090a0" }}>
+                {s.pct_from_high != null ? `${s.pct_from_high}%` : '—'}</td>
               {/* SI% — short interest */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: (s.short_float ?? 0) >= 20 ? "#f87171" : (s.short_float ?? 0) >= 10 ? "#f97316" : s.short_float != null ? "#686878" : "#3a3a4a" }}>
