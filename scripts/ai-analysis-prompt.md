@@ -46,14 +46,77 @@ Use the stock object fields from dashboard_data.json for technicals:
 - `rel_volume`, `rs_rank`, `market_cap`, `eps_yoy`, `sales_yoy`
 - `off_52w_high`, `grade`, `atr_pct`, `rsi`, `themes`
 
-## STEP 3 — Assign verdict
+## STEP 3 — Multi-Agent Signal Analysis
 
-For each ticker, assign exactly one of: **BUY**, **HOLD**, or **AVOID**.
+For each ticker, run a **multi-agent ensemble analysis** inspired by hedge fund frameworks. Each agent independently evaluates the stock and produces a signal. Then aggregate into a final verdict.
 
-Verdict guidelines:
-- **BUY** — RS ≥ 70, accelerating revenue/EPS, positive catalyst, constructive technical setup, reasonable valuation on forward estimates
-- **HOLD** — Strong fundamentals but poor entry (chasing after a big gap, extended from base, RS < 50 despite good numbers)
-- **AVOID** — Declining fundamentals, margin compression, competitive headwinds, value trap characteristics, RS < 30, poor technicals
+### Analytical Agents (4)
+
+Each agent produces: **BULLISH**, **BEARISH**, or **NEUTRAL** + confidence (0-100) + 1-2 line reasoning.
+
+**1. Fundamentals Agent**
+Score these dimensions from the data you've gathered:
+- **Profitability**: ROE > 15%, net margin > 20%, operating margin > 15% → bullish if 2+ pass
+- **Growth**: Revenue growth > 10%, EPS growth > 10% → bullish if accelerating
+- **Financial Health**: Current ratio > 1.5, manageable debt, positive FCF → neutral/bullish
+- **Valuation**: P/E vs sector avg, PEG ratio → bearish if expensive vs growth rate
+Signal = majority vote across dimensions. Confidence = strength of majority.
+
+**2. Technicals Agent**
+Use dashboard_data.json fields:
+- **Trend**: RS rank (≥80 bullish, ≤30 bearish), TS rank, grade
+- **Momentum**: RSI (overbought >70, oversold <30), distance from 52w high
+- **Moving Averages**: sma20_pct, sma50_pct, sma200_pct — above all = bullish
+- **Volume**: rel_volume ≥ 2x on up move = accumulation signal
+Signal = weighted combination. Confidence = alignment across indicators.
+
+**3. Valuation Agent**
+From stockanalysis.com financial data:
+- **Forward P/E** vs sector and historical range
+- **PEG ratio** (P/E / EPS growth rate) — < 1 = bullish, > 2 = bearish
+- **EV/Revenue** for high-growth names where earnings are negative
+- **Price vs analyst targets** if available from forecast page
+Signal based on gap between current price and estimated fair value. Bullish if >15% upside.
+
+**4. Catalyst/Sentiment Agent**
+From web search and headlines:
+- **Earnings surprise**: Recent beat/miss and magnitude
+- **News sentiment**: Positive/negative catalysts in last 7 days
+- **Institutional activity**: Any notable 13F changes, insider buying/selling
+- **Sector tailwinds/headwinds**: Macro or regulatory catalysts
+Signal = net sentiment direction. Confidence = clarity and recency of catalysts.
+
+### Investor Persona Agents (4)
+
+Each persona evaluates from their specific investment philosophy:
+
+**5. William O'Neil (CAN SLIM)**
+- Would he buy this? Check: C (current EPS ≥25% YoY), A (annual growth), N (new high/catalyst), S (supply/demand), L (RS leader ≥80), I (institutional), M (market direction)
+- BULLISH if 5+/7 pass, NEUTRAL if 3-4, BEARISH if ≤2
+
+**6. Warren Buffett (Quality + Moat)**
+- Durable competitive advantage? Consistent ROE >15%? Reasonable debt?
+- Would he pay this price? Look for margin of safety vs intrinsic value
+- BULLISH only if both quality AND price are attractive
+
+**7. Peter Lynch (Growth at Reasonable Price)**
+- PEG ratio is king. <1 = strong buy territory, 1-1.5 = fair, >2 = expensive
+- "Buy what you know" — is the growth story easy to understand?
+- Revenue growth vs market cap — is this still early in its growth curve?
+
+**8. Stanley Druckenmiller (Macro + Momentum)**
+- Is the sector/theme in a macro uptrend? (theme_health data, sector performance)
+- Is this a "big bet" setup? Strong momentum + catalyst alignment?
+- Would he size up here or wait? Emphasis on timing and risk/reward
+
+### Aggregation → Final Verdict
+
+Count signals across all 8 agents:
+- **BUY** — 5+ agents BULLISH, no more than 1 BEARISH
+- **HOLD** — Mixed signals (3-4 BULLISH), or good fundamentals but poor entry
+- **AVOID** — 4+ agents BEARISH, or 2+ BEARISH with low-confidence bulls
+
+The final verdict should reflect the **consensus strength**. If agents disagree strongly, HOLD is appropriate with explanation of the disagreement.
 
 ## STEP 4 — Write the JSON
 
@@ -74,6 +137,7 @@ Write the output to `public/data/ai_analysis.json` with this exact schema:
       "verdict": "BUY",
       "tabs": {
         "key_takeaways": "<markdown>",
+        "signals": "<markdown>",
         "revenue": "<markdown>",
         "margins": "<markdown>",
         "thesis": "<markdown>",
@@ -122,6 +186,39 @@ Each tab is a markdown string. Use **only** these markdown features (the rendere
 2-3 sentence rationale citing RS rank, grade, distance from 52w high,
 and specific actionable levels (buy above X, stop below Y).
 ```
+
+**signals** — Multi-Agent Signal Dashboard
+
+This tab shows the output of all 8 agents in a structured format. Use the exact table layout:
+
+```
+### Agent Signals
+
+| Agent | Signal | Conf | Reasoning |
+|-------|--------|------|-----------|
+| Fundamentals | BULLISH | 85 | ROE 28%, margins expanding, EPS accelerating 3 consecutive quarters |
+| Technicals | BULLISH | 90 | RS 92, grade A+, above all MAs, volume confirming breakout |
+| Valuation | NEUTRAL | 55 | Forward P/E 35x vs sector 25x, but PEG 1.2 justifies premium |
+| Catalyst | BULLISH | 80 | Beat estimates by 15%, new $2B contract announced, insider buying |
+| O'Neil (CAN SLIM) | BULLISH | 85 | 6/7 criteria passed — only I (institutional) marginal |
+| Buffett (Quality) | NEUTRAL | 50 | Good ROE but no clear moat, growth priced in at current multiple |
+| Lynch (GARP) | BULLISH | 75 | PEG 1.2, growth story clear, still early innings of AI adoption |
+| Druckenmiller (Macro) | BULLISH | 70 | AI/semiconductor sector in confirmed uptrend, theme health strong |
+
+### Consensus: 5 BULLISH / 2 NEUTRAL / 1 BEARISH → **BUY**
+
+**Signal Strength**: Strong (75% bullish alignment)
+**Key Agreement**: Growth metrics and technical setup are compelling
+**Key Disagreement**: Valuation stretched vs historical, Buffett wants wider margin of safety
+**Risk Flag**: If momentum fades (RS drops below 70), reassess — Druckenmiller would exit first
+```
+
+Rules for the signals tab:
+- Every agent MUST have a signal (BULLISH/BEARISH/NEUTRAL), confidence (0-100), and 1-line reasoning
+- Confidence should reflect data quality — if you lack data for an agent's analysis, lower confidence
+- The consensus line must match the verdict in key_takeaways
+- Include signal strength (% bullish), key agreement, key disagreement, and one risk flag
+- Be honest — if agents genuinely disagree, show it. Don't force consensus
 
 **revenue** — CAN SLIM Quarterly + Annual data tables
 

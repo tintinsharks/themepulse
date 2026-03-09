@@ -204,7 +204,7 @@ size = len(json.dumps(d))
 print(f'✅ Valid JSON: {len(tickers)} tickers ({buys} BUY, {holds} HOLD, {avoids} AVOID), {size:,} bytes')
 for t in tickers:
     tabs = list(t.get('tabs', {}).keys())
-    missing = [k for k in ['key_takeaways','revenue','margins','thesis','risks'] if k not in tabs]
+    missing = [k for k in ['key_takeaways','signals','revenue','margins','thesis','risks'] if k not in tabs]
     status = '✅' if not missing else f'⚠️  missing: {missing}'
     print(f'  {t[\"ticker\"]:6s} {t.get(\"verdict\",\"?\"):5s} {status}')
 " || { echo "❌ Invalid JSON output"; exit 1; }
