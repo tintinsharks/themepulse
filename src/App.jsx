@@ -620,9 +620,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
         </span>
       </div>
 
-      {/* Collapsible: company, sector, stats, earnings */}
-      {showDetails && (<>
-
+      {/* Always-visible: sector, ADR, returns */}
       {stock && (
         <div style={{ display: "flex", gap: 8, padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 10, flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: "#9090a0", fontSize: 11 }}>{stock.company}</span>
@@ -638,6 +636,9 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           <span style={{ fontFamily: "monospace" }}>6M:<Ret v={stock.return_6m} /></span>
         </div>
       )}
+
+      {/* Collapsible: notes, stats, earnings */}
+      {showDetails && (<>
 
       {/* Stock detail row — metrics left, news right */}
         <div style={{ display: "flex", padding: "4px 12px", borderBottom: "1px solid #222230", fontSize: 11, flexShrink: 0, gap: 0 }}>
