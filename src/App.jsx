@@ -259,7 +259,7 @@ function SimpleMarkdown({ text }) {
 }
 
 // ── TabbedAnalysis: deep per-ticker analysis with 5 tabs ──
-function TabbedAnalysis({ data, SimpleMarkdownComponent }) {
+function TabbedAnalysis({ data, SimpleMarkdownComponent, onTickerClick, activeTicker }) {
   const [expandedTicker, setExpandedTicker] = useState(null);
   const [activeTab, setActiveTab] = useState({});
   const tabs = [
@@ -293,7 +293,7 @@ function TabbedAnalysis({ data, SimpleMarkdownComponent }) {
             <div onClick={() => { setExpandedTicker(isOpen ? null : t.ticker); if (!activeTab[t.ticker]) setActiveTab(p => ({...p, [t.ticker]: "key_takeaways"})); }}
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer",
                 background: isOpen ? "#1a1a2e" : "#14141f", borderBottom: isOpen ? "1px solid #2a2a3a" : "none" }}>
-              <span style={{ color: "#e2e8f0", fontWeight: 700, fontSize: 14, letterSpacing: 0.5 }}>{t.ticker}</span>
+              <span onClick={(e) => { e.stopPropagation(); onTickerClick && onTickerClick(t.ticker); }} style={{ color: t.ticker === activeTicker ? "#fff" : "#22d3ee", fontWeight: 700, fontSize: 14, letterSpacing: 0.5, cursor: "pointer", textDecoration: "underline", textDecorationColor: "#22d3ee40", textUnderlineOffset: 2 }}>{t.ticker}</span>
               <span style={{ color: "#707080", fontSize: 11, flex: 1 }}>{t.company}</span>
               {t.change_pct != null && <span style={{ color: t.change_pct >= 0 ? "#2bb886" : "#ef4444", fontSize: 11, fontWeight: 600 }}>{t.change_pct >= 0 ? "+" : ""}{t.change_pct.toFixed(1)}%</span>}
               {t.market_cap && <span style={{ color: "#888", fontSize: 10 }}>{t.market_cap}</span>}
@@ -2525,7 +2525,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             );
           })()}
           {aiAnalysis?.tickers ? (
-            <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} />
+            <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={openChart} activeTicker={chartTicker} />
           ) : aiAnalysis?.content ? (
             <SimpleMarkdown text={aiAnalysis.content} />
           ) : (
