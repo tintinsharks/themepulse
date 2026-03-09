@@ -8871,6 +8871,8 @@ function AppMain({ authToken, onLogout }) {
     if (!data?.themes) return;
     const tickers = new Set();
     data.themes.forEach(t => t.subthemes?.forEach(s => s.tickers?.forEach(tk => tickers.add(tk))));
+    // Include ALL stocks so Short Scan and other tabs get live data for non-theme tickers
+    if (data.stocks) data.stocks.forEach(s => { if (s.ticker) tickers.add(s.ticker); });
     ["SPY","QQQ","DIA","IWM"].forEach(t => tickers.add(t));
     if (tickers.size === 0) return;
     const allTickers = [...tickers];
@@ -8929,7 +8931,7 @@ function AppMain({ authToken, onLogout }) {
     };
     document.addEventListener("visibilitychange", handleVisUni);
     return () => { if (iv) clearInterval(iv); document.removeEventListener("visibilitychange", handleVisUni); };
-  }, [data?.themes]);
+  }, [data?.themes, data?.stocks]);
 
   const handleFile = useCallback((e) => {
     const file = e.target.files?.[0]; if (!file) return;
