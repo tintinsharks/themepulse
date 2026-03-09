@@ -8174,7 +8174,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         // Filter
         const filtered = allER.filter(m => {
           if (feedDate !== "All" && m._dateKey !== feedDate) return false;
-          const chg = Math.abs(m.change_pct || m.ext_hours_change_pct || 0);
+          const chg = Math.abs(m.ext_hours_change_pct ?? m.change_pct ?? 0);
           if (minChg != null && chg < minChg) return false;
           const er = m.er || {};
           if (minEps != null) {
@@ -8201,7 +8201,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           switch (key) {
             case "date": return m._current ? "9999-99-99" : (m._report_date || "0000");
             case "ticker": return m.ticker || "";
-            case "chg": return m.change_pct || m.ext_hours_change_pct || 0;
+            case "reaction": return m.ext_hours_change_pct ?? m.change_pct ?? 0;
+            case "nextday": return m.change_pct ?? 0;
             case "eps_yoy": return er.eps_growth_yoy ?? -9999;
             case "rev_yoy": return er.rev_growth_yoy ?? -9999;
             case "rs": return s.rs_rank || m.rs_rank || 0;
@@ -8248,7 +8249,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               </select>
               <span style={{ color: "#3a3a4a" }}>|</span>
               <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
-                Chg%&ge;<input type="number" value={feedMinChg} onChange={e => setFeedMinChg(e.target.value)} placeholder="0" step="1" style={inputStyle} />
+                Reaction%&ge;<input type="number" value={feedMinChg} onChange={e => setFeedMinChg(e.target.value)} placeholder="0" step="1" style={inputStyle} />
               </label>
               <label style={{ fontSize: 10, color: "#686878", display: "flex", alignItems: "center", gap: 4 }}>
                 EPS%&ge;<input type="number" value={feedMinEps} onChange={e => setFeedMinEps(e.target.value)} placeholder="0" step="5" style={inputStyle} />
@@ -8285,7 +8286,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       <th onClick={() => handleSort("date")} style={thStyle("date", 72)}>Date{sortArrow("date")}</th>
                       <th onClick={() => handleSort("ticker")} style={{ ...thStyle("ticker", 56), textAlign: "left" }}>Ticker{sortArrow("ticker")}</th>
                       <th style={{ padding: "6px 8px", textAlign: "left", color: "#686878", fontWeight: 600, fontSize: 10, borderBottom: "1px solid #2a2a38" }}>Company</th>
-                      <th onClick={() => handleSort("chg")} style={thStyle("chg", 64)}>Chg%{sortArrow("chg")}</th>
+                      <th onClick={() => handleSort("reaction")} style={thStyle("reaction", 64)}>Reaction{sortArrow("reaction")}</th>
+                      <th onClick={() => handleSort("nextday")} style={thStyle("nextday", 64)}>Next Day{sortArrow("nextday")}</th>
                       <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 44, borderBottom: "1px solid #2a2a38" }}>EPS</th>
                       <th onClick={() => handleSort("eps_yoy")} style={thStyle("eps_yoy", 64)}>EPS%{sortArrow("eps_yoy")}</th>
                       <th style={{ padding: "6px 8px", textAlign: "center", color: "#686878", fontWeight: 600, fontSize: 10, width: 44, borderBottom: "1px solid #2a2a38" }}>Rev</th>
@@ -8296,7 +8298,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                   </thead>
                   <tbody>
                     {sorted.map(m => {
-                      const chg = m.change_pct || m.ext_hours_change_pct || 0;
+                      const reaction = m.ext_hours_change_pct ?? null;
+                      const nextDay = m.change_pct ?? null;
                       const er = m.er || {};
                       const epsBM = beatMiss(er.eps, er.eps_estimated);
                       const revBM = er.revenue && er.revenue_estimated ? beatMiss(er.revenue, er.revenue_estimated) : null;
@@ -8313,7 +8316,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                           <td style={{ padding: "6px 8px", fontSize: 10, color: "#686878", fontFamily: "monospace", textAlign: "right" }}>{dateStr}</td>
                           <td style={{ padding: "6px 8px", fontFamily: "monospace", fontWeight: 700, color: CYAN }}>{m.ticker}</td>
                           <td style={{ padding: "6px 8px", color: "#9090a0", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</td>
-                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: chgColor(chg) }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: reaction != null ? chgColor(reaction) : "#3a3a4a" }}>{reaction != null ? `${reaction >= 0 ? "+" : ""}${reaction.toFixed(1)}%` : "—"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", color: nextDay != null ? chgColor(nextDay) : "#3a3a4a" }}>{nextDay != null ? `${nextDay >= 0 ? "+" : ""}${nextDay.toFixed(1)}%` : "—"}</td>
                           <td style={{ padding: "6px 8px", textAlign: "center" }}>
                             {epsBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: bmBg(epsBM), color: bmColor(epsBM) }}>{epsBM}</span>}
                           </td>
