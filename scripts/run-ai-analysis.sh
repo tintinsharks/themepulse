@@ -211,11 +211,11 @@ for line in sys.stdin:
   # Timeout: 15 min for updates, 30 min for full research. Retry once on failure.
   MAX_ATTEMPTS=2
   if [[ "$RUN_MODE" == "update" ]]; then
-    TIMEOUT_SECS=900
+    TIMEOUT_SECS=600
     echo "♻️  Same burst tickers as last run — incremental price-action update only"
   else
-    TIMEOUT_SECS=1800
-    echo "🔬 Momentum burst — full research for $COUNT tickers..."
+    TIMEOUT_SECS=1200
+    echo "🔬 Momentum burst — full research (max 8 tickers, 20m timeout)..."
   fi
 
   # run_with_timeout <seconds> <prompt_file>
@@ -223,6 +223,7 @@ for line in sys.stdin:
     local secs=$1 prompt=$2
     cat "$prompt" | claude --print \
       --output-format stream-json --verbose \
+      --max-turns 80 \
       --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep" \
       | progress_filter &
     local pid=$!

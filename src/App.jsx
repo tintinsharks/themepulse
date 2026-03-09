@@ -269,7 +269,6 @@ function TabbedAnalysis({ data, SimpleMarkdownComponent, onTickerClick, activeTi
     { key: "key_takeaways", label: "Key Takeaways" },
     { key: "signals", label: "Signals" },
     { key: "revenue", label: "Revenue" },
-    { key: "margins", label: "Margins" },
     { key: "thesis", label: "Thesis" },
     { key: "risks", label: "Risks" },
   ];

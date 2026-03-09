@@ -57,7 +57,7 @@ Write to `public/data/ai_analysis.json`. Preserve the exact same schema:
 - Update each ticker's `change_pct` from fresh dashboard data
 - Update each ticker's `key_takeaways` tab with the price action prepend
 - Update `content` summary with refresh note
-- **Keep all other tabs (signals, revenue, margins, thesis, risks) EXACTLY as they are — do not modify them**
+- **Keep all other tabs (signals, revenue, thesis, risks) EXACTLY as they are — do not modify them**
 - Keep `filters`, `grade`, `market_cap`, `company`, `verdict` unchanged
 
 ## QUALITY RULES
