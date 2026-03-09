@@ -8201,7 +8201,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           switch (key) {
             case "date": return m._current ? "9999-99-99" : (m._report_date || "0000");
             case "ticker": return m.ticker || "";
-            case "chg": return Math.abs(m.change_pct || m.ext_hours_change_pct || 0);
+            case "chg": return m.change_pct || m.ext_hours_change_pct || 0;
             case "eps_yoy": return er.eps_growth_yoy ?? -9999;
             case "rev_yoy": return er.rev_growth_yoy ?? -9999;
             case "rs": return s.rs_rank || m.rs_rank || 0;
