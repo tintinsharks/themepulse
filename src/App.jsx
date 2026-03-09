@@ -5270,7 +5270,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
           grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
           crosshair: { mode: 0 },
-          rightPriceScale: { borderColor: "#2a2a38" },
+          rightPriceScale: { borderColor: "#2a2a38", scaleMargins: { top: 0.05, bottom: 0 } },
           timeScale: { visible: false },
           handleScroll: false,
           handleScale: false,
@@ -5280,6 +5280,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           priceFormat: { type: "volume" },
           color: "#2bb88640",
           lastValueVisible: false, priceLineVisible: false,
+          priceScaleId: "right",
         });
         volMaRef.current = volChart.addLineSeries({
           color: "#fbbf2480", lineWidth: 1,
