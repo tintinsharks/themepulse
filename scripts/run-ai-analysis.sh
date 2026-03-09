@@ -16,6 +16,8 @@ set -euo pipefail
 
 # ── Ensure nvm node/claude are on PATH (needed for launchd + non-interactive shells) ──
 export PATH="$HOME/.nvm/versions/node/v20.20.0/bin:/opt/homebrew/bin:$PATH"
+# ── Allow running from within a Claude Code session (launchd or manual trigger) ──
+unset CLAUDECODE 2>/dev/null || true
 
 # ── Weekday guard — skip on Saturday/Sunday ──
 DOW=$(date +%u)  # 1=Mon … 7=Sun
