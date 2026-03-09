@@ -64,6 +64,30 @@ TODAY=$(date +"%Y-%m-%d")
 echo "🕐 Starting AI analysis at $NOW"
 
 # ── Count momentum burst signals (quick preview) ──
+# If static dashboard_data.json has 0 burst signals, fetch live data from Vercel API
+python3 -c "
+import json, urllib.request, sys
+with open('$REPO_DIR/public/dashboard_data.json') as f:
+    d = json.load(f)
+burst = d.get('momentum_burst', [])
+if len(burst) == 0:
+    print('  📡 Static file has 0 burst signals — fetching live data from API...', file=sys.stderr)
+    try:
+        # Fetch live burst from the Vercel API (uses FMP real-time quotes)
+        url = 'https://themepulse.vercel.app/api/live?universe=SPY'
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            live = json.loads(resp.read())
+        if live.get('ok') and live.get('momentum_burst'):
+            burst = live['momentum_burst']
+            d['momentum_burst'] = burst
+            with open('$REPO_DIR/public/dashboard_data.json', 'w') as f:
+                json.dump(d, f)
+            print(f'  ✅ Injected {len(burst)} live burst signals into dashboard_data.json', file=sys.stderr)
+    except Exception as e:
+        print(f'  ⚠️  Live fetch failed: {e}', file=sys.stderr)
+" 2>&1
+
 PASSING=$(python3 -c "
 import json
 with open('$REPO_DIR/public/dashboard_data.json') as f:
