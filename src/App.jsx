@@ -2553,7 +2553,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const catColors = { "New Contracts / Partnerships": "#3b82f6", "Themes / Narratives": "#8b5cf6", "FDA / Regulatory": "#a855f7",
             "Earnings Beat": "#2bb886", "Technical Breakout": "#22d3ee", "Insider / Institutional": "#fbbf24", "Others": "#64748b" };
           const catColor = catColors[s._category] || "#64748b";
-          return (<React.Fragment key={s.ticker}>
+          return (<Fragment key={s.ticker}>
             <tr onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
@@ -2637,7 +2637,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 </td>
               </tr>
             )}
-          </React.Fragment>);
+          </Fragment>);
         })}</tbody>
       </table>
       </div>
