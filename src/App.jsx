@@ -371,6 +371,76 @@ const StockStat = memo(function StockStat({ label, value, color = "#9090a0" }) {
   );
 });
 
+// ── POSITION CALCULATOR ──
+function PositionCalculator({ price, adr }) {
+  const [accountSize, setAccountSize] = useState(() => parseFloat(localStorage.getItem("calc_account") || "100000"));
+  const [riskPct, setRiskPct] = useState(() => parseFloat(localStorage.getItem("calc_risk") || "1"));
+  const [entryPrice, setEntryPrice] = useState("");
+  const [stopPrice, setStopPrice] = useState("");
+
+  useEffect(() => { if (price) setEntryPrice(String(price.toFixed(2))); }, [price]);
+  useEffect(() => { localStorage.setItem("calc_account", String(accountSize)); }, [accountSize]);
+  useEffect(() => { localStorage.setItem("calc_risk", String(riskPct)); }, [riskPct]);
+
+  const entry = parseFloat(entryPrice) || 0;
+  const stop = parseFloat(stopPrice) || 0;
+  const riskPerShare = entry > 0 && stop > 0 ? Math.abs(entry - stop) : 0;
+  const riskDollars = accountSize * (riskPct / 100);
+  const shares = riskPerShare > 0 ? Math.floor(riskDollars / riskPerShare) : 0;
+  const positionSize = shares * entry;
+  const positionPct = accountSize > 0 ? (positionSize / accountSize * 100) : 0;
+  const rr1 = entry + riskPerShare;
+  const rr2 = entry + riskPerShare * 2;
+  const rr3 = entry + riskPerShare * 3;
+
+  const inputStyle = { background: "#1a1a28", border: "1px solid #3a3a4a", borderRadius: 3, color: "#d4d4e0",
+    padding: "3px 6px", fontSize: 10, fontFamily: "monospace", width: "100%", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { color: "#686878", fontSize: 9, marginBottom: 1 };
+  const valStyle = { color: "#b8b8c8", fontFamily: "monospace", fontSize: 11 };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+        <div>
+          <div style={labelStyle}>Account $</div>
+          <input type="number" value={accountSize} onChange={e => setAccountSize(parseFloat(e.target.value) || 0)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={labelStyle}>Risk %</div>
+          <input type="number" value={riskPct} step="0.25" onChange={e => setRiskPct(parseFloat(e.target.value) || 0)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={labelStyle}>Entry</div>
+          <input type="number" value={entryPrice} step="0.01" onChange={e => setEntryPrice(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={labelStyle}>Stop</div>
+          <input type="number" value={stopPrice} step="0.01" onChange={e => setStopPrice(e.target.value)} style={inputStyle}
+            placeholder={entry > 0 && adr ? (entry - entry * adr / 100).toFixed(2) : ""} />
+        </div>
+      </div>
+      {riskPerShare > 0 && (
+        <div style={{ background: "#ffffff06", border: "1px solid #2a2a3a", borderRadius: 4, padding: "6px 8px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3 }}>
+            <div><span style={labelStyle}>Risk/share: </span><span style={valStyle}>${riskPerShare.toFixed(2)}</span></div>
+            <div><span style={labelStyle}>Risk $: </span><span style={{ ...valStyle, color: "#f87171" }}>${riskDollars.toFixed(0)}</span></div>
+            <div><span style={labelStyle}>Shares: </span><span style={{ ...valStyle, color: "#22d3ee", fontWeight: 700 }}>{shares.toLocaleString()}</span></div>
+            <div><span style={labelStyle}>Position: </span><span style={valStyle}>${positionSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+            <div><span style={labelStyle}>% of acct: </span><span style={{ ...valStyle, color: positionPct > 25 ? "#f87171" : positionPct > 15 ? "#fbbf24" : "#2bb886" }}>{positionPct.toFixed(1)}%</span></div>
+            <div><span style={labelStyle}>Stop %: </span><span style={valStyle}>{entry > 0 ? ((riskPerShare / entry) * 100).toFixed(1) : 0}%</span></div>
+          </div>
+          <div style={{ borderTop: "1px solid #2a2a38", marginTop: 5, paddingTop: 4, display: "flex", gap: 12 }}>
+            <span style={labelStyle}>R targets:</span>
+            <span style={{ color: "#2bb886", fontFamily: "monospace", fontSize: 10 }}>1R ${rr1.toFixed(2)}</span>
+            <span style={{ color: "#4aad8c", fontFamily: "monospace", fontSize: 10 }}>2R ${rr2.toFixed(2)}</span>
+            <span style={{ color: "#22d3ee", fontFamily: "monospace", fontSize: 10 }}>3R ${rr3.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
 
@@ -386,6 +456,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [analyst, setAnalyst] = useState(null);
   const [description, setDescription] = useState(null);
   const [finvizQuarters, setFinvizQuarters] = useState(null);
+  const [earningsTab, setEarningsTab] = useState("earnings");
 
   // Custom headline notes (persisted 2 weeks)
   const [chartNotes, setChartNotes] = useState(() => {
@@ -719,11 +790,18 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           )}
           </div>
 
-          {/* Earnings Timeline */}
+          {/* Earnings Timeline / Calculator */}
           {stock && (
           <div style={{ padding: "8px 10px", borderBottom: "1px solid #222230" }}>
             <div style={{ color: "#686878", fontWeight: 700, marginBottom: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span>Earnings</span>
+              {["earnings", "calculator"].map(tab => (
+                <span key={tab} onClick={() => setEarningsTab(tab)}
+                  style={{ cursor: "pointer", color: earningsTab === tab ? "#4aad8c" : "#505060",
+                    borderBottom: earningsTab === tab ? "1px solid #4aad8c" : "1px solid transparent",
+                    paddingBottom: 1 }}>
+                  {tab === "earnings" ? "Earnings" : "Calculator"}
+                </span>
+              ))}
               {(stock.earnings_display || stock.earnings_date) && (() => {
                 const raw = stock.earnings_display || stock.earnings_date || "";
                 const trimmed = raw.replace(/:00(?=\s|$)/g, "");
@@ -739,6 +817,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 );
               })()}
             </div>
+            {earningsTab === "earnings" && (<>
             {/* Earnings beat/miss */}
             {stock.er && stock.er.eps != null && (() => {
               const er = stock.er;
@@ -929,6 +1008,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 })()}
               </div>
             </>)}
+            </>)}
+            {earningsTab === "calculator" && (
+              <PositionCalculator price={stock.price} adr={stock.adr_pct} />
+            )}
           </div>
           )}
 
