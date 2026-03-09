@@ -379,6 +379,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [tf, setTf] = useState("D");
   const [showIntraday, setShowIntraday] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
+  const [panelWidth, setPanelWidth] = useState(320);
+  const dragRef = useRef(null);
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
   const [analyst, setAnalyst] = useState(null);
@@ -651,9 +653,28 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
       {showIntraday && <IntradayChart ticker={ticker} avgVolume={stock?.avg_volume_raw} />}
       </div>{/* end chart area */}
 
-      {/* Right detail panel — collapsible */}
+      {/* Right detail panel — collapsible, resizable */}
       {showDetails && (
-        <div style={{ width: 320, flexShrink: 0, borderLeft: "1px solid #2a2a38", background: "#141420",
+        <div style={{ width: panelWidth, flexShrink: 0, position: "relative", display: "flex", flexDirection: "column" }}>
+        {/* Drag handle */}
+        <div
+          onMouseDown={e => {
+            e.preventDefault();
+            const startX = e.clientX;
+            const startW = panelWidth;
+            const onMove = ev => { const newW = Math.max(200, Math.min(600, startW - (ev.clientX - startX))); setPanelWidth(newW); };
+            const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); document.body.style.cursor = ""; document.body.style.userSelect = ""; };
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("mouseup", onUp);
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+          }}
+          style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, cursor: "col-resize", zIndex: 10,
+            background: "transparent" }}
+          onMouseEnter={e => e.currentTarget.style.background = "#3a3a4a"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        />
+        <div style={{ flex: 1, borderLeft: "1px solid #2a2a38", background: "#141420",
           overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", fontSize: 10, fontFamily: "monospace" }}>
 
           {/* Catalyst note */}
@@ -973,6 +994,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </div>
           )}
 
+        </div>
         </div>
       )}
       </div>{/* end chart + panel row */}
