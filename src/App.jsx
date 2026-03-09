@@ -1455,6 +1455,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [expandedGapper, setExpandedGapper] = useState(null);
   const [expandedBurst, setExpandedBurst] = useState(null);
+  const [expandedShort, setExpandedShort] = useState(null);
   const [gapperSort, setGapperSort] = useState({ col: "change", dir: "desc" });
   // Short Scan state
   const [shortSort, setShortSort] = useState({ col: "change", dir: "asc" });
@@ -1925,6 +1926,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     let tickers = [];
     if (scanTab === "gapper") tickers = gapperCandidates.map(s => s.ticker);
     else if (scanTab === "burst") tickers = burstStocks.map(s => s.ticker);
+    else if (scanTab === "short") tickers = shortCandidates.map(s => s.ticker);
     else return;
     const toFetch = tickers.filter(t => !finvizFetchedRef.current.has(t)).slice(0, 10);
     if (!toFetch.length) return;
@@ -1935,7 +1937,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         .then(d => { if (d?.ok) setGapperDigest(prev => ({ ...prev, [t]: d })); })
         .catch(() => {});
     });
-  }, [scanTab, gapperCandidates, burstStocks]);
+  }, [scanTab, gapperCandidates, burstStocks, shortCandidates]);
 
   // Report visible ticker order to parent for keyboard nav
   useEffect(() => {
@@ -2483,25 +2485,33 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       <div style={{ fontSize: 10, color: "#505060", marginBottom: 8 }}>Short candidates — stocks breaking down, lagging, below MAs, weak fundamentals</div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
+          <th style={{ padding: "6px 4px", width: 24 }}></th>
           {[["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"], ["Chg%", "change"], ["Vol", "vol"],
             ["RVol", "rvol"], ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["3M%", "ret3m"],
-            ["FrLo%", "fromlo"], ["SI%", "si"], ["Theme", "theme"], ["Sub", "subtheme"]].map(([h, sk]) => (
+            ["FrLo%", "fromlo"], ["SI%", "si"], ["Reasoning", null]].map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setShortSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: sk === "change" ? "asc" : "desc" }) : undefined}
-              style={{ padding: "6px 8px", color: shortSort.col === sk ? "#f87171" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
+              style={{ padding: "6px 8px", color: shortSort.col === sk ? "#f87171" : "#787888", fontWeight: 600, textAlign: h === "Reasoning" ? "left" : "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
               {h}{shortSort.col === sk ? (shortSort.dir === "desc" ? " ▼" : " ▲") : ""}</th>
           ))}
         </tr></thead>
         <tbody>{shortCandidates.map(s => {
           const isActive = s.ticker === activeTicker;
+          const isExpanded = expandedShort === s.ticker;
           const inPortfolio = portfolio?.includes(s.ticker);
           const inWatchlist = watchlist?.includes(s.ticker);
-          return (
-            <tr key={s.ticker} data-ticker={s.ticker}
+          const dig = gapperDigest[s.ticker] || {};
+          return (<Fragment key={s.ticker}>
+            <tr data-ticker={s.ticker}
               onClick={() => onTickerClick(s.ticker)}
               style={{ borderBottom: "1px solid #222230", cursor: "pointer",
                 borderLeft: inPortfolio ? "3px solid #fbbf24" : inWatchlist ? "3px solid #60a5fa" : "3px solid transparent",
                 background: isActive ? "rgba(248, 113, 113, 0.10)" : "transparent" }}>
+              {/* Expand toggle */}
+              <td style={{ padding: "4px 4px", textAlign: "center", cursor: "pointer" }}
+                onClick={e => { e.stopPropagation(); setExpandedShort(isExpanded ? null : s.ticker); }}>
+                <span style={{ color: isExpanded ? "#f87171" : "#505060", fontSize: 14, fontWeight: 700 }}>{isExpanded ? "−" : "+"}</span>
+              </td>
               {/* Ticker */}
               <td style={{ padding: "4px 8px", textAlign: "center", color: isActive ? "#f87171" : "#a8a8b8", fontWeight: 500 }}>
                 <Tk ticker={s.ticker} />
@@ -2559,16 +2569,41 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: (s.short_float ?? 0) >= 20 ? "#f87171" : (s.short_float ?? 0) >= 10 ? "#f97316" : s.short_float != null ? "#686878" : "#3a3a4a" }}>
                 {s.short_float != null ? `${s.short_float.toFixed(1)}%` : '—'}</td>
-              {/* Theme */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                cursor: s.themes?.[0]?.theme ? "pointer" : "default" }}
-                onClick={e => { if (s.themes?.[0]?.theme) { e.stopPropagation(); setActiveTheme(s.themes[0].theme); } }}
-                title={s.themes?.[0]?.theme}>{s.themes?.[0]?.theme || "—"}</td>
-              {/* Subtheme */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                title={s.themes?.[0]?.subtheme}>{s.themes?.[0]?.subtheme || "—"}</td>
+              {/* Reasoning — from Finviz whyMoving */}
+              <td style={{ padding: "4px 8px", textAlign: "left",
+                color: dig.sentiment === "good" ? "#2bb886" : dig.sentiment === "bad" ? "#f87171" : "#9090a0",
+                fontSize: 10, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={dig.reasoning || ''}>
+                {dig.reasoning || <span style={{ color: "#505060", fontSize: 9 }}>loading...</span>}
+              </td>
             </tr>
-          );
+            {/* Expanded row — bullet points from Finviz daily digest */}
+            {isExpanded && (
+              <tr style={{ background: "#0d0d15" }}>
+                <td colSpan={15} style={{ padding: "12px 16px 16px 40px" }}>
+                  {dig.bullets?.length > 0 ? (
+                    <ul style={{ margin: 0, paddingLeft: 16, listStyleType: "disc" }}>
+                      {dig.bullets.map((bp, i) => (
+                        <li key={i} style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.6, marginBottom: 4 }}>{bp}</li>
+                      ))}
+                    </ul>
+                  ) : dig.reasoning ? (
+                    <div style={{ color: "#9090a0", fontSize: 11, lineHeight: 1.5 }}>{dig.reasoning}</div>
+                  ) : (
+                    <div style={{ color: "#505060", fontSize: 11, fontStyle: "italic" }}>Loading Finviz data...</div>
+                  )}
+                  {(dig.inst_own != null || dig.short_ratio != null || dig.short_float != null) && (
+                    <div style={{ marginTop: 8, display: "flex", gap: 16, fontSize: 10, color: "#686878" }}>
+                      {dig.inst_own != null && <span>Inst Own: <span style={{ color: dig.inst_own >= 60 ? "#2bb886" : "#9090a0" }}>{dig.inst_own}%</span></span>}
+                      {dig.short_ratio != null && <span>Short Ratio: <span style={{ color: dig.short_ratio >= 5 ? "#f87171" : "#9090a0" }}>{dig.short_ratio}</span></span>}
+                      {dig.short_float != null && <span>Short Float: <span style={{ color: dig.short_float >= 20 ? "#f87171" : "#9090a0" }}>{dig.short_float}%</span></span>}
+                      {dig.float_shares && <span>Float: <span style={{ color: "#9090a0" }}>{dig.float_shares}</span></span>}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
+          </Fragment>);
         })}</tbody>
       </table>
       {shortCandidates.length === 0 && (
