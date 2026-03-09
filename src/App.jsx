@@ -7867,7 +7867,7 @@ function PipelineStatus({ meta }) {
 }
 
 // ── Earnings Intelligence Dashboard ──────────────────────────────────────────
-function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], stockMap = {} }) {
+function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {} }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -7891,7 +7891,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const CYAN = "#22d3ee";
   const CYAN_DIM = "#22d3ee30";
   const CYAN_BG = "#22d3ee12";
-  const sections = [["overview","Overview"],["movers","Movers"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
+  const sections = [["overview","Overview"],["movers","Movers"],["feed","Earnings Feed"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
   const kpis = data.kpis || {};
   const themes = data.themes || [];
   const sectors = data.sectors || [];
@@ -8121,6 +8121,137 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                   })}
                   {unmatchedMovers.length > 30 && <span style={{ fontSize: 10, color: "#505060", alignSelf: "center" }}>+{unmatchedMovers.length - 30} more</span>}
                 </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── EARNINGS FEED ── */}
+      {activeSection === "feed" && (() => {
+        // Build ticker → themes lookup
+        const tickerThemes = {};
+        themes.forEach(t => (t.tickers || []).forEach(tk => {
+          (tickerThemes[tk] = tickerThemes[tk] || []).push(t.name);
+        }));
+
+        // Combine current + historical, dedup by ticker (current wins)
+        const seen = new Set();
+        const allER = [];
+        for (const m of earningsMovers) {
+          const tk = m.ticker;
+          if (tk && !seen.has(tk)) { seen.add(tk); allER.push({ ...m, _current: true, _date: "Today" }); }
+        }
+        for (const m of historicalEarningsMovers) {
+          const tk = m.ticker;
+          if (tk && !seen.has(tk)) { seen.add(tk); allER.push({ ...m, _current: false, _date: m._report_date || `${m.days_ago}d ago` }); }
+        }
+
+        // Group by date
+        const byDate = {};
+        allER.forEach(m => {
+          const key = m._current ? "Today" : (m._report_date || "Unknown");
+          (byDate[key] = byDate[key] || []).push(m);
+        });
+        // Sort dates descending
+        const sortedDates = Object.keys(byDate).sort((a, b) => {
+          if (a === "Today") return -1;
+          if (b === "Today") return 1;
+          return b.localeCompare(a);
+        });
+
+        // Theme frequency across all earnings
+        const themeFreq = {};
+        allER.forEach(m => {
+          const mt = m.matching_themes || tickerThemes[m.ticker] || [];
+          mt.forEach(th => { themeFreq[th] = (themeFreq[th] || 0) + 1; });
+        });
+        const topThemes = Object.entries(themeFreq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+        const chgColor = v => v >= 0 ? "#2bb886" : "#f87171";
+        const beatMiss = (actual, est) => {
+          if (actual == null || est == null) return null;
+          return actual > est ? "BEAT" : actual < est ? "MISS" : "MET";
+        };
+
+        return (
+          <div>
+            {/* Theme summary bar */}
+            {topThemes.length > 0 && (
+              <div style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#d4d4e0", marginBottom: 8 }}>Emerging Themes from Earnings</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {topThemes.map(([name, count]) => (
+                    <span key={name} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, background: CYAN_BG, border: `1px solid ${CYAN}30`, color: CYAN, fontWeight: 600 }}>
+                      {name} <span style={{ color: "#686878", marginLeft: 4 }}>{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Earnings feed by date */}
+            {sortedDates.map(date => {
+              const movers = byDate[date].sort((a, b) => Math.abs(b.change_pct || b.ext_hours_change_pct || 0) - Math.abs(a.change_pct || a.ext_hours_change_pct || 0));
+              const dateLabel = date === "Today" ? "Today" : new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+              return (
+                <div key={date} style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, paddingLeft: 4 }}>
+                    {dateLabel} <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {movers.length} reports</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {movers.map(m => {
+                      const chg = m.change_pct || m.ext_hours_change_pct || 0;
+                      const er = m.er || {};
+                      const epsBM = beatMiss(er.eps, er.eps_estimated);
+                      const revBM = er.revenue && er.revenue_estimated ? beatMiss(er.revenue, er.revenue_estimated) : null;
+                      const mt = m.matching_themes || tickerThemes[m.ticker] || [];
+                      const s = stockMap[m.ticker] || {};
+                      const headline = (m.recent_headlines || [])[0];
+                      return (
+                        <div key={m.ticker} style={{ background: "#16161e", border: "1px solid #2a2a38", borderRadius: 6, padding: "10px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: mt.length > 0 || headline ? 6 : 0 }}>
+                            {/* Ticker + company */}
+                            <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: CYAN, width: 56 }}>{m.ticker}</span>
+                            <span style={{ fontSize: 11, color: "#9090a0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.company || s.company || ""}</span>
+                            {/* Session badge */}
+                            {m._session && <span style={{ fontSize: 8, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "#0a0a0f", color: "#505060", border: "1px solid #2a2a38" }}>{m._session}</span>}
+                            {/* Change % */}
+                            <span style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: chgColor(chg), minWidth: 56, textAlign: "right" }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>
+                            {/* EPS beat/miss */}
+                            {epsBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                              background: epsBM === "BEAT" ? "#2bb88618" : epsBM === "MISS" ? "#f8717118" : "#fbbf2418",
+                              color: epsBM === "BEAT" ? "#2bb886" : epsBM === "MISS" ? "#f87171" : "#fbbf24" }}>EPS {epsBM}</span>}
+                            {/* Rev beat/miss */}
+                            {revBM && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                              background: revBM === "BEAT" ? "#2bb88618" : revBM === "MISS" ? "#f8717118" : "#fbbf2418",
+                              color: revBM === "BEAT" ? "#2bb886" : revBM === "MISS" ? "#f87171" : "#fbbf24" }}>REV {revBM}</span>}
+                            {/* EPS growth */}
+                            {er.eps_growth_yoy != null && <span style={{ fontSize: 9, fontFamily: "monospace", color: er.eps_growth_yoy >= 0 ? "#2bb886" : "#f87171" }}>EPS {er.eps_growth_yoy >= 0 ? "+" : ""}{er.eps_growth_yoy.toFixed(0)}%</span>}
+                            {/* RS + Grade */}
+                            {(s.rs_rank || m.rs_rank) != null && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>RS {s.rs_rank || m.rs_rank}</span>}
+                            {(s.grade || m.grade) && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>{s.grade || m.grade}</span>}
+                          </div>
+                          {/* Theme tags + headline */}
+                          {(mt.length > 0 || headline) && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              {mt.map(th => (
+                                <span key={th} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: CYAN_BG, border: `1px solid ${CYAN}25`, color: CYAN, fontWeight: 600 }}>{th}</span>
+                              ))}
+                              {headline && <span style={{ fontSize: 10, color: "#686878", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{headline}</span>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {allER.length === 0 && (
+              <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>
+                No earnings reports available. Pipeline updates during market hours.
               </div>
             )}
           </div>
@@ -8927,6 +9058,7 @@ function AppMain({ authToken, onLogout }) {
             earningsMovers={data?.earnings_movers || []}
             pmSipMovers={data?.pm_top_movers || data?.pm_sip_movers || []}
             ahSipMovers={data?.ah_top_movers || data?.ah_sip_movers || []}
+            historicalEarningsMovers={data?.historical_earnings_movers || []}
             stockMap={stockMap}
           />}
           </ErrorBoundary>
