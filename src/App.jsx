@@ -936,7 +936,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             ) : news.length > 0 ? (
               <div>
                 <div style={{ color: "#686878", fontWeight: 700, marginBottom: 2 }}>News</div>
-                {news.map((n, i) => {
+                {news.slice(0, 2).map((n, i) => {
                   const shortDate = (() => {
                     if (!n.date) return '';
                     const parts = n.date.replace(/-/g, ' ').split(' ');
