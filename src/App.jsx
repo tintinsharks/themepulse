@@ -7862,10 +7862,22 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         crWeighted += cr * dv;
       });
       const avgCR = crDvTotal > 0 ? Math.round(crWeighted / crDvTotal) : null;
+      // Group total $vol — used for cross-group confidence weighting
+      const groupDv = allStocks.reduce((sum, s) => sum + (s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0), 0);
       // Discovery: universe tickers NOT on watchlist with RS ≥ 80 and RVol ≥ 1.5
       const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
-      return { ...g, avgChg, avgRvol, avgCR, avgRS, avgAccel, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
-    }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
+      return { ...g, avgChg, avgRvol, avgCR, avgRS, avgAccel, groupDv, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
+    });
+    // Cross-group confidence: dampen metrics for groups with below-median $vol
+    const dvVals = built.map(g => g.groupDv).filter(v => v > 0).sort((a, b) => a - b);
+    const medianDv = dvVals.length > 0 ? dvVals[Math.floor(dvVals.length / 2)] : 1;
+    built.sort((a, b) => {
+      const conf = (g) => Math.min(g.groupDv / medianDv, 1.0);
+      const va = (a[wlThemeSort] ?? -999) * (wlThemeSort === "avgRS" ? 1 : conf(a));
+      const vb = (b[wlThemeSort] ?? -999) * (wlThemeSort === "avgRS" ? 1 : conf(b));
+      return vb - va;
+    });
+    return built;
   }, [watchlistAll, watchlist, portfolio, portfolioMerged, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
 
   // Auto-scroll to relevant theme group when activeTicker changes in themes view
