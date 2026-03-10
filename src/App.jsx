@@ -8619,7 +8619,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           sales_yoy: er?.rev_growth_yoy ?? null,
           market_cap: s.market_cap,
           market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
-          change: live?.change ?? null, rvol: live?.rvol ?? null,
+          change: live?.change ?? null, ext_change: live?.ext_change ?? null, rvol: live?.rvol ?? null, live_vol: live?.volume ?? null,
           _days: days, _s: s
         });
       } catch {}
@@ -8769,13 +8769,22 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                      {["Ticker","EPS YoY","Sales YoY","Chg%","Vol","RVol","RS"].map(h => (
+                      {["Ticker","EPS YoY","Sales YoY",
+                        marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%",
+                        ...(marketSession ? [] : ["Vol","RVol"]),
+                        "RS"].map(h => (
                         <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map(r => (
+                    {items.map(r => {
+                      const chg = marketSession ? (r.ext_change ?? r.change) : r.change;
+                      const av = r._s?.avg_volume_raw;
+                      const curVol = (av && r.rvol) ? av * r.rvol : null;
+                      const fmtV = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+                      const proj9M = curVol && av < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
+                      return (
                       <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
                         onClick={() => onTickerClick && onTickerClick(r.ticker)}
                         onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
@@ -8787,28 +8796,22 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.eps_yoy)}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.sales_yoy)}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                          color: r.change > 0 ? "#2bb886" : r.change < 0 ? "#f87171" : "#686878" }}>
-                          {r.change != null ? `${r.change > 0 ? "+" : ""}${r.change.toFixed(1)}%` : "—"}</td>
-                        {(() => {
-                          const av = r._s?.avg_volume_raw;
-                          const curVol = (av && r.rvol) ? av * r.rvol : null;
-                          const fmt = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
-                          const proj9M = curVol && av < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
-                          return <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</td>
+                        {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                             color: proj9M ? "#f87171" : r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#505060" }}>
-                            {curVol != null ? fmt(curVol) : "—"}</td>;
-                        })()}
-                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            {curVol != null ? fmtV(curVol) : "—"}</td>}
+                        {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                           color: r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : r.rvol != null ? "#686878" : "#505060" }}>
-                          {r.rvol != null ? `${r.rvol.toFixed(1)}x` : "—"}</td>
+                          {r.rvol != null ? `${r.rvol.toFixed(1)}x` : "—"}</td>}
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
                           color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
                           {r.rs_rank != null ? r.rs_rank : "—"}</td>
-                      </tr>
-                    ))}
+                      </tr>);
+                    })}
                   </tbody>
                 </table>;
-            const greenFilter = (items) => (calGreenOnly && day.days === 0) ? items.filter(r => r.change > 0) : items;
+            const greenFilter = (items) => (calGreenOnly && day.days === 0) ? items.filter(r => (marketSession ? (r.ext_change ?? r.change) : r.change) > 0) : items;
             const bmoAll = greenFilter([...day.bmo, ...day.other.filter(r => r.timing !== "AMC")]);
             const amcAll = greenFilter(day.amc);
             return (
