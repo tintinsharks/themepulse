@@ -7723,21 +7723,29 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     return m;
   }, [stockMap]);
 
-  // Group watchlist stocks by subtheme, expand to full universe for metrics
+  // Group watchlist + portfolio stocks by subtheme, expand to full universe for metrics
   const wlThemeGroups = useMemo(() => {
-    const all = watchlistAll;
-    const wlSet = new Set(watchlist);
+    const ownedSet = new Set([...watchlist, ...portfolio]);
     const groups = {};
-    all.forEach(s => {
+    // Add watchlist stocks
+    watchlistAll.forEach(s => {
       const sub = s.subtheme || s.theme || "Ungrouped";
-      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", wlStocks: [], uniStocks: [] };
+      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", wlStocks: [], pfStocks: [], uniStocks: [] };
       groups[sub].wlStocks.push(s);
     });
-    // Expand each group with universe tickers (not already in watchlist)
+    // Add portfolio stocks (avoid duplicates if also on watchlist)
+    const wlSet = new Set(watchlist);
+    portfolioMerged.forEach(s => {
+      if (wlSet.has(s.ticker)) return; // already counted as watchlist
+      const sub = s.subtheme || s.theme || "Ungrouped";
+      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", wlStocks: [], pfStocks: [], uniStocks: [] };
+      groups[sub].pfStocks.push(s);
+    });
+    // Expand each group with universe tickers (not on watchlist or portfolio)
     Object.values(groups).forEach(g => {
       const uniTickers = subthemeUniverse[g.name] || [];
       uniTickers.forEach(tk => {
-        if (wlSet.has(tk)) return; // already in watchlist
+        if (ownedSet.has(tk)) return; // already on watchlist or portfolio
         const live = liveLookup[tk];
         const pipe = stockMap[tk];
         if (!live && !pipe) return;
@@ -7753,7 +7761,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     });
     // Compute $vol-weighted avg change + equal-weighted avg RVol + avg RS
     return Object.values(groups).map(g => {
-      const allStocks = [...g.wlStocks, ...g.uniStocks];
+      const allStocks = [...g.wlStocks, ...g.pfStocks, ...g.uniStocks];
       const rvols = allStocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
       // Dollar-volume weighted change — institutional money flow signal
@@ -7770,9 +7778,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       const avgRS = rsVals.length > 0 ? Math.round(rsVals.reduce((a, b) => a + b, 0) / rsVals.length) : null;
       // Discovery: universe tickers NOT on watchlist with RS ≥ 80 and RVol ≥ 1.5
       const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
-      return { ...g, avgChg, avgRvol, avgRS, discoveries, wlCount: g.wlStocks.length, totalCount: allStocks.length };
+      return { ...g, avgChg, avgRvol, avgRS, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
     }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
-  }, [watchlistAll, watchlist, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
+  }, [watchlistAll, watchlist, portfolio, portfolioMerged, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
 
   useEffect(() => {
     if (!onVisibleTickers) return;
@@ -7869,9 +7877,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#d4d4e0" }}>{g.name}</span>
                       <span style={{ fontSize: 9, color: "#505060" }}>{g.theme !== g.name ? g.theme : ""}</span>
-                      <span style={{ fontSize: 9, color: "#686878" }}>({g.wlCount}/{g.totalCount})</span>
+                      <span style={{ fontSize: 9, color: "#686878" }}>({g.ownCount}/{g.totalCount})</span>
                     </div>
-                    {/* Ticker pills — watchlist tickers (bold) + universe tickers (dimmed) */}
+                    {/* Ticker pills — watchlist (bold green border) + portfolio (gold border) + universe (dimmed) */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
                       {g.wlStocks.map(s => {
                         const chg = s.change;
@@ -7881,6 +7889,17 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                             background: chg > 0 ? "#2bb88618" : chg < 0 ? "#f8717118" : "#1a1a24",
                             color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878",
                             border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid transparent" }}>
+                          {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
+                        </span>);
+                      })}
+                      {g.pfStocks.map(s => {
+                        const chg = s.change;
+                        return (
+                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700,
+                            background: chg > 0 ? "#f59e0b18" : chg < 0 ? "#f8717118" : "#1a1a24",
+                            color: chg > 0 ? "#f59e0b" : chg < 0 ? "#f87171" : "#686878",
+                            border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid #f59e0b40" }}>
                           {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
                         </span>);
                       })}
