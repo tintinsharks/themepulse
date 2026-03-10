@@ -7612,6 +7612,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [wlTickerRank, setWlTickerRank] = useState("change"); // "change" | "rvol" | "rs" | "cr"
   const [wlThemeFilterGreen, setWlThemeFilterGreen] = useState(false);
   const [wlThemeFilter9M, setWlThemeFilter9M] = useState(false);
+  const [expandedThemes, setExpandedThemes] = useState(new Set());
 
   // Combine all tickers for API call — watchlist + portfolio
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -8036,9 +8037,20 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                       <span style={{ fontSize: 9, color: "#505060" }}>{g.theme !== g.name ? g.theme : ""}</span>
                       <span style={{ fontSize: 9, color: "#686878" }}>({ownSorted.length}/{allSorted.length})</span>
                     </div>
-                    {/* Ticker pills — ranked, with rank badge */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
-                      {ownSorted.map(s => {
+                    {/* Ticker pills — ranked, with rank badge, max 10 unless expanded */}
+                    {(() => {
+                      const isExp = expandedThemes.has(g.name);
+                      const MAX = 10;
+                      const totalOwn = ownSorted.length;
+                      const totalUni = uniSorted.length;
+                      const totalAll = totalOwn + totalUni;
+                      const showOwn = isExp ? ownSorted : ownSorted.slice(0, MAX);
+                      const uniSlots = isExp ? totalUni : Math.max(0, MAX - showOwn.length);
+                      const showUni = uniSorted.slice(0, uniSlots);
+                      const hidden = totalAll - showOwn.length - showUni.length;
+                      return (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3, alignItems: "center" }}>
+                      {showOwn.map(s => {
                         const chg = liveLookup[s.ticker]?.change ?? s.change;
                         const isAct = s.ticker === activeTicker;
                         const isPf = pfSet.has(s.ticker);
@@ -8055,8 +8067,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                           {m9 && <span style={{ fontSize: 7, color: "#f87171", marginLeft: 2 }}>9M</span>}
                         </span>);
                       })}
-                      {uniSorted.length > 0 && <span style={{ color: "#3a3a4a", fontSize: 9, alignSelf: "center" }}>│</span>}
-                      {uniSorted.map(s => {
+                      {showUni.length > 0 && <span style={{ color: "#3a3a4a", fontSize: 9, alignSelf: "center" }}>│</span>}
+                      {showUni.map(s => {
                         const chg = liveLookup[s.ticker]?.change ?? s.change;
                         const rank = rankMap[s.ticker];
                         const m9 = is9M(s);
@@ -8071,7 +8083,22 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                           {m9 && <span style={{ fontSize: 6, color: "#f87171", marginLeft: 1 }}>9M</span>}
                         </span>);
                       })}
-                    </div>
+                      {hidden > 0 && (
+                        <span onClick={(e) => { e.stopPropagation(); setExpandedThemes(prev => { const n = new Set(prev); n.add(g.name); return n; }); }}
+                          style={{ fontSize: 8, color: "#22d3ee", cursor: "pointer", padding: "1px 5px", borderRadius: 3,
+                            border: "1px solid #22d3ee40", background: "#22d3ee10", fontWeight: 600 }}>
+                          +{hidden} more
+                        </span>
+                      )}
+                      {isExp && totalAll > MAX && (
+                        <span onClick={(e) => { e.stopPropagation(); setExpandedThemes(prev => { const n = new Set(prev); n.delete(g.name); return n; }); }}
+                          style={{ fontSize: 8, color: "#686878", cursor: "pointer", padding: "1px 5px", borderRadius: 3,
+                            border: "1px solid #3a3a4a", fontWeight: 600 }}>
+                          show less
+                        </span>
+                      )}
+                    </div>);
+                    })()}
                   </div>
                   {/* Metrics */}
                   <div style={{ display: "flex", gap: 12, alignItems: "center", zIndex: 1, flexShrink: 0 }}>
