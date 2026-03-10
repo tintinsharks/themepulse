@@ -5452,6 +5452,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
   const [showCR, setShowCR] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
+  const [topPaneOpen, setTopPaneOpen] = useState(true);
   const [volStats, setVolStats] = useState(null);
   const [rawBars, setRawBars] = useState(null);
 
@@ -6202,10 +6203,14 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 300, display: "flex", flexDirection: "column" }}>
-      {/* CR% + 4% Days combined panel (top) */}
+      {/* CR% + 4% Days combined panel (top, collapsible) */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
-        <div ref={crContainerRef} style={{ width: "100%", height: 90 }} />
+        <div ref={crContainerRef} style={{ width: "100%", height: topPaneOpen ? 90 : 0, overflow: "hidden", transition: "height 0.15s ease" }} />
         <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 6, alignItems: "center" }}>
+          <span onClick={() => setTopPaneOpen(p => !p)}
+            style={{ cursor: "pointer", color: "#505060", userSelect: "none", fontWeight: 600 }}>
+            {topPaneOpen ? "▼" : "▶"}
+          </span>
           <span onClick={() => setShowCR(p => !p)}
             style={{ cursor: "pointer", color: showCR ? "#2bb886" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
             CR%
@@ -6215,6 +6220,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             <span style={{ color: show4Pct ? "#22d3ee" : "#3a3a4a" }}>4%</span><span style={{ color: show4Pct ? "#f472b6" : "#3a3a4a" }}>Days</span>
           </span>
         </div>
+        {!topPaneOpen && <div style={{ height: 16 }} />}
       </div>
       {/* Main chart */}
       <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
