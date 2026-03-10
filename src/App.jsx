@@ -9746,7 +9746,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["exec","Execution"],["quad","Quadrant"],["intel","Earnings Intel"]].map(([id, label]) => (
+        {[["quad","Quadrant"],["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["exec","Execution"],["intel","Earnings Intel"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
