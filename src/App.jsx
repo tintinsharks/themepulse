@@ -8483,7 +8483,7 @@ function PipelineStatus({ meta }) {
 }
 
 // ── Earnings Intelligence Dashboard ──────────────────────────────────────────
-function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, onTickerClick, activeTicker }) {
+function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, liveThemeData, onTickerClick, activeTicker }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8519,6 +8519,19 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     });
     return m;
   }, [earningsMovers, historicalEarningsMovers]);
+
+  // Live data lookup for calendar
+  const calLive = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => {
+      if (!s.ticker) return;
+      const e = { change: s.change, price: s.price, volume: s.volume };
+      const av = stockMap[s.ticker]?.avg_volume_raw;
+      e.rvol = (av > 0 && s.volume != null) ? Math.round(s.volume / av * 100) / 100 : null;
+      m[s.ticker] = e;
+    });
+    return m;
+  }, [liveThemeData, stockMap]);
 
   // Earnings Calendar: configurable date range, split by BMO / AMC
   // Must be before early returns to satisfy Rules of Hooks
@@ -8561,13 +8574,14 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
 
         // Fresh reported growth — only for today/past (future hasn't reported yet)
         const er = days <= 0 ? erMoverMap[s.ticker] : null;
+        const live = calLive[s.ticker];
         results.push({
           ticker: s.ticker, company: s.company || "", timing,
           eps_yoy: er?.eps_growth_yoy ?? null,
           sales_yoy: er?.rev_growth_yoy ?? null,
           market_cap: s.market_cap,
           market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
-          avg_dvol: s.avg_dollar_vol_raw || 0, avg_dvol_fmt: s.avg_dollar_vol || "",
+          change: live?.change ?? null, rvol: live?.rvol ?? null,
           _days: days, _s: s
         });
       } catch {}
@@ -8599,7 +8613,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, erMoverMap]);
+  }, [stockMap, calRange, calMinDvol, erMoverMap, calLive]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
@@ -8717,7 +8731,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                      {["Ticker","EPS YoY","Sales YoY","$Vol","RS"].map(h => (
+                      {["Ticker","EPS YoY","Sales YoY","Chg%","RVol","RS"].map(h => (
                         <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
                       ))}
                     </tr>
@@ -8734,7 +8748,12 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                         </td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.eps_yoy)}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.sales_yoy)}</td>
-                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#787888", fontFamily: "monospace", fontSize: 10 }}>{r.avg_dvol_fmt || "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: r.change > 0 ? "#2bb886" : r.change < 0 ? "#f87171" : "#686878" }}>
+                          {r.change != null ? `${r.change > 0 ? "+" : ""}${r.change.toFixed(1)}%` : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: r.rvol >= 2 ? "#fbbf24" : r.rvol >= 1 ? "#9090a0" : "#505060" }}>
+                          {r.rvol != null ? `${r.rvol.toFixed(1)}x` : "—"}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
                           color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
                           {r.rs_rank != null ? r.rs_rank : "—"}</td>
@@ -10132,6 +10151,7 @@ function AppMain({ authToken, onLogout }) {
             ahSipMovers={data?.ah_top_movers || data?.ah_sip_movers || []}
             historicalEarningsMovers={data?.historical_earnings_movers || []}
             stockMap={stockMap}
+            liveThemeData={liveThemeData}
             onTickerClick={openChart}
             activeTicker={chartTicker}
           />}
