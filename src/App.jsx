@@ -7740,104 +7740,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         );
       })()}
 
-      {/* ── Homepage: Futures, Earnings, Major News ── */}
-      {homepage && (
-        <div style={{ marginBottom: 16 }}>
-          <div onClick={() => setMarketOpen(p => !p)}
-            style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", marginBottom: marketOpen ? 8 : 0, userSelect: "none" }}>
-            <span style={{ color: "#505060", fontSize: 10, transition: "transform 0.2s", transform: marketOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>Market Overview</span>
-          </div>
-          {marketOpen && (
-          <div>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
-          {/* Futures */}
-          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Futures</div>
-            {homepage.futures && homepage.futures.length > 0 ? (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
-                <tbody>
-                  {homepage.futures.map((f, i) => {
-                    const isPos = f.change_pct?.includes("+") || (!f.change_pct?.includes("-") && parseFloat(f.change) > 0);
-                    const isNeg = f.change_pct?.includes("-") || parseFloat(f.change) < 0;
-                    return (
-                      <tr key={i} style={{ borderBottom: "1px solid #1a1a24" }}>
-                        <td style={{ padding: "3px 4px", color: "#b8b8c8", fontWeight: 600 }}>{f.label}</td>
-                        <td style={{ padding: "3px 4px", textAlign: "right", color: "#9090a0" }}>{f.last}</td>
-                        <td style={{ padding: "3px 4px", textAlign: "right", color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>{f.change}</td>
-                        <td style={{ padding: "3px 4px", textAlign: "right", fontWeight: 700, color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>{f.change_pct}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading futures...</span>}
-          </div>
-
-          {/* Earnings Release */}
-          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Earnings Release</div>
-            {homepage.earnings && homepage.earnings.length > 0 ? (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
-                <tbody>
-                  {homepage.earnings.map((e, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #1a1a24" }}>
-                      <td style={{ padding: "3px 4px", color: "#686878", whiteSpace: "nowrap", width: 70, verticalAlign: "top" }}>{e.date}</td>
-                      <td style={{ padding: "3px 4px" }}>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {e.tickers.map(t => (
-                            <span key={t} onClick={() => onTickerClick(t)}
-                              style={{ color: stockMap[t] ? "#60a5fa" : "#9090a0", cursor: "pointer", fontWeight: stockMap[t] ? 600 : 400 }}
-                              onMouseEnter={e => e.target.style.color = "#0d9163"}
-                              onMouseLeave={e => e.target.style.color = stockMap[t] ? "#60a5fa" : "#9090a0"}>
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading earnings...</span>}
-          </div>
-
-          {/* Major News */}
-          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Major News</div>
-            {homepage.major_news && homepage.major_news.length > 0 ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, fontSize: 11, fontFamily: "monospace" }}>
-                {homepage.major_news.map((m, i) => {
-                  const pct = parseFloat(m.change);
-                  const big = Math.abs(pct) >= 5;
-                  const isPos = pct > 0;
-                  const isNeg = pct < 0;
-                  return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 4px" }}>
-                      <span onClick={() => onTickerClick(m.ticker)}
-                        style={{ color: "#b8b8c8", fontWeight: 600, cursor: "pointer" }}
-                        onMouseEnter={e => e.target.style.color = "#0d9163"}
-                        onMouseLeave={e => e.target.style.color = "#b8b8c8"}>
-                        {m.ticker}
-                      </span>
-                      <span style={{
-                        color: big ? "#fff" : isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0",
-                        fontWeight: big ? 700 : 400,
-                        ...(big ? { background: isPos ? "#16a34a" : "#dc2626", padding: "0px 4px", borderRadius: 3, fontSize: 10 } : {})
-                      }}>
-                        {m.change}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading major news...</span>}
-          </div>
-          </div>
-          </div>
-          )}
-        </div>
-      )}
 
     </div>
   );
@@ -9849,7 +9751,96 @@ function AppMain({ authToken, onLogout }) {
             liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} />}
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
-          {view === "quad" && <Suspense fallback={<div style={{ color: "#686878", padding: 20, textAlign: "center" }}>Loading...</div>}><USMarketQuadrant /></Suspense>}
+          {view === "quad" && <>
+            {/* Market Overview: Futures, Earnings, Major News */}
+            {homepage && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10 }}>
+                {/* Futures */}
+                <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Futures</div>
+                  {homepage.futures && homepage.futures.length > 0 ? (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+                      <tbody>
+                        {homepage.futures.map((f, i) => {
+                          const isPos = f.change_pct?.includes("+") || (!f.change_pct?.includes("-") && parseFloat(f.change) > 0);
+                          const isNeg = f.change_pct?.includes("-") || parseFloat(f.change) < 0;
+                          return (
+                            <tr key={i} style={{ borderBottom: "1px solid #1a1a24" }}>
+                              <td style={{ padding: "3px 4px", color: "#b8b8c8", fontWeight: 600 }}>{f.label}</td>
+                              <td style={{ padding: "3px 4px", textAlign: "right", color: "#9090a0" }}>{f.last}</td>
+                              <td style={{ padding: "3px 4px", textAlign: "right", color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>{f.change}</td>
+                              <td style={{ padding: "3px 4px", textAlign: "right", fontWeight: 700, color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>{f.change_pct}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading futures...</span>}
+                </div>
+                {/* Earnings Release */}
+                <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Earnings Release</div>
+                  {homepage.earnings && homepage.earnings.length > 0 ? (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+                      <tbody>
+                        {homepage.earnings.map((e, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid #1a1a24" }}>
+                            <td style={{ padding: "3px 4px", color: "#686878", whiteSpace: "nowrap", width: 70, verticalAlign: "top" }}>{e.date}</td>
+                            <td style={{ padding: "3px 4px" }}>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {e.tickers.map(t => (
+                                  <span key={t} onClick={() => openChart(t)}
+                                    style={{ color: stockMap[t] ? "#60a5fa" : "#9090a0", cursor: "pointer", fontWeight: stockMap[t] ? 600 : 400 }}
+                                    onMouseEnter={ev => ev.target.style.color = "#0d9163"}
+                                    onMouseLeave={ev => ev.target.style.color = stockMap[t] ? "#60a5fa" : "#9090a0"}>
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading earnings...</span>}
+                </div>
+                {/* Major News */}
+                <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Major News</div>
+                  {homepage.major_news && homepage.major_news.length > 0 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, fontSize: 11, fontFamily: "monospace" }}>
+                      {homepage.major_news.map((m, i) => {
+                        const pct = parseFloat(m.change);
+                        const big = Math.abs(pct) >= 5;
+                        const isPos = pct > 0;
+                        const isNeg = pct < 0;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 4px" }}>
+                            <span onClick={() => openChart(m.ticker)}
+                              style={{ color: "#b8b8c8", fontWeight: 600, cursor: "pointer" }}
+                              onMouseEnter={ev => ev.target.style.color = "#0d9163"}
+                              onMouseLeave={ev => ev.target.style.color = "#b8b8c8"}>
+                              {m.ticker}
+                            </span>
+                            <span style={{
+                              color: big ? "#fff" : isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0",
+                              fontWeight: big ? 700 : 400,
+                              ...(big ? { background: isPos ? "#16a34a" : "#dc2626", padding: "0px 4px", borderRadius: 3, fontSize: 10 } : {})
+                            }}>
+                              {m.change}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : <span style={{ color: "#505060", fontSize: 10 }}>Loading major news...</span>}
+                </div>
+                </div>
+              </div>
+            )}
+            <Suspense fallback={<div style={{ color: "#686878", padding: 20, textAlign: "center" }}>Loading...</div>}><USMarketQuadrant /></Suspense>
+          </>}
           </ErrorBoundary>
           <ErrorBoundary name="Earnings Intel">
           {view === "intel" && <EarningsIntel
