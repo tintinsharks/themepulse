@@ -8620,7 +8620,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           market_cap: s.market_cap,
           market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
           change: live?.change ?? null, ext_change: live?.ext_change ?? null, rvol: live?.rvol ?? null, live_vol: live?.volume ?? null,
-          _days: days, _s: s
+          avg_er_move: s.avg_er_move ?? null, _days: days, _s: s
         });
       } catch {}
     });
@@ -8769,10 +8769,9 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                      {["Ticker","EPS YoY","Sales YoY",
+                      {["Ticker","EPS YoY","Sales YoY","Avg Move",
                         marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%",
-                        ...(marketSession ? [] : ["Vol","RVol"]),
-                        "RS"].map(h => (
+                        "Vol","RVol","RS"].map(h => (
                         <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
                       ))}
                     </tr>
@@ -8795,15 +8794,17 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                         </td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.eps_yoy)}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.sales_yoy)}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#a78bfa" }}>
+                          {r.avg_er_move != null ? `±${r.avg_er_move}%` : "—"}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                           color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
                           {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</td>
-                        {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                            color: proj9M ? "#f87171" : r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#505060" }}>
-                            {curVol != null ? fmtV(curVol) : "—"}</td>}
-                        {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: proj9M ? "#f87171" : r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : (r.live_vol ?? curVol) != null ? "#686878" : "#505060" }}>
+                            {r.live_vol != null ? fmtV(r.live_vol) : curVol != null ? fmtV(curVol) : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                           color: r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : r.rvol != null ? "#686878" : "#505060" }}>
-                          {r.rvol != null ? `${r.rvol.toFixed(1)}x` : "—"}</td>}
+                          {r.rvol != null ? `${r.rvol.toFixed(1)}x` : "—"}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
                           color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
                           {r.rs_rank != null ? r.rs_rank : "—"}</td>
