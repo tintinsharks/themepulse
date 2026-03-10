@@ -5443,6 +5443,10 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const indChartRef = useRef(null);
   const indSeriesRef = useRef(null);
   const indErLineRef = useRef(null);
+  const crContainerRef = useRef(null);
+  const crChartRef = useRef(null);
+  const crSeriesRef = useRef(null);
+  const crMaRef = useRef(null);
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -5492,6 +5496,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
       if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; indErLineRef.current = null; }
+      if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -5550,6 +5555,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         if (indChartRef.current && indContainerRef.current) {
           try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 80); } catch {}
         }
+        if (crChartRef.current && crContainerRef.current) {
+          try { crChartRef.current.resize(crContainerRef.current.clientWidth || 400, 70); } catch {}
+        }
         if (volChartRef.current && volContainerRef.current) {
           try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 120); } catch {}
         }
@@ -5581,12 +5589,40 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           lastValueVisible: false, priceLineVisible: false,
           autoscaleInfoProvider: () => ({ priceRange: { minValue: -20, maxValue: 20 } }),
         });
-        // Sync indicator time scale from main chart (volume chart also synced below)
+        // Sync indicator time scale from main chart (all sub-panes synced)
         chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
           if (range) {
             if (indChartRef.current) try { indChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+            if (crChartRef.current) try { crChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
             if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
           }
+        });
+      }
+
+      // ── CR% (Close Range %) pane ──
+      if (crContainerRef.current) {
+        const crChart = LW.createChart(crContainerRef.current, {
+          width: crContainerRef.current.clientWidth || 400, height: 70,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38", scaleMargins: { top: 0.05, bottom: 0.05 } },
+          timeScale: { visible: false },
+          handleScroll: false,
+          handleScale: false,
+        });
+        crChartRef.current = crChart;
+        // CR% histogram — color-coded by level
+        crSeriesRef.current = crChart.addHistogramSeries({
+          priceFormat: { type: "price", precision: 0, minMove: 1 },
+          lastValueVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+        });
+        // 10-period SMA of CR% overlay
+        crMaRef.current = crChart.addLineSeries({
+          color: "#fbbf2480", lineWidth: 1,
+          lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
         });
       }
 
@@ -6036,6 +6072,48 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
+        // ── CR% (Close Range %) data ──
+        if (crSeriesRef.current) {
+          const crData = [];
+          const crVals = [];
+          for (let i = 0; i < bars.length; i++) {
+            const range = bars[i].high - bars[i].low;
+            const cr = range > 0 ? ((bars[i].close - bars[i].low) / range) * 100 : 50;
+            crVals.push(cr);
+            // Color: green if CR>=85 AND up day, red if CR<=15 AND down day, else neutral
+            const isUp = bars[i].close >= bars[i].open;
+            let color;
+            if (cr >= 85 && isUp) color = "#2bb886";
+            else if (cr >= 70 && isUp) color = "#2bb88680";
+            else if (cr <= 15 && !isUp) color = "#f87171";
+            else if (cr <= 30 && !isUp) color = "#f8717180";
+            else color = "#4a4a5a60";
+            crData.push({ time: btime(bars[i]), value: Math.round(cr), color });
+          }
+          crSeriesRef.current.setData(crData);
+
+          // 10-period SMA of CR%
+          if (crMaRef.current) {
+            const crMaData = [];
+            for (let i = 0; i < crVals.length; i++) {
+              if (i < 9) continue;
+              let sum = 0;
+              for (let j = i - 9; j <= i; j++) sum += crVals[j];
+              crMaData.push({ time: btime(bars[i]), value: Math.round(sum / 10) });
+            }
+            crMaRef.current.setData(crMaData);
+          }
+
+          // 85% and 50% reference lines (create once)
+          if (!crSeriesRef.current._refLinesAdded) {
+            try {
+              crSeriesRef.current.createPriceLine({ price: 85, color: "#2bb88640", lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+              crSeriesRef.current.createPriceLine({ price: 50, color: "#4a4a5a30", lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+              crSeriesRef.current._refLinesAdded = true;
+            } catch {}
+          }
+        }
+
         // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
         const totalBars = bars.length;
         const visBars = tf === "30m" ? totalBars : tf === "W" ? 52 : tf === "M" ? 18 : 74;
@@ -6192,6 +6270,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
+      </div>
+      {/* CR% panel */}
+      <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
+        <div ref={crContainerRef} style={{ width: "100%", height: 70 }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>CR%</div>
       </div>
       {/* Volume panel */}
       <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
