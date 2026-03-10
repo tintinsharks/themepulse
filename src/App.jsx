@@ -7749,13 +7749,20 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         });
       });
     });
-    // Compute metrics from ALL tickers (watchlist + universe)
+    // Compute $vol-weighted avg change + equal-weighted avg RVol
     return Object.values(groups).map(g => {
       const allStocks = [...g.wlStocks, ...g.uniStocks];
-      const changes = allStocks.map(s => s.change).filter(c => c != null);
       const rvols = allStocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
-      const avgChg = changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : null;
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
+      // Dollar-volume weighted change — institutional money flow signal
+      let totalDv = 0, weightedChg = 0;
+      allStocks.forEach(s => {
+        if (s.change == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        totalDv += dv;
+        weightedChg += s.change * dv;
+      });
+      const avgChg = totalDv > 0 ? weightedChg / totalDv : null;
       return { ...g, avgChg, avgRvol, wlCount: g.wlStocks.length, totalCount: allStocks.length };
     }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
   }, [watchlistAll, watchlist, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
