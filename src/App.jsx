@@ -8843,10 +8843,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 40 }}>
                         <div style={{ borderRight: "1px solid #2a2a38" }}>
-                          {renderSipCol(filterSip(pmSipMovers), "PRE-MARKET", "#22d3ee")}
+                          {renderSipCol(filterSip(ahSipMovers), "AFTER-HOURS", "#a78bfa")}
                         </div>
                         <div>
-                          {renderSipCol(filterSip(ahSipMovers), "AFTER-HOURS", "#a78bfa")}
+                          {renderSipCol(filterSip(pmSipMovers), "PRE-MARKET", "#22d3ee")}
                         </div>
                       </div>
                     </div>
