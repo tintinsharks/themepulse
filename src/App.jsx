@@ -861,8 +861,8 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             <div style={{ padding: "6px 10px", borderBottom: "1px solid #222230" }}>
               <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 4 }}>HEADLINES</div>
               {headlinesMap[ticker].headlines.slice(0, 5).map((hl, i) => (
-                <div key={i} style={{ fontSize: 9, color: i === 0 ? "#d4d4e0" : "#787888", lineHeight: 1.4, marginBottom: 2,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div key={i} style={{ fontSize: 9, color: i === 0 ? "#d4d4e0" : "#787888", lineHeight: 1.4, marginBottom: 3,
+                  wordBreak: "break-word" }}>
                   {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
                 </div>
               ))}
