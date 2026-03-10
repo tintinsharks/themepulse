@@ -8691,40 +8691,41 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           {calendarDays.length === 0 ? (
             <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±{calRange} day window{calMinDvol > 0 ? ` with ≥$${calMinDvol}M avg $vol` : ""}.</div>
           ) : calendarDays.map(day => {
-            const sessionGroups = [
-              { label: "Before Open (BMO)", items: day.bmo, color: "#22d3ee", bg: "#22d3ee15" },
-              { label: "After Close (AMC)", items: day.amc, color: "#a78bfa", bg: "#a78bfa15" },
-              ...(day.other.length > 0 ? [{ label: "Unspecified", items: day.other, color: "#686878", bg: "#68687815" }] : [])
-            ];
-            const renderTable = (items) => (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                    {["Symbol","Name","Est EPS","EPS Gr%","Est Rev","Rev Gr%","MCap","Avg $Vol","RS"].map(h => (
-                      <th key={h} style={{ padding: "6px 8px", textAlign: h === "Name" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 10 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(r => (
-                    <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
-                      onClick={() => onTickerClick && onTickerClick(r.ticker)}
-                      onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      <td style={{ padding: "5px 8px", fontWeight: 700, color: "#22d3ee", fontFamily: "monospace", whiteSpace: "nowrap" }}>{r.ticker}</td>
-                      <td style={{ padding: "5px 8px", color: "#d4d4e0", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.eps_est != null ? `$${Number(r.eps_est).toFixed(2)}` : "—"}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.eps_yoy > 0 ? "#2bb886" : r.eps_yoy < 0 ? "#f87171" : "#686878" }}>{r.eps_yoy != null ? `${r.eps_yoy > 0 ? "+" : ""}${Number(r.eps_yoy).toFixed(0)}%` : "—"}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.rev_est || "—"}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.sales_yoy > 0 ? "#2bb886" : r.sales_yoy < 0 ? "#f87171" : "#686878" }}>{r.sales_yoy != null ? `${r.sales_yoy > 0 ? "+" : ""}${Number(r.sales_yoy).toFixed(0)}%` : "—"}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#9090a0", fontFamily: "monospace" }}>{r.market_cap || "—"}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#787888", fontFamily: "monospace" }}>{r.avg_dvol_fmt || "—"}</td>
-                      <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>{r.rs_rank != null ? r.rs_rank : "—"}</td>
+            const renderCol = (items, emptyMsg) => items.length === 0
+              ? <div style={{ color: "#505060", fontSize: 11, padding: "16px 8px", textAlign: "center" }}>{emptyMsg}</div>
+              : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                      {["Ticker","Est EPS","EPS%","MCap","$Vol","RS"].map(h => (
+                        <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            );
+                  </thead>
+                  <tbody>
+                    {items.map(r => (
+                      <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
+                        onClick={() => onTickerClick && onTickerClick(r.ticker)}
+                        onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <td style={{ padding: "4px 6px" }}>
+                          <div style={{ fontWeight: 700, color: "#22d3ee", fontFamily: "monospace", fontSize: 11 }}>{r.ticker}</div>
+                          <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{r.company}</div>
+                        </td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.eps_est != null ? `$${Number(r.eps_est).toFixed(2)}` : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: r.eps_yoy > 0 ? "#2bb886" : r.eps_yoy < 0 ? "#f87171" : "#686878" }}>
+                          {r.eps_yoy != null ? `${r.eps_yoy > 0 ? "+" : ""}${Number(r.eps_yoy).toFixed(0)}%` : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#9090a0", fontFamily: "monospace", fontSize: 10 }}>{r.market_cap || "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#787888", fontFamily: "monospace", fontSize: 10 }}>{r.avg_dvol_fmt || "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
+                          {r.rs_rank != null ? r.rs_rank : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>;
+            const bmoAll = [...day.bmo, ...day.other.filter(r => r.timing !== "AMC")];
+            const amcAll = day.amc;
             return (
               <div key={day.days} style={{ marginBottom: 20, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
                 {/* Day header */}
@@ -8733,19 +8734,26 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                   {day.tag && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
                     background: day.days === 0 ? "#22d3ee20" : "#2a2a38", color: day.days === 0 ? "#22d3ee" : "#9090a0" }}>{day.tag}</span>}
                   <span style={{ fontSize: 10, color: "#686878", marginLeft: "auto" }}>
-                    {day.items.length} reporting — {day.bmo.length} BMO, {day.amc.length} AMC{day.other.length > 0 ? `, ${day.other.length} unspecified` : ""}
+                    {day.items.length} reporting — {bmoAll.length} BMO, {amcAll.length} AMC
                   </span>
                 </div>
-                {/* Session sub-groups */}
-                {sessionGroups.map(sg => sg.items.length > 0 && (
-                  <div key={sg.label}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: sg.bg, borderBottom: "1px solid #1a1a24" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: sg.color, textTransform: "uppercase", letterSpacing: 0.5 }}>{sg.label}</span>
-                      <span style={{ fontSize: 10, color: "#686878" }}>({sg.items.length})</span>
+                {/* Two-column: BMO left, AMC right */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 60 }}>
+                  <div style={{ borderRight: "1px solid #2a2a38" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "#22d3ee10", borderBottom: "1px solid #1a1a24" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", letterSpacing: 0.5 }}>BEFORE OPEN</span>
+                      <span style={{ fontSize: 10, color: "#686878" }}>({bmoAll.length})</span>
                     </div>
-                    {renderTable(sg.items)}
+                    {renderCol(bmoAll, "No BMO reports")}
                   </div>
-                ))}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "#a78bfa10", borderBottom: "1px solid #1a1a24" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#a78bfa", letterSpacing: 0.5 }}>AFTER CLOSE</span>
+                      <span style={{ fontSize: 10, color: "#686878" }}>({amcAll.length})</span>
+                    </div>
+                    {renderCol(amcAll, "No AMC reports")}
+                  </div>
+                </div>
               </div>
             );
           })}
