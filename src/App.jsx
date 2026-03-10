@@ -1180,6 +1180,8 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, onVis
   const [liveLoading, setLiveLoading] = useState(false);
   const [healthFilter, setHealthFilter] = useState(null);
   const [fetchProg, setFetchProg] = useState({ done: 0, total: 0 });
+  const [expandedTheme, setExpandedTheme] = useState(null);
+  const [expandedSub, setExpandedSub] = useState(null);
 
   // Merge external + local for best coverage
   const liveThemeData = useMemo(() => {
@@ -1280,6 +1282,30 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, onVis
     return perf;
   }, [liveThemeData, themes]);
 
+  // Compute live subtheme performance from liveLookup
+  const liveSubPerf = useMemo(() => {
+    if (!liveLookup || Object.keys(liveLookup).length === 0 || !themes) return {};
+    const perf = {};
+    themes.forEach(t => {
+      (t.subthemes || []).forEach(sub => {
+        const key = `${t.theme}::${sub.name}`;
+        const changes = [], rvols = [];
+        (sub.tickers || []).forEach(tk => {
+          const s = liveLookup[tk];
+          if (s?.change != null) changes.push(s.change);
+          if (s?.rel_volume != null && s.rel_volume > 0) rvols.push(s.rel_volume);
+        });
+        if (changes.length === 0) return;
+        const avg = changes.reduce((a, b) => a + b, 0) / changes.length;
+        const up = changes.filter(c => c > 0).length;
+        const breadth = Math.round(up / changes.length * 100);
+        const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
+        perf[key] = { avg, breadth, avgRvol, up, total: changes.length };
+      });
+    });
+    return perf;
+  }, [liveLookup, themes]);
+
   const healthMap = useMemo(() => {
     const m = {};
     if (themeHealth) themeHealth.forEach(h => { m[h.theme] = h; });
@@ -1366,17 +1392,21 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, onVis
         const lp = liveThemePerf[theme.theme];
         const hBg = h ? ({ LEADING: "#2bb88618", EMERGING: "#fbbf2415", HOLDING: "#9090a010", WEAKENING: "#f9731615", LAGGING: "#f8717115" }[h.status] || "#1a1a2a") : "#1a1a2a";
         return (
-          <div key={theme.theme} onClick={() => onThemeDrillDown && onThemeDrillDown(theme.theme)}
-            style={{ marginBottom: 2, borderRadius: 4, border: "1px solid #2a2a38", overflow: "hidden", cursor: "pointer" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "#0d9163"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a38"}>
-            <div style={{ padding: "5px 8px",
-              background: `linear-gradient(90deg, ${hBg} ${barW}%, #111 ${barW}%)` }}>
+          <div key={theme.theme}
+            style={{ marginBottom: 2, borderRadius: 4, border: expandedTheme === theme.theme ? "1px solid #0d9163" : "1px solid #2a2a38", overflow: "hidden" }}
+            onMouseEnter={e => { if (expandedTheme !== theme.theme) e.currentTarget.style.borderColor = "#0d9163"; }}
+            onMouseLeave={e => { if (expandedTheme !== theme.theme) e.currentTarget.style.borderColor = "#2a2a38"; }}>
+            <div style={{ padding: "5px 8px", cursor: "pointer",
+              background: `linear-gradient(90deg, ${hBg} ${barW}%, #111 ${barW}%)` }}
+              onClick={() => { setExpandedTheme(expandedTheme === theme.theme ? null : theme.theme); setExpandedSub(null); }}>
               {/* Row 1: Theme name + health */}
               <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
                 <span style={{ color: "#e4e4f0", fontWeight: 700, fontSize: 12, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {theme.theme}
+                  {expandedTheme === theme.theme ? "▾ " : "▸ "}{theme.theme}
                 </span>
+                <span style={{ fontSize: 9, color: "#505060", cursor: "pointer", padding: "0 3px" }}
+                  onClick={e => { e.stopPropagation(); onThemeDrillDown && onThemeDrillDown(theme.theme); }}
+                  title="Filter scan by this theme">⊞</span>
                 {h && (() => {
                   const sc = { LEADING: "#2bb886", EMERGING: "#fbbf24", HOLDING: "#9090a0", WEAKENING: "#f97316", LAGGING: "#f87171" }[h.status] || "#686878";
                   const sig = h.signal === "ADD" ? "★ " : h.signal === "REMOVE" ? "✗ " : "";
@@ -1398,6 +1428,64 @@ function Leaders({ themes, stockMap, filters, onTickerClick, activeTicker, onVis
                 <Ret v={theme.return_3m} />
               </div>
             </div>
+            {/* Expanded subthemes */}
+            {expandedTheme === theme.theme && theme.subthemes && (
+              <div style={{ background: "#0a0a14", borderTop: "1px solid #2a2a38" }}>
+                {(hasLive ? [...theme.subthemes].sort((a, b) => (liveSubPerf[`${theme.theme}::${b.name}`]?.avg ?? -999) - (liveSubPerf[`${theme.theme}::${a.name}`]?.avg ?? -999)) : theme.subthemes).map(sub => {
+                  const isExpSub = expandedSub === `${theme.theme}::${sub.name}`;
+                  const subStocks = (sub.tickers || []).map(tk => stockMap[tk]).filter(Boolean).sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0));
+                  const lsub = liveSubPerf[`${theme.theme}::${sub.name}`];
+                  return (
+                    <div key={sub.name}>
+                      <div onClick={() => setExpandedSub(isExpSub ? null : `${theme.theme}::${sub.name}`)}
+                        style={{ padding: "4px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, borderBottom: "1px solid #1a1a28" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#151520"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <span style={{ color: "#787888", fontSize: 9, width: 10 }}>{isExpSub ? "▾" : "▸"}</span>
+                        <span style={{ color: "#b8b8c8", fontSize: 11, fontWeight: 600, flex: 1 }}>{sub.name}</span>
+                        <span style={{ color: "#505060", fontSize: 9 }}>{sub.count || sub.tickers?.length || 0}</span>
+                        <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 600,
+                          color: (sub.rts || 0) >= 70 ? "#2bb886" : (sub.rts || 0) >= 40 ? "#fbbf24" : "#686878" }}>{sub.rts || "—"}</span>
+                        {lsub && <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                          color: lsub.avg > 0 ? "#2bb886" : lsub.avg < 0 ? "#f87171" : "#686878" }}>
+                          {lsub.avg > 0 ? "+" : ""}{lsub.avg.toFixed(1)}%</span>}
+                        {lsub && lsub.avgRvol != null && <span style={{ fontSize: 9,
+                          color: lsub.avgRvol >= 1.5 ? "#c084fc" : lsub.avgRvol >= 1.0 ? "#787888" : "#505060",
+                          fontWeight: lsub.avgRvol >= 1.5 ? 700 : 400 }}>{lsub.avgRvol.toFixed(1)}x</span>}
+                        <span style={{ color: "#787888", fontSize: 9 }}>B:{lsub ? `${lsub.breadth}%` : `${sub.breadth || 0}%`}</span>
+                        <span style={{ fontSize: 9, fontFamily: "monospace" }}><Ret v={sub.return_3m} /></span>
+                      </div>
+                      {isExpSub && subStocks.length > 0 && (
+                        <div style={{ background: "#0d0d18", padding: "2px 0" }}>
+                          {subStocks.map(s => {
+                            const live = liveLookup[s.ticker];
+                            const chg = live?.change ?? s.return_1d;
+                            return (
+                              <div key={s.ticker} onClick={() => onTickerClick && onTickerClick(s.ticker)}
+                                style={{ padding: "3px 20px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: "monospace",
+                                  background: activeTicker === s.ticker ? "#0d916320" : "transparent" }}
+                                onMouseEnter={e => e.currentTarget.style.background = activeTicker === s.ticker ? "#0d916320" : "#151520"}
+                                onMouseLeave={e => e.currentTarget.style.background = activeTicker === s.ticker ? "#0d916320" : "transparent"}>
+                                <span style={{ color: "#e4e4f0", fontWeight: 600, width: 50 }}>{s.ticker}</span>
+                                <span style={{ color: "#787888", fontSize: 9, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>{s.company}</span>
+                                <span style={{ color: "#b8b8c8", width: 45, textAlign: "right" }}>{s.price ? `$${s.price.toFixed(s.price >= 100 ? 0 : 2)}` : "—"}</span>
+                                <span style={{ width: 45, textAlign: "right", fontWeight: 600,
+                                  color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                                  {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                                </span>
+                                <span style={{ width: 25, textAlign: "right",
+                                  color: (s.rs_rank || 0) >= 80 ? "#2bb886" : (s.rs_rank || 0) >= 50 ? "#fbbf24" : "#686878" }}>{s.rs_rank || "—"}</span>
+                                <span style={{ color: "#505060", fontSize: 8 }}>RS</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
