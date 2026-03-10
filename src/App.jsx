@@ -7764,6 +7764,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           rel_volume: live?.rel_volume ?? null,
           rs_rank: pipe?.rs_rank ?? null,
           avg_dollar_vol_raw: pipe?.avg_dollar_vol_raw ?? null,
+          accel: pipe?.accel ?? null,
         });
       });
     });
@@ -7784,9 +7785,19 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       // Avg RS rank across all stocks
       const rsVals = allStocks.map(s => s.rs_rank ?? stockMap[s.ticker]?.rs_rank).filter(r => r != null);
       const avgRS = rsVals.length > 0 ? Math.round(rsVals.reduce((a, b) => a + b, 0) / rsVals.length) : null;
+      // $Vol-weighted avg accel (normalized like avgChg)
+      let accelDvTotal = 0, accelWeighted = 0;
+      allStocks.forEach(s => {
+        const a = s.accel ?? stockMap[s.ticker]?.accel;
+        if (a == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        accelDvTotal += dv;
+        accelWeighted += a * dv;
+      });
+      const avgAccel = accelDvTotal > 0 ? Math.round(accelWeighted / accelDvTotal * 10) / 10 : null;
       // Discovery: universe tickers NOT on watchlist with RS ≥ 80 and RVol ≥ 1.5
       const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
-      return { ...g, avgChg, avgRvol, avgRS, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
+      return { ...g, avgChg, avgRvol, avgRS, avgAccel, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
     }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
   }, [watchlistAll, watchlist, portfolio, portfolioMerged, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
 
@@ -7947,6 +7958,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                         {g.avgRS != null ? g.avgRS : "—"}
                       </div>
                       <div onClick={() => setWlThemeSort("avgRS")} style={{ fontSize: 8, color: wlThemeSort === "avgRS" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Avg RS {wlThemeSort === "avgRS" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgAccel ?? 0) >= 5 ? "#2bb886" : (g.avgAccel ?? 0) >= 2 ? "#4a9070" : (g.avgAccel ?? 0) <= -5 ? "#f87171" : (g.avgAccel ?? 0) <= -2 ? "#c06060" : "#686878" }}>
+                        {g.avgAccel != null ? `${g.avgAccel > 0 ? "+" : ""}${g.avgAccel.toFixed(1)}` : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgAccel")} style={{ fontSize: 8, color: wlThemeSort === "avgAccel" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Accel {wlThemeSort === "avgAccel" ? "▼" : ""}</div>
                     </div>
                   </div>
                 </div>
