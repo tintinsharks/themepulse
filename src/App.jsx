@@ -7608,6 +7608,62 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         {error && <span style={{ fontSize: 11, color: "#f87171" }}>Error: {error}</span>}
       </div>
 
+      {/* ── 1. Portfolio ── */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            Portfolio ({portfolio.length})
+          </span>
+          <TickerInput value={addTickerP} setValue={setAddTickerP} onAdd={handleAddP} />
+        </div>
+        {portfolio.length === 0 ? (
+          <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
+            Add your holdings above to track live.
+          </div>
+        ) : (
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+        )}
+      </div>
+
+      {/* ── 2. Watchlist ── */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ color: "#0d9163", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            Watchlist ({watchlistMerged.length}/{watchlist.length})
+          </span>
+          <TickerInput value={addTickerW} setValue={setAddTickerW} onAdd={handleAddW} />
+        </div>
+        {/* Watchlist filters */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <button onClick={() => setWlNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wlNearPivot ? "1px solid #60a5fa" : "1px solid #3a3a4a",
+            background: wlNearPivot ? "#60a5fa20" : "transparent", color: wlNearPivot ? "#60a5fa" : "#787888" }}>Near Pivot (&lt;3%)</button>
+          <button onClick={() => setWlGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wlGreenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
+            background: wlGreenOnly ? "#2bb88620" : "transparent", color: wlGreenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
+          <button onClick={() => setWl9M(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wl9M ? "1px solid #f59e0b" : "1px solid #3a3a4a",
+            background: wl9M ? "#f59e0b20" : "transparent", color: wl9M ? "#f59e0b" : "#787888" }}>9M</button>
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontSize: 10, color: wlMinDvol > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>${wlMinDvol}M</span>
+          <input type="range" min={0} max={200} step={10} value={wlMinDvol} onChange={e => setWlMinDvol(Number(e.target.value))}
+            style={{ width: 60, accentColor: "#4aad8c" }} title={`Min $Vol: $${wlMinDvol}M`} />
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontSize: 10, color: wlMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{wlMinRS}</span>
+          <input type="range" min={0} max={95} step={5} value={wlMinRS} onChange={e => setWlMinRS(Number(e.target.value))}
+            style={{ width: 60, accentColor: "#4aad8c" }} title={`Min RS: ${wlMinRS}`} />
+        </div>
+        {watchlist.length === 0 ? (
+          <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
+            Add tickers above or click <span style={{ color: "#0d9163" }}>+watch</span> on volume gainers below.
+          </div>
+        ) : (
+          <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+          </div>
+        )}
+      </div>
+
       {/* Index ETF Strip — real-time from theme universe */}
       {liveThemeData && liveThemeData.length > 0 && (() => {
         const indices = [
@@ -7782,62 +7838,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           )}
         </div>
       )}
-
-      {/* ── 1. Portfolio ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            Portfolio ({portfolio.length})
-          </span>
-          <TickerInput value={addTickerP} setValue={setAddTickerP} onAdd={handleAddP} />
-        </div>
-        {portfolio.length === 0 ? (
-          <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
-            Add your holdings above to track live.
-          </div>
-        ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
-        )}
-      </div>
-
-      {/* ── 2. Watchlist ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ color: "#0d9163", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            Watchlist ({watchlistMerged.length}/{watchlist.length})
-          </span>
-          <TickerInput value={addTickerW} setValue={setAddTickerW} onAdd={handleAddW} />
-        </div>
-        {/* Watchlist filters */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-          <button onClick={() => setWlNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-            border: wlNearPivot ? "1px solid #60a5fa" : "1px solid #3a3a4a",
-            background: wlNearPivot ? "#60a5fa20" : "transparent", color: wlNearPivot ? "#60a5fa" : "#787888" }}>Near Pivot (&lt;3%)</button>
-          <button onClick={() => setWlGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-            border: wlGreenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
-            background: wlGreenOnly ? "#2bb88620" : "transparent", color: wlGreenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
-          <button onClick={() => setWl9M(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-            border: wl9M ? "1px solid #f59e0b" : "1px solid #3a3a4a",
-            background: wl9M ? "#f59e0b20" : "transparent", color: wl9M ? "#f59e0b" : "#787888" }}>9M</button>
-          <span style={{ color: "#3a3a4a" }}>│</span>
-          <span style={{ fontSize: 10, color: wlMinDvol > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>${wlMinDvol}M</span>
-          <input type="range" min={0} max={200} step={10} value={wlMinDvol} onChange={e => setWlMinDvol(Number(e.target.value))}
-            style={{ width: 60, accentColor: "#4aad8c" }} title={`Min $Vol: $${wlMinDvol}M`} />
-          <span style={{ color: "#3a3a4a" }}>│</span>
-          <span style={{ fontSize: 10, color: wlMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{wlMinRS}</span>
-          <input type="range" min={0} max={95} step={5} value={wlMinRS} onChange={e => setWlMinRS(Number(e.target.value))}
-            style={{ width: 60, accentColor: "#4aad8c" }} title={`Min RS: ${wlMinRS}`} />
-        </div>
-        {watchlist.length === 0 ? (
-          <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
-            Add tickers above or click <span style={{ color: "#0d9163" }}>+watch</span> on volume gainers below.
-          </div>
-        ) : (
-          <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
-          </div>
-        )}
-      </div>
 
     </div>
   );
@@ -9746,7 +9746,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"],["intel","Earnings Intel"]].map(([id, label]) => (
+        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["exec","Execution"],["quad","Quadrant"],["intel","Earnings Intel"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -9835,11 +9835,6 @@ function AppMain({ authToken, onLogout }) {
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             portfolio={portfolio} watchlist={watchlist} removeFromPortfolio={removeFromPortfolio} liveThemeData={liveThemeData} erSipLookup={erSipLookup} />}
-          </ErrorBoundary>
-          <ErrorBoundary name="Performance">
-          {view === "perf" && <TradePerformance trades={trades} stockMap={stockMap}
-            accountSize={parseFloat(localStorage.getItem("tp_account_size") || "100000")}
-            maxAllocPct={parseFloat(localStorage.getItem("tp_max_alloc") || "25")} />}
           </ErrorBoundary>
           <ErrorBoundary name="Live">
           {view === "live" && <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
