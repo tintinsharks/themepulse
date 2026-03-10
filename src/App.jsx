@@ -7561,6 +7561,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [wlMinDvol, setWlMinDvol] = useState(50);
   const [wl9M, setWl9M] = useState(false);
   const [wlView, setWlView] = useState("list"); // "list" | "themes"
+  const [wlThemeSort, setWlThemeSort] = useState("avgChg"); // "avgChg" | "avgRvol"
 
   // Combine all tickers for API call — watchlist + portfolio
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -7756,8 +7757,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       const avgChg = changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : null;
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
       return { ...g, avgChg, avgRvol, wlCount: g.wlStocks.length, totalCount: allStocks.length };
-    }).sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
-  }, [watchlistAll, watchlist, subthemeUniverse, liveLookup, stockMap]);
+    }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
+  }, [watchlistAll, watchlist, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
 
   useEffect(() => {
     if (!onVisibleTickers) return;
@@ -7890,14 +7891,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                         color: isPos ? "#2bb886" : (g.avgChg ?? 0) < 0 ? "#f87171" : "#686878" }}>
                         {g.avgChg != null ? `${g.avgChg > 0 ? "+" : ""}${g.avgChg.toFixed(2)}%` : "—"}
                       </div>
-                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase" }}>Avg Chg</div>
+                      <div onClick={() => setWlThemeSort("avgChg")} style={{ fontSize: 8, color: wlThemeSort === "avgChg" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Avg Chg {wlThemeSort === "avgChg" ? "▼" : ""}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 12, fontFamily: "monospace",
                         color: (g.avgRvol ?? 0) >= 2 ? "#c084fc" : (g.avgRvol ?? 0) >= 1.5 ? "#a78bfa" : "#686878" }}>
                         {g.avgRvol != null ? `${g.avgRvol.toFixed(1)}x` : "—"}
                       </div>
-                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase" }}>RVol</div>
+                      <div onClick={() => setWlThemeSort("avgRvol")} style={{ fontSize: 8, color: wlThemeSort === "avgRvol" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>RVol {wlThemeSort === "avgRvol" ? "▼" : ""}</div>
                     </div>
                   </div>
                 </div>
