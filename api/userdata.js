@@ -66,10 +66,14 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { portfolio, watchlist } = req.body || {};
+      const { portfolio, watchlist, pkn, pknWatch, trades, focusList } = req.body || {};
       const payload = JSON.stringify({
         portfolio: portfolio || [],
         watchlist: watchlist || [],
+        pkn: pkn || [],
+        pknWatch: pknWatch || [],
+        trades: trades || [],
+        focusList: focusList || [],
         updated: new Date().toISOString(),
       });
       await redisCmd("SET", DATA_KEY, payload);
