@@ -8791,6 +8791,65 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                     {renderCol(amcAll, "No AMC reports")}
                   </div>
                 </div>
+                {/* EP Catalysts — PM/AH non-earnings movers, today only */}
+                {day.days === 0 && (pmSipMovers.length > 0 || ahSipMovers.length > 0) && (() => {
+                  const renderSipCol = (movers, label, color) => (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: `${color}10`, borderBottom: "1px solid #1a1a24" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: 0.5 }}>{label}</span>
+                        <span style={{ fontSize: 10, color: "#686878" }}>({movers.length})</span>
+                      </div>
+                      {movers.length === 0
+                        ? <div style={{ color: "#505060", fontSize: 11, padding: "12px 8px", textAlign: "center" }}>None</div>
+                        : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                            <thead>
+                              <tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                                {["Ticker","Chg%","Vol","RS"].map(h => (
+                                  <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {movers.map(m => (
+                                <tr key={m.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
+                                  onClick={() => onTickerClick && onTickerClick(m.ticker)}
+                                  onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
+                                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                  <td style={{ padding: "4px 6px" }}>
+                                    <div style={{ fontWeight: 700, color: "#fbbf24", fontFamily: "monospace", fontSize: 11 }}>{m.ticker}</div>
+                                    <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{m.company || m.name || ""}</div>
+                                  </td>
+                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                                    color: m.change_pct > 0 ? "#2bb886" : m.change_pct < 0 ? "#f87171" : "#686878" }}>
+                                    {m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${Number(m.change_pct).toFixed(1)}%` : "—"}</td>
+                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#787888" }}>
+                                    {m.volume ? (m.volume >= 1e6 ? `${(m.volume/1e6).toFixed(1)}M` : m.volume >= 1e3 ? `${(m.volume/1e3).toFixed(0)}K` : m.volume) : "—"}</td>
+                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                                    color: m.rs_rank >= 80 ? "#2bb886" : m.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
+                                    {m.rs_rank != null ? m.rs_rank : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>}
+                    </div>
+                  );
+                  return (
+                    <div style={{ borderTop: "2px solid #fbbf2430" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#fbbf2408" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24" }}>EP CATALYSTS</span>
+                        <span style={{ fontSize: 10, color: "#686878" }}>Non-earnings movers</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 40 }}>
+                        <div style={{ borderRight: "1px solid #2a2a38" }}>
+                          {renderSipCol(pmSipMovers, "PRE-MARKET", "#22d3ee")}
+                        </div>
+                        <div>
+                          {renderSipCol(ahSipMovers, "AFTER-HOURS", "#a78bfa")}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
