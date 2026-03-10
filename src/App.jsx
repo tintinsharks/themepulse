@@ -7609,6 +7609,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [wl9M, setWl9M] = useState(false);
   const [wlView, setWlView] = useState("list"); // "list" | "themes"
   const [wlThemeSort, setWlThemeSort] = useState("avgChg"); // "avgChg" | "avgRvol"
+  const [wlTickerRank, setWlTickerRank] = useState("change"); // "change" | "rvol" | "rs" | "cr"
+  const [wlThemeFilterGreen, setWlThemeFilterGreen] = useState(false);
+  const [wlThemeFilter9M, setWlThemeFilter9M] = useState(false);
 
   // Combine all tickers for API call — watchlist + portfolio
   const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
@@ -7957,11 +7960,71 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
             Add tickers above or click <span style={{ color: "#0d9163" }}>+watch</span> on volume gainers below.
           </div>
         ) : wlView === "themes" ? (
-          <div style={{ maxHeight: 560, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
+          <div>
+          {/* Rank + Filter controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 9, color: "#505060", fontWeight: 600 }}>RANK BY</span>
+            {[["change","Chg%"],["rvol","RVol"],["rs","RS"],["cr","CR%"]].map(([k,l]) => (
+              <button key={k} onClick={() => setWlTickerRank(k)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+                border: wlTickerRank === k ? "1px solid #22d3ee" : "1px solid #3a3a4a",
+                background: wlTickerRank === k ? "#22d3ee15" : "transparent", color: wlTickerRank === k ? "#22d3ee" : "#686878", fontWeight: 600 }}>{l}</button>
+            ))}
+            <span style={{ color: "#3a3a4a" }}>│</span>
+            <button onClick={() => setWlThemeFilterGreen(p => !p)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+              border: wlThemeFilterGreen ? "1px solid #2bb886" : "1px solid #3a3a4a",
+              background: wlThemeFilterGreen ? "#2bb88620" : "transparent", color: wlThemeFilterGreen ? "#2bb886" : "#686878", fontWeight: 600 }}>Chg&gt;0</button>
+            <button onClick={() => setWlThemeFilter9M(p => !p)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+              border: wlThemeFilter9M ? "1px solid #f87171" : "1px solid #3a3a4a",
+              background: wlThemeFilter9M ? "#f8717120" : "transparent", color: wlThemeFilter9M ? "#f87171" : "#686878", fontWeight: 600 }}>9M</button>
+          </div>
+          <div style={{ maxHeight: 540, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
             {wlThemeGroups.map(g => {
               const barMax = Math.max(...wlThemeGroups.map(x => Math.abs(x.avgChg ?? 0)), 1);
               const barW = Math.abs(g.avgChg ?? 0) / barMax * 100;
               const isPos = (g.avgChg ?? 0) >= 0;
+              // Sort & rank all tickers within group
+              const rankVal = (s) => {
+                const lv = liveLookup[s.ticker];
+                switch (wlTickerRank) {
+                  case "rvol": return lv?.rel_volume ?? s.rel_volume ?? -999;
+                  case "rs": return s.rs_rank ?? stockMap[s.ticker]?.rs_rank ?? -999;
+                  case "cr": return lv?.close_range ?? s.close_range ?? -999;
+                  default: return lv?.change ?? s.change ?? -999;
+                }
+              };
+              const is9M = (s) => {
+                const lv = liveLookup[s.ticker];
+                const curVol = lv?.volume ?? s.volume;
+                const avgVol = s.avg_volume_raw ?? stockMap[s.ticker]?.avg_volume_raw ?? 0;
+                return curVol && avgVol < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
+              };
+              const filterTicker = (s) => {
+                if (wlThemeFilterGreen) {
+                  const chg = liveLookup[s.ticker]?.change ?? s.change;
+                  if (chg == null || chg <= 0) return false;
+                }
+                if (wlThemeFilter9M && !is9M(s)) return false;
+                return true;
+              };
+              const ownSorted = [...g.wlStocks, ...g.pfStocks].filter(filterTicker).sort((a, b) => rankVal(b) - rankVal(a));
+              const uniSorted = g.uniStocks.filter(filterTicker).sort((a, b) => rankVal(b) - rankVal(a));
+              const allSorted = [...ownSorted, ...uniSorted];
+              // Build rank map (1-based)
+              const rankMap = {};
+              allSorted.forEach((s, i) => { rankMap[s.ticker] = i + 1; });
+              const pfSet = new Set(portfolio);
+              const wlSet2 = new Set(watchlist);
+              const fmtRankVal = (s) => {
+                const v = rankVal(s);
+                if (v === -999 || v == null) return "";
+                switch (wlTickerRank) {
+                  case "rvol": return ` ${v.toFixed(1)}x`;
+                  case "rs": return ` RS${Math.round(v)}`;
+                  case "cr": return ` ${Math.round(v)}%`;
+                  default: return ` ${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+                }
+              };
+              if (allSorted.length === 0) return null;
               return (
               <div key={g.name} data-subtheme={g.name} style={{ borderBottom: "1px solid #1a1a24" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", position: "relative", overflow: "hidden" }}>
@@ -7971,43 +8034,41 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#d4d4e0" }}>{g.name}</span>
                       <span style={{ fontSize: 9, color: "#505060" }}>{g.theme !== g.name ? g.theme : ""}</span>
-                      <span style={{ fontSize: 9, color: "#686878" }}>({g.ownCount}/{g.totalCount})</span>
+                      <span style={{ fontSize: 9, color: "#686878" }}>({ownSorted.length}/{allSorted.length})</span>
                     </div>
-                    {/* Ticker pills — watchlist (bold green border) + portfolio (gold border) + universe (dimmed) */}
+                    {/* Ticker pills — ranked, with rank badge */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
-                      {g.wlStocks.map(s => {
-                        const chg = s.change;
-                        return (
-                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700,
-                            background: chg > 0 ? "#2bb88618" : chg < 0 ? "#f8717118" : "#1a1a24",
-                            color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878",
-                            border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid transparent" }}>
-                          {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
-                        </span>);
-                      })}
-                      {g.pfStocks.map(s => {
-                        const chg = s.change;
+                      {ownSorted.map(s => {
+                        const chg = liveLookup[s.ticker]?.change ?? s.change;
                         const isAct = s.ticker === activeTicker;
+                        const isPf = pfSet.has(s.ticker);
+                        const rank = rankMap[s.ticker];
+                        const m9 = is9M(s);
                         return (
                         <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
                           style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700,
-                            background: isAct ? "#fbbf2430" : chg > 0 ? "#f59e0b18" : chg < 0 ? "#f8717118" : "#1a1a24",
-                            color: isAct ? "#fbbf24" : chg > 0 ? "#f59e0b" : chg < 0 ? "#f87171" : "#686878",
-                            border: isAct ? "2px solid #fbbf24" : "1px solid #f59e0b40" }}>
-                          {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
+                            background: isAct && isPf ? "#fbbf2430" : chg > 0 ? (isPf ? "#f59e0b18" : "#2bb88618") : chg < 0 ? "#f8717118" : "#1a1a24",
+                            color: isAct && isPf ? "#fbbf24" : isPf ? (chg > 0 ? "#f59e0b" : chg < 0 ? "#f87171" : "#686878") : (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878"),
+                            border: isAct ? (isPf ? "2px solid #fbbf24" : "1px solid #22d3ee") : isPf ? "1px solid #f59e0b40" : "1px solid transparent" }}>
+                          <span style={{ fontSize: 7, color: rank <= 3 ? "#f59e0b" : "#505060", marginRight: 2 }}>{rank}</span>
+                          {s.ticker}{fmtRankVal(s)}
+                          {m9 && <span style={{ fontSize: 7, color: "#f87171", marginLeft: 2 }}>9M</span>}
                         </span>);
                       })}
-                      {g.uniStocks.length > 0 && <span style={{ color: "#3a3a4a", fontSize: 9, alignSelf: "center" }}>│</span>}
-                      {g.uniStocks.map(s => {
-                        const chg = s.change;
+                      {uniSorted.length > 0 && <span style={{ color: "#3a3a4a", fontSize: 9, alignSelf: "center" }}>│</span>}
+                      {uniSorted.map(s => {
+                        const chg = liveLookup[s.ticker]?.change ?? s.change;
+                        const rank = rankMap[s.ticker];
+                        const m9 = is9M(s);
                         return (
                         <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
                           style={{ fontSize: 8, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, cursor: "pointer",
                             background: "transparent", opacity: 0.5,
                             color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#505060",
                             border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid transparent" }}>
-                          {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
+                          <span style={{ fontSize: 6, color: "#505060", marginRight: 1 }}>{rank}</span>
+                          {s.ticker}{fmtRankVal(s)}
+                          {m9 && <span style={{ fontSize: 6, color: "#f87171", marginLeft: 1 }}>9M</span>}
                         </span>);
                       })}
                     </div>
@@ -8072,6 +8133,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                 )}
               </div>);
             })}
+          </div>
           </div>
         ) : (
           <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
