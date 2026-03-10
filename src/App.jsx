@@ -7631,6 +7631,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         const av = stockMap[e.ticker]?.avg_volume_raw;
         if (av > 0) e.rel_volume = Math.round(v / av * 100) / 100;
       }
+      if (e.high != null && e.low != null && e.price != null) {
+        const range = e.high - e.low;
+        e.close_range = range > 0 ? Math.round((e.price - e.low) / range * 1000) / 10 : null;
+      }
       return e;
     };
     if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = enrich(s); });
@@ -7676,6 +7680,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       avg_dollar_vol: pipe.avg_dollar_vol,
       avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
       dvol_accel: pipe.dvol_accel, accel: pipe.accel,
+      close_range: live.close_range ?? null,
       dvol_ratio_5_20: pipe.dvol_ratio_5_20,
       dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days,
