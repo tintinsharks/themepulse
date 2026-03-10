@@ -515,6 +515,28 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [finvizQuarters, setFinvizQuarters] = useState(null);
   const [earningsTab, setEarningsTab] = useState("earnings");
 
+  // Cached headlines (persisted 2 days in localStorage, merged with live)
+  const cachedHeadlines = useMemo(() => {
+    const KEY = "tp_headlines_cache";
+    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
+    // Purge expired
+    for (const k of Object.keys(stored)) {
+      if (!stored[k].ts || now - stored[k].ts > TWO_DAYS) delete stored[k];
+    }
+    // Merge live headlines into cache
+    if (headlinesMap) {
+      for (const [tk, val] of Object.entries(headlinesMap)) {
+        const hl = val?.headlines;
+        if (hl && hl.length > 0) stored[tk] = { headlines: hl.slice(0, 5), ts: now };
+      }
+    }
+    try { localStorage.setItem(KEY, JSON.stringify(stored)); } catch {}
+    return stored;
+  }, [headlinesMap]);
+
   // Custom headline notes (persisted 2 weeks)
   const [chartNotes, setChartNotes] = useState(() => {
     try {
@@ -856,11 +878,11 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           )}
           </div>
 
-          {/* TheStockCatalyst Headlines */}
-          {headlinesMap && headlinesMap[ticker] && headlinesMap[ticker].headlines && headlinesMap[ticker].headlines.length > 0 && (
+          {/* TheStockCatalyst Headlines (cached 2 days) */}
+          {cachedHeadlines[ticker] && cachedHeadlines[ticker].headlines && cachedHeadlines[ticker].headlines.length > 0 && (
             <div style={{ padding: "6px 10px", borderBottom: "1px solid #222230" }}>
               <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 4 }}>HEADLINES</div>
-              {headlinesMap[ticker].headlines.slice(0, 5).map((hl, i) => (
+              {cachedHeadlines[ticker].headlines.slice(0, 5).map((hl, i) => (
                 <div key={i} style={{ fontSize: 9, color: i === 0 ? "#d4d4e0" : "#787888", lineHeight: 1.4, marginBottom: 3,
                   wordBreak: "break-word" }}>
                   {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
