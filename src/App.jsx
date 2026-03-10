@@ -7717,19 +7717,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", stocks: [] };
       groups[sub].stocks.push(s);
     });
-    // Compute normalized metrics per group
+    // Compute normalized metrics per group (equal-weighted avg)
     return Object.values(groups).map(g => {
       const changes = g.stocks.map(s => s.change).filter(c => c != null);
       const rvols = g.stocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
       const avgChg = changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : null;
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
-      const breadth = changes.length > 0 ? Math.round(changes.filter(c => c > 0).length / changes.length * 100) : null;
-      // Dollar-volume weighted change for normalization
-      const dvPairs = g.stocks.map(s => [s.change, s.avg_dollar_vol_raw || 0]).filter(([c]) => c != null);
-      const totalDv = dvPairs.reduce((s, [, d]) => s + d, 0);
-      const wAvgChg = totalDv > 0 ? dvPairs.reduce((s, [c, d]) => s + c * d, 0) / totalDv : avgChg;
-      return { ...g, avgChg, wAvgChg, avgRvol, breadth, count: g.stocks.length };
-    }).sort((a, b) => (b.wAvgChg ?? -999) - (a.wAvgChg ?? -999));
+      return { ...g, avgChg, avgRvol, count: g.stocks.length };
+    }).sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
   }, [watchlistAll]);
 
   useEffect(() => {
@@ -7815,9 +7810,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         ) : wlView === "themes" ? (
           <div style={{ maxHeight: 560, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
             {wlThemeGroups.map(g => {
-              const barMax = Math.max(...wlThemeGroups.map(x => Math.abs(x.wAvgChg ?? 0)), 1);
-              const barW = Math.abs(g.wAvgChg ?? 0) / barMax * 100;
-              const isPos = (g.wAvgChg ?? 0) >= 0;
+              const barMax = Math.max(...wlThemeGroups.map(x => Math.abs(x.avgChg ?? 0)), 1);
+              const barW = Math.abs(g.avgChg ?? 0) / barMax * 100;
+              const isPos = (g.avgChg ?? 0) >= 0;
               return (
               <div key={g.name} style={{ borderBottom: "1px solid #1a1a24" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", position: "relative", overflow: "hidden" }}>
@@ -7848,10 +7843,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                   <div style={{ display: "flex", gap: 12, alignItems: "center", zIndex: 1, flexShrink: 0 }}>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace",
-                        color: isPos ? "#2bb886" : (g.wAvgChg ?? 0) < 0 ? "#f87171" : "#686878" }}>
-                        {g.wAvgChg != null ? `${g.wAvgChg > 0 ? "+" : ""}${g.wAvgChg.toFixed(2)}%` : "—"}
+                        color: isPos ? "#2bb886" : (g.avgChg ?? 0) < 0 ? "#f87171" : "#686878" }}>
+                        {g.avgChg != null ? `${g.avgChg > 0 ? "+" : ""}${g.avgChg.toFixed(2)}%` : "—"}
                       </div>
-                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase" }}>$Vol Wtd</div>
+                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase" }}>Avg Chg</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 12, fontFamily: "monospace",
@@ -7859,13 +7854,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                         {g.avgRvol != null ? `${g.avgRvol.toFixed(1)}x` : "—"}
                       </div>
                       <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase" }}>RVol</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 12, fontFamily: "monospace",
-                        color: (g.breadth ?? 0) >= 70 ? "#2bb886" : (g.breadth ?? 0) >= 40 ? "#d4d4e0" : "#f87171" }}>
-                        {g.breadth != null ? `${g.breadth}%` : "—"}
-                      </div>
-                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase" }}>Breadth</div>
                     </div>
                   </div>
                 </div>
