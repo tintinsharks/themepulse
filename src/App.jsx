@@ -8793,6 +8793,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                 </div>
                 {/* EP Catalysts — PM/AH non-earnings movers, today only */}
                 {day.days === 0 && (pmSipMovers.length > 0 || ahSipMovers.length > 0) && (() => {
+                  const minVol = calMinDvol > 0 ? calMinDvol * 1_000_000 : 0;
+                  const filterSip = (movers) => minVol > 0 ? movers.filter(m => (m.volume || 0) >= minVol) : movers;
                   const renderSipCol = (movers, label, color) => (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: `${color}10`, borderBottom: "1px solid #1a1a24" }}>
@@ -8841,10 +8843,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 40 }}>
                         <div style={{ borderRight: "1px solid #2a2a38" }}>
-                          {renderSipCol(pmSipMovers, "PRE-MARKET", "#22d3ee")}
+                          {renderSipCol(filterSip(pmSipMovers), "PRE-MARKET", "#22d3ee")}
                         </div>
                         <div>
-                          {renderSipCol(ahSipMovers, "AFTER-HOURS", "#a78bfa")}
+                          {renderSipCol(filterSip(ahSipMovers), "AFTER-HOURS", "#a78bfa")}
                         </div>
                       </div>
                     </div>
