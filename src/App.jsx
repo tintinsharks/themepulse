@@ -3290,6 +3290,25 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [histSort, setHistSort] = useState({ col: "rvol", dir: "desc" });
   const [focusSort, setFocusSort] = useState({ col: "rvol", dir: "desc" });
 
+  // STATE: Manual tickers (persisted in localStorage)
+  const [manualTickers, setManualTickers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ep_manual_tickers") || "[]"); } catch { return []; }
+  });
+  const [manualInput, setManualInput] = useState("");
+  const manualSet = useMemo(() => new Set(manualTickers.map(m => m.ticker)), [manualTickers]);
+  const addManualTicker = (raw) => {
+    const ticker = raw.trim().toUpperCase();
+    if (!ticker || manualSet.has(ticker)) return;
+    const next = [...manualTickers, { ticker, addedAt: new Date().toISOString().slice(0, 10) }];
+    setManualTickers(next);
+    localStorage.setItem("ep_manual_tickers", JSON.stringify(next));
+  };
+  const removeManualTicker = (ticker) => {
+    const next = manualTickers.filter(m => m.ticker !== ticker);
+    setManualTickers(next);
+    localStorage.setItem("ep_manual_tickers", JSON.stringify(next));
+  };
+
   // Live data lookup — same pattern as Scan Watch
   const liveLookup = useMemo(() => {
     if (!liveThemeData) return {};
@@ -3512,16 +3531,46 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       }
     });
 
-    // Filter by source
+    // Add manual tickers not already present
+    const allSeen = new Set(rows.map(r => r.ticker));
+    manualTickers.forEach(mt => {
+      if (!allSeen.has(mt.ticker)) {
+        const s = stockMap[mt.ticker] || {};
+        rows.push({
+          ticker: mt.ticker,
+          _source: "manual",
+          _key: mt.ticker + "_manual",
+          _headline: "",
+          _recentHeadlines: headlinesMap[mt.ticker]?.headlines || [],
+          _chg: s.change_pct ?? null,
+          price: s.price ?? null,
+          company: s.company || mt.ticker,
+          _vol: s.volume || 0,
+          _avgVol: s.avg_volume_raw ?? null,
+          vol_ratio: s.rel_volume ?? null,
+          days_ago: mt.addedAt ? Math.floor((Date.now() - new Date(mt.addedAt + "T00:00:00").getTime()) / 86400000) : 0,
+          grade: s.grade || null,
+          rs_rank: s.rs_rank ?? null,
+          _industry: s.industry || "",
+          _inUniverse: !!stockMap[mt.ticker],
+          _revGrowthYoY: s.sales_yoy ?? null,
+          _epsGrowthYoY: s.eps_yoy ?? null,
+          _grossMargin: s.profit_margin ?? null,
+          _netMargin: s.oper_margin ?? null,
+        });
+      }
+    });
+
+    // Filter by source — manual tickers always pass through
     let filtered = rows;
     if (sourceFilter === "per") {
-      filtered = filtered.filter(r => r._source === "per" || r._source === "upcoming");
+      filtered = filtered.filter(r => r._source === "per" || r._source === "upcoming" || r._source === "manual");
     } else if (sourceFilter === "aer") {
-      filtered = filtered.filter(r => r._source === "aer");
+      filtered = filtered.filter(r => r._source === "aer" || r._source === "manual");
     } else if (sourceFilter === "pm") {
-      filtered = filtered.filter(r => r._source === "pm");
+      filtered = filtered.filter(r => r._source === "pm" || r._source === "manual");
     } else if (sourceFilter === "ah") {
-      filtered = filtered.filter(r => r._source === "ah");
+      filtered = filtered.filter(r => r._source === "ah" || r._source === "manual");
     }
     // Filter by RS — fall back to row data for tickers not in stockMap
     if (minRS > 0) {
@@ -3563,7 +3612,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       });
     }
     return filtered;
-  }, [filteredEarnings, pmTopMovers, ahTopMovers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, gapOnly, marketSession, stockMap, liveLookup]);
+  }, [filteredEarnings, pmTopMovers, ahTopMovers, manualTickers, sourceFilter, minRS, minDvol, epGreenOnly, noBio, maxDays, gapOnly, marketSession, stockMap, liveLookup, headlinesMap]);
 
   // Detect if enough earnings rows have session data (PM/ID/AH) to show those columns
   const hasSessionData = useMemo(() => {
@@ -3599,7 +3648,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     // Non-numeric sorters (special comparison logic)
     const specialSorters = {
       type: (a, b) => {
-        const order = { per: 0, aer: 1, er: 2, upcoming: 3, pm: 4, ah: 5 };
+        const order = { per: 0, aer: 1, er: 2, upcoming: 3, pm: 4, ah: 5, manual: 6 };
         return (order[a._source] ?? 99) - (order[b._source] ?? 99);
       },
       ticker: (a, b) => (a.ticker || "").localeCompare(b.ticker || ""),
@@ -3800,6 +3849,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (source === "upcoming") return "#f59e0b";
     if (source === "pm") return "#38bdf8";
     if (source === "ah") return "#f97316";
+    if (source === "manual") return "#34d399";
     return "#686878";
   };
 
@@ -3810,6 +3860,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (source === "upcoming") return "#f59e0b18";
     if (source === "pm") return "#38bdf818";
     if (source === "ah") return "#f9731618";
+    if (source === "manual") return "#34d39918";
     return "#4a4a5a18";
   };
 
@@ -3820,6 +3871,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     if (source === "upcoming") return "#f59e0b40";
     if (source === "pm") return "#38bdf840";
     if (source === "ah") return "#f9731640";
+    if (source === "manual") return "#34d39940";
     return "#4a4a5a40";
   };
 
@@ -3915,6 +3967,19 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
               Updated {lastUpdatedPST} PST
             </span>
           )}
+
+          {/* Add manual ticker */}
+          <form onSubmit={e => { e.preventDefault(); addManualTicker(manualInput); setManualInput(""); }}
+            style={{ display: "flex", gap: 3, alignItems: "center", marginLeft: 8 }}>
+            <input type="text" value={manualInput} onChange={e => setManualInput(e.target.value)}
+              placeholder="+ ticker"
+              style={{ width: 64, background: "#1a1a28", border: "1px solid #333344", borderRadius: 3,
+                color: "#a8a8b8", fontSize: 9, padding: "3px 5px", fontFamily: "monospace" }}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addManualTicker(manualInput); setManualInput(""); }}} />
+            {manualTickers.length > 0 && (
+              <span style={{ fontSize: 8, color: "#34d399" }}>{manualTickers.length}</span>
+            )}
+          </form>
 
           {/* Source toggles */}
           <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
@@ -4109,13 +4174,20 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         background: rowBg }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = isGapUp ? "#f9731618" : "#ffffff08"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = rowBg; }}>
-                      {/* Focus + */}
+                      {/* Focus + / Manual x */}
                       <td style={{ padding: "1px 2px", textAlign: "center", width: 20 }}>
-                        <span onClick={(e) => { e.stopPropagation(); focusSet.has(row.ticker) ? onRemoveFocus(row.ticker) : onAddFocus(row.ticker); }}
-                          style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(row.ticker) ? "#f59e0b" : "#3a3a4a",
-                            fontWeight: 700 }} title={focusSet.has(row.ticker) ? "Remove from Focus" : "Add to Focus"}>
-                          {focusSet.has(row.ticker) ? "★" : "+"}
-                        </span>
+                        {row._source === "manual" ? (
+                          <span onClick={(e) => { e.stopPropagation(); removeManualTicker(row.ticker); }}
+                            style={{ cursor: "pointer", fontSize: 10, color: "#f87171", fontWeight: 700 }} title="Remove manual ticker">
+                            ✕
+                          </span>
+                        ) : (
+                          <span onClick={(e) => { e.stopPropagation(); focusSet.has(row.ticker) ? onRemoveFocus(row.ticker) : onAddFocus(row.ticker); }}
+                            style={{ cursor: "pointer", fontSize: 10, color: focusSet.has(row.ticker) ? "#f59e0b" : "#3a3a4a",
+                              fontWeight: 700 }} title={focusSet.has(row.ticker) ? "Remove from Focus" : "Add to Focus"}>
+                            {focusSet.has(row.ticker) ? "★" : "+"}
+                          </span>
+                        )}
                       </td>
                       {/* RS */}
                       {(() => { const rsVal = s.rs_rank ?? row.rs_rank ?? row._moverData?.rs_rank ?? null; return (
@@ -4127,7 +4199,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", textAlign: "center", fontSize: 8, fontWeight: 700 }}>
                         <span style={{ padding: "1px 4px", borderRadius: 3, background: getTypeBg(row._source),
                           color: getTypeColor(row._source), whiteSpace: "nowrap" }}>
-                          {row._source === "upcoming" ? "AMC" : row._source === "per" ? "PER" : row._source === "aer" ? "AER" : row._source === "pm" ? "PreM" : row._source === "ah" ? "AftM" : row._source.toUpperCase()}
+                          {row._source === "upcoming" ? "AMC" : row._source === "per" ? "PER" : row._source === "aer" ? "AER" : row._source === "pm" ? "PreM" : row._source === "ah" ? "AftM" : row._source === "manual" ? "MAN" : row._source.toUpperCase()}
                         </span>
                       </td>
                       {/* Ticker */}
