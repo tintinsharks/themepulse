@@ -8806,7 +8806,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                         : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                             <thead>
                               <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                                {["Ticker","Chg%","Vol","RS"].map(h => (
+                                {["Ticker","Chg%","RVol","Vol","RS"].map(h => (
                                   <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
                                 ))}
                               </tr>
@@ -8824,6 +8824,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
                                     color: m.change_pct > 0 ? "#2bb886" : m.change_pct < 0 ? "#f87171" : "#686878" }}>
                                     {m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${Number(m.change_pct).toFixed(1)}%` : "—"}</td>
+                                  {(() => { const av = stockMap[m.ticker]?.avg_volume_raw; const rv = (av > 0 && m.volume) ? m.volume / av : null; return (
+                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                                    color: rv >= 2 ? "#fbbf24" : rv >= 1 ? "#9090a0" : "#505060" }}>
+                                    {rv != null ? `${rv.toFixed(1)}x` : "—"}</td>); })()}
                                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#787888" }}>
                                     {m.volume ? (m.volume >= 1e6 ? `${(m.volume/1e6).toFixed(1)}M` : m.volume >= 1e3 ? `${(m.volume/1e3).toFixed(0)}K` : m.volume) : "—"}</td>
                                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
