@@ -9676,52 +9676,68 @@ function AppMain({ authToken, onLogout }) {
   return (
     <div style={{ minHeight: "100vh", background: "#121218", color: "#b8b8c8", fontFamily: "system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Top bar */}
-      <div className="tp-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #2a2a38", background: "#1a1a24", flexShrink: 0 }}>
+      <div className="tp-topbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 16px", borderBottom: "1px solid #2a2a38", background: "#1a1a24", flexShrink: 0, flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ fontSize: 18, fontWeight: 900, color: "#d4d4e0", letterSpacing: -1 }}>THEME<span style={{ color: "#0d9163" }}>PULSE</span></span>
           <span style={{ color: "#686878", fontSize: 12 }}>{data.date}</span>
         </div>
+        {/* Index ETF Strip */}
+        {liveThemeData && liveThemeData.length > 0 && (() => {
+          const indices = [
+            { ticker: "DIA", name: "DOW" },
+            { ticker: "QQQ", name: "NASDAQ" },
+            { ticker: "SPY", name: "S&P 500" },
+            { ticker: "IWM", name: "RUSSELL" },
+          ];
+          const lookup = {};
+          liveThemeData.forEach(s => { lookup[s.ticker] = s; });
+          const found = indices.filter(idx => lookup[idx.ticker]);
+          if (found.length === 0) return null;
+          return (
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              {found.map(idx => {
+                const d = lookup[idx.ticker];
+                const chg = d.change;
+                const isPos = chg > 0;
+                const isNeg = chg < 0;
+                return (
+                  <div key={idx.ticker} style={{ display: "flex", alignItems: "baseline", gap: 4, cursor: "pointer" }}
+                    onClick={() => openChart(idx.ticker)}>
+                    <span style={{ fontWeight: 700, fontSize: 11, color: "#d4d4e0" }}>{idx.name}</span>
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "#9090a0" }}>{d.price?.toFixed(2)}</span>
+                    <span style={{ fontSize: 10, fontFamily: "monospace", fontWeight: 700,
+                      color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>
+                      {chg != null ? `${isPos ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+        {/* Breadth bars */}
+        {homepage?.market_stats && (() => {
+          const ms = homepage.market_stats;
+          const MiniBar = ({ leftLabel, leftPct, leftCount, rightLabel, rightPct, rightCount }) => (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10 }}>
+              <span style={{ color: "#9090a0" }}>{leftLabel}</span>
+              <span style={{ color: "#2bb886", fontWeight: 700 }}>{leftPct}%</span>
+              <span style={{ color: "#505060" }}>({leftCount})</span>
+              <div style={{ width: 40, height: 3, borderRadius: 2, background: "#f87171", overflow: "hidden" }}>
+                <div style={{ width: `${leftPct}%`, height: "100%", background: "#2bb886", borderRadius: 2 }} />
+              </div>
+              <span style={{ color: "#505060" }}>({rightCount})</span>
+              <span style={{ color: "#f87171", fontWeight: 700 }}>{rightPct}%</span>
+            </div>
+          );
+          return (
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              {ms.advancing && ms.declining && <MiniBar leftLabel="A/D" leftPct={ms.advancing.pct} leftCount={ms.advancing.count} rightLabel="D" rightPct={ms.declining.pct} rightCount={ms.declining.count} />}
+              {ms.new_high && ms.new_low && <MiniBar leftLabel="H/L" leftPct={ms.new_high.pct} leftCount={ms.new_high.count} rightLabel="L" rightPct={ms.new_low.pct} rightCount={ms.new_low.count} />}
+            </div>
+          );
+        })()}
         <div className="tp-stats" style={{ display: "flex", gap: 16, fontSize: 12 }}>
-          <span style={{ color: "#787888" }}>Stocks: <span style={{ color: "#d4d4e0" }}>{data.total_stocks}</span></span>
-          <span style={{ color: "#787888", position: "relative", cursor: "pointer" }} onClick={() => setShowStrongPopover(p => !p)}>
-            Strong: <span style={{ color: "#2bb886", textDecoration: "underline", textUnderlineOffset: 2 }}>{strongC}</span>
-            {showStrongPopover && (() => {
-              const strongThemes = data.themes.filter(t => getQuad(t.weekly_rs, t.monthly_rs) === "STRONG")
-                .sort((a, b) => (b.weekly_rs || 0) - (a.weekly_rs || 0));
-              return (
-                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, width: 360, maxHeight: 480,
-                  overflowY: "auto", background: "#1a1a28", border: "1px solid #2a2a3a", borderRadius: 8, padding: 8, zIndex: 999, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#4aad8c", marginBottom: 6, padding: "2px 4px" }}>Strong Themes ({strongThemes.length})</div>
-                  {strongThemes.map(t => {
-                    const stocks = (t.stocks || []).slice(0, 8);
-                    return (
-                      <div key={t.name} style={{ padding: "4px 6px", borderBottom: "1px solid #222230" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#9090a0", marginBottom: 2 }}>
-                          {t.name} <span style={{ color: "#505060", fontWeight: 400 }}>WRS:{t.weekly_rs?.toFixed(0)} MRS:{t.monthly_rs?.toFixed(0)}</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {stocks.map(s => {
-                            const tk = typeof s === "string" ? s : s.ticker;
-                            const sm = stockMap[tk];
-                            const chg = sm?.change_pct ?? sm?.return_1w;
-                            return (
-                              <span key={tk} onClick={(e) => { e.stopPropagation(); openChart(tk); setShowStrongPopover(false); }}
-                                style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
-                                  background: "#0d916315", border: "1px solid #0d916330", color: "#4aad8c" }}>
-                                {tk}{chg != null && <span style={{ color: chg >= 0 ? "#2bb886" : "#f87171", marginLeft: 3 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>}
-                              </span>
-                            );
-                          })}
-                          {(t.stocks || []).length > 8 && <span style={{ fontSize: 9, color: "#505060" }}>+{(t.stocks || []).length - 8}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </span>
-          <span style={{ color: "#787888" }}>A Grades: <span style={{ color: "#2bb886" }}>{aCount}</span></span>
           <span style={{ color: "#787888" }}>Breadth: <span style={{ color: breadth >= 60 ? "#2bb886" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</span></span>
           <span style={{ color: "#3a3a4a" }}>|</span>
           <PipelineStatus meta={data.pipeline_meta} />
