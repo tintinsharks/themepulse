@@ -8500,6 +8500,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [feedThemeOnly, setFeedThemeOnly] = useState(false);
   const [feedSort, setFeedSort] = useState("date");
   const [feedSortAsc, setFeedSortAsc] = useState(false);
+  const [calRange, setCalRange] = useState(2); // ±N days
+  const [calMinDvol, setCalMinDvol] = useState(0); // min avg $vol in millions
 
   useEffect(() => {
     fetch("/data/earnings_intel.json")
@@ -8508,7 +8510,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
-  // Earnings Calendar: today ±2 days, split by BMO / AMC
+  // Earnings Calendar: configurable date range, split by BMO / AMC
   // Must be before early returns to satisfy Rules of Hooks
   const calendarDays = useMemo(() => {
     if (!stockMap) return [];
@@ -8535,7 +8537,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         const earnDay = new Date(earnDate.getFullYear(), earnDate.getMonth(), earnDate.getDate());
         const days = Math.round((earnDay - today) / 86400000);
 
-        if (days < -2 || days > 2) return;
+        if (days < -calRange || days > calRange) return;
+
+        // Dollar volume filter
+        if (calMinDvol > 0 && (s.avg_dollar_vol_raw || 0) < calMinDvol * 1_000_000) return;
 
         // Timing: prefer er_timing field, then parse from earnings_display
         const edUpper = String(s.earnings_display || "").toUpperCase();
@@ -8552,6 +8557,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           rev_est: s.revenue_estimated_fmt || q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
           sales_yoy: s.sales_yoy, market_cap: s.market_cap,
           market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
+          avg_dvol: s.avg_dollar_vol_raw || 0, avg_dvol_fmt: s.avg_dollar_vol || "",
           _days: days, _s: s
         });
       } catch {}
@@ -8583,7 +8589,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap]);
+  }, [stockMap, calRange, calMinDvol]);
 
   if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center" }}>Loading earnings intelligence...</div>;
   if (error) return <div style={{ color: "#f87171", padding: 40, textAlign: "center" }}>Failed to load earnings intel: {error}<br/><span style={{ fontSize: 11, color: "#686878" }}>Run: ./scripts/run-earnings-intel.sh --dry</span></div>;
@@ -8663,8 +8669,27 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       {/* ── CALENDAR ── */}
       {activeSection === "calendar" && (
         <div>
+          {/* Filter bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 14px", marginBottom: 12, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8 }}>
+            <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Date Range</span>
+            {[2, 5, 7, 14].map(d => (
+              <button key={d} onClick={() => setCalRange(d)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                border: calRange === d ? "1px solid #22d3ee50" : "1px solid #2a2a38",
+                background: calRange === d ? "#22d3ee12" : "transparent",
+                color: calRange === d ? "#22d3ee" : "#686878" }}>{`±${d}d`}</button>
+            ))}
+            <span style={{ color: "#2a2a38" }}>|</span>
+            <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Min Avg $Vol</span>
+            {[0, 5, 10, 20, 50].map(v => (
+              <button key={v} onClick={() => setCalMinDvol(v)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                border: calMinDvol === v ? "1px solid #22d3ee50" : "1px solid #2a2a38",
+                background: calMinDvol === v ? "#22d3ee12" : "transparent",
+                color: calMinDvol === v ? "#22d3ee" : "#686878" }}>{v === 0 ? "All" : `$${v}M`}</button>
+            ))}
+            <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{calendarDays.reduce((n, d) => n + d.items.length, 0)} stocks</span>
+          </div>
           {calendarDays.length === 0 ? (
-            <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±2 day window.</div>
+            <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±{calRange} day window{calMinDvol > 0 ? ` with ≥$${calMinDvol}M avg $vol` : ""}.</div>
           ) : calendarDays.map(day => {
             const sessionGroups = [
               { label: "Before Open (BMO)", items: day.bmo, color: "#22d3ee", bg: "#22d3ee15" },
@@ -8675,7 +8700,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                    {["Symbol","Name","Est EPS","EPS Gr%","Est Rev","Rev Gr%","MCap","RS"].map(h => (
+                    {["Symbol","Name","Est EPS","EPS Gr%","Est Rev","Rev Gr%","MCap","Avg $Vol","RS"].map(h => (
                       <th key={h} style={{ padding: "6px 8px", textAlign: h === "Name" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 10 }}>{h}</th>
                     ))}
                   </tr>
@@ -8693,6 +8718,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                       <td style={{ padding: "5px 8px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.rev_est || "—"}</td>
                       <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.sales_yoy > 0 ? "#2bb886" : r.sales_yoy < 0 ? "#f87171" : "#686878" }}>{r.sales_yoy != null ? `${r.sales_yoy > 0 ? "+" : ""}${Number(r.sales_yoy).toFixed(0)}%` : "—"}</td>
                       <td style={{ padding: "5px 8px", textAlign: "right", color: "#9090a0", fontFamily: "monospace" }}>{r.market_cap || "—"}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#787888", fontFamily: "monospace" }}>{r.avg_dvol_fmt || "—"}</td>
                       <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>{r.rs_rank != null ? r.rs_rank : "—"}</td>
                     </tr>
                   ))}
