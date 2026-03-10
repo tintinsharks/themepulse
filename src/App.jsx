@@ -8518,7 +8518,7 @@ function PipelineStatus({ meta }) {
 }
 
 // ── Earnings Intelligence Dashboard ──────────────────────────────────────────
-function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, liveThemeData, onTickerClick, activeTicker }) {
+function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, liveThemeData, marketSession, onTickerClick, activeTicker }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8561,7 +8561,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     const m = {};
     if (liveThemeData) liveThemeData.forEach(s => {
       if (!s.ticker) return;
-      const e = { change: s.change, price: s.price, volume: s.volume };
+      const e = { change: s.change, ext_change: s.ext_change, price: s.price, volume: s.volume };
       const av = stockMap[s.ticker]?.avg_volume_raw;
       e.rvol = (av > 0 && s.volume != null) ? Math.round(s.volume / av * 100) / 100 : null;
       m[s.ticker] = e;
@@ -8862,13 +8862,24 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                         : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                             <thead>
                               <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                                {["Ticker","Chg%","RVol","Vol","RS"].map(h => (
+                                {["Ticker",
+                                  marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%",
+                                  marketSession ? null : "RVol",
+                                  marketSession ? null : "Vol",
+                                  "RS"].filter(Boolean).map(h => (
                                   <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
                                 ))}
                               </tr>
                             </thead>
                             <tbody>
-                              {movers.map(m => (
+                              {movers.map(m => {
+                                const lv = calLive[m.ticker];
+                                const chg = marketSession ? (lv?.ext_change ?? m.change_pct) : (lv?.change ?? m.change_pct);
+                                const av = stockMap[m.ticker]?.avg_volume_raw;
+                                const curVol = lv?.volume ?? null;
+                                const rv = (av > 0 && curVol) ? curVol / av : null;
+                                const fmtV = (v) => v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(0)+"K" : v?.toFixed(0) || "—";
+                                return (
                                 <tr key={m.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
                                   onClick={() => onTickerClick && onTickerClick(m.ticker)}
                                   onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
@@ -8878,19 +8889,19 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                                     <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{m.company || m.name || ""}</div>
                                   </td>
                                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                                    color: m.change_pct > 0 ? "#2bb886" : m.change_pct < 0 ? "#f87171" : "#686878" }}>
-                                    {m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${Number(m.change_pct).toFixed(1)}%` : "—"}</td>
-                                  {(() => { const av = stockMap[m.ticker]?.avg_volume_raw; const rv = (av > 0 && m.volume) ? m.volume / av : null; return (
-                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                                    color: rv >= 2 ? "#fbbf24" : rv >= 1 ? "#9090a0" : "#505060" }}>
-                                    {rv != null ? `${rv.toFixed(1)}x` : "—"}</td>); })()}
-                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10, color: "#787888" }}>
-                                    {m.volume ? (m.volume >= 1e6 ? `${(m.volume/1e6).toFixed(1)}M` : m.volume >= 1e3 ? `${(m.volume/1e3).toFixed(0)}K` : m.volume) : "—"}</td>
+                                    color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                                    {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(1)}%` : "—"}</td>
+                                  {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                                    color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#505060" }}>
+                                    {rv != null ? `${rv.toFixed(1)}x` : "—"}</td>}
+                                  {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                                    color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#505060" }}>
+                                    {curVol != null ? fmtV(curVol) : "—"}</td>}
                                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
                                     color: m.rs_rank >= 80 ? "#2bb886" : m.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
                                     {m.rs_rank != null ? m.rs_rank : "—"}</td>
-                                </tr>
-                              ))}
+                                </tr>);
+                              })}
                             </tbody>
                           </table>}
                     </div>
@@ -10273,6 +10284,7 @@ function AppMain({ authToken, onLogout }) {
             historicalEarningsMovers={data?.historical_earnings_movers || []}
             stockMap={stockMap}
             liveThemeData={liveThemeData}
+            marketSession={marketSession}
             onTickerClick={openChart}
             activeTicker={chartTicker}
           />}
