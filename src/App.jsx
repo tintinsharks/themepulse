@@ -8505,12 +8505,6 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const calTodayRef = useRef(null);
 
   useEffect(() => {
-    if (activeSection === "calendar" && calTodayRef.current) {
-      setTimeout(() => calTodayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-    }
-  }, [activeSection, calendarDays]);
-
-  useEffect(() => {
     fetch("/data/earnings_intel.json")
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
@@ -8606,6 +8600,12 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
   }, [stockMap, calRange, calMinDvol, erMoverMap]);
+
+  useEffect(() => {
+    if (activeSection === "calendar" && calTodayRef.current) {
+      setTimeout(() => calTodayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  }, [activeSection, calendarDays]);
 
   if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center" }}>Loading earnings intelligence...</div>;
   if (error) return <div style={{ color: "#f87171", padding: 40, textAlign: "center" }}>Failed to load earnings intel: {error}<br/><span style={{ fontSize: 11, color: "#686878" }}>Run: ./scripts/run-earnings-intel.sh --dry</span></div>;
