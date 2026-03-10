@@ -8515,7 +8515,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const CYAN = "#22d3ee";
   const CYAN_DIM = "#22d3ee30";
   const CYAN_BG = "#22d3ee12";
-  const sections = [["overview","Overview"],["movers","Movers"],["feed","Earnings Feed"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
+  const sections = [["overview","Overview"],["calendar","Calendar"],["movers","Movers"],["feed","Earnings Feed"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
   const kpis = data.kpis || {};
   const themes = data.themes || [];
   const sectors = data.sectors || [];
@@ -8528,6 +8528,68 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const sentColor = (v) => v >= 0.7 ? "#2bb886" : v >= 0.5 ? "#22d3ee" : v >= 0.3 ? "#fbbf24" : "#f87171";
   const sentLabel = (v) => v >= 0.7 ? "Bullish" : v >= 0.5 ? "Positive" : v >= 0.3 ? "Cautious" : "Bearish";
   const typeColor = (t) => t === "bullish" ? "#2bb886" : t === "caution" ? "#f87171" : "#fbbf24";
+
+  // Earnings Calendar: today ±2 days, split by BMO / AMC
+  const calendarDays = useMemo(() => {
+    if (!stockMap) return [];
+    const now = new Date();
+    const results = [];
+    Object.values(stockMap).forEach(s => {
+      let days = s.earnings_days;
+      if (days == null && s.earnings_date) {
+        try {
+          const raw = s.earnings_date.replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
+          const parts = raw.split(/\s+/);
+          if (parts.length >= 2) {
+            for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
+              const parsed = new Date(`${parts[0]} ${parts[1]}, ${y}`);
+              if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -2 && diff <= 2) { days = diff; break; } }
+            }
+          }
+        } catch {}
+      }
+      if (days != null && days >= -2 && days <= 2) {
+        const ed = (s.earnings_display || s.earnings_date || "").toUpperCase();
+        const timing = s.er_timing ? s.er_timing.toUpperCase() : ed.includes("BMO") ? "BMO" : ed.includes("AMC") ? "AMC" : ed.includes(" A") ? "AMC" : ed.includes(" B") ? "BMO" : "—";
+        const q0 = (s.quarters || [])[0] || {};
+        results.push({
+          ticker: s.ticker, company: s.company, timing,
+          eps_est: q0.eps, eps_yoy: s.eps_yoy,
+          rev_est: q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
+          sales_yoy: s.sales_yoy, market_cap: s.market_cap,
+          market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
+          _days: days, _s: s
+        });
+      }
+    });
+    const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const buckets = {};
+    results.forEach(r => {
+      const d = new Date(now); d.setDate(d.getDate() + r._days);
+      const key = r._days;
+      if (!buckets[key]) {
+        buckets[key] = {
+          days: r._days,
+          label: `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`,
+          tag: r._days === 0 ? "Today" : r._days > 0 ? `+${r._days}d` : `${r._days}d`,
+          items: []
+        };
+      }
+      buckets[key].items.push(r);
+    });
+    Object.values(buckets).forEach(b => {
+      b.items.sort((a, bb) => {
+        if (a.timing === "BMO" && bb.timing !== "BMO") return -1;
+        if (a.timing !== "BMO" && bb.timing === "BMO") return 1;
+        return (bb.market_cap_raw || 0) - (a.market_cap_raw || 0);
+      });
+      b.bmo = b.items.filter(i => i.timing === "BMO");
+      b.amc = b.items.filter(i => i.timing === "AMC");
+      b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
+    });
+    return Object.values(buckets).sort((a, b) => a.days - b.days);
+  }, [stockMap]);
 
   // Filtered quotes
   const filteredQuotes = quotes.filter(q => {
@@ -8582,6 +8644,72 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               color: activeSection === id ? CYAN : "#787888" }}>{label}</button>
         ))}
       </div>
+
+      {/* ── CALENDAR ── */}
+      {activeSection === "calendar" && (
+        <div>
+          {calendarDays.length === 0 ? (
+            <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±2 day window.</div>
+          ) : calendarDays.map(day => {
+            const sessionGroups = [
+              { label: "Before Open (BMO)", items: day.bmo, color: "#22d3ee", bg: "#22d3ee15" },
+              { label: "After Close (AMC)", items: day.amc, color: "#a78bfa", bg: "#a78bfa15" },
+              ...(day.other.length > 0 ? [{ label: "Unspecified", items: day.other, color: "#686878", bg: "#68687815" }] : [])
+            ];
+            const renderTable = (items) => (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                    {["Symbol","Name","Est EPS","EPS Gr%","Est Rev","Rev Gr%","MCap","RS"].map(h => (
+                      <th key={h} style={{ padding: "6px 8px", textAlign: h === "Name" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 10 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(r => (
+                    <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
+                      onClick={() => onTickerClick && onTickerClick(r.ticker)}
+                      onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <td style={{ padding: "5px 8px", fontWeight: 700, color: "#22d3ee", fontFamily: "monospace", whiteSpace: "nowrap" }}>{r.ticker}</td>
+                      <td style={{ padding: "5px 8px", color: "#d4d4e0", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.eps_est != null ? `$${Number(r.eps_est).toFixed(2)}` : "—"}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.eps_yoy > 0 ? "#2bb886" : r.eps_yoy < 0 ? "#f87171" : "#686878" }}>{r.eps_yoy != null ? `${r.eps_yoy > 0 ? "+" : ""}${Number(r.eps_yoy).toFixed(0)}%` : "—"}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.rev_est || "—"}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.sales_yoy > 0 ? "#2bb886" : r.sales_yoy < 0 ? "#f87171" : "#686878" }}>{r.sales_yoy != null ? `${r.sales_yoy > 0 ? "+" : ""}${Number(r.sales_yoy).toFixed(0)}%` : "—"}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", color: "#9090a0", fontFamily: "monospace" }}>{r.market_cap || "—"}</td>
+                      <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>{r.rs_rank != null ? r.rs_rank : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+            return (
+              <div key={day.days} style={{ marginBottom: 20, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
+                {/* Day header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid #2a2a38", background: day.days === 0 ? "#22d3ee08" : "transparent" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: day.days === 0 ? "#22d3ee" : "#d4d4e0" }}>{day.label}</span>
+                  {day.tag && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+                    background: day.days === 0 ? "#22d3ee20" : "#2a2a38", color: day.days === 0 ? "#22d3ee" : "#9090a0" }}>{day.tag}</span>}
+                  <span style={{ fontSize: 10, color: "#686878", marginLeft: "auto" }}>
+                    {day.items.length} reporting — {day.bmo.length} BMO, {day.amc.length} AMC{day.other.length > 0 ? `, ${day.other.length} unspecified` : ""}
+                  </span>
+                </div>
+                {/* Session sub-groups */}
+                {sessionGroups.map(sg => sg.items.length > 0 && (
+                  <div key={sg.label}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: sg.bg, borderBottom: "1px solid #1a1a24" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: sg.color, textTransform: "uppercase", letterSpacing: 0.5 }}>{sg.label}</span>
+                      <span style={{ fontSize: 10, color: "#686878" }}>({sg.items.length})</span>
+                    </div>
+                    {renderTable(sg.items)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── OVERVIEW ── */}
       {activeSection === "overview" && (
