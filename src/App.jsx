@@ -8565,8 +8565,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           : edUpper.includes("AMC") ? "AMC"
           : "—";
 
-        // Fresh reported growth from TheStockCatalyst earnings movers
-        const er = erMoverMap[s.ticker];
+        // Fresh reported growth — only for today/past (future hasn't reported yet)
+        const er = days <= 0 ? erMoverMap[s.ticker] : null;
         results.push({
           ticker: s.ticker, company: s.company || "", timing,
           eps_yoy: er?.eps_growth_yoy ?? null,
