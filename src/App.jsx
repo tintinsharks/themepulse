@@ -2247,6 +2247,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "burst" ? "#121218" : "transparent", color: scanTab === "burst" ? "#f59e0b" : "#686878" }}>
           ⚡ Momentum Burst <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "burst" ? "#f59e0b" : "#505060" }}>{burstStocks.length}</span>
         </button>
+        <button onClick={() => setScanTab("short")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "short" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "short" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "short" ? "#121218" : "transparent", color: scanTab === "short" ? "#f87171" : "#686878" }}>
+          Short Scan <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "short" ? "#f87171" : "#505060" }}>{shortCandidates.length}</span>
+        </button>
         <button onClick={() => setScanTab("gapper")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
           border: scanTab === "gapper" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "gapper" ? "1px solid #121218" : "1px solid #3a3a4a",
           background: scanTab === "gapper" ? "#121218" : "transparent", color: scanTab === "gapper" ? "#f59e0b" : "#686878" }}>
@@ -2262,16 +2267,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "ai" ? "#121218" : "transparent", color: scanTab === "ai" ? "#22d3ee" : "#686878" }}>
           AI Analysis
         </button>
-        <button onClick={() => setScanTab("short")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
-          border: scanTab === "short" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "short" ? "1px solid #121218" : "1px solid #3a3a4a",
-          background: scanTab === "short" ? "#121218" : "transparent", color: scanTab === "short" ? "#f87171" : "#686878" }}>
-          Short Scan <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "short" ? "#f87171" : "#505060" }}>{shortCandidates.length}</span>
+        <button onClick={() => setScanTab("research")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          border: scanTab === "research" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "research" ? "1px solid #121218" : "1px solid #3a3a4a",
+          background: scanTab === "research" ? "#121218" : "transparent", color: scanTab === "research" ? "#60a5fa" : "#686878" }}>
+          Research
         </button>
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
       {/* Shared filters — apply to scan + burst tabs (EP/AI/Short have their own content) */}
-      {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && scanTab !== "gapper" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+      {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && scanTab !== "gapper" && scanTab !== "research" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — scan tab gets all, burst tab gets pattern + 9M */}
         {(scanTab === "scan" ? [
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
@@ -3090,6 +3095,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             <div style={{ textAlign: "center", color: "#505060", padding: "40px 0", fontSize: 12 }}>No AI analysis available yet.</div>
           )}
         </div>
+      )}
+      {scanTab === "research" && (
+        <Grid stocks={stocks} onTickerClick={onTickerClick} activeTicker={activeTicker} onVisibleTickers={onVisibleTickers} />
       )}
     </div>
     {/* Theme Leaders side panel */}
@@ -9667,7 +9675,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["grid","Research"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"],["intel","Earnings Intel"]].map(([id, label]) => (
+        {[["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["exec","Execution"],["perf","Performance"],["quad","Quadrant"],["intel","Earnings Intel"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -9752,9 +9760,6 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession} />}
-          </ErrorBoundary>
-          <ErrorBoundary name="Research">
-          {view === "grid" && <Grid stocks={data.stocks} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
