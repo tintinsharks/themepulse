@@ -5781,6 +5781,30 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
           }
         }
+        // ── Earnings markers (EPS | Sales YoY) on price chart bottom — daily only ──
+        if (quarters && quarters.length > 0 && tf !== "30m") {
+          const barDates = new Set(bars.map(b => b.date));
+          for (const q of quarters) {
+            if (!q.report_date) continue;
+            let matchDate = q.report_date;
+            if (!barDates.has(matchDate)) {
+              const d = new Date(matchDate + "T00:00:00");
+              for (let j = 1; j <= 5; j++) {
+                d.setDate(d.getDate() + 1);
+                const ds = d.toISOString().slice(0, 10);
+                if (barDates.has(ds)) { matchDate = ds; break; }
+              }
+            }
+            if (!barDates.has(matchDate)) continue;
+            const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
+            const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
+            if (!ePct && !sPct) continue;
+            const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
+            const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
+            priceMarkers.push({ time: matchDate, position: "belowBar", color: clr, shape: "square", size: 0, text: txt });
+          }
+        }
+
         priceMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
         seriesRef.current.setMarkers(priceMarkers);
 
@@ -5834,34 +5858,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
           indSeriesRef.current.setData(fourPctData);
 
-          // ── Earnings markers (EPS | Sales YoY) — daily only ──
-          if (quarters && quarters.length > 0 && tf !== "30m") {
-            const barDates = new Set(bars.map(b => b.date));
-            const erMarkers = [];
-            for (const q of quarters) {
-              if (!q.report_date) continue;
-              // Find closest trading day on or after report_date
-              let matchDate = q.report_date;
-              if (!barDates.has(matchDate)) {
-                // Look forward up to 5 days for nearest trading day
-                const d = new Date(matchDate + "T00:00:00");
-                for (let j = 1; j <= 5; j++) {
-                  d.setDate(d.getDate() + 1);
-                  const ds = d.toISOString().slice(0, 10);
-                  if (barDates.has(ds)) { matchDate = ds; break; }
-                }
-              }
-              if (!barDates.has(matchDate)) continue;
-              const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
-              const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
-              if (!ePct && !sPct) continue;
-              const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
-              const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
-              erMarkers.push({ time: matchDate, position: "aboveBar", color: clr, shape: "square", size: 0, text: txt });
-            }
-            erMarkers.sort((a, b) => a.time.localeCompare(b.time));
-            indSeriesRef.current.setMarkers(erMarkers);
-          }
+          indSeriesRef.current.setMarkers([]);
         }
 
         // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
