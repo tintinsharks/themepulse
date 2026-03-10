@@ -8522,7 +8522,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState("calendar");
   const [sectorFilter, setSectorFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSector, setExpandedSector] = useState(null);
