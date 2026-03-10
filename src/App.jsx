@@ -5450,6 +5450,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
+  const [showCR, setShowCR] = useState(true);
+  const [show4Pct, setShow4Pct] = useState(true);
   const [volStats, setVolStats] = useState(null);
   const [rawBars, setRawBars] = useState(null);
 
@@ -6183,6 +6185,13 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         });
   }, [rawBars, tf, libReady, aggregateBars, entry, stop, target, quarters]);
 
+  // Toggle CR% / 4% Days visibility
+  useEffect(() => {
+    if (crSeriesRef.current) try { crSeriesRef.current.applyOptions({ visible: showCR }); } catch {}
+    if (crMaRef.current) try { crMaRef.current.applyOptions({ visible: showCR }); } catch {}
+    if (fourPctSeriesRef.current) try { fourPctSeriesRef.current.applyOptions({ visible: show4Pct }); } catch {}
+  }, [showCR, show4Pct]);
+
   // Price lines now managed inside data fetch useEffect (with ATR ladder, risk stops, etc.)
 
   const fmtVol = (v) => {
@@ -6196,8 +6205,15 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       {/* CR% + 4% Days combined panel (top) */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
         <div ref={crContainerRef} style={{ width: "100%", height: 90 }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>
-          CR% <span style={{ color: "#22d3ee", marginLeft: 4 }}>4%</span><span style={{ color: "#f472b6" }}>Days</span>
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 6, alignItems: "center" }}>
+          <span onClick={() => setShowCR(p => !p)}
+            style={{ cursor: "pointer", color: showCR ? "#2bb886" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
+            CR%
+          </span>
+          <span onClick={() => setShow4Pct(p => !p)}
+            style={{ cursor: "pointer", userSelect: "none" }}>
+            <span style={{ color: show4Pct ? "#22d3ee" : "#3a3a4a" }}>4%</span><span style={{ color: show4Pct ? "#f472b6" : "#3a3a4a" }}>Days</span>
+          </span>
         </div>
       </div>
       {/* Main chart */}
