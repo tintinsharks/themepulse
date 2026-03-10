@@ -8502,6 +8502,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [feedSortAsc, setFeedSortAsc] = useState(false);
   const [calRange, setCalRange] = useState(2); // ±N days
   const [calMinDvol, setCalMinDvol] = useState(20); // min avg $vol in millions
+  const [calGreenOnly, setCalGreenOnly] = useState(false); // today: only Chg% > 0
   const calTodayRef = useRef(null);
 
   useEffect(() => {
@@ -8718,6 +8719,11 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                 background: calMinDvol === v ? "#22d3ee12" : "transparent",
                 color: calMinDvol === v ? "#22d3ee" : "#686878" }}>{v === 0 ? "All" : `$${v}M`}</button>
             ))}
+            <span style={{ color: "#2a2a38" }}>|</span>
+            <button onClick={() => setCalGreenOnly(!calGreenOnly)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+              border: calGreenOnly ? "1px solid #2bb88650" : "1px solid #2a2a38",
+              background: calGreenOnly ? "#2bb88612" : "transparent",
+              color: calGreenOnly ? "#2bb886" : "#686878" }}>Chg% &gt; 0</button>
             <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{calendarDays.reduce((n, d) => n + d.items.length, 0)} stocks</span>
           </div>
           {calendarDays.length === 0 ? (
@@ -8763,8 +8769,9 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                     ))}
                   </tbody>
                 </table>;
-            const bmoAll = [...day.bmo, ...day.other.filter(r => r.timing !== "AMC")];
-            const amcAll = day.amc;
+            const greenFilter = (items) => (calGreenOnly && day.days === 0) ? items.filter(r => r.change > 0) : items;
+            const bmoAll = greenFilter([...day.bmo, ...day.other.filter(r => r.timing !== "AMC")]);
+            const amcAll = greenFilter(day.amc);
             return (
               <div key={day.days} ref={day.days === 0 ? calTodayRef : undefined} style={{ marginBottom: 20, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
                 {/* Day header */}
@@ -8796,7 +8803,11 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                 {/* EP Catalysts — PM/AH non-earnings movers, today only */}
                 {day.days === 0 && (pmSipMovers.length > 0 || ahSipMovers.length > 0) && (() => {
                   const minVol = calMinDvol > 0 ? calMinDvol * 1_000_000 : 0;
-                  const filterSip = (movers) => minVol > 0 ? movers.filter(m => (m.volume || 0) >= minVol) : movers;
+                  const filterSip = (movers) => {
+                    let list = minVol > 0 ? movers.filter(m => (m.volume || 0) >= minVol) : movers;
+                    if (calGreenOnly) list = list.filter(m => m.change_pct > 0);
+                    return list;
+                  };
                   const renderSipCol = (movers, label, color) => (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: `${color}10`, borderBottom: "1px solid #1a1a24" }}>
