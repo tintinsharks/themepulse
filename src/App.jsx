@@ -3875,74 +3875,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
     return "#4a4a5a40";
   };
 
-  // Upcoming earnings calendar
-  const upcomingEarnings = useMemo(() => {
-    if (!stockMap) return [];
-    const now = new Date();
-    const results = [];
-    Object.values(stockMap).forEach(s => {
-      let days = s.earnings_days;
-      if (days == null && s.earnings_date) {
-        try {
-          const raw = s.earnings_date.replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
-          const parts = raw.split(/\s+/);
-          if (parts.length >= 2) {
-            for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
-              const parsed = new Date(`${parts[0]} ${parts[1]}, ${y}`);
-              if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -14 && diff <= 14) { days = diff; break; } }
-            }
-          }
-        } catch {}
-      }
-      if (days != null && days >= -14 && days <= 14) {
-        if (noBio && (String(s.industry || "") === "Biotechnology" || String(s.industry || "").includes("Drug Manufacturer"))) return;
-        const epsScore = computeEPSScore(s);
-        results.push({ ...s, _days: days, _epsScore: epsScore.score, _epsFactors: epsScore.factors });
-      }
-    });
-    return results.sort((a, b) => a._days - b._days || (b._epsScore ?? -1) - (a._epsScore ?? -1));
-  }, [stockMap, noBio]);
-
-  const earningsCalendar = useMemo(() => {
-    const now = new Date();
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const dayBuckets = {};
-    upcomingEarnings.forEach(s => {
-      const d = new Date(now);
-      d.setDate(d.getDate() + s._days);
-      const dateKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      const dayLabel = `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`;
-      if (!dayBuckets[dateKey]) dayBuckets[dateKey] = { dateKey, dayLabel, days: s._days, date: d, items: [] };
-      dayBuckets[dateKey].items.push(s);
-    });
-    const weeks = {};
-    Object.values(dayBuckets).sort((a, b) => a.days - b.days).forEach(day => {
-      const d = day.date;
-      const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
-      const weekKey = `${monthNames[mon.getMonth()]} ${mon.getDate()}-${fri.getDate()}`;
-      const isPast = day.days < 0;
-      const isCurrent = mon <= now && fri >= now;
-      if (!weeks[weekKey]) weeks[weekKey] = { weekKey, days: [], isPast, isCurrent, startDay: day.days };
-      weeks[weekKey].days.push(day);
-    });
-    return Object.values(weeks).sort((a, b) => a.startDay - b.startDay);
-  }, [upcomingEarnings]);
-
-  const [collapsedWeeks, setCollapsedWeeks] = useState(() => {
-    const collapsed = new Set();
-    earningsCalendar.forEach(w => w.days.forEach(d => {
-      if (d.days < 0) collapsed.add(d.dateKey);
-    }));
-    return collapsed;
-  });
-  const toggleWeek = (wk) => setCollapsedWeeks(prev => {
-    const next = new Set(prev);
-    if (next.has(wk)) next.delete(wk); else next.add(wk);
-    return next;
-  });
-
   // Pipeline last-updated in PST
   const lastUpdatedPST = useMemo(() => {
     if (!pipelineMeta?.last_run) return null;
@@ -4565,52 +4497,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         </div>
       </div>
 
-      {/* ── UPCOMING EARNINGS CALENDAR ── */}
-      {earningsCalendar.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "#a8a8b8", fontWeight: 600 }}>Upcoming Earnings Calendar</span>
-          </div>
-          {earningsCalendar.map(week => (
-            <div key={week.weekKey} style={{ marginBottom: 12 }}>
-              <div onClick={() => toggleWeek(week.weekKey)}
-                style={{ padding: "4px 8px", background: week.isPast ? "#1a1a1f" : week.isCurrent ? "#202028" : "#0d0d14",
-                  borderRadius: 4, cursor: "pointer", userSelect: "none", display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 9, fontWeight: 600, color: "#a8a8b8" }}>
-                  {week.isCurrent ? "▼" : collapsedWeeks.has(week.weekKey) ? "▶" : "▼"}
-                </span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: week.isCurrent ? "#fbbf24" : "#a8a8b8" }}>
-                  {week.weekKey}
-                </span>
-                {week.isPast && <span style={{ fontSize: 8, color: "#4a4a5a" }}>PAST</span>}
-              </div>
-              {!collapsedWeeks.has(week.days[0]?.dateKey) && (
-                <div style={{ paddingLeft: 16, paddingTop: 4 }}>
-                  {week.days.map(day => (
-                    <div key={day.dateKey} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 9, fontWeight: 600, color: day.days < 0 ? "#4a4a5a" : day.days === 0 ? "#fbbf24" : "#a8a8b8", marginBottom: 4 }}>
-                        {day.dayLabel} ({day.days > 0 ? `+${day.days}d` : day.days === 0 ? "Today" : `${day.days}d`})
-                      </div>
-                      <div style={{ paddingLeft: 8 }}>
-                        {day.items.map((s, idx) => (
-                          <div key={idx} style={{ fontSize: 9, color: "#686878", padding: "2px 0", cursor: "pointer" }}
-                            onClick={() => onTickerClick(s.ticker)}>
-                            <span style={{ fontWeight: 600, color: "#a8a8b8" }}>
-                              <Tk ticker={s.ticker} />
-                            </span>
-                            {" "}
-                            <span style={{ color: "#4a4a5a" }}>{s.company || "—"}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -7979,7 +7865,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       });
     });
     // Compute $vol-weighted avg change + equal-weighted avg RVol + avg RS
-    return Object.values(groups).map(g => {
+    const built = Object.values(groups).map(g => {
       const allStocks = [...g.wlStocks, ...g.pfStocks, ...g.uniStocks];
       let rvolDvTotal = 0, rvolWeighted = 0;
       allStocks.forEach(s => {
