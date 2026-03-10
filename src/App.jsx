@@ -8501,7 +8501,14 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [feedSort, setFeedSort] = useState("date");
   const [feedSortAsc, setFeedSortAsc] = useState(false);
   const [calRange, setCalRange] = useState(2); // ±N days
-  const [calMinDvol, setCalMinDvol] = useState(0); // min avg $vol in millions
+  const [calMinDvol, setCalMinDvol] = useState(20); // min avg $vol in millions
+  const calTodayRef = useRef(null);
+
+  useEffect(() => {
+    if (activeSection === "calendar" && calTodayRef.current) {
+      setTimeout(() => calTodayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    }
+  }, [activeSection, calendarDays]);
 
   useEffect(() => {
     fetch("/data/earnings_intel.json")
@@ -8738,7 +8745,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
             const bmoAll = [...day.bmo, ...day.other.filter(r => r.timing !== "AMC")];
             const amcAll = day.amc;
             return (
-              <div key={day.days} style={{ marginBottom: 20, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
+              <div key={day.days} ref={day.days === 0 ? calTodayRef : undefined} style={{ marginBottom: 20, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
                 {/* Day header */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid #2a2a38", background: day.days === 0 ? "#22d3ee08" : "transparent" }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: day.days === 0 ? "#22d3ee" : "#d4d4e0" }}>{day.label}</span>
