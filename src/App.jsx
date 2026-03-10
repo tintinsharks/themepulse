@@ -8510,6 +8510,15 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
+  // Earnings mover lookup: fresh reported EPS/Sales from TheStockCatalyst
+  const erMoverMap = useMemo(() => {
+    const m = {};
+    [...(earningsMovers || []), ...(historicalEarningsMovers || [])].forEach(mv => {
+      if (mv.ticker && mv.er) m[mv.ticker] = mv.er;
+    });
+    return m;
+  }, [earningsMovers, historicalEarningsMovers]);
+
   // Earnings Calendar: configurable date range, split by BMO / AMC
   // Must be before early returns to satisfy Rules of Hooks
   const calendarDays = useMemo(() => {
@@ -8549,13 +8558,13 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           : edUpper.includes("AMC") ? "AMC"
           : "—";
 
-        const q0 = (Array.isArray(s.quarters) ? s.quarters : [])[0] || {};
+        // Fresh reported growth from TheStockCatalyst earnings movers
+        const er = erMoverMap[s.ticker];
         results.push({
           ticker: s.ticker, company: s.company || "", timing,
-          eps_est: s.eps_estimated || q0.eps,
-          eps_yoy: s.eps_yoy,
-          rev_est: s.revenue_estimated_fmt || q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
-          sales_yoy: s.sales_yoy, market_cap: s.market_cap,
+          eps_yoy: er?.eps_growth_yoy ?? null,
+          sales_yoy: er?.rev_growth_yoy ?? null,
+          market_cap: s.market_cap,
           market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
           avg_dvol: s.avg_dollar_vol_raw || 0, avg_dvol_fmt: s.avg_dollar_vol || "",
           _days: days, _s: s
@@ -8589,7 +8598,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol]);
+  }, [stockMap, calRange, calMinDvol, erMoverMap]);
 
   if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center" }}>Loading earnings intelligence...</div>;
   if (error) return <div style={{ color: "#f87171", padding: 40, textAlign: "center" }}>Failed to load earnings intel: {error}<br/><span style={{ fontSize: 11, color: "#686878" }}>Run: ./scripts/run-earnings-intel.sh --dry</span></div>;
@@ -8691,8 +8700,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           {calendarDays.length === 0 ? (
             <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±{calRange} day window{calMinDvol > 0 ? ` with ≥$${calMinDvol}M avg $vol` : ""}.</div>
           ) : calendarDays.map(day => {
-            const fmtPct = (v, future) => {
-              if (future) return "—";
+            const fmtPct = (v) => {
               if (v == null) return "—";
               const n = Number(v);
               return <span style={{ color: n > 0 ? "#2bb886" : n < 0 ? "#f87171" : "#686878" }}>{n > 0 ? "+" : ""}{n.toFixed(0)}%</span>;
@@ -8708,9 +8716,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map(r => {
-                      const future = r._days > 0;
-                      return (
+                    {items.map(r => (
                       <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
                         onClick={() => onTickerClick && onTickerClick(r.ticker)}
                         onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
@@ -8719,14 +8725,14 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                           <div style={{ fontWeight: 700, color: "#22d3ee", fontFamily: "monospace", fontSize: 11 }}>{r.ticker}</div>
                           <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{r.company}</div>
                         </td>
-                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.eps_yoy, future)}</td>
-                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.sales_yoy, future)}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.eps_yoy)}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.sales_yoy)}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", color: "#787888", fontFamily: "monospace", fontSize: 10 }}>{r.avg_dvol_fmt || "—"}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
                           color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
                           {r.rs_rank != null ? r.rs_rank : "—"}</td>
-                      </tr>);
-                    })}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>;
             const bmoAll = [...day.bmo, ...day.other.filter(r => r.timing !== "AMC")];
