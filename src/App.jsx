@@ -5439,14 +5439,12 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const linesRef = useRef([]);
   const volMaRef = useRef(null);
   const maRefs = useRef({}); // ema10, ema21hi, ema21close, ema21lo, sma50, ema200
-  const indContainerRef = useRef(null);
-  const indChartRef = useRef(null);
-  const indSeriesRef = useRef(null);
-  const indErLineRef = useRef(null);
   const crContainerRef = useRef(null);
   const crChartRef = useRef(null);
   const crSeriesRef = useRef(null);
   const crMaRef = useRef(null);
+  const fourPctSeriesRef = useRef(null);
+  const crErLineRef = useRef(null);
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -5495,8 +5493,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     chartContainerRef.current = el;
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
-      if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; indErLineRef.current = null; }
-      if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; }
+      if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -5552,11 +5549,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         if (chartRef.current && chartContainerRef.current) {
           try { chartRef.current.resize(chartContainerRef.current.clientWidth || 400, chartContainerRef.current.clientHeight || 400); } catch {}
         }
-        if (indChartRef.current && indContainerRef.current) {
-          try { indChartRef.current.resize(indContainerRef.current.clientWidth || 400, 80); } catch {}
-        }
         if (crChartRef.current && crContainerRef.current) {
-          try { crChartRef.current.resize(crContainerRef.current.clientWidth || 400, 70); } catch {}
+          try { crChartRef.current.resize(crContainerRef.current.clientWidth || 400, 90); } catch {}
         }
         if (volChartRef.current && volContainerRef.current) {
           try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 120); } catch {}
@@ -5564,45 +5558,10 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       });
       roRef.current.observe(chartContainerRef.current);
 
-      // ── 4% Days indicator pane ──
-      if (indContainerRef.current) {
-        const indChart = LW.createChart(indContainerRef.current, {
-          width: indContainerRef.current.clientWidth || 400, height: 80,
-          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
-          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
-          crosshair: { mode: 0 },
-          rightPriceScale: { borderColor: "#2a2a38" },
-          timeScale: { visible: false },
-          handleScroll: false,
-          handleScale: false,
-        });
-        indChartRef.current = indChart;
-        // 4% days histogram — fixed Y range ±20%
-        indSeriesRef.current = indChart.addHistogramSeries({
-          priceFormat: { type: "price", precision: 1, minMove: 0.1 },
-          lastValueVisible: false, priceLineVisible: false,
-          autoscaleInfoProvider: () => ({ priceRange: { minValue: -20, maxValue: 20 } }),
-        });
-        // Hidden line at -18 for earnings markers
-        indErLineRef.current = indChart.addLineSeries({
-          color: "transparent", lineWidth: 0,
-          lastValueVisible: false, priceLineVisible: false,
-          autoscaleInfoProvider: () => ({ priceRange: { minValue: -20, maxValue: 20 } }),
-        });
-        // Sync indicator time scale from main chart (all sub-panes synced)
-        chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-          if (range) {
-            if (indChartRef.current) try { indChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
-            if (crChartRef.current) try { crChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
-            if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
-          }
-        });
-      }
-
-      // ── CR% (Close Range %) pane ──
+      // ── CR% + 4% Days combined pane (top) ──
       if (crContainerRef.current) {
         const crChart = LW.createChart(crContainerRef.current, {
-          width: crContainerRef.current.clientWidth || 400, height: 70,
+          width: crContainerRef.current.clientWidth || 400, height: 90,
           layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
           grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
           crosshair: { mode: 0 },
@@ -5612,17 +5571,37 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           handleScale: false,
         });
         crChartRef.current = crChart;
-        // CR% histogram — color-coded by level
+        // CR% histogram (0-100 scale) — primary layer
         crSeriesRef.current = crChart.addHistogramSeries({
           priceFormat: { type: "price", precision: 0, minMove: 1 },
           lastValueVisible: false, priceLineVisible: false,
           autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
         });
-        // 10-period SMA of CR% overlay
+        // 10-period SMA of CR%
         crMaRef.current = crChart.addLineSeries({
           color: "#fbbf2480", lineWidth: 1,
           lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
           autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+        });
+        // 4% Days overlay — line series with markers for ≥4% days
+        // Mapped to 0-100 scale: 0% change → 50, +20% → 100, -20% → 0
+        fourPctSeriesRef.current = crChart.addLineSeries({
+          color: "transparent", lineWidth: 0,
+          lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+        });
+        // Hidden line for earnings markers
+        crErLineRef.current = crChart.addLineSeries({
+          color: "transparent", lineWidth: 0,
+          lastValueVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+        });
+        // Sync time scale
+        chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range) {
+            if (crChartRef.current) try { crChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+            if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+          }
         });
       }
 
@@ -6025,21 +6004,61 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
-        // ── 4% Days indicator data ──
-        if (indSeriesRef.current) {
-          const fourPctData = [];
-          for (let i = 1; i < bars.length; i++) {
-            const prev = bars[i - 1].close;
-            const pct = ((bars[i].close - prev) / prev) * 100;
-            const volUp = (bars[i].volume || 0) > (bars[i - 1].volume || 0);
-            if (pct >= 4 && volUp) fourPctData.push({ time: btime(bars[i]), value: pct, color: "#2bb886" });
-            else if (pct <= -4 && volUp) fourPctData.push({ time: btime(bars[i]), value: pct, color: "#f87171" });
-            else fourPctData.push({ time: btime(bars[i]), value: 0 });
+        // ── CR% + 4% Days combined pane data ──
+        if (crSeriesRef.current) {
+          // CR% histogram
+          const crData = [];
+          const crVals = [];
+          for (let i = 0; i < bars.length; i++) {
+            const range = bars[i].high - bars[i].low;
+            const cr = range > 0 ? ((bars[i].close - bars[i].low) / range) * 100 : 50;
+            crVals.push(cr);
+            const isUp = bars[i].close >= bars[i].open;
+            let color;
+            if (cr >= 85 && isUp) color = "#2bb886";
+            else if (cr >= 70 && isUp) color = "#2bb88680";
+            else if (cr <= 15 && !isUp) color = "#f87171";
+            else if (cr <= 30 && !isUp) color = "#f8717180";
+            else color = "#4a4a5a40";
+            crData.push({ time: btime(bars[i]), value: Math.round(cr), color });
           }
-          indSeriesRef.current.setData(fourPctData);
+          crSeriesRef.current.setData(crData);
 
-          // ── Earnings markers (EPS | Sales YoY) at -18 level in 4% pane — daily only ──
-          if (indErLineRef.current) {
+          // 10-period SMA of CR%
+          if (crMaRef.current) {
+            const crMaData = [];
+            for (let i = 0; i < crVals.length; i++) {
+              if (i < 9) continue;
+              let sum = 0;
+              for (let j = i - 9; j <= i; j++) sum += crVals[j];
+              crMaData.push({ time: btime(bars[i]), value: Math.round(sum / 10) });
+            }
+            crMaRef.current.setData(crMaData);
+          }
+
+          // 4% Days overlay — diamond markers on an invisible line
+          // Uses the fourPctSeries line at value=5 (bottom of pane) with markers above
+          if (fourPctSeriesRef.current) {
+            const fpLineData = [];
+            const fpMarkers = [];
+            for (let i = 1; i < bars.length; i++) {
+              const prev = bars[i - 1].close;
+              const pct = ((bars[i].close - prev) / prev) * 100;
+              const volUp = (bars[i].volume || 0) > (bars[i - 1].volume || 0);
+              fpLineData.push({ time: btime(bars[i]), value: 5 });
+              if (pct >= 4 && volUp) {
+                fpMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#22d3ee", shape: "arrowUp", size: 0.5, text: `+${pct.toFixed(0)}%` });
+              } else if (pct <= -4 && volUp) {
+                fpMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#f472b6", shape: "arrowDown", size: 0.5, text: `${pct.toFixed(0)}%` });
+              }
+            }
+            fpMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
+            fourPctSeriesRef.current.setData(fpLineData);
+            fourPctSeriesRef.current.setMarkers(fpMarkers);
+          }
+
+          // Earnings markers (EPS | Sales YoY) at bottom of pane — daily only
+          if (crErLineRef.current) {
             const erLineData = [];
             const erMarkers = [];
             if (quarters && quarters.length > 0 && tf !== "30m") {
@@ -6061,50 +6080,17 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                 if (!ePct && !sPct) continue;
                 const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
                 const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
-                erLineData.push({ time: matchDate, value: -18 });
+                erLineData.push({ time: matchDate, value: 5 });
                 erMarkers.push({ time: matchDate, position: "aboveBar", color: clr, shape: "square", size: 0, text: txt });
               }
               erMarkers.sort((a, b) => a.time.localeCompare(b.time));
               erLineData.sort((a, b) => a.time.localeCompare(b.time));
             }
-            indErLineRef.current.setData(erLineData);
-            indErLineRef.current.setMarkers(erMarkers);
-          }
-        }
-
-        // ── CR% (Close Range %) data ──
-        if (crSeriesRef.current) {
-          const crData = [];
-          const crVals = [];
-          for (let i = 0; i < bars.length; i++) {
-            const range = bars[i].high - bars[i].low;
-            const cr = range > 0 ? ((bars[i].close - bars[i].low) / range) * 100 : 50;
-            crVals.push(cr);
-            // Color: green if CR>=85 AND up day, red if CR<=15 AND down day, else neutral
-            const isUp = bars[i].close >= bars[i].open;
-            let color;
-            if (cr >= 85 && isUp) color = "#2bb886";
-            else if (cr >= 70 && isUp) color = "#2bb88680";
-            else if (cr <= 15 && !isUp) color = "#f87171";
-            else if (cr <= 30 && !isUp) color = "#f8717180";
-            else color = "#4a4a5a60";
-            crData.push({ time: btime(bars[i]), value: Math.round(cr), color });
-          }
-          crSeriesRef.current.setData(crData);
-
-          // 10-period SMA of CR%
-          if (crMaRef.current) {
-            const crMaData = [];
-            for (let i = 0; i < crVals.length; i++) {
-              if (i < 9) continue;
-              let sum = 0;
-              for (let j = i - 9; j <= i; j++) sum += crVals[j];
-              crMaData.push({ time: btime(bars[i]), value: Math.round(sum / 10) });
-            }
-            crMaRef.current.setData(crMaData);
+            crErLineRef.current.setData(erLineData);
+            crErLineRef.current.setMarkers(erMarkers);
           }
 
-          // 85% and 50% reference lines (create once)
+          // Reference lines (create once)
           if (!crSeriesRef.current._refLinesAdded) {
             try {
               crSeriesRef.current.createPriceLine({ price: 85, color: "#2bb88640", lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
@@ -6207,10 +6193,12 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 300, display: "flex", flexDirection: "column" }}>
-      {/* 4% Days indicator pane */}
+      {/* CR% + 4% Days combined panel (top) */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: "1px solid #2a2a38" }}>
-        <div ref={indContainerRef} style={{ width: "100%", height: 80 }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>4% Days</div>
+        <div ref={crContainerRef} style={{ width: "100%", height: 90 }} />
+        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>
+          CR% <span style={{ color: "#22d3ee", marginLeft: 4 }}>4%</span><span style={{ color: "#f472b6" }}>Days</span>
+        </div>
       </div>
       {/* Main chart */}
       <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
@@ -6270,11 +6258,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
-      </div>
-      {/* CR% panel */}
-      <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
-        <div ref={crContainerRef} style={{ width: "100%", height: 70 }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>CR%</div>
       </div>
       {/* Volume panel */}
       <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
