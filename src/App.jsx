@@ -5281,6 +5281,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const indContainerRef = useRef(null);
   const indChartRef = useRef(null);
   const indSeriesRef = useRef(null);
+  const indErLineRef = useRef(null);
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -5329,7 +5330,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     chartContainerRef.current = el;
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
-      if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; }
+      if (indChartRef.current) { try { indChartRef.current.remove(); } catch {} indChartRef.current = null; indSeriesRef.current = null; indErLineRef.current = null; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -5410,6 +5411,12 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         // 4% days histogram — fixed Y range ±20%
         indSeriesRef.current = indChart.addHistogramSeries({
           priceFormat: { type: "price", precision: 1, minMove: 0.1 },
+          lastValueVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: -20, maxValue: 20 } }),
+        });
+        // Hidden line at -18 for earnings markers
+        indErLineRef.current = indChart.addLineSeries({
+          color: "transparent", lineWidth: 0,
           lastValueVisible: false, priceLineVisible: false,
           autoscaleInfoProvider: () => ({ priceRange: { minValue: -20, maxValue: 20 } }),
         });
@@ -5781,30 +5788,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
           }
         }
-        // ── Earnings markers (EPS | Sales YoY) on price chart bottom — daily only ──
-        if (quarters && quarters.length > 0 && tf !== "30m") {
-          const barDates = new Set(bars.map(b => b.date));
-          for (const q of quarters) {
-            if (!q.report_date) continue;
-            let matchDate = q.report_date;
-            if (!barDates.has(matchDate)) {
-              const d = new Date(matchDate + "T00:00:00");
-              for (let j = 1; j <= 5; j++) {
-                d.setDate(d.getDate() + 1);
-                const ds = d.toISOString().slice(0, 10);
-                if (barDates.has(ds)) { matchDate = ds; break; }
-              }
-            }
-            if (!barDates.has(matchDate)) continue;
-            const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
-            const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
-            if (!ePct && !sPct) continue;
-            const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
-            const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
-            priceMarkers.push({ time: matchDate, position: "belowBar", color: clr, shape: "square", size: 0, text: txt });
-          }
-        }
-
         priceMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
         seriesRef.current.setMarkers(priceMarkers);
 
@@ -5858,7 +5841,38 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
           indSeriesRef.current.setData(fourPctData);
 
-          indSeriesRef.current.setMarkers([]);
+          // ── Earnings markers (EPS | Sales YoY) at -18 level in 4% pane — daily only ──
+          if (indErLineRef.current) {
+            const erLineData = [];
+            const erMarkers = [];
+            if (quarters && quarters.length > 0 && tf !== "30m") {
+              const barDates = new Set(bars.map(b => b.date));
+              for (const q of quarters) {
+                if (!q.report_date) continue;
+                let matchDate = q.report_date;
+                if (!barDates.has(matchDate)) {
+                  const d = new Date(matchDate + "T00:00:00");
+                  for (let j = 1; j <= 5; j++) {
+                    d.setDate(d.getDate() + 1);
+                    const ds = d.toISOString().slice(0, 10);
+                    if (barDates.has(ds)) { matchDate = ds; break; }
+                  }
+                }
+                if (!barDates.has(matchDate)) continue;
+                const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
+                const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
+                if (!ePct && !sPct) continue;
+                const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
+                const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
+                erLineData.push({ time: matchDate, value: -18 });
+                erMarkers.push({ time: matchDate, position: "aboveBar", color: clr, shape: "square", size: 0, text: txt });
+              }
+              erMarkers.sort((a, b) => a.time.localeCompare(b.time));
+              erLineData.sort((a, b) => a.time.localeCompare(b.time));
+            }
+            indErLineRef.current.setData(erLineData);
+            indErLineRef.current.setMarkers(erMarkers);
+          }
         }
 
         // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
