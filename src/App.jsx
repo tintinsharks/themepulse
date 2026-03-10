@@ -2167,7 +2167,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
       range: safe(b => b.close_range), rvol: safe(b => b.vol_ratio), vol: safe(b => b.volume),
       rs: safe(b => b._rs), grade: safe(b => ({"A+":12,"A":11,"A-":10,"B+":9,"B":8,"B-":7,"C+":6,"C":5,"C-":4,"D+":3,"D":2,"D-":1})[b._grade] ?? null),
-      adr: safe(b => b._adr),
+      adr: safe(b => b._adr), accel: safe(b => stockMap[b.ticker]?.accel),
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
@@ -2258,6 +2258,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       adr: safe(s => s.adr_pct), eps_score: safe(s => s._epsScore), ca_score: safe(s => s._caScore), ret3m: safe(s => s.return_3m),
       fromlo: safe(s => s.above_52w_low), offhi: safe(s => s.pct_from_high != null ? -s.pct_from_high : null),
       si: safe(s => s.short_float), hits: safe(s => s._shortHits.length),
+      accel: safe(s => stockMap[s.ticker]?.accel ?? s.accel),
     };
     const sorted = list.sort(sorters[shortSort.col] || sorters.change);
     // Default "asc" for change means most negative first (smallest value first) — reverse the default desc sort
@@ -2290,6 +2291,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const safe = fn => (a, b) => (fn(b) ?? -Infinity) - (fn(a) ?? -Infinity);
     const sorters = { change: safe(s => s.change_pct), rvol: safe(s => s._liveRv), rs: safe(s => s.rs_rank), vol: safe(s => s._liveVol), dvol: safe(s => s.avg_dollar_vol_raw),
       cr: safe(s => s._cr), si: safe(s => s._shortFloat), float: safe(s => s._floatShares ? parseFloat(s._floatShares) : null), grade: safe(s => ({ "A+": 7, A: 6, "A-": 5, "B+": 4, B: 3, "B-": 2, C: 1 })[s.grade]),
+      accel: safe(s => stockMap[s.ticker]?.accel ?? s.accel),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker), industry: (a, b) => (a.industry || "").localeCompare(b.industry || "") };
     const sorted = [...list].sort(sorters[gapperSort.col] || sorters.change);
     return gapperSort.dir === "asc" ? sorted.reverse() : sorted;
@@ -2707,7 +2709,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <th style={{ padding: "6px 4px", width: 24 }}></th>
               {[["Ticker", null, "left"], ["Type", null, "center"], ["ADR%", "adr", "right"], ["Chg%", "change", "right"], ["$Move", "dollar", "right"],
                 ["Close", "close", "right"], ["ClRng", "range", "right"], ["RVol", "rvol", "right"], ["Vol", "vol", "right"],
-                ["RS", "rs", "right"], ["Reasoning", null, "left"]].map(([h, sk, align]) => (
+                ["RS", "rs", "right"], ["Accel", "accel", "right"], ["Reasoning", null, "left"]].map(([h, sk, align]) => (
                 <th key={h} onClick={sk ? () => setBurstSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
                   style={{ padding: "6px 8px", color: burstSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: align, fontSize: 11,
                     cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
@@ -2771,6 +2773,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     color: (b._rs || 0) >= 80 ? "#2bb886" : (b._rs || 0) >= 60 ? "#60a5fa" : "#9090a0" }}>
                     {b._rs || "—"}
                   </td>
+                  {(() => { const ac = stockMap[b.ticker]?.accel; return <td style={{ padding: "5px 8px", textAlign: "right", fontFamily: "monospace", fontSize: 11,
+                    color: (ac ?? 0) >= 5 ? "#2bb886" : (ac ?? 0) >= 2 ? "#4a9070" : (ac ?? 0) <= -5 ? "#f87171" : (ac ?? 0) <= -2 ? "#c06060" : ac != null ? "#686878" : "#3a3a4a" }}>
+                    {ac != null ? `${ac > 0 ? "+" : ""}${ac.toFixed(1)}` : "—"}</td>; })()}
                   {/* Reasoning — from Finviz whyMoving */}
                   <td style={{ padding: "4px 8px", textAlign: "left",
                     color: dig.sentiment === "good" ? "#2bb886" : dig.sentiment === "bad" ? "#f87171" : "#9090a0",
@@ -2782,7 +2787,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 {/* Expanded row — bullet points from Finviz daily digest */}
                 {isExpanded && (
                   <tr style={{ background: "#0d0d15" }}>
-                    <td colSpan={13} style={{ padding: "12px 16px 16px 40px" }}>
+                    <td colSpan={14} style={{ padding: "12px 16px 16px 40px" }}>
                       {dig.bullets?.length > 0 ? (
                         <ul style={{ margin: 0, paddingLeft: 16, listStyleType: "disc" }}>
                           {dig.bullets.map((bp, i) => (
@@ -2894,7 +2899,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           <th style={{ padding: "6px 4px", width: 24 }}></th>
           {[["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"], ["Chg%", "change"], ["Vol", "vol"],
-            ["RVol", "rvol"], ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["3M%", "ret3m"],
+            ["RVol", "rvol"], ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["Accel", "accel"], ["3M%", "ret3m"],
             ["OffHi%", "offhi"], ["SI%", "si"], ["Reasoning", null]].map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setShortSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: sk === "change" ? "asc" : "desc" }) : undefined}
               style={{ padding: "6px 8px", color: shortSort.col === sk ? "#f87171" : "#787888", fontWeight: 600, textAlign: h === "Reasoning" ? "left" : "center", fontSize: 11,
@@ -2966,6 +2971,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: (s._epsScore ?? 99) <= 20 ? "#f87171" : (s._epsScore ?? 99) <= 40 ? "#f97316" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
                 {s._epsScore ?? "—"}</td>
+              {/* Accel */}
+              {(() => { const ac = stockMap[s.ticker]?.accel ?? s.accel; return <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: (ac ?? 0) >= 5 ? "#2bb886" : (ac ?? 0) >= 2 ? "#4a9070" : (ac ?? 0) <= -5 ? "#f87171" : (ac ?? 0) <= -2 ? "#c06060" : ac != null ? "#686878" : "#3a3a4a" }}>
+                {ac != null ? `${ac > 0 ? "+" : ""}${ac.toFixed(1)}` : "—"}</td>; })()}
               {/* 3M% */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               {/* OffHi% — distance from 52-week high (O'Neil: key metric for former leaders) */}
@@ -2987,7 +2996,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             {/* Expanded row — bullet points from Finviz daily digest */}
             {isExpanded && (
               <tr style={{ background: "#0d0d15" }}>
-                <td colSpan={15} style={{ padding: "12px 16px 16px 40px" }}>
+                <td colSpan={16} style={{ padding: "12px 16px 16px 40px" }}>
                   {dig.bullets?.length > 0 ? (
                     <ul style={{ margin: 0, paddingLeft: 16, listStyleType: "disc" }}>
                       {dig.bullets.map((bp, i) => (
@@ -3029,7 +3038,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
           <th style={{ padding: "6px 4px", width: 24 }}></th>
-          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"], ["$Vol", "dvol"], ["SI%", "si"], ["Float", "float"], ["Industry", "industry"], ["Grade", "grade"]].map(([h, sk]) => (
+          {[["Ticker", "ticker"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"], ["$Vol", "dvol"], ["SI%", "si"], ["Float", "float"], ["Industry", "industry"], ["Grade", "grade"], ["Accel", "accel"]].map(([h, sk]) => (
             <th key={h} onClick={sk ? () => setGapperSort(prev => prev.col === sk ? { col: sk, dir: prev.dir === "desc" ? "asc" : "desc" } : { col: sk, dir: "desc" }) : undefined}
               style={{ padding: "6px 8px", color: gapperSort.col === sk ? "#f59e0b" : "#787888", fontWeight: 600, textAlign: "center", fontSize: 11,
                 cursor: sk ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
@@ -3098,11 +3107,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 title={s.industry}>{s.industry || '—'}</td>
               {/* Grade */}
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+              {/* Accel */}
+              {(() => { const ac = stockMap[s.ticker]?.accel ?? s.accel; return <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
+                color: (ac ?? 0) >= 5 ? "#2bb886" : (ac ?? 0) >= 2 ? "#4a9070" : (ac ?? 0) <= -5 ? "#f87171" : (ac ?? 0) <= -2 ? "#c06060" : ac != null ? "#686878" : "#3a3a4a" }}>
+                {ac != null ? `${ac > 0 ? "+" : ""}${ac.toFixed(1)}` : "—"}</td>; })()}
             </tr>
             {/* Expanded row — bullet points from Finviz daily digest */}
             {isExpanded && (
               <tr style={{ background: "#0d0d15" }}>
-                <td colSpan={11} style={{ padding: "12px 16px 16px 40px" }}>
+                <td colSpan={12} style={{ padding: "12px 16px 16px 40px" }}>
                   {s._bullets.length > 0 ? (
                     <ul style={{ margin: 0, paddingLeft: 16, listStyleType: "disc" }}>
                       {s._bullets.map((b, i) => (
@@ -3576,6 +3589,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
       nm: r => r._netMargin ?? null,
       pct_from_high: r => stockMap[r.ticker]?.pct_from_high ?? null,
       rs: r => stockMap[r.ticker]?.rs_rank ?? r.rs_rank ?? null,
+      accel: r => stockMap[r.ticker]?.accel ?? null,
     };
 
     // Non-numeric sorters (special comparison logic)
@@ -3714,6 +3728,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         case "change": cmp = (liveLookup[a.ticker]?.change ?? liveLookup[a.ticker]?.ext_change ?? stockMap[a.ticker]?.change_pct ?? a.change_pct ?? a.ext_hours_change_pct ?? -999) - (liveLookup[b.ticker]?.change ?? liveLookup[b.ticker]?.ext_change ?? stockMap[b.ticker]?.change_pct ?? b.change_pct ?? b.ext_hours_change_pct ?? -999); break;
         case "price": cmp = (a.price || 0) - (b.price || 0); break;
         case "rvol": cmp = (ea.rvol ?? -999) - (eb.rvol ?? -999); break;
+        case "accel": cmp = (stockMap[a.ticker]?.accel ?? -999) - (stockMap[b.ticker]?.accel ?? -999); break;
         case "days": cmp = (a.days_ago ?? 999) - (b.days_ago ?? 999); break;
         case "session": cmp = (a._session || a.er?.timing || "").localeCompare(b._session || b.er?.timing || ""); break;
         case "rev_yoy": cmp = (ea.revYoY ?? -999) - (eb.revYoY ?? -999); break;
@@ -4010,6 +4025,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                 <col style={{ width: 38 }} />{/* Chg% */}
                 <col style={{ width: 42 }} />{/* Vol */}
                 <col style={{ width: 30 }} />{/* RVol */}
+                <col style={{ width: 34 }} />{/* Accel */}
                 <col style={{ width: 62 }} />{/* Sub */}
                 <col style={{ width: 34 }} />{/* FrHi% */}
                 <col style={{ width: 26 }} />{/* Days */}
@@ -4035,6 +4051,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                     { col: "change", label: marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%", align: "right" },
                     { col: "cur_vol", label: marketSession === "premarket" ? "PMVol" : marketSession === "aftermarket" ? "AHVol" : "Vol", align: "right" },
                     { col: "vol", label: "RVol", align: "right" },
+                    { col: "accel", label: "Accel", align: "right" },
                     { col: "subtheme", label: "Sub", align: "left" },
                     { col: "pct_from_high", label: "FrHi%", align: "right" },
                     { col: "days", label: "Days", align: "right" },
@@ -4176,6 +4193,10 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         color: (_rv ?? -1) >= 8 ? "#c084fc" : (_rv ?? -1) >= 4 ? "#a78bfa" : "#686878" }}>
                         {displayVol}
                       </td>
+                      {/* Accel */}
+                      {(() => { const ac = s.accel; return <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 10, fontFamily: "monospace",
+                        color: (ac ?? 0) >= 5 ? "#2bb886" : (ac ?? 0) >= 2 ? "#4a9070" : (ac ?? 0) <= -5 ? "#f87171" : (ac ?? 0) <= -2 ? "#c06060" : ac != null ? "#686878" : "#3a3a4a" }}>
+                        {ac != null ? `${ac > 0 ? "+" : ""}${ac.toFixed(1)}` : "—"}</td>; })()}
                       {/* Subtheme */}
                       <td style={{ padding: "3px 4px", textAlign: "left", fontSize: 9, color: "#505060",
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -4230,6 +4251,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
+                      { key: "accel", label: "Accel", align: "right" },
                       { key: "days", label: "Days", align: "center" },
                       { key: "headline", label: "Headline", align: "left" },
                     ].map(h => (
@@ -4303,6 +4325,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           color: rvol != null && isFinite(rvol) ? (prvol >= 3 ? "#f59e0b" : prvol >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
                           {rvol != null && isFinite(rvol) ? `${rvol.toFixed(1)}x` : "—"}
                         </td>; })()}
+                        {(() => { const ac = sMap.accel; return <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: (ac ?? 0) >= 5 ? "#2bb886" : (ac ?? 0) >= 2 ? "#4a9070" : (ac ?? 0) <= -5 ? "#f87171" : (ac ?? 0) <= -2 ? "#c06060" : ac != null ? "#686878" : "#3a3a4a" }}>
+                          {ac != null ? `${ac > 0 ? "+" : ""}${ac.toFixed(1)}` : "—"}</td>; })()}
                         <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
                           {daysAgo}d
@@ -4353,6 +4378,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       { key: "eps_yoy", label: "EPS%", align: "right" },
                       { key: "change", label: "Chg%", align: "right" },
                       { key: "rvol", label: "RVol", align: "right" },
+                      { key: "accel", label: "Accel", align: "right" },
                       { key: "days", label: "Days", align: "center" },
                       { key: "headline", label: "Headline", align: "left" },
                     ].map(h => (
@@ -4396,6 +4422,7 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         case "eps_yoy": cmp = (a._epsYoY ?? -999) - (b._epsYoY ?? -999); break;
                         case "change": cmp = (a._chg ?? -999) - (b._chg ?? -999); break;
                         case "rvol": cmp = (a._rvol ?? -999) - (b._rvol ?? -999); break;
+                        case "accel": cmp = (a._s?.accel ?? -999) - (b._s?.accel ?? -999); break;
                         case "days": cmp = (a._addedDays ?? 999) - (b._addedDays ?? 999); break;
                         default: cmp = (a._chg ?? -999) - (b._chg ?? -999);
                       }
@@ -4437,6 +4464,9 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                             color: f._rvol != null ? (prv >= 3 ? "#f59e0b" : prv >= 1.5 ? "#2bb886" : "#686878") : "#3a3a4a" }}>
                             {f._rvol != null ? `${f._rvol.toFixed(1)}x` : "—"}
                           </td>; })()}
+                          {(() => { const ac = s.accel; return <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: (ac ?? 0) >= 5 ? "#2bb886" : (ac ?? 0) >= 2 ? "#4a9070" : (ac ?? 0) <= -5 ? "#f87171" : (ac ?? 0) <= -2 ? "#c06060" : ac != null ? "#686878" : "#3a3a4a" }}>
+                            {ac != null ? `${ac > 0 ? "+" : ""}${ac.toFixed(1)}` : "—"}</td>; })()}
                           <td style={{ padding: "3px 6px", textAlign: "center", fontFamily: "monospace",
                             color: f._addedDays != null ? (f._addedDays <= 1 ? "#2bb886" : f._addedDays <= 3 ? "#a8a8b8" : "#686878") : "#4a4a5a" }}>
                             {f._addedDays != null ? `${f._addedDays}d` : "—"}
@@ -7771,8 +7801,15 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     // Compute $vol-weighted avg change + equal-weighted avg RVol + avg RS
     return Object.values(groups).map(g => {
       const allStocks = [...g.wlStocks, ...g.pfStocks, ...g.uniStocks];
-      const rvols = allStocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
-      const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
+      let rvolDvTotal = 0, rvolWeighted = 0;
+      allStocks.forEach(s => {
+        const rv = s.rel_volume;
+        if (rv == null || rv <= 0) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        rvolDvTotal += dv;
+        rvolWeighted += rv * dv;
+      });
+      const avgRvol = rvolDvTotal > 0 ? Math.round(rvolWeighted / rvolDvTotal * 10) / 10 : null;
       // Dollar-volume weighted change — institutional money flow signal
       let totalDv = 0, weightedChg = 0;
       allStocks.forEach(s => {
@@ -7800,6 +7837,18 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       return { ...g, avgChg, avgRvol, avgRS, avgAccel, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
     }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
   }, [watchlistAll, watchlist, portfolio, portfolioMerged, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
+
+  // Auto-scroll to relevant theme group when activeTicker changes in themes view
+  useEffect(() => {
+    if (wlView !== "themes" || !activeTicker) return;
+    // Find which subtheme this ticker belongs to
+    const group = wlThemeGroups.find(g => [...g.wlStocks, ...g.pfStocks, ...g.uniStocks].some(s => s.ticker === activeTicker));
+    if (!group) return;
+    setTimeout(() => {
+      const el = document.querySelector(`[data-subtheme="${CSS.escape(group.name)}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  }, [activeTicker, wlView, wlThemeGroups]);
 
   useEffect(() => {
     if (!onVisibleTickers) return;
@@ -7888,7 +7937,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
               const barW = Math.abs(g.avgChg ?? 0) / barMax * 100;
               const isPos = (g.avgChg ?? 0) >= 0;
               return (
-              <div key={g.name} style={{ borderBottom: "1px solid #1a1a24" }}>
+              <div key={g.name} data-subtheme={g.name} style={{ borderBottom: "1px solid #1a1a24" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", position: "relative", overflow: "hidden" }}>
                   {/* Background bar */}
                   <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${barW}%`, background: isPos ? "#2bb88610" : "#f8717110", transition: "width 0.3s" }} />
@@ -7913,12 +7962,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                       })}
                       {g.pfStocks.map(s => {
                         const chg = s.change;
+                        const isAct = s.ticker === activeTicker;
                         return (
                         <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
                           style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700,
-                            background: chg > 0 ? "#f59e0b18" : chg < 0 ? "#f8717118" : "#1a1a24",
-                            color: chg > 0 ? "#f59e0b" : chg < 0 ? "#f87171" : "#686878",
-                            border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid #f59e0b40" }}>
+                            background: isAct ? "#fbbf2430" : chg > 0 ? "#f59e0b18" : chg < 0 ? "#f8717118" : "#1a1a24",
+                            color: isAct ? "#fbbf24" : chg > 0 ? "#f59e0b" : chg < 0 ? "#f87171" : "#686878",
+                            border: isAct ? "2px solid #fbbf24" : "1px solid #f59e0b40" }}>
                           {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
                         </span>);
                       })}
