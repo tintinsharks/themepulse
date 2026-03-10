@@ -2352,7 +2352,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
     ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"],
-    ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+    ["$Vol", "dvol"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
 
@@ -2648,6 +2648,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
                 {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+              {/* Accel */}
+              <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+                color: (s.accel ?? 0) >= 5 ? "#2bb886" : (s.accel ?? 0) >= 2 ? "#4a9070" : (s.accel ?? 0) <= -5 ? "#f87171" : (s.accel ?? 0) <= -2 ? "#c06060" : s.accel != null ? "#686878" : "#3a3a4a" }}>
+                {s.accel != null ? `${s.accel > 0 ? "+" : ""}${s.accel.toFixed(1)}` : "—"}</td>
               {/* EPS */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
                 color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}
@@ -4996,7 +5000,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
   ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
-  ["$Vol", "dvol"], ["ADR%", "adr"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+  ["$Vol", "dvol"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
 ];
 
@@ -6257,7 +6261,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       subtheme: pipe.themes?.[0]?.subtheme || "",
       company: pipe.company || "",
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
-      dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
+      dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg, accel: pipe.accel,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display,
       earnings_date: pipe.earnings_date, er: pipe.er, _scanHits: pipe._scanHits || [],
       _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore, _quality: quality, _q_factors: q_factors,
@@ -7009,6 +7013,10 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
         {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
+      {/* Accel */}
+      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+        color: (s.accel ?? 0) >= 5 ? "#2bb886" : (s.accel ?? 0) >= 2 ? "#4a9070" : (s.accel ?? 0) <= -5 ? "#f87171" : (s.accel ?? 0) <= -2 ? "#c06060" : s.accel != null ? "#686878" : "#3a3a4a" }}>
+        {s.accel != null ? `${s.accel > 0 ? "+" : ""}${s.accel.toFixed(1)}` : "—"}</td>
       {/* EPS */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 10,
         color: s._epsScore >= 80 ? "#22d3ee" : s._epsScore >= 60 ? "#60a5fa" : s._epsScore >= 40 ? "#9090a0" : s._epsScore != null ? "#686878" : "#3a3a4a" }}>
@@ -7439,7 +7447,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
       subtheme: pipe.themes?.[0]?.subtheme || "",
       company: live.company || pipe.company || "",
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
-      dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg,
+      dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg, accel: pipe.accel,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
       _scanHits: pipe._scanHits || [], _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore,
       _quality: quality, _q_factors: q_factors,
@@ -7469,7 +7477,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
     rel_volume: sortFn("rel_volume"), volume: sortFn("avg_volume_raw"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
-    rsi: sortFn("rsi"), price: sortFn("price"),
+    rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
@@ -7637,7 +7645,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       // Additional fields for column parity with Scan
       avg_dollar_vol: pipe.avg_dollar_vol,
       avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
-      dvol_accel: pipe.dvol_accel,
+      dvol_accel: pipe.dvol_accel, accel: pipe.accel,
       dvol_ratio_5_20: pipe.dvol_ratio_5_20,
       dvol_wow_chg: pipe.dvol_wow_chg,
       earnings_days: pipe.earnings_days,
@@ -7683,7 +7691,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     volume: sortFn("avg_volume_raw"),
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
-    rsi: sortFn("rsi"), price: sortFn("price"),
+    rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
