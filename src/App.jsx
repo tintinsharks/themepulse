@@ -8691,18 +8691,26 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           {calendarDays.length === 0 ? (
             <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±{calRange} day window{calMinDvol > 0 ? ` with ≥$${calMinDvol}M avg $vol` : ""}.</div>
           ) : calendarDays.map(day => {
+            const fmtPct = (v, future) => {
+              if (future) return "—";
+              if (v == null) return "—";
+              const n = Number(v);
+              return <span style={{ color: n > 0 ? "#2bb886" : n < 0 ? "#f87171" : "#686878" }}>{n > 0 ? "+" : ""}{n.toFixed(0)}%</span>;
+            };
             const renderCol = (items, emptyMsg) => items.length === 0
               ? <div style={{ color: "#505060", fontSize: 11, padding: "16px 8px", textAlign: "center" }}>{emptyMsg}</div>
               : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                      {["Ticker","Est EPS","EPS%","MCap","$Vol","RS"].map(h => (
+                      {["Ticker","EPS YoY","Sales YoY","$Vol","RS"].map(h => (
                         <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map(r => (
+                    {items.map(r => {
+                      const future = r._days > 0;
+                      return (
                       <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
                         onClick={() => onTickerClick && onTickerClick(r.ticker)}
                         onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
@@ -8711,17 +8719,14 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                           <div style={{ fontWeight: 700, color: "#22d3ee", fontFamily: "monospace", fontSize: 11 }}>{r.ticker}</div>
                           <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{r.company}</div>
                         </td>
-                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#d4d4e0", fontFamily: "monospace" }}>{r.eps_est != null ? `$${Number(r.eps_est).toFixed(2)}` : "—"}</td>
-                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
-                          color: r.eps_yoy > 0 ? "#2bb886" : r.eps_yoy < 0 ? "#f87171" : "#686878" }}>
-                          {r.eps_yoy != null ? `${r.eps_yoy > 0 ? "+" : ""}${Number(r.eps_yoy).toFixed(0)}%` : "—"}</td>
-                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#9090a0", fontFamily: "monospace", fontSize: 10 }}>{r.market_cap || "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.eps_yoy, future)}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace" }}>{fmtPct(r.sales_yoy, future)}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", color: "#787888", fontFamily: "monospace", fontSize: 10 }}>{r.avg_dvol_fmt || "—"}</td>
                         <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
                           color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
                           {r.rs_rank != null ? r.rs_rank : "—"}</td>
-                      </tr>
-                    ))}
+                      </tr>);
+                    })}
                   </tbody>
                 </table>;
             const bmoAll = [...day.bmo, ...day.other.filter(r => r.timing !== "AMC")];
