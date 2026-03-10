@@ -8535,10 +8535,11 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     const now = new Date();
     const results = [];
     Object.values(stockMap).forEach(s => {
-      let days = s.earnings_days;
-      if (days == null && s.earnings_date) {
-        try {
-          const raw = s.earnings_date.replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
+      if (!s || typeof s !== "object" || !s.ticker) return;
+      try {
+        let days = s.earnings_days;
+        if (days == null && s.earnings_date) {
+          const raw = String(s.earnings_date).replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
           const parts = raw.split(/\s+/);
           if (parts.length >= 2) {
             for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
@@ -8546,21 +8547,21 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -2 && diff <= 2) { days = diff; break; } }
             }
           }
-        } catch {}
-      }
-      if (days != null && days >= -2 && days <= 2) {
-        const ed = (s.earnings_display || s.earnings_date || "").toUpperCase();
-        const timing = s.er_timing ? s.er_timing.toUpperCase() : ed.includes("BMO") ? "BMO" : ed.includes("AMC") ? "AMC" : ed.includes(" A") ? "AMC" : ed.includes(" B") ? "BMO" : "—";
-        const q0 = (s.quarters || [])[0] || {};
-        results.push({
-          ticker: s.ticker, company: s.company, timing,
-          eps_est: q0.eps, eps_yoy: s.eps_yoy,
-          rev_est: q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
-          sales_yoy: s.sales_yoy, market_cap: s.market_cap,
-          market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
-          _days: days, _s: s
-        });
-      }
+        }
+        if (days != null && days >= -2 && days <= 2) {
+          const ed = String(s.earnings_display || s.earnings_date || "").toUpperCase();
+          const timing = s.er_timing ? String(s.er_timing).toUpperCase() : ed.includes("BMO") ? "BMO" : ed.includes("AMC") ? "AMC" : ed.includes(" A") ? "AMC" : ed.includes(" B") ? "BMO" : "—";
+          const q0 = (Array.isArray(s.quarters) ? s.quarters : [])[0] || {};
+          results.push({
+            ticker: s.ticker, company: s.company || "", timing,
+            eps_est: q0.eps, eps_yoy: s.eps_yoy,
+            rev_est: q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
+            sales_yoy: s.sales_yoy, market_cap: s.market_cap,
+            market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
+            _days: days, _s: s
+          });
+        }
+      } catch {}
     });
     const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
