@@ -7873,8 +7873,14 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     const medianDv = dvVals.length > 0 ? dvVals[Math.floor(dvVals.length / 2)] : 1;
     built.sort((a, b) => {
       const conf = (g) => Math.min(g.groupDv / medianDv, 1.0);
-      const va = (a[wlThemeSort] ?? -999) * (wlThemeSort === "avgRS" ? 1 : conf(a));
-      const vb = (b[wlThemeSort] ?? -999) * (wlThemeSort === "avgRS" ? 1 : conf(b));
+      const adjust = (v, g) => {
+        if (wlThemeSort === "avgRS") return v;
+        const c = conf(g);
+        // Dampen magnitude toward zero for low-$vol groups
+        return v >= 0 ? v * c : v / (c || 0.01);
+      };
+      const va = adjust(a[wlThemeSort] ?? -999, a);
+      const vb = adjust(b[wlThemeSort] ?? -999, b);
       return vb - va;
     });
     return built;
