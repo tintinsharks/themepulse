@@ -8517,30 +8517,43 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     Object.values(stockMap).forEach(s => {
       if (!s || typeof s !== "object" || !s.ticker) return;
       try {
-        let days = s.earnings_days;
-        if (days == null && s.earnings_date) {
-          const raw = String(s.earnings_date).replace(/\s*(AMC|BMO|a|b)\s*$/i, "").trim();
-          const parts = raw.split(/\s+/);
-          if (parts.length >= 2) {
-            for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
-              const parsed = new Date(`${parts[0]} ${parts[1]}, ${y}`);
-              if (!isNaN(parsed)) { const diff = Math.floor((parsed - now) / 86400000); if (diff >= -2 && diff <= 2) { days = diff; break; } }
-            }
-          }
-        }
-        if (days != null && days >= -2 && days <= 2) {
-          const ed = String(s.earnings_display || s.earnings_date || "").toUpperCase();
-          const timing = s.er_timing ? String(s.er_timing).toUpperCase() : ed.includes("BMO") ? "BMO" : ed.includes("AMC") ? "AMC" : ed.includes(" A") ? "AMC" : ed.includes(" B") ? "BMO" : "—";
-          const q0 = (Array.isArray(s.quarters) ? s.quarters : [])[0] || {};
-          results.push({
-            ticker: s.ticker, company: s.company || "", timing,
-            eps_est: q0.eps, eps_yoy: s.eps_yoy,
-            rev_est: q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
-            sales_yoy: s.sales_yoy, market_cap: s.market_cap,
-            market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
-            _days: days, _s: s
-          });
-        }
+        const ed = String(s.earnings_display || "").trim();
+        if (!ed) return;
+
+        // Strip leading "~" and trailing timing suffix
+        const cleaned = ed.replace(/^~/, "").replace(/\s*(AMC|BMO)\s*$/i, "").trim();
+
+        // Parse M/D/YYYY format
+        const match = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!match) return;
+
+        const earnDate = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]));
+        if (isNaN(earnDate.getTime())) return;
+
+        // Compute days from today (not from pipeline run time)
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const earnDay = new Date(earnDate.getFullYear(), earnDate.getMonth(), earnDate.getDate());
+        const days = Math.round((earnDay - today) / 86400000);
+
+        if (days < -2 || days > 2) return;
+
+        // Timing: prefer er_timing field, then parse from earnings_display
+        const edUpper = String(s.earnings_display || "").toUpperCase();
+        const timing = s.er_timing ? String(s.er_timing).toUpperCase()
+          : edUpper.includes("BMO") ? "BMO"
+          : edUpper.includes("AMC") ? "AMC"
+          : "—";
+
+        const q0 = (Array.isArray(s.quarters) ? s.quarters : [])[0] || {};
+        results.push({
+          ticker: s.ticker, company: s.company || "", timing,
+          eps_est: s.eps_estimated || q0.eps,
+          eps_yoy: s.eps_yoy,
+          rev_est: s.revenue_estimated_fmt || q0.revenue_fmt || (q0.revenue ? `${(q0.revenue/1e9).toFixed(1)}B` : null),
+          sales_yoy: s.sales_yoy, market_cap: s.market_cap,
+          market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
+          _days: days, _s: s
+        });
       } catch {}
     });
     const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
