@@ -7708,24 +7708,56 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     });
     return list;
   }, [watchlistAll, wlNearPivot, wlGreenOnly, wlMinRS, wlMinDvol, wl9M, stockMap]);
-  // Group watchlist stocks by subtheme with normalized metrics
+  // Build subtheme → universe tickers lookup from stockMap
+  const subthemeUniverse = useMemo(() => {
+    const m = {};
+    if (!stockMap) return m;
+    Object.values(stockMap).forEach(s => {
+      if (!s?.ticker) return;
+      const sub = s.themes?.[0]?.subtheme || s.subtheme || s.themes?.[0]?.theme || s.theme || "";
+      if (!sub) return;
+      if (!m[sub]) m[sub] = [];
+      m[sub].push(s.ticker);
+    });
+    return m;
+  }, [stockMap]);
+
+  // Group watchlist stocks by subtheme, expand to full universe for metrics
   const wlThemeGroups = useMemo(() => {
-    const all = watchlistAll; // use unfiltered list for grouping
+    const all = watchlistAll;
+    const wlSet = new Set(watchlist);
     const groups = {};
     all.forEach(s => {
       const sub = s.subtheme || s.theme || "Ungrouped";
-      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", stocks: [] };
-      groups[sub].stocks.push(s);
+      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", wlStocks: [], uniStocks: [] };
+      groups[sub].wlStocks.push(s);
     });
-    // Compute normalized metrics per group (equal-weighted avg)
+    // Expand each group with universe tickers (not already in watchlist)
+    Object.values(groups).forEach(g => {
+      const uniTickers = subthemeUniverse[g.name] || [];
+      uniTickers.forEach(tk => {
+        if (wlSet.has(tk)) return; // already in watchlist
+        const live = liveLookup[tk];
+        const pipe = stockMap[tk];
+        if (!live && !pipe) return;
+        g.uniStocks.push({
+          ticker: tk,
+          company: live?.company || pipe?.company || "",
+          change: live?.change ?? pipe?.change_pct ?? null,
+          rel_volume: live?.rel_volume ?? null,
+        });
+      });
+    });
+    // Compute metrics from ALL tickers (watchlist + universe)
     return Object.values(groups).map(g => {
-      const changes = g.stocks.map(s => s.change).filter(c => c != null);
-      const rvols = g.stocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
+      const allStocks = [...g.wlStocks, ...g.uniStocks];
+      const changes = allStocks.map(s => s.change).filter(c => c != null);
+      const rvols = allStocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
       const avgChg = changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : null;
       const avgRvol = rvols.length > 0 ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null;
-      return { ...g, avgChg, avgRvol, count: g.stocks.length };
+      return { ...g, avgChg, avgRvol, wlCount: g.wlStocks.length, totalCount: allStocks.length };
     }).sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
-  }, [watchlistAll]);
+  }, [watchlistAll, watchlist, subthemeUniverse, liveLookup, stockMap]);
 
   useEffect(() => {
     if (!onVisibleTickers) return;
@@ -7822,17 +7854,29 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#d4d4e0" }}>{g.name}</span>
                       <span style={{ fontSize: 9, color: "#505060" }}>{g.theme !== g.name ? g.theme : ""}</span>
-                      <span style={{ fontSize: 9, color: "#686878" }}>({g.count})</span>
+                      <span style={{ fontSize: 9, color: "#686878" }}>({g.wlCount}/{g.totalCount})</span>
                     </div>
-                    {/* Ticker pills */}
+                    {/* Ticker pills — watchlist tickers (bold) + universe tickers (dimmed) */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
-                      {g.stocks.map(s => {
+                      {g.wlStocks.map(s => {
                         const chg = s.change;
                         return (
                         <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
-                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer",
-                            background: chg > 0 ? "#2bb88615" : chg < 0 ? "#f8717115" : "#1a1a24",
+                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700,
+                            background: chg > 0 ? "#2bb88618" : chg < 0 ? "#f8717118" : "#1a1a24",
                             color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878",
+                            border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid transparent" }}>
+                          {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
+                        </span>);
+                      })}
+                      {g.uniStocks.length > 0 && <span style={{ color: "#3a3a4a", fontSize: 9, alignSelf: "center" }}>│</span>}
+                      {g.uniStocks.map(s => {
+                        const chg = s.change;
+                        return (
+                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ fontSize: 8, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, cursor: "pointer",
+                            background: "transparent", opacity: 0.5,
+                            color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#505060",
                             border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid transparent" }}>
                           {s.ticker} {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""}
                         </span>);
