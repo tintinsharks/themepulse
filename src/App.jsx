@@ -2354,7 +2354,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const columns = [
     ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
     ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"],
-    ["$Vol", "dvol"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+    ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
   ];
 
@@ -2646,6 +2646,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
                   {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
               </td>
+              {/* CR% */}
+              {(() => { const cr = liveLookup[s.ticker]?.close_range ?? s.close_range; return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+                color: (cr ?? 0) >= 80 ? "#2bb886" : (cr ?? 0) >= 50 ? "#fbbf24" : (cr ?? 0) >= 30 ? "#f97316" : cr != null ? "#686878" : "#3a3a4a" }}>
+                {cr != null ? `${Math.round(cr)}%` : "—"}</td>; })()}
               {/* ADR% */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
                 color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
@@ -5030,7 +5034,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
   ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
-  ["$Vol", "dvol"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+  ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
 ];
 
@@ -7039,6 +7043,10 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
           color: s.dvol_accel >= 30 ? "#2bb886" : s.dvol_accel >= 10 ? "#4a9070" : s.dvol_accel <= -30 ? "#f87171" : s.dvol_accel <= -10 ? "#c06060" : "#505060" }}>
           {s.dvol_accel >= 30 ? "▲▲" : s.dvol_accel >= 10 ? "▲" : s.dvol_accel <= -30 ? "▼▼" : s.dvol_accel <= -10 ? "▼" : "─"}</span>}
       </td>
+      {/* CR% */}
+      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+        color: (s.close_range ?? 0) >= 80 ? "#2bb886" : (s.close_range ?? 0) >= 50 ? "#fbbf24" : (s.close_range ?? 0) >= 30 ? "#f97316" : s.close_range != null ? "#686878" : "#3a3a4a" }}>
+        {s.close_range != null ? `${Math.round(s.close_range)}%` : "—"}</td>
       {/* ADR% */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
@@ -7508,6 +7516,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
+    cr: sortFn("close_range"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
@@ -7727,6 +7736,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
+    cr: sortFn("close_range"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
