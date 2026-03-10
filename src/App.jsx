@@ -581,7 +581,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const tvLayoutUrl = `https://www.tradingview.com/chart/${TV_LAYOUT}/?symbol=${encodeURIComponent(ticker)}`;
 
   const tfOptions = [
-    ["D", "D"], ["W", "W"], ["M", "M"],
+    ["30m", "30m"], ["D", "D"], ["W", "W"], ["M", "M"],
   ];
 
   const hasLwChart = !!lwChartProps;
@@ -807,8 +807,9 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 {stock.sector && stock.industry && <span style={{ color: "#3a3a4a" }}> › </span>}
                 {stock.industry && <span style={{ color: "#505060" }}>{stock.industry}</span>}
               </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 3, color: "#505060" }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 3, color: "#505060", flexWrap: "wrap" }}>
                 {stock.market_cap && <span>MCap:<span style={{ color: "#9090a0" }}>{stock.market_cap}</span></span>}
+                {(stock.earnings_display || stock.earnings_date) && <span>ER:<span style={{ color: stock.earnings_days != null && stock.earnings_days <= 7 ? "#f87171" : "#9090a0" }}>{stock.earnings_display || stock.earnings_date}</span></span>}
                 {stock.shares_float_raw != null && <span>Float:<span style={{ color: "#9090a0" }}>{stock.shares_float_raw >= 1e9 ? (stock.shares_float_raw/1e9).toFixed(1)+"B" : stock.shares_float_raw >= 1e6 ? (stock.shares_float_raw/1e6).toFixed(1)+"M" : stock.shares_float_raw >= 1e3 ? (stock.shares_float_raw/1e3).toFixed(0)+"K" : stock.shares_float_raw}</span></span>}
                 {stock.short_float != null && <span>SI:<span style={{ color: stock.short_float >= 20 ? "#f87171" : stock.short_float >= 10 ? "#f97316" : "#9090a0" }}>{stock.short_float.toFixed(1)}%</span></span>}
                 {stock.short_ratio != null && <span>DTC:<span style={{ color: stock.short_ratio >= 10 ? "#f87171" : stock.short_ratio >= 5 ? "#f97316" : "#9090a0" }}>{stock.short_ratio.toFixed(1)}</span></span>}
@@ -5290,7 +5291,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
   // Aggregate daily bars into weekly or monthly
   const aggregateBars = useCallback((dailyBars, timeframe) => {
-    if (timeframe === "D") return dailyBars;
+    if (timeframe === "D" || timeframe === "30m") return dailyBars;
     const groups = {};
     for (const bar of dailyBars) {
       let key;
@@ -5406,10 +5407,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           handleScale: false,
         });
         indChartRef.current = indChart;
-        // 4% days histogram
+        // 4% days histogram — fixed Y range ±20%
         indSeriesRef.current = indChart.addHistogramSeries({
           priceFormat: { type: "price", precision: 1, minMove: 0.1 },
           lastValueVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: -20, maxValue: 20 } }),
         });
         // Sync indicator time scale from main chart (volume chart also synced below)
         chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
@@ -5450,7 +5452,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     }
   }, [libReady]);
 
-  // Fetch raw daily data when ticker changes
+  // Fetch OHLC data — daily for D/W/M, intraday for 30m
+  const isIntraday = tf === "30m";
   useEffect(() => {
     if (!ticker || !seriesRef.current || !chartRef.current) return;
     setLoading(true);
@@ -5458,7 +5461,10 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     setRawBars(null);
     let cancelled = false;
 
-    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`)
+    const url = isIntraday
+      ? `/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=30m`
+      : `/api/ohlc?ticker=${encodeURIComponent(ticker)}`;
+    fetch(url)
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(data => {
         if (cancelled) return;
@@ -5469,12 +5475,14 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [ticker, libReady]);
+  }, [ticker, libReady, isIntraday]);
 
   // Process bars when ticker loads or timeframe changes
   useEffect(() => {
     if (!rawBars || !seriesRef.current || !chartRef.current) return;
     const bars = aggregateBars(rawBars, tf);
+    // Helper: get LWC time value (date string for daily, unix ts for intraday)
+    const btime = (b) => b.date || b.time;
 
         // ── Pocket Pivot Volume Detection ──
         // Track highest up volume ever and in last year (252 trading days)
@@ -5510,18 +5518,18 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           const vol = c.volume || 0;
 
           if (!isUp) {
-            return { time: c.date, value: vol, color: "#6b7280cc" };
+            return { time: btime(c), value: vol, color: "#6b7280cc" };
           }
 
           // Check highest up volume ever/year/quarter — all purple bars
           if (vol === highestUpVolEver && vol > 0) {
-            return { time: c.date, value: vol, color: "#a855f7" };
+            return { time: btime(c), value: vol, color: "#a855f7" };
           }
           if (i >= yearStart && vol === highestUpVolYear && vol > 0 && vol !== highestUpVolEver) {
-            return { time: c.date, value: vol, color: "#a855f7" };
+            return { time: btime(c), value: vol, color: "#a855f7" };
           }
           if (i >= qtrStart && vol === highestUpVolQtr && vol > 0 && vol !== highestUpVolEver && vol !== highestUpVolYear) {
-            return { time: c.date, value: vol, color: "#a855f7" };
+            return { time: btime(c), value: vol, color: "#a855f7" };
           }
 
           // Pocket pivot detection
@@ -5535,17 +5543,17 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           if (downVols.length >= 10) {
             const max10 = Math.max(...downVols.slice(0, 10));
             if (vol > max10) {
-              return { time: c.date, value: vol, color: "#2563eb" };
+              return { time: btime(c), value: vol, color: "#2563eb" };
             }
           }
           if (downVols.length >= 5) {
             const max5 = Math.max(...downVols.slice(0, 5));
             if (vol > max5) {
-              return { time: c.date, value: vol, color: "#0d9488" };
+              return { time: btime(c), value: vol, color: "#0d9488" };
             }
           }
 
-          return { time: c.date, value: vol, color: "#ffffffcc" };
+          return { time: btime(c), value: vol, color: "#ffffffcc" };
         });
 
         // Find indices of HVE and HVY for markers
@@ -5557,7 +5565,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
-        seriesRef.current.setData(bars.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
+        seriesRef.current.setData(bars.map(c => ({ time: btime(c), open: c.open, high: c.high, low: c.low, close: c.close })));
         volSeriesRef.current.setData(volumes);
 
         // ── Compute Moving Averages ──
@@ -5683,7 +5691,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         if (parseFloat(stop) > 0) addLine(parseFloat(stop), "#f87171", "Stop", 2, 1);
         if (parseFloat(target) > 0) addLine(parseFloat(target), "#2bb886", "Target", 2, 1);
 
-        const toLine = (arr) => arr.map((v, i) => v != null ? { time: bars[i].date, value: Math.round(v * 100) / 100 } : null).filter(Boolean);
+        const toLine = (arr) => arr.map((v, i) => v != null ? { time: btime(bars[i]), value: Math.round(v * 100) / 100 } : null).filter(Boolean);
 
         if (maRefs.current.ema10) maRefs.current.ema10.setData(toLine(ema10));
 
@@ -5702,7 +5710,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             const allFalling = i > 0 && ema21hi[i - 1] != null &&
               ema21hi[i] < ema21hi[i - 1] && ema21close[i] < ema21close[i - 1] && ema21lo[i] < ema21lo[i - 1];
             ema21data.push({
-              time: bars[i].date,
+              time: btime(bars[i]),
               value: Math.round(ema21close[i] * 100) / 100,
               color: allRising ? "#6495ed" : allFalling ? "#1e3a8a" : "#4169e1",
             });
@@ -5720,15 +5728,15 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         };
 
         if (hveIdx >= 0) {
-          volMarkers.push({ time: bars[hveIdx].date, position: "aboveBar", color: "#d946ef",
+          volMarkers.push({ time: btime(bars[hveIdx]), position: "aboveBar", color: "#d946ef",
             shape: "circle", size: 0.5, text: `HVE ${fmtVol(bars[hveIdx].volume)} (${calcPctAboveAvg(hveIdx)}%)` });
         }
         if (hvyIdx >= 0 && hvyIdx !== hveIdx) {
-          volMarkers.push({ time: bars[hvyIdx].date, position: "aboveBar", color: "#a855f7",
+          volMarkers.push({ time: btime(bars[hvyIdx]), position: "aboveBar", color: "#a855f7",
             shape: "circle", size: 0.5, text: `HVY ${fmtVol(bars[hvyIdx].volume)} (${calcPctAboveAvg(hvyIdx)}%)` });
         }
         if (highestUpVolQtrIdx >= 0 && highestUpVolQtrIdx !== hveIdx && highestUpVolQtrIdx !== hvyIdx) {
-          volMarkers.push({ time: bars[highestUpVolQtrIdx].date, position: "aboveBar", color: "#22d3ee",
+          volMarkers.push({ time: btime(bars[highestUpVolQtrIdx]), position: "aboveBar", color: "#22d3ee",
             shape: "circle", size: 0.5, text: `HVQ ${fmtVol(bars[highestUpVolQtrIdx].volume)} (${calcPctAboveAvg(highestUpVolQtrIdx)}%)` });
         }
 
@@ -5749,13 +5757,13 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
           if (volExplosion && priceUp && solidClose) {
             volMarkers.push({
-              time: bars[i].date, position: "belowBar", color: "#ffffff",
+              time: btime(bars[i]), position: "belowBar", color: "#ffffff",
               shape: "square", size: 0.3,
             });
           }
         }
 
-        volMarkers.sort((a, b) => a.time.localeCompare(b.time));
+        volMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
         volSeriesRef.current.setMarkers(volMarkers);
 
         // ── 7x/10x ATRX dots on price series ──
@@ -5764,16 +5772,16 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           if (sma50[i] == null || atr14[i] == null || atr14[i] === 0) continue;
           const atrx = (bars[i].close - sma50[i]) / atr14[i];
           if (atrx >= 10) {
-            priceMarkers.push({ time: bars[i].date, position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+            priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
           } else if (atrx >= 7) {
-            priceMarkers.push({ time: bars[i].date, position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+            priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
           } else if (atrx <= -10) {
-            priceMarkers.push({ time: bars[i].date, position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+            priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
           } else if (atrx <= -7) {
-            priceMarkers.push({ time: bars[i].date, position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+            priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
           }
         }
-        priceMarkers.sort((a, b) => a.time.localeCompare(b.time));
+        priceMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
         seriesRef.current.setMarkers(priceMarkers);
 
         // ── 50-day Volume MA line ──
@@ -5785,22 +5793,20 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             let sum = 0;
             for (let j = i - 49; j <= i; j++) sum += (bars[j].volume || 0);
             const ma = sum / 50;
-            maData.push({ time: bars[i].date, value: ma });
+            maData.push({ time: btime(bars[i]), value: ma });
 
             // Volume dry-up detection
             const vol = bars[i].volume || 0;
             if (ma > 0) {
               const pctChange = ((vol - ma) / ma) * 100;
               if (pctChange <= -60) {
-                // 2nd level dry-up (≤ -60%) — orange dot
                 dryUpMarkers.push({
-                  time: bars[i].date, position: "aboveBar", color: "#f97316",
+                  time: btime(bars[i]), position: "aboveBar", color: "#f97316",
                   shape: "circle", size: 0.5,
                 });
               } else if (pctChange <= -45) {
-                // 1st level dry-up (≤ -45%) — yellow dot
                 dryUpMarkers.push({
-                  time: bars[i].date, position: "aboveBar", color: "#fbbf24",
+                  time: btime(bars[i]), position: "aboveBar", color: "#fbbf24",
                   shape: "circle", size: 0.5,
                 });
               }
@@ -5822,14 +5828,14 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             const prev = bars[i - 1].close;
             const pct = ((bars[i].close - prev) / prev) * 100;
             const volUp = (bars[i].volume || 0) > (bars[i - 1].volume || 0);
-            if (pct >= 4 && volUp) fourPctData.push({ time: bars[i].date, value: pct, color: "#2bb886" });
-            else if (pct <= -4 && volUp) fourPctData.push({ time: bars[i].date, value: pct, color: "#f87171" });
-            else fourPctData.push({ time: bars[i].date, value: 0 });
+            if (pct >= 4 && volUp) fourPctData.push({ time: btime(bars[i]), value: pct, color: "#2bb886" });
+            else if (pct <= -4 && volUp) fourPctData.push({ time: btime(bars[i]), value: pct, color: "#f87171" });
+            else fourPctData.push({ time: btime(bars[i]), value: 0 });
           }
           indSeriesRef.current.setData(fourPctData);
 
-          // ── Earnings markers (EPS | Sales YoY) ──
-          if (quarters && quarters.length > 0) {
+          // ── Earnings markers (EPS | Sales YoY) — daily only ──
+          if (quarters && quarters.length > 0 && tf !== "30m") {
             const barDates = new Set(bars.map(b => b.date));
             const erMarkers = [];
             for (const q of quarters) {
@@ -5860,9 +5866,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
         // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
         const totalBars = bars.length;
-        const visBars = tf === "W" ? 52 : tf === "M" ? 18 : 74;
+        const visBars = tf === "30m" ? totalBars : tf === "W" ? 52 : tf === "M" ? 18 : 74;
         const fromBar = totalBars > visBars ? totalBars - visBars : 0;
-        chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + (tf === "D" ? 27 : tf === "W" ? 8 : 3) });
+        chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + (tf === "30m" ? 5 : tf === "D" ? 27 : tf === "W" ? 8 : 3) });
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];

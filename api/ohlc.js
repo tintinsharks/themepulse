@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   const { ticker, interval } = req.query;
   if (!ticker) return res.status(400).json({ ok: false, error: "Missing ticker" });
 
-  const isIntraday = interval === "5m" || interval === "1m" || interval === "15m";
-  const range = isIntraday ? "1d" : "1y";
+  const isIntraday = interval === "5m" || interval === "1m" || interval === "15m" || interval === "30m";
+  const range = isIntraday ? (interval === "30m" ? "5d" : "1d") : "1y";
   const ival = isIntraday ? interval : "1d";
 
   try {
