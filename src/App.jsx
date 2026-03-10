@@ -8508,28 +8508,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 
-  if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center" }}>Loading earnings intelligence...</div>;
-  if (error) return <div style={{ color: "#f87171", padding: 40, textAlign: "center" }}>Failed to load earnings intel: {error}<br/><span style={{ fontSize: 11, color: "#686878" }}>Run: ./scripts/run-earnings-intel.sh --dry</span></div>;
-  if (!data) return null;
-
-  const CYAN = "#22d3ee";
-  const CYAN_DIM = "#22d3ee30";
-  const CYAN_BG = "#22d3ee12";
-  const sections = [["overview","Overview"],["calendar","Calendar"],["movers","Movers"],["feed","Earnings Feed"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
-  const kpis = data.kpis || {};
-  const themes = data.themes || [];
-  const sectors = data.sectors || [];
-  const signals = data.momentum_signals || [];
-  const quotes = data.quotes || [];
-  const maxFreq = Math.max(...themes.map(t => t.frequency || 0), 1);
-  const maxSentiment = Math.max(...sectors.map(s => s.sentiment || 0), 1);
-
-  // Sentiment color helper
-  const sentColor = (v) => v >= 0.7 ? "#2bb886" : v >= 0.5 ? "#22d3ee" : v >= 0.3 ? "#fbbf24" : "#f87171";
-  const sentLabel = (v) => v >= 0.7 ? "Bullish" : v >= 0.5 ? "Positive" : v >= 0.3 ? "Cautious" : "Bearish";
-  const typeColor = (t) => t === "bullish" ? "#2bb886" : t === "caution" ? "#f87171" : "#fbbf24";
-
   // Earnings Calendar: today ±2 days, split by BMO / AMC
+  // Must be before early returns to satisfy Rules of Hooks
   const calendarDays = useMemo(() => {
     if (!stockMap) return [];
     const now = new Date();
@@ -8591,6 +8571,27 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
   }, [stockMap]);
+
+  if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center" }}>Loading earnings intelligence...</div>;
+  if (error) return <div style={{ color: "#f87171", padding: 40, textAlign: "center" }}>Failed to load earnings intel: {error}<br/><span style={{ fontSize: 11, color: "#686878" }}>Run: ./scripts/run-earnings-intel.sh --dry</span></div>;
+  if (!data) return null;
+
+  const CYAN = "#22d3ee";
+  const CYAN_DIM = "#22d3ee30";
+  const CYAN_BG = "#22d3ee12";
+  const sections = [["overview","Overview"],["calendar","Calendar"],["movers","Movers"],["feed","Earnings Feed"],["themes","Themes"],["sectors","Sectors"],["signals","Signals"],["quotes","Quotes"]];
+  const kpis = data.kpis || {};
+  const themes = data.themes || [];
+  const sectors = data.sectors || [];
+  const signals = data.momentum_signals || [];
+  const quotes = data.quotes || [];
+  const maxFreq = Math.max(...themes.map(t => t.frequency || 0), 1);
+  const maxSentiment = Math.max(...sectors.map(s => s.sentiment || 0), 1);
+
+  // Sentiment color helper
+  const sentColor = (v) => v >= 0.7 ? "#2bb886" : v >= 0.5 ? "#22d3ee" : v >= 0.3 ? "#fbbf24" : "#f87171";
+  const sentLabel = (v) => v >= 0.7 ? "Bullish" : v >= 0.5 ? "Positive" : v >= 0.3 ? "Cautious" : "Bearish";
+  const typeColor = (t) => t === "bullish" ? "#2bb886" : t === "caution" ? "#f87171" : "#fbbf24";
 
   // Filtered quotes
   const filteredQuotes = quotes.filter(q => {
