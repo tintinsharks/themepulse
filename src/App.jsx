@@ -506,7 +506,7 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
   const [tf, setTf] = useState("D");
   const [showIntraday, setShowIntraday] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
-  const [panelWidth, setPanelWidth] = useState(320);
+  const [panelWidth, setPanelWidth] = useState(200);
   const dragRef = useRef(null);
   const [news, setNews] = useState(null);
   const [peers, setPeers] = useState(null);
@@ -9221,6 +9221,7 @@ function AppMain({ authToken, onLogout }) {
   }, []);
   const [data, setData] = useState(null);
   const [view, setView] = useState("live");
+  const [showStrongPopover, setShowStrongPopover] = useState(false);
   const [scanThemeFilter, setScanThemeFilter] = useState(null);
   const [filters, setFilters] = useState({ minRTS: 0, quad: null, search: "" });
   const [loading, setLoading] = useState(true);
@@ -9682,7 +9683,44 @@ function AppMain({ authToken, onLogout }) {
         </div>
         <div className="tp-stats" style={{ display: "flex", gap: 16, fontSize: 12 }}>
           <span style={{ color: "#787888" }}>Stocks: <span style={{ color: "#d4d4e0" }}>{data.total_stocks}</span></span>
-          <span style={{ color: "#787888" }}>Strong: <span style={{ color: "#2bb886" }}>{strongC}</span></span>
+          <span style={{ color: "#787888", position: "relative", cursor: "pointer" }} onClick={() => setShowStrongPopover(p => !p)}>
+            Strong: <span style={{ color: "#2bb886", textDecoration: "underline", textUnderlineOffset: 2 }}>{strongC}</span>
+            {showStrongPopover && (() => {
+              const strongThemes = data.themes.filter(t => getQuad(t.weekly_rs, t.monthly_rs) === "STRONG")
+                .sort((a, b) => (b.weekly_rs || 0) - (a.weekly_rs || 0));
+              return (
+                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, width: 360, maxHeight: 480,
+                  overflowY: "auto", background: "#1a1a28", border: "1px solid #2a2a3a", borderRadius: 8, padding: 8, zIndex: 999, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#4aad8c", marginBottom: 6, padding: "2px 4px" }}>Strong Themes ({strongThemes.length})</div>
+                  {strongThemes.map(t => {
+                    const stocks = (t.stocks || []).slice(0, 8);
+                    return (
+                      <div key={t.name} style={{ padding: "4px 6px", borderBottom: "1px solid #222230" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#9090a0", marginBottom: 2 }}>
+                          {t.name} <span style={{ color: "#505060", fontWeight: 400 }}>WRS:{t.weekly_rs?.toFixed(0)} MRS:{t.monthly_rs?.toFixed(0)}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {stocks.map(s => {
+                            const tk = typeof s === "string" ? s : s.ticker;
+                            const sm = stockMap[tk];
+                            const chg = sm?.change_pct ?? sm?.return_1w;
+                            return (
+                              <span key={tk} onClick={(e) => { e.stopPropagation(); openChart(tk); setShowStrongPopover(false); }}
+                                style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                                  background: "#0d916315", border: "1px solid #0d916330", color: "#4aad8c" }}>
+                                {tk}{chg != null && <span style={{ color: chg >= 0 ? "#2bb886" : "#f87171", marginLeft: 3 }}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>}
+                              </span>
+                            );
+                          })}
+                          {(t.stocks || []).length > 8 && <span style={{ fontSize: 9, color: "#505060" }}>+{(t.stocks || []).length - 8}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </span>
           <span style={{ color: "#787888" }}>A Grades: <span style={{ color: "#2bb886" }}>{aCount}</span></span>
           <span style={{ color: "#787888" }}>Breadth: <span style={{ color: breadth >= 60 ? "#2bb886" : breadth >= 40 ? "#fbbf24" : "#f87171" }}>{breadth}%</span></span>
           <span style={{ color: "#3a3a4a" }}>|</span>
