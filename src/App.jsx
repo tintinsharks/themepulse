@@ -501,7 +501,7 @@ function EarningsCallPanel({ ticker, company, quarters, earningsDate }) {
 // ── PERSISTENT CHART PANEL (right side) ──
 const TV_LAYOUT = "nkNPuLqj";
 
-function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, pkn, onAddPkn, onRemovePkn, pknWatch, onAddPknWatch, onRemovePknWatch, liveThemeData, lwChartProps, erSipLookup }) {
+function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWatchlist, onRemoveWatchlist, portfolio, onAddPortfolio, onRemovePortfolio, pkn, onAddPkn, onRemovePkn, pknWatch, onAddPknWatch, onRemovePknWatch, liveThemeData, lwChartProps, erSipLookup, headlinesMap }) {
   const containerRef = useRef(null);
   const [tf, setTf] = useState("D");
   const [showIntraday, setShowIntraday] = useState(false);
@@ -855,6 +855,19 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
             </div>
           )}
           </div>
+
+          {/* TheStockCatalyst Headlines */}
+          {headlinesMap && headlinesMap[ticker] && headlinesMap[ticker].headlines && headlinesMap[ticker].headlines.length > 0 && (
+            <div style={{ padding: "6px 10px", borderBottom: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 4 }}>HEADLINES</div>
+              {headlinesMap[ticker].headlines.slice(0, 5).map((hl, i) => (
+                <div key={i} style={{ fontSize: 9, color: i === 0 ? "#d4d4e0" : "#787888", lineHeight: 1.4, marginBottom: 2,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {typeof hl === "string" ? hl : hl.text || hl.headline || ""}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Earnings Timeline / Calculator */}
           {stock && (
@@ -10255,7 +10268,7 @@ function AppMain({ authToken, onLogout }) {
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
                 pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
                 pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
-                liveThemeData={liveThemeData} erSipLookup={erSipLookup}
+                liveThemeData={liveThemeData} erSipLookup={erSipLookup} headlinesMap={data?.headlines || {}}
                 lwChartProps={(() => {
                   const openT = trades.find(t => t.ticker === chartTicker && t.status === "open");
                   if (!openT) return { entry: "", stop: "", target: "" };
@@ -10268,7 +10281,7 @@ function AppMain({ authToken, onLogout }) {
                 portfolio={portfolio} onAddPortfolio={addToPortfolio} onRemovePortfolio={removeFromPortfolio}
                 pkn={pkn} onAddPkn={addToPkn} onRemovePkn={removeFromPkn}
                 pknWatch={pknWatch} onAddPknWatch={addToPknWatch} onRemovePknWatch={removeFromPknWatch}
-                liveThemeData={liveThemeData} erSipLookup={erSipLookup}
+                liveThemeData={liveThemeData} erSipLookup={erSipLookup} headlinesMap={data?.headlines || {}}
                 lwChartProps={{ entry: "", stop: "", target: "" }} />
             )}
             </ErrorBoundary>
