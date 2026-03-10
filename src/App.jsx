@@ -8719,11 +8719,6 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                 background: calMinDvol === v ? "#22d3ee12" : "transparent",
                 color: calMinDvol === v ? "#22d3ee" : "#686878" }}>{v === 0 ? "All" : `$${v}M`}</button>
             ))}
-            <span style={{ color: "#2a2a38" }}>|</span>
-            <button onClick={() => setCalGreenOnly(!calGreenOnly)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
-              border: calGreenOnly ? "1px solid #2bb88650" : "1px solid #2a2a38",
-              background: calGreenOnly ? "#2bb88612" : "transparent",
-              color: calGreenOnly ? "#2bb886" : "#686878" }}>Chg% &gt; 0</button>
             <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{calendarDays.reduce((n, d) => n + d.items.length, 0)} stocks</span>
           </div>
           {calendarDays.length === 0 ? (
@@ -8779,6 +8774,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                   <span style={{ fontSize: 14, fontWeight: 700, color: day.days === 0 ? "#22d3ee" : "#d4d4e0" }}>{day.label}</span>
                   {day.tag && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
                     background: day.days === 0 ? "#22d3ee20" : "#2a2a38", color: day.days === 0 ? "#22d3ee" : "#9090a0" }}>{day.tag}</span>}
+                  {day.days === 0 && <button onClick={() => setCalGreenOnly(!calGreenOnly)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                    border: calGreenOnly ? "1px solid #2bb88650" : "1px solid #2a2a38",
+                    background: calGreenOnly ? "#2bb88612" : "transparent",
+                    color: calGreenOnly ? "#2bb886" : "#686878" }}>Chg% &gt; 0</button>}
                   <span style={{ fontSize: 10, color: "#686878", marginLeft: "auto" }}>
                     {day.items.length} reporting — {bmoAll.length} BMO, {amcAll.length} AMC
                   </span>
