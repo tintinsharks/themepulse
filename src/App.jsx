@@ -7746,10 +7746,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           company: live?.company || pipe?.company || "",
           change: live?.change ?? pipe?.change_pct ?? null,
           rel_volume: live?.rel_volume ?? null,
+          rs_rank: pipe?.rs_rank ?? null,
+          avg_dollar_vol_raw: pipe?.avg_dollar_vol_raw ?? null,
         });
       });
     });
-    // Compute $vol-weighted avg change + equal-weighted avg RVol
+    // Compute $vol-weighted avg change + equal-weighted avg RVol + avg RS
     return Object.values(groups).map(g => {
       const allStocks = [...g.wlStocks, ...g.uniStocks];
       const rvols = allStocks.map(s => s.rel_volume).filter(r => r != null && r > 0);
@@ -7763,7 +7765,12 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         weightedChg += s.change * dv;
       });
       const avgChg = totalDv > 0 ? weightedChg / totalDv : null;
-      return { ...g, avgChg, avgRvol, wlCount: g.wlStocks.length, totalCount: allStocks.length };
+      // Avg RS rank across all stocks
+      const rsVals = allStocks.map(s => s.rs_rank ?? stockMap[s.ticker]?.rs_rank).filter(r => r != null);
+      const avgRS = rsVals.length > 0 ? Math.round(rsVals.reduce((a, b) => a + b, 0) / rsVals.length) : null;
+      // Discovery: universe tickers NOT on watchlist with RS ≥ 80 and RVol ≥ 1.5
+      const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
+      return { ...g, avgChg, avgRvol, avgRS, discoveries, wlCount: g.wlStocks.length, totalCount: allStocks.length };
     }).sort((a, b) => (b[wlThemeSort] ?? -999) - (a[wlThemeSort] ?? -999));
   }, [watchlistAll, watchlist, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
 
@@ -7907,8 +7914,34 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                       </div>
                       <div onClick={() => setWlThemeSort("avgRvol")} style={{ fontSize: 8, color: wlThemeSort === "avgRvol" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>RVol {wlThemeSort === "avgRvol" ? "▼" : ""}</div>
                     </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgRS ?? 0) >= 80 ? "#2bb886" : (g.avgRS ?? 0) >= 50 ? "#d4d4e0" : "#f87171" }}>
+                        {g.avgRS != null ? g.avgRS : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgRS")} style={{ fontSize: 8, color: wlThemeSort === "avgRS" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Avg RS {wlThemeSort === "avgRS" ? "▼" : ""}</div>
+                    </div>
                   </div>
                 </div>
+                {/* Discovery: universe tickers with RS ≥ 80 + RVol ≥ 1.5x */}
+                {g.discoveries.length > 0 && (
+                  <div style={{ padding: "4px 10px 6px", borderTop: "1px solid #1a1a24", background: "#22d3ee05" }}>
+                    <span style={{ fontSize: 8, color: "#22d3ee", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Discover </span>
+                    <span style={{ fontSize: 8, color: "#505060" }}>RS≥80 + RVol≥1.5x</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 2 }}>
+                      {g.discoveries.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0)).map(s => {
+                        const chg = s.change;
+                        return (
+                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                            background: "#22d3ee10", border: s.ticker === activeTicker ? "1px solid #22d3ee" : "1px solid #22d3ee30",
+                            color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {s.ticker}<span style={{ color: "#686878", fontSize: 8 }}> RS{s.rs_rank}</span> {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""} <span style={{ color: "#a78bfa", fontSize: 8 }}>{s.rel_volume?.toFixed(1)}x</span>
+                        </span>);
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>);
             })}
           </div>
