@@ -9008,13 +9008,13 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     return m;
   }, [earningsMovers, historicalEarningsMovers]);
 
-  // AH earnings set — tickers confirmed as after-hours reporters
+  // AH earnings set — tickers confirmed as after-hours reporters (today only)
+  // Only use ah_earnings_movers (today's AH scrape), not historical (which has prior days' AH)
   const ahErSet = useMemo(() => {
     const s = new Set();
     (ahEarningsMovers || []).forEach(mv => { if (mv.ticker) s.add(mv.ticker); });
-    (historicalEarningsMovers || []).forEach(mv => { if (mv.ticker && mv._session === "AH") s.add(mv.ticker); });
     return s;
-  }, [ahEarningsMovers, historicalEarningsMovers]);
+  }, [ahEarningsMovers]);
 
   // Live data lookup for calendar
   const calLive = useMemo(() => {
