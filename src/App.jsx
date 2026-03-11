@@ -9117,6 +9117,8 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       seen.add(mv.ticker);
       const er = erMoverMap[mv.ticker] || (mv.er && typeof mv.er === "object" ? mv.er : null);
       const pipe = stockMap[mv.ticker];
+      // Dollar volume filter (only apply if pipeline data exists)
+      if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return;
       if (calNoBio) {
         const ind = String(pipe?.industry || "");
         if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
