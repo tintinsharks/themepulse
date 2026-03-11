@@ -9167,28 +9167,46 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       result.push(tmrwBucket);
     }
 
-    // ── Historical ±Nd: for day D, combine PM(D) + AH(D) from historical_earnings_movers ──
-    // PM page = pre-market movers on day D (includes prev night AMC + morning BMO reactions)
-    // AH page = after-hours movers on day D (AMC reporters)
-    // Together = all earnings movers for that trading day
+    // ── Historical ±Nd: PM(D) goes to day D, AH(D) goes to day D+1 ──
+    // Same logic as today: PM movers = tradeable that morning, AH movers = tradeable next morning
     if (calRange > 0) {
-      // Index historical by date → list of movers (both PM + AH)
-      const histByDate = {};
+      // Index historical by (date, session) → list of movers
+      const histByDS = {};
       (historicalEarningsMovers || []).forEach(mv => {
         if (!mv.ticker || !mv._report_date) return;
-        (histByDate[mv._report_date] = histByDate[mv._report_date] || []).push(mv);
+        const key = `${mv._report_date}_${mv._session || "PM"}`;
+        (histByDS[key] = histByDS[key] || []).push(mv);
       });
 
-      // Helper: format date as YYYY-MM-DD
       const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
-      for (let offset = -calRange; offset <= calRange; offset++) {
-        if (offset === 0 || offset === 1) continue; // day 0 and +1 already handled above
+      // Collect into buckets: PM(D) → offset D, AH(D) → offset D+1
+      const histBuckets = {};
+      for (let offset = -calRange - 1; offset <= calRange; offset++) {
         const dayD = new Date(today); dayD.setDate(dayD.getDate() + offset);
         const dateKey = fmtDate(dayD);
-        const movers = histByDate[dateKey] || [];
-        if (movers.length === 0) continue;
 
+        // PM movers for this date → bucket at this offset
+        const pmMovers = histByDS[`${dateKey}_PM`] || [];
+        if (pmMovers.length > 0 && offset >= -calRange && offset <= calRange) {
+          if (!histBuckets[offset]) histBuckets[offset] = [];
+          histBuckets[offset].push(...pmMovers);
+        }
+
+        // AH movers for this date → bucket at offset+1 (next trading day)
+        const ahMovers = histByDS[`${dateKey}_AH`] || [];
+        const nextOffset = offset + 1;
+        // Skip weekends: if dayD is Friday, AH goes to Monday (offset+3)
+        // But we keep it simple — +1 offset. Weekend dates won't have data anyway.
+        if (ahMovers.length > 0 && nextOffset >= -calRange && nextOffset <= calRange) {
+          if (!histBuckets[nextOffset]) histBuckets[nextOffset] = [];
+          histBuckets[nextOffset].push(...ahMovers);
+        }
+      }
+
+      for (const [offsetStr, movers] of Object.entries(histBuckets)) {
+        const offset = Number(offsetStr);
+        if (offset === 0 || offset === 1) continue; // handled by live data above
         const bucket = makeBucket(offset);
         const seen = new Set();
         for (const mv of movers) {
