@@ -9102,12 +9102,15 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
 
     const seen = new Set();
 
-    // Today: use pm_earnings_movers (BMO) + ah_earnings_movers (AMC)
+    // Today: use pm_earnings_movers + ah_earnings_movers
+    // PM earnings page includes last night's AMC reporters (gap reaction),
+    // so use ahErSet to re-classify them as AMC
     if (calRange >= 0) {
       (pmEarningsMovers || []).forEach(mv => {
         if (!mv.ticker || seen.has(mv.ticker) || !passFilter(mv)) return;
         seen.add(mv.ticker);
-        addToBucket(buildRow(mv, "BMO", 0));
+        const timing = ahErSet.has(mv.ticker) ? "AMC" : "BMO";
+        addToBucket(buildRow(mv, timing, 0));
       });
       (ahEarningsMovers || []).forEach(mv => {
         if (!mv.ticker || seen.has(mv.ticker) || !passFilter(mv)) return;
@@ -9142,7 +9145,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, pmEarningsMovers, ahEarningsMovers, historicalEarningsMovers]);
+  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, ahErSet, pmEarningsMovers, ahEarningsMovers, historicalEarningsMovers]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
