@@ -9174,34 +9174,31 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       result.push(tmrwBucket);
     }
 
-    // ── Historical ±Nd: for day D, combine AH(D-1) + PM(D) from historical_earnings_movers ──
+    // ── Historical ±Nd: for day D, combine PM(D) + AH(D) from historical_earnings_movers ──
+    // PM page = pre-market movers on day D (includes prev night AMC + morning BMO reactions)
+    // AH page = after-hours movers on day D (AMC reporters)
+    // Together = all earnings movers for that trading day
     if (calRange > 0) {
-      // Index historical by (date, session) → list of movers
-      const histByDateSession = {};
+      // Index historical by date → list of movers (both PM + AH)
+      const histByDate = {};
       (historicalEarningsMovers || []).forEach(mv => {
         if (!mv.ticker || !mv._report_date) return;
-        const key = `${mv._report_date}_${mv._session || "PM"}`;
-        (histByDateSession[key] = histByDateSession[key] || []).push(mv);
+        (histByDate[mv._report_date] = histByDate[mv._report_date] || []).push(mv);
       });
 
       // Helper: format date as YYYY-MM-DD
       const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
       for (let offset = -calRange; offset <= calRange; offset++) {
-        if (offset === 0) continue; // already handled
+        if (offset === 0 || offset === 1) continue; // day 0 and +1 already handled above
+        const dayD = new Date(today); dayD.setDate(dayD.getDate() + offset);
+        const dateKey = fmtDate(dayD);
+        const movers = histByDate[dateKey] || [];
+        if (movers.length === 0) continue;
+
         const bucket = makeBucket(offset);
         const seen = new Set();
-
-        // Day D: AH from D-1 + PM from D
-        const dayD = new Date(today); dayD.setDate(dayD.getDate() + offset);
-        const dayPrev = new Date(dayD); dayPrev.setDate(dayPrev.getDate() - 1);
-        // Skip weekends for prev day (go to Friday if dayPrev is Sat/Sun)
-        while (dayPrev.getDay() === 0 || dayPrev.getDay() === 6) dayPrev.setDate(dayPrev.getDate() - 1);
-
-        const ahKey = `${fmtDate(dayPrev)}_AH`;
-        const pmKey = `${fmtDate(dayD)}_PM`;
-
-        for (const mv of [...(histByDateSession[ahKey] || []), ...(histByDateSession[pmKey] || [])]) {
+        for (const mv of movers) {
           if (seen.has(mv.ticker) || !passFilter(mv)) continue;
           seen.add(mv.ticker);
           bucket.earnings.push(buildRow(mv));
