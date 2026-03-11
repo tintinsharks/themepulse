@@ -9028,6 +9028,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         const ed = String(s.earnings_display || "").trim();
         if (!ed) return;
 
+        const isEstimated = ed.startsWith("~");
         // Strip leading "~" and trailing timing suffix
         const cleaned = ed.replace(/^~/, "").replace(/\s*(AMC|BMO)\s*$/i, "").trim();
 
@@ -9044,6 +9045,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         const days = Math.round((earnDay - today) / 86400000);
 
         if (days < -calRange || days > calRange) return;
+
+        // For today and past: only show if confirmed by TheStockCatalyst scrape
+        // Estimated dates (~) and unconfirmed pipeline dates are unreliable for today/past
+        if (days <= 0 && !erMoverMap[s.ticker]) return;
 
         // Dollar volume filter
         if (calMinDvol > 0 && (s.avg_dollar_vol_raw || 0) < calMinDvol * 1_000_000) return;
