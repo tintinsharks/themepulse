@@ -9029,6 +9029,21 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     return m;
   }, [liveThemeData, stockMap]);
 
+  // Bio/REIT filter helper (shared by calendar + SIP section)
+  const isBioReit = useCallback((ticker, company) => {
+    if (!calNoBio) return false;
+    const pipe = stockMap[ticker];
+    if (pipe) {
+      const ind = String(pipe.industry || "");
+      if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
+          ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return true;
+    } else {
+      const co = String(company || "").toLowerCase();
+      if (/therapeut|biotech|pharma|bioscien|genomic|oncolog|biopharma|genics|medica|realt[yi]|reit|propert/i.test(co)) return true;
+    }
+    return false;
+  }, [calNoBio, stockMap]);
+
   // Earnings Calendar: entirely driven by TheStockCatalyst scraped data
   // Today: pm_earnings_movers (BMO) + ah_earnings_movers (AMC)
   // Historical: historical_earnings_movers grouped by _report_date/_session
@@ -9037,21 +9052,6 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-    // Bio/REIT filter helper
-    const isBioReit = (ticker, company) => {
-      if (!calNoBio) return false;
-      const pipe = stockMap[ticker];
-      if (pipe) {
-        const ind = String(pipe.industry || "");
-        if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
-            ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return true;
-      } else {
-        const co = String(company || "").toLowerCase();
-        if (/therapeut|biotech|pharma|bioscien|genomic|oncolog|biopharma|genics|medica|realt[yi]|reit|propert/i.test(co)) return true;
-      }
-      return false;
-    };
 
     // Build a calendar row from a mover
     const buildRow = (mv, timing, days) => {
@@ -9344,9 +9344,20 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
                 </div>
                 {/* EP Catalysts — PM/AH non-earnings movers, today only */}
                 {day.days === 0 && (pmSipMovers.length > 0 || ahSipMovers.length > 0) && (() => {
-                  const minVol = calMinDvol > 0 ? calMinDvol * 1_000_000 : 0;
                   const filterSip = (movers) => {
-                    let list = minVol > 0 ? movers.filter(m => (m.volume || 0) >= minVol) : movers;
+                    let list = movers.filter(m => {
+                      if (!m.ticker) return false;
+                      const pipe = stockMap[m.ticker];
+                      // $vol filter (same as earnings)
+                      if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return false;
+                      // 500K avg volume filter
+                      const avgVol = pipe?.avg_volume_raw ?? m.avg_volume;
+                      if (avgVol != null && avgVol < 500_000) return false;
+                      if (avgVol == null && m.volume != null && m.volume < 500_000) return false;
+                      // Bio/REIT filter
+                      if (isBioReit(m.ticker, m.company || m.name)) return false;
+                      return true;
+                    });
                     if (calGreenOnly) list = list.filter(m => m.change_pct > 0);
                     return list;
                   };
