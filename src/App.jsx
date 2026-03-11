@@ -8964,7 +8964,7 @@ function PipelineStatus({ meta }) {
 }
 
 // ── Earnings Intelligence Dashboard ──────────────────────────────────────────
-function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, liveThemeData, marketSession, onTickerClick, activeTicker }) {
+function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsMovers = [], pmSipMovers = [], ahSipMovers = [], historicalEarningsMovers = [], stockMap = {}, liveThemeData, marketSession, onTickerClick, activeTicker }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -9007,6 +9007,14 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
     });
     return m;
   }, [earningsMovers, historicalEarningsMovers]);
+
+  // AH earnings set — tickers confirmed as after-hours reporters
+  const ahErSet = useMemo(() => {
+    const s = new Set();
+    (ahEarningsMovers || []).forEach(mv => { if (mv.ticker) s.add(mv.ticker); });
+    (historicalEarningsMovers || []).forEach(mv => { if (mv.ticker && mv._session === "AH") s.add(mv.ticker); });
+    return s;
+  }, [ahEarningsMovers, historicalEarningsMovers]);
 
   // Live data lookup for calendar
   const calLive = useMemo(() => {
@@ -9065,9 +9073,10 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
               ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
         }
 
-        // Timing: prefer er_timing field, then parse from earnings_display
+        // Timing: ahErSet is most reliable, then er_timing, then earnings_display
         const edUpper = String(s.earnings_display || "").toUpperCase();
-        const timing = s.er_timing ? String(s.er_timing).toUpperCase()
+        const timing = ahErSet.has(s.ticker) ? "AMC"
+          : s.er_timing ? String(s.er_timing).toUpperCase()
           : edUpper.includes("BMO") ? "BMO"
           : edUpper.includes("AMC") ? "AMC"
           : "—";
@@ -9106,16 +9115,16 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       }
       if (days < -calRange || days > calRange) return;
       seen.add(mv.ticker);
-      const er = mv.er && typeof mv.er === "object" ? mv.er : null;
+      const er = erMoverMap[mv.ticker] || (mv.er && typeof mv.er === "object" ? mv.er : null);
       const pipe = stockMap[mv.ticker];
       if (calNoBio) {
         const ind = String(pipe?.industry || "");
         if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
             ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
       }
-      // Use _session (PM→BMO, AH→AMC) for correct column placement
-      const timing = mv._session === "AH" ? "AMC" : mv._session === "PM" ? "BMO"
-        : mv.er_timing ? String(mv.er_timing).toUpperCase()
+      // Use ahErSet first, then _session, then sources for column placement
+      const timing = ahErSet.has(mv.ticker) ? "AMC"
+        : mv._session === "AH" ? "AMC" : mv._session === "PM" ? "BMO"
         : (mv.sources || []).some(s => s.includes("ah")) ? "AMC" : "BMO";
       const live = calLive[mv.ticker];
       results.push({
@@ -9156,7 +9165,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, earningsMovers, historicalEarningsMovers]);
+  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, ahErSet, calLive, earningsMovers, historicalEarningsMovers]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
@@ -10792,6 +10801,8 @@ function AppMain({ authToken, onLogout }) {
           <ErrorBoundary name="Earnings Intel">
           {view === "intel" && <EarningsIntel
             earningsMovers={data?.earnings_movers || []}
+            pmEarningsMovers={data?.pm_earnings_movers || []}
+            ahEarningsMovers={data?.ah_earnings_movers || []}
             pmSipMovers={data?.pm_top_movers || data?.pm_sip_movers || []}
             ahSipMovers={data?.ah_top_movers || data?.ah_sip_movers || []}
             historicalEarningsMovers={data?.historical_earnings_movers || []}
