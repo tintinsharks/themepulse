@@ -9098,7 +9098,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return false;
       const avgVol = pipe?.avg_volume_raw ?? mv.avg_volume;
       if (avgVol != null && avgVol < 1_000_000) return false;
-      if (avgVol == null && mv.volume != null && mv.volume < 1_000_000) return false;
+      if (avgVol == null) return false; // no avg volume data = skip
       if (isBioReit(mv.ticker, mv.company || mv.name)) return false;
       return true;
     };
