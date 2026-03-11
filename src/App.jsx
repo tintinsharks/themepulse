@@ -9103,6 +9103,14 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       return true;
     };
 
+    // Filter for non-earnings movers: traded volume > 500K + bio/REIT
+    const passSipFilter = (mv) => {
+      const vol = mv.volume ?? 0;
+      if (vol < 500_000) return false;
+      if (isBioReit(mv.ticker, mv.company || mv.name)) return false;
+      return true;
+    };
+
     const makeBucket = (dayOffset) => {
       const d = new Date(today); d.setDate(d.getDate() + dayOffset);
       return {
@@ -9139,7 +9147,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     }
     const sipSeen = new Set(erSeen);
     for (const mv of (pmSipMovers || [])) {
-      if (!mv.ticker || sipSeen.has(mv.ticker)) continue;
+      if (!mv.ticker || sipSeen.has(mv.ticker) || !passSipFilter(mv)) continue;
       sipSeen.add(mv.ticker);
       todayBucket.movers.push(buildSipRow(mv));
     }
@@ -9158,7 +9166,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       }
       const tmrwSipSeen = new Set(tmrwErSeen);
       for (const mv of (ahSipMovers || [])) {
-        if (!mv.ticker || tmrwSipSeen.has(mv.ticker)) continue;
+        if (!mv.ticker || tmrwSipSeen.has(mv.ticker) || !passSipFilter(mv)) continue;
         tmrwSipSeen.add(mv.ticker);
         tmrwBucket.movers.push(buildSipRow(mv));
       }
