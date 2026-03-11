@@ -9076,6 +9076,32 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         });
       } catch {}
     });
+    // Inject earnings movers from TheStockCatalyst that aren't in the universe
+    const seen = new Set(results.map(r => r.ticker));
+    [...(earningsMovers || []), ...(historicalEarningsMovers || [])].forEach(mv => {
+      if (!mv.ticker || seen.has(mv.ticker)) return;
+      seen.add(mv.ticker);
+      const er = mv.er && typeof mv.er === "object" ? mv.er : null;
+      const pipe = stockMap[mv.ticker];
+      if (calNoBio && pipe) {
+        const ind = String(pipe.industry || "");
+        if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
+            ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
+      }
+      const timing = mv.er_timing ? String(mv.er_timing).toUpperCase()
+        : (mv.sources || []).some(s => s.includes("ah")) ? "AMC" : "BMO";
+      const live = calLive[mv.ticker];
+      results.push({
+        ticker: mv.ticker, company: mv.company || mv.name || "", timing,
+        eps_yoy: er?.eps_growth_yoy ?? null,
+        sales_yoy: er?.rev_growth_yoy ?? null,
+        market_cap: pipe?.market_cap,
+        market_cap_raw: pipe?.market_cap_raw || 0, rs_rank: mv.rs_rank ?? pipe?.rs_rank,
+        change: live?.change ?? mv.change_pct ?? null, ext_change: live?.ext_change ?? mv.ext_hours_change_pct ?? null,
+        rvol: live?.rvol ?? null, live_vol: live?.volume ?? mv.volume ?? null,
+        avg_er_move: pipe?.avg_er_move ?? null, _days: 0, _s: pipe || { ticker: mv.ticker }
+      });
+    });
     const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const buckets = {};
@@ -9103,7 +9129,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive]);
+  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, earningsMovers, historicalEarningsMovers]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
