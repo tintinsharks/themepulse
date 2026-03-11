@@ -8984,6 +8984,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [calRange, setCalRange] = useState(2); // ±N days
   const [calMinDvol, setCalMinDvol] = useState(20); // min avg $vol in millions
   const [calGreenOnly, setCalGreenOnly] = useState(false); // today: only Chg% > 0
+  const [calNoBio, setCalNoBio] = useState(true); // exclude biotech/pharma/REIT
   const calTodayRef = useRef(null);
 
   useEffect(() => {
@@ -9047,6 +9048,13 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         // Dollar volume filter
         if (calMinDvol > 0 && (s.avg_dollar_vol_raw || 0) < calMinDvol * 1_000_000) return;
 
+        // Bio/Pharma/REIT filter
+        if (calNoBio) {
+          const ind = String(s.industry || "");
+          if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
+              ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
+        }
+
         // Timing: prefer er_timing field, then parse from earnings_display
         const edUpper = String(s.earnings_display || "").toUpperCase();
         const timing = s.er_timing ? String(s.er_timing).toUpperCase()
@@ -9095,7 +9103,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, erMoverMap, calLive]);
+  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
@@ -9198,6 +9206,11 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
                 background: calMinDvol === v ? "#22d3ee12" : "transparent",
                 color: calMinDvol === v ? "#22d3ee" : "#686878" }}>{v === 0 ? "All" : `$${v}M`}</button>
             ))}
+            <span style={{ color: "#2a2a38" }}>|</span>
+            <button onClick={() => setCalNoBio(p => !p)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+              border: calNoBio ? "1px solid #f9731650" : "1px solid #2a2a38",
+              background: calNoBio ? "#f9731612" : "transparent",
+              color: calNoBio ? "#f97316" : "#686878" }}>{calNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}</button>
             <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{calendarDays.reduce((n, d) => n + d.items.length, 0)} stocks</span>
           </div>
           {calendarDays.length === 0 ? (
