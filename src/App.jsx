@@ -9219,6 +9219,58 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       }
     }
 
+    // ── Pipeline fallback: inject universe tickers with earnings_days that TheStockCatalyst missed ──
+    // earnings_days is relative to today: -1 = reported yesterday, 0 = today, +1 = tomorrow
+    // Only add tickers in the stock universe that pass filters and aren't already in a bucket
+    const allSeenTickers = new Set();
+    result.forEach(b => {
+      b.earnings.forEach(r => allSeenTickers.add(r.ticker));
+      b.movers.forEach(r => allSeenTickers.add(r.ticker));
+    });
+    const bucketByOffset = {};
+    result.forEach(b => { bucketByOffset[b.days] = b; });
+
+    Object.values(stockMap).forEach(s => {
+      if (!s.ticker || !s.earnings_days == null || allSeenTickers.has(s.ticker)) return;
+      const ed = s.earnings_days;
+      if (ed == null || ed < -calRange || ed > calRange + 1) return;
+      // Map earnings_days to the correct bucket offset
+      // earnings_days = 0 means reports today; if BMO it's today (0), if AMC it's tomorrow (+1)
+      // We can't know BMO/AMC from pipeline, so put in the earnings_days offset
+      const offset = ed;
+      // Must pass filters
+      if (calMinDvol > 0 && s.avg_dollar_vol_raw != null && s.avg_dollar_vol_raw < calMinDvol * 1_000_000) return;
+      if (s.avg_volume_raw != null && s.avg_volume_raw < 1_000_000) return;
+      if (isBioReit(s.ticker, s.company)) return;
+
+      if (!bucketByOffset[offset]) {
+        bucketByOffset[offset] = makeBucket(offset);
+        result.push(bucketByOffset[offset]);
+      }
+      const er = erMoverMap[s.ticker];
+      const live = calLive[s.ticker];
+      bucketByOffset[offset].earnings.push({
+        ticker: s.ticker, company: s.company || "",
+        eps_yoy: er?.eps_growth_yoy ?? null,
+        sales_yoy: er?.rev_growth_yoy ?? null,
+        market_cap: s.market_cap,
+        market_cap_raw: s.market_cap_raw || 0,
+        rs_rank: s.rs_rank,
+        change: live?.change ?? null,
+        ext_change: live?.ext_change ?? null,
+        rvol: live?.rvol ?? null,
+        live_vol: live?.volume ?? null,
+        avg_er_move: s.avg_er_move ?? null,
+        _s: s, _pipeline: true
+      });
+      allSeenTickers.add(s.ticker);
+    });
+
+    // Re-sort buckets that got pipeline additions
+    result.forEach(b => {
+      b.earnings.sort((a, bb) => (bb.market_cap_raw || 0) - (a.market_cap_raw || 0));
+    });
+
     return result.sort((a, b) => a.days - b.days);
   }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers]);
 
