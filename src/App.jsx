@@ -9103,11 +9103,13 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       return true;
     };
 
-    // Filter for non-earnings movers: avg volume > 500K + bio/REIT
+    // Filter for non-earnings movers: avg volume > 500K, traded vol > 30K, bio/REIT
     const passSipFilter = (mv) => {
       const pipe = stockMap[mv.ticker];
       const avgVol = pipe?.avg_volume_raw ?? mv.avg_volume;
       if (avgVol != null && avgVol < 500_000) return false;
+      const vol = mv.volume ?? 0;
+      if (vol < 30_000) return false;
       if (isBioReit(mv.ticker, mv.company || mv.name)) return false;
       return true;
     };
