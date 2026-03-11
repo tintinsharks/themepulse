@@ -9029,154 +9029,120 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     return m;
   }, [liveThemeData, stockMap]);
 
-  // Earnings Calendar: configurable date range, split by BMO / AMC
-  // Must be before early returns to satisfy Rules of Hooks
+  // Earnings Calendar: entirely driven by TheStockCatalyst scraped data
+  // Today: pm_earnings_movers (BMO) + ah_earnings_movers (AMC)
+  // Historical: historical_earnings_movers grouped by _report_date/_session
   const calendarDays = useMemo(() => {
-    if (!stockMap) return [];
     const now = new Date();
-    const results = [];
-    Object.values(stockMap).forEach(s => {
-      if (!s || typeof s !== "object" || !s.ticker) return;
-      try {
-        const ed = String(s.earnings_display || "").trim();
-        if (!ed) return;
-
-        const isEstimated = ed.startsWith("~");
-        // Strip leading "~" and trailing timing suffix
-        const cleaned = ed.replace(/^~/, "").replace(/\s*(AMC|BMO)\s*$/i, "").trim();
-
-        // Parse M/D/YYYY format
-        const match = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (!match) return;
-
-        const earnDate = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]));
-        if (isNaN(earnDate.getTime())) return;
-
-        // Compute days from today (not from pipeline run time)
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const earnDay = new Date(earnDate.getFullYear(), earnDate.getMonth(), earnDate.getDate());
-        const days = Math.round((earnDay - today) / 86400000);
-
-        if (days < -calRange || days > calRange) return;
-
-        // For today and past: only show if confirmed by TheStockCatalyst scrape
-        // Estimated dates (~) and unconfirmed pipeline dates are unreliable for today/past
-        if (days <= 0 && !erMoverMap[s.ticker]) return;
-
-        // Dollar volume filter
-        if (calMinDvol > 0 && (s.avg_dollar_vol_raw || 0) < calMinDvol * 1_000_000) return;
-
-        // Bio/Pharma/REIT filter
-        if (calNoBio) {
-          const ind = String(s.industry || "");
-          if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
-              ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
-        }
-
-        // Timing: ahErSet is most reliable, then er_timing, then earnings_display
-        const edUpper = String(s.earnings_display || "").toUpperCase();
-        const timing = ahErSet.has(s.ticker) ? "AMC"
-          : s.er_timing ? String(s.er_timing).toUpperCase()
-          : edUpper.includes("BMO") ? "BMO"
-          : edUpper.includes("AMC") ? "AMC"
-          : "—";
-
-        // Fresh reported growth — show if we have scraped data (presence in erMoverMap = already reported)
-        const er = erMoverMap[s.ticker] || null;
-        const live = calLive[s.ticker];
-        results.push({
-          ticker: s.ticker, company: s.company || "", timing,
-          eps_yoy: er?.eps_growth_yoy ?? null,
-          sales_yoy: er?.rev_growth_yoy ?? null,
-          market_cap: s.market_cap,
-          market_cap_raw: s.market_cap_raw || 0, rs_rank: s.rs_rank,
-          change: live?.change ?? null, ext_change: live?.ext_change ?? null, rvol: live?.rvol ?? null, live_vol: live?.volume ?? null,
-          avg_er_move: s.avg_er_move ?? null, _days: days, _s: s
-        });
-      } catch {}
-    });
-    // Inject earnings movers from TheStockCatalyst that aren't in the universe
-    // Use _report_date + _session for correct day/timing placement
-    const seen = new Set(results.map(r => r.ticker));
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const allMovers = [...(historicalEarningsMovers || []), ...(earningsMovers || [])];
-    allMovers.forEach(mv => {
-      if (!mv.ticker || seen.has(mv.ticker)) return;
-      // Compute day offset from _report_date
-      let days = 0;
-      if (mv._report_date) {
+    const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    // Bio/REIT filter helper
+    const isBioReit = (ticker, company) => {
+      if (!calNoBio) return false;
+      const pipe = stockMap[ticker];
+      if (pipe) {
+        const ind = String(pipe.industry || "");
+        if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
+            ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return true;
+      } else {
+        const co = String(company || "").toLowerCase();
+        if (/therapeut|biotech|pharma|bioscien|genomic|oncolog|biopharma|genics|medica|realt[yi]|reit|propert/i.test(co)) return true;
+      }
+      return false;
+    };
+
+    // Build a calendar row from a mover
+    const buildRow = (mv, timing, days) => {
+      const pipe = stockMap[mv.ticker];
+      const er = erMoverMap[mv.ticker] || (mv.er && typeof mv.er === "object" ? mv.er : null);
+      const live = calLive[mv.ticker];
+      return {
+        ticker: mv.ticker, company: mv.company || mv.name || pipe?.company || "", timing,
+        eps_yoy: er?.eps_growth_yoy ?? null,
+        sales_yoy: er?.rev_growth_yoy ?? null,
+        market_cap: pipe?.market_cap,
+        market_cap_raw: pipe?.market_cap_raw || 0,
+        rs_rank: mv.rs_rank ?? pipe?.rs_rank,
+        change: live?.change ?? mv.change_pct ?? null,
+        ext_change: live?.ext_change ?? mv.ext_hours_change_pct ?? null,
+        rvol: live?.rvol ?? null,
+        live_vol: live?.volume ?? mv.volume ?? null,
+        avg_er_move: pipe?.avg_er_move ?? null,
+        _days: days, _s: pipe || { ticker: mv.ticker }
+      };
+    };
+
+    // Filter: $vol, volume, bio/REIT
+    const passFilter = (mv) => {
+      const pipe = stockMap[mv.ticker];
+      if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return false;
+      const avgVol = pipe?.avg_volume_raw ?? mv.avg_volume;
+      if (avgVol != null && avgVol < 500_000) return false;
+      if (avgVol == null && mv.volume != null && mv.volume < 500_000) return false;
+      if (isBioReit(mv.ticker, mv.company || mv.name)) return false;
+      return true;
+    };
+
+    const buckets = {};
+    const addToBucket = (row) => {
+      const key = row._days;
+      if (!buckets[key]) {
+        const d = new Date(today); d.setDate(d.getDate() + key);
+        buckets[key] = {
+          days: key,
+          label: `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`,
+          tag: key === 0 ? "Today" : key > 0 ? `+${key}d` : `${key}d`,
+          items: []
+        };
+      }
+      buckets[key].items.push(row);
+    };
+
+    const seen = new Set();
+
+    // Today: use pm_earnings_movers (BMO) + ah_earnings_movers (AMC)
+    if (calRange >= 0) {
+      (pmEarningsMovers || []).forEach(mv => {
+        if (!mv.ticker || seen.has(mv.ticker) || !passFilter(mv)) return;
+        seen.add(mv.ticker);
+        addToBucket(buildRow(mv, "BMO", 0));
+      });
+      (ahEarningsMovers || []).forEach(mv => {
+        if (!mv.ticker || seen.has(mv.ticker) || !passFilter(mv)) return;
+        seen.add(mv.ticker);
+        addToBucket(buildRow(mv, "AMC", 0));
+      });
+    }
+
+    // Historical: use historical_earnings_movers for ±Nd (skip day 0 — already handled)
+    if (calRange > 0) {
+      (historicalEarningsMovers || []).forEach(mv => {
+        if (!mv.ticker || !mv._report_date || seen.has(`${mv.ticker}_${mv._report_date}`)) return;
+        let days = 0;
         try {
           const [y, m, d] = mv._report_date.split("-").map(Number);
           const rd = new Date(y, m - 1, d);
           days = Math.round((rd - today) / 86400000);
-        } catch {}
-      } else if (mv.days_ago != null) {
-        days = -mv.days_ago;
-      }
-      if (days < -calRange || days > calRange) return;
-      seen.add(mv.ticker);
-      const er = erMoverMap[mv.ticker] || (mv.er && typeof mv.er === "object" ? mv.er : null);
-      const pipe = stockMap[mv.ticker];
-      // Dollar volume filter (only apply if pipeline data exists)
-      if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return;
-      // Filter out low-volume tickers (avg vol < 200K or mover vol < 200K)
-      const avgVol = pipe?.avg_volume_raw ?? mv.avg_volume;
-      if (avgVol != null && avgVol < 500_000) return;
-      if (avgVol == null && mv.volume != null && mv.volume < 500_000) return;
-      if (calNoBio) {
-        const ind = String(pipe?.industry || "");
-        if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
-            ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
-        // Out-of-universe: match biotech/pharma/REIT by company name keywords
-        if (!pipe) {
-          const co = String(mv.company || mv.name || "").toLowerCase();
-          if (/therapeut|biotech|pharma|bioscien|genomic|oncolog|biopharma|genics|medic[ai]|lifem|myomo|cassava|proper ties|realt[yi]|reit/i.test(co)) return;
-        }
-      }
-      // Use ahErSet first, then _session, then sources for column placement
-      const timing = ahErSet.has(mv.ticker) ? "AMC"
-        : mv._session === "AH" ? "AMC" : mv._session === "PM" ? "BMO"
-        : (mv.sources || []).some(s => s.includes("ah")) ? "AMC" : "BMO";
-      const live = calLive[mv.ticker];
-      results.push({
-        ticker: mv.ticker, company: mv.company || mv.name || "", timing,
-        eps_yoy: er?.eps_growth_yoy ?? null,
-        sales_yoy: er?.rev_growth_yoy ?? null,
-        market_cap: pipe?.market_cap,
-        market_cap_raw: pipe?.market_cap_raw || 0, rs_rank: mv.rs_rank ?? pipe?.rs_rank,
-        change: live?.change ?? mv.change_pct ?? null, ext_change: live?.ext_change ?? mv.ext_hours_change_pct ?? null,
-        rvol: live?.rvol ?? null, live_vol: live?.volume ?? mv.volume ?? null,
-        avg_er_move: pipe?.avg_er_move ?? null, _days: days, _s: pipe || { ticker: mv.ticker }
+        } catch { return; }
+        if (days === 0 || days < -calRange || days > calRange) return;
+        if (!passFilter(mv)) return;
+        seen.add(`${mv.ticker}_${mv._report_date}`);
+        const timing = mv._session === "AH" ? "AMC" : "BMO";
+        addToBucket(buildRow(mv, timing, days));
       });
-    });
-    const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const buckets = {};
-    results.forEach(r => {
-      const d = new Date(now); d.setDate(d.getDate() + r._days);
-      const key = r._days;
-      if (!buckets[key]) {
-        buckets[key] = {
-          days: r._days,
-          label: `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`,
-          tag: r._days === 0 ? "Today" : r._days > 0 ? `+${r._days}d` : `${r._days}d`,
-          items: []
-        };
-      }
-      buckets[key].items.push(r);
-    });
+    }
+
+    // Sort within each bucket by market cap
     Object.values(buckets).forEach(b => {
-      b.items.sort((a, bb) => {
-        if (a.timing === "BMO" && bb.timing !== "BMO") return -1;
-        if (a.timing !== "BMO" && bb.timing === "BMO") return 1;
-        return (bb.market_cap_raw || 0) - (a.market_cap_raw || 0);
-      });
+      b.items.sort((a, bb) => (bb.market_cap_raw || 0) - (a.market_cap_raw || 0));
       b.bmo = b.items.filter(i => i.timing === "BMO");
       b.amc = b.items.filter(i => i.timing === "AMC");
       b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
     });
     return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, ahErSet, calLive, earningsMovers, historicalEarningsMovers]);
+  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, pmEarningsMovers, ahEarningsMovers, historicalEarningsMovers]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
