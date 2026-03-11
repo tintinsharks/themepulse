@@ -1756,7 +1756,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue }) {
   const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
@@ -1804,6 +1804,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [shortTagFilters, setShortTagFilters] = useState(new Set());
   const [aiRunning, setAiRunning] = useState(false);
   const [aiRunMsg, setAiRunMsg] = useState("");
+  const [aiQueueInput, setAiQueueInput] = useState("");
 
   // Fetch AI analysis data — merge with localStorage to preserve previously analyzed tickers for the day
   useEffect(() => {
@@ -3259,6 +3260,46 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               </div>
             );
           })()}
+          {/* AI Queue — manually add tickers for Cowork analysis */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "6px 10px",
+            background: "#1a1a2a", borderRadius: 6, border: "1px solid #2a2a3a", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 10, color: "#22d3ee", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Queue</span>
+            <span style={{ color: "#3a3a4a" }}>|</span>
+            <input type="text" value={aiQueueInput} onChange={e => setAiQueueInput(e.target.value.toUpperCase())}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  const tickers = aiQueueInput.split(/[,\s]+/).map(t => t.trim().toUpperCase()).filter(t => t && !aiQueue.includes(t));
+                  if (tickers.length > 0) setAiQueue(prev => [...prev, ...tickers]);
+                  setAiQueueInput("");
+                }
+              }}
+              placeholder="Add ticker(s)..."
+              style={{ width: 120, padding: "3px 6px", borderRadius: 4, fontSize: 10, fontFamily: "monospace",
+                border: "1px solid #3a3a4a", background: "#121218", color: "#d4d4e0", outline: "none" }} />
+            <button onClick={() => {
+              const tickers = aiQueueInput.split(/[,\s]+/).map(t => t.trim().toUpperCase()).filter(t => t && !aiQueue.includes(t));
+              if (tickers.length > 0) setAiQueue(prev => [...prev, ...tickers]);
+              setAiQueueInput("");
+            }} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+              background: "#1a3a3a", border: "1px solid #22d3ee", color: "#22d3ee" }}>+</button>
+            {aiQueue.length > 0 && <>
+              <span style={{ color: "#3a3a4a" }}>|</span>
+              {aiQueue.map(t => (
+                <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 3,
+                  background: "#22d3ee15", border: "1px solid #22d3ee40", fontSize: 10, fontFamily: "monospace", fontWeight: 600,
+                  color: "#22d3ee", cursor: "pointer" }}
+                  onClick={() => onTickerClick(t)}>
+                  {t}
+                  <span onClick={e => { e.stopPropagation(); setAiQueue(prev => prev.filter(x => x !== t)); }}
+                    style={{ color: "#686878", fontSize: 9, cursor: "pointer", marginLeft: 2 }}>✕</span>
+                </span>
+              ))}
+              <span style={{ color: "#3a3a4a" }}>|</span>
+              <button onClick={() => setAiQueue([])} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+                border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
+            </>}
+            <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>{aiQueue.length} ticker{aiQueue.length !== 1 ? "s" : ""} queued</span>
+          </div>
           {aiAnalysis?.tickers ? (
             <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
           ) : aiAnalysis?.content ? (
@@ -10898,6 +10939,9 @@ function AppMain({ authToken, onLogout }) {
   const [focusList, setFocusList] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_focus_list") || "[]"); } catch { return []; }
   });
+  const [aiQueue, setAiQueue] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_ai_queue") || "[]"); } catch { return []; }
+  });
   const [serverLoaded, setServerLoaded] = useState(false);
 
   // Listen for external trade imports (from console) and storage changes from other tabs
@@ -10934,6 +10978,7 @@ function AppMain({ authToken, onLogout }) {
           if (d.data.pknWatch) setPknWatch(d.data.pknWatch);
           if (d.data.trades) setTrades(d.data.trades.map(migrateTrade));
           if (d.data.focusList) setFocusList(d.data.focusList);
+          if (d.data.aiQueue) setAiQueue(d.data.aiQueue);
           console.log("Loaded from server:", d.data);
         }
       })
@@ -10948,6 +10993,7 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => { localStorage.setItem("tp_pkn_watch", JSON.stringify(pknWatch)); }, [pknWatch]);
   useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
   useEffect(() => { localStorage.setItem("tp_focus_list", JSON.stringify(focusList)); }, [focusList]);
+  useEffect(() => { localStorage.setItem("tp_ai_queue", JSON.stringify(aiQueue)); }, [aiQueue]);
 
   // Save to server (debounced)
   const saveTimer = useRef(null);
@@ -10959,14 +11005,14 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch, focusList }),
+        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch, focusList, aiQueue }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, trades, pkn, pknWatch, focusList, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, pkn, pknWatch, focusList, aiQueue, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
@@ -11236,7 +11282,8 @@ function AppMain({ authToken, onLogout }) {
           {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
-            historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession} />}
+            historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession}
+            aiQueue={aiQueue} setAiQueue={setAiQueue} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
