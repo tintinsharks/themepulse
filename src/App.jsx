@@ -9122,7 +9122,8 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     // Historical: use historical_earnings_movers for ±Nd (skip day 0 — already handled)
     if (calRange > 0) {
       (historicalEarningsMovers || []).forEach(mv => {
-        if (!mv.ticker || !mv._report_date || seen.has(`${mv.ticker}_${mv._report_date}`)) return;
+        const seenKey = `${mv.ticker}_${mv._report_date}_${mv._session || ""}`;
+        if (!mv.ticker || !mv._report_date || seen.has(seenKey)) return;
         let days = 0;
         try {
           const [y, m, d] = mv._report_date.split("-").map(Number);
@@ -9131,7 +9132,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
         } catch { return; }
         if (days === 0 || days < -calRange || days > calRange) return;
         if (!passFilter(mv)) return;
-        seen.add(`${mv.ticker}_${mv._report_date}`);
+        seen.add(seenKey);
         const timing = mv._session === "AH" ? "AMC" : "BMO";
         addToBucket(buildRow(mv, timing, days));
       });
