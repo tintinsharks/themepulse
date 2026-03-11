@@ -9115,18 +9115,28 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
 
     const result = [];
 
-    // ── Today (day 0): only PM earnings/sip (this morning's pre-market movers) ──
-    // AH movers from tonight go into tomorrow's bucket (reaction is tradeable tomorrow)
+    // ── Build set of today's AH reporters to exclude from today's PM bucket ──
+    // PM earnings page includes last night's AMC reporters (gap reaction).
+    // Use ah_earnings_movers + historical AH session for today to identify them.
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const todayAhSet = new Set();
+    (ahEarningsMovers || []).forEach(mv => { if (mv.ticker) todayAhSet.add(mv.ticker); });
+    (ahSipMovers || []).forEach(mv => { if (mv.ticker) todayAhSet.add(mv.ticker); });
+    (historicalEarningsMovers || []).forEach(mv => {
+      if (mv.ticker && mv._report_date === todayStr && mv._session === "AH") todayAhSet.add(mv.ticker);
+    });
+
+    // ── Today (day 0): only PM movers that are NOT tonight's AH reporters ──
     const todayBucket = makeBucket(0);
     const erSeen = new Set();
     for (const mv of (pmEarningsMovers || [])) {
-      if (!mv.ticker || erSeen.has(mv.ticker) || !passFilter(mv)) continue;
+      if (!mv.ticker || erSeen.has(mv.ticker) || todayAhSet.has(mv.ticker) || !passFilter(mv)) continue;
       erSeen.add(mv.ticker);
       todayBucket.earnings.push(buildRow(mv));
     }
     const sipSeen = new Set(erSeen);
     for (const mv of (pmSipMovers || [])) {
-      if (!mv.ticker || sipSeen.has(mv.ticker) || !passFilter(mv)) continue;
+      if (!mv.ticker || sipSeen.has(mv.ticker) || todayAhSet.has(mv.ticker) || !passFilter(mv)) continue;
       sipSeen.add(mv.ticker);
       todayBucket.movers.push(buildSipRow(mv));
     }
@@ -9134,12 +9144,21 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     todayBucket.movers.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
     result.push(todayBucket);
 
-    // ── Tomorrow (day +1): AH earnings/sip from tonight ──
-    // These are after-close reporters — reaction tradeable tomorrow morning
-    if (ahEarningsMovers?.length > 0 || ahSipMovers?.length > 0) {
+    // ── Tomorrow (day +1): tonight's AH reporters — reaction tradeable tomorrow ──
+    // Include ah_earnings_movers + historical AH for today (catches tickers like FNV
+    // that made the historical AH page but not the live ah_earnings_movers page)
+    if (todayAhSet.size > 0) {
       const tmrwBucket = makeBucket(1);
       const tmrwErSeen = new Set();
+      // First: live AH earnings movers
       for (const mv of (ahEarningsMovers || [])) {
+        if (!mv.ticker || tmrwErSeen.has(mv.ticker) || !passFilter(mv)) continue;
+        tmrwErSeen.add(mv.ticker);
+        tmrwBucket.earnings.push(buildRow(mv));
+      }
+      // Second: historical AH for today (picks up tickers not on live AH page)
+      for (const mv of (historicalEarningsMovers || [])) {
+        if (mv._report_date !== todayStr || mv._session !== "AH") continue;
         if (!mv.ticker || tmrwErSeen.has(mv.ticker) || !passFilter(mv)) continue;
         tmrwErSeen.add(mv.ticker);
         tmrwBucket.earnings.push(buildRow(mv));
