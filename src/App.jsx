@@ -8995,10 +8995,15 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   }, []);
 
   // Earnings mover lookup: fresh reported EPS/Sales from TheStockCatalyst
+  // Prefer the most complete er object (historical often has full enrichment)
   const erMoverMap = useMemo(() => {
     const m = {};
     [...(earningsMovers || []), ...(historicalEarningsMovers || [])].forEach(mv => {
-      if (mv.ticker && mv.er) m[mv.ticker] = mv.er;
+      if (!mv.ticker || !mv.er) return;
+      const prev = m[mv.ticker];
+      if (!prev || (mv.er.eps_growth_yoy != null && prev.eps_growth_yoy == null)) {
+        m[mv.ticker] = mv.er;
+      }
     });
     return m;
   }, [earningsMovers, historicalEarningsMovers]);
