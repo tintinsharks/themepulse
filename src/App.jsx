@@ -9054,10 +9054,8 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
           : edUpper.includes("AMC") ? "AMC"
           : "—";
 
-        // Fresh reported growth — only show if already reported
-        // Future = days > 0, or today AMC (hasn't reported yet), or today unspecified
-        const reported = days < 0 || (days === 0 && timing === "BMO");
-        const er = reported ? erMoverMap[s.ticker] : null;
+        // Fresh reported growth — show if we have scraped data (presence in erMoverMap = already reported)
+        const er = erMoverMap[s.ticker] || null;
         const live = calLive[s.ticker];
         results.push({
           ticker: s.ticker, company: s.company || "", timing,
