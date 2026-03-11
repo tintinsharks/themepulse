@@ -9115,18 +9115,17 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
 
     const result = [];
 
-    // ── Today (day 0): AH earnings/sip (last night) + PM earnings/sip (this morning) ──
+    // ── Today (day 0): only PM earnings/sip (this morning's pre-market movers) ──
+    // AH movers from tonight go into tomorrow's bucket (reaction is tradeable tomorrow)
     const todayBucket = makeBucket(0);
     const erSeen = new Set();
-    // Combine: ah_earnings_movers (last night) + pm_earnings_movers (this morning)
-    for (const mv of [...(ahEarningsMovers || []), ...(pmEarningsMovers || [])]) {
+    for (const mv of (pmEarningsMovers || [])) {
       if (!mv.ticker || erSeen.has(mv.ticker) || !passFilter(mv)) continue;
       erSeen.add(mv.ticker);
       todayBucket.earnings.push(buildRow(mv));
     }
-    // Combine: ah_sip_movers (last night) + pm_sip_movers (this morning)
-    const sipSeen = new Set(erSeen); // exclude earnings tickers from movers
-    for (const mv of [...(ahSipMovers || []), ...(pmSipMovers || [])]) {
+    const sipSeen = new Set(erSeen);
+    for (const mv of (pmSipMovers || [])) {
       if (!mv.ticker || sipSeen.has(mv.ticker) || !passFilter(mv)) continue;
       sipSeen.add(mv.ticker);
       todayBucket.movers.push(buildSipRow(mv));
@@ -9134,6 +9133,27 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     todayBucket.earnings.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
     todayBucket.movers.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
     result.push(todayBucket);
+
+    // ── Tomorrow (day +1): AH earnings/sip from tonight ──
+    // These are after-close reporters — reaction tradeable tomorrow morning
+    if (ahEarningsMovers?.length > 0 || ahSipMovers?.length > 0) {
+      const tmrwBucket = makeBucket(1);
+      const tmrwErSeen = new Set();
+      for (const mv of (ahEarningsMovers || [])) {
+        if (!mv.ticker || tmrwErSeen.has(mv.ticker) || !passFilter(mv)) continue;
+        tmrwErSeen.add(mv.ticker);
+        tmrwBucket.earnings.push(buildRow(mv));
+      }
+      const tmrwSipSeen = new Set(tmrwErSeen);
+      for (const mv of (ahSipMovers || [])) {
+        if (!mv.ticker || tmrwSipSeen.has(mv.ticker) || !passFilter(mv)) continue;
+        tmrwSipSeen.add(mv.ticker);
+        tmrwBucket.movers.push(buildSipRow(mv));
+      }
+      tmrwBucket.earnings.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
+      tmrwBucket.movers.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
+      result.push(tmrwBucket);
+    }
 
     // ── Historical ±Nd: for day D, combine AH(D-1) + PM(D) from historical_earnings_movers ──
     if (calRange > 0) {
