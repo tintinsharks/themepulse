@@ -9127,6 +9127,11 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
         const ind = String(pipe?.industry || "");
         if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
             ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return;
+        // Out-of-universe: match biotech/pharma by company name keywords
+        if (!pipe) {
+          const co = String(mv.company || mv.name || "").toLowerCase();
+          if (/\b(therapeut|biotech|pharma|bioscien|genomic|oncolog|biopharma|sciences?\b.*\b(life|medical|bio))\b/.test(co)) return;
+        }
       }
       // Use ahErSet first, then _session, then sources for column placement
       const timing = ahErSet.has(mv.ticker) ? "AMC"
