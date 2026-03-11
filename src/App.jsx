@@ -9139,7 +9139,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     }
     const sipSeen = new Set(erSeen);
     for (const mv of (pmSipMovers || [])) {
-      if (!mv.ticker || sipSeen.has(mv.ticker) || !passFilter(mv)) continue;
+      if (!mv.ticker || sipSeen.has(mv.ticker)) continue;
       sipSeen.add(mv.ticker);
       todayBucket.movers.push(buildSipRow(mv));
     }
@@ -9158,7 +9158,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       }
       const tmrwSipSeen = new Set(tmrwErSeen);
       for (const mv of (ahSipMovers || [])) {
-        if (!mv.ticker || tmrwSipSeen.has(mv.ticker) || !passFilter(mv)) continue;
+        if (!mv.ticker || tmrwSipSeen.has(mv.ticker)) continue;
         tmrwSipSeen.add(mv.ticker);
         tmrwBucket.movers.push(buildSipRow(mv));
       }
