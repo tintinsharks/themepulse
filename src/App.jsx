@@ -9241,6 +9241,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       // Must pass filters
       if (calMinDvol > 0 && s.avg_dollar_vol_raw != null && s.avg_dollar_vol_raw < calMinDvol * 1_000_000) return;
       if (s.avg_volume_raw != null && s.avg_volume_raw < 1_000_000) return;
+      if (s.avg_volume_raw == null) return; // no volume data = skip
       if (isBioReit(s.ticker, s.company)) return;
 
       if (!bucketByOffset[offset]) {
