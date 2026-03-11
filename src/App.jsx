@@ -9029,9 +9029,10 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
     return m;
   }, [liveThemeData, stockMap]);
 
-  // Earnings Calendar: entirely driven by TheStockCatalyst scraped data
-  // Today: pm_earnings_movers (BMO) + ah_earnings_movers (AMC)
-  // Historical: historical_earnings_movers grouped by _report_date/_session
+  // Earnings Calendar: each "day" = prev evening AH + this morning PM
+  // Two columns: Earnings | Non-Earnings Movers
+  // Today: ah_earnings_movers + pm_earnings_movers → earnings; ah_sip + pm_sip → movers
+  // Historical: AH(D-1) + PM(D) from historical_earnings_movers → earnings
   const calendarDays = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -9053,13 +9054,13 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       return false;
     };
 
-    // Build a calendar row from a mover
-    const buildRow = (mv, timing, days) => {
+    // Build an earnings row from a mover
+    const buildRow = (mv) => {
       const pipe = stockMap[mv.ticker];
       const er = erMoverMap[mv.ticker] || (mv.er && typeof mv.er === "object" ? mv.er : null);
       const live = calLive[mv.ticker];
       return {
-        ticker: mv.ticker, company: mv.company || mv.name || pipe?.company || "", timing,
+        ticker: mv.ticker, company: mv.company || mv.name || pipe?.company || "",
         eps_yoy: er?.eps_growth_yoy ?? null,
         sales_yoy: er?.rev_growth_yoy ?? null,
         market_cap: pipe?.market_cap,
@@ -9070,7 +9071,24 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
         rvol: live?.rvol ?? null,
         live_vol: live?.volume ?? mv.volume ?? null,
         avg_er_move: pipe?.avg_er_move ?? null,
-        _days: days, _s: pipe || { ticker: mv.ticker }
+        _s: pipe || { ticker: mv.ticker }
+      };
+    };
+
+    // Build a non-earnings mover row
+    const buildSipRow = (mv) => {
+      const pipe = stockMap[mv.ticker];
+      const live = calLive[mv.ticker];
+      return {
+        ticker: mv.ticker, company: mv.company || mv.name || pipe?.company || "",
+        market_cap: pipe?.market_cap,
+        market_cap_raw: pipe?.market_cap_raw || 0,
+        rs_rank: mv.rs_rank ?? pipe?.rs_rank,
+        change: live?.change ?? mv.change_pct ?? null,
+        ext_change: live?.ext_change ?? mv.ext_hours_change_pct ?? null,
+        rvol: live?.rvol ?? null,
+        live_vol: live?.volume ?? mv.volume ?? null,
+        _s: pipe || { ticker: mv.ticker }
       };
     };
 
@@ -9085,68 +9103,77 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       return true;
     };
 
-    const buckets = {};
-    const addToBucket = (row) => {
-      const key = row._days;
-      if (!buckets[key]) {
-        const d = new Date(today); d.setDate(d.getDate() + key);
-        buckets[key] = {
-          days: key,
-          label: `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`,
-          tag: key === 0 ? "Today" : key > 0 ? `+${key}d` : `${key}d`,
-          items: []
-        };
-      }
-      buckets[key].items.push(row);
+    const makeBucket = (dayOffset) => {
+      const d = new Date(today); d.setDate(d.getDate() + dayOffset);
+      return {
+        days: dayOffset,
+        label: `${dayNames[d.getDay()]} ${monthNames[d.getMonth()]} ${d.getDate()}`,
+        tag: dayOffset === 0 ? "Today" : dayOffset > 0 ? `+${dayOffset}d` : `${dayOffset}d`,
+        earnings: [], movers: []
+      };
     };
 
-    const seen = new Set();
+    const result = [];
 
-    // Today: use pm_earnings_movers + ah_earnings_movers
-    // PM earnings page includes last night's AMC reporters (gap reaction),
-    // so use ahErSet to re-classify them as AMC
-    if (calRange >= 0) {
-      (pmEarningsMovers || []).forEach(mv => {
-        if (!mv.ticker || seen.has(mv.ticker) || !passFilter(mv)) return;
-        seen.add(mv.ticker);
-        const timing = ahErSet.has(mv.ticker) ? "AMC" : "BMO";
-        addToBucket(buildRow(mv, timing, 0));
-      });
-      (ahEarningsMovers || []).forEach(mv => {
-        if (!mv.ticker || seen.has(mv.ticker) || !passFilter(mv)) return;
-        seen.add(mv.ticker);
-        addToBucket(buildRow(mv, "AMC", 0));
-      });
+    // ── Today (day 0): AH earnings/sip (last night) + PM earnings/sip (this morning) ──
+    const todayBucket = makeBucket(0);
+    const erSeen = new Set();
+    // Combine: ah_earnings_movers (last night) + pm_earnings_movers (this morning)
+    for (const mv of [...(ahEarningsMovers || []), ...(pmEarningsMovers || [])]) {
+      if (!mv.ticker || erSeen.has(mv.ticker) || !passFilter(mv)) continue;
+      erSeen.add(mv.ticker);
+      todayBucket.earnings.push(buildRow(mv));
     }
+    // Combine: ah_sip_movers (last night) + pm_sip_movers (this morning)
+    const sipSeen = new Set(erSeen); // exclude earnings tickers from movers
+    for (const mv of [...(ahSipMovers || []), ...(pmSipMovers || [])]) {
+      if (!mv.ticker || sipSeen.has(mv.ticker) || !passFilter(mv)) continue;
+      sipSeen.add(mv.ticker);
+      todayBucket.movers.push(buildSipRow(mv));
+    }
+    todayBucket.earnings.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
+    todayBucket.movers.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
+    result.push(todayBucket);
 
-    // Historical: use historical_earnings_movers for ±Nd (skip day 0 — already handled)
+    // ── Historical ±Nd: for day D, combine AH(D-1) + PM(D) from historical_earnings_movers ──
     if (calRange > 0) {
+      // Index historical by (date, session) → list of movers
+      const histByDateSession = {};
       (historicalEarningsMovers || []).forEach(mv => {
-        const seenKey = `${mv.ticker}_${mv._report_date}_${mv._session || ""}`;
-        if (!mv.ticker || !mv._report_date || seen.has(seenKey)) return;
-        let days = 0;
-        try {
-          const [y, m, d] = mv._report_date.split("-").map(Number);
-          const rd = new Date(y, m - 1, d);
-          days = Math.round((rd - today) / 86400000);
-        } catch { return; }
-        if (days === 0 || days < -calRange || days > calRange) return;
-        if (!passFilter(mv)) return;
-        seen.add(seenKey);
-        const timing = mv._session === "AH" ? "AMC" : "BMO";
-        addToBucket(buildRow(mv, timing, days));
+        if (!mv.ticker || !mv._report_date) return;
+        const key = `${mv._report_date}_${mv._session || "PM"}`;
+        (histByDateSession[key] = histByDateSession[key] || []).push(mv);
       });
+
+      // Helper: format date as YYYY-MM-DD
+      const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+      for (let offset = -calRange; offset <= calRange; offset++) {
+        if (offset === 0) continue; // already handled
+        const bucket = makeBucket(offset);
+        const seen = new Set();
+
+        // Day D: AH from D-1 + PM from D
+        const dayD = new Date(today); dayD.setDate(dayD.getDate() + offset);
+        const dayPrev = new Date(dayD); dayPrev.setDate(dayPrev.getDate() - 1);
+        // Skip weekends for prev day (go to Friday if dayPrev is Sat/Sun)
+        while (dayPrev.getDay() === 0 || dayPrev.getDay() === 6) dayPrev.setDate(dayPrev.getDate() - 1);
+
+        const ahKey = `${fmtDate(dayPrev)}_AH`;
+        const pmKey = `${fmtDate(dayD)}_PM`;
+
+        for (const mv of [...(histByDateSession[ahKey] || []), ...(histByDateSession[pmKey] || [])]) {
+          if (seen.has(mv.ticker) || !passFilter(mv)) continue;
+          seen.add(mv.ticker);
+          bucket.earnings.push(buildRow(mv));
+        }
+        bucket.earnings.sort((a, b) => (b.market_cap_raw || 0) - (a.market_cap_raw || 0));
+        if (bucket.earnings.length > 0) result.push(bucket);
+      }
     }
 
-    // Sort within each bucket by market cap
-    Object.values(buckets).forEach(b => {
-      b.items.sort((a, bb) => (bb.market_cap_raw || 0) - (a.market_cap_raw || 0));
-      b.bmo = b.items.filter(i => i.timing === "BMO");
-      b.amc = b.items.filter(i => i.timing === "AMC");
-      b.other = b.items.filter(i => i.timing !== "BMO" && i.timing !== "AMC");
-    });
-    return Object.values(buckets).sort((a, b) => a.days - b.days);
-  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, ahErSet, pmEarningsMovers, ahEarningsMovers, historicalEarningsMovers]);
+    return result.sort((a, b) => a.days - b.days);
+  }, [stockMap, calRange, calMinDvol, calNoBio, erMoverMap, calLive, pmEarningsMovers, ahEarningsMovers, pmSipMovers, ahSipMovers, historicalEarningsMovers]);
 
   useEffect(() => {
     if (activeSection === "calendar" && calTodayRef.current) {
@@ -9253,7 +9280,7 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
               border: calNoBio ? "1px solid #f9731650" : "1px solid #2a2a38",
               background: calNoBio ? "#f9731612" : "transparent",
               color: calNoBio ? "#f97316" : "#686878" }}>{calNoBio ? "⊘ Bio/REIT" : "○ Bio/REIT"}</button>
-            <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{calendarDays.reduce((n, d) => n + d.items.length, 0)} stocks</span>
+            <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{calendarDays.reduce((n, d) => n + d.earnings.length + d.movers.length, 0)} stocks</span>
           </div>
           {calendarDays.length === 0 ? (
             <div style={{ color: "#686878", textAlign: "center", padding: 40 }}>No earnings reporters found in the ±{calRange} day window{calMinDvol > 0 ? ` with ≥$${calMinDvol}M avg $vol` : ""}.</div>
@@ -9312,8 +9339,49 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
                   </tbody>
                 </table>;
             const greenFilter = (items) => (calGreenOnly && day.days === 0) ? items.filter(r => (marketSession ? (r.ext_change ?? r.change) : r.change) > 0) : items;
-            const bmoAll = greenFilter([...day.bmo, ...day.other.filter(r => r.timing !== "AMC")]);
-            const amcAll = greenFilter(day.amc);
+            const erItems = greenFilter(day.earnings);
+            const sipItems = greenFilter(day.movers);
+            const renderMoversCol = (items, emptyMsg) => items.length === 0
+              ? <div style={{ color: "#505060", fontSize: 11, padding: "16px 8px", textAlign: "center" }}>{emptyMsg}</div>
+              : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                      {["Ticker",
+                        marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%",
+                        "Vol","RVol","RS"].map(h => (
+                        <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map(r => {
+                      const chg = marketSession ? (r.ext_change ?? r.change) : r.change;
+                      const fmtV = (v) => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : v?.toFixed(0) || "—";
+                      return (
+                      <tr key={r.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
+                        onClick={() => onTickerClick && onTickerClick(r.ticker)}
+                        onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <td style={{ padding: "4px 6px" }}>
+                          <div style={{ fontWeight: 700, color: "#fbbf24", fontFamily: "monospace", fontSize: 11 }}>{r.ticker}</div>
+                          <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{r.company}</div>
+                        </td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                            color: r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : (r.live_vol) != null ? "#686878" : "#505060" }}>
+                            {r.live_vol != null ? fmtV(r.live_vol) : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
+                          color: r.rvol >= 2 ? "#c084fc" : r.rvol >= 1.5 ? "#a78bfa" : r.rvol != null ? "#686878" : "#505060" }}>
+                          {r.rvol != null ? `${r.rvol.toFixed(1)}x` : "—"}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
+                          color: r.rs_rank >= 80 ? "#2bb886" : r.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
+                          {r.rs_rank != null ? r.rs_rank : "—"}</td>
+                      </tr>);
+                    })}
+                  </tbody>
+                </table>;
             return (
               <div key={day.days} ref={day.days === 0 ? calTodayRef : undefined} style={{ marginBottom: 20, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8, overflow: "hidden" }}>
                 {/* Day header */}
@@ -9326,126 +9394,28 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
                     background: calGreenOnly ? "#2bb88612" : "transparent",
                     color: calGreenOnly ? "#2bb886" : "#686878" }}>Chg% &gt; 0</button>}
                   <span style={{ fontSize: 10, color: "#686878", marginLeft: "auto" }}>
-                    {day.items.length} reporting — {bmoAll.length} BMO, {amcAll.length} AMC
+                    {erItems.length} earnings{sipItems.length > 0 ? `, ${sipItems.length} movers` : ""}
                   </span>
                 </div>
-                {/* Two-column: BMO left, AMC right */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 60 }}>
-                  <div style={{ borderRight: "1px solid #2a2a38" }}>
+                {/* Two-column: Earnings left, Non-Earnings Movers right */}
+                <div style={{ display: "grid", gridTemplateColumns: sipItems.length > 0 ? "3fr 2fr" : "1fr", minHeight: 60 }}>
+                  <div style={{ borderRight: sipItems.length > 0 ? "1px solid #2a2a38" : "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "#22d3ee10", borderBottom: "1px solid #1a1a24" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", letterSpacing: 0.5 }}>BEFORE OPEN</span>
-                      <span style={{ fontSize: 10, color: "#686878" }}>({bmoAll.length})</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", letterSpacing: 0.5 }}>EARNINGS</span>
+                      <span style={{ fontSize: 10, color: "#686878" }}>({erItems.length})</span>
                     </div>
-                    {renderCol(bmoAll, "No BMO reports")}
+                    {renderCol(erItems, "No earnings movers")}
                   </div>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "#a78bfa10", borderBottom: "1px solid #1a1a24" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#a78bfa", letterSpacing: 0.5 }}>AFTER CLOSE</span>
-                      <span style={{ fontSize: 10, color: "#686878" }}>({amcAll.length})</span>
-                    </div>
-                    {renderCol(amcAll, "No AMC reports")}
-                  </div>
-                </div>
-                {/* EP Catalysts — PM/AH non-earnings movers, today only */}
-                {day.days === 0 && (pmSipMovers.length > 0 || ahSipMovers.length > 0) && (() => {
-                  const filterSip = (movers) => {
-                    let list = movers.filter(m => {
-                      if (!m.ticker) return false;
-                      const pipe = stockMap[m.ticker];
-                      // $vol filter (same as earnings)
-                      if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return false;
-                      // 500K avg volume filter
-                      const avgVol = pipe?.avg_volume_raw ?? m.avg_volume;
-                      if (avgVol != null && avgVol < 500_000) return false;
-                      if (avgVol == null && m.volume != null && m.volume < 500_000) return false;
-                      // Bio/REIT filter
-                      if (calNoBio) {
-                        if (pipe) {
-                          const ind = String(pipe.industry || "");
-                          if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
-                              ind.startsWith("REIT") || ind === "Real Estate Investment Trusts") return false;
-                        } else {
-                          const co = String(m.company || m.name || "").toLowerCase();
-                          if (/therapeut|biotech|pharma|bioscien|genomic|oncolog|biopharma|genics|medica|realt[yi]|reit|propert/i.test(co)) return false;
-                        }
-                      }
-                      return true;
-                    });
-                    if (calGreenOnly) list = list.filter(m => m.change_pct > 0);
-                    return list;
-                  };
-                  const renderSipCol = (movers, label, color) => (
+                  {sipItems.length > 0 && (
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: `${color}10`, borderBottom: "1px solid #1a1a24" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: 0.5 }}>{label}</span>
-                        <span style={{ fontSize: 10, color: "#686878" }}>({movers.length})</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: "#fbbf2410", borderBottom: "1px solid #1a1a24" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", letterSpacing: 0.5 }}>MOVERS</span>
+                        <span style={{ fontSize: 10, color: "#686878" }}>({sipItems.length})</span>
                       </div>
-                      {movers.length === 0
-                        ? <div style={{ color: "#505060", fontSize: 11, padding: "12px 8px", textAlign: "center" }}>None</div>
-                        : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-                            <thead>
-                              <tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                                {["Ticker",
-                                  marketSession === "premarket" ? "PM%" : marketSession === "aftermarket" ? "AH%" : "Chg%",
-                                  marketSession ? null : "RVol",
-                                  marketSession ? null : "Vol",
-                                  "RS"].filter(Boolean).map(h => (
-                                  <th key={h} style={{ padding: "5px 6px", textAlign: h === "Ticker" ? "left" : "right", color: "#686878", fontWeight: 600, fontSize: 9 }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {movers.map(m => {
-                                const lv = calLive[m.ticker];
-                                const chg = marketSession ? (lv?.ext_change ?? m.change_pct) : (lv?.change ?? m.change_pct);
-                                const av = stockMap[m.ticker]?.avg_volume_raw;
-                                const curVol = lv?.volume ?? null;
-                                const rv = (av > 0 && curVol) ? curVol / av : null;
-                                const fmtV = (v) => v >= 1e6 ? (v/1e6).toFixed(1)+"M" : v >= 1e3 ? (v/1e3).toFixed(0)+"K" : v?.toFixed(0) || "—";
-                                return (
-                                <tr key={m.ticker} style={{ borderBottom: "1px solid #1a1a24", cursor: "pointer" }}
-                                  onClick={() => onTickerClick && onTickerClick(m.ticker)}
-                                  onMouseEnter={e => e.currentTarget.style.background = "#1e1e2a"}
-                                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                                  <td style={{ padding: "4px 6px" }}>
-                                    <div style={{ fontWeight: 700, color: "#fbbf24", fontFamily: "monospace", fontSize: 11 }}>{m.ticker}</div>
-                                    <div style={{ fontSize: 9, color: "#686878", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{m.company || m.name || ""}</div>
-                                  </td>
-                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                                    color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
-                                    {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(1)}%` : "—"}</td>
-                                  {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                                    color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : rv != null ? "#686878" : "#505060" }}>
-                                    {rv != null ? `${rv.toFixed(1)}x` : "—"}</td>}
-                                  {!marketSession && <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 10,
-                                    color: rv >= 2 ? "#c084fc" : rv >= 1.5 ? "#a78bfa" : curVol != null ? "#686878" : "#505060" }}>
-                                    {curVol != null ? fmtV(curVol) : "—"}</td>}
-                                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace",
-                                    color: m.rs_rank >= 80 ? "#2bb886" : m.rs_rank >= 50 ? "#d4d4e0" : "#f87171" }}>
-                                    {m.rs_rank != null ? m.rs_rank : "—"}</td>
-                                </tr>);
-                              })}
-                            </tbody>
-                          </table>}
+                      {renderMoversCol(sipItems, "No movers")}
                     </div>
-                  );
-                  return (
-                    <div style={{ borderTop: "2px solid #fbbf2430" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#fbbf2408" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#fbbf24" }}>EP CATALYSTS</span>
-                        <span style={{ fontSize: 10, color: "#686878" }}>Non-earnings movers</span>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 40 }}>
-                        <div style={{ borderRight: "1px solid #2a2a38" }}>
-                          {renderSipCol(filterSip(ahSipMovers), "AFTER-HOURS", "#a78bfa")}
-                        </div>
-                        <div>
-                          {renderSipCol(filterSip(pmSipMovers), "PRE-MARKET", "#22d3ee")}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+                  )}
+                </div>
               </div>
             );
           })}
