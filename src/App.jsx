@@ -8981,7 +8981,7 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
   const [feedThemeOnly, setFeedThemeOnly] = useState(false);
   const [feedSort, setFeedSort] = useState("date");
   const [feedSortAsc, setFeedSortAsc] = useState(false);
-  const [calRange, setCalRange] = useState(2); // ±N days
+  const [calRange, setCalRange] = useState(0); // 0=today, 2=±2 days
   const [calMinDvol, setCalMinDvol] = useState(20); // min avg $vol in millions
   const [calGreenOnly, setCalGreenOnly] = useState(false); // today: only Chg% > 0
   const [calNoBio, setCalNoBio] = useState(true); // exclude biotech/pharma/REIT
@@ -9217,12 +9217,11 @@ function EarningsIntel({ earningsMovers = [], pmSipMovers = [], ahSipMovers = []
         <div>
           {/* Filter bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 14px", marginBottom: 12, background: "#16161e", border: "1px solid #2a2a38", borderRadius: 8 }}>
-            <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Date Range</span>
-            {[2, 5, 7, 14].map(d => (
-              <button key={d} onClick={() => setCalRange(d)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                border: calRange === d ? "1px solid #22d3ee50" : "1px solid #2a2a38",
-                background: calRange === d ? "#22d3ee12" : "transparent",
-                color: calRange === d ? "#22d3ee" : "#686878" }}>{`±${d}d`}</button>
+            {[{v: 0, label: "Today"}, {v: 2, label: "±2d"}].map(({v, label}) => (
+              <button key={v} onClick={() => setCalRange(v)} style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                border: calRange === v ? "1px solid #22d3ee50" : "1px solid #2a2a38",
+                background: calRange === v ? "#22d3ee12" : "transparent",
+                color: calRange === v ? "#22d3ee" : "#686878" }}>{label}</button>
             ))}
             <span style={{ color: "#2a2a38" }}>|</span>
             <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Min Avg $Vol</span>
