@@ -9130,6 +9130,13 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       erSeen.add(mv.ticker);
       todayBucket.earnings.push(buildRow(mv));
     }
+    // Also pull in historical PM movers for today not in live feeds (e.g. NIO, KSS)
+    for (const mv of (historicalEarningsMovers || [])) {
+      if (mv._report_date !== todayStr || mv._session !== "PM") continue;
+      if (!mv.ticker || erSeen.has(mv.ticker) || tonightAhErSet.has(mv.ticker) || !passFilter(mv)) continue;
+      erSeen.add(mv.ticker);
+      todayBucket.earnings.push(buildRow(mv));
+    }
     const sipSeen = new Set(erSeen);
     for (const mv of (pmSipMovers || [])) {
       if (!mv.ticker || sipSeen.has(mv.ticker) || !passFilter(mv)) continue;
