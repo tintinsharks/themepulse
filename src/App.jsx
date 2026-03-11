@@ -1760,18 +1760,30 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
+  // Scan Watch filters
   const [nearPivot, setNearPivot] = useState(false);
-  const [greenOnly, setGreenOnly] = useState(true);
+  const [greenOnly, setGreenOnly] = useState(false);
   const [zvrOnly, setZvrOnly] = useState(true);
   const [minRS, setMinRS] = useState(0);
-  const [burstMinRS, setBurstMinRS] = useState(0);
-  const [minChg, setMinChg] = useState(4); // min Chg% filter (0 = off)
-  const [minRVol, setMinRVol] = useState(2); // min RVol filter (0 = off)
-  const [scanFilters, setScanFilters] = useState(new Set());
+  const [minChg, setMinChg] = useState(2);
+  const [minRVol, setMinRVol] = useState(1.5);
+  const [scanFilters, setScanFilters] = useState(new Set(["NoBio"]));
   const [activeTheme, setActiveTheme] = useState(null);
-  const [mcapFilter, setMcapFilter] = useState("small"); // "small" = all, "mid" = mid+large, "large" = large only
-  const [volFilter, setVolFilter] = useState(0); // 0 = no filter, 50000, 100000
-  const [minDolVol, setMinDolVol] = useState(50); // in millions, default $50M
+  const [mcapFilter, setMcapFilter] = useState("small");
+  const [volFilter, setVolFilter] = useState(0);
+  const [minDolVol, setMinDolVol] = useState(50);
+  // Momentum Burst filters (independent)
+  const [burstNearPivot, setBurstNearPivot] = useState(false);
+  const [burstGreenOnly, setBurstGreenOnly] = useState(true);
+  const [burstZvrOnly, setBurstZvrOnly] = useState(true);
+  const [burstMinRS, setBurstMinRS] = useState(0);
+  const [burstMinChg, setBurstMinChg] = useState(4);
+  const [burstMinRVol, setBurstMinRVol] = useState(2);
+  const [burstScanFilters, setBurstScanFilters] = useState(new Set());
+  const [burstActiveTheme, setBurstActiveTheme] = useState(null);
+  const [burstMcapFilter, setBurstMcapFilter] = useState("small");
+  const [burstVolFilter, setBurstVolFilter] = useState(0);
+  const [burstMinDolVol, setBurstMinDolVol] = useState(50);
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
   const [aiAnalysis, setAiAnalysis] = useState(null);
@@ -2132,36 +2144,36 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         _relVol: s?.rel_volume, _eps_this_y: s?.eps_this_y,
         _is9M: is9M };
     });
-    // Apply burst-specific RS filter (default 0 = show all)
+    // Apply burst-specific filters (independent from scan watch)
     if (burstMinRS > 0) list = list.filter(b => (b._rs || 0) >= burstMinRS);
-    if (nearPivot) list = list.filter(b => (b._pctFromHigh || -99) >= -3);
-    if (greenOnly) list = list.filter(b => b.change_pct > 0);
-    if (minChg > 0) list = list.filter(b => b.change_pct >= minChg);
-    if (zvrOnly) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= 1.5; });
-    if (minRVol > 0) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= minRVol; });
-    if (activeTheme) list = list.filter(b => b._themes?.some(t => t.theme === activeTheme));
-    if (mcapFilter === "mid") list = list.filter(b => (b._mcap || 0) >= 2_000_000_000);
-    if (mcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
-    if (volFilter > 0) list = list.filter(b => (b._avgVol || 0) >= volFilter);
-    if (minDolVol > 0) list = list.filter(b => (b._avgDolVol || 0) >= minDolVol * 1_000_000);
+    if (burstNearPivot) list = list.filter(b => (b._pctFromHigh || -99) >= -3);
+    if (burstGreenOnly) list = list.filter(b => b.change_pct > 0);
+    if (burstMinChg > 0) list = list.filter(b => b.change_pct >= burstMinChg);
+    if (burstZvrOnly) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= 1.5; });
+    if (burstMinRVol > 0) list = list.filter(b => { const rv = b.vol_ratio ?? b._relVol; return rv != null && projectedRVol(rv) >= burstMinRVol; });
+    if (burstActiveTheme) list = list.filter(b => b._themes?.some(t => t.theme === burstActiveTheme));
+    if (burstMcapFilter === "mid") list = list.filter(b => (b._mcap || 0) >= 2_000_000_000);
+    if (burstMcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
+    if (burstVolFilter > 0) list = list.filter(b => (b._avgVol || 0) >= burstVolFilter);
+    if (burstMinDolVol > 0) list = list.filter(b => (b._avgDolVol || 0) >= burstMinDolVol * 1_000_000);
     // Apply 9M tag filter
-    if (scanFilters.has("9M")) list = list.filter(b => b._is9M);
+    if (burstScanFilters.has("9M")) list = list.filter(b => b._is9M);
     // Apply pattern tag filters on burst tab
     const BURST_PAT_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play", DB: "double_bottom", HTF: "high_tight_flag", AB: "ascending_base", ST: "symmetrical_triangle", IPO: "ipo_base" };
     for (const [tag, key] of Object.entries(BURST_PAT_MAP)) {
-      if (scanFilters.has(tag)) list = list.filter(b => {
+      if (burstScanFilters.has(tag)) list = list.filter(b => {
         const pats = b.chart_patterns || stockMap[b.ticker]?.chart_patterns || [];
         return pats.some(p => p.pattern === key);
       });
     }
     // ORH filter on burst tab
-    if (scanFilters.has("ORH")) {
+    if (burstScanFilters.has("ORH")) {
       list = list.filter(b => {
         const lv = liveLookup[b.ticker];
         return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
-    if (scanFilters.has("NoBio")) list = list.filter(b => !BIO_REIT_IND.has(stockMap[b.ticker]?.industry));
+    if (burstScanFilters.has("NoBio")) list = list.filter(b => !BIO_REIT_IND.has(stockMap[b.ticker]?.industry));
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
     const bSorters = {
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
@@ -2171,7 +2183,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, burstMinRS, nearPivot, greenOnly, zvrOnly, minChg, minRVol, activeTheme, mcapFilter, volFilter, minDolVol, scanFilters, burstSort, BIO_REIT_IND]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, burstNearPivot, burstGreenOnly, burstZvrOnly, burstMinChg, burstMinRVol, burstActiveTheme, burstMcapFilter, burstVolFilter, burstMinDolVol, burstScanFilters, burstSort, BIO_REIT_IND]);
 
   // ── Short Scan candidates ──
   const themeHealthMap = useMemo(() => {
@@ -2403,19 +2415,38 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
       {/* Shared filters — apply to scan + burst tabs (EP/AI/Short have their own content) */}
       {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && scanTab !== "gapper" && scanTab !== "research" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-        {/* Tag filters — scan tab gets all, burst tab gets pattern + 9M */}
-        {(scanTab === "scan" ? [
+        {/* Tag filters — use tab-specific state */}
+        {(() => {
+          const isBurst = scanTab === "burst";
+          const curFilters = isBurst ? burstScanFilters : scanFilters;
+          const setCurFilters = isBurst ? setBurstScanFilters : setScanFilters;
+          const curNearPivot = isBurst ? burstNearPivot : nearPivot;
+          const setCurNearPivot = isBurst ? setBurstNearPivot : setNearPivot;
+          const curGreenOnly = isBurst ? burstGreenOnly : greenOnly;
+          const setCurGreenOnly = isBurst ? setBurstGreenOnly : setGreenOnly;
+          const curZvrOnly = isBurst ? burstZvrOnly : zvrOnly;
+          const setCurZvrOnly = isBurst ? setBurstZvrOnly : setZvrOnly;
+          const curMinRS = isBurst ? burstMinRS : minRS;
+          const setCurMinRS = isBurst ? setBurstMinRS : setMinRS;
+          const curMinChg = isBurst ? burstMinChg : minChg;
+          const setCurMinChg = isBurst ? setBurstMinChg : setMinChg;
+          const curMinRVol = isBurst ? burstMinRVol : minRVol;
+          const setCurMinRVol = isBurst ? setBurstMinRVol : setMinRVol;
+          const curMcapFilter = isBurst ? burstMcapFilter : mcapFilter;
+          const setCurMcapFilter = isBurst ? setBurstMcapFilter : setMcapFilter;
+          const curMinDolVol = isBurst ? burstMinDolVol : minDolVol;
+          const setCurMinDolVol = isBurst ? setBurstMinDolVol : setMinDolVol;
+          const curActiveTheme = isBurst ? burstActiveTheme : activeTheme;
+          const setCurActiveTheme = isBurst ? setBurstActiveTheme : setActiveTheme;
+          return (<>
+        {[
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
           ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
-        ] : [
-          ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
-          ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
-        ]).map(([tag, label, color]) => {
-          const active = scanFilters.has(tag);
+        ].map(([tag, label, color]) => {
+          const active = curFilters.has(tag);
           return (
-            <button key={tag} onClick={() => setScanFilters(prev => {
+            <button key={tag} onClick={() => setCurFilters(prev => {
               const next = new Set(prev);
               if (next.has(tag)) next.delete(tag); else next.add(tag);
               return next;
@@ -2427,13 +2458,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             </button>
           );
         })}
-        {scanFilters.size > 0 && (
-          <button onClick={() => setScanFilters(new Set())} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+        {curFilters.size > 0 && (
+          <button onClick={() => setCurFilters(new Set())} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
             border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
         )}
         <span style={{ color: "#3a3a4a" }}>|</span>
-        <span style={{ color: scanTab === "burst" ? "#f59e0b" : "#2bb886", fontWeight: 600, fontSize: 12 }}>{scanTab === "burst" ? burstStocks.length : candidates.length}</span>
-        {scanTab === "scan" && scanFilters.size > 0 && (
+        <span style={{ color: isBurst ? "#f59e0b" : "#2bb886", fontWeight: 600, fontSize: 12 }}>{isBurst ? burstStocks.length : candidates.length}</span>
+        {!isBurst && curFilters.size > 0 && (
           <span style={{ color: "#9090a0", fontSize: 9, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {(() => {
               const descs = { VCP: "Volatility Contraction Pattern — tightening pullbacks",
@@ -2442,64 +2473,60 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 PP: "Power Play / 3 Weeks Tight — consecutive tight weekly closes",
                 "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)",
                 ORH: "Price above 5-min Opening Range High (9:30–9:35 ET)" };
-              const active = [...scanFilters];
+              const active = [...curFilters];
               if (active.length === 1) return descs[active[0]] || "";
               return active.map(f => f).join(" + ");
             })()}
           </span>
         )}
-        <button onClick={() => setNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: scanTab === "burst" ? 0 : "auto",
-          border: nearPivot ? "1px solid #c084fc" : "1px solid #3a3a4a",
-          background: nearPivot ? "#c084fc20" : "transparent", color: nearPivot ? "#c084fc" : "#787888" }}>Near Pivot (&lt;3%)</button>
-        <button onClick={() => setGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-          border: greenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
-          background: greenOnly ? "#2bb88620" : "transparent", color: greenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
-        <button onClick={() => setZvrOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
-          border: zvrOnly ? "1px solid #a78bfa" : "1px solid #3a3a4a",
-          background: zvrOnly ? "#a78bfa20" : "transparent", color: zvrOnly ? "#a78bfa" : "#787888" }}>ZVR 1.5x+</button>
+        <button onClick={() => setCurNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer", marginLeft: isBurst ? 0 : "auto",
+          border: curNearPivot ? "1px solid #c084fc" : "1px solid #3a3a4a",
+          background: curNearPivot ? "#c084fc20" : "transparent", color: curNearPivot ? "#c084fc" : "#787888" }}>Near Pivot (&lt;3%)</button>
+        <button onClick={() => setCurGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: curGreenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
+          background: curGreenOnly ? "#2bb88620" : "transparent", color: curGreenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
+        <button onClick={() => setCurZvrOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: curZvrOnly ? "1px solid #a78bfa" : "1px solid #3a3a4a",
+          background: curZvrOnly ? "#a78bfa20" : "transparent", color: curZvrOnly ? "#a78bfa" : "#787888" }}>ZVR 1.5x+</button>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {scanTab === "burst" ? <>
-            <span style={{ fontSize: 10, color: burstMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{burstMinRS}</span>
-            <input type="range" min={0} max={95} step={5} value={burstMinRS} onChange={e => setBurstMinRS(Number(e.target.value))}
-              style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
-          </> : <>
-            <span style={{ fontSize: 10, color: minRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{minRS}</span>
-            <input type="range" min={0} max={95} step={5} value={minRS} onChange={e => setMinRS(Number(e.target.value))}
-              style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
-          </>}
+          <span style={{ fontSize: 10, color: curMinRS > 0 ? "#4aad8c" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{curMinRS}</span>
+          <input type="range" min={0} max={95} step={5} value={curMinRS} onChange={e => setCurMinRS(Number(e.target.value))}
+            style={{ width: 60, height: 4, accentColor: "#0d9163", cursor: "pointer" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: minChg > 0 ? "#2bb886" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≥{minChg}%</span>
-          <input type="range" min={0} max={20} step={1} value={minChg} onChange={e => setMinChg(Number(e.target.value))}
+          <span style={{ fontSize: 10, color: curMinChg > 0 ? "#2bb886" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≥{curMinChg}%</span>
+          <input type="range" min={0} max={20} step={1} value={curMinChg} onChange={e => setCurMinChg(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#2bb886", cursor: "pointer" }} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: minRVol > 0 ? "#a78bfa" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RV≥{minRVol.toFixed(1)}x</span>
-          <input type="range" min={0} max={5} step={0.1} value={minRVol} onChange={e => setMinRVol(Math.round(Number(e.target.value) * 10) / 10)}
+          <span style={{ fontSize: 10, color: curMinRVol > 0 ? "#a78bfa" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RV≥{curMinRVol.toFixed(1)}x</span>
+          <input type="range" min={0} max={5} step={0.1} value={curMinRVol} onChange={e => setCurMinRVol(Math.round(Number(e.target.value) * 10) / 10)}
             style={{ width: 70, height: 4, accentColor: "#a78bfa", cursor: "pointer" }} />
         </div>
         <span style={{ color: "#3a3a4a" }}>|</span>
         {[["small", "Small+"], ["mid", "Mid+"], ["large", "Large"]].map(([k, l]) => (
-          <button key={k} onClick={() => setMcapFilter(k)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
-            border: mcapFilter === k ? "1px solid #60a5fa" : "1px solid #3a3a4a",
-            background: mcapFilter === k ? "#60a5fa20" : "transparent", color: mcapFilter === k ? "#60a5fa" : "#686878" }}>{l}</button>
+          <button key={k} onClick={() => setCurMcapFilter(k)} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer",
+            border: curMcapFilter === k ? "1px solid #60a5fa" : "1px solid #3a3a4a",
+            background: curMcapFilter === k ? "#60a5fa20" : "transparent", color: curMcapFilter === k ? "#60a5fa" : "#686878" }}>{l}</button>
         ))}
         <span style={{ color: "#3a3a4a" }}>|</span>
         <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <span style={{ fontSize: 10, color: minDolVol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥</span>
-          <input type="text" value={minDolVol || ""} placeholder="0"
-            onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setMinDolVol(v === "" ? 0 : Number(v)); }}
+          <span style={{ fontSize: 10, color: curMinDolVol > 0 ? "#fbbf24" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>$Vol≥</span>
+          <input type="text" value={curMinDolVol || ""} placeholder="0"
+            onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setCurMinDolVol(v === "" ? 0 : Number(v)); }}
             style={{ width: 32, padding: "2px 4px", borderRadius: 4, fontSize: 10, fontFamily: "monospace", textAlign: "right",
-              border: minDolVol > 0 ? "1px solid #fbbf24" : "1px solid #3a3a4a",
-              background: minDolVol > 0 ? "#fbbf2410" : "transparent", color: minDolVol > 0 ? "#fbbf24" : "#686878", outline: "none" }} />
+              border: curMinDolVol > 0 ? "1px solid #fbbf24" : "1px solid #3a3a4a",
+              background: curMinDolVol > 0 ? "#fbbf2410" : "transparent", color: curMinDolVol > 0 ? "#fbbf24" : "#686878", outline: "none" }} />
           <span style={{ fontSize: 9, color: "#686878" }}>M</span>
         </div>
-        {activeTheme && (
-          <button onClick={() => setActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+        {curActiveTheme && (
+          <button onClick={() => setCurActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
             border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
-            {activeTheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
+            {curActiveTheme} <span style={{ fontSize: 12, lineHeight: 1 }}>✕</span>
           </button>
         )}
+          </>);
+        })()}
       </div>}
 
       {scanTab === "scan" && (<>
@@ -7461,7 +7488,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
 }
 
 // ── PKN TAB ──
-function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData, portfolio, watchlist }) {
+function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData, portfolio, watchlist, homepage, erSipLookup }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -7470,6 +7497,18 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   const [addTickerW, setAddTickerW] = useState("");
   const [pSort, setPSort] = useState("rel_volume");
   const [wlSort, setWlSort] = useState("rel_volume");
+  // Watchlist filters (cloned from LiveView)
+  const [wlNearPivot, setWlNearPivot] = useState(false);
+  const [wlGreenOnly, setWlGreenOnly] = useState(true);
+  const [wlMinRS, setWlMinRS] = useState(0);
+  const [wlMinDvol, setWlMinDvol] = useState(50);
+  const [wl9M, setWl9M] = useState(false);
+  const [wlView, setWlView] = useState("list"); // "list" | "themes"
+  const [wlThemeSort, setWlThemeSort] = useState("avgChg");
+  const [wlTickerRank, setWlTickerRank] = useState("change");
+  const [wlThemeFilterGreen, setWlThemeFilterGreen] = useState(false);
+  const [wlThemeFilter9M, setWlThemeFilter9M] = useState(false);
+  const [expandedThemes, setExpandedThemes] = useState(new Set());
 
   const allTickers = useMemo(() => [...new Set([...pkn, ...pknWatch])], [pkn, pknWatch]);
 
@@ -7498,6 +7537,10 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
         const v = typeof e.volume === 'string' ? parseFloat(e.volume) : e.volume;
         const av = stockMap[e.ticker]?.avg_volume_raw;
         if (av > 0) e.rel_volume = Math.round(v / av * 100) / 100;
+      }
+      if (e.high != null && e.low != null && e.price != null) {
+        const range = e.high - e.low;
+        e.close_range = range > 0 ? Math.round((e.price - e.low) / range * 1000) / 10 : null;
       }
       return e;
     };
@@ -7532,6 +7575,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
       company: live.company || pipe.company || "",
       avg_dollar_vol: pipe.avg_dollar_vol, avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg, accel: pipe.accel,
+      close_range: live.close_range ?? null,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
       _scanHits: pipe._scanHits || [], _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore,
       _quality: quality, _q_factors: q_factors,
@@ -7574,7 +7618,127 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   };
 
   const pknMerged = useMemo(() => sortList(pkn.map(mergeStock), pSort), [pkn, mergeStock, pSort, liveLookup]);
-  const pknWatchMerged = useMemo(() => sortList(pknWatch.map(mergeStock), wlSort), [pknWatch, mergeStock, wlSort, liveLookup]);
+  const pknWatchAll = useMemo(() => sortList(pknWatch.map(mergeStock), wlSort), [pknWatch, mergeStock, wlSort, liveLookup]);
+  const pknWatchMerged = useMemo(() => {
+    let list = pknWatchAll;
+    if (wlNearPivot) list = list.filter(s => (s.pct_from_high ?? -100) >= -3);
+    if (wlGreenOnly) list = list.filter(s => { const chg = s.change ?? stockMap[s.ticker]?.change_pct; return chg != null && chg > 0; });
+    if (wlMinRS > 0) list = list.filter(s => (s.rs_rank ?? 0) >= wlMinRS);
+    if (wlMinDvol > 0) list = list.filter(s => (s.avg_dollar_vol_raw ?? 0) >= wlMinDvol * 1e6);
+    if (wl9M) list = list.filter(s => {
+      const vol = s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : 0;
+      return vol >= 8_900_000 && (s.avg_volume_raw ?? 0) < 8_900_000;
+    });
+    return list;
+  }, [pknWatchAll, wlNearPivot, wlGreenOnly, wlMinRS, wlMinDvol, wl9M, stockMap]);
+
+  // Build subtheme → universe tickers lookup from stockMap
+  const subthemeUniverse = useMemo(() => {
+    const m = {};
+    if (!stockMap) return m;
+    Object.values(stockMap).forEach(s => {
+      if (!s?.ticker) return;
+      const sub = s.themes?.[0]?.subtheme || s.subtheme || s.themes?.[0]?.theme || s.theme || "";
+      if (!sub) return;
+      if (!m[sub]) m[sub] = [];
+      m[sub].push(s.ticker);
+    });
+    return m;
+  }, [stockMap]);
+
+  // Group PKN Watch + PKN stocks by subtheme, expand to full universe for metrics
+  const wlThemeGroups = useMemo(() => {
+    const ownedSet = new Set([...pknWatch, ...pkn]);
+    const groups = {};
+    pknWatchAll.forEach(s => {
+      const sub = s.subtheme || s.theme || "Ungrouped";
+      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", wlStocks: [], pfStocks: [], uniStocks: [] };
+      groups[sub].wlStocks.push(s);
+    });
+    const wlSet = new Set(pknWatch);
+    pknMerged.forEach(s => {
+      if (wlSet.has(s.ticker)) return;
+      const sub = s.subtheme || s.theme || "Ungrouped";
+      if (!groups[sub]) groups[sub] = { name: sub, theme: s.theme || "", wlStocks: [], pfStocks: [], uniStocks: [] };
+      groups[sub].pfStocks.push(s);
+    });
+    Object.values(groups).forEach(g => {
+      const uniTickers = subthemeUniverse[g.name] || [];
+      uniTickers.forEach(tk => {
+        if (ownedSet.has(tk)) return;
+        const live = liveLookup[tk];
+        const pipe = stockMap[tk];
+        if (!live && !pipe) return;
+        g.uniStocks.push({
+          ticker: tk, company: live?.company || pipe?.company || "",
+          change: live?.change ?? pipe?.change_pct ?? null,
+          rel_volume: live?.rel_volume ?? null, rs_rank: pipe?.rs_rank ?? null,
+          avg_dollar_vol_raw: pipe?.avg_dollar_vol_raw ?? null, accel: pipe?.accel ?? null,
+          close_range: live?.close_range ?? null,
+        });
+      });
+    });
+    const built = Object.values(groups).map(g => {
+      const allStocks = [...g.wlStocks, ...g.pfStocks, ...g.uniStocks];
+      let rvolDvTotal = 0, rvolWeighted = 0;
+      allStocks.forEach(s => {
+        const rv = s.rel_volume; if (rv == null || rv <= 0) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        rvolDvTotal += dv; rvolWeighted += rv * dv;
+      });
+      const avgRvol = rvolDvTotal > 0 ? Math.round(rvolWeighted / rvolDvTotal * 10) / 10 : null;
+      let totalDv = 0, weightedChg = 0;
+      allStocks.forEach(s => {
+        if (s.change == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        totalDv += dv; weightedChg += s.change * dv;
+      });
+      const avgChg = totalDv > 0 ? weightedChg / totalDv : null;
+      const rsVals = allStocks.map(s => s.rs_rank ?? stockMap[s.ticker]?.rs_rank).filter(r => r != null);
+      const avgRS = rsVals.length > 0 ? Math.round(rsVals.reduce((a, b) => a + b, 0) / rsVals.length) : null;
+      let accelDvTotal = 0, accelWeighted = 0;
+      allStocks.forEach(s => {
+        const a = s.accel ?? stockMap[s.ticker]?.accel; if (a == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        accelDvTotal += dv; accelWeighted += a * dv;
+      });
+      const avgAccel = accelDvTotal > 0 ? Math.round(accelWeighted / accelDvTotal * 10) / 10 : null;
+      let crDvTotal = 0, crWeighted = 0;
+      allStocks.forEach(s => {
+        const cr = s.close_range ?? liveLookup[s.ticker]?.close_range; if (cr == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        crDvTotal += dv; crWeighted += cr * dv;
+      });
+      const avgCR = crDvTotal > 0 ? Math.round(crWeighted / crDvTotal) : null;
+      const groupDv = allStocks.reduce((sum, s) => sum + (s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0), 0);
+      const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
+      return { ...g, avgChg, avgRvol, avgCR, avgRS, avgAccel, groupDv, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
+    });
+    const dvVals = built.map(g => g.groupDv).filter(v => v > 0).sort((a, b) => a - b);
+    const medianDv = dvVals.length > 0 ? dvVals[Math.floor(dvVals.length / 2)] : 1;
+    built.sort((a, b) => {
+      const conf = (g) => Math.min(g.groupDv / medianDv, 1.0);
+      const adjust = (v, g) => {
+        if (wlThemeSort === "avgRS") return v;
+        const c = conf(g);
+        return v >= 0 ? v * c : v / (c || 0.01);
+      };
+      const va = adjust(a[wlThemeSort] ?? -999, a);
+      const vb = adjust(b[wlThemeSort] ?? -999, b);
+      return vb - va;
+    });
+    return built;
+  }, [pknWatchAll, pknWatch, pkn, pknMerged, subthemeUniverse, liveLookup, stockMap, wlThemeSort]);
+
+  useEffect(() => {
+    if (wlView !== "themes" || !activeTicker) return;
+    const group = wlThemeGroups.find(g => [...g.wlStocks, ...g.pfStocks, ...g.uniStocks].some(s => s.ticker === activeTicker));
+    if (!group) return;
+    setTimeout(() => {
+      const el = document.querySelector(`[data-pkn-subtheme="${CSS.escape(group.name)}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  }, [activeTicker, wlView, wlThemeGroups]);
 
   useEffect(() => {
     if (!onVisibleTickers) return;
@@ -7585,6 +7749,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
 
   return (
     <div>
+      {/* Status bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 11, color: loading ? "#fbbf24" : "#2bb886" }}>●</span>
@@ -7598,7 +7763,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
         {error && <span style={{ fontSize: 11, color: "#f87171" }}>Error: {error}</span>}
       </div>
 
-      {/* PKN */}
+      {/* ── 1. PKN ── */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ color: "#e879f9", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
@@ -7611,28 +7776,329 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
             Add tickers above or click <span style={{ color: "#e879f9" }}>+ PKN</span> on charts.
           </div>
         ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} portfolio={portfolio} watchlist={watchlist} />
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
         )}
       </div>
 
-      {/* PKN Watch */}
+      {/* ── 2. PKN Watch ── */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-            PKN Watch ({pknWatch.length})
+            PKN Watch ({pknWatchMerged.length}/{pknWatch.length})
           </span>
           <TickerInput value={addTickerW} setValue={setAddTickerW} onAdd={handleAddW} />
+          <div style={{ display: "flex", gap: 2, marginLeft: 8 }}>
+            {[["list","List"],["themes","Themes"]].map(([k,l]) => (
+              <button key={k} onClick={() => setWlView(k)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+                border: wlView === k ? "1px solid #c084fc50" : "1px solid #3a3a4a",
+                background: wlView === k ? "#c084fc12" : "transparent", color: wlView === k ? "#c084fc" : "#787888", fontWeight: 600 }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        {/* PKN Watch filters */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <button onClick={() => setWlNearPivot(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wlNearPivot ? "1px solid #60a5fa" : "1px solid #3a3a4a",
+            background: wlNearPivot ? "#60a5fa20" : "transparent", color: wlNearPivot ? "#60a5fa" : "#787888" }}>Near Pivot (&lt;3%)</button>
+          <button onClick={() => setWlGreenOnly(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wlGreenOnly ? "1px solid #2bb886" : "1px solid #3a3a4a",
+            background: wlGreenOnly ? "#2bb88620" : "transparent", color: wlGreenOnly ? "#2bb886" : "#787888" }}>Chg &gt;0%</button>
+          <button onClick={() => setWl9M(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+            border: wl9M ? "1px solid #f59e0b" : "1px solid #3a3a4a",
+            background: wl9M ? "#f59e0b20" : "transparent", color: wl9M ? "#f59e0b" : "#787888" }}>9M</button>
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontSize: 10, color: wlMinDvol > 0 ? "#a78bfa" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>${wlMinDvol}M</span>
+          <input type="range" min={0} max={200} step={10} value={wlMinDvol} onChange={e => setWlMinDvol(Number(e.target.value))}
+            style={{ width: 60, accentColor: "#a78bfa" }} title={`Min $Vol: $${wlMinDvol}M`} />
+          <span style={{ color: "#3a3a4a" }}>│</span>
+          <span style={{ fontSize: 10, color: wlMinRS > 0 ? "#a78bfa" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≥{wlMinRS}</span>
+          <input type="range" min={0} max={95} step={5} value={wlMinRS} onChange={e => setWlMinRS(Number(e.target.value))}
+            style={{ width: 60, accentColor: "#a78bfa" }} title={`Min RS: ${wlMinRS}`} />
         </div>
         {pknWatch.length === 0 ? (
           <div style={{ color: "#686878", fontSize: 12, padding: 10, background: "#141420", borderRadius: 6, border: "1px solid #222230" }}>
             Add tickers above or click <span style={{ color: "#a78bfa" }}>+ PKN W</span> on charts.
           </div>
+        ) : wlView === "themes" ? (
+          <div>
+          {/* Rank + Filter controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 9, color: "#505060", fontWeight: 600 }}>RANK BY</span>
+            {[["change","Chg%"],["rvol","RVol"],["rs","RS"],["cr","CR%"]].map(([k,l]) => (
+              <button key={k} onClick={() => setWlTickerRank(k)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+                border: wlTickerRank === k ? "1px solid #c084fc" : "1px solid #3a3a4a",
+                background: wlTickerRank === k ? "#c084fc15" : "transparent", color: wlTickerRank === k ? "#c084fc" : "#686878", fontWeight: 600 }}>{l}</button>
+            ))}
+            <span style={{ color: "#3a3a4a" }}>│</span>
+            <button onClick={() => setWlThemeFilterGreen(p => !p)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+              border: wlThemeFilterGreen ? "1px solid #2bb886" : "1px solid #3a3a4a",
+              background: wlThemeFilterGreen ? "#2bb88620" : "transparent", color: wlThemeFilterGreen ? "#2bb886" : "#686878", fontWeight: 600 }}>Chg&gt;0</button>
+            <button onClick={() => setWlThemeFilter9M(p => !p)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
+              border: wlThemeFilter9M ? "1px solid #f87171" : "1px solid #3a3a4a",
+              background: wlThemeFilter9M ? "#f8717120" : "transparent", color: wlThemeFilter9M ? "#f87171" : "#686878", fontWeight: 600 }}>9M</button>
+          </div>
+          <div style={{ maxHeight: 540, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
+            {wlThemeGroups.map(g => {
+              const barMax = Math.max(...wlThemeGroups.map(x => Math.abs(x.avgChg ?? 0)), 1);
+              const barW = Math.abs(g.avgChg ?? 0) / barMax * 100;
+              const isPos = (g.avgChg ?? 0) >= 0;
+              const rankVal = (s) => {
+                const lv = liveLookup[s.ticker];
+                switch (wlTickerRank) {
+                  case "rvol": return lv?.rel_volume ?? s.rel_volume ?? -999;
+                  case "rs": return s.rs_rank ?? stockMap[s.ticker]?.rs_rank ?? -999;
+                  case "cr": return lv?.close_range ?? s.close_range ?? -999;
+                  default: return lv?.change ?? s.change ?? -999;
+                }
+              };
+              const is9M = (s) => {
+                const lv = liveLookup[s.ticker];
+                const curVol = lv?.volume ?? s.volume;
+                const avgVol = s.avg_volume_raw ?? stockMap[s.ticker]?.avg_volume_raw ?? 0;
+                return curVol && avgVol < 8_900_000 && projectedEodVol(curVol) >= 8_900_000;
+              };
+              const filterTicker = (s) => {
+                if (wlThemeFilterGreen) {
+                  const chg = liveLookup[s.ticker]?.change ?? s.change;
+                  if (chg == null || chg <= 0) return false;
+                }
+                if (wlThemeFilter9M && !is9M(s)) return false;
+                return true;
+              };
+              const ownSorted = [...g.wlStocks, ...g.pfStocks].filter(filterTicker).sort((a, b) => rankVal(b) - rankVal(a));
+              const uniSorted = g.uniStocks.filter(filterTicker).sort((a, b) => rankVal(b) - rankVal(a));
+              const allSorted = [...ownSorted, ...uniSorted];
+              const rankMap = {};
+              allSorted.forEach((s, i) => { rankMap[s.ticker] = i + 1; });
+              const pfSet = new Set(pkn);
+              const wlSet2 = new Set(pknWatch);
+              const fmtRankVal = (s) => {
+                const v = rankVal(s);
+                if (v === -999 || v == null) return "";
+                switch (wlTickerRank) {
+                  case "rvol": return ` ${v.toFixed(1)}x`;
+                  case "rs": return ` RS${Math.round(v)}`;
+                  case "cr": return ` ${Math.round(v)}%`;
+                  default: return ` ${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+                }
+              };
+              if (allSorted.length === 0) return null;
+              return (
+              <div key={g.name} data-pkn-subtheme={g.name} style={{ borderBottom: "1px solid #1a1a24" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${barW}%`, background: isPos ? "#2bb88610" : "#f8717110", transition: "width 0.3s" }} />
+                  <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#d4d4e0" }}>{g.name}</span>
+                      <span style={{ fontSize: 9, color: "#505060" }}>{g.theme !== g.name ? g.theme : ""}</span>
+                      <span style={{ fontSize: 9, color: "#686878" }}>({ownSorted.length}/{allSorted.length})</span>
+                    </div>
+                    {(() => {
+                      const isExp = expandedThemes.has(g.name);
+                      const MAX = 10;
+                      const totalOwn = ownSorted.length;
+                      const totalUni = uniSorted.length;
+                      const totalAll = totalOwn + totalUni;
+                      const showOwn = isExp ? ownSorted : ownSorted.slice(0, MAX);
+                      const uniSlots = isExp ? totalUni : Math.max(0, MAX - showOwn.length);
+                      const showUni = uniSorted.slice(0, uniSlots);
+                      const hidden = totalAll - showOwn.length - showUni.length;
+                      return (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3, alignItems: "center" }}>
+                      {showOwn.map(s => {
+                        const chg = liveLookup[s.ticker]?.change ?? s.change;
+                        const isAct = s.ticker === activeTicker;
+                        const isPf = pfSet.has(s.ticker);
+                        const rank = rankMap[s.ticker];
+                        const m9 = is9M(s);
+                        return (
+                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700,
+                            background: isAct && isPf ? "#e879f930" : chg > 0 ? (isPf ? "#e879f918" : "#2bb88618") : chg < 0 ? "#f8717118" : "#1a1a24",
+                            color: isAct && isPf ? "#e879f9" : isPf ? (chg > 0 ? "#e879f9" : chg < 0 ? "#f87171" : "#686878") : (chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878"),
+                            border: isAct ? (isPf ? "2px solid #e879f9" : "1px solid #c084fc") : isPf ? "1px solid #e879f940" : "1px solid transparent" }}>
+                          <span style={{ fontSize: 7, color: rank <= 3 ? "#e879f9" : "#505060", marginRight: 2 }}>{rank}</span>
+                          {s.ticker}{fmtRankVal(s)}
+                          {m9 && <span style={{ fontSize: 7, color: "#f87171", marginLeft: 2 }}>9M</span>}
+                        </span>);
+                      })}
+                      {showUni.length > 0 && <span style={{ color: "#3a3a4a", fontSize: 9, alignSelf: "center" }}>│</span>}
+                      {showUni.map(s => {
+                        const chg = liveLookup[s.ticker]?.change ?? s.change;
+                        const rank = rankMap[s.ticker];
+                        const m9 = is9M(s);
+                        return (
+                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ fontSize: 8, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, cursor: "pointer",
+                            background: "transparent", opacity: 0.5,
+                            color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#505060",
+                            border: s.ticker === activeTicker ? "1px solid #c084fc" : "1px solid transparent" }}>
+                          <span style={{ fontSize: 6, color: "#505060", marginRight: 1 }}>{rank}</span>
+                          {s.ticker}{fmtRankVal(s)}
+                          {m9 && <span style={{ fontSize: 6, color: "#f87171", marginLeft: 1 }}>9M</span>}
+                        </span>);
+                      })}
+                      {hidden > 0 && (
+                        <span onClick={(e) => { e.stopPropagation(); setExpandedThemes(prev => { const n = new Set(prev); n.add(g.name); return n; }); }}
+                          style={{ fontSize: 8, color: "#c084fc", cursor: "pointer", padding: "1px 5px", borderRadius: 3,
+                            border: "1px solid #c084fc40", background: "#c084fc10", fontWeight: 600 }}>
+                          +{hidden} more
+                        </span>
+                      )}
+                      {isExp && totalAll > MAX && (
+                        <span onClick={(e) => { e.stopPropagation(); setExpandedThemes(prev => { const n = new Set(prev); n.delete(g.name); return n; }); }}
+                          style={{ fontSize: 8, color: "#686878", cursor: "pointer", padding: "1px 5px", borderRadius: 3,
+                            border: "1px solid #3a3a4a", fontWeight: 600 }}>
+                          show less
+                        </span>
+                      )}
+                    </div>);
+                    })()}
+                  </div>
+                  {/* Metrics */}
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", zIndex: 1, flexShrink: 0 }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace",
+                        color: isPos ? "#2bb886" : (g.avgChg ?? 0) < 0 ? "#f87171" : "#686878" }}>
+                        {g.avgChg != null ? `${g.avgChg > 0 ? "+" : ""}${g.avgChg.toFixed(2)}%` : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgChg")} style={{ fontSize: 8, color: wlThemeSort === "avgChg" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Avg Chg {wlThemeSort === "avgChg" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgRvol ?? 0) >= 2 ? "#c084fc" : (g.avgRvol ?? 0) >= 1.5 ? "#a78bfa" : "#686878" }}>
+                        {g.avgRvol != null ? `${g.avgRvol.toFixed(1)}x` : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgRvol")} style={{ fontSize: 8, color: wlThemeSort === "avgRvol" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>RVol {wlThemeSort === "avgRvol" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgCR ?? 0) >= 80 ? "#2bb886" : (g.avgCR ?? 0) >= 50 ? "#fbbf24" : (g.avgCR ?? 0) >= 30 ? "#f97316" : "#686878" }}>
+                        {g.avgCR != null ? `${g.avgCR}%` : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgCR")} style={{ fontSize: 8, color: wlThemeSort === "avgCR" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>CR% {wlThemeSort === "avgCR" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgRS ?? 0) >= 80 ? "#2bb886" : (g.avgRS ?? 0) >= 50 ? "#d4d4e0" : "#f87171" }}>
+                        {g.avgRS != null ? g.avgRS : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgRS")} style={{ fontSize: 8, color: wlThemeSort === "avgRS" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Avg RS {wlThemeSort === "avgRS" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgAccel ?? 0) >= 5 ? "#2bb886" : (g.avgAccel ?? 0) >= 2 ? "#4a9070" : (g.avgAccel ?? 0) <= -5 ? "#f87171" : (g.avgAccel ?? 0) <= -2 ? "#c06060" : "#686878" }}>
+                        {g.avgAccel != null ? `${g.avgAccel > 0 ? "+" : ""}${g.avgAccel.toFixed(1)}` : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgAccel")} style={{ fontSize: 8, color: wlThemeSort === "avgAccel" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Accel {wlThemeSort === "avgAccel" ? "▼" : ""}</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Discovery */}
+                {g.discoveries.length > 0 && (
+                  <div style={{ padding: "4px 10px 6px", borderTop: "1px solid #1a1a24", background: "#c084fc05" }}>
+                    <span style={{ fontSize: 8, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Discover </span>
+                    <span style={{ fontSize: 8, color: "#505060" }}>RS≥80 + RVol≥1.5x</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 2 }}>
+                      {g.discoveries.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0)).map(s => {
+                        const chg = s.change;
+                        return (
+                        <span key={s.ticker} onClick={() => onTickerClick(s.ticker)}
+                          style={{ fontSize: 9, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                            background: "#c084fc10", border: s.ticker === activeTicker ? "1px solid #c084fc" : "1px solid #c084fc30",
+                            color: chg > 0 ? "#2bb886" : chg < 0 ? "#f87171" : "#686878" }}>
+                          {s.ticker}<span style={{ color: "#686878", fontSize: 8 }}> RS{s.rs_rank}</span> {chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : ""} <span style={{ color: "#a78bfa", fontSize: 8 }}>{s.rel_volume?.toFixed(1)}x</span>
+                        </span>);
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>);
+            })}
+          </div>
+          </div>
         ) : (
           <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} portfolio={portfolio} watchlist={watchlist} />
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
           </div>
         )}
       </div>
+
+      {/* Index ETF Strip */}
+      {liveThemeData && liveThemeData.length > 0 && (() => {
+        const indices = [
+          { ticker: "DIA", name: "DOW" },
+          { ticker: "QQQ", name: "NASDAQ" },
+          { ticker: "SPY", name: "S&P 500" },
+          { ticker: "IWM", name: "RUSSELL" },
+        ];
+        const lookup = {};
+        liveThemeData.forEach(s => { lookup[s.ticker] = s; });
+        const found = indices.filter(idx => lookup[idx.ticker]);
+        if (found.length === 0) return null;
+        return (
+          <div style={{ display: "flex", gap: 16, marginBottom: 10, padding: "6px 12px", background: "#141420", borderRadius: 6, border: "1px solid #222230", alignItems: "center", flexWrap: "wrap" }}>
+            {found.map(idx => {
+              const d = lookup[idx.ticker];
+              const chg = d.change;
+              const isPos = chg > 0;
+              const isNeg = chg < 0;
+              return (
+                <div key={idx.ticker} style={{ display: "flex", alignItems: "baseline", gap: 6, cursor: "pointer" }}
+                  onClick={() => onTickerClick(idx.ticker)}>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: "#d4d4e0" }}>{idx.name}</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#9090a0" }}>{d.price?.toFixed(2)}</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700,
+                    color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#9090a0" }}>
+                    {chg != null ? `${isPos ? '+' : ''}${chg.toFixed(2)}%` : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Market Stats Breadth Bars */}
+      {homepage?.market_stats && Object.keys(homepage.market_stats).length > 0 && (() => {
+        const ms = homepage.market_stats;
+        const StatBox = ({ leftLabel, leftPct, leftCount, rightLabel, rightPct, rightCount, midLabel }) => (
+          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, padding: "6px 10px", flex: 1, minWidth: 160 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, marginBottom: 3 }}>
+              <span style={{ color: "#9090a0" }}>{leftLabel}</span>
+              {midLabel && <span style={{ color: "#686878", fontWeight: 700 }}>{midLabel}</span>}
+              <span style={{ color: "#9090a0" }}>{rightLabel}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "monospace", marginBottom: 3 }}>
+              <span style={{ color: "#2bb886", fontWeight: 700 }}>{leftPct}% <span style={{ color: "#505060", fontWeight: 400 }}>({leftCount})</span></span>
+              <span style={{ color: "#f87171", fontWeight: 700 }}><span style={{ color: "#505060", fontWeight: 400 }}>({rightCount})</span> {rightPct}%</span>
+            </div>
+            <div style={{ height: 3, borderRadius: 2, background: "#f87171", overflow: "hidden" }}>
+              <div style={{ width: `${leftPct}%`, height: "100%", background: "#2bb886", borderRadius: 2 }} />
+            </div>
+          </div>
+        );
+        return (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {ms.advancing && ms.declining && (
+              <StatBox leftLabel="Advancing" leftPct={ms.advancing.pct} leftCount={ms.advancing.count}
+                rightLabel="Declining" rightPct={ms.declining.pct} rightCount={ms.declining.count} />
+            )}
+            {ms.new_high && ms.new_low && (
+              <StatBox leftLabel="New High" leftPct={ms.new_high.pct} leftCount={ms.new_high.count}
+                rightLabel="New Low" rightPct={ms.new_low.pct} rightCount={ms.new_low.count} />
+            )}
+            {ms.sma50_above && ms.sma50_below && (
+              <StatBox leftLabel="Above" leftPct={ms.sma50_above.pct} leftCount={ms.sma50_above.count}
+                midLabel="SMA50" rightLabel="Below" rightPct={ms.sma50_below.pct} rightCount={ms.sma50_below.count} />
+            )}
+            {ms.sma200_above && ms.sma200_below && (
+              <StatBox leftLabel="Above" leftPct={ms.sma200_above.pct} leftCount={ms.sma200_above.count}
+                midLabel="SMA200" rightLabel="Below" rightPct={ms.sma200_below.pct} rightCount={ms.sma200_below.count} />
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -10786,7 +11252,7 @@ function AppMain({ authToken, onLogout }) {
             pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
             addToPkn={addToPkn} removeFromPkn={removeFromPkn}
             addToPknWatch={addToPknWatch} removeFromPknWatch={removeFromPknWatch}
-            liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} />}
+            liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} homepage={homepage} erSipLookup={erSipLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <>
