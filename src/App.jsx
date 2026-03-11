@@ -9121,8 +9121,8 @@ function EarningsIntel({ earningsMovers = [], pmEarningsMovers = [], ahEarningsM
       if (calMinDvol > 0 && pipe?.avg_dollar_vol_raw != null && pipe.avg_dollar_vol_raw < calMinDvol * 1_000_000) return;
       // Filter out low-volume tickers (avg vol < 200K or mover vol < 200K)
       const avgVol = pipe?.avg_volume_raw ?? mv.avg_volume;
-      if (avgVol != null && avgVol < 200_000) return;
-      if (avgVol == null && mv.volume != null && mv.volume < 200_000) return;
+      if (avgVol != null && avgVol < 500_000) return;
+      if (avgVol == null && mv.volume != null && mv.volume < 500_000) return;
       if (calNoBio) {
         const ind = String(pipe?.industry || "");
         if (ind === "Biotechnology" || ind.includes("Drug Manufacturer") ||
