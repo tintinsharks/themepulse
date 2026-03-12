@@ -2003,6 +2003,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [shortMinDolVol, setShortMinDolVol] = useState(50);
   const [shortMcapFilter, setShortMcapFilter] = useState("small");
   const [shortTagFilters, setShortTagFilters] = useState(new Set());
+  const [short9M, setShort9M] = useState(false);
   const [aiRunning, setAiRunning] = useState(false);
   const [aiRunMsg, setAiRunMsg] = useState("");
   const [aiQueueInput, setAiQueueInput] = useState("");
@@ -2463,6 +2464,13 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (shortMcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
     // $Vol
     if (shortMinDolVol > 0) list = list.filter(s => (s.avg_dollar_vol_raw || 0) >= shortMinDolVol * 1_000_000);
+    // 9M: today vol ≥ 8.9M but avg vol < 8.9M
+    if (short9M) list = list.filter(s => {
+      const rv = s._liveRv ?? s.rel_volume;
+      const avgVol = s.avg_volume_raw;
+      const curVol = avgVol && rv ? avgVol * rv : null;
+      return curVol && curVol >= 8_900_000 && avgVol < 8_900_000;
+    });
     // Theme filter
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
 
@@ -2480,7 +2488,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const sorted = list.sort(sorters[shortSort.col] || sorters.change);
     // Default "asc" for change means most negative first (smallest value first) — reverse the default desc sort
     return shortSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, activeTheme, shortSort]);
+  }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, short9M, activeTheme, shortSort]);
 
   // Gapper candidates — stocks passing Chg≥4%, RVol>1.1x, Small+, $Vol≥50M, no Bio/REIT
   const [gapperDigest, setGapperDigest] = useState({}); // ticker → {reasoning, bullets, short_float, float_shares, ...}
@@ -3088,6 +3096,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <button onClick={() => setNearLow(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
           border: nearLow ? "1px solid #f97316" : "1px solid #3a3a4a",
           background: nearLow ? "#f9731620" : "transparent", color: nearLow ? "#f97316" : "#787888" }}>Near Low (&lt;10%)</button>
+        <button onClick={() => setShort9M(p => !p)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
+          border: short9M ? "1px solid #e879f9" : "1px solid #3a3a4a",
+          background: short9M ? "#e879f920" : "transparent", color: short9M ? "#e879f9" : "#787888" }}>9M</button>
         {/* RS slider (inverted — max RS) */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span style={{ fontSize: 10, color: maxRS < 99 ? "#f87171" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>RS≤{maxRS}</span>
