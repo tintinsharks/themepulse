@@ -8204,12 +8204,42 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
     );
   };
 
+  const pb = pipelineBriefing || {};
+  const macroEvents = pb.macro_events || [];
+  const tendencies = pb.tendencies;
+  const scorecard = pb.scorecard_stats;
+  const spy_p = pb.indices?.SPY;
+  const breadth = pb.breadth;
+
   return (
     <div style={{ marginBottom: 16, padding: "10px 12px", background: "#0d0d15", borderRadius: 8, border: "1px solid #1a1a2a" }}>
+      {/* Macro Event Warning Banner */}
+      {macroEvents.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "6px 10px",
+          background: macroEvents.some(e => e.importance === "HIGH") ? "#f8717115" : "#fbbf2410",
+          borderRadius: 5, border: `1px solid ${macroEvents.some(e => e.importance === "HIGH") ? "#f8717130" : "#fbbf2425"}` }}>
+          <span style={{ fontSize: 11 }}>{macroEvents.some(e => e.importance === "HIGH") ? "\u26a0\ufe0f" : "\ud83d\udcc5"}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: macroEvents.some(e => e.importance === "HIGH") ? "#f87171" : "#fbbf24" }}>
+            {macroEvents.map(e => `${e.event}${e.time ? ` @ ${e.time}` : ""}${e.is_today ? " (TODAY)" : ` (${e.date})`}`).join(" \u2022 ")}
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 1 }}>Pre-Market Briefing</span>
-        <span style={{ fontSize: 10, color: "#505060" }}>{new Date(briefing.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Scorecard badge */}
+          {scorecard && scorecard.total > 0 && (
+            <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, fontFamily: "monospace",
+              background: scorecard.win_rate >= 55 ? "#4ade8015" : scorecard.win_rate <= 45 ? "#f8717115" : "#50506015",
+              color: scorecard.win_rate >= 55 ? "#4ade80" : scorecard.win_rate <= 45 ? "#f87171" : "#9090a0",
+              border: `1px solid ${scorecard.win_rate >= 55 ? "#4ade8030" : scorecard.win_rate <= 45 ? "#f8717130" : "#50506030"}` }}>
+              Scorecard: {scorecard.wins}/{scorecard.total} ({scorecard.win_rate}%)
+            </span>
+          )}
+          <span style={{ fontSize: 10, color: "#505060" }}>{new Date(briefing.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
       </div>
 
       {/* Session Bias */}
@@ -8235,7 +8265,7 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
             background: vix.level >= 30 ? "#f8717120" : vix.level >= 20 ? "#fbbf2420" : "#4ade8020",
             color: vix.level >= 30 ? "#f87171" : vix.level >= 20 ? "#fbbf24" : "#4ade80",
             border: `1px solid ${vix.level >= 30 ? "#f8717140" : vix.level >= 20 ? "#fbbf2440" : "#4ade8040"}` }}>
-            VIX {vix.level?.toFixed(1)} {vix.change > 0 ? "▲" : vix.change < 0 ? "▼" : ""}
+            VIX {vix.level?.toFixed(1)} {vix.change > 0 ? "\u25b2" : vix.change < 0 ? "\u25bc" : ""}
           </span>
         )}
       </div>
@@ -8247,9 +8277,58 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
         ))}
       </div>
 
+      {/* Market Context Box */}
+      {spy_p && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+          {/* Yesterday RTH */}
+          <div style={{ flex: "1 1 140px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+            <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>YESTERDAY RTH</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: spy_p.prev_change_pct >= 0 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>
+                {spy_p.prev_change_pct >= 0 ? "+" : ""}{spy_p.prev_change_pct?.toFixed(2)}%
+              </span>
+              <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>
+                H {spy_p.prev_high?.toFixed(0)} L {spy_p.prev_low?.toFixed(0)}
+              </span>
+            </div>
+          </div>
+          {/* IBS */}
+          <div style={{ flex: "1 1 100px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+            <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>SPY IBS</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace",
+                color: spy_p.ibs > 0.7 ? "#4ade80" : spy_p.ibs < 0.3 ? "#f87171" : "#d4d4e0" }}>
+                {spy_p.ibs?.toFixed(2)}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 4px", borderRadius: 2,
+                background: spy_p.ibs_label === "overbought" ? "#4ade8015" : spy_p.ibs_label === "oversold" ? "#f8717115" : "#50506010",
+                color: spy_p.ibs_label === "overbought" || spy_p.ibs_label === "strong close" ? "#4ade80" :
+                       spy_p.ibs_label === "oversold" || spy_p.ibs_label === "weak close" ? "#f87171" : "#787888" }}>
+                {spy_p.ibs_label}
+              </span>
+            </div>
+          </div>
+          {/* Breadth */}
+          {breadth && (
+            <div style={{ flex: "1 1 120px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>BREADTH</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace",
+                  color: breadth.prev_up_pct >= 50 ? "#4ade80" : "#f87171" }}>
+                  {breadth.prev_up_pct?.toFixed(0)}% up
+                </span>
+                <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>
+                  {breadth.above_50ma_pct?.toFixed(0)}% &gt;50MA
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Bias Factors */}
       {bias?.factors?.length > 0 && (
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
           {bias.factors.filter(f => f.pts !== 0).map((f, i) => (
             <span key={i} style={{ fontSize: 9, padding: "2px 5px", borderRadius: 3, fontFamily: "monospace",
               background: f.signal === "BULL" ? "#4ade8010" : f.signal === "BEAR" ? "#f8717110" : "#50506010",
@@ -8261,19 +8340,47 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
         </div>
       )}
 
-      {/* Key Levels from pipeline */}
-      {pipelineBriefing?.indices?.SPY && (() => {
-        const spy = pipelineBriefing.indices.SPY;
-        return (
-          <div style={{ display: "flex", gap: 10, marginTop: 8, paddingTop: 6, borderTop: "1px solid #1a1a2a" }}>
-            <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>SPY Levels:</span>
-            {spy.sma20 && <span style={{ fontSize: 10, color: spy.above_sma20 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>20MA {spy.sma20}</span>}
-            {spy.sma50 && <span style={{ fontSize: 10, color: spy.above_sma50 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>50MA {spy.sma50}</span>}
-            {spy.sma200 && <span style={{ fontSize: 10, color: spy.above_sma200 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>200MA {spy.sma200}</span>}
-            {spy.ibs != null && <span style={{ fontSize: 10, color: spy.ibs > 0.7 ? "#4ade80" : spy.ibs < 0.3 ? "#f87171" : "#9090a0", fontFamily: "monospace" }}>IBS {spy.ibs.toFixed(2)}</span>}
+      {/* Historical Tendency + Key Levels row */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 6, borderTop: "1px solid #1a1a2a" }}>
+        {/* Historical Tendency */}
+        {tendencies && tendencies.sample_size >= 10 && (
+          <div style={{ flex: "1 1 200px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+            <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>HISTORICAL TENDENCY</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace",
+                color: tendencies.win_rate_pct >= 55 ? "#4ade80" : tendencies.win_rate_pct <= 45 ? "#f87171" : "#d4d4e0" }}>
+                {tendencies.win_rate_pct?.toFixed(0)}% up
+              </span>
+              <span style={{ fontSize: 9, color: "#686878", fontFamily: "monospace" }}>
+                n={tendencies.sample_size}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 4px", borderRadius: 2,
+                background: tendencies.edge === "BULL" ? "#4ade8015" : tendencies.edge === "BEAR" ? "#f8717115" : "#50506010",
+                color: tendencies.edge === "BULL" ? "#4ade80" : tendencies.edge === "BEAR" ? "#f87171" : "#787888" }}>
+                {tendencies.edge}
+              </span>
+            </div>
+            <div style={{ fontSize: 9, color: "#505060", marginTop: 2 }}>{tendencies.description}</div>
           </div>
-        );
-      })()}
+        )}
+
+        {/* Key Levels */}
+        {spy_p && (
+          <div style={{ flex: "1 1 200px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+            <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>SPY KEY LEVELS</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {spy_p.sma20 && <span style={{ fontSize: 10, color: spy_p.above_sma20 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>20MA {spy_p.sma20}</span>}
+              {spy_p.sma50 && <span style={{ fontSize: 10, color: spy_p.above_sma50 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>50MA {spy_p.sma50}</span>}
+              {spy_p.sma200 && <span style={{ fontSize: 10, color: spy_p.above_sma200 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>200MA {spy_p.sma200}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+              {spy_p.dist_sma20 != null && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>20MA: {spy_p.dist_sma20 > 0 ? "+" : ""}{spy_p.dist_sma20}%</span>}
+              {spy_p.dist_sma50 != null && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>50MA: {spy_p.dist_sma50 > 0 ? "+" : ""}{spy_p.dist_sma50}%</span>}
+              {spy_p.dist_sma200 != null && <span style={{ fontSize: 9, color: "#505060", fontFamily: "monospace" }}>200MA: {spy_p.dist_sma200 > 0 ? "+" : ""}{spy_p.dist_sma200}%</span>}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
