@@ -2004,6 +2004,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [shortMcapFilter, setShortMcapFilter] = useState("small");
   const [shortTagFilters, setShortTagFilters] = useState(new Set());
   const [short9M, setShort9M] = useState(false);
+  const [shortMinAdr, setShortMinAdr] = useState(0);
   const [aiRunning, setAiRunning] = useState(false);
   const [aiRunMsg, setAiRunMsg] = useState("");
   const [aiQueueInput, setAiQueueInput] = useState("");
@@ -2471,6 +2472,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       const curVol = avgVol && rv ? avgVol * rv : null;
       return curVol && curVol >= 8_900_000 && avgVol < 8_900_000;
     });
+    // ADR%
+    if (shortMinAdr > 0) list = list.filter(s => (s.adr_pct ?? 0) >= shortMinAdr);
     // Theme filter
     if (activeTheme) list = list.filter(s => s.themes?.some(t => t.theme === activeTheme));
 
@@ -2488,7 +2491,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const sorted = list.sort(sorters[shortSort.col] || sorters.change);
     // Default "asc" for change means most negative first (smallest value first) — reverse the default desc sort
     return shortSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, short9M, activeTheme, shortSort]);
+  }, [stocks, stockMap, themeHealthMap, liveLookup, shortTagFilters, redOnly, maxChg, belowMA, maxRS, nearLow, shortMinRVol, shortMinDolVol, shortMcapFilter, short9M, shortMinAdr, activeTheme, shortSort]);
 
   // Gapper candidates — stocks passing Chg≥4%, RVol>1.1x, Small+, $Vol≥50M, no Bio/REIT
   const [gapperDigest, setGapperDigest] = useState({}); // ticker → {reasoning, bullets, short_float, float_shares, ...}
@@ -3110,6 +3113,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           <span style={{ fontSize: 10, color: maxChg < 1 ? "#f87171" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≤{maxChg}%</span>
           <input type="range" min={-20} max={1} step={1} value={maxChg} onChange={e => setMaxChg(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#f87171", cursor: "pointer" }} />
+        </div>
+        {/* ADR% slider */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10, color: shortMinAdr > 0 ? "#2dd4bf" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>ADR≥{shortMinAdr}%</span>
+          <input type="range" min={0} max={15} step={1} value={shortMinAdr} onChange={e => setShortMinAdr(Number(e.target.value))}
+            style={{ width: 60, height: 4, accentColor: "#2dd4bf", cursor: "pointer" }} />
         </div>
         {/* Below MA selector */}
         <span style={{ color: "#3a3a4a" }}>|</span>
