@@ -8340,11 +8340,11 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
         </div>
       )}
 
-      {/* Historical Tendency + Key Levels row */}
+      {/* Historical Tendency + Key Levels + Opening Range row */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 6, borderTop: "1px solid #1a1a2a" }}>
         {/* Historical Tendency */}
         {tendencies && tendencies.sample_size >= 10 && (
-          <div style={{ flex: "1 1 200px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+          <div style={{ flex: "1 1 180px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
             <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>HISTORICAL TENDENCY</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
               <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace",
@@ -8364,9 +8364,29 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
           </div>
         )}
 
+        {/* Opening Range */}
+        {pb.opening_range && (
+          <div style={{ flex: "1 1 140px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+            <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>SPY OPENING RANGE</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "monospace", color: "#d4d4e0" }}>
+                {pb.opening_range.or_low?.toFixed(2)}-{pb.opening_range.or_high?.toFixed(2)}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 4px", borderRadius: 2,
+                background: pb.opening_range.status === "ABOVE" ? "#4ade8015" : pb.opening_range.status === "BELOW" ? "#f8717115" : "#fbbf2410",
+                color: pb.opening_range.status === "ABOVE" ? "#4ade80" : pb.opening_range.status === "BELOW" ? "#f87171" : "#fbbf24" }}>
+                {pb.opening_range.status}
+              </span>
+            </div>
+            <div style={{ fontSize: 9, color: "#505060", marginTop: 2, fontFamily: "monospace" }}>
+              Range: ${pb.opening_range.or_range?.toFixed(2)} ({pb.opening_range.or_range_pct?.toFixed(2)}%)
+            </div>
+          </div>
+        )}
+
         {/* Key Levels */}
         {spy_p && (
-          <div style={{ flex: "1 1 200px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+          <div style={{ flex: "1 1 180px", padding: "6px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
             <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 3 }}>SPY KEY LEVELS</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {spy_p.sma20 && <span style={{ fontSize: 10, color: spy_p.above_sma20 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>20MA {spy_p.sma20}</span>}
@@ -8381,6 +8401,55 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
           </div>
         )}
       </div>
+
+      {/* FRED Macro Context row */}
+      {pb.fred && Object.keys(pb.fred).length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+          {/* HY Credit Spread */}
+          {pb.fred.hy_spread && (
+            <div style={{ flex: "1 1 120px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>HY SPREAD</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace",
+                  color: pb.fred.hy_spread.value > 5 ? "#f87171" : pb.fred.hy_spread.value > 4 ? "#fbbf24" : "#4ade80" }}>
+                  {pb.fred.hy_spread.value?.toFixed(2)}
+                </span>
+                <span style={{ fontSize: 8, fontWeight: 600, padding: "1px 3px", borderRadius: 2,
+                  background: pb.fred.hy_spread.label === "RISK-OFF" ? "#f8717115" : pb.fred.hy_spread.label === "CAUTION" ? "#fbbf2410" : "#4ade8010",
+                  color: pb.fred.hy_spread.label === "RISK-OFF" ? "#f87171" : pb.fred.hy_spread.label === "CAUTION" ? "#fbbf24" : "#4ade80" }}>
+                  {pb.fred.hy_spread.label}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* Yield Curve */}
+          {pb.fred.yield_curve_2s10s && (
+            <div style={{ flex: "1 1 120px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>YIELD CURVE 2s10s</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace",
+                  color: pb.fred.yield_curve_2s10s.value < 0 ? "#f87171" : pb.fred.yield_curve_2s10s.value < 0.25 ? "#fbbf24" : "#4ade80" }}>
+                  {pb.fred.yield_curve_2s10s.value > 0 ? "+" : ""}{pb.fred.yield_curve_2s10s.value?.toFixed(2)}%
+                </span>
+                <span style={{ fontSize: 8, fontWeight: 600, padding: "1px 3px", borderRadius: 2,
+                  background: pb.fred.yield_curve_2s10s.label === "INVERTED" ? "#f8717115" : pb.fred.yield_curve_2s10s.label === "FLAT" ? "#fbbf2410" : "#4ade8010",
+                  color: pb.fred.yield_curve_2s10s.label === "INVERTED" ? "#f87171" : pb.fred.yield_curve_2s10s.label === "FLAT" ? "#fbbf24" : "#4ade80" }}>
+                  {pb.fred.yield_curve_2s10s.label}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* 10Y Yield */}
+          {pb.fred.yield_10y && (
+            <div style={{ flex: "1 1 80px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>10Y YIELD</div>
+              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace", color: "#d4d4e0" }}>
+                {pb.fred.yield_10y.value?.toFixed(2)}%
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
