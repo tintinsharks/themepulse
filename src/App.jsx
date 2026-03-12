@@ -1756,7 +1756,166 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken }) {
+// ── MY STOCKS DRAWER (Portfolio + Watchlist in Scan) ──
+function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, stockMap, liveThemeData, onTickerClick, activeTicker, isOpen, setIsOpen, drawerHeight, setDrawerHeight }) {
+  const [liveData, setLiveData] = useState(null);
+  const [addTickerP, setAddTickerP] = useState("");
+  const [addTickerW, setAddTickerW] = useState("");
+  const [drawerDragging, setDrawerDragging] = useState(false);
+  const drawerRef = useRef(null);
+
+  const allTickers = useMemo(() => [...new Set([...portfolio, ...watchlist])], [portfolio, watchlist]);
+
+  // Fetch live data every 60s
+  const fetchLive = useCallback(async () => {
+    if (allTickers.length === 0) return;
+    try {
+      const params = new URLSearchParams();
+      params.set("tickers", allTickers.join(","));
+      const resp = await fetch(`/api/live?${params}`);
+      if (!resp.ok) return;
+      const json = await resp.json();
+      if (json.ok) setLiveData(json);
+    } catch {}
+  }, [allTickers]);
+
+  useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
+
+  // Build lookup merging live + liveThemeData + pipeline
+  const lookup = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = { ...s }; });
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
+    return m;
+  }, [liveData?.watchlist, liveThemeData]);
+
+  const merge = useCallback((ticker) => {
+    const live = lookup[ticker] || {};
+    const pipe = stockMap?.[ticker] || {};
+    return {
+      ticker,
+      price: live.price ?? pipe.price,
+      change: live.change ?? pipe.change_pct,
+      rel_volume: live.rel_volume ?? (() => { const v = live.volume ? (typeof live.volume === 'string' ? parseFloat(live.volume) : live.volume) : null; const av = pipe.avg_volume_raw; return v && av > 0 ? Math.round(v / av * 100) / 100 : pipe.rel_volume; })(),
+      rs_rank: pipe.rs_rank,
+      grade: pipe.grade,
+    };
+  }, [lookup, stockMap]);
+
+  // Drag handle for resizing
+  useEffect(() => {
+    if (!drawerDragging) return;
+    const onMove = (ev) => {
+      if (!drawerRef.current) return;
+      const parentRect = drawerRef.current.parentElement.getBoundingClientRect();
+      const newH = parentRect.bottom - ev.clientY;
+      setDrawerHeight(Math.max(80, Math.min(500, newH)));
+    };
+    const onUp = () => setDrawerDragging(false);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    const iframes = document.querySelectorAll("iframe");
+    iframes.forEach(f => { f.style.pointerEvents = "none"; });
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      iframes.forEach(f => { f.style.pointerEvents = ""; });
+    };
+  }, [drawerDragging, setDrawerHeight]);
+
+  const totalCount = portfolio.length + watchlist.length;
+
+  const renderRow = (ticker, isPortfolio) => {
+    const s = merge(ticker);
+    const chg = s.change;
+    const isPos = chg != null && chg > 0;
+    const isNeg = chg != null && chg < 0;
+    const isActive = ticker === activeTicker;
+    return (
+      <div key={ticker} onClick={() => onTickerClick(ticker)}
+        style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 6px", cursor: "pointer", fontSize: 10, fontFamily: "monospace",
+          background: isActive ? "#1a2a3a" : "transparent", borderLeft: isActive ? "2px solid #2bb886" : "2px solid transparent" }}
+        onMouseEnter={e => e.currentTarget.style.background = "#1a1a2a"}
+        onMouseLeave={e => e.currentTarget.style.background = isActive ? "#1a2a3a" : "transparent"}>
+        <span style={{ width: 48, fontWeight: 700, color: "#c8c8d8" }}>{ticker}</span>
+        <span style={{ width: 58, textAlign: "right", color: "#9090a0" }}>{s.price != null ? `$${Number(s.price).toFixed(2)}` : "—"}</span>
+        <span style={{ width: 48, textAlign: "right", fontWeight: 600, color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#686878" }}>
+          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(1)}%` : "—"}
+        </span>
+        <span style={{ width: 36, textAlign: "right", color: s.rel_volume >= 2 ? "#2bb886" : s.rel_volume >= 1 ? "#9090a0" : "#505060" }}>
+          {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
+        </span>
+        {s.rs_rank != null && <span style={{ width: 24, textAlign: "right", fontSize: 9, color: s.rs_rank >= 80 ? "#2bb886" : s.rs_rank >= 60 ? "#9090a0" : "#686878" }}>{s.rs_rank}</span>}
+        <span onClick={(e) => { e.stopPropagation(); isPortfolio ? removeFromPortfolio(ticker) : removeFromWatchlist(ticker); }}
+          style={{ marginLeft: "auto", color: "#505060", cursor: "pointer", fontSize: 9, padding: "0 2px" }}
+          title="Remove">✕</span>
+      </div>
+    );
+  };
+
+  const handleAddP = (e) => { e.preventDefault(); const t = addTickerP.trim().toUpperCase(); if (t) addToPortfolio(t); setAddTickerP(""); };
+  const handleAddW = (e) => { e.preventDefault(); const t = addTickerW.trim().toUpperCase(); if (t) addToWatchlist(t); setAddTickerW(""); };
+
+  return (
+    <div ref={drawerRef} style={{ borderTop: "1px solid #3a3a4a", background: "#0d0d14", flexShrink: 0 }}>
+      {/* Drag handle */}
+      {isOpen && (
+        <div onMouseDown={() => setDrawerDragging(true)}
+          style={{ height: 5, cursor: "row-resize", background: drawerDragging ? "#2bb886" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onMouseEnter={e => e.currentTarget.style.background = "#1a1a2a"}
+          onMouseLeave={e => { if (!drawerDragging) e.currentTarget.style.background = "transparent"; }}>
+          <div style={{ width: 30, height: 2, background: "#3a3a4a", borderRadius: 1 }} />
+        </div>
+      )}
+      {/* Header bar — always visible */}
+      <div onClick={() => setIsOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", cursor: "pointer", userSelect: "none",
+          background: "#101018", borderBottom: isOpen ? "1px solid #222230" : "none" }}
+        onMouseEnter={e => e.currentTarget.style.background = "#161620"}
+        onMouseLeave={e => e.currentTarget.style.background = "#101018"}>
+        <span style={{ fontSize: 10, color: "#686878" }}>{isOpen ? "▼" : "▶"}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#9090a0" }}>My Stocks</span>
+        <span style={{ fontSize: 9, color: "#505060" }}>({totalCount})</span>
+        <span style={{ fontSize: 9, color: "#505060", marginLeft: 4 }}>P:{portfolio.length} W:{watchlist.length}</span>
+      </div>
+      {/* Expanded content */}
+      {isOpen && (
+        <div style={{ height: drawerHeight, overflowY: "auto", overflowX: "hidden" }}>
+          {/* Portfolio section */}
+          <div style={{ padding: "4px 8px 2px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>Portfolio ({portfolio.length})</span>
+              <form onSubmit={handleAddP} style={{ display: "flex", marginLeft: "auto" }}>
+                <input value={addTickerP} onChange={e => setAddTickerP(e.target.value)} placeholder="+ add"
+                  style={{ width: 50, fontSize: 9, padding: "1px 4px", background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 3, color: "#b8b8c8", outline: "none" }} />
+              </form>
+            </div>
+            {portfolio.map(t => renderRow(t, true))}
+            {portfolio.length === 0 && <div style={{ fontSize: 9, color: "#404050", padding: "2px 6px" }}>No portfolio stocks</div>}
+          </div>
+          {/* Watchlist section */}
+          <div style={{ padding: "4px 8px 2px", borderTop: "1px solid #1a1a24" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5 }}>Watchlist ({watchlist.length})</span>
+              <form onSubmit={handleAddW} style={{ display: "flex", marginLeft: "auto" }}>
+                <input value={addTickerW} onChange={e => setAddTickerW(e.target.value)} placeholder="+ add"
+                  style={{ width: 50, fontSize: 9, padding: "1px 4px", background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 3, color: "#b8b8c8", outline: "none" }} />
+              </form>
+            </div>
+            {watchlist.map(t => renderRow(t, false))}
+            {watchlist.length === 0 && <div style={{ fontSize: 9, color: "#404050", padding: "2px 6px" }}>No watchlist stocks</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken }) {
   const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
@@ -1805,6 +1964,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [aiRunning, setAiRunning] = useState(false);
   const [aiRunMsg, setAiRunMsg] = useState("");
   const [aiQueueInput, setAiQueueInput] = useState("");
+  // My Stocks drawer state
+  const [myStocksOpen, setMyStocksOpen] = useState(true);
+  const [drawerHeight, setDrawerHeight] = useState(200);
 
   // Fetch AI analysis data — merge with localStorage to preserve previously analyzed tickers for the day
   useEffect(() => {
@@ -2372,7 +2534,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   ];
 
   return (
-    <div style={{ display: "flex", gap: 0, minHeight: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, padding: 16, paddingBottom: 0 }}>
+    {/* Scan content area — scrollable */}
+    <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 0, overflowY: "auto" }}>
     <div style={{ flex: 1, minWidth: 0, overflowX: "auto", overflowY: "visible" }}>
       {/* Tab bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 8 }}>
@@ -3377,6 +3541,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           onThemeDrillDown={(themeName) => { setActiveTheme(themeName); }} />
       </div>
     )}
+    </div>
+    {/* My Stocks drawer — pinned at bottom */}
+    <MyStocksDrawer portfolio={portfolio} watchlist={watchlist}
+      setPortfolio={setPortfolio} setWatchlist={setWatchlist}
+      addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
+      addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
+      stockMap={stockMap} liveThemeData={externalLiveData}
+      onTickerClick={onTickerClick} activeTicker={activeTicker}
+      isOpen={myStocksOpen} setIsOpen={setMyStocksOpen}
+      drawerHeight={drawerHeight} setDrawerHeight={setDrawerHeight} />
     </div>
   );
 }
@@ -11586,9 +11760,11 @@ function AppMain({ authToken, onLogout }) {
       {/* Main content: split layout when chart is open */}
       <div ref={containerRef} className="tp-main" style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
         {/* Left: data views */}
-        <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflowY: "auto", padding: 16, transition: "none" }}>
+        <div className="tp-data-panel" style={{ width: chartOpen ? `${splitPct}%` : "100%", overflow: view === "scan" ? "hidden" : "auto", overflowY: view === "scan" ? "hidden" : "auto", padding: view === "scan" ? 0 : 16, transition: "none" }}>
           <ErrorBoundary name="Scan Watch">
-          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist} initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
+          {view === "scan" && <Scan stocks={data.stocks} themes={data.themes} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers} liveThemeData={liveThemeData} onLiveThemeData={setLiveThemeData} portfolio={portfolio} watchlist={watchlist}
+            setPortfolio={setPortfolio} setWatchlist={setWatchlist} addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio} addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
+            initialThemeFilter={scanThemeFilter} onConsumeThemeFilter={() => setScanThemeFilter(null)}
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession}
