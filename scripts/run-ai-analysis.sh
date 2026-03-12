@@ -283,10 +283,19 @@ fi
 # ── Clear trigger if we were triggered from dashboard ──
 if [[ "$TRIGGER_MODE" == true ]]; then
   echo "🧹 Clearing dashboard trigger..."
-  curl -sf -X POST "https://themepulse.vercel.app/api/trigger-analysis" \
-    -H "Authorization: Bearer $TP_AUTH_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d '{"action":"clear"}' >/dev/null 2>&1 || echo "⚠️  Failed to clear trigger"
+  AUTH="${TP_AUTH_TOKEN:-}"
+  if [[ -z "$AUTH" ]]; then
+    # Try reading from localStorage export file
+    AUTH=$(python3 -c "import json; print(json.load(open('$HOME/.themepulse_auth.json')).get('token',''))" 2>/dev/null || echo "")
+  fi
+  if [[ -n "$AUTH" ]]; then
+    curl -sf -X POST "https://themepulse.vercel.app/api/trigger-analysis" \
+      -H "Authorization: Bearer $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{"action":"clear"}' >/dev/null 2>&1 || echo "⚠️  Failed to clear trigger"
+  else
+    echo "⚠️  No auth token — trigger not cleared (will auto-expire in 1hr)"
+  fi
 fi
 
 echo ""

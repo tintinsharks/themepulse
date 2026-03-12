@@ -1,12 +1,29 @@
 // ── Trigger AI analysis run ──
 // Sets a flag in Redis that the local watcher picks up.
-// POST /api/trigger-analysis (requires auth token)
+// POST /api/trigger-analysis (requires dashboard auth token)
 // GET  /api/trigger-analysis (check status, public)
+
+import crypto from "crypto";
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const AUTH_TOKEN = process.env.TP_AUTH_TOKEN;
+const SECRET = process.env.TP_SESSION_SECRET || "themepulse-default-secret-change-me";
 const TRIGGER_KEY = "tp_ai_trigger";
+
+function verifyToken(token) {
+  if (!token) return false;
+  try {
+    const [payload, sig] = token.split(".");
+    if (!payload || !sig) return false;
+    const expected = crypto.createHmac("sha256", SECRET).update(payload).digest("base64url");
+    if (sig !== expected) return false;
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (Date.now() - data.ts > 30 * 24 * 60 * 60 * 1000) return false;
+    return data.pin === process.env.TP_PIN;
+  } catch {
+    return false;
+  }
+}
 
 async function redisCmd(...args) {
   const resp = await fetch(UPSTASH_URL, {
@@ -32,7 +49,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: "Not configured" });
   }
 
-  // GET — check trigger status
+  // GET — check trigger status (public)
   if (req.method === "GET") {
     try {
       const result = await redisCmd("GET", TRIGGER_KEY);
@@ -43,11 +60,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST — set trigger
+  // POST — set or clear trigger (authenticated)
   if (req.method === "POST") {
-    // Auth check
-    const auth = req.headers.authorization?.replace("Bearer ", "");
-    if (!AUTH_TOKEN || auth !== AUTH_TOKEN) {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!verifyToken(token)) {
       return res.status(401).json({ ok: false, error: "Unauthorized" });
     }
 
