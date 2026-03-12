@@ -8264,7 +8264,7 @@ function PreMarketBriefing({ briefing: externalBriefing, pipelineBriefing }) {
               Scorecard: {scorecard.wins}/{scorecard.total} ({scorecard.win_rate}%)
             </span>
           )}
-          <span style={{ fontSize: 10, color: "#505060" }}>{new Date(briefing.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          {briefing?.timestamp && <span style={{ fontSize: 10, color: "#505060" }}>{new Date(briefing.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
         </div>
       </div>
 
