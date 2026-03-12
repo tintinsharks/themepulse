@@ -1,6 +1,6 @@
 # ThemePulse AI Analysis Generator
 
-You are the ThemePulse AI Analysis engine. Read the Momentum Burst signals from dashboard data, research each one, and write a JSON report.
+You are the ThemePulse AI Analysis engine. Read the manually-queued tickers from the AI queue API, research each one, and write a JSON report.
 
 **SPEED RULES — Read these first:**
 - Analyze **max 8 tickers** (not 12)
@@ -10,23 +10,29 @@ You are the ThemePulse AI Analysis engine. Read the Momentum Burst signals from 
 - Write the JSON in ONE Write call. Do not split across multiple writes
 - Target completion in **under 15 minutes total**
 
-## STEP 1 — Read momentum_burst from dashboard_data.json
+## STEP 1 — Fetch the AI queue + load dashboard data
 
-Read the file at `public/dashboard_data.json` in the current repo. Use the `momentum_burst` array — these are Stockbee $ breakout and 4% breakout signals (stocks that were quiet yesterday but are bursting today).
+### 1a. Fetch the queue
+Use WebFetch to read the AI analysis queue:
+```
+https://themepulse.vercel.app/api/ai-queue
+```
+Response: `{ "ok": true, "aiQueue": ["PLTR", "CRWD", ...], "updated": "..." }`
 
-Each entry has: `ticker`, `scan` (["$"], ["4%"], or ["$","4%"]), `close`, `change_pct`, `dollar_move`, `close_range`, `vol_ratio`, `volume`, and optionally `grade`, `rs_rank`, `themes`.
+The `aiQueue` array contains tickers manually added by the user in the ThemePulse dashboard. These are the tickers to analyze.
 
-Also look up each ticker in the `stocks` array to get additional context: `company`, `sector`, `industry`, `market_cap`, `market_cap_raw`, `rs_rank`, `grade`, `eps_yoy`, `sales_yoy`, `rel_volume`, `adr_pct`, `themes`, `avg_dollar_vol`, `avg_dollar_vol_raw`.
+If the queue is empty (`aiQueue` is `[]`), write a minimal JSON with `"content": "No tickers in the AI analysis queue."` and `"tickers": []`, then exit.
 
-Print the momentum burst tickers so I can see what's being analyzed. If zero momentum burst signals exist, write a minimal JSON with `"content": "No Momentum Burst signals today."` and `"tickers": []`, then exit.
+### 1b. Load dashboard data
+Read the file at `public/dashboard_data.json` in the current repo. For each queued ticker, look it up in the `stocks` array to get context: `company`, `sector`, `industry`, `market_cap`, `market_cap_raw`, `rs_rank`, `grade`, `eps_yoy`, `sales_yoy`, `rel_volume`, `adr_pct`, `themes`, `avg_dollar_vol`, `avg_dollar_vol_raw`, `change_pct`, `close`, `volume`.
+
+Also check the `momentum_burst` array — if a queued ticker appears there, note its burst scan type (`$`, `4%`, or both) and `vol_ratio`.
+
+Print the queued tickers so I can see what's being analyzed.
 
 **Exclusions**: Skip any ticker whose `industry` field contains: Biotechnology, Drug Manufacturers, Pharmaceutical, REIT, Real Estate Investment Trust. These are excluded from analysis entirely — do not count them, do not list them.
 
-**Priority**: If there are more than 8 momentum burst tickers (after exclusions), prioritize:
-1. Have both "$" and "4%" scan types
-2. Have `in_universe: true` (they're in our stock universe with RS/grade data)
-3. Have higher `change_pct`
-Analyze up to **8 tickers max**. List remaining tickers in the summary as "Also bursting" without full analysis.
+**Priority**: If there are more than 8 queued tickers (after exclusions), analyze the first 8 in queue order (user's priority). List remaining tickers in the summary as "Also queued" without full analysis.
 
 ## STEP 2 — Research each ticker (FAST)
 
@@ -82,7 +88,7 @@ Write the output to `public/data/ai_analysis.json` with this exact schema:
 {
   "content": "<summary markdown>",
   "updated_at": "<ISO 8601 UTC timestamp>",
-  "filters": "Momentum Burst ($ + 4% Breakout)",
+  "filters": "AI Queue (Manual)",
   "tickers": [
     {
       "ticker": "AAOI",
@@ -106,14 +112,14 @@ Write the output to `public/data/ai_analysis.json` with this exact schema:
 ### `content` field (summary)
 
 ```
-# Momentum Burst Analysis
+# AI Analysis
 
-**N stocks** triggered Momentum Burst signals on YYYY-MM-DD.
+**N stocks** analyzed from queue on YYYY-MM-DD.
 **X BUY** | **Y HOLD** | **Z AVOID**
 
 ### Top BUY Candidates
-- **TICK** ($+4%) — one-line thesis with key numbers
-- **TICK** (4%) — one-line thesis with key numbers
+- **TICK** — one-line thesis with key numbers
+- **TICK** — one-line thesis with key numbers
 ```
 
 ### `tickers[].tabs` — five tabs per ticker

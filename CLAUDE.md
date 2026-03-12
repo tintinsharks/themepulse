@@ -51,7 +51,8 @@ stock-pipeline (GitHub Actions)
   → dashboard_data.json (pushed to public/)
   → Vercel serves static JSON
 
-Claude CLI (local launchd)
+Claude Cowork (scheduled sessions)
+  → reads /api/ai-queue for ticker list
   → ai_analysis.json (pushed via git)
   → earnings_intel.json (pushed via git)
 
@@ -61,21 +62,24 @@ api/live.js (Vercel Edge)
 
 ## AI-Powered Features
 
-### AI Analysis (`scripts/run-ai-analysis.sh`)
-- Runs 10x daily (8:05 AM – 5:05 PM ET) via launchd
-- Filters stocks: chg≥4%, rel_vol≥1.5x, mcap≥$300M, $vol≥$50M
+### AI Analysis (`scripts/run-ai-analysis.sh`) — via Cowork
+- Reads ticker queue from `GET /api/ai-queue` (manually added by user in Scan > AI Analysis tab)
 - Full research mode (WebSearch + WebFetch stockanalysis.com) or incremental price-action update
 - Output: `public/data/ai_analysis.json` → `TabbedAnalysis` component in ChartPanel
-- Plist: `~/Library/LaunchAgents/com.themepulse.ai-analysis.plist`
+- **Cowork schedule**: Every 60 min, weekdays 8 AM–5 PM ET
+- **Cowork prompt**: `scripts/ai-analysis-prompt.md` (full) or `scripts/ai-analysis-update-prompt.md` (incremental)
 
-### Earnings Intelligence (`scripts/run-earnings-intel.sh`)
-- Runs quarterly (Feb 15, May 15, Aug 15, Nov 15) via launchd
+### Earnings Intelligence (`scripts/run-earnings-intel.sh`) — via Cowork
 - Researches all 11 GICS sectors via WebSearch/WebFetch
 - Synthesizes cross-sector themes, momentum signals, executive quotes
 - Output: `public/data/earnings_intel.json` → `EarningsIntel` component
-- Plist: `~/Library/LaunchAgents/com.themepulse.earnings-intel.plist`
+- **Cowork schedule**: Once quarterly (Feb 15, May 15, Aug 15, Nov 15)
+- **Cowork prompt**: `scripts/earnings-intel-prompt.md`
 
-Both use: `claude --print --output-format stream-json --verbose --allowedTools "Read,Write,Bash,WebSearch,WebFetch,Glob,Grep"`
+### AI Queue API
+- `GET /api/ai-queue` — Public endpoint returning `{ aiQueue: [...], updated: "..." }` from Upstash Redis
+- Queue is populated by user in Scan > AI Analysis tab (persisted via `api/userdata.js` to Upstash)
+- Cowork reads this to know which tickers to analyze
 
 ## Trading System Context
 This dashboard supports a **CAN SLIM / momentum breakout** style:
@@ -107,14 +111,14 @@ npx vite build
 # Deploy (auto on push to main)
 git push
 
-# AI analysis (manual)
+# AI analysis (manual — or let Cowork run it)
 ./scripts/run-ai-analysis.sh --dry
 
-# Earnings intel (manual)
+# Earnings intel (manual — or let Cowork run it)
 ./scripts/run-earnings-intel.sh --dry
 
-# Check launchd schedules
-launchctl list | grep themepulse
+# Check AI queue
+curl -s https://themepulse.vercel.app/api/ai-queue | python3 -m json.tool
 ```
 
 ## Key Patterns

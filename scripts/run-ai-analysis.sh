@@ -63,90 +63,51 @@ NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 TODAY=$(date +"%Y-%m-%d")
 echo "🕐 Starting AI analysis at $NOW"
 
-# ── Count momentum burst signals (quick preview) ──
-# If static dashboard_data.json has 0 burst signals, fetch live data from Vercel API
-python3 -c "
-import json, urllib.request, sys
-with open('$REPO_DIR/public/dashboard_data.json') as f:
-    d = json.load(f)
-burst = d.get('momentum_burst', [])
-if len(burst) == 0:
-    print('  📡 Static file has 0 burst signals — fetching live data from API...', file=sys.stderr)
-    try:
-        # Collect all tickers from themes + stocks for the API call
-        tickers = set()
-        for t in d.get('themes', []):
-            for s in t.get('subthemes', []):
-                for tk in s.get('tickers', []):
-                    tickers.add(tk)
-        for s in d.get('stocks', []):
-            if s.get('ticker'):
-                tickers.add(s['ticker'])
-        all_tickers = list(tickers)
-        print(f'  📡 Sending {len(all_tickers)} tickers to live API...', file=sys.stderr)
-        # Batch in groups of 500 (same as frontend)
-        all_burst = []
-        for i in range(0, len(all_tickers), 500):
-            batch = all_tickers[i:i+500]
-            url = 'https://themepulse.vercel.app/api/live?universe=' + ','.join(batch)
-            req = urllib.request.Request(url)
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                live = json.loads(resp.read())
-            if live.get('ok') and live.get('momentum_burst'):
-                all_burst.extend(live['momentum_burst'])
-        if all_burst:
-            # Deduplicate by ticker
-            seen = set()
-            deduped = []
-            for b in all_burst:
-                if b['ticker'] not in seen:
-                    seen.add(b['ticker'])
-                    deduped.append(b)
-            burst = deduped
-            d['momentum_burst'] = burst
-            with open('$REPO_DIR/public/dashboard_data.json', 'w') as f:
-                json.dump(d, f)
-            print(f'  ✅ Injected {len(burst)} live burst signals into dashboard_data.json', file=sys.stderr)
-        else:
-            print('  ⚠️  Live API returned 0 burst signals', file=sys.stderr)
-    except Exception as e:
-        print(f'  ⚠️  Live fetch failed: {e}', file=sys.stderr)
-" 2>&1
-
+# ── Fetch AI queue from Vercel API ──
 PASSING=$(python3 -c "
-import json
-with open('$REPO_DIR/public/dashboard_data.json') as f:
-    d = json.load(f)
-burst = d.get('momentum_burst', [])
-for s in sorted(burst, key=lambda x: -x.get('change_pct', 0)):
-    scan = '+'.join(s.get('scan', []))
-    print(f\"  {s['ticker']:6s} [{scan:5s}]  chg={s['change_pct']:+.1f}%  \$mv={s.get('dollar_move',0):+.2f}  rv={s.get('vol_ratio',0):.1f}x  rs={s.get('rs_rank','?')}\")
-print(f'---')
-print(f'{len(burst)} momentum burst signals')
-" 2>/dev/null || echo "0 momentum burst signals")
+import json, urllib.request, sys
+try:
+    url = 'https://themepulse.vercel.app/api/ai-queue'
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read())
+    queue = data.get('aiQueue', [])
+    for t in queue:
+        print(f'  {t}')
+    print(f'---')
+    print(f'{len(queue)} tickers in AI queue')
+except Exception as e:
+    print(f'⚠️  Failed to fetch queue: {e}', file=sys.stderr)
+    print('0 tickers in AI queue')
+" 2>/dev/null || echo "0 tickers in AI queue")
 echo "$PASSING"
 
 COUNT=$(echo "$PASSING" | tail -1 | grep -oE '^[0-9]+')
 if [[ "$COUNT" == "0" ]]; then
-  echo "⚠️  No momentum burst signals today. Writing empty analysis."
+  echo "⚠️  No tickers in AI queue. Writing empty analysis."
   cat > "$OUTPUT_FILE" << EOJSON
 {
-  "content": "# Momentum Burst Analysis\n\nNo Momentum Burst signals on $TODAY.",
+  "content": "# AI Analysis\n\nNo tickers in the AI analysis queue on $TODAY.",
   "updated_at": "$NOW",
-  "filters": "Momentum Burst ($ + 4% Breakout)",
+  "filters": "AI Queue (Manual)",
   "tickers": []
 }
 EOJSON
 else
   # ── Detect full vs incremental mode ──
-  # Compare current filtered tickers against existing ai_analysis.json
+  # Compare queued tickers against existing ai_analysis.json
   UPDATE_PROMPT_FILE="$REPO_DIR/scripts/ai-analysis-update-prompt.md"
   RUN_MODE=$(python3 -c "
-import json, sys
-# Current momentum burst tickers
-with open('$REPO_DIR/public/dashboard_data.json') as f:
-    d = json.load(f)
-current = sorted(s['ticker'] for s in d.get('momentum_burst', []))
+import json, urllib.request, sys
+# Current queued tickers
+try:
+    url = 'https://themepulse.vercel.app/api/ai-queue'
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read())
+    current = sorted(data.get('aiQueue', []))
+except:
+    current = []
 # Existing analysis tickers
 try:
     with open('$OUTPUT_FILE') as f:

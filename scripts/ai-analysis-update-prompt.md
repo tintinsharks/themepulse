@@ -6,6 +6,7 @@ The tickers in this run are the same as the previous analysis. Do NOT re-researc
 
 1. Read `public/data/ai_analysis.json` — this is the existing analysis with full research tabs
 2. Read `public/dashboard_data.json` — this has the latest price/volume/change data
+3. Fetch the AI queue from `https://themepulse.vercel.app/api/ai-queue` — if queue tickers differ from existing analysis, switch to full research mode using `scripts/ai-analysis-prompt.md` instead
 
 ## STEP 2 — Update each ticker's live data
 
@@ -40,9 +41,9 @@ Keep this section to 2-4 bullets max. Be specific about price levels and volume 
 Update the `content` field's header to note this is a price-action refresh:
 
 ```
-# Momentum Burst Analysis
+# AI Analysis
 
-**N stocks** triggered Momentum Burst signals on YYYY-MM-DD.
+**N stocks** analyzed from queue on YYYY-MM-DD.
 **X BUY** | **Y HOLD** | **Z AVOID**
 *Updated HH:MM ET — price action refresh*
 
