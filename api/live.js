@@ -923,6 +923,144 @@ function isExtendedHours() {
   return "aftermarket"; // 4:00 PM - 3:59 AM ET (post-market through overnight)
 }
 
+// ── Pre-Market Briefing: fetch index quotes + compute session bias ──
+async function fetchBriefing(apiKey, pipelineBriefing) {
+  const BRIEFING_SYMBOLS = ["SPY", "QQQ", "IWM", "DIA"];
+  const VIX_SYMBOL = "VIX"; // FMP uses VIX (not ^VIX)
+  const allSyms = [...BRIEFING_SYMBOLS, VIX_SYMBOL];
+
+  if (!apiKey) return null;
+
+  try {
+    const url = `${FMP_BASE}/batch-quote?symbols=${allSyms.join(",")}&apikey=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!Array.isArray(data)) return null;
+
+    const quoteMap = {};
+    data.forEach(q => { if (q.symbol) quoteMap[q.symbol] = q; });
+
+    // Build index cards
+    const indices = {};
+    for (const sym of BRIEFING_SYMBOLS) {
+      const q = quoteMap[sym];
+      if (!q) continue;
+      const prevClose = q.previousClose || 0;
+      const gapPct = prevClose > 0 ? Math.round((q.price - prevClose) / prevClose * 10000) / 100 : 0;
+      indices[sym] = {
+        price: q.price,
+        prev_close: prevClose,
+        open: q.open || null,
+        gap_pct: gapPct,
+        change_pct: q.changePercentage ?? gapPct,
+        volume: q.volume || 0,
+        avg_volume: q.avgVolume || 0,
+      };
+    }
+
+    // VIX
+    const vq = quoteMap[VIX_SYMBOL] || quoteMap["^VIX"];
+    let vix = null;
+    if (vq) {
+      vix = {
+        level: vq.price,
+        prev: vq.previousClose || null,
+        change: vq.previousClose ? Math.round((vq.price - vq.previousClose) * 100) / 100 : null,
+        change_pct: vq.changePercentage ?? null,
+      };
+    }
+
+    // Session bias heuristic (rules-based)
+    const bias = computeSessionBias(indices, vix, pipelineBriefing);
+
+    return {
+      indices,
+      vix,
+      session_bias: bias,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error("Briefing fetch error:", err.message);
+    return null;
+  }
+}
+
+function computeSessionBias(indices, vix, pipeline) {
+  // Score accumulator: positive = bullish, negative = bearish
+  let score = 0;
+  const factors = [];
+
+  const spy = indices.SPY;
+  if (!spy) return { bias: "NEUTRAL", strength: 0, factors: [] };
+
+  // 1. SPY overnight gap direction (weight: 20)
+  const gapPct = spy.gap_pct || 0;
+  if (gapPct > 0.3) { score += 20; factors.push({ label: `SPY gap +${gapPct.toFixed(2)}%`, signal: "BULL", pts: 20 }); }
+  else if (gapPct > 0.1) { score += 10; factors.push({ label: `SPY gap +${gapPct.toFixed(2)}%`, signal: "BULL", pts: 10 }); }
+  else if (gapPct < -0.3) { score -= 20; factors.push({ label: `SPY gap ${gapPct.toFixed(2)}%`, signal: "BEAR", pts: -20 }); }
+  else if (gapPct < -0.1) { score -= 10; factors.push({ label: `SPY gap ${gapPct.toFixed(2)}%`, signal: "BEAR", pts: -10 }); }
+  else { factors.push({ label: `SPY gap flat ${gapPct.toFixed(2)}%`, signal: "NEUTRAL", pts: 0 }); }
+
+  // 2. VIX direction (weight: 15)
+  if (vix && vix.change != null) {
+    const vixChg = vix.change;
+    const vixPctChg = vix.prev > 0 ? (vixChg / vix.prev) * 100 : 0;
+    if (vixPctChg > 5) { score -= 15; factors.push({ label: `VIX up ${vixPctChg.toFixed(1)}%`, signal: "BEAR", pts: -15 }); }
+    else if (vixPctChg > 2) { score -= 8; factors.push({ label: `VIX up ${vixPctChg.toFixed(1)}%`, signal: "BEAR", pts: -8 }); }
+    else if (vixPctChg < -3) { score += 15; factors.push({ label: `VIX down ${vixPctChg.toFixed(1)}%`, signal: "BULL", pts: 15 }); }
+    else if (vixPctChg < -1) { score += 8; factors.push({ label: `VIX down ${vixPctChg.toFixed(1)}%`, signal: "BULL", pts: 8 }); }
+    else { factors.push({ label: `VIX flat`, signal: "NEUTRAL", pts: 0 }); }
+
+    // VIX regime penalty
+    if (vix.level >= 30) { score -= 10; factors.push({ label: `VIX HIGH (${vix.level})`, signal: "BEAR", pts: -10 }); }
+  }
+
+  // 3. Previous day IBS from pipeline (weight: 20)
+  if (pipeline?.indices?.SPY?.ibs != null) {
+    const ibs = pipeline.indices.SPY.ibs;
+    if (ibs > 0.7) { score += 20; factors.push({ label: `Prev IBS ${ibs.toFixed(2)} (strong close)`, signal: "BULL", pts: 20 }); }
+    else if (ibs > 0.5) { score += 8; factors.push({ label: `Prev IBS ${ibs.toFixed(2)}`, signal: "BULL", pts: 8 }); }
+    else if (ibs < 0.3) { score -= 20; factors.push({ label: `Prev IBS ${ibs.toFixed(2)} (weak close)`, signal: "BEAR", pts: -20 }); }
+    else if (ibs < 0.5) { score -= 8; factors.push({ label: `Prev IBS ${ibs.toFixed(2)}`, signal: "BEAR", pts: -8 }); }
+  }
+
+  // 4. QQQ/IWM alignment with SPY (weight: 15)
+  const qqq = indices.QQQ;
+  const iwm = indices.IWM;
+  if (qqq && iwm) {
+    const spyDir = Math.sign(spy.gap_pct || 0);
+    const qqqDir = Math.sign(qqq.gap_pct || 0);
+    const iwmDir = Math.sign(iwm.gap_pct || 0);
+    if (spyDir !== 0 && spyDir === qqqDir && spyDir === iwmDir) {
+      const pts = spyDir > 0 ? 15 : -15;
+      score += pts;
+      factors.push({ label: "Indices aligned " + (spyDir > 0 ? "up" : "down"), signal: spyDir > 0 ? "BULL" : "BEAR", pts });
+    } else if (spyDir !== 0) {
+      factors.push({ label: "Indices diverging", signal: "NEUTRAL", pts: 0 });
+    }
+  }
+
+  // 5. Previous day breadth from pipeline (weight: 15)
+  if (pipeline?.breadth?.prev_up_pct != null) {
+    const upPct = pipeline.breadth.prev_up_pct;
+    if (upPct > 60) { score += 15; factors.push({ label: `Prev breadth ${upPct}% up`, signal: "BULL", pts: 15 }); }
+    else if (upPct > 55) { score += 5; factors.push({ label: `Prev breadth ${upPct}% up`, signal: "BULL", pts: 5 }); }
+    else if (upPct < 40) { score -= 15; factors.push({ label: `Prev breadth ${upPct}% up`, signal: "BEAR", pts: -15 }); }
+    else if (upPct < 45) { score -= 5; factors.push({ label: `Prev breadth ${upPct}% up`, signal: "BEAR", pts: -5 }); }
+    else { factors.push({ label: `Prev breadth ${upPct}% (mixed)`, signal: "NEUTRAL", pts: 0 }); }
+  }
+
+  // Determine bias — hide direction below threshold (inspired by the Reddit post)
+  const strength = Math.min(Math.abs(score), 100);
+  let bias = "NEUTRAL";
+  if (strength >= 25) {
+    bias = score > 0 ? "BULL" : "BEAR";
+  }
+
+  return { bias, strength, score, factors };
+}
+
 async function fetchFmpUniverse(tickers, apiKey) {
   if (!tickers || tickers.length === 0 || !apiKey) return { universe: [], rawQuotes: [] };
   const BATCH = 500; // FMP Premium supports large batches
@@ -1260,6 +1398,18 @@ export default async function handler(req, res) {
     const wantHomepage = req.query.homepage === "1";
     const homepage = wantHomepage ? await fetchHomepage(cookies) : null;
 
+    // Pre-market briefing (index quotes + session bias)
+    const wantBriefing = req.query.briefing === "1";
+    let briefing = null;
+    if (wantBriefing && fmpKey) {
+      // Parse pipeline briefing data passed as JSON query param
+      let pipelineBriefing = null;
+      try {
+        if (req.query.pb) pipelineBriefing = JSON.parse(decodeURIComponent(req.query.pb));
+      } catch {}
+      briefing = await fetchBriefing(fmpKey, pipelineBriefing);
+    }
+
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -1274,6 +1424,7 @@ export default async function handler(req, res) {
       analyst: tickerData?.analyst || null,
       homepage,
       momentum_burst: momentumBurst,
+      briefing,
     });
   } catch (err) {
     console.error("Live API error:", err);

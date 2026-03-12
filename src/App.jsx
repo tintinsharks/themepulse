@@ -8174,7 +8174,111 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage, erSipLookup }) {
+function PreMarketBriefing({ briefing, pipelineBriefing }) {
+  if (!briefing) return null;
+  const { indices, vix, session_bias: bias } = briefing;
+  if (!indices || !indices.SPY) return null;
+
+  const biasColor = bias?.bias === "BULL" ? "#4ade80" : bias?.bias === "BEAR" ? "#f87171" : "#9090a0";
+  const biasLabel = bias?.bias || "NEUTRAL";
+  const strength = bias?.strength || 0;
+
+  const IndexCard = ({ sym, data }) => {
+    if (!data) return null;
+    const gapColor = data.gap_pct > 0.1 ? "#4ade80" : data.gap_pct < -0.1 ? "#f87171" : "#9090a0";
+    return (
+      <div style={{ flex: "1 1 120px", padding: "8px 10px", background: "#141420", borderRadius: 6, border: "1px solid #222230", minWidth: 110 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#d4d4e0" }}>{sym}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#d4d4e0", fontFamily: "monospace" }}>${data.price?.toFixed(2)}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+          <span style={{ fontSize: 10, color: "#686878" }}>Gap</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: gapColor, fontFamily: "monospace" }}>{data.gap_pct > 0 ? "+" : ""}{data.gap_pct?.toFixed(2)}%</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
+          <span style={{ fontSize: 10, color: "#686878" }}>Prev</span>
+          <span style={{ fontSize: 10, color: "#787888", fontFamily: "monospace" }}>${data.prev_close?.toFixed(2)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ marginBottom: 16, padding: "10px 12px", background: "#0d0d15", borderRadius: 8, border: "1px solid #1a1a2a" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#9090a0", textTransform: "uppercase", letterSpacing: 1 }}>Pre-Market Briefing</span>
+        <span style={{ fontSize: 10, color: "#505060" }}>{new Date(briefing.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+
+      {/* Session Bias */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "8px 12px",
+        background: "#121218", borderRadius: 6, border: `1px solid ${biasColor}30` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 11, color: "#686878", fontWeight: 600, textTransform: "uppercase" }}>Session Bias</span>
+          {strength >= 25 ? (
+            <span style={{ fontSize: 16, fontWeight: 800, color: biasColor }}>{biasLabel}</span>
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#505060" }}>NO EDGE</span>
+          )}
+        </div>
+        {/* Strength bar */}
+        <div style={{ flex: 1, height: 6, background: "#1a1a2a", borderRadius: 3, position: "relative", maxWidth: 120 }}>
+          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${Math.min(strength, 100)}%`,
+            background: biasColor, borderRadius: 3, opacity: 0.8, transition: "width 0.3s" }} />
+        </div>
+        <span style={{ fontSize: 10, color: biasColor, fontFamily: "monospace", minWidth: 28 }}>{strength}%</span>
+        {/* VIX badge */}
+        {vix && (
+          <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 3,
+            background: vix.level >= 30 ? "#f8717120" : vix.level >= 20 ? "#fbbf2420" : "#4ade8020",
+            color: vix.level >= 30 ? "#f87171" : vix.level >= 20 ? "#fbbf24" : "#4ade80",
+            border: `1px solid ${vix.level >= 30 ? "#f8717140" : vix.level >= 20 ? "#fbbf2440" : "#4ade8040"}` }}>
+            VIX {vix.level?.toFixed(1)} {vix.change > 0 ? "▲" : vix.change < 0 ? "▼" : ""}
+          </span>
+        )}
+      </div>
+
+      {/* Index Cards */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        {["SPY", "QQQ", "IWM", "DIA"].map(sym => (
+          <IndexCard key={sym} sym={sym} data={indices[sym]} />
+        ))}
+      </div>
+
+      {/* Bias Factors */}
+      {bias?.factors?.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {bias.factors.filter(f => f.pts !== 0).map((f, i) => (
+            <span key={i} style={{ fontSize: 9, padding: "2px 5px", borderRadius: 3, fontFamily: "monospace",
+              background: f.signal === "BULL" ? "#4ade8010" : f.signal === "BEAR" ? "#f8717110" : "#50506010",
+              color: f.signal === "BULL" ? "#4ade80" : f.signal === "BEAR" ? "#f87171" : "#787888",
+              border: `1px solid ${f.signal === "BULL" ? "#4ade8025" : f.signal === "BEAR" ? "#f8717125" : "#50506025"}` }}>
+              {f.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Key Levels from pipeline */}
+      {pipelineBriefing?.indices?.SPY && (() => {
+        const spy = pipelineBriefing.indices.SPY;
+        return (
+          <div style={{ display: "flex", gap: 10, marginTop: 8, paddingTop: 6, borderTop: "1px solid #1a1a2a" }}>
+            <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>SPY Levels:</span>
+            {spy.sma20 && <span style={{ fontSize: 10, color: spy.above_sma20 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>20MA {spy.sma20}</span>}
+            {spy.sma50 && <span style={{ fontSize: 10, color: spy.above_sma50 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>50MA {spy.sma50}</span>}
+            {spy.sma200 && <span style={{ fontSize: 10, color: spy.above_sma200 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>200MA {spy.sma200}</span>}
+            {spy.ibs != null && <span style={{ fontSize: 10, color: spy.ibs > 0.7 ? "#4ade80" : spy.ibs < 0.3 ? "#f87171" : "#9090a0", fontFamily: "monospace" }}>IBS {spy.ibs.toFixed(2)}</span>}
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage, erSipLookup, pipelineBriefing }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8205,6 +8309,10 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     try {
       const params = new URLSearchParams();
       params.set("tickers", allTickers.join(","));
+      params.set("briefing", "1");
+      if (pipelineBriefing) {
+        params.set("pb", encodeURIComponent(JSON.stringify({ indices: pipelineBriefing.indices, breadth: pipelineBriefing.breadth })));
+      }
       const resp = await fetch(`/api/live?${params}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
@@ -8213,7 +8321,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       setLastUpdate(new Date());
       setError(null);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [allTickers]);
+  }, [allTickers, pipelineBriefing]);
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
@@ -8504,6 +8612,9 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         </div>
         {error && <span style={{ fontSize: 11, color: "#f87171" }}>Error: {error}</span>}
       </div>
+
+      {/* ── Pre-Market Briefing ── */}
+      <PreMarketBriefing briefing={liveData?.briefing} pipelineBriefing={pipelineBriefing} />
 
       {/* ── 1. Portfolio ── */}
       <div style={{ marginBottom: 20 }}>
@@ -11332,7 +11443,7 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} />}
+            liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} pipelineBriefing={data?.premarket_briefing} />}
           {view === "pkn" && <PknView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
             addToPkn={addToPkn} removeFromPkn={removeFromPkn}
