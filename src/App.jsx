@@ -1995,9 +1995,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   // Short Scan state
   const [shortSort, setShortSort] = useState({ col: "change", dir: "asc" });
   const [redOnly, setRedOnly] = useState(true);
-  const [maxChg, setMaxChg] = useState(-4);
+  const [maxChg, setMaxChg] = useState(0);
   const [belowMA, setBelowMA] = useState("50");     // "off" | "50" | "200" | "all"
-  const [maxRS, setMaxRS] = useState(30);
+  const [maxRS, setMaxRS] = useState(99);
   const [nearLow, setNearLow] = useState(false);
   const [shortMinRVol, setShortMinRVol] = useState(1.5);
   const [shortMinDolVol, setShortMinDolVol] = useState(50);
@@ -2447,7 +2447,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     // Red only
     if (redOnly) list = list.filter(s => (s.change_pct ?? 0) < 0);
     // Max change (e.g., -4 means only show stocks ≤ -4%)
-    if (maxChg < 0) list = list.filter(s => (s.change_pct ?? 0) <= maxChg);
+    if (maxChg < 1) list = list.filter(s => (s.change_pct ?? 0) <= maxChg);
     // Below MA filter
     if (belowMA === "50") list = list.filter(s => s.sma50_pct != null && s.sma50_pct < 0);
     else if (belowMA === "200") list = list.filter(s => s.sma200_pct != null && s.sma200_pct < 0);
@@ -3096,8 +3096,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         </div>
         {/* Max change slider */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: maxChg < 0 ? "#f87171" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≤{maxChg}%</span>
-          <input type="range" min={-20} max={0} step={1} value={maxChg} onChange={e => setMaxChg(Number(e.target.value))}
+          <span style={{ fontSize: 10, color: maxChg < 1 ? "#f87171" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>Chg≤{maxChg}%</span>
+          <input type="range" min={-20} max={1} step={1} value={maxChg} onChange={e => setMaxChg(Number(e.target.value))}
             style={{ width: 60, height: 4, accentColor: "#f87171", cursor: "pointer" }} />
         </div>
         {/* Below MA selector */}
