@@ -1757,10 +1757,12 @@ function computeStockQuality(s, leadingThemes) {
 }
 
 // ── MY STOCKS DRAWER (Portfolio + Watchlist in Scan) ──
-function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, stockMap, liveThemeData, onTickerClick, activeTicker, isOpen, setIsOpen, drawerHeight, setDrawerHeight }) {
+function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, stockMap, liveThemeData, onTickerClick, activeTicker, isOpen, setIsOpen, drawerHeight, setDrawerHeight, erSipLookup }) {
   const [liveData, setLiveData] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
+  const [pSort, setPSort] = useState("rel_volume");
+  const [wlSort, setWlSort] = useState("rel_volume");
   const [drawerDragging, setDrawerDragging] = useState(false);
   const drawerRef = useRef(null);
 
@@ -1781,26 +1783,88 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
-  // Build lookup merging live + liveThemeData + pipeline
-  const lookup = useMemo(() => {
+  // Build lookup merging live + liveThemeData + pipeline (same as LiveView)
+  const liveLookup = useMemo(() => {
     const m = {};
-    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = { ...s }; });
-    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = { ...m[s.ticker], ...s }; });
+    const enrich = (s) => {
+      const e = { ...s };
+      if (e.rel_volume == null && e.volume != null) {
+        const v = typeof e.volume === 'string' ? parseFloat(e.volume) : e.volume;
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(v / av * 100) / 100;
+      }
+      if (e.high != null && e.low != null && e.price != null) {
+        const range = e.high - e.low;
+        e.close_range = range > 0 ? Math.round((e.price - e.low) / range * 1000) / 10 : null;
+      }
+      return e;
+    };
+    if (liveThemeData) liveThemeData.forEach(s => { if (s.ticker) m[s.ticker] = enrich(s); });
+    (liveData?.watchlist || []).forEach(s => { if (s.ticker) m[s.ticker] = enrich({ ...m[s.ticker], ...s }); });
     return m;
-  }, [liveData?.watchlist, liveThemeData]);
+  }, [liveData?.watchlist, liveThemeData, stockMap]);
 
-  const merge = useCallback((ticker) => {
-    const live = lookup[ticker] || {};
+  // Merge live + pipeline data for a ticker (same as LiveView mergeStock)
+  const mergeStock = useCallback((ticker) => {
+    const live = liveLookup[ticker] || {};
     const pipe = stockMap?.[ticker] || {};
+    const { quality, q_factors } = computeStockQuality(pipe);
     return {
       ticker,
       price: live.price ?? pipe.price,
-      change: live.change ?? pipe.change_pct,
-      rel_volume: live.rel_volume ?? (() => { const v = live.volume ? (typeof live.volume === 'string' ? parseFloat(live.volume) : live.volume) : null; const av = pipe.avg_volume_raw; return v && av > 0 ? Math.round(v / av * 100) / 100 : pipe.rel_volume; })(),
-      rs_rank: pipe.rs_rank,
+      change: live.change,
+      rel_volume: live.rel_volume ?? pipe.rel_volume,
+      avg_volume_raw: pipe.avg_volume_raw,
       grade: pipe.grade,
+      rs_rank: pipe.rs_rank,
+      return_1m: live.perf_month ?? pipe.return_1m,
+      return_3m: live.perf_quart ?? pipe.return_3m,
+      pct_from_high: live.high_52w ?? pipe.pct_from_high,
+      adr_pct: pipe.adr_pct,
+      avg_dollar_vol: pipe.avg_dollar_vol,
+      avg_dollar_vol_raw: pipe.avg_dollar_vol_raw,
+      dvol_accel: pipe.dvol_accel, accel: pipe.accel,
+      close_range: live.close_range ?? null,
+      dvol_ratio_5_20: pipe.dvol_ratio_5_20,
+      dvol_wow_chg: pipe.dvol_wow_chg,
+      earnings_days: pipe.earnings_days,
+      earnings_display: pipe.earnings_display,
+      earnings_date: pipe.earnings_date,
+      er: pipe.er,
+      chart_patterns: pipe.chart_patterns,
+      _scanHits: pipe._scanHits || [],
+      _epsScore: pipe._epsScore,
+      _msScore: pipe._msScore,
+      _caScore: pipe._caScore,
+      _quality: quality,
+      _q_factors: q_factors,
+      themes: pipe.themes || [],
+      theme: pipe.themes?.[0]?.theme || live.sector || "",
+      subtheme: pipe.themes?.[0]?.subtheme || "",
+      company: live.company || pipe.company || "",
     };
-  }, [lookup, stockMap]);
+  }, [liveLookup, stockMap]);
+
+  const sortFn = (key, desc = true) => (a, b) => {
+    const av = a[key] ?? (desc ? -Infinity : Infinity);
+    const bv = b[key] ?? (desc ? -Infinity : Infinity);
+    return desc ? bv - av : av - bv;
+  };
+  const sortList = (list, sk) => {
+    const sorters = { ticker: (a, b) => a.ticker.localeCompare(b.ticker),
+      change: sortFn("change"), rs: sortFn("rs_rank"), rel_volume: sortFn("rel_volume"),
+      volume: sortFn("avg_volume_raw"), dvol: sortFn("avg_dollar_vol_raw"),
+      hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
+      eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), ca_score: sortFn("_caScore"),
+      ret3m: sortFn("return_3m"), fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
+      adr: sortFn("adr_pct"), theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
+      subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
+    };
+    const sorted = [...list]; if (sorters[sk]) sorted.sort(sorters[sk]); return sorted;
+  };
+
+  const portfolioMerged = useMemo(() => sortList(portfolio.map(mergeStock), pSort), [portfolio, mergeStock, pSort]);
+  const watchlistMerged = useMemo(() => sortList(watchlist.map(mergeStock), wlSort), [watchlist, mergeStock, wlSort]);
 
   // Drag handle for resizing
   useEffect(() => {
@@ -1829,34 +1893,6 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
 
   const totalCount = portfolio.length + watchlist.length;
 
-  const renderRow = (ticker, isPortfolio) => {
-    const s = merge(ticker);
-    const chg = s.change;
-    const isPos = chg != null && chg > 0;
-    const isNeg = chg != null && chg < 0;
-    const isActive = ticker === activeTicker;
-    return (
-      <div key={ticker} onClick={() => onTickerClick(ticker)}
-        style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 6px", cursor: "pointer", fontSize: 10, fontFamily: "monospace",
-          background: isActive ? "#1a2a3a" : "transparent", borderLeft: isActive ? "2px solid #2bb886" : "2px solid transparent" }}
-        onMouseEnter={e => e.currentTarget.style.background = "#1a1a2a"}
-        onMouseLeave={e => e.currentTarget.style.background = isActive ? "#1a2a3a" : "transparent"}>
-        <span style={{ width: 48, fontWeight: 700, color: "#c8c8d8" }}>{ticker}</span>
-        <span style={{ width: 58, textAlign: "right", color: "#9090a0" }}>{s.price != null ? `$${Number(s.price).toFixed(2)}` : "—"}</span>
-        <span style={{ width: 48, textAlign: "right", fontWeight: 600, color: isPos ? "#2bb886" : isNeg ? "#f87171" : "#686878" }}>
-          {chg != null ? `${chg > 0 ? "+" : ""}${Number(chg).toFixed(1)}%` : "—"}
-        </span>
-        <span style={{ width: 36, textAlign: "right", color: s.rel_volume >= 2 ? "#2bb886" : s.rel_volume >= 1 ? "#9090a0" : "#505060" }}>
-          {s.rel_volume != null ? `${s.rel_volume.toFixed(1)}x` : "—"}
-        </span>
-        {s.rs_rank != null && <span style={{ width: 24, textAlign: "right", fontSize: 9, color: s.rs_rank >= 80 ? "#2bb886" : s.rs_rank >= 60 ? "#9090a0" : "#686878" }}>{s.rs_rank}</span>}
-        <span onClick={(e) => { e.stopPropagation(); isPortfolio ? removeFromPortfolio(ticker) : removeFromWatchlist(ticker); }}
-          style={{ marginLeft: "auto", color: "#505060", cursor: "pointer", fontSize: 9, padding: "0 2px" }}
-          title="Remove">✕</span>
-      </div>
-    );
-  };
-
   const handleAddP = (e) => { e.preventDefault(); const t = addTickerP.trim().toUpperCase(); if (t) addToPortfolio(t); setAddTickerP(""); };
   const handleAddW = (e) => { e.preventDefault(); const t = addTickerW.trim().toUpperCase(); if (t) addToWatchlist(t); setAddTickerW(""); };
 
@@ -1884,7 +1920,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
       </div>
       {/* Expanded content */}
       {isOpen && (
-        <div style={{ height: drawerHeight, overflowY: "auto", overflowX: "hidden" }}>
+        <div style={{ height: drawerHeight, overflowY: "auto", overflowX: "auto" }}>
           {/* Portfolio section */}
           <div style={{ padding: "4px 8px 2px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
@@ -1894,8 +1930,11 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
                   style={{ width: 50, fontSize: 9, padding: "1px 4px", background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 3, color: "#b8b8c8", outline: "none" }} />
               </form>
             </div>
-            {portfolio.map(t => renderRow(t, true))}
-            {portfolio.length === 0 && <div style={{ fontSize: 9, color: "#404050", padding: "2px 6px" }}>No portfolio stocks</div>}
+            {portfolio.length > 0 ? (
+              <LiveSectionTable data={portfolioMerged} sortKey={pSort} setter={setPSort}
+                onRemove={removeFromPortfolio} activeTicker={activeTicker} onTickerClick={onTickerClick}
+                erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+            ) : <div style={{ fontSize: 9, color: "#404050", padding: "2px 6px" }}>No portfolio stocks</div>}
           </div>
           {/* Watchlist section */}
           <div style={{ padding: "4px 8px 2px", borderTop: "1px solid #1a1a24" }}>
@@ -1906,8 +1945,11 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
                   style={{ width: 50, fontSize: 9, padding: "1px 4px", background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 3, color: "#b8b8c8", outline: "none" }} />
               </form>
             </div>
-            {watchlist.map(t => renderRow(t, false))}
-            {watchlist.length === 0 && <div style={{ fontSize: 9, color: "#404050", padding: "2px 6px" }}>No watchlist stocks</div>}
+            {watchlist.length > 0 ? (
+              <LiveSectionTable data={watchlistMerged} sortKey={wlSort} setter={setWlSort}
+                onRemove={removeFromWatchlist} activeTicker={activeTicker} onTickerClick={onTickerClick}
+                erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+            ) : <div style={{ fontSize: 9, color: "#404050", padding: "2px 6px" }}>No watchlist stocks</div>}
           </div>
         </div>
       )}
@@ -3550,7 +3592,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       stockMap={stockMap} liveThemeData={externalLiveData}
       onTickerClick={onTickerClick} activeTicker={activeTicker}
       isOpen={myStocksOpen} setIsOpen={setMyStocksOpen}
-      drawerHeight={drawerHeight} setDrawerHeight={setDrawerHeight} />
+      drawerHeight={drawerHeight} setDrawerHeight={setDrawerHeight}
+      erSipLookup={erSipLookup} />
     </div>
   );
 }
