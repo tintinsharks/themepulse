@@ -8402,11 +8402,32 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
         )}
       </div>
 
-      {/* FRED Macro Context row */}
-      {pb.fred && Object.keys(pb.fred).length > 0 && (
+      {/* Put/Call + FRED Macro Context row */}
+      {(pb.put_call || (pb.fred && Object.keys(pb.fred).length > 0)) && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+          {/* Put/Call Ratio */}
+          {pb.put_call && pb.put_call.equity && (
+            <div style={{ flex: "1 1 140px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>PUT/CALL RATIO</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace",
+                  color: pb.put_call.sentiment === "FEAR" ? "#f87171" : pb.put_call.sentiment === "GREED" ? "#4ade80" : "#d4d4e0" }}>
+                  {pb.put_call.equity.value?.toFixed(2)}
+                </span>
+                <span style={{ fontSize: 8, color: "#505060" }}>equity</span>
+                {pb.put_call.total && (
+                  <span style={{ fontSize: 9, color: "#787888", fontFamily: "monospace" }}>{pb.put_call.total.value?.toFixed(2)} tot</span>
+                )}
+                <span style={{ fontSize: 8, fontWeight: 600, padding: "1px 3px", borderRadius: 2,
+                  background: pb.put_call.sentiment === "FEAR" ? "#f8717115" : pb.put_call.sentiment === "GREED" ? "#4ade8010" : "#50506010",
+                  color: pb.put_call.sentiment === "FEAR" ? "#f87171" : pb.put_call.sentiment === "GREED" ? "#4ade80" : "#787888" }}>
+                  {pb.put_call.sentiment}
+                </span>
+              </div>
+            </div>
+          )}
           {/* HY Credit Spread */}
-          {pb.fred.hy_spread && (
+          {pb.fred?.hy_spread && (
             <div style={{ flex: "1 1 120px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
               <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>HY SPREAD</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
@@ -8423,7 +8444,7 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
             </div>
           )}
           {/* Yield Curve */}
-          {pb.fred.yield_curve_2s10s && (
+          {pb.fred?.yield_curve_2s10s && (
             <div style={{ flex: "1 1 120px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
               <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>YIELD CURVE 2s10s</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
@@ -8440,7 +8461,7 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
             </div>
           )}
           {/* 10Y Yield */}
-          {pb.fred.yield_10y && (
+          {pb.fred?.yield_10y && (
             <div style={{ flex: "1 1 80px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
               <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>10Y YIELD</div>
               <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace", color: "#d4d4e0" }}>
