@@ -8174,10 +8174,36 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   );
 }
 
-function PreMarketBriefing({ briefing, pipelineBriefing }) {
-  if (!briefing) return null;
-  const { indices, vix, session_bias: bias } = briefing;
-  if (!indices || !indices.SPY) return null;
+function PreMarketBriefing({ briefing: externalBriefing, pipelineBriefing }) {
+  const [liveBriefing, setLiveBriefing] = useState(null);
+
+  // Fetch live briefing data if not provided externally (e.g., when in quad view)
+  useEffect(() => {
+    if (externalBriefing || !pipelineBriefing) return;
+    let cancelled = false;
+    const fetchBriefing = async () => {
+      try {
+        const params = new URLSearchParams({ tickers: "SPY", briefing: "1" });
+        params.set("pb", encodeURIComponent(JSON.stringify({ indices: pipelineBriefing.indices, breadth: pipelineBriefing.breadth })));
+        const resp = await fetch(`/api/live?${params}`);
+        if (!resp.ok) return;
+        const json = await resp.json();
+        if (!cancelled && json.ok && json.briefing) setLiveBriefing(json.briefing);
+      } catch {}
+    };
+    fetchBriefing();
+    const iv = setInterval(fetchBriefing, 60000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [externalBriefing, pipelineBriefing]);
+
+  const briefing = externalBriefing || liveBriefing;
+  if (!briefing) {
+    // Show pipeline-only view while live data loads
+    if (!pipelineBriefing) return null;
+  }
+  const indices = briefing?.indices || {};
+  const vix = briefing?.vix;
+  const bias = briefing?.session_bias;
 
   const biasColor = bias?.bias === "BULL" ? "#4ade80" : bias?.bias === "BEAR" ? "#f87171" : "#9090a0";
   const biasLabel = bias?.bias || "NEUTRAL";
@@ -8533,7 +8559,7 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage, erSipLookup, pipelineBriefing }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage, erSipLookup }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8564,10 +8590,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     try {
       const params = new URLSearchParams();
       params.set("tickers", allTickers.join(","));
-      params.set("briefing", "1");
-      if (pipelineBriefing) {
-        params.set("pb", encodeURIComponent(JSON.stringify({ indices: pipelineBriefing.indices, breadth: pipelineBriefing.breadth })));
-      }
       const resp = await fetch(`/api/live?${params}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
@@ -8576,7 +8598,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       setLastUpdate(new Date());
       setError(null);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [allTickers, pipelineBriefing]);
+  }, [allTickers]);
 
   useEffect(() => { fetchLive(); const iv = setInterval(fetchLive, 60000); return () => clearInterval(iv); }, [fetchLive]);
 
@@ -8867,9 +8889,6 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         </div>
         {error && <span style={{ fontSize: 11, color: "#f87171" }}>Error: {error}</span>}
       </div>
-
-      {/* ── Pre-Market Briefing ── */}
-      <PreMarketBriefing briefing={liveData?.briefing} pipelineBriefing={pipelineBriefing} />
 
       {/* ── 1. Portfolio ── */}
       <div style={{ marginBottom: 20 }}>
@@ -11698,7 +11717,7 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} pipelineBriefing={data?.premarket_briefing} />}
+            liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} />}
           {view === "pkn" && <PknView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
             addToPkn={addToPkn} removeFromPkn={removeFromPkn}
@@ -11707,6 +11726,8 @@ function AppMain({ authToken, onLogout }) {
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <>
+            {/* Pre-Market Briefing */}
+            <PreMarketBriefing pipelineBriefing={data?.premarket_briefing} />
             {/* Market Overview: Futures, Earnings, Major News */}
             {homepage && (
               <div style={{ marginBottom: 16 }}>
