@@ -8402,6 +8402,64 @@ function PreMarketBriefing({ briefing, pipelineBriefing }) {
         )}
       </div>
 
+      {/* Options Levels: Max Pain, Walls, GEX */}
+      {pb.options && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+          {/* Max Pain */}
+          {pb.options.max_pain && (
+            <div style={{ flex: "1 1 110px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>MAX PAIN</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: "#d4d4e0" }}>
+                  ${pb.options.max_pain}
+                </span>
+                <span style={{ fontSize: 9, fontFamily: "monospace",
+                  color: pb.options.max_pain_dist_pct > 0.5 ? "#4ade80" : pb.options.max_pain_dist_pct < -0.5 ? "#f87171" : "#787888" }}>
+                  {pb.options.max_pain_dist_pct > 0 ? "+" : ""}{pb.options.max_pain_dist_pct}%
+                </span>
+              </div>
+            </div>
+          )}
+          {/* Call Wall */}
+          {pb.options.call_walls?.length > 0 && (
+            <div style={{ flex: "1 1 130px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>CALL WALL <span style={{ color: "#f87171", fontSize: 8 }}>(resistance)</span></div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {pb.options.call_walls.slice(0, 2).map((w, i) => (
+                  <span key={i} style={{ fontSize: 10, fontFamily: "monospace", color: "#f87171" }}>
+                    ${w.strike} <span style={{ fontSize: 8, color: "#505060" }}>{(w.weight / 1000).toFixed(0)}K</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Put Wall */}
+          {pb.options.put_walls?.length > 0 && (
+            <div style={{ flex: "1 1 130px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+              <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>PUT WALL <span style={{ color: "#4ade80", fontSize: 8 }}>(support)</span></div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {pb.options.put_walls.slice(0, 2).map((w, i) => (
+                  <span key={i} style={{ fontSize: 10, fontFamily: "monospace", color: "#4ade80" }}>
+                    ${w.strike} <span style={{ fontSize: 8, color: "#505060" }}>{(w.weight / 1000).toFixed(0)}K</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* GEX */}
+          <div style={{ flex: "1 1 80px", padding: "5px 8px", background: "#141420", borderRadius: 5, border: "1px solid #222230" }}>
+            <div style={{ fontSize: 9, color: "#686878", fontWeight: 600, marginBottom: 2 }}>GEX BIAS</div>
+            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace",
+              color: pb.options.gex_bias === "POSITIVE" ? "#4ade80" : "#f87171" }}>
+              {pb.options.gex_bias}
+            </span>
+            <div style={{ fontSize: 8, color: "#505060", marginTop: 1 }}>
+              {pb.options.gex_bias === "POSITIVE" ? "mean revert" : "trend follow"}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Put/Call + FRED Macro Context row */}
       {(pb.put_call || (pb.fred && Object.keys(pb.fred).length > 0)) && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
