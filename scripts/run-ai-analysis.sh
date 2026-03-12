@@ -30,10 +30,24 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PROMPT_FILE="$REPO_DIR/scripts/ai-analysis-prompt.md"
 OUTPUT_FILE="$REPO_DIR/public/data/ai_analysis.json"
 DRY_RUN=false
+TRIGGER_MODE=false
 
 if [[ "${1:-}" == "--dry" ]]; then
   DRY_RUN=true
   echo "🧪 Dry run — will generate JSON but skip git push"
+elif [[ "${1:-}" == "--watch" ]]; then
+  # Poll for dashboard trigger every 60s
+  echo "👁  Watching for dashboard trigger..."
+  while true; do
+    TRIGGER=$(curl -sf "https://themepulse.vercel.app/api/trigger-analysis" 2>/dev/null || echo '{}')
+    STATUS=$(echo "$TRIGGER" | python3 -c "import json,sys; d=json.load(sys.stdin); t=d.get('trigger'); print(t.get('status','') if t else '')" 2>/dev/null)
+    if [[ "$STATUS" == "pending" ]]; then
+      echo "🔔 Trigger detected! Starting analysis..."
+      TRIGGER_MODE=true
+      break
+    fi
+    sleep 60
+  done
 fi
 
 # ── Preflight checks ──
@@ -264,6 +278,15 @@ else
   git add public/data/ai_analysis.json
   git commit -m "AI analysis update $(date +%Y-%m-%d_%H%M)" || true
   git push && echo "✅ Pushed to Vercel — deploy in ~30s" || echo "⚠️  Push failed. Run 'git push' manually."
+fi
+
+# ── Clear trigger if we were triggered from dashboard ──
+if [[ "$TRIGGER_MODE" == true ]]; then
+  echo "🧹 Clearing dashboard trigger..."
+  curl -sf -X POST "https://themepulse.vercel.app/api/trigger-analysis" \
+    -H "Authorization: Bearer $TP_AUTH_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"action":"clear"}' >/dev/null 2>&1 || echo "⚠️  Failed to clear trigger"
 fi
 
 echo ""

@@ -1756,7 +1756,7 @@ function computeStockQuality(s, leadingThemes) {
   return result;
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken }) {
   const [sortBy, setSortBy] = useState("rvol");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
@@ -3301,6 +3301,30 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
             </>}
             <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>{aiQueue.length} ticker{aiQueue.length !== 1 ? "s" : ""} queued</span>
+            <span style={{ color: "#3a3a4a" }}>|</span>
+            <button
+              disabled={aiRunning || aiQueue.length === 0}
+              onClick={async () => {
+                if (!authToken) { setAiRunMsg("Not authenticated"); return; }
+                setAiRunning(true); setAiRunMsg("Triggering...");
+                try {
+                  const resp = await fetch("/api/trigger-analysis", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "trigger" }),
+                  });
+                  const json = await resp.json();
+                  if (json.ok) { setAiRunMsg("Triggered! Watcher will pick it up."); }
+                  else { setAiRunMsg(`Error: ${json.error}`); }
+                } catch (e) { setAiRunMsg(`Failed: ${e.message}`); }
+                setTimeout(() => { setAiRunning(false); setAiRunMsg(""); }, 5000);
+              }}
+              style={{ padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: aiRunning || aiQueue.length === 0 ? "not-allowed" : "pointer",
+                background: aiRunning ? "#1a2a2a" : "#0a2a1a", border: "1px solid #22d3ee", color: aiRunning ? "#505060" : "#22d3ee",
+                opacity: aiQueue.length === 0 ? 0.4 : 1, whiteSpace: "nowrap" }}>
+              {aiRunning ? "Running..." : "Run Analysis"}
+            </button>
+            {aiRunMsg && <span style={{ fontSize: 9, color: "#22d3ee", whiteSpace: "nowrap" }}>{aiRunMsg}</span>}
           </div>
           {/* Analyzed tickers — persisted 14 days */}
           {aiAnalyzed.length > 0 && (
@@ -11706,7 +11730,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession}
-            aiQueue={aiQueue} setAiQueue={setAiQueue} aiAnalyzed={aiAnalyzed} setAiAnalyzed={setAiAnalyzed} />}
+            aiQueue={aiQueue} setAiQueue={setAiQueue} aiAnalyzed={aiAnalyzed} setAiAnalyzed={setAiAnalyzed} authToken={authToken} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
