@@ -5213,6 +5213,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 function TQQQView() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
+  const [showRaw, setShowRaw] = useState(false);
 
   useEffect(() => {
     fetch("/tqqq_analysis.json").then(r => r.json()).then(setD).catch(e => setErr(e.message));
@@ -5221,53 +5222,39 @@ function TQQQView() {
   if (err) return <div style={{ color: "#f87171", padding: 20 }}>Error loading TQQQ data: {err}</div>;
   if (!d) return <div style={{ color: "#686878", padding: 20 }}>Loading TQQQ analysis...</div>;
 
-  const biasColor = d.bias === "BULLISH" ? "#2bb886" : d.bias === "BEARISH" ? "#f87171" : "#fbbf24";
+  const b = d.briefing || {};
   const trendColor = d.trend === "bull" ? "#2bb886" : d.trend === "bear" ? "#f87171" : "#fbbf24";
+  const biasColor = d.bias === "BULLISH" ? "#2bb886" : d.bias === "BEARISH" ? "#f87171" : "#fbbf24";
+  const riskColor = b.risk_level === "HIGH" ? "#f87171" : b.risk_level === "LOW" ? "#2bb886" : "#fbbf24";
   const piv = d.tomorrow_pivots;
   const ema = d.ema_levels;
   const kl = d.key_levels;
   const m = d.system_metrics;
   const pt = d.probability_tables;
 
-  const Card = ({ title, children, style }) => (
-    <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12, ...style }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{title}</div>
+  const Section = ({ label, children, style }) => (
+    <div style={{ marginBottom: 20, ...style }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: "#505060", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   );
 
-  const Stat = ({ label, value, color = "#b8b8c8", sub }) => (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-      <span style={{ fontSize: 9, color: "#505060", textTransform: "uppercase" }}>{label}</span>
-      <span style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "monospace" }}>{value}</span>
-      {sub && <span style={{ fontSize: 9, color: "#505060" }}>{sub}</span>}
-    </div>
-  );
-
-  const EmaRow = ({ label, level, above, extra }) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid #1a1a24" }}>
-      <span style={{ width: 55, fontSize: 11, color: "#9090a0", fontWeight: 600 }}>{label}</span>
-      <span style={{ width: 60, fontSize: 12, fontFamily: "monospace", color: "#b8b8c8", textAlign: "right" }}>${level}</span>
-      <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3,
-        background: above ? "#2bb88620" : "#f8717120", color: above ? "#2bb886" : "#f87171" }}>
-        {above ? "ABOVE" : "BELOW"}
-      </span>
-      {extra && <span style={{ fontSize: 9, color: "#505060" }}>{extra}</span>}
-    </div>
+  const Prose = ({ text, style }) => (
+    <div style={{ fontSize: 13, color: "#b8b8c8", lineHeight: 1.65, ...style }}>{text}</div>
   );
 
   const ProbTable = ({ title, data }) => {
     if (!data || Object.keys(data).length === 0) return null;
     const sorted = Object.entries(data).sort((a, b) => b[1].wr - a[1].wr);
     return (
-      <Card title={title}>
+      <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#686878", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{title}</div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
           <thead><tr style={{ borderBottom: "1px solid #3a3a4a" }}>
             <th style={{ textAlign: "left", padding: "4px 6px", color: "#686878", fontWeight: 600 }}>Signal</th>
             <th style={{ textAlign: "center", padding: "4px 6px", color: "#686878", fontWeight: 600 }}>Trades</th>
             <th style={{ textAlign: "center", padding: "4px 6px", color: "#686878", fontWeight: 600 }}>WR%</th>
             <th style={{ textAlign: "right", padding: "4px 6px", color: "#686878", fontWeight: 600 }}>Avg P&L</th>
-            <th style={{ textAlign: "right", padding: "4px 6px", color: "#686878", fontWeight: 600 }}>Total $</th>
           </tr></thead>
           <tbody>
             {sorted.map(([k, v]) => (
@@ -5277,189 +5264,174 @@ function TQQQView() {
                 <td style={{ padding: "4px 6px", textAlign: "center", fontWeight: 700,
                   color: v.wr >= 65 ? "#2bb886" : v.wr >= 50 ? "#fbbf24" : "#f87171" }}>{v.wr}%</td>
                 <td style={{ padding: "4px 6px", textAlign: "right",
-                  color: v.avg_pnl >= 0 ? "#2bb886" : "#f87171" }}>{v.avg_pnl >= 0 ? "+" : ""}{v.avg_pnl.toFixed(2)}%</td>
-                <td style={{ padding: "4px 6px", textAlign: "right",
-                  color: v.total_pnl >= 0 ? "#2bb886" : "#f87171" }}>${(v.total_pnl / 1000).toFixed(0)}K</td>
+                  color: v.avg_pnl >= 0 ? "#2bb886" : "#f87171" }}>{v.avg_pnl >= 0 ? "+" : ""}{v.avg_pnl.toFixed(1)}%</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </Card>
+      </div>
     );
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: "#b8b8c8", fontFamily: "monospace" }}>TQQQ</span>
-        <span style={{ fontSize: 22, fontWeight: 700, color: "#9090a0", fontFamily: "monospace" }}>${d.close}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, padding: "2px 10px", borderRadius: 4,
+    <div style={{ maxWidth: 800, margin: "0 auto" }}>
+      {/* Header bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+        <span style={{ fontSize: 20, fontWeight: 800, color: "#b8b8c8", fontFamily: "monospace" }}>TQQQ</span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: "#9090a0", fontFamily: "monospace" }}>${d.close}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
           background: trendColor + "20", color: trendColor, textTransform: "uppercase" }}>{d.trend}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, padding: "2px 10px", borderRadius: 4,
-          background: biasColor + "20", color: biasColor }}>{d.bias}</span>
-        {d.signal_type && <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 4,
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+          background: riskColor + "15", color: riskColor }}>RISK: {b.risk_level || "?"}</span>
+        {d.signal_type && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
           background: d.signal === 1 ? "#2bb88630" : "#f8717130", color: d.signal === 1 ? "#2bb886" : "#f87171" }}>
           SIGNAL: {d.signal_type}</span>}
-        <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{d.date} | Generated {d.generated?.split("T")[1]?.slice(0, 5)}</span>
+        <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{d.date}</span>
       </div>
 
-      {/* Top stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8, marginBottom: 16 }}>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="RVol" value={`${d.rvol}x`} color={d.rvol >= 1.5 ? "#c084fc" : d.rvol >= 1 ? "#9090a0" : "#505060"} />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="ADR%" value={`${d.adr_pct}%`} color={d.adr_pct > 5 ? "#2dd4bf" : "#fbbf24"} />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="Correction" value={`${d.correction_depth}%`} color={d.correction_depth <= -10 ? "#f87171" : d.correction_depth <= -5 ? "#fbbf24" : "#2bb886"} />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="Dist Days" value={d.dist_count} color={d.dist_count >= 5 ? "#f87171" : d.dist_count >= 3 ? "#fbbf24" : "#2bb886"} sub="/ 25d" />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="FTD" value={d.ftd_active ? "YES" : "No"} color={d.ftd_active ? "#2bb886" : "#505060"} />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="Body" value={`${d.body_pct}%`} color={d.bullish_candle ? "#2bb886" : "#f87171"} sub={d.bullish_candle ? "Bull" : "Bear"} />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="Long" value={`${d.long_pct}%`} color={d.long_pct >= 50 ? "#2bb886" : "#505060"} />
-        </Card>
-        <Card title="" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-          <Stat label="Short" value={`${d.short_pct}%`} color={d.short_pct >= 50 ? "#f87171" : "#505060"} />
-        </Card>
+      {/* Headline */}
+      <div style={{ fontSize: 16, fontWeight: 700, color: biasColor, lineHeight: 1.4, marginBottom: 20,
+        padding: "12px 16px", background: biasColor + "08", borderLeft: `3px solid ${biasColor}`, borderRadius: "0 6px 6px 0" }}>
+        {b.headline || "Analysis unavailable"}
       </div>
 
-      {/* EMA/SMA + Pivots + Key Levels + Setups */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-        <Card title="EMA / SMA Position">
-          <EmaRow label="EMA 9" level={ema.ema9} above={d.above_9_ema} />
-          <EmaRow label="EMA 21" level={ema.ema21} above={d.above_21_ema} extra={`${d.consec_below_21}d below`} />
-          <EmaRow label="EMA 40" level={ema.ema40} above={d.above_8w_ema} extra="8-week" />
-          <EmaRow label="SMA 50" level={ema.sma50} above={d.above_50_sma} extra={`${d.consec_below_50}d below`} />
-        </Card>
-
-        <Card title="Tomorrow's Pivots">
-          {[["R2", piv.r2], ["R1", piv.r1], ["PP", piv.pp], ["S1", piv.s1], ["S2", piv.s2]].map(([l, v]) => (
-            <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #1a1a24" }}>
-              <span style={{ fontSize: 11, color: l === "PP" ? "#fbbf24" : l.startsWith("R") ? "#2bb886" : "#f87171", fontWeight: 600 }}>{l}</span>
-              <span style={{ fontSize: 12, fontFamily: "monospace", color: "#b8b8c8" }}>${v}</span>
-              <span style={{ fontSize: 10, color: d.close > v ? "#2bb88680" : "#f8717180" }}>
-                {((d.close - v) / v * 100).toFixed(1)}%
-              </span>
-            </div>
-          ))}
-        </Card>
-
-        <Card title="Key Levels">
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#2bb886", marginBottom: 4 }}>LONG</div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
-            <span style={{ color: "#686878" }}>Entry</span>
-            <span style={{ color: "#b8b8c8", fontFamily: "monospace" }}>${piv.s1} – ${piv.pp}</span>
+      {/* Quick stats strip */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 20, padding: "8px 0", borderTop: "1px solid #1a1a24", borderBottom: "1px solid #1a1a24" }}>
+        {[
+          ["RVol", `${d.rvol}x`, d.rvol >= 1.5 ? "#c084fc" : d.rvol >= 1 ? "#9090a0" : "#505060"],
+          ["ADR", `${d.adr_pct}%`, d.adr_pct > 5 ? "#2dd4bf" : "#9090a0"],
+          ["Corr", `${d.correction_depth}%`, d.correction_depth <= -10 ? "#f87171" : "#9090a0"],
+          ["Dist", `${d.dist_count}/25`, d.dist_count >= 5 ? "#f87171" : "#9090a0"],
+          ["FTD", d.ftd_active ? "Active" : "No", d.ftd_active ? "#2bb886" : "#505060"],
+          ["<50d", `${d.consec_below_50}d`, d.consec_below_50 > 5 ? "#f87171" : "#9090a0"],
+        ].map(([label, val, color]) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 10, color: "#505060", textTransform: "uppercase" }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "monospace" }}>{val}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
-            <span style={{ color: "#686878" }}>Stop</span>
-            <span style={{ color: "#f87171", fontFamily: "monospace" }}>${kl.long_stop}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0", borderBottom: "1px solid #1a1a24", marginBottom: 6 }}>
-            <span style={{ color: "#686878" }}>Target</span>
-            <span style={{ color: "#2bb886", fontFamily: "monospace" }}>${kl.long_target}</span>
-          </div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#f87171", marginBottom: 4 }}>SHORT</div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
-            <span style={{ color: "#686878" }}>Entry</span>
-            <span style={{ color: "#b8b8c8", fontFamily: "monospace" }}>${piv.pp} – ${piv.r1}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
-            <span style={{ color: "#686878" }}>Stop</span>
-            <span style={{ color: "#f87171", fontFamily: "monospace" }}>${kl.short_stop}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
-            <span style={{ color: "#686878" }}>Target</span>
-            <span style={{ color: "#2bb886", fontFamily: "monospace" }}>${kl.short_target}</span>
-          </div>
-        </Card>
-
-        <Card title="Setups Developing">
-          {d.setups.map((s, i) => (
-            <div key={i} style={{ padding: "6px 0", borderBottom: "1px solid #1a1a24" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
-                  background: s.direction === "LONG" ? "#2bb88620" : s.direction === "SHORT" ? "#f8717120" : "#fbbf2420",
-                  color: s.direction === "LONG" ? "#2bb886" : s.direction === "SHORT" ? "#f87171" : "#fbbf24" }}>{s.direction}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#b8b8c8" }}>{s.name}</span>
-              </div>
-              <div style={{ fontSize: 10, color: "#686878", lineHeight: 1.3 }}>{s.desc}</div>
-            </div>
-          ))}
-        </Card>
+        ))}
       </div>
 
-      {/* Last 5 Bars */}
-      <Card title="Last 5 Bars" style={{ marginBottom: 16 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "monospace" }}>
-          <thead><tr style={{ borderBottom: "2px solid #3a3a4a" }}>
-            {["Date", "Open", "High", "Low", "Close", "Chg%", "RVol", "Trend", "Signal"].map(h => (
-              <th key={h} style={{ padding: "4px 8px", color: "#686878", fontWeight: 600, textAlign: h === "Date" ? "left" : "center", fontSize: 11 }}>{h}</th>
-            ))}
-          </tr></thead>
-          <tbody>
-            {d.last_5_bars.map((b, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #1a1a24" }}>
-                <td style={{ padding: "4px 8px", color: "#9090a0" }}>{b.date}</td>
-                <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878" }}>{b.open}</td>
-                <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878" }}>{b.high}</td>
-                <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878" }}>{b.low}</td>
-                <td style={{ padding: "4px 8px", textAlign: "center", color: "#b8b8c8", fontWeight: 600 }}>{b.close}</td>
-                <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: 600,
-                  color: b.change_pct > 0 ? "#2bb886" : b.change_pct < 0 ? "#f87171" : "#9090a0" }}>
-                  {b.change_pct > 0 ? "+" : ""}{b.change_pct}%</td>
-                <td style={{ padding: "4px 8px", textAlign: "center",
-                  color: b.rvol >= 1.5 ? "#c084fc" : b.rvol >= 1 ? "#9090a0" : "#505060" }}>{b.rvol}x</td>
-                <td style={{ padding: "4px 8px", textAlign: "center",
-                  color: b.trend === "bull" ? "#2bb886" : b.trend === "bear" ? "#f87171" : "#fbbf24" }}>{b.trend}</td>
-                <td style={{ padding: "4px 8px", textAlign: "center",
-                  color: b.signal ? "#60a5fa" : "#3a3a4a", fontWeight: b.signal ? 700 : 400 }}>{b.signal || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      {/* Market Structure */}
+      <Section label="Market Structure">
+        <Prose text={b.market_structure} />
+      </Section>
 
-      {/* Probability Tables */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-        <ProbTable title="Long Win Rates by Signal" data={pt.by_signal_long} />
-        <ProbTable title="Short Win Rates by Signal" data={pt.by_signal_short} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-        <ProbTable title="Long WR by Trend" data={pt.by_trend_long} />
-        <ProbTable title="Long WR by 8W EMA" data={(() => {
-          if (!pt.by_8w_ema_long) return null;
-          const renamed = {};
-          Object.entries(pt.by_8w_ema_long).forEach(([k, v]) => { renamed[k === "1" ? "Above 8W" : "Below 8W"] = v; });
-          return renamed;
-        })()} />
-        <ProbTable title="Long WR by 50 SMA" data={(() => {
-          if (!pt.by_50sma_long) return null;
-          const renamed = {};
-          Object.entries(pt.by_50sma_long).forEach(([k, v]) => { renamed[k === "1" ? "Above 50" : "Below 50"] = v; });
-          return renamed;
-        })()} />
-      </div>
+      {/* Recent Action */}
+      <Section label="Recent Action">
+        <Prose text={b.recent_action} />
+      </Section>
 
-      {/* System Lifetime Stats */}
-      <Card title="v5 System Lifetime Stats" style={{ marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
-          <Stat label="Total Return" value={`${m.total_ret}%`} color="#2bb886" sub={`${m.cagr}% CAGR`} />
-          <Stat label="Trades" value={m.total_trades} color="#b8b8c8" sub={`${m.long_trades}L / ${m.short_trades}S`} />
-          <Stat label="Win Rate" value={`${m.win_rate}%`} color={m.win_rate >= 55 ? "#2bb886" : "#fbbf24"} sub={`L:${m.long_wr}% S:${m.short_wr}%`} />
-          <Stat label="Profit Factor" value={m.pf} color={m.pf >= 1.5 ? "#2bb886" : m.pf >= 1 ? "#fbbf24" : "#f87171"} />
-          <Stat label="Expectancy" value={`${m.exp}%`} color="#2bb886" sub={`$${m.exp_dollar?.toFixed(0)}/trade`} />
-          <Stat label="Max DD" value={`${m.mdd}%`} color="#f87171" sub={`Sharpe ${m.sharpe} | Calmar ${m.calmar}`} />
+      {/* Recommendation — highlighted */}
+      <Section label="Recommendation">
+        <div style={{ padding: "12px 16px", borderRadius: 6,
+          background: d.signal !== 0 ? (d.signal === 1 ? "#2bb88612" : "#f8717112") : "#141420",
+          border: `1px solid ${d.signal !== 0 ? (d.signal === 1 ? "#2bb88640" : "#f8717140") : "#222230"}` }}>
+          <Prose text={b.recommendation} style={{ color: d.signal !== 0 ? "#e0e0ec" : "#b8b8c8" }} />
         </div>
-      </Card>
+      </Section>
+
+      {/* Watch Tomorrow */}
+      <Section label="What to Watch">
+        {(b.watch_tomorrow || []).map((w, i) => (
+          <div key={i} style={{ padding: "6px 0", borderBottom: i < (b.watch_tomorrow?.length || 0) - 1 ? "1px solid #1a1a24" : "none" }}>
+            <Prose text={w} style={{ fontSize: 12 }} />
+          </div>
+        ))}
+      </Section>
+
+      {/* Edge Context */}
+      <Section label="Historical Edge">
+        <Prose text={b.edge_context} style={{ fontSize: 12, color: "#9090a0" }} />
+      </Section>
+
+      {/* Key Levels — compact inline */}
+      <Section label="Key Levels">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, padding: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#505060", marginBottom: 6 }}>MOVING AVERAGES</div>
+            {[
+              ["9 EMA", ema.ema9, d.above_9_ema],
+              ["21 EMA", ema.ema21, d.above_21_ema],
+              ["8W EMA", ema.ema40, d.above_8w_ema],
+              ["50 SMA", ema.sma50, d.above_50_sma],
+            ].map(([label, level, above]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "3px 0" }}>
+                <span style={{ fontSize: 11, color: "#686878" }}>{label}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#b8b8c8" }}>${level}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                    background: above ? "#2bb88615" : "#f8717115", color: above ? "#2bb886" : "#f87171" }}>
+                    {above ? "ABOVE" : "BELOW"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, padding: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#505060", marginBottom: 6 }}>PIVOTS (TOMORROW)</div>
+            {[["R2", piv.r2, "#2bb886"], ["R1", piv.r1, "#2bb886"], ["PP", piv.pp, "#fbbf24"], ["S1", piv.s1, "#f87171"], ["S2", piv.s2, "#f87171"]].map(([l, v, c]) => (
+              <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+                <span style={{ fontSize: 11, color: c, fontWeight: 600 }}>{l}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: "#b8b8c8" }}>${v}</span>
+                  <span style={{ fontSize: 10, color: "#505060", fontFamily: "monospace" }}>{((d.close - v) / v * 100).toFixed(1)}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* Collapsible raw data */}
+      <div style={{ borderTop: "1px solid #1a1a24", paddingTop: 12 }}>
+        <button onClick={() => setShowRaw(!showRaw)}
+          style={{ background: "none", border: "1px solid #2a2a38", borderRadius: 4, padding: "4px 12px",
+            color: "#686878", fontSize: 10, cursor: "pointer", fontFamily: "monospace", textTransform: "uppercase" }}>
+          {showRaw ? "Hide" : "Show"} Probability Tables & System Stats
+        </button>
+        {showRaw && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <ProbTable title="Long Signals" data={pt.by_signal_long} />
+              <ProbTable title="Short Signals" data={pt.by_signal_short} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <ProbTable title="By Trend" data={pt.by_trend_long} />
+              <ProbTable title="By 8W EMA" data={(() => {
+                if (!pt.by_8w_ema_long) return null;
+                const r = {};
+                Object.entries(pt.by_8w_ema_long).forEach(([k, v]) => { r[k === "1" ? "Above 8W" : "Below 8W"] = v; });
+                return r;
+              })()} />
+              <ProbTable title="By 50 SMA" data={(() => {
+                if (!pt.by_50sma_long) return null;
+                const r = {};
+                Object.entries(pt.by_50sma_long).forEach(([k, v]) => { r[k === "1" ? "Above 50" : "Below 50"] = v; });
+                return r;
+              })()} />
+            </div>
+            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#686878", textTransform: "uppercase", marginBottom: 8 }}>v5 System Stats ({m.years}y)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+                {[
+                  ["Return", `${m.total_ret}%`, "#2bb886"],
+                  ["Trades", `${m.total_trades}`, "#b8b8c8"],
+                  ["WR", `${m.win_rate}%`, m.win_rate >= 55 ? "#2bb886" : "#fbbf24"],
+                  ["PF", `${m.pf}`, m.pf >= 1.5 ? "#2bb886" : "#fbbf24"],
+                  ["Sharpe", `${m.sharpe}`, "#b8b8c8"],
+                  ["MDD", `${m.mdd}%`, "#f87171"],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 9, color: "#505060", textTransform: "uppercase" }}>{label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: "monospace" }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
