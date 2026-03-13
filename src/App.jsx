@@ -5328,6 +5328,39 @@ function TQQQView() {
           background: d.signal !== 0 ? (d.signal === 1 ? "#2bb88612" : "#f8717112") : "#141420",
           border: `1px solid ${d.signal !== 0 ? (d.signal === 1 ? "#2bb88640" : "#f8717140") : "#222230"}` }}>
           <Prose text={b.recommendation} style={{ color: d.signal !== 0 ? "#e0e0ec" : "#b8b8c8" }} />
+          {/* Last signals */}
+          <div style={{ display: "flex", gap: 16, marginTop: 10, paddingTop: 10, borderTop: "1px solid #222230" }}>
+            {d.last_long_signal && (() => {
+              const s = d.last_long_signal;
+              const pnlColor = s.pnl_pct > 0 ? "#2bb886" : s.pnl_pct < 0 ? "#f87171" : "#9090a0";
+              return (
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 9, color: "#505060", textTransform: "uppercase", marginBottom: 3 }}>Last Long</div>
+                  <div style={{ fontSize: 12, color: "#b8b8c8" }}>
+                    <span style={{ color: "#2bb886", fontWeight: 700 }}>{s.signal}</span>
+                    <span style={{ color: "#686878" }}> on {s.date}</span>
+                    <span style={{ color: pnlColor, fontWeight: 700 }}> {s.pnl_pct > 0 ? "+" : ""}{s.pnl_pct}%</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: "#505060" }}>${s.entry} → ${s.exit} ({s.exit_reason}, {s.days_held}d)</div>
+                </div>
+              );
+            })()}
+            {d.last_short_signal && (() => {
+              const s = d.last_short_signal;
+              const pnlColor = s.pnl_pct > 0 ? "#2bb886" : s.pnl_pct < 0 ? "#f87171" : "#9090a0";
+              return (
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 9, color: "#505060", textTransform: "uppercase", marginBottom: 3 }}>Last Short</div>
+                  <div style={{ fontSize: 12, color: "#b8b8c8" }}>
+                    <span style={{ color: "#f87171", fontWeight: 700 }}>{s.signal}</span>
+                    <span style={{ color: "#686878" }}> on {s.date}</span>
+                    <span style={{ color: pnlColor, fontWeight: 700 }}> {s.pnl_pct > 0 ? "+" : ""}{s.pnl_pct}%</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: "#505060" }}>${s.entry} → ${s.exit} ({s.exit_reason}, {s.days_held}d)</div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       </Section>
 
@@ -5382,6 +5415,50 @@ function TQQQView() {
           </div>
         </div>
       </Section>
+
+      {/* Recent Trades (collapsible) */}
+      {d.recent_trades && d.recent_trades.length > 0 && (() => {
+        const rt = d.recent_trades;
+        const wins = rt.filter(t => t.pnl_pct > 0).length;
+        const totalPnl = rt.reduce((s, t) => s + t.pnl_pct, 0);
+        return (
+          <Section label={`Trade Log — Last 12 Months (${rt.length} trades, ${wins}W/${rt.length - wins}L, ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}% total)`}>
+            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+                <thead><tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                  {["Entry", "Exit", "Dir", "Signal", "Entry $", "Exit $", "P&L", "Exit Reason", "Days"].map(h => (
+                    <th key={h} style={{ padding: "6px 8px", color: "#505060", fontWeight: 600, textAlign: h === "P&L" ? "right" : "left", fontSize: 10, textTransform: "uppercase" }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {rt.map((t, i) => {
+                    const pnlColor = t.pnl_pct > 0 ? "#2bb886" : t.pnl_pct < 0 ? "#f87171" : "#9090a0";
+                    const dirColor = t.direction === "Long" ? "#2bb886" : "#f87171";
+                    return (
+                      <tr key={i} style={{ borderBottom: "1px solid #1a1a20" }}>
+                        <td style={{ padding: "5px 8px", color: "#9090a0" }}>{t.entry_date}</td>
+                        <td style={{ padding: "5px 8px", color: "#686878" }}>{t.exit_date}</td>
+                        <td style={{ padding: "5px 8px" }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                            background: dirColor + "15", color: dirColor }}>{t.direction === "Long" ? "L" : "S"}</span>
+                        </td>
+                        <td style={{ padding: "5px 8px", color: "#b8b8c8" }}>{t.signal}</td>
+                        <td style={{ padding: "5px 8px", color: "#686878" }}>${t.entry}</td>
+                        <td style={{ padding: "5px 8px", color: "#686878" }}>${t.exit}</td>
+                        <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: pnlColor }}>
+                          {t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%
+                        </td>
+                        <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10 }}>{t.exit_reason}</td>
+                        <td style={{ padding: "5px 8px", color: "#505060", textAlign: "center" }}>{t.days_held}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        );
+      })()}
 
       {/* Collapsible raw data */}
       <div style={{ borderTop: "1px solid #1a1a24", paddingTop: 12 }}>
