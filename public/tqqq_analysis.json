@@ -1,33 +1,33 @@
 {
-  "generated": "2026-03-13T09:08:39.018904",
+  "generated": "2026-03-13T09:15:48.388777",
   "date": "2026-03-13",
-  "close": 46.31,
+  "close": 46.17,
   "trend": "bear",
-  "rvol": 0.75,
-  "adr_pct": 5.03,
+  "rvol": 0.77,
+  "adr_pct": 5.05,
   "above_8w_ema": false,
   "above_50_sma": false,
   "above_21_ema": false,
-  "correction_depth": -10.9,
+  "correction_depth": -11.1,
   "signal": 0,
   "signal_type": "",
   "tomorrow_pivots": {
-    "pp": 46.82,
-    "r1": 47.74,
-    "r2": 49.16,
-    "s1": 45.4,
-    "s2": 44.48
+    "pp": 46.78,
+    "r1": 47.64,
+    "r2": 49.12,
+    "s1": 45.3,
+    "s2": 44.44
   },
   "key_levels": {
-    "long_stop": 40.48,
-    "long_target": 55.63,
-    "short_stop": 52.14,
-    "short_target": 36.99
+    "long_stop": 40.34,
+    "long_target": 55.49,
+    "short_stop": 52.0,
+    "short_target": 36.85
   },
   "ema_levels": {
-    "ema9": 48.46,
-    "ema21": 49.37,
-    "ema40": 50.46,
+    "ema9": 48.43,
+    "ema21": 49.36,
+    "ema40": 50.45,
     "sma50": 51.66
   },
   "probability_tables": {
@@ -219,29 +219,29 @@
     "cap": 100000,
     "final_eq": 944414.5,
     "years": 7.2,
-    "bh_ret": 885.32,
-    "bh_cagr": 37.45
+    "bh_ret": 882.34,
+    "bh_cagr": 37.39
   },
   "above_9_ema": false,
   "ftd_active": false,
-  "dist_count": 6,
+  "dist_count": 7,
   "consec_below_50": 28,
   "consec_below_21": 12,
   "consec_above_21": 0,
-  "body_pct": 2.1,
+  "body_pct": 2.4,
   "bullish_candle": false,
   "bias": "BEARISH",
   "long_pct": 9.0,
   "short_pct": 91.0,
   "briefing": {
     "headline": "Bear trend intact. All moving averages stacked against longs. No trade.",
-    "market_structure": "TQQQ at $46.31 is below all major moving averages \u2014 9 EMA ($48.46), 21 EMA ($49.37), 8-week EMA ($50.46), 50 SMA ($51.66). This is a confirmed downtrend with all averages stacked bearishly. Price has been below the 50 SMA for 28 consecutive days. Below 21 EMA for 12 straight sessions. Currently in a -10.9% correction from recent highs. Distribution is elevated at 6 days in the last 25 \u2014 institutional selling pressure.",
-    "recent_action": "Mar 09: rallied 6.9% on 1.5x volume. Today closed with a moderate bearish candle (-2.1%) on below-average volume (0.75x).",
-    "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and volume is weak (0.75x RVOL). The system will signal when specific price-pivot-volume conditions align.",
+    "market_structure": "TQQQ at $46.17 is below all major moving averages \u2014 9 EMA ($48.43), 21 EMA ($49.36), 8-week EMA ($50.45), 50 SMA ($51.66). This is a confirmed downtrend with all averages stacked bearishly. Price has been below the 50 SMA for 28 consecutive days. Below 21 EMA for 12 straight sessions. Currently in a -11.1% correction from recent highs. Distribution is elevated at 7 days in the last 25 \u2014 institutional selling pressure.",
+    "recent_action": "Mar 09: rallied 6.9% on 1.5x volume. Today closed with a moderate bearish candle (-2.4%) on below-average volume (0.77x).",
+    "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and volume is weak (0.77x RVOL) and distribution days elevated (7) \u2014 long entries paused (historically 47% WR when dist >= 7). The system will signal when specific price-pivot-volume conditions align.",
     "watch_tomorrow": [
-      "Bullish: Reclaim of 9 EMA ($48.46) would be the first bullish step. Close above 21 EMA ($49.37) triggers 21EMA Reclaim signal (60.0% WR).",
-      "Bearish: Pivot Reject at PP ($46.82) on 1.5x+ RVOL triggers short (90.9% WR). Break of S1 ($45.4) opens path to S2 ($44.48).",
-      "Key pivot for tomorrow is $46.82 \u2014 above is constructive, below is vulnerable."
+      "Bullish: Reclaim of 9 EMA ($48.43) would be the first bullish step. Close above 21 EMA ($49.36) triggers 21EMA Reclaim signal (60.0% WR).",
+      "Bearish: Pivot Reject at PP ($46.78) on 1.5x+ RVOL triggers short (90.9% WR). Break of S1 ($45.3) opens path to S2 ($44.44).",
+      "Key pivot for tomorrow is $46.78 \u2014 above is constructive, below is vulnerable."
     ],
     "edge_context": " Short signals in bear trend: 61.9% WR across 21 trades, +3.8% avg. Below 8W EMA: long WR drops to 60.0%. v5 system: 109 trades, 63.3% WR, 1.72 PF, 844.41% total return over 7.2y.",
     "risk_level": "HIGH",
@@ -1109,7 +1109,7 @@
     {
       "name": "FTD Watch",
       "direction": "LONG",
-      "desc": "In correction (-10.9%), FTD could fire on up day with volume"
+      "desc": "In correction (-11.1%), FTD could fire on up day with volume"
     }
   ],
   "last_5_bars": [
@@ -1162,9 +1162,9 @@
       "open": 47.31,
       "high": 48.25,
       "low": 45.91,
-      "close": 46.31,
-      "change_pct": -2.1,
-      "rvol": 0.75,
+      "close": 46.17,
+      "change_pct": -2.4,
+      "rvol": 0.77,
       "trend": "bear",
       "signal": null
     }
