@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-12T19:53:38.187477",
+  "generated": "2026-03-12T21:04:08.286759",
   "date": "2026-03-12",
   "close": 47.71,
   "trend": "bear",
@@ -34,44 +34,44 @@
     "by_signal_long": {
       "21EMA Dip Buy": {
         "trades": 27,
-        "wins": 19,
-        "avg_pnl": 3.344074074074074,
-        "total_pnl": 232378.14,
-        "wr": 70.4
+        "wins": 18,
+        "avg_pnl": 3.271111111111111,
+        "total_pnl": 231920.58,
+        "wr": 66.7
       },
       "21EMA Reclaim": {
         "trades": 14,
         "wins": 9,
         "avg_pnl": 1.804285714285714,
-        "total_pnl": 76734.29000000001,
+        "total_pnl": 78038.45000000001,
         "wr": 64.3
       },
       "50SMA Reclaim": {
         "trades": 17,
         "wins": 7,
-        "avg_pnl": 2.587647058823529,
-        "total_pnl": 138457.91,
+        "avg_pnl": 2.7788235294117647,
+        "total_pnl": 156599.22999999998,
         "wr": 41.2
       },
       "FTD": {
         "trades": 31,
         "wins": 17,
-        "avg_pnl": 0.5916129032258064,
-        "total_pnl": 107276.30000000002,
+        "avg_pnl": 0.6412903225806451,
+        "total_pnl": 116596.62000000001,
         "wr": 54.8
       },
       "Pivot Reclaim": {
         "trades": 34,
         "wins": 20,
         "avg_pnl": 0.7320588235294118,
-        "total_pnl": 56377.770000000004,
+        "total_pnl": 57263.89999999999,
         "wr": 58.8
       },
       "Support Bounce": {
         "trades": 21,
         "wins": 12,
-        "avg_pnl": 0.09904761904761913,
-        "total_pnl": -16646.73000000001,
+        "avg_pnl": 0.12809523809523815,
+        "total_pnl": -15329.25,
         "wr": 57.1
       }
     },
@@ -79,22 +79,22 @@
       "21EMA Break": {
         "trades": 3,
         "wins": 2,
-        "avg_pnl": 0.6466666666666666,
-        "total_pnl": 19860.23,
+        "avg_pnl": 1.0233333333333332,
+        "total_pnl": 23039.14,
         "wr": 66.7
       },
       "Pivot Reject": {
         "trades": 14,
         "wins": 11,
         "avg_pnl": 5.797142857142857,
-        "total_pnl": 70488.59999999998,
+        "total_pnl": 69831.94999999997,
         "wr": 78.6
       },
       "Volume Surge Short": {
         "trades": 8,
         "wins": 2,
         "avg_pnl": -0.1937500000000002,
-        "total_pnl": 12771.349999999984,
+        "total_pnl": 13507.990000000005,
         "wr": 25.0
       }
     },
@@ -103,21 +103,21 @@
         "trades": 10,
         "wins": 6,
         "avg_pnl": -0.259,
-        "total_pnl": 31478.530000000002,
+        "total_pnl": 32696.09,
         "wr": 60.0
       },
       "bull": {
         "trades": 120,
-        "wins": 72,
-        "avg_pnl": 1.6470833333333332,
-        "total_pnl": 496269.24,
-        "wr": 60.0
+        "wins": 71,
+        "avg_pnl": 1.6628333333333332,
+        "total_pnl": 517925.01,
+        "wr": 59.2
       },
       "neutral": {
         "trades": 14,
         "wins": 6,
-        "avg_pnl": 0.6992857142857144,
-        "total_pnl": 66829.91,
+        "avg_pnl": 0.8092857142857144,
+        "total_pnl": 74468.43,
         "wr": 42.9
       }
     },
@@ -125,8 +125,8 @@
       "bear": {
         "trades": 25,
         "wins": 15,
-        "avg_pnl": 3.262,
-        "total_pnl": 103120.18,
+        "avg_pnl": 3.3072,
+        "total_pnl": 106379.07999999996,
         "wr": 60.0
       }
     },
@@ -135,21 +135,21 @@
         "trades": 3,
         "wins": 1,
         "avg_pnl": -3.48,
-        "total_pnl": -14170.519999999999,
+        "total_pnl": -14164.369999999999,
         "wr": 33.3
       },
       "low": {
         "trades": 75,
-        "wins": 46,
-        "avg_pnl": 1.7925333333333333,
-        "total_pnl": 457016.89,
-        "wr": 61.3
+        "wins": 45,
+        "avg_pnl": 1.7868,
+        "total_pnl": 467726.79,
+        "wr": 60.0
       },
       "med": {
         "trades": 66,
         "wins": 37,
-        "avg_pnl": 1.2249999999999999,
-        "total_pnl": 151731.31,
+        "avg_pnl": 1.2834848484848485,
+        "total_pnl": 171527.11,
         "wr": 56.1
       }
     },
@@ -157,16 +157,16 @@
       "0": {
         "trades": 18,
         "wins": 10,
-        "avg_pnl": 1.153888888888889,
-        "total_pnl": 105193.88,
+        "avg_pnl": 1.2394444444444443,
+        "total_pnl": 112984.39,
         "wr": 55.6
       },
       "1": {
         "trades": 126,
-        "wins": 74,
-        "avg_pnl": 1.4609523809523808,
-        "total_pnl": 489383.8,
-        "wr": 58.7
+        "wins": 73,
+        "avg_pnl": 1.475952380952381,
+        "total_pnl": 512105.14,
+        "wr": 57.9
       }
     },
     "by_50sma_long": {
@@ -174,15 +174,15 @@
         "trades": 20,
         "wins": 11,
         "avg_pnl": 0.7224999999999999,
-        "total_pnl": 107299.26000000001,
+        "total_pnl": 111656.28,
         "wr": 55.0
       },
       "1": {
         "trades": 124,
-        "wins": 73,
-        "avg_pnl": 1.5354838709677419,
-        "total_pnl": 487278.42,
-        "wr": 58.9
+        "wins": 72,
+        "avg_pnl": 1.5631451612903224,
+        "total_pnl": 513433.25,
+        "wr": 58.1
       }
     }
   },
@@ -190,27 +190,27 @@
     "total_trades": 169,
     "long_trades": 144,
     "short_trades": 25,
-    "win_rate": 58.6,
-    "long_wr": 58.3,
+    "win_rate": 58.0,
+    "long_wr": 57.6,
     "short_wr": 60.0,
-    "avg_win": 7.22,
-    "avg_loss": -6.12,
+    "avg_win": 7.27,
+    "avg_loss": -5.94,
     "best_trade": 35.78,
     "worst_trade": -29.98,
-    "pf": 1.39,
-    "exp": 1.69,
-    "exp_dollar": 4128.39,
-    "total_pnl": 697697.86,
-    "total_ret": 697.7,
-    "cagr": 33.49,
-    "mdd": -41.97,
-    "sharpe": 0.95,
-    "calmar": 0.8,
+    "pf": 1.41,
+    "exp": 1.72,
+    "exp_dollar": 4328.22,
+    "total_pnl": 731468.61,
+    "total_ret": 731.47,
+    "cagr": 34.26,
+    "mdd": -41.09,
+    "sharpe": 0.96,
+    "calmar": 0.83,
     "avg_hold": 5.2,
     "max_win_streak": 7,
     "max_loss_streak": 8,
     "cap": 100000,
-    "final_eq": 797697.87,
+    "final_eq": 831468.62,
     "years": 7.2,
     "bh_ret": 915.11,
     "bh_cagr": 38.04
@@ -236,7 +236,7 @@
       "Bearish: Pivot Reject at PP ($47.69) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($46.89) opens path to S2 ($46.07).",
       "Key pivot for tomorrow is $47.69 \u2014 above is constructive, below is vulnerable."
     ],
-    "edge_context": "In bear trend, long signals have historically shown 60.0% win rate across 10 trades with -0.3% avg P&L. Short signals in bear trend: 60.0% WR across 25 trades, +3.3% avg. Below 8W EMA: long WR drops to 55.6%. v5 system: 169 trades, 58.6% WR, 1.39 PF, 697.7% total return over 7.2y.",
+    "edge_context": "In bear trend, long signals have historically shown 60.0% win rate across 10 trades with -0.3% avg P&L. Short signals in bear trend: 60.0% WR across 25 trades, +3.3% avg. Below 8W EMA: long WR drops to 55.6%. v5 system: 169 trades, 58.0% WR, 1.41 PF, 731.47% total return over 7.2y.",
     "risk_level": "HIGH",
     "risk_description": "Elevated risk environment \u2014 wide ranges, bearish structure, distribution present."
   },
@@ -478,7 +478,7 @@
       "entry": 52.37,
       "exit": 52.12,
       "pnl_pct": 0.48,
-      "exit_reason": "Trail Stop",
+      "exit_reason": "Stop Loss",
       "days_held": 4
     },
     {
@@ -531,9 +531,9 @@
       "direction": "Long",
       "signal": "50SMA Reclaim",
       "entry": 53.9,
-      "exit": 53.26,
-      "pnl_pct": -1.19,
-      "exit_reason": "Trail Stop",
+      "exit": 53.9,
+      "pnl_pct": 0.0,
+      "exit_reason": "Stop Loss",
       "days_held": 5
     },
     {
