@@ -1,0 +1,293 @@
+{
+  "generated": "2026-03-12T17:52:18.526152",
+  "date": "2026-03-12",
+  "close": 47.71,
+  "trend": "bear",
+  "rvol": 0.75,
+  "adr_pct": 4.87,
+  "above_8w_ema": false,
+  "above_50_sma": false,
+  "above_21_ema": false,
+  "correction_depth": -8.4,
+  "signal": 0,
+  "signal_type": "",
+  "tomorrow_pivots": {
+    "pp": 47.69,
+    "r1": 48.51,
+    "r2": 49.31,
+    "s1": 46.89,
+    "s2": 46.07
+  },
+  "key_levels": {
+    "long_stop": 41.91,
+    "long_target": 57.0,
+    "short_stop": 53.51,
+    "short_target": 38.42
+  },
+  "ema_levels": {
+    "ema9": 49.0,
+    "ema21": 49.68,
+    "ema40": 50.67,
+    "sma50": 51.82
+  },
+  "probability_tables": {
+    "by_signal_long": {
+      "21EMA Dip Buy": {
+        "trades": 27,
+        "wins": 19,
+        "avg_pnl": 3.344074074074074,
+        "total_pnl": 232378.14,
+        "wr": 70.4
+      },
+      "21EMA Reclaim": {
+        "trades": 14,
+        "wins": 9,
+        "avg_pnl": 1.804285714285714,
+        "total_pnl": 76734.29000000001,
+        "wr": 64.3
+      },
+      "50SMA Reclaim": {
+        "trades": 17,
+        "wins": 7,
+        "avg_pnl": 2.587647058823529,
+        "total_pnl": 138457.91,
+        "wr": 41.2
+      },
+      "FTD": {
+        "trades": 31,
+        "wins": 17,
+        "avg_pnl": 0.5916129032258064,
+        "total_pnl": 107276.30000000002,
+        "wr": 54.8
+      },
+      "Pivot Reclaim": {
+        "trades": 34,
+        "wins": 20,
+        "avg_pnl": 0.7320588235294118,
+        "total_pnl": 56377.770000000004,
+        "wr": 58.8
+      },
+      "Support Bounce": {
+        "trades": 21,
+        "wins": 12,
+        "avg_pnl": 0.09904761904761913,
+        "total_pnl": -16646.73000000001,
+        "wr": 57.1
+      }
+    },
+    "by_signal_short": {
+      "21EMA Break": {
+        "trades": 3,
+        "wins": 2,
+        "avg_pnl": 0.6466666666666666,
+        "total_pnl": 19860.23,
+        "wr": 66.7
+      },
+      "Pivot Reject": {
+        "trades": 14,
+        "wins": 11,
+        "avg_pnl": 5.797142857142857,
+        "total_pnl": 70488.59999999998,
+        "wr": 78.6
+      },
+      "Volume Surge Short": {
+        "trades": 8,
+        "wins": 2,
+        "avg_pnl": -0.1937500000000002,
+        "total_pnl": 12771.349999999984,
+        "wr": 25.0
+      }
+    },
+    "by_trend_long": {
+      "bear": {
+        "trades": 10,
+        "wins": 6,
+        "avg_pnl": -0.259,
+        "total_pnl": 31478.530000000002,
+        "wr": 60.0
+      },
+      "bull": {
+        "trades": 120,
+        "wins": 72,
+        "avg_pnl": 1.6470833333333332,
+        "total_pnl": 496269.24,
+        "wr": 60.0
+      },
+      "neutral": {
+        "trades": 14,
+        "wins": 6,
+        "avg_pnl": 0.6992857142857144,
+        "total_pnl": 66829.91,
+        "wr": 42.9
+      }
+    },
+    "by_trend_short": {
+      "bear": {
+        "trades": 25,
+        "wins": 15,
+        "avg_pnl": 3.262,
+        "total_pnl": 103120.18,
+        "wr": 60.0
+      }
+    },
+    "by_rvol_long": {
+      "high": {
+        "trades": 3,
+        "wins": 1,
+        "avg_pnl": -3.48,
+        "total_pnl": -14170.519999999999,
+        "wr": 33.3
+      },
+      "low": {
+        "trades": 75,
+        "wins": 46,
+        "avg_pnl": 1.7925333333333333,
+        "total_pnl": 457016.89,
+        "wr": 61.3
+      },
+      "med": {
+        "trades": 66,
+        "wins": 37,
+        "avg_pnl": 1.2249999999999999,
+        "total_pnl": 151731.31,
+        "wr": 56.1
+      }
+    },
+    "by_8w_ema_long": {
+      "0": {
+        "trades": 18,
+        "wins": 10,
+        "avg_pnl": 1.153888888888889,
+        "total_pnl": 105193.88,
+        "wr": 55.6
+      },
+      "1": {
+        "trades": 126,
+        "wins": 74,
+        "avg_pnl": 1.4609523809523808,
+        "total_pnl": 489383.8,
+        "wr": 58.7
+      }
+    },
+    "by_50sma_long": {
+      "0": {
+        "trades": 20,
+        "wins": 11,
+        "avg_pnl": 0.7224999999999999,
+        "total_pnl": 107299.26000000001,
+        "wr": 55.0
+      },
+      "1": {
+        "trades": 124,
+        "wins": 73,
+        "avg_pnl": 1.5354838709677419,
+        "total_pnl": 487278.42,
+        "wr": 58.9
+      }
+    }
+  },
+  "system_metrics": {
+    "total_trades": 169,
+    "long_trades": 144,
+    "short_trades": 25,
+    "win_rate": 58.6,
+    "long_wr": 58.3,
+    "short_wr": 60.0,
+    "avg_win": 7.22,
+    "avg_loss": -6.12,
+    "best_trade": 35.78,
+    "worst_trade": -29.98,
+    "pf": 1.39,
+    "exp": 1.69,
+    "exp_dollar": 4128.39,
+    "total_pnl": 697697.86,
+    "total_ret": 697.7,
+    "cagr": 33.49,
+    "mdd": -41.97,
+    "sharpe": 0.95,
+    "calmar": 0.8,
+    "avg_hold": 5.2,
+    "max_win_streak": 7,
+    "max_loss_streak": 8,
+    "cap": 100000,
+    "final_eq": 797697.87,
+    "years": 7.2,
+    "bh_ret": 915.11,
+    "bh_cagr": 38.04
+  },
+  "above_9_ema": false,
+  "ftd_active": false,
+  "dist_count": 7,
+  "consec_below_50": 27,
+  "consec_below_21": 11,
+  "consec_above_21": 0,
+  "body_pct": 0.9,
+  "bullish_candle": false,
+  "bias": "BEARISH",
+  "long_pct": 0.0,
+  "short_pct": 100.0,
+  "setups": [
+    {
+      "name": "FLAT",
+      "direction": "NONE",
+      "desc": "No clear setups developing. Wait for alignment."
+    }
+  ],
+  "last_5_bars": [
+    {
+      "date": "2026-03-06",
+      "open": 47.66,
+      "high": 49.05,
+      "low": 47.18,
+      "close": 47.54,
+      "change_pct": -0.3,
+      "rvol": 1.36,
+      "trend": "bear",
+      "signal": null
+    },
+    {
+      "date": "2026-03-09",
+      "open": 46.19,
+      "high": 49.77,
+      "low": 45.5,
+      "close": 49.39,
+      "change_pct": 6.9,
+      "rvol": 1.51,
+      "trend": "bear",
+      "signal": "FTD"
+    },
+    {
+      "date": "2026-03-10",
+      "open": 49.41,
+      "high": 50.74,
+      "low": 48.83,
+      "close": 49.4,
+      "change_pct": -0.0,
+      "rvol": 1.07,
+      "trend": "bear",
+      "signal": null
+    },
+    {
+      "date": "2026-03-11",
+      "open": 49.68,
+      "high": 50.52,
+      "low": 48.73,
+      "close": 49.35,
+      "change_pct": -0.7,
+      "rvol": 0.82,
+      "trend": "bear",
+      "signal": null
+    },
+    {
+      "date": "2026-03-12",
+      "open": 48.15,
+      "high": 48.49,
+      "low": 46.87,
+      "close": 47.71,
+      "change_pct": -0.9,
+      "rvol": 0.75,
+      "trend": "bear",
+      "signal": null
+    }
+  ]
+}
