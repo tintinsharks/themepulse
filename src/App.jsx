@@ -5422,7 +5422,7 @@ function TQQQView() {
         const wins = rt.filter(t => t.pnl_pct > 0).length;
         const totalPnl = rt.reduce((s, t) => s + t.pnl_pct, 0);
         return (
-          <Section label={`Trade Log — Last 12 Months (${rt.length} trades, ${wins}W/${rt.length - wins}L, ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}% total)`}>
+          <Section label={`Trade Log — Last 5 Years (${rt.length} trades, ${wins}W/${rt.length - wins}L, ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}% total)`}>
             <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
                 <thead><tr style={{ borderBottom: "1px solid #2a2a38" }}>
