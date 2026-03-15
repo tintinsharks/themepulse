@@ -5219,6 +5219,7 @@ function TQQQView() {
     try { return JSON.parse(localStorage.getItem("tp_tqqq_trade")) || {}; } catch { return {}; }
   });
   const [tradeMode, setTradeMode] = useState("open"); // 'open' or 'closed'
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   useEffect(() => {
     fetch("/tqqq_analysis.json").then(r => r.json()).then(setD).catch(e => setErr(e.message));
@@ -5379,7 +5380,7 @@ function TQQQView() {
           setTradeInput(next);
           localStorage.setItem("tp_tqqq_trade", JSON.stringify(next));
         };
-        const clearTrade = () => { setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); };
+        const clearTrade = () => { setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); setShowAnalysis(false); };
 
         const bizDays = (startStr, endStr) => {
           if (!startStr || !endStr) return 0;
@@ -5573,98 +5574,100 @@ function TQQQView() {
                       <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.exitPrice || ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade("exitPrice", e.target.value); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                     </div>
                   </>}
+                  {/* Analyze button */}
+                  <div style={{ display: "flex", alignItems: "flex-end" }}>
+                    <button onClick={() => setShowAnalysis(true)}
+                      style={{ background: entry > 0 && entryDate ? "#c084fc" : "#2a2a38", border: "none", borderRadius: 4, padding: "6px 14px",
+                        color: entry > 0 && entryDate ? "#fff" : "#505060", fontSize: 11, fontWeight: 700, cursor: entry > 0 && entryDate ? "pointer" : "default",
+                        fontFamily: "monospace", whiteSpace: "nowrap" }}>Analyze</button>
+                  </div>
                 </div>
                 {hasEntry && <div style={{ fontSize: 9, color: "#3a3a4a", marginTop: 8, fontStyle: "italic" }}>
                   ADR ${adrDollar.toFixed(2)} ({d.adr_pct}%) as of {d.date}
                 </div>}
-              </div>
-            </Section>
 
-            {/* ── BOX 2: STRATEGY RECOMMENDATIONS (separate) ── */}
-            {hasEntry && (
-              <Section label="Strategy Recommendations">
-                {/* Consensus bar */}
-                {(() => {
+                {/* ── INLINE STRATEGY ANALYSIS ── */}
+                {hasEntry && showAnalysis && (() => {
                   const results = stratDefs.map(s => analyzeStrategy(s.key, d.strategies?.[s.key])).filter(a => a && !a.na);
                   const exits = results.filter(a => a.stopHit || a.targetHit || a.emaExitTriggered || a.maxHoldReached);
                   const holds = results.filter(a => !a.stopHit && !a.targetHit && !a.emaExitTriggered && !a.maxHoldReached);
-                  if (results.length === 0) return null;
-                  const consensus = exits.length > holds.length ? "EXIT" : exits.length === holds.length ? "MIXED" : "HOLD";
+                  const consensus = results.length === 0 ? null : exits.length > holds.length ? "EXIT" : exits.length === holds.length ? "MIXED" : "HOLD";
                   const cColor = consensus === "EXIT" ? "#f87171" : consensus === "HOLD" ? "#2bb886" : "#fbbf24";
                   return (
-                    <div style={{ padding: "10px 14px", borderRadius: 8, background: cColor + "12", border: `1px solid ${cColor}35`, marginBottom: 12,
-                      display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: cColor, letterSpacing: 1 }}>CONSENSUS: {consensus}</span>
-                        <span style={{ fontSize: 11, color: "#686878", marginLeft: 10 }}>
-                          {holds.length} hold / {exits.length} exit across {results.length} strategies
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", gap: 3 }}>
-                        {results.map((a, i) => (
-                          <div key={i} style={{ width: 8, height: 8, borderRadius: "50%",
-                            background: (a.stopHit || a.targetHit || a.emaExitTriggered || a.maxHoldReached) ? "#f87171" : "#2bb886" }} />
-                        ))}
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #222230" }}>
+                      {/* Consensus bar */}
+                      {consensus && (
+                        <div style={{ padding: "8px 12px", borderRadius: 6, background: cColor + "12", border: `1px solid ${cColor}35`, marginBottom: 10,
+                          display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: cColor, letterSpacing: 1 }}>CONSENSUS: {consensus}</span>
+                            <span style={{ fontSize: 10, color: "#686878", marginLeft: 8 }}>
+                              {holds.length} hold / {exits.length} exit
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 3 }}>
+                            {results.map((a, i) => (
+                              <div key={i} style={{ width: 7, height: 7, borderRadius: "50%",
+                                background: (a.stopHit || a.targetHit || a.emaExitTriggered || a.maxHoldReached) ? "#f87171" : "#2bb886" }} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* 4-strategy cards */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {stratDefs.map(({ key, label, color }) => {
+                          const strat = d.strategies?.[key];
+                          const a = analyzeStrategy(key, strat);
+                          if (!a) return null;
+                          if (a.na) return (
+                            <div key={key} style={{ background: "#0d0d18", border: "1px solid #1a1a24", borderRadius: 6, padding: 10, opacity: 0.4 }}>
+                              <span style={{ fontSize: 11, fontWeight: 800, color }}>{label}</span>
+                              <span style={{ fontSize: 10, color: "#505060", marginLeft: 6 }}>{a.reason}</span>
+                            </div>
+                          );
+                          return (
+                            <div key={key} style={{ background: "#0d0d18", border: "1px solid #1a1a24", borderRadius: 6, padding: 10 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <span style={{ fontSize: 11, fontWeight: 800, color }}>{label}</span>
+                                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 3,
+                                  background: a.recColor + "20", color: a.recColor }}>{a.rec}</span>
+                              </div>
+                              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                                <div style={{ flex: 1, textAlign: "center" }}>
+                                  <div style={{ fontSize: 7, color: "#f87171", textTransform: "uppercase", marginBottom: 1 }}>Stop</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: a.stopHit ? "#f87171" : "#b8b8c8" }}>${a.stopLoss.toFixed(2)}</div>
+                                  <div style={{ fontSize: 8, color: "#505060" }}>{((a.stopLoss - entry) / entry * 100).toFixed(1)}%</div>
+                                </div>
+                                <div style={{ width: 1, background: "#1a1a24" }} />
+                                <div style={{ flex: 1, textAlign: "center" }}>
+                                  <div style={{ fontSize: 7, color: "#2bb886", textTransform: "uppercase", marginBottom: 1 }}>Target</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: a.targetHit ? "#2bb886" : "#b8b8c8" }}>${a.target.toFixed(2)}</div>
+                                  <div style={{ fontSize: 8, color: "#505060" }}>{((a.target - entry) / entry * 100).toFixed(1)}%</div>
+                                </div>
+                                <div style={{ width: 1, background: "#1a1a24" }} />
+                                <div style={{ flex: 1, textAlign: "center" }}>
+                                  <div style={{ fontSize: 7, color: "#686878", textTransform: "uppercase", marginBottom: 1 }}>Hold</div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: a.daysRemaining <= 1 ? "#fbbf24" : "#b8b8c8" }}>{a.daysHeld}/{a.effectiveMaxHold}d</div>
+                                  <div style={{ fontSize: 8, color: "#505060" }}>{a.daysRemaining}d left</div>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                                {a.ratchetActive && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, background: "#2bb88615", color: "#2bb886" }}>RATCHET</span>}
+                                {a.timeDecayActive && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, background: "#fbbf2415", color: "#fbbf24" }}>DECAY D{a.daysHeld}</span>}
+                                {a.emaExitTriggered && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, background: "#f8717115", color: "#f87171" }}>8W EMA</span>}
+                                {a.stopHit && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, background: "#f8717115", color: "#f87171" }}>STOP HIT</span>}
+                                {a.targetHit && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, background: "#2bb88615", color: "#2bb886" }}>TARGET HIT</span>}
+                                {a.maxHoldReached && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, background: "#fbbf2415", color: "#fbbf24" }}>MAX HOLD</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
                 })()}
-
-                {/* 4-strategy cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {stratDefs.map(({ key, label, color }) => {
-                    const strat = d.strategies?.[key];
-                    const a = analyzeStrategy(key, strat);
-                    if (!a) return null;
-                    if (a.na) return (
-                      <div key={key} style={{ background: "#141420", border: "1px solid #1a1a24", borderRadius: 8, padding: 12, opacity: 0.4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 800, color }}>{label}</span>
-                        <span style={{ fontSize: 11, color: "#505060", marginLeft: 8 }}>{a.reason}</span>
-                      </div>
-                    );
-                    return (
-                      <div key={key} style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 14 }}>
-                        {/* Header: label + recommendation badge */}
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                          <span style={{ fontSize: 13, fontWeight: 800, color }}>{label}</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4,
-                            background: a.recColor + "20", color: a.recColor }}>{a.rec}</span>
-                        </div>
-                        {/* Stop / Target / Hold row */}
-                        <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
-                          <div style={{ flex: 1, textAlign: "center" }}>
-                            <div style={{ fontSize: 8, color: "#f87171", textTransform: "uppercase", marginBottom: 2 }}>Stop</div>
-                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: a.stopHit ? "#f87171" : "#b8b8c8" }}>${a.stopLoss.toFixed(2)}</div>
-                            <div style={{ fontSize: 9, color: "#505060" }}>{((a.stopLoss - entry) / entry * 100).toFixed(1)}%</div>
-                          </div>
-                          <div style={{ width: 1, background: "#222230" }} />
-                          <div style={{ flex: 1, textAlign: "center" }}>
-                            <div style={{ fontSize: 8, color: "#2bb886", textTransform: "uppercase", marginBottom: 2 }}>Target</div>
-                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: a.targetHit ? "#2bb886" : "#b8b8c8" }}>${a.target.toFixed(2)}</div>
-                            <div style={{ fontSize: 9, color: "#505060" }}>{((a.target - entry) / entry * 100).toFixed(1)}%</div>
-                          </div>
-                          <div style={{ width: 1, background: "#222230" }} />
-                          <div style={{ flex: 1, textAlign: "center" }}>
-                            <div style={{ fontSize: 8, color: "#686878", textTransform: "uppercase", marginBottom: 2 }}>Hold</div>
-                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: a.daysRemaining <= 1 ? "#fbbf24" : "#b8b8c8" }}>{a.daysHeld}/{a.effectiveMaxHold}d</div>
-                            <div style={{ fontSize: 9, color: "#505060" }}>{a.daysRemaining}d left</div>
-                          </div>
-                        </div>
-                        {/* Status flags */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {a.ratchetActive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#2bb88615", color: "#2bb886" }}>RATCHET ACTIVE</span>}
-                          {a.timeDecayActive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#fbbf2415", color: "#fbbf24" }}>DECAY DAY {a.daysHeld}</span>}
-                          {a.emaExitTriggered && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#f8717115", color: "#f87171" }}>8W EMA EXIT</span>}
-                          {a.stopHit && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#f8717115", color: "#f87171" }}>STOP HIT</span>}
-                          {a.targetHit && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#2bb88615", color: "#2bb886" }}>TARGET HIT</span>}
-                          {a.maxHoldReached && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#fbbf2415", color: "#fbbf24" }}>MAX HOLD</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Section>
-            )}
+              </div>
+            </Section>
           </>
         );
       })()}
