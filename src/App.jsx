@@ -5377,8 +5377,8 @@ function TQQQView() {
            ═══════════════════════════════════════════════════════════ */}
       {(() => {
         const adrDollar = d.close * (d.adr_pct / 100);
-        const updateTrade = (field, val) => {
-          const next = { ...tradeInput, [field]: val };
+        const updateTrade = (updates) => {
+          const next = { ...tradeInput, ...updates };
           setTradeInput(next);
           localStorage.setItem("tp_tqqq_trade", JSON.stringify(next));
         };
@@ -5519,7 +5519,7 @@ function TQQQView() {
                   {/* Direction */}
                   <div style={{ display: "flex", gap: 3 }}>
                     {["long", "short"].map(dd => (
-                      <button key={dd} onClick={() => updateTrade("direction", dd)}
+                      <button key={dd} onClick={() => updateTrade({ direction: dd })}
                         style={{ background: dir === dd ? (dd === "long" ? "#2bb88618" : "#f8717118") : "transparent",
                           border: `1px solid ${dir === dd ? (dd === "long" ? "#2bb88650" : "#f8717150") : "#2a2a38"}`,
                           borderRadius: 3, padding: "5px 8px", color: dir === dd ? (dd === "long" ? "#2bb886" : "#f87171") : "#505060",
@@ -5529,54 +5529,46 @@ function TQQQView() {
                   {/* Entry date */}
                   <div style={{ flex: "0 0 90px" }}>
                     <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry Date</div>
-                    <input type="text" placeholder="3/14/26" value={tradeInput.entryDateDisplay || tradeInput.entryDate || ""} onChange={e => {
+                    <input type="text" placeholder="3/14/26" value={tradeInput.entryDateDisplay ?? tradeInput.entryDate ?? ""} onChange={e => {
                       const v = e.target.value;
                       const m1 = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
                       const m2 = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
                       if (m1) {
                         const yr = m1[3].length === 2 ? "20" + m1[3] : m1[3];
-                        const iso = `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`;
-                        updateTrade("entryDate", iso);
-                        updateTrade("entryDateDisplay", v);
+                        updateTrade({ entryDate: `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`, entryDateDisplay: v });
                       } else if (m2) {
-                        const iso = `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`;
-                        updateTrade("entryDate", iso);
-                        updateTrade("entryDateDisplay", v);
+                        updateTrade({ entryDate: `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`, entryDateDisplay: v });
                       } else {
-                        updateTrade("entryDateDisplay", v);
-                        updateTrade("entryDate", v);
+                        updateTrade({ entryDateDisplay: v, entryDate: v });
                       }
                     }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                   </div>
                   {/* Entry price */}
                   <div style={{ flex: "0 0 80px" }}>
                     <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry $</div>
-                    <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.entryPrice || ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade("entryPrice", e.target.value); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                    <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.entryPrice ?? ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade({ entryPrice: e.target.value }); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                   </div>
                   {/* Exit fields (closed mode) */}
                   {tradeMode === "closed" && <>
                     <div style={{ flex: "0 0 90px" }}>
                       <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Exit Date</div>
-                      <input type="text" placeholder="3/15/26" value={tradeInput.exitDateDisplay || tradeInput.exitDate || ""} onChange={e => {
+                      <input type="text" placeholder="3/15/26" value={tradeInput.exitDateDisplay ?? tradeInput.exitDate ?? ""} onChange={e => {
                         const v = e.target.value;
                         const m1 = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
                         const m2 = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
                         if (m1) {
                           const yr = m1[3].length === 2 ? "20" + m1[3] : m1[3];
-                          updateTrade("exitDate", `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`);
-                          updateTrade("exitDateDisplay", v);
+                          updateTrade({ exitDate: `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`, exitDateDisplay: v });
                         } else if (m2) {
-                          updateTrade("exitDate", `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`);
-                          updateTrade("exitDateDisplay", v);
+                          updateTrade({ exitDate: `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`, exitDateDisplay: v });
                         } else {
-                          updateTrade("exitDateDisplay", v);
-                          updateTrade("exitDate", v);
+                          updateTrade({ exitDateDisplay: v, exitDate: v });
                         }
                       }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                     </div>
                     <div style={{ flex: "0 0 80px" }}>
                       <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Exit $</div>
-                      <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.exitPrice || ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade("exitPrice", e.target.value); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                      <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.exitPrice ?? ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade({ exitPrice: e.target.value }); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                     </div>
                   </>}
                   {/* Analyze button */}
