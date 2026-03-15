@@ -5214,6 +5214,11 @@ function TQQQView() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [showTradeAnalyzer, setShowTradeAnalyzer] = useState(false);
+  const [tradeInput, setTradeInput] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tp_tqqq_trade")) || {}; } catch { return {}; }
+  });
+  const [tradeMode, setTradeMode] = useState("open"); // 'open' or 'closed'
 
   useEffect(() => {
     fetch("/tqqq_analysis.json").then(r => r.json()).then(setD).catch(e => setErr(e.message));
@@ -5364,6 +5369,283 @@ function TQQQView() {
         </div>
       </Section>
 
+      {/* ═══════════════════════════════════════════════════════════
+           MY CURRENT TRADE — always-visible card
+           ═══════════════════════════════════════════════════════════ */}
+      {(() => {
+        const adrDollar = d.close * (d.adr_pct / 100);
+        const updateTrade = (field, val) => {
+          const next = { ...tradeInput, [field]: val };
+          setTradeInput(next);
+          localStorage.setItem("tp_tqqq_trade", JSON.stringify(next));
+        };
+        const clearTrade = () => { setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); };
+
+        const bizDays = (startStr, endStr) => {
+          if (!startStr || !endStr) return 0;
+          const s = new Date(startStr + "T00:00:00");
+          const e = new Date(endStr + "T00:00:00");
+          let count = 0;
+          const cur = new Date(s);
+          while (cur <= e) { const dow = cur.getDay(); if (dow !== 0 && dow !== 6) count++; cur.setDate(cur.getDate() + 1); }
+          return Math.max(0, count - 1);
+        };
+
+        const entry = parseFloat(tradeInput.entryPrice) || 0;
+        const dir = tradeInput.direction || "long";
+        const entryDate = tradeInput.entryDate || "";
+        const exitPrice = parseFloat(tradeInput.exitPrice) || 0;
+        const exitDate = tradeInput.exitDate || d.date;
+        const bestPrice = parseFloat(tradeInput.bestPrice) || d.close;
+        const currentPrice = tradeMode === "closed" ? exitPrice : d.close;
+        const daysHeld = bizDays(entryDate, tradeMode === "closed" ? exitDate : d.date);
+        const hasEntry = entry > 0 && entryDate;
+        const userPnl = hasEntry ? (dir === "long" ? currentPrice - entry : entry - currentPrice) : 0;
+        const userPnlPct = hasEntry ? (userPnl / entry) * 100 : 0;
+        const pnlColor = userPnl >= 0 ? "#2bb886" : "#f87171";
+
+        const analyzeStrategy = (stratKey, strat) => {
+          if (!strat || !strat.params || !hasEntry) return null;
+          const p = strat.params;
+          const isLong = dir === "long";
+          if (!isLong && (stratKey === "v6_autoresearch" || stratKey === "v6_2_engine")) {
+            return { na: true, reason: "Long-only strategy" };
+          }
+          const adrStop = p.adr_stop || 2.5;
+          const adrTarget = p.adr_target || 4.0;
+          const maxHold = p.max_hold || 7;
+          const tdStart = p.time_decay_start || 0;
+          const tdRate = p.time_decay_rate || 0;
+          const extProfit = p.extend_if_profit || 0;
+          const beTrigger = p.be_trigger || 0;
+          const beTrail = p.be_trail || 2.5;
+          let stopLoss = isLong ? entry - adrStop * adrDollar : entry + adrStop * adrDollar;
+          const target = isLong ? entry + adrTarget * adrDollar : entry - adrTarget * adrDollar;
+          let ratchetActive = false;
+          if (beTrigger > 0) {
+            const profitAdr = Math.abs(bestPrice - entry) / adrDollar;
+            if (profitAdr >= beTrigger) {
+              ratchetActive = true;
+              if (isLong) stopLoss = Math.max(stopLoss, Math.max(entry, bestPrice - beTrail * adrDollar));
+              else stopLoss = Math.min(stopLoss, Math.min(entry, bestPrice + beTrail * adrDollar));
+            }
+          }
+          let timeDecayActive = false;
+          if (tdStart > 0 && daysHeld >= tdStart) {
+            timeDecayActive = true;
+            const daysPast = daysHeld - tdStart;
+            if (isLong) stopLoss = Math.max(stopLoss, stopLoss + daysPast * tdRate * adrDollar);
+            else stopLoss = Math.min(stopLoss, stopLoss - daysPast * tdRate * adrDollar);
+          }
+          const tradeProfitable = isLong ? currentPrice > entry : currentPrice < entry;
+          const effectiveMaxHold = maxHold + (extProfit > 0 && tradeProfitable ? extProfit : 0);
+          const daysRemaining = Math.max(0, effectiveMaxHold - daysHeld);
+          const ema40 = d.ema_levels?.ema40 || 0;
+          let emaExitTriggered = false;
+          if (isLong && ema40 > 0 && currentPrice < ema40 && (p.ema8w_exit || "strict") === "strict") emaExitTriggered = true;
+          const pnl = isLong ? currentPrice - entry : entry - currentPrice;
+          const pnlPct = (pnl / entry) * 100;
+          const stopHit = isLong ? currentPrice <= stopLoss : currentPrice >= stopLoss;
+          const targetHit = isLong ? currentPrice >= target : currentPrice <= target;
+          const maxHoldReached = daysHeld >= effectiveMaxHold;
+          let rec, recColor;
+          if (targetHit) { rec = "TARGET HIT — Take profit"; recColor = "#2bb886"; }
+          else if (stopHit) { rec = "STOP HIT — Exit now"; recColor = "#f87171"; }
+          else if (emaExitTriggered) { rec = "8W EMA EXIT — Below 8W EMA"; recColor = "#f87171"; }
+          else if (maxHoldReached) { rec = "MAX HOLD — Time to exit"; recColor = "#fbbf24"; }
+          else if (timeDecayActive) { rec = `HOLD — Stop tightening (day ${daysHeld})`; recColor = "#fbbf24"; }
+          else { rec = `HOLD — ${daysRemaining}d remaining`; recColor = "#2bb886"; }
+          return { stopLoss, target, pnl, pnlPct, daysHeld, daysRemaining, effectiveMaxHold, ratchetActive, timeDecayActive, emaExitTriggered, stopHit, targetHit, maxHoldReached, rec, recColor };
+        };
+
+        const stratDefs = [
+          { key: "v5_sweep", label: "v5", color: "#c084fc" },
+          { key: "v5_2_engine", label: "v5.2", color: "#a78bfa" },
+          { key: "v6_autoresearch", label: "v6", color: "#2dd4bf" },
+          { key: "v6_2_engine", label: "v6.2", color: "#34d399" },
+        ];
+
+        const inputStyle = { background: "#0e0e18", border: "1px solid #2a2a38", borderRadius: 4, padding: "6px 10px",
+          color: "#b8b8c8", fontSize: 12, fontFamily: "monospace", outline: "none", width: "100%", boxSizing: "border-box" };
+
+        return (
+          <>
+            {/* ── BOX 1: MY CURRENT TRADE ── */}
+            <Section label="My Current Trade">
+              <div style={{ background: "#141420", border: hasEntry ? `1px solid ${pnlColor}30` : "1px solid #222230", borderRadius: 10, padding: 16 }}>
+                {/* Trade P&L hero + inline edit row */}
+                {hasEntry && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid #222230" }}>
+                    <div style={{ minWidth: 90 }}>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: pnlColor, fontFamily: "monospace", lineHeight: 1 }}>
+                        {userPnl >= 0 ? "+" : ""}{userPnlPct.toFixed(2)}%
+                      </div>
+                      <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
+                        ${userPnl >= 0 ? "+" : ""}{userPnl.toFixed(2)}/sh
+                      </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: "#b8b8c8", fontWeight: 600 }}>
+                        <span style={{ color: dir === "long" ? "#2bb886" : "#f87171" }}>{dir.toUpperCase()}</span>
+                        {" "}TQQQ @ ${entry}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
+                        {tradeMode === "closed" ? `Exited $${currentPrice} on ${exitDate}` : `Now $${d.close}`}
+                        {" "} | {daysHeld} trading day{daysHeld !== 1 ? "s" : ""} held
+                        {bestPrice !== d.close && bestPrice !== entry && ` | Best $${bestPrice}`}
+                      </div>
+                    </div>
+                    <button onClick={clearTrade}
+                      style={{ background: "none", border: "1px solid #f8717130", borderRadius: 4, padding: "4px 10px",
+                        color: "#f87171", fontSize: 10, cursor: "pointer", fontFamily: "monospace" }}>Clear</button>
+                  </div>
+                )}
+
+                {/* Input fields */}
+                <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }}>
+                  {/* Mode */}
+                  <div style={{ display: "flex", gap: 3 }}>
+                    {["open", "closed"].map(mode => (
+                      <button key={mode} onClick={() => setTradeMode(mode)}
+                        style={{ background: tradeMode === mode ? "#c084fc15" : "transparent", border: `1px solid ${tradeMode === mode ? "#c084fc50" : "#2a2a38"}`,
+                          borderRadius: 3, padding: "5px 8px", color: tradeMode === mode ? "#c084fc" : "#505060",
+                          fontSize: 10, cursor: "pointer", fontFamily: "monospace" }}>
+                        {mode === "open" ? "OPEN" : "CLOSED"}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Direction */}
+                  <div style={{ display: "flex", gap: 3 }}>
+                    {["long", "short"].map(dd => (
+                      <button key={dd} onClick={() => updateTrade("direction", dd)}
+                        style={{ background: dir === dd ? (dd === "long" ? "#2bb88618" : "#f8717118") : "transparent",
+                          border: `1px solid ${dir === dd ? (dd === "long" ? "#2bb88650" : "#f8717150") : "#2a2a38"}`,
+                          borderRadius: 3, padding: "5px 8px", color: dir === dd ? (dd === "long" ? "#2bb886" : "#f87171") : "#505060",
+                          fontSize: 10, cursor: "pointer", fontFamily: "monospace" }}>{dd === "long" ? "LONG" : "SHORT"}</button>
+                    ))}
+                  </div>
+                  {/* Entry date */}
+                  <div style={{ flex: "0 0 120px" }}>
+                    <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry Date</div>
+                    <input type="date" value={entryDate} onChange={e => updateTrade("entryDate", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                  </div>
+                  {/* Entry price */}
+                  <div style={{ flex: "0 0 80px" }}>
+                    <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry $</div>
+                    <input type="number" step="0.01" placeholder="0.00" value={tradeInput.entryPrice || ""} onChange={e => updateTrade("entryPrice", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                  </div>
+                  {/* Best price */}
+                  <div style={{ flex: "0 0 80px" }}>
+                    <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Best $</div>
+                    <input type="number" step="0.01" placeholder={String(d.close)} value={tradeInput.bestPrice || ""} onChange={e => updateTrade("bestPrice", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                  </div>
+                  {/* Exit fields (closed mode) */}
+                  {tradeMode === "closed" && <>
+                    <div style={{ flex: "0 0 120px" }}>
+                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Exit Date</div>
+                      <input type="date" value={tradeInput.exitDate || ""} onChange={e => updateTrade("exitDate", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                    </div>
+                    <div style={{ flex: "0 0 80px" }}>
+                      <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Exit $</div>
+                      <input type="number" step="0.01" placeholder="0.00" value={tradeInput.exitPrice || ""} onChange={e => updateTrade("exitPrice", e.target.value)} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
+                    </div>
+                  </>}
+                </div>
+                {hasEntry && <div style={{ fontSize: 9, color: "#3a3a4a", marginTop: 8, fontStyle: "italic" }}>
+                  ADR ${adrDollar.toFixed(2)} ({d.adr_pct}%) as of {d.date}
+                </div>}
+              </div>
+            </Section>
+
+            {/* ── BOX 2: STRATEGY RECOMMENDATIONS (separate) ── */}
+            {hasEntry && (
+              <Section label="Strategy Recommendations">
+                {/* Consensus bar */}
+                {(() => {
+                  const results = stratDefs.map(s => analyzeStrategy(s.key, d.strategies?.[s.key])).filter(a => a && !a.na);
+                  const exits = results.filter(a => a.stopHit || a.targetHit || a.emaExitTriggered || a.maxHoldReached);
+                  const holds = results.filter(a => !a.stopHit && !a.targetHit && !a.emaExitTriggered && !a.maxHoldReached);
+                  if (results.length === 0) return null;
+                  const consensus = exits.length > holds.length ? "EXIT" : exits.length === holds.length ? "MIXED" : "HOLD";
+                  const cColor = consensus === "EXIT" ? "#f87171" : consensus === "HOLD" ? "#2bb886" : "#fbbf24";
+                  return (
+                    <div style={{ padding: "10px 14px", borderRadius: 8, background: cColor + "12", border: `1px solid ${cColor}35`, marginBottom: 12,
+                      display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: cColor, letterSpacing: 1 }}>CONSENSUS: {consensus}</span>
+                        <span style={{ fontSize: 11, color: "#686878", marginLeft: 10 }}>
+                          {holds.length} hold / {exits.length} exit across {results.length} strategies
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", gap: 3 }}>
+                        {results.map((a, i) => (
+                          <div key={i} style={{ width: 8, height: 8, borderRadius: "50%",
+                            background: (a.stopHit || a.targetHit || a.emaExitTriggered || a.maxHoldReached) ? "#f87171" : "#2bb886" }} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 4-strategy cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {stratDefs.map(({ key, label, color }) => {
+                    const strat = d.strategies?.[key];
+                    const a = analyzeStrategy(key, strat);
+                    if (!a) return null;
+                    if (a.na) return (
+                      <div key={key} style={{ background: "#141420", border: "1px solid #1a1a24", borderRadius: 8, padding: 12, opacity: 0.4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, color }}>{label}</span>
+                        <span style={{ fontSize: 11, color: "#505060", marginLeft: 8 }}>{a.reason}</span>
+                      </div>
+                    );
+                    return (
+                      <div key={key} style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 14 }}>
+                        {/* Header: label + recommendation badge */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color }}>{label}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4,
+                            background: a.recColor + "20", color: a.recColor }}>{a.rec}</span>
+                        </div>
+                        {/* Stop / Target / Hold row */}
+                        <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
+                          <div style={{ flex: 1, textAlign: "center" }}>
+                            <div style={{ fontSize: 8, color: "#f87171", textTransform: "uppercase", marginBottom: 2 }}>Stop</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: a.stopHit ? "#f87171" : "#b8b8c8" }}>${a.stopLoss.toFixed(2)}</div>
+                            <div style={{ fontSize: 9, color: "#505060" }}>{((a.stopLoss - entry) / entry * 100).toFixed(1)}%</div>
+                          </div>
+                          <div style={{ width: 1, background: "#222230" }} />
+                          <div style={{ flex: 1, textAlign: "center" }}>
+                            <div style={{ fontSize: 8, color: "#2bb886", textTransform: "uppercase", marginBottom: 2 }}>Target</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: a.targetHit ? "#2bb886" : "#b8b8c8" }}>${a.target.toFixed(2)}</div>
+                            <div style={{ fontSize: 9, color: "#505060" }}>{((a.target - entry) / entry * 100).toFixed(1)}%</div>
+                          </div>
+                          <div style={{ width: 1, background: "#222230" }} />
+                          <div style={{ flex: 1, textAlign: "center" }}>
+                            <div style={{ fontSize: 8, color: "#686878", textTransform: "uppercase", marginBottom: 2 }}>Hold</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: a.daysRemaining <= 1 ? "#fbbf24" : "#b8b8c8" }}>{a.daysHeld}/{a.effectiveMaxHold}d</div>
+                            <div style={{ fontSize: 9, color: "#505060" }}>{a.daysRemaining}d left</div>
+                          </div>
+                        </div>
+                        {/* Status flags */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {a.ratchetActive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#2bb88615", color: "#2bb886" }}>RATCHET ACTIVE</span>}
+                          {a.timeDecayActive && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#fbbf2415", color: "#fbbf24" }}>DECAY DAY {a.daysHeld}</span>}
+                          {a.emaExitTriggered && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#f8717115", color: "#f87171" }}>8W EMA EXIT</span>}
+                          {a.stopHit && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#f8717115", color: "#f87171" }}>STOP HIT</span>}
+                          {a.targetHit && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#2bb88615", color: "#2bb886" }}>TARGET HIT</span>}
+                          {a.maxHoldReached && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: "#fbbf2415", color: "#fbbf24" }}>MAX HOLD</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Section>
+            )}
+          </>
+        );
+      })()}
+
       {/* Watch Tomorrow */}
       <Section label="What to Watch">
         {(b.watch_tomorrow || []).map((w, i) => (
@@ -5416,107 +5698,108 @@ function TQQQView() {
         </div>
       </Section>
 
-      {/* Strategy Comparison — v5 Sweep vs v6 Autoresearch */}
+      {/* Strategy Comparison — 4 strategies */}
       {d.strategies && (() => {
-        const v5 = d.strategies.v5_sweep;
-        const v6 = d.strategies.v6_autoresearch;
-        if (!v5 || !v6) return null;
-        const m5 = v5.metrics;
-        const m6 = v6.metrics;
-        const metricRows = [
-          ["CAGR", `${m5.cagr}%`, `${m6.cagr}%`, m5.cagr > m6.cagr ? "v5" : "v6"],
-          ["Total Return", `${m5.total_ret}%`, `${m6.total_ret}%`, m5.total_ret > m6.total_ret ? "v5" : "v6"],
-          ["Max DD", `${m5.mdd}%`, `${m6.mdd}%`, m5.mdd > m6.mdd ? "v5" : "v6"],
-          ["Sharpe", `${m5.sharpe}`, `${m6.sharpe}`, m5.sharpe > m6.sharpe ? "v5" : "v6"],
-          ["Calmar", `${m5.calmar}`, `${m6.calmar}`, m5.calmar > m6.calmar ? "v5" : "v6"],
-          ["Win Rate", `${m5.win_rate}%`, `${m6.win_rate}%`, m5.win_rate > m6.win_rate ? "v5" : "v6"],
-          ["Profit Factor", `${m5.pf}`, `${m6.pf}`, m5.pf > m6.pf ? "v5" : "v6"],
-          ["Trades", `${m5.total_trades}`, `${m6.total_trades}`, null],
+        const strats = [
+          { key: "v5_sweep", data: d.strategies.v5_sweep, label: "v5 Sweep", color: "#c084fc", tag: "AGGRESSIVE" },
+          { key: "v5_2_engine", data: d.strategies.v5_2_engine, label: "v5.2 Engine", color: "#a78bfa", tag: "AGG + TWEAKS" },
+          { key: "v6_autoresearch", data: d.strategies.v6_autoresearch, label: "v6 Auto", color: "#2dd4bf", tag: "RISK-ADJUSTED" },
+          { key: "v6_2_engine", data: d.strategies.v6_2_engine, label: "v6.2 Engine", color: "#34d399", tag: "RA + TWEAKS" },
+        ].filter(s => s.data);
+        if (strats.length < 2) return null;
+
+        // Find best value for each metric to highlight
+        const allMetrics = strats.map(s => s.data.metrics);
+        const bestOf = (field, higher = true) => {
+          const vals = allMetrics.map(m => m[field] || 0);
+          return higher ? Math.max(...vals) : Math.min(...vals);
+        };
+        const metricDefs = [
+          ["CAGR", "cagr", true, "%"], ["Total Return", "total_ret", true, "%"], ["Max DD", "mdd", true, "%"],
+          ["Sharpe", "sharpe", true, ""], ["Calmar", "calmar", true, ""],
+          ["Win Rate", "win_rate", true, "%"], ["Profit Factor", "pf", true, ""], ["Trades", "total_trades", null, ""],
         ];
+
         return (
           <Section label="Strategy Comparison">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-              {/* v5 card */}
-              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c084fc" }}>v5 Sweep Best</span>
-                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: "#c084fc15", color: "#c084fc" }}>AGGRESSIVE</span>
+            {/* 4 strategy cards in 2x2 grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              {strats.map(({ key, data: s, label, color, tag }) => (
+                <div key={key} style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color }}>{label}</span>
+                    <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: color + "15", color }}>{tag}</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: "#686878", lineHeight: 1.4, marginBottom: 6 }}>{s.description}</div>
+                  {s.signal_type && <div style={{ fontSize: 10, fontWeight: 700, padding: "3px 6px", borderRadius: 4, marginBottom: 4,
+                    background: s.signal === 1 ? "#2bb88615" : "#f8717115", color: s.signal === 1 ? "#2bb886" : "#f87171" }}>
+                    SIGNAL: {s.signal_type} ({s.signal === 1 ? "LONG" : "SHORT"})
+                  </div>}
+                  {!s.signal_type && <div style={{ fontSize: 10, color: "#505060", marginBottom: 4 }}>No active signal</div>}
+                  <div style={{ fontSize: 10, color: "#505060" }}>
+                    Stop ${s.key_levels.long_stop} | Target ${s.key_levels.long_target}
+                  </div>
+                  {s.last_long_signal && <div style={{ fontSize: 10, color: "#686878", marginTop: 3 }}>
+                    Last: {s.last_long_signal.signal} on {s.last_long_signal.date}
+                    <span style={{ color: s.last_long_signal.pnl_pct > 0 ? "#2bb886" : "#f87171", fontWeight: 700 }}>
+                      {" "}{s.last_long_signal.pnl_pct > 0 ? "+" : ""}{s.last_long_signal.pnl_pct}%
+                    </span>
+                  </div>}
+                  {/* Engine tweaks callout */}
+                  {s.engine_tweaks && (
+                    <div style={{ marginTop: 6, paddingTop: 5, borderTop: "1px solid #222230" }}>
+                      {s.engine_tweaks.map((tw, i) => (
+                        <div key={i} style={{ fontSize: 9, color: color, paddingLeft: 6,
+                          borderLeft: `2px solid ${color}40`, marginBottom: 2 }}>{tw}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 11, color: "#686878", lineHeight: 1.5, marginBottom: 8 }}>{v5.description}</div>
-                {v5.signal_type && <div style={{ fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 4, marginBottom: 6,
-                  background: v5.signal === 1 ? "#2bb88615" : "#f8717115", color: v5.signal === 1 ? "#2bb886" : "#f87171" }}>
-                  SIGNAL: {v5.signal_type} ({v5.signal === 1 ? "LONG" : "SHORT"})
-                </div>}
-                {!v5.signal_type && <div style={{ fontSize: 11, color: "#505060", marginBottom: 6 }}>No active signal</div>}
-                <div style={{ fontSize: 10, color: "#505060" }}>
-                  Stop ${v5.key_levels.long_stop} | Target ${v5.key_levels.long_target}
-                </div>
-                {v5.last_long_signal && <div style={{ fontSize: 10, color: "#686878", marginTop: 4 }}>
-                  Last: {v5.last_long_signal.signal} on {v5.last_long_signal.date}
-                  <span style={{ color: v5.last_long_signal.pnl_pct > 0 ? "#2bb886" : "#f87171", fontWeight: 700 }}>
-                    {" "}{v5.last_long_signal.pnl_pct > 0 ? "+" : ""}{v5.last_long_signal.pnl_pct}%
-                  </span>
-                </div>}
-              </div>
-              {/* v6 card */}
-              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#2dd4bf" }}>v6 Autoresearch</span>
-                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: "#2dd4bf15", color: "#2dd4bf" }}>RISK-ADJUSTED</span>
-                </div>
-                <div style={{ fontSize: 11, color: "#686878", lineHeight: 1.5, marginBottom: 8 }}>{v6.description}</div>
-                {v6.signal_type && <div style={{ fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 4, marginBottom: 6,
-                  background: "#2bb88615", color: "#2bb886" }}>
-                  SIGNAL: {v6.signal_type} (LONG)
-                </div>}
-                {!v6.signal_type && <div style={{ fontSize: 11, color: "#505060", marginBottom: 6 }}>No active signal</div>}
-                <div style={{ fontSize: 10, color: "#505060" }}>
-                  Stop ${v6.key_levels.long_stop} | Target ${v6.key_levels.long_target}
-                </div>
-                {v6.last_long_signal && <div style={{ fontSize: 10, color: "#686878", marginTop: 4 }}>
-                  Last: {v6.last_long_signal.signal} on {v6.last_long_signal.date}
-                  <span style={{ color: v6.last_long_signal.pnl_pct > 0 ? "#2bb886" : "#f87171", fontWeight: 700 }}>
-                    {" "}{v6.last_long_signal.pnl_pct > 0 ? "+" : ""}{v6.last_long_signal.pnl_pct}%
-                  </span>
-                </div>}
-              </div>
+              ))}
             </div>
-            {/* Metrics comparison table */}
+            {/* Metrics comparison table — all 4 */}
             <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12, marginBottom: 12 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
                 <thead><tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                  <th style={{ textAlign: "left", padding: "4px 8px", color: "#505060", fontSize: 10 }}>METRIC</th>
-                  <th style={{ textAlign: "center", padding: "4px 8px", color: "#c084fc", fontSize: 10 }}>v5 SWEEP</th>
-                  <th style={{ textAlign: "center", padding: "4px 8px", color: "#2dd4bf", fontSize: 10 }}>v6 AUTO</th>
-                  <th style={{ textAlign: "center", padding: "4px 8px", color: "#505060", fontSize: 10 }}>EDGE</th>
+                  <th style={{ textAlign: "left", padding: "4px 6px", color: "#505060", fontSize: 10 }}>METRIC</th>
+                  {strats.map(s => (
+                    <th key={s.key} style={{ textAlign: "center", padding: "4px 6px", color: s.color, fontSize: 9 }}>{s.label.toUpperCase()}</th>
+                  ))}
                 </tr></thead>
                 <tbody>
-                  {metricRows.map(([label, v5Val, v6Val, winner]) => (
-                    <tr key={label} style={{ borderBottom: "1px solid #1a1a20" }}>
-                      <td style={{ padding: "4px 8px", color: "#9090a0" }}>{label}</td>
-                      <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: winner === "v5" ? 700 : 400,
-                        color: winner === "v5" ? "#c084fc" : "#686878" }}>{v5Val}</td>
-                      <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: winner === "v6" ? 700 : 400,
-                        color: winner === "v6" ? "#2dd4bf" : "#686878" }}>{v6Val}</td>
-                      <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 10,
-                        color: winner === "v5" ? "#c084fc" : winner === "v6" ? "#2dd4bf" : "#505060" }}>
-                        {winner ? (winner === "v5" ? "v5" : "v6") : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {metricDefs.map(([label, field, higherBetter, suffix]) => {
+                    const best = higherBetter !== null ? bestOf(field, higherBetter) : null;
+                    return (
+                      <tr key={label} style={{ borderBottom: "1px solid #1a1a20" }}>
+                        <td style={{ padding: "4px 6px", color: "#9090a0" }}>{label}</td>
+                        {strats.map(s => {
+                          const val = s.data.metrics[field];
+                          const isBest = best !== null && val === best;
+                          const stratColor = s.color;
+                          return (
+                            <td key={s.key} style={{ padding: "4px 6px", textAlign: "center",
+                              fontWeight: isBest ? 700 : 400,
+                              color: isBest ? stratColor : "#686878" }}>
+                              {val}{suffix}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            {/* v6 structural features */}
-            {v6.structural_features && (
-              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#2dd4bf", textTransform: "uppercase", marginBottom: 6 }}>v6 Structural Improvements</div>
-                {v6.structural_features.map((f, i) => (
+            {/* Structural features for v6 variants */}
+            {strats.filter(s => s.data.structural_features).map(s => (
+              <div key={s.key + "_feat"} style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: s.color, textTransform: "uppercase", marginBottom: 6 }}>{s.label} Structural Features</div>
+                {s.data.structural_features.map((f, i) => (
                   <div key={i} style={{ fontSize: 11, color: "#9090a0", padding: "2px 0", paddingLeft: 8,
-                    borderLeft: "2px solid #2dd4bf30" }}>{f}</div>
+                    borderLeft: `2px solid ${s.color}30` }}>{f}</div>
                 ))}
               </div>
-            )}
+            ))}
           </Section>
         );
       })()}
@@ -5565,11 +5848,16 @@ function TQQQView() {
             </Section>
           );
         };
-        const v5Trades = d.strategies?.v5_sweep?.recent_trades || d.recent_trades;
-        const v6Trades = d.strategies?.v6_autoresearch?.recent_trades;
+        const tradeLogs = [
+          { trades: d.strategies?.v5_sweep?.recent_trades || d.recent_trades, label: "v5 Sweep — Trade Log (5yr)" },
+          { trades: d.strategies?.v5_2_engine?.recent_trades, label: "v5.2 Engine — Trade Log (5yr)" },
+          { trades: d.strategies?.v6_autoresearch?.recent_trades, label: "v6 Autoresearch — Trade Log (5yr)" },
+          { trades: d.strategies?.v6_2_engine?.recent_trades, label: "v6.2 Engine — Trade Log (5yr)" },
+        ];
         return <>
-          <TradeTable trades={v5Trades} label="v5 Sweep — Trade Log (5yr)" />
-          <TradeTable trades={v6Trades} label="v6 Autoresearch — Trade Log (5yr)" />
+          {tradeLogs.map(({ trades, label }) => (
+            <TradeTable key={label} trades={trades} label={label} />
+          ))}
         </>;
       })()}
 
