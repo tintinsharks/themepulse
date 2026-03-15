@@ -5219,8 +5219,8 @@ function TQQQView() {
     try { return JSON.parse(localStorage.getItem("tp_tqqq_trade")) || {}; } catch { return {}; }
   });
   const [tradeMode, setTradeMode] = useState("open"); // 'open' or 'closed'
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [showAnalysis, setShowAnalysis] = useState(() => !!localStorage.getItem("tp_tqqq_ai"));
+  const [aiAnalysis, setAiAnalysis] = useState(() => localStorage.getItem("tp_tqqq_ai") || "");
   const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
@@ -5385,7 +5385,7 @@ function TQQQView() {
         const clearTrade = () => {
           const oldDate = tradeInput.entryDate;
           if (oldDate) localStorage.removeItem(`tp_tqqq_analysis_${oldDate}`);
-          setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); setShowAnalysis(false); setAiAnalysis("");
+          setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); localStorage.removeItem("tp_tqqq_ai"); setShowAnalysis(false); setAiAnalysis("");
         };
 
         const bizDays = (startStr, endStr) => {
@@ -5592,6 +5592,7 @@ function TQQQView() {
                         const json = await resp.json();
                         const analysis = json.ok ? json.analysis : `Error: ${json.error}`;
                         setAiAnalysis(analysis);
+                        if (json.ok) localStorage.setItem("tp_tqqq_ai", analysis);
                         // Save to running history
                         if (json.ok) {
                           priorHistory.push({ date: d.date, price: currentPrice, pnlPct: userPnlPct.toFixed(2), daysHeld, analysis });
