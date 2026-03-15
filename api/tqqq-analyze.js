@@ -107,17 +107,29 @@ CRITICAL — Stop/target direction rules:
 - Example: SHORT at $46.80 — user stop $49.78 ($2.98 risk) vs model stop $52.67 ($5.87 risk) → user's stop is TIGHTER (less risk, closer to entry).
 - Always compute the dollar distance from entry to stop when comparing: |stop - entry|. Smaller distance = tighter stop.
 
-Rules:
+Your output MUST have exactly TWO sections separated by "---" on its own line:
+
+SECTION 1 — MODEL ANALYSIS (based on backtested strategies):
 - Be direct and actionable. No disclaimers.
 - Reference the SPECIFIC dollar levels from the strategy analysis below.
 - If strategies disagree, explain why and give your weighted recommendation (v6 is the champion, weight it highest).
 - If the user has set a manual stop, compare it to the strategy stops by computing |stop - entry| for both. State which is tighter/wider and by how much.
-- Keep total output under 150 words.
-- Use plain language, no markdown headers. Just 2-3 short paragraphs.
 - First paragraph: overall verdict (hold/exit/tighten stop). Bold the key action.
 - Second paragraph: key levels to watch and what would change your mind.
-- If the trade is closed, analyze what went right/wrong vs the strategies.
-- If prior analyses are provided, this is a RUNNING JOURNAL. Reference how the situation has evolved since last analysis. Note trend changes, stop adjustments, and whether prior advice was correct. Be brief about what hasn't changed.`;
+- Keep to ~100 words.
+
+SECTION 2 — TRADE CRAFT ANALYSIS (ignore the models entirely):
+- Analyze purely from swing trading best practices: risk/reward ratio, position in trend, TQQQ characteristics (3x leveraged = decays in choppy markets, best for strong trends), market context.
+- For LONG trades: assess trend strength, support levels, whether entry was at a proper buy point (breakout, pullback to support, follow-through day).
+- For SHORT trades: assess whether shorting a 3x bull ETF is appropriate (fighting long-term uptrend), catalyst quality, overhead resistance, whether this is a counter-trend or trend-following short.
+- Comment on trade management: is the stop logical (below support/above resistance?), is the R:R ratio adequate (minimum 2:1?), is the position size appropriate for a leveraged ETF?
+- Be honest — if the trade setup is questionable, say so.
+- Keep to ~100 words.
+
+General rules for BOTH sections:
+- If the trade is closed, analyze what went right/wrong.
+- If prior analyses are provided, this is a RUNNING JOURNAL. Reference how the situation has evolved. Be brief about what hasn't changed.
+- No markdown headers — just flowing paragraphs. The "---" separator is the only structural element.`;
 
   // Build prior analysis journal
   let journalSection = "";
@@ -159,7 +171,7 @@ What should I do with this trade?`;
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 400,
+        max_tokens: 600,
         system: systemPrompt,
         messages: [{ role: "user", content: userMsg }],
       }),

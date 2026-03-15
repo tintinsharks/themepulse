@@ -5716,17 +5716,30 @@ function TQQQView() {
                   );
                 })()}
 
-                {/* AI Analysis */}
-                {(aiLoading || aiAnalysis) && (
-                  <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 6, background: "#c084fc08", border: "1px solid #c084fc20" }}>
-                    <div style={{ fontSize: 9, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, letterSpacing: 1 }}>AI Analysis</div>
-                    {aiLoading ? (
-                      <div style={{ fontSize: 12, color: "#686878", fontStyle: "italic" }}>Thinking...</div>
-                    ) : (
-                      <div style={{ fontSize: 12, color: "#b8b8c8", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{aiAnalysis}</div>
-                    )}
-                  </div>
-                )}
+                {/* AI Analysis — two sections split by --- */}
+                {(aiLoading || aiAnalysis) && (() => {
+                  const parts = aiAnalysis ? aiAnalysis.split(/\n---\n|\n-{3,}\n/) : [];
+                  const modelSection = parts[0]?.trim() || "";
+                  const craftSection = parts[1]?.trim() || "";
+                  return (
+                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ padding: "12px 14px", borderRadius: 6, background: "#c084fc08", border: "1px solid #c084fc20" }}>
+                        <div style={{ fontSize: 9, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, letterSpacing: 1 }}>Model Analysis</div>
+                        {aiLoading ? (
+                          <div style={{ fontSize: 12, color: "#686878", fontStyle: "italic" }}>Thinking...</div>
+                        ) : (
+                          <div style={{ fontSize: 12, color: "#b8b8c8", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{modelSection}</div>
+                        )}
+                      </div>
+                      {craftSection && (
+                        <div style={{ padding: "12px 14px", borderRadius: 6, background: "#2dd4bf08", border: "1px solid #2dd4bf20" }}>
+                          <div style={{ fontSize: 9, color: "#2dd4bf", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, letterSpacing: 1 }}>Trade Craft</div>
+                          <div style={{ fontSize: 12, color: "#b8b8c8", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{craftSection}</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </Section>
           </>
