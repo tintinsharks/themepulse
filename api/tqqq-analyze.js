@@ -173,18 +173,18 @@ SECTION 2 — MACRO & TRADE CRAFT (use web search — ignore models):
 - You MUST use web search to get current market data. The user expects specific, current information.
 - The user trades TQQQ long AND short. Do NOT question the direction — analyze it on its merits.
 
-Run a rapid 7-factor scan. For each, give a 1-sentence finding + BULLISH/BEARISH/NEUTRAL lean:
-1. Fed Policy & Rates — rate path, Fed tone, 10Y yield, next FOMC date
-2. AI & Semiconductors — hyperscaler capex, NVDA sentiment, AI momentum
-3. Mega-Cap Earnings — QQQ top holdings beats/misses, forward guidance
-4. Inflation — latest CPI/PCE print, trend, next release
-5. Trade Policy & Geopolitics — tariffs, export controls, geopolitical risks
-6. Sector Rotation — tech vs value flow, VIX level, breadth
-7. Technicals — QQQ vs 21 EMA / 50 SMA / 200 SMA, RSI, key levels
+Run a rapid 7-factor scan. Format each as a single line: "N. Factor — finding. LEAN"
+1. Fed & Rates — rate path, tone, 10Y, next FOMC
+2. AI & Semis — capex, NVDA, AI trade
+3. Earnings — QQQ top holdings, guidance
+4. Inflation — CPI/PCE, trend
+5. Geopolitics — tariffs, risks
+6. Rotation — tech flow, VIX, breadth
+7. Technicals — QQQ vs MAs, RSI, levels
 
-Verdict: state BULLISH/BEARISH/NEUTRAL for the user's direction, conviction (HIGH/MODERATE/LOW), and the #1 thesis-invalidation risk. Flag binary events (CPI, FOMC, earnings) within 5 trading days.
+After the 7 lines, give a 2-3 sentence verdict: overall lean for the user's direction (BULLISH/BEARISH/NEUTRAL), conviction (HIGH/MODERATE/LOW), #1 thesis risk, and any binary events within 5 trading days.
 
-Keep to ~250 words for this section.
+Keep to ~300 words for this section. Do NOT get cut off — complete all 7 factors and the verdict.
 
 General rules for BOTH sections:
 - If the trade is closed, analyze what went right/wrong vs historical patterns.
@@ -219,7 +219,7 @@ For Section 2, you MUST web search for: "QQQ nasdaq market today ${date || new D
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1200,
+        max_tokens: 2000,
         tools: [{
           type: "web_search_20250305",
           name: "web_search",
