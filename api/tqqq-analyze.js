@@ -157,17 +157,22 @@ SECTION 1 — MODEL ANALYSIS (based on backtested strategies):
 - Second paragraph: key levels to watch and what would change your mind.
 - Keep to ~100 words.
 
-SECTION 2 — TRADE CRAFT ANALYSIS (ignore the models — use web search for current macro):
-- You MUST use web search to find current market news, macro events, and TQQQ/QQQ price action from the last 1-2 days.
-- Search for: "QQQ TQQQ market today", "nasdaq tech stocks this week", and any relevant macro events (Fed, tariffs, geopolitics).
-- The user actively trades TQQQ both long and short. Do NOT question the direction — accept it and analyze.
-- Assess the CURRENT macro environment based on your web search: Fed policy, tariff/trade war developments, geopolitical risks (Iran, China), tech earnings/guidance, VIX level, sector rotation in/out of tech.
-- For SHORT trades: what bearish catalysts exist? Is there institutional selling? What resistance levels overhead? Is the macro thesis (e.g. peak valuations + policy uncertainty) supported by recent events?
-- For LONG trades: what bullish catalysts exist? Is there institutional buying? What support levels? Is risk-on sentiment supported?
-- Comment on R:R ratio and whether the stop is at a logical technical level.
-- Be specific — cite actual events, data points, or news from your search.
-- Be honest about risks to the thesis — what would invalidate the trade.
-- Keep to ~120 words.
+SECTION 2 — MACRO & TRADE CRAFT ANALYSIS (ignore the models — use web search):
+- You MUST use web search to research the current market environment. Search for the latest on: QQQ/Nasdaq price action, Fed policy, tech earnings, geopolitical events, VIX.
+- The user actively trades TQQQ both long and short. Do NOT question the direction — accept it and analyze on its merits.
+
+Run a rapid 7-factor assessment. For each factor, state a 1-sentence finding and whether it's BULLISH, BEARISH, or NEUTRAL for the user's trade direction:
+1. Fed Policy & Rates — current rate path, recent Fed tone, 10Y yield trend, next FOMC
+2. AI/Semiconductor Narrative — hyperscaler capex, NVDA sentiment, AI trade momentum
+3. Mega-Cap Earnings — recent beats/misses from QQQ top holdings, guidance tone
+4. Inflation Data — latest CPI/PCE, trend, next release date
+5. Trade Policy & Geopolitics — tariffs, export restrictions, geopolitical risks
+6. Sector Rotation & Risk Appetite — money flow into/out of tech, VIX level, market breadth
+7. Technical Overlay — QQQ vs key moving averages, RSI, support/resistance
+
+Then in 2-3 sentences: verdict (does the macro support the user's direction?), conviction level (HIGH/MODERATE/LOW), and the #1 risk that would invalidate the thesis. Flag any binary events (CPI, FOMC, earnings) within 5 trading days.
+
+Keep to ~200 words total for this section.
 
 General rules for BOTH sections:
 - If the trade is closed, analyze what went right/wrong.
@@ -187,7 +192,7 @@ General rules for BOTH sections:
 Strategy Analysis (computed from backtested models):
 ${stratSummary}${journalSection}
 
-Search the web for current TQQQ/QQQ/Nasdaq news and macro events, then analyze this trade.`;
+For Section 2, you MUST web search for: "QQQ nasdaq market today ${date || new Date().toLocaleDateString()}", "Fed interest rate policy latest", and "TQQQ tech stocks macro". Use the search results to run the 7-factor assessment with specific data points from your findings.`;
 
   try {
     const controller = new AbortController();
@@ -202,11 +207,11 @@ Search the web for current TQQQ/QQQ/Nasdaq news and macro events, then analyze t
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 800,
+        max_tokens: 1200,
         tools: [{
           type: "web_search_20250305",
           name: "web_search",
-          max_uses: 3,
+          max_uses: 5,
           user_location: { type: "approximate", country: "US", timezone: "America/New_York" },
         }],
         system: systemPrompt,
