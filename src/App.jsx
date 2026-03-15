@@ -5416,48 +5416,161 @@ function TQQQView() {
         </div>
       </Section>
 
-      {/* Recent Trades (collapsible) */}
-      {d.recent_trades && d.recent_trades.length > 0 && (() => {
-        const rt = d.recent_trades;
-        const wins = rt.filter(t => t.pnl_pct > 0).length;
-        const totalPnl = rt.reduce((s, t) => s + t.pnl_pct, 0);
+      {/* Strategy Comparison — v5 Sweep vs v6 Autoresearch */}
+      {d.strategies && (() => {
+        const v5 = d.strategies.v5_sweep;
+        const v6 = d.strategies.v6_autoresearch;
+        if (!v5 || !v6) return null;
+        const m5 = v5.metrics;
+        const m6 = v6.metrics;
+        const metricRows = [
+          ["CAGR", `${m5.cagr}%`, `${m6.cagr}%`, m5.cagr > m6.cagr ? "v5" : "v6"],
+          ["Total Return", `${m5.total_ret}%`, `${m6.total_ret}%`, m5.total_ret > m6.total_ret ? "v5" : "v6"],
+          ["Max DD", `${m5.mdd}%`, `${m6.mdd}%`, m5.mdd > m6.mdd ? "v5" : "v6"],
+          ["Sharpe", `${m5.sharpe}`, `${m6.sharpe}`, m5.sharpe > m6.sharpe ? "v5" : "v6"],
+          ["Calmar", `${m5.calmar}`, `${m6.calmar}`, m5.calmar > m6.calmar ? "v5" : "v6"],
+          ["Win Rate", `${m5.win_rate}%`, `${m6.win_rate}%`, m5.win_rate > m6.win_rate ? "v5" : "v6"],
+          ["Profit Factor", `${m5.pf}`, `${m6.pf}`, m5.pf > m6.pf ? "v5" : "v6"],
+          ["Trades", `${m5.total_trades}`, `${m6.total_trades}`, null],
+        ];
         return (
-          <Section label={`Trade Log — Last 5 Years (${rt.length} trades, ${wins}W/${rt.length - wins}L, ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}% total)`}>
-            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
+          <Section label="Strategy Comparison">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              {/* v5 card */}
+              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c084fc" }}>v5 Sweep Best</span>
+                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: "#c084fc15", color: "#c084fc" }}>AGGRESSIVE</span>
+                </div>
+                <div style={{ fontSize: 11, color: "#686878", lineHeight: 1.5, marginBottom: 8 }}>{v5.description}</div>
+                {v5.signal_type && <div style={{ fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 4, marginBottom: 6,
+                  background: v5.signal === 1 ? "#2bb88615" : "#f8717115", color: v5.signal === 1 ? "#2bb886" : "#f87171" }}>
+                  SIGNAL: {v5.signal_type} ({v5.signal === 1 ? "LONG" : "SHORT"})
+                </div>}
+                {!v5.signal_type && <div style={{ fontSize: 11, color: "#505060", marginBottom: 6 }}>No active signal</div>}
+                <div style={{ fontSize: 10, color: "#505060" }}>
+                  Stop ${v5.key_levels.long_stop} | Target ${v5.key_levels.long_target}
+                </div>
+                {v5.last_long_signal && <div style={{ fontSize: 10, color: "#686878", marginTop: 4 }}>
+                  Last: {v5.last_long_signal.signal} on {v5.last_long_signal.date}
+                  <span style={{ color: v5.last_long_signal.pnl_pct > 0 ? "#2bb886" : "#f87171", fontWeight: 700 }}>
+                    {" "}{v5.last_long_signal.pnl_pct > 0 ? "+" : ""}{v5.last_long_signal.pnl_pct}%
+                  </span>
+                </div>}
+              </div>
+              {/* v6 card */}
+              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#2dd4bf" }}>v6 Autoresearch</span>
+                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: "#2dd4bf15", color: "#2dd4bf" }}>RISK-ADJUSTED</span>
+                </div>
+                <div style={{ fontSize: 11, color: "#686878", lineHeight: 1.5, marginBottom: 8 }}>{v6.description}</div>
+                {v6.signal_type && <div style={{ fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 4, marginBottom: 6,
+                  background: "#2bb88615", color: "#2bb886" }}>
+                  SIGNAL: {v6.signal_type} (LONG)
+                </div>}
+                {!v6.signal_type && <div style={{ fontSize: 11, color: "#505060", marginBottom: 6 }}>No active signal</div>}
+                <div style={{ fontSize: 10, color: "#505060" }}>
+                  Stop ${v6.key_levels.long_stop} | Target ${v6.key_levels.long_target}
+                </div>
+                {v6.last_long_signal && <div style={{ fontSize: 10, color: "#686878", marginTop: 4 }}>
+                  Last: {v6.last_long_signal.signal} on {v6.last_long_signal.date}
+                  <span style={{ color: v6.last_long_signal.pnl_pct > 0 ? "#2bb886" : "#f87171", fontWeight: 700 }}>
+                    {" "}{v6.last_long_signal.pnl_pct > 0 ? "+" : ""}{v6.last_long_signal.pnl_pct}%
+                  </span>
+                </div>}
+              </div>
+            </div>
+            {/* Metrics comparison table */}
+            <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12, marginBottom: 12 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
                 <thead><tr style={{ borderBottom: "1px solid #2a2a38" }}>
-                  {["Entry", "Exit", "Dir", "Signal", "Entry $", "Exit $", "P&L", "Exit Reason", "Days"].map(h => (
-                    <th key={h} style={{ padding: "6px 8px", color: "#505060", fontWeight: 600, textAlign: h === "P&L" ? "right" : "left", fontSize: 10, textTransform: "uppercase" }}>{h}</th>
-                  ))}
+                  <th style={{ textAlign: "left", padding: "4px 8px", color: "#505060", fontSize: 10 }}>METRIC</th>
+                  <th style={{ textAlign: "center", padding: "4px 8px", color: "#c084fc", fontSize: 10 }}>v5 SWEEP</th>
+                  <th style={{ textAlign: "center", padding: "4px 8px", color: "#2dd4bf", fontSize: 10 }}>v6 AUTO</th>
+                  <th style={{ textAlign: "center", padding: "4px 8px", color: "#505060", fontSize: 10 }}>EDGE</th>
                 </tr></thead>
                 <tbody>
-                  {rt.map((t, i) => {
-                    const pnlColor = t.pnl_pct > 0 ? "#2bb886" : t.pnl_pct < 0 ? "#f87171" : "#9090a0";
-                    const dirColor = t.direction === "Long" ? "#2bb886" : "#f87171";
-                    return (
-                      <tr key={i} style={{ borderBottom: "1px solid #1a1a20" }}>
-                        <td style={{ padding: "5px 8px", color: "#9090a0" }}>{t.entry_date}</td>
-                        <td style={{ padding: "5px 8px", color: "#686878" }}>{t.exit_date}</td>
-                        <td style={{ padding: "5px 8px" }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
-                            background: dirColor + "15", color: dirColor }}>{t.direction === "Long" ? "L" : "S"}</span>
-                        </td>
-                        <td style={{ padding: "5px 8px", color: "#b8b8c8" }}>{t.signal}</td>
-                        <td style={{ padding: "5px 8px", color: "#686878" }}>${t.entry}</td>
-                        <td style={{ padding: "5px 8px", color: "#686878" }}>${t.exit}</td>
-                        <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: pnlColor }}>
-                          {t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%
-                        </td>
-                        <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10 }}>{t.exit_reason}</td>
-                        <td style={{ padding: "5px 8px", color: "#505060", textAlign: "center" }}>{t.days_held}</td>
-                      </tr>
-                    );
-                  })}
+                  {metricRows.map(([label, v5Val, v6Val, winner]) => (
+                    <tr key={label} style={{ borderBottom: "1px solid #1a1a20" }}>
+                      <td style={{ padding: "4px 8px", color: "#9090a0" }}>{label}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: winner === "v5" ? 700 : 400,
+                        color: winner === "v5" ? "#c084fc" : "#686878" }}>{v5Val}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "center", fontWeight: winner === "v6" ? 700 : 400,
+                        color: winner === "v6" ? "#2dd4bf" : "#686878" }}>{v6Val}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "center", fontSize: 10,
+                        color: winner === "v5" ? "#c084fc" : winner === "v6" ? "#2dd4bf" : "#505060" }}>
+                        {winner ? (winner === "v5" ? "v5" : "v6") : "—"}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
+            {/* v6 structural features */}
+            {v6.structural_features && (
+              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#2dd4bf", textTransform: "uppercase", marginBottom: 6 }}>v6 Structural Improvements</div>
+                {v6.structural_features.map((f, i) => (
+                  <div key={i} style={{ fontSize: 11, color: "#9090a0", padding: "2px 0", paddingLeft: 8,
+                    borderLeft: "2px solid #2dd4bf30" }}>{f}</div>
+                ))}
+              </div>
+            )}
           </Section>
         );
+      })()}
+
+      {/* Trade Logs — v5 and v6 side by side */}
+      {(() => {
+        const TradeTable = ({ trades, label }) => {
+          if (!trades || trades.length === 0) return null;
+          const wins = trades.filter(t => t.pnl_pct > 0).length;
+          const totalPnl = trades.reduce((s, t) => s + t.pnl_pct, 0);
+          return (
+            <Section label={`${label} (${trades.length}t, ${wins}W/${trades.length - wins}L, ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(1)}%)`}>
+              <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "monospace" }}>
+                  <thead><tr style={{ borderBottom: "1px solid #2a2a38" }}>
+                    {["Entry", "Exit", "Dir", "Signal", "Entry $", "Exit $", "P&L", "Exit Reason", "Days"].map(h => (
+                      <th key={h} style={{ padding: "6px 8px", color: "#505060", fontWeight: 600, textAlign: h === "P&L" ? "right" : "left", fontSize: 10, textTransform: "uppercase" }}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {trades.map((t, i) => {
+                      const pnlColor = t.pnl_pct > 0 ? "#2bb886" : t.pnl_pct < 0 ? "#f87171" : "#9090a0";
+                      const dirColor = t.direction === "Long" ? "#2bb886" : "#f87171";
+                      return (
+                        <tr key={i} style={{ borderBottom: "1px solid #1a1a20" }}>
+                          <td style={{ padding: "5px 8px", color: "#9090a0" }}>{t.entry_date}</td>
+                          <td style={{ padding: "5px 8px", color: "#686878" }}>{t.exit_date}</td>
+                          <td style={{ padding: "5px 8px" }}>
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                              background: dirColor + "15", color: dirColor }}>{t.direction === "Long" ? "L" : "S"}</span>
+                          </td>
+                          <td style={{ padding: "5px 8px", color: "#b8b8c8" }}>{t.signal}</td>
+                          <td style={{ padding: "5px 8px", color: "#686878" }}>${t.entry}</td>
+                          <td style={{ padding: "5px 8px", color: "#686878" }}>${t.exit}</td>
+                          <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: pnlColor }}>
+                            {t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%
+                          </td>
+                          <td style={{ padding: "5px 8px", color: "#686878", fontSize: 10 }}>{t.exit_reason}</td>
+                          <td style={{ padding: "5px 8px", color: "#505060", textAlign: "center" }}>{t.days_held}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          );
+        };
+        const v5Trades = d.strategies?.v5_sweep?.recent_trades || d.recent_trades;
+        const v6Trades = d.strategies?.v6_autoresearch?.recent_trades;
+        return <>
+          <TradeTable trades={v5Trades} label="v5 Sweep — Trade Log (5yr)" />
+          <TradeTable trades={v6Trades} label="v6 Autoresearch — Trade Log (5yr)" />
+        </>;
       })()}
 
       {/* Collapsible raw data */}
@@ -5489,7 +5602,7 @@ function TQQQView() {
               })()} />
             </div>
             <div style={{ background: "#141420", border: "1px solid #222230", borderRadius: 8, padding: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#686878", textTransform: "uppercase", marginBottom: 8 }}>v5 System Stats ({m.years}y)</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#686878", textTransform: "uppercase", marginBottom: 8 }}>v5 Sweep System Stats ({m.years}y)</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
                 {[
                   ["Return", `${m.total_ret}%`, "#2bb886"],
