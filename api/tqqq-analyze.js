@@ -14,7 +14,6 @@ function computeLevels(entry, adr, daysHeld, currentPrice, dir, params) {
   let stop = isLong ? entry - params.adr_stop * adr : entry + params.adr_stop * adr;
   const target = isLong ? entry + params.adr_target * adr : entry - params.adr_target * adr;
 
-  // Ratcheting breakeven
   let ratchet = false;
   if (params.be_trigger > 0) {
     const best = isLong ? Math.max(entry, currentPrice) : Math.min(entry, currentPrice);
@@ -26,7 +25,6 @@ function computeLevels(entry, adr, daysHeld, currentPrice, dir, params) {
     }
   }
 
-  // Time-decay stop
   let decay = false;
   if (params.time_decay_start > 0 && daysHeld >= params.time_decay_start) {
     decay = true;
@@ -36,7 +34,6 @@ function computeLevels(entry, adr, daysHeld, currentPrice, dir, params) {
     else stop = Math.min(stop, stop - daysPast * rate * adr);
   }
 
-  // Max hold
   const profitable = isLong ? currentPrice > entry : currentPrice < entry;
   const maxHold = params.max_hold + (params.extend_if_profit > 0 && profitable ? params.extend_if_profit : 0);
   const stopHit = isLong ? currentPrice <= stop : currentPrice >= stop;
@@ -50,7 +47,11 @@ function computeLevels(entry, adr, daysHeld, currentPrice, dir, params) {
   else if (decay) rec = `HOLD — Stop tightening (decay day ${daysHeld})`;
   else rec = `HOLD — ${Math.max(0, maxHold - daysHeld)}d remaining`;
 
-  return { stop: stop.toFixed(2), target: target.toFixed(2), stopPct: ((stop - entry) / entry * 100).toFixed(1), targetPct: ((target - entry) / entry * 100).toFixed(1), maxHold, daysHeld, ratchet, decay, stopHit, targetHit, maxHoldReached, rec };
+  const stopRisk = Math.abs(stop - entry);
+  const stopRiskPct = (stopRisk / entry * 100);
+  const stopRiskAdr = adr > 0 ? stopRisk / adr : 0;
+
+  return { stop: stop.toFixed(2), target: target.toFixed(2), stopRisk: stopRisk.toFixed(2), stopRiskPct: stopRiskPct.toFixed(1), stopRiskAdr: stopRiskAdr.toFixed(2), targetPct: ((Math.abs(target - entry)) / entry * 100).toFixed(1), maxHold, daysHeld, ratchet, decay, stopHit, targetHit, maxHoldReached, rec };
 }
 
 export default async function handler(req, res) {
@@ -71,21 +72,62 @@ export default async function handler(req, res) {
   const pnlPct = dir === "long" ? ((current - entry) / entry * 100) : ((entry - current) / entry * 100);
   const daysHeld = trade.daysHeld || 0;
 
-  // Use client-sent strategies if available, otherwise compute from hardcoded params
+  // Pre-compute user stop risk
+  const userStopRisk = userStop ? Math.abs(userStop - entry) : null;
+  const userStopRiskPct = userStopRisk ? (userStopRisk / entry * 100) : null;
+  const userStopAdr = userStopRisk && adrVal > 0 ? (userStopRisk / adrVal) : null;
+
+  // Build strategy summary with explicit risk comparisons
   let stratSummary;
+  const stratLines = [];
+
   if (strategies && strategies.length > 0) {
-    stratSummary = strategies.map(s =>
-      `${s.label}: ${s.rec} | Stop $${s.stop} (${s.stopPct}%) | Target $${s.target} (${s.targetPct}%) | Hold ${s.daysHeld}/${s.maxHold}d | Flags: ${s.flags || "none"}`
-    ).join("\n");
+    for (const s of strategies) {
+      const modelStopRisk = Math.abs(parseFloat(s.stop) - entry);
+      let comparison = "";
+      if (userStopRisk !== null) {
+        if (userStopRisk < modelStopRisk) {
+          comparison = ` ← USER STOP IS TIGHTER ($${userStopRisk.toFixed(2)} risk vs model $${modelStopRisk.toFixed(2)} risk)`;
+        } else if (userStopRisk > modelStopRisk) {
+          comparison = ` ← USER STOP IS WIDER ($${userStopRisk.toFixed(2)} risk vs model $${modelStopRisk.toFixed(2)} risk)`;
+        } else {
+          comparison = ` ← MATCHES user stop`;
+        }
+      }
+      stratLines.push(`${s.label}: ${s.rec} | Stop $${s.stop} (risk: $${modelStopRisk.toFixed(2)}) | Target $${s.target} (${s.targetPct}%) | Hold ${s.daysHeld}/${s.maxHold}d | Flags: ${s.flags || "none"}${comparison}`);
+    }
+    stratSummary = stratLines.join("\n");
   } else if (adrVal > 0) {
-    // Compute levels server-side from hardcoded params
-    stratSummary = Object.entries(STRATEGY_PARAMS).map(([key, params]) => {
-      if (dir !== "long" && (key === "v6" || key === "v6.2")) return `${params.label}: N/A (long-only strategy)`;
+    for (const [key, params] of Object.entries(STRATEGY_PARAMS)) {
+      if (dir !== "long" && (key === "v6" || key === "v6.2")) {
+        stratLines.push(`${params.label}: N/A (long-only strategy)`);
+        continue;
+      }
       const lvl = computeLevels(entry, adrVal, daysHeld, current, dir, params);
-      return `${params.label}: ${lvl.rec} | Stop $${lvl.stop} (${lvl.stopPct}%) | Target $${lvl.target} (${lvl.targetPct}%) | Hold ${daysHeld}/${lvl.maxHold}d | Flags: ${[lvl.ratchet && "RATCHET", lvl.decay && "DECAY", lvl.stopHit && "STOP HIT", lvl.targetHit && "TARGET HIT", lvl.maxHoldReached && "MAX HOLD"].filter(Boolean).join(", ") || "none"}`;
-    }).join("\n");
+      let comparison = "";
+      if (userStopRisk !== null) {
+        const modelRisk = parseFloat(lvl.stopRisk);
+        if (userStopRisk < modelRisk) {
+          comparison = ` ← USER STOP IS TIGHTER ($${userStopRisk.toFixed(2)} risk vs model $${modelRisk.toFixed(2)} risk)`;
+        } else if (userStopRisk > modelRisk) {
+          comparison = ` ← USER STOP IS WIDER ($${userStopRisk.toFixed(2)} risk vs model $${modelRisk.toFixed(2)} risk)`;
+        } else {
+          comparison = ` ← MATCHES user stop`;
+        }
+      }
+      stratLines.push(`${params.label}: ${lvl.rec} | Stop $${lvl.stop} (risk: $${lvl.stopRisk}, ${lvl.stopRiskAdr} ADR) | Target $${lvl.target} (${lvl.targetPct}%) | Hold ${daysHeld}/${lvl.maxHold}d | Flags: ${[lvl.ratchet && "RATCHET", lvl.decay && "DECAY", lvl.stopHit && "STOP HIT", lvl.targetHit && "TARGET HIT", lvl.maxHoldReached && "MAX HOLD"].filter(Boolean).join(", ") || "none"}${comparison}`);
+    }
+    stratSummary = stratLines.join("\n");
   } else {
     stratSummary = Object.entries(STRATEGY_PARAMS).map(([, p]) => `${p.label}: ${p.description}`).join("\n");
+  }
+
+  // Build prior analysis journal
+  let journalSection = "";
+  if (priorAnalyses && priorAnalyses.length > 0) {
+    journalSection = "\n\nPrior Analysis Journal (most recent last):\n" + priorAnalyses.map(p =>
+      `[${p.date}] Price $${p.price} (${p.pnlPct}%) Day ${p.daysHeld}: ${p.analysis.slice(0, 200)}`
+    ).join("\n");
   }
 
   const systemPrompt = `You are a TQQQ swing trading advisor. The user has an active or closed TQQQ trade. You have 4 backtested strategy models with computed stop/target levels.
@@ -97,59 +139,47 @@ Strategy backtest context:
 - v6.2: v6 + time-decay + conditional hold. Backtest: 90t, 64% WR, -15.1% MDD.
 
 ADR = Average Daily Range in dollars. Stops and targets are multiples of ADR from entry.
-Ratcheting breakeven: after 2 ADR profit, stop moves to max(entry, best - 2.5*ADR).
-Time-decay: after day 5, stop tightens by 0.5*ADR per additional day held.
 
-CRITICAL — Stop/target direction rules:
-- LONG trade: stop is BELOW entry, target is ABOVE entry. A LOWER stop = MORE risk (wider). A HIGHER stop = LESS risk (tighter).
-- SHORT trade: stop is ABOVE entry, target is BELOW entry. A HIGHER stop = MORE risk (wider). A LOWER stop = LESS risk (tighter).
-- When comparing the user's stop to strategy stops: "tighter" means LESS dollar risk from entry, "wider" means MORE dollar risk from entry.
-- Example: SHORT at $46.80 — user stop $49.78 ($2.98 risk) vs model stop $52.67 ($5.87 risk) → user's stop is TIGHTER (less risk, closer to entry).
-- Always compute the dollar distance from entry to stop when comparing: |stop - entry|. Smaller distance = tighter stop.
+CRITICAL — How to read stop comparisons:
+- Each strategy line includes "← USER STOP IS TIGHTER" or "← USER STOP IS WIDER" with dollar risk amounts.
+- "TIGHTER" = user risks LESS per share than the model. "WIDER" = user risks MORE.
+- Trust these labels — they are pre-computed correctly for both long and short trades.
+- When the user's stop is tighter than models, acknowledge it is conservative/disciplined, not "wide."
 
 Your output MUST have exactly TWO sections separated by "---" on its own line:
 
 SECTION 1 — MODEL ANALYSIS (based on backtested strategies):
 - Be direct and actionable. No disclaimers.
-- Reference the SPECIFIC dollar levels from the strategy analysis below.
+- Reference the SPECIFIC dollar levels from the strategy analysis.
+- Trust the TIGHTER/WIDER labels in the data. If it says "USER STOP IS TIGHTER," say the user's stop is tighter/more conservative than the models.
 - If strategies disagree, explain why and give your weighted recommendation (v6 is the champion, weight it highest).
-- If the user has set a manual stop, compare it to the strategy stops by computing |stop - entry| for both. State which is tighter/wider and by how much.
 - First paragraph: overall verdict (hold/exit/tighten stop). Bold the key action.
 - Second paragraph: key levels to watch and what would change your mind.
 - Keep to ~100 words.
 
-SECTION 2 — TRADE CRAFT ANALYSIS (ignore the models entirely):
-- The user actively trades TQQQ both long and short. Do NOT question whether going long or short TQQQ is appropriate — accept the direction as given and analyze the trade on its merits.
-- Focus on MACRO + THESIS: assess the current macro environment (Fed policy, earnings season, geopolitical risks, sector rotation, tech valuations, VIX regime, key economic data) and whether it supports the trade direction.
-- For LONG trades: is tech in a risk-on environment? Are earnings/guidance supportive? Is there institutional buying? Key support levels to hold.
-- For SHORT trades: what macro headwinds exist (tariffs, rate policy, geopolitical uncertainty, valuation compression)? Is there a catalyst for continued downside? Key resistance levels overhead.
-- Comment on trade management: is the stop at a logical technical level (support/resistance)? Is the R:R ratio adequate (minimum 2:1)?
+SECTION 2 — TRADE CRAFT ANALYSIS (ignore the models — use web search for current macro):
+- You MUST use web search to find current market news, macro events, and TQQQ/QQQ price action from the last 1-2 days.
+- Search for: "QQQ TQQQ market today", "nasdaq tech stocks this week", and any relevant macro events (Fed, tariffs, geopolitics).
+- The user actively trades TQQQ both long and short. Do NOT question the direction — accept it and analyze.
+- Assess the CURRENT macro environment based on your web search: Fed policy, tariff/trade war developments, geopolitical risks (Iran, China), tech earnings/guidance, VIX level, sector rotation in/out of tech.
+- For SHORT trades: what bearish catalysts exist? Is there institutional selling? What resistance levels overhead? Is the macro thesis (e.g. peak valuations + policy uncertainty) supported by recent events?
+- For LONG trades: what bullish catalysts exist? Is there institutional buying? What support levels? Is risk-on sentiment supported?
+- Comment on R:R ratio and whether the stop is at a logical technical level.
+- Be specific — cite actual events, data points, or news from your search.
 - Be honest about risks to the thesis — what would invalidate the trade.
-- Keep to ~100 words.
+- Keep to ~120 words.
 
 General rules for BOTH sections:
 - If the trade is closed, analyze what went right/wrong.
 - If prior analyses are provided, this is a RUNNING JOURNAL. Reference how the situation has evolved. Be brief about what hasn't changed.
 - No markdown headers — just flowing paragraphs. The "---" separator is the only structural element.`;
 
-  // Build prior analysis journal
-  let journalSection = "";
-  if (priorAnalyses && priorAnalyses.length > 0) {
-    journalSection = "\n\nPrior Analysis Journal (most recent last):\n" + priorAnalyses.map(p =>
-      `[${p.date}] Price $${p.price} (${p.pnlPct}%) Day ${p.daysHeld}: ${p.analysis.slice(0, 200)}`
-    ).join("\n");
-  }
-
-  const userStopRisk = userStop ? Math.abs(userStop - entry) : null;
-  const userStopRiskPct = userStopRisk ? (userStopRisk / entry * 100) : null;
-  const userStopAdr = userStopRisk && adrVal > 0 ? (userStopRisk / adrVal) : null;
-
   const userMsg = `TQQQ Trade:
 - Direction: ${dir.toUpperCase()}
 - Entry: $${entry}${trade.entryDate ? ` on ${trade.entryDate}` : ""}
 - Current: $${current} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)
 - Days held: ${daysHeld}
-- My stop: ${userStop ? `$${userStop} (risk: $${userStopRisk.toFixed(2)} = ${userStopRiskPct.toFixed(1)}% = ${userStopAdr ? userStopAdr.toFixed(2) + " ADR" : "N/A"})` : "not set"}
+- My stop: ${userStop ? `$${userStop} (dollar risk from entry: $${userStopRisk.toFixed(2)} = ${userStopRiskPct.toFixed(1)}% = ${userStopAdr ? userStopAdr.toFixed(2) + " ADR" : "N/A"})` : "not set"}
 - ADR: $${adrVal > 0 ? adrVal.toFixed(2) : "N/A"}
 - Date: ${date || "today"}
 - Status: ${trade.mode || "open"}
@@ -157,11 +187,11 @@ General rules for BOTH sections:
 Strategy Analysis (computed from backtested models):
 ${stratSummary}${journalSection}
 
-What should I do with this trade?`;
+Search the web for current TQQQ/QQQ/Nasdaq news and macro events, then analyze this trade.`;
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -172,7 +202,7 @@ What should I do with this trade?`;
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 600,
+        max_tokens: 800,
         tools: [{
           type: "web_search_20250305",
           name: "web_search",

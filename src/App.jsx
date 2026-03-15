@@ -5726,7 +5726,7 @@ function TQQQView() {
                       <div style={{ padding: "12px 14px", borderRadius: 6, background: "#c084fc08", border: "1px solid #c084fc20" }}>
                         <div style={{ fontSize: 9, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, letterSpacing: 1 }}>Model Analysis</div>
                         {aiLoading ? (
-                          <div style={{ fontSize: 12, color: "#686878", fontStyle: "italic" }}>Thinking...</div>
+                          <div style={{ fontSize: 12, color: "#686878", fontStyle: "italic" }}>Searching news &amp; analyzing...</div>
                         ) : (
                           <div style={{ fontSize: 12, color: "#b8b8c8", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{modelSection}</div>
                         )}
