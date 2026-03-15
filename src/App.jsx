@@ -5382,7 +5382,11 @@ function TQQQView() {
           setTradeInput(next);
           localStorage.setItem("tp_tqqq_trade", JSON.stringify(next));
         };
-        const clearTrade = () => { setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); setShowAnalysis(false); setAiAnalysis(""); };
+        const clearTrade = () => {
+          const oldDate = tradeInput.entryDate;
+          if (oldDate) localStorage.removeItem(`tp_tqqq_analysis_${oldDate}`);
+          setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); setShowAnalysis(false); setAiAnalysis("");
+        };
 
         const bizDays = (startStr, endStr) => {
           if (!startStr || !endStr) return 0;
@@ -5477,34 +5481,7 @@ function TQQQView() {
             {/* ── BOX 1: MY CURRENT TRADE ── */}
             <Section label="My Current Trade">
               <div style={{ background: "#141420", border: hasEntry ? `1px solid ${pnlColor}30` : "1px solid #222230", borderRadius: 10, padding: 16 }}>
-                {/* Trade P&L hero + inline edit row */}
-                {hasEntry && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid #222230" }}>
-                    <div style={{ minWidth: 90 }}>
-                      <div style={{ fontSize: 26, fontWeight: 800, color: pnlColor, fontFamily: "monospace", lineHeight: 1 }}>
-                        {userPnl >= 0 ? "+" : ""}{userPnlPct.toFixed(2)}%
-                      </div>
-                      <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
-                        ${userPnl >= 0 ? "+" : ""}{userPnl.toFixed(2)}/sh
-                      </div>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, color: "#b8b8c8", fontWeight: 600 }}>
-                        <span style={{ color: dir === "long" ? "#2bb886" : "#f87171" }}>{dir.toUpperCase()}</span>
-                        {" "}TQQQ @ ${entry}
-                      </div>
-                      <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
-                        {tradeMode === "closed" ? `Exited $${currentPrice} on ${exitDate}` : `Now $${d.close}`}
-                        {" "} | {daysHeld} trading day{daysHeld !== 1 ? "s" : ""} held
-                      </div>
-                    </div>
-                    <button onClick={clearTrade}
-                      style={{ background: "none", border: "1px solid #f8717130", borderRadius: 4, padding: "4px 10px",
-                        color: "#f87171", fontSize: 10, cursor: "pointer", fontFamily: "monospace" }}>Clear</button>
-                  </div>
-                )}
-
-                {/* Input fields */}
+                {/* Input fields FIRST — stable DOM position prevents cursor jumping */}
                 <div style={{ display: "flex", gap: 6, alignItems: "flex-end", flexWrap: "wrap" }}>
                   {/* Mode */}
                   <div style={{ display: "flex", gap: 3 }}>
@@ -5549,6 +5526,11 @@ function TQQQView() {
                     <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry $</div>
                     <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.entryPrice ?? ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade({ entryPrice: e.target.value }); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                   </div>
+                  {/* Stop price */}
+                  <div style={{ flex: "0 0 80px" }}>
+                    <div style={{ fontSize: 8, color: "#f87171", textTransform: "uppercase", marginBottom: 2 }}>Stop $</div>
+                    <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.stopPrice ?? ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade({ stopPrice: e.target.value }); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11, borderColor: tradeInput.stopPrice ? "#f8717140" : "#2a2a38" }} />
+                  </div>
                   {/* Exit fields (closed mode) */}
                   {tradeMode === "closed" && <>
                     <div style={{ flex: "0 0 90px" }}>
@@ -5591,19 +5573,31 @@ function TQQQView() {
                             flags: [a.ratchetActive && "RATCHET", a.timeDecayActive && `DECAY D${a.daysHeld}`, a.emaExitTriggered && "8W EMA", a.stopHit && "STOP HIT", a.targetHit && "TARGET HIT", a.maxHoldReached && "MAX HOLD"].filter(Boolean).join(", "),
                           };
                         }).filter(Boolean);
+                        // Load prior analysis history for running journal
+                        const historyKey = `tp_tqqq_analysis_${tradeInput.entryDate || "current"}`;
+                        let priorHistory = [];
+                        try { priorHistory = JSON.parse(localStorage.getItem(historyKey)) || []; } catch {}
                         const resp = await fetch("/api/tqqq-analyze", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
-                            trade: { entryPrice: entry, entryDate, direction: dir, daysHeld, mode: tradeMode, exitPrice: tradeMode === "closed" ? exitPrice : undefined },
+                            trade: { entryPrice: entry, entryDate, direction: dir, daysHeld, mode: tradeMode, exitPrice: tradeMode === "closed" ? exitPrice : undefined, stopPrice: parseFloat(tradeInput.stopPrice) || undefined },
                             strategies: stratResults,
                             currentPrice: currentPrice,
                             adr: adrDollar.toFixed(2),
                             date: d.date,
+                            priorAnalyses: priorHistory,
                           }),
                         });
                         const json = await resp.json();
-                        setAiAnalysis(json.ok ? json.analysis : `Error: ${json.error}`);
+                        const analysis = json.ok ? json.analysis : `Error: ${json.error}`;
+                        setAiAnalysis(analysis);
+                        // Save to running history
+                        if (json.ok) {
+                          priorHistory.push({ date: d.date, price: currentPrice, pnlPct: userPnlPct.toFixed(2), daysHeld, analysis });
+                          if (priorHistory.length > 10) priorHistory = priorHistory.slice(-10);
+                          localStorage.setItem(historyKey, JSON.stringify(priorHistory));
+                        }
                       } catch (e) { setAiAnalysis(`Error: ${e.message}`); }
                       setAiLoading(false);
                     }}
@@ -5612,9 +5606,34 @@ function TQQQView() {
                         fontFamily: "monospace", whiteSpace: "nowrap", opacity: aiLoading ? 0.6 : 1 }}>{aiLoading ? "Analyzing..." : "Analyze"}</button>
                   </div>
                 </div>
-                {hasEntry && <div style={{ fontSize: 9, color: "#3a3a4a", marginTop: 8, fontStyle: "italic" }}>
-                  ADR ${adrDollar.toFixed(2)} ({d.adr_pct}%) as of {d.date}
-                </div>}
+
+                {/* Trade P&L hero — appears below inputs after entry */}
+                {hasEntry && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 14, paddingTop: 12, borderTop: "1px solid #222230" }}>
+                    <div style={{ minWidth: 90 }}>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: pnlColor, fontFamily: "monospace", lineHeight: 1 }}>
+                        {userPnl >= 0 ? "+" : ""}{userPnlPct.toFixed(2)}%
+                      </div>
+                      <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
+                        ${userPnl >= 0 ? "+" : ""}{userPnl.toFixed(2)}/sh
+                      </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, color: "#b8b8c8", fontWeight: 600 }}>
+                        <span style={{ color: dir === "long" ? "#2bb886" : "#f87171" }}>{dir.toUpperCase()}</span>
+                        {" "}TQQQ @ ${entry}{tradeInput.stopPrice ? ` | Stop $${tradeInput.stopPrice}` : ""}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
+                        {tradeMode === "closed" ? `Exited $${currentPrice} on ${exitDate}` : `Now $${d.close}`}
+                        {daysHeld > 0 && ` | ${daysHeld} day${daysHeld !== 1 ? "s" : ""} held`}
+                        {" | ADR $"}{adrDollar.toFixed(2)} ({d.adr_pct}%)
+                      </div>
+                    </div>
+                    <button onClick={clearTrade}
+                      style={{ background: "none", border: "1px solid #f8717130", borderRadius: 4, padding: "4px 10px",
+                        color: "#f87171", fontSize: 10, cursor: "pointer", fontFamily: "monospace" }}>Clear</button>
+                  </div>
+                )}
 
                 {/* ── INLINE STRATEGY ANALYSIS ── */}
                 {hasEntry && showAnalysis && (() => {

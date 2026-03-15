@@ -60,13 +60,14 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "POST only" });
 
-  const { trade, strategies, currentPrice, adr, date } = req.body || {};
+  const { trade, strategies, currentPrice, adr, date, priorAnalyses } = req.body || {};
   if (!trade?.entryPrice) return res.status(400).json({ ok: false, error: "Missing trade data" });
 
   const dir = trade.direction || "long";
   const entry = parseFloat(trade.entryPrice);
   const current = parseFloat(currentPrice) || entry;
   const adrVal = parseFloat(adr) || 0;
+  const userStop = trade.stopPrice ? parseFloat(trade.stopPrice) : null;
   const pnlPct = dir === "long" ? ((current - entry) / entry * 100) : ((entry - current) / entry * 100);
   const daysHeld = trade.daysHeld || 0;
 
@@ -103,23 +104,34 @@ Rules:
 - Be direct and actionable. No disclaimers.
 - Reference the SPECIFIC dollar levels from the strategy analysis below.
 - If strategies disagree, explain why and give your weighted recommendation (v6 is the champion, weight it highest).
+- If the user has set a manual stop, compare it to the strategy stops and comment on whether it's appropriate.
 - Keep total output under 150 words.
 - Use plain language, no markdown headers. Just 2-3 short paragraphs.
 - First paragraph: overall verdict (hold/exit/tighten stop). Bold the key action.
 - Second paragraph: key levels to watch and what would change your mind.
-- If the trade is closed, analyze what went right/wrong vs the strategies.`;
+- If the trade is closed, analyze what went right/wrong vs the strategies.
+- If prior analyses are provided, this is a RUNNING JOURNAL. Reference how the situation has evolved since last analysis. Note trend changes, stop adjustments, and whether prior advice was correct. Be brief about what hasn't changed.`;
+
+  // Build prior analysis journal
+  let journalSection = "";
+  if (priorAnalyses && priorAnalyses.length > 0) {
+    journalSection = "\n\nPrior Analysis Journal (most recent last):\n" + priorAnalyses.map(p =>
+      `[${p.date}] Price $${p.price} (${p.pnlPct}%) Day ${p.daysHeld}: ${p.analysis.slice(0, 200)}`
+    ).join("\n");
+  }
 
   const userMsg = `TQQQ Trade:
 - Direction: ${dir.toUpperCase()}
 - Entry: $${entry}${trade.entryDate ? ` on ${trade.entryDate}` : ""}
 - Current: $${current} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)
 - Days held: ${daysHeld}
+- My stop: ${userStop ? `$${userStop}` : "not set"}
 - ADR: $${adrVal > 0 ? adrVal.toFixed(2) : "N/A"}
 - Date: ${date || "today"}
 - Status: ${trade.mode || "open"}
 
 Strategy Analysis (computed from backtested models):
-${stratSummary}
+${stratSummary}${journalSection}
 
 What should I do with this trade?`;
 
