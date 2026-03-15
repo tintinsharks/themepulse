@@ -5397,7 +5397,7 @@ function TQQQView() {
         const entryDate = tradeInput.entryDate || "";
         const exitPrice = parseFloat(tradeInput.exitPrice) || 0;
         const exitDate = tradeInput.exitDate || d.date;
-        const bestPrice = parseFloat(tradeInput.bestPrice) || d.close;
+        const bestPrice = d.close;
         const currentPrice = tradeMode === "closed" ? exitPrice : d.close;
         const daysHeld = bizDays(entryDate, tradeMode === "closed" ? exitDate : d.date);
         const hasEntry = entry > 0 && entryDate;
@@ -5493,7 +5493,6 @@ function TQQQView() {
                       <div style={{ fontSize: 11, color: "#686878", marginTop: 2 }}>
                         {tradeMode === "closed" ? `Exited $${currentPrice} on ${exitDate}` : `Now $${d.close}`}
                         {" "} | {daysHeld} trading day{daysHeld !== 1 ? "s" : ""} held
-                        {bestPrice !== d.close && bestPrice !== entry && ` | Best $${bestPrice}`}
                       </div>
                     </div>
                     <button onClick={clearTrade}
@@ -5528,17 +5527,22 @@ function TQQQView() {
                   {/* Entry date */}
                   <div style={{ flex: "0 0 90px" }}>
                     <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry Date</div>
-                    <input type="text" placeholder="3/14/26" value={tradeInput.entryDate || ""} onChange={e => {
+                    <input type="text" placeholder="3/14/26" value={tradeInput.entryDateDisplay || tradeInput.entryDate || ""} onChange={e => {
                       const v = e.target.value;
-                      updateTrade("entryDate", v);
-                      // auto-convert short dates: 3/14/26 → 2026-03-14, 2026-3-14 → 2026-03-14
                       const m1 = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
                       const m2 = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
                       if (m1) {
                         const yr = m1[3].length === 2 ? "20" + m1[3] : m1[3];
-                        updateTrade("entryDate", `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`);
+                        const iso = `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`;
+                        updateTrade("entryDate", iso);
+                        updateTrade("entryDateDisplay", v);
                       } else if (m2) {
-                        updateTrade("entryDate", `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`);
+                        const iso = `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`;
+                        updateTrade("entryDate", iso);
+                        updateTrade("entryDateDisplay", v);
+                      } else {
+                        updateTrade("entryDateDisplay", v);
+                        updateTrade("entryDate", v);
                       }
                     }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                   </div>
@@ -5547,25 +5551,24 @@ function TQQQView() {
                     <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Entry $</div>
                     <input type="text" inputMode="decimal" placeholder="0.00" value={tradeInput.entryPrice || ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade("entryPrice", e.target.value); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                   </div>
-                  {/* Best price */}
-                  <div style={{ flex: "0 0 80px" }}>
-                    <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Best $</div>
-                    <input type="text" inputMode="decimal" placeholder={String(d.close)} value={tradeInput.bestPrice || ""} onChange={e => { if (/^[\d.]*$/.test(e.target.value)) updateTrade("bestPrice", e.target.value); }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
-                  </div>
                   {/* Exit fields (closed mode) */}
                   {tradeMode === "closed" && <>
                     <div style={{ flex: "0 0 90px" }}>
                       <div style={{ fontSize: 8, color: "#505060", textTransform: "uppercase", marginBottom: 2 }}>Exit Date</div>
-                      <input type="text" placeholder="3/15/26" value={tradeInput.exitDate || ""} onChange={e => {
+                      <input type="text" placeholder="3/15/26" value={tradeInput.exitDateDisplay || tradeInput.exitDate || ""} onChange={e => {
                         const v = e.target.value;
-                        updateTrade("exitDate", v);
                         const m1 = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
                         const m2 = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
                         if (m1) {
                           const yr = m1[3].length === 2 ? "20" + m1[3] : m1[3];
                           updateTrade("exitDate", `${yr}-${m1[1].padStart(2,"0")}-${m1[2].padStart(2,"0")}`);
+                          updateTrade("exitDateDisplay", v);
                         } else if (m2) {
                           updateTrade("exitDate", `${m2[1]}-${m2[2].padStart(2,"0")}-${m2[3].padStart(2,"0")}`);
+                          updateTrade("exitDateDisplay", v);
+                        } else {
+                          updateTrade("exitDateDisplay", v);
+                          updateTrade("exitDate", v);
                         }
                       }} style={{ ...inputStyle, padding: "4px 6px", fontSize: 11 }} />
                     </div>
@@ -5576,9 +5579,9 @@ function TQQQView() {
                   </>}
                   {/* Analyze button */}
                   <div style={{ display: "flex", alignItems: "flex-end" }}>
-                    <button onClick={() => setShowAnalysis(true)}
-                      style={{ background: entry > 0 && entryDate ? "#c084fc" : "#2a2a38", border: "none", borderRadius: 4, padding: "6px 14px",
-                        color: entry > 0 && entryDate ? "#fff" : "#505060", fontSize: 11, fontWeight: 700, cursor: entry > 0 && entryDate ? "pointer" : "default",
+                    <button onClick={() => { if (entry > 0) setShowAnalysis(true); }}
+                      style={{ background: entry > 0 ? "#c084fc" : "#2a2a38", border: "none", borderRadius: 4, padding: "6px 14px",
+                        color: entry > 0 ? "#fff" : "#505060", fontSize: 11, fontWeight: 700, cursor: entry > 0 ? "pointer" : "default",
                         fontFamily: "monospace", whiteSpace: "nowrap" }}>Analyze</button>
                   </div>
                 </div>
