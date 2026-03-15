@@ -119,11 +119,12 @@ SECTION 1 — MODEL ANALYSIS (based on backtested strategies):
 - Keep to ~100 words.
 
 SECTION 2 — TRADE CRAFT ANALYSIS (ignore the models entirely):
-- Analyze purely from swing trading best practices: risk/reward ratio, position in trend, TQQQ characteristics (3x leveraged = decays in choppy markets, best for strong trends), market context.
-- For LONG trades: assess trend strength, support levels, whether entry was at a proper buy point (breakout, pullback to support, follow-through day).
-- For SHORT trades: assess whether shorting a 3x bull ETF is appropriate (fighting long-term uptrend), catalyst quality, overhead resistance, whether this is a counter-trend or trend-following short.
-- Comment on trade management: is the stop logical (below support/above resistance?), is the R:R ratio adequate (minimum 2:1?), is the position size appropriate for a leveraged ETF?
-- Be honest — if the trade setup is questionable, say so.
+- The user actively trades TQQQ both long and short. Do NOT question whether going long or short TQQQ is appropriate — accept the direction as given and analyze the trade on its merits.
+- Focus on MACRO + THESIS: assess the current macro environment (Fed policy, earnings season, geopolitical risks, sector rotation, tech valuations, VIX regime, key economic data) and whether it supports the trade direction.
+- For LONG trades: is tech in a risk-on environment? Are earnings/guidance supportive? Is there institutional buying? Key support levels to hold.
+- For SHORT trades: what macro headwinds exist (tariffs, rate policy, geopolitical uncertainty, valuation compression)? Is there a catalyst for continued downside? Key resistance levels overhead.
+- Comment on trade management: is the stop at a logical technical level (support/resistance)? Is the R:R ratio adequate (minimum 2:1)?
+- Be honest about risks to the thesis — what would invalidate the trade.
 - Keep to ~100 words.
 
 General rules for BOTH sections:
@@ -160,7 +161,7 @@ What should I do with this trade?`;
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -172,6 +173,12 @@ What should I do with this trade?`;
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 600,
+        tools: [{
+          type: "web_search_20250305",
+          name: "web_search",
+          max_uses: 3,
+          user_location: { type: "approximate", country: "US", timezone: "America/New_York" },
+        }],
         system: systemPrompt,
         messages: [{ role: "user", content: userMsg }],
       }),
