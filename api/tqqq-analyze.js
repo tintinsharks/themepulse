@@ -208,7 +208,7 @@ For Section 2, you MUST web search for: "QQQ nasdaq market today ${date || new D
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 90000);
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -219,7 +219,7 @@ For Section 2, you MUST web search for: "QQQ nasdaq market today ${date || new D
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
+        max_tokens: 4096,
         tools: [{
           type: "web_search_20250305",
           name: "web_search",
