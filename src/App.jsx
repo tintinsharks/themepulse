@@ -5397,13 +5397,13 @@ function TQQQView() {
         const entry = parseFloat(tradeInput.entryPrice) || 0;
         const dir = tradeInput.direction || "long";
         const entryDate = tradeInput.entryDate || "";
+        const entryDateValid = entryDate && /^\d{4}-\d{2}-\d{2}$/.test(entryDate);
         const exitPrice = parseFloat(tradeInput.exitPrice) || 0;
         const exitDate = tradeInput.exitDate || d.date;
         const bestPrice = d.close;
         const currentPrice = tradeMode === "closed" ? exitPrice : d.close;
         const daysHeld = entryDateValid ? bizDays(entryDate, tradeMode === "closed" ? exitDate : d.date) : 0;
         const hasEntry = entry > 0;
-        const entryDateValid = entryDate && /^\d{4}-\d{2}-\d{2}$/.test(entryDate);
         const userPnl = hasEntry ? (dir === "long" ? currentPrice - entry : entry - currentPrice) : 0;
         const userPnlPct = hasEntry ? (userPnl / entry) * 100 : 0;
         const pnlColor = userPnl >= 0 ? "#2bb886" : "#f87171";
