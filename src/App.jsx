@@ -5220,6 +5220,8 @@ function TQQQView() {
   });
   const [tradeMode, setTradeMode] = useState("open"); // 'open' or 'closed'
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     fetch("/tqqq_analysis.json").then(r => r.json()).then(setD).catch(e => setErr(e.message));
@@ -5380,7 +5382,7 @@ function TQQQView() {
           setTradeInput(next);
           localStorage.setItem("tp_tqqq_trade", JSON.stringify(next));
         };
-        const clearTrade = () => { setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); setShowAnalysis(false); };
+        const clearTrade = () => { setTradeInput({}); localStorage.removeItem("tp_tqqq_trade"); setShowAnalysis(false); setAiAnalysis(""); };
 
         const bizDays = (startStr, endStr) => {
           if (!startStr || !endStr) return 0;
@@ -5579,10 +5581,42 @@ function TQQQView() {
                   </>}
                   {/* Analyze button */}
                   <div style={{ display: "flex", alignItems: "flex-end" }}>
-                    <button onClick={() => { if (entry > 0) setShowAnalysis(true); }}
+                    <button onClick={async () => {
+                      if (entry <= 0 || aiLoading) return;
+                      setShowAnalysis(true);
+                      setAiLoading(true);
+                      setAiAnalysis("");
+                      try {
+                        const stratResults = stratDefs.map(s => {
+                          const a = analyzeStrategy(s.key, d.strategies?.[s.key]);
+                          if (!a || a.na) return null;
+                          return {
+                            label: s.label, rec: a.rec,
+                            stop: a.stopLoss.toFixed(2), stopPct: ((a.stopLoss - entry) / entry * 100).toFixed(1),
+                            target: a.target.toFixed(2), targetPct: ((a.target - entry) / entry * 100).toFixed(1),
+                            daysHeld: a.daysHeld, maxHold: a.effectiveMaxHold,
+                            flags: [a.ratchetActive && "RATCHET", a.timeDecayActive && `DECAY D${a.daysHeld}`, a.emaExitTriggered && "8W EMA", a.stopHit && "STOP HIT", a.targetHit && "TARGET HIT", a.maxHoldReached && "MAX HOLD"].filter(Boolean).join(", "),
+                          };
+                        }).filter(Boolean);
+                        const resp = await fetch("/api/tqqq-analyze", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            trade: { entryPrice: entry, entryDate, direction: dir, daysHeld, mode: tradeMode, exitPrice: tradeMode === "closed" ? exitPrice : undefined },
+                            strategies: stratResults,
+                            currentPrice: currentPrice,
+                            adr: adrDollar.toFixed(2),
+                            date: d.date,
+                          }),
+                        });
+                        const json = await resp.json();
+                        setAiAnalysis(json.ok ? json.analysis : `Error: ${json.error}`);
+                      } catch (e) { setAiAnalysis(`Error: ${e.message}`); }
+                      setAiLoading(false);
+                    }}
                       style={{ background: entry > 0 ? "#c084fc" : "#2a2a38", border: "none", borderRadius: 4, padding: "6px 14px",
-                        color: entry > 0 ? "#fff" : "#505060", fontSize: 11, fontWeight: 700, cursor: entry > 0 ? "pointer" : "default",
-                        fontFamily: "monospace", whiteSpace: "nowrap" }}>Analyze</button>
+                        color: entry > 0 ? "#fff" : "#505060", fontSize: 11, fontWeight: 700, cursor: entry > 0 && !aiLoading ? "pointer" : "default",
+                        fontFamily: "monospace", whiteSpace: "nowrap", opacity: aiLoading ? 0.6 : 1 }}>{aiLoading ? "Analyzing..." : "Analyze"}</button>
                   </div>
                 </div>
                 {hasEntry && <div style={{ fontSize: 9, color: "#3a3a4a", marginTop: 8, fontStyle: "italic" }}>
@@ -5669,6 +5703,18 @@ function TQQQView() {
                     </div>
                   );
                 })()}
+
+                {/* AI Analysis */}
+                {(aiLoading || aiAnalysis) && (
+                  <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 6, background: "#c084fc08", border: "1px solid #c084fc20" }}>
+                    <div style={{ fontSize: 9, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, letterSpacing: 1 }}>AI Analysis</div>
+                    {aiLoading ? (
+                      <div style={{ fontSize: 12, color: "#686878", fontStyle: "italic" }}>Thinking...</div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#b8b8c8", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{aiAnalysis}</div>
+                    )}
+                  </div>
+                )}
               </div>
             </Section>
           </>
