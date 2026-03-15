@@ -100,11 +100,18 @@ ADR = Average Daily Range in dollars. Stops and targets are multiples of ADR fro
 Ratcheting breakeven: after 2 ADR profit, stop moves to max(entry, best - 2.5*ADR).
 Time-decay: after day 5, stop tightens by 0.5*ADR per additional day held.
 
+CRITICAL — Stop/target direction rules:
+- LONG trade: stop is BELOW entry, target is ABOVE entry. A LOWER stop = MORE risk (wider). A HIGHER stop = LESS risk (tighter).
+- SHORT trade: stop is ABOVE entry, target is BELOW entry. A HIGHER stop = MORE risk (wider). A LOWER stop = LESS risk (tighter).
+- When comparing the user's stop to strategy stops: "tighter" means LESS dollar risk from entry, "wider" means MORE dollar risk from entry.
+- Example: SHORT at $46.80 — user stop $49.78 ($2.98 risk) vs model stop $52.67 ($5.87 risk) → user's stop is TIGHTER (less risk, closer to entry).
+- Always compute the dollar distance from entry to stop when comparing: |stop - entry|. Smaller distance = tighter stop.
+
 Rules:
 - Be direct and actionable. No disclaimers.
 - Reference the SPECIFIC dollar levels from the strategy analysis below.
 - If strategies disagree, explain why and give your weighted recommendation (v6 is the champion, weight it highest).
-- If the user has set a manual stop, compare it to the strategy stops and comment on whether it's appropriate.
+- If the user has set a manual stop, compare it to the strategy stops by computing |stop - entry| for both. State which is tighter/wider and by how much.
 - Keep total output under 150 words.
 - Use plain language, no markdown headers. Just 2-3 short paragraphs.
 - First paragraph: overall verdict (hold/exit/tighten stop). Bold the key action.
@@ -120,12 +127,16 @@ Rules:
     ).join("\n");
   }
 
+  const userStopRisk = userStop ? Math.abs(userStop - entry) : null;
+  const userStopRiskPct = userStopRisk ? (userStopRisk / entry * 100) : null;
+  const userStopAdr = userStopRisk && adrVal > 0 ? (userStopRisk / adrVal) : null;
+
   const userMsg = `TQQQ Trade:
 - Direction: ${dir.toUpperCase()}
 - Entry: $${entry}${trade.entryDate ? ` on ${trade.entryDate}` : ""}
 - Current: $${current} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)
 - Days held: ${daysHeld}
-- My stop: ${userStop ? `$${userStop}` : "not set"}
+- My stop: ${userStop ? `$${userStop} (risk: $${userStopRisk.toFixed(2)} = ${userStopRiskPct.toFixed(1)}% = ${userStopAdr ? userStopAdr.toFixed(2) + " ADR" : "N/A"})` : "not set"}
 - ADR: $${adrVal > 0 ? adrVal.toFixed(2) : "N/A"}
 - Date: ${date || "today"}
 - Status: ${trade.mode || "open"}
