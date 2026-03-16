@@ -1,32 +1,32 @@
 {
-  "generated": "2026-03-16T14:21:30.481947",
+  "generated": "2026-03-16T15:42:47.979102",
   "date": "2026-03-16",
-  "close": 47.92,
+  "close": 47.76,
   "trend": "bear",
-  "rvol": 0.26,
-  "adr_pct": 4.7,
+  "rvol": 0.4,
+  "adr_pct": 4.72,
   "above_8w_ema": false,
   "above_50_sma": false,
   "above_21_ema": false,
-  "correction_depth": -7.8,
+  "correction_depth": -8.1,
   "signal": 0,
   "signal_type": "",
   "tomorrow_pivots": {
-    "pp": 47.69,
-    "r1": 48.19,
-    "r2": 48.46,
-    "s1": 47.42,
-    "s2": 46.92
+    "pp": 47.64,
+    "r1": 48.1,
+    "r2": 48.44,
+    "s1": 47.3,
+    "s2": 46.84
   },
   "key_levels": {
-    "long_stop": 42.29,
-    "long_target": 56.93,
-    "short_stop": 53.55,
-    "short_target": 38.91
+    "long_stop": 42.12,
+    "long_target": 56.78,
+    "short_stop": 53.4,
+    "short_target": 38.74
   },
   "ema_levels": {
-    "ema9": 48.15,
-    "ema21": 49.13,
+    "ema9": 48.12,
+    "ema21": 49.12,
     "ema40": 50.26,
     "sma50": 51.54
   },
@@ -212,8 +212,8 @@
     "cap": 100000,
     "final_eq": 611567.68,
     "years": 7.2,
-    "bh_ret": 967.26,
-    "bh_cagr": 38.93
+    "bh_ret": 963.7,
+    "bh_cagr": 38.87
   },
   "above_9_ema": false,
   "ftd_active": false,
@@ -221,20 +221,20 @@
   "consec_below_50": 29,
   "consec_below_21": 13,
   "consec_above_21": 0,
-  "body_pct": 1.2,
+  "body_pct": 0.8,
   "bullish_candle": true,
   "bias": "BEARISH",
   "long_pct": 10.0,
   "short_pct": 90.0,
   "briefing": {
     "headline": "Bear trend intact. All moving averages stacked against longs. No trade.",
-    "market_structure": "TQQQ at $47.92 is below all major moving averages \u2014 9 EMA ($48.15), 21 EMA ($49.13), 8-week EMA ($50.26), 50 SMA ($51.54). This is a confirmed downtrend with all averages stacked bearishly. Price has been below the 50 SMA for 29 consecutive days. Below 21 EMA for 13 straight sessions. Distribution is elevated at 8 days in the last 25 \u2014 institutional selling pressure.",
-    "recent_action": "Mar 13: dropped 3.3% on 1.2x volume. Today closed with a moderate bullish candle (+1.2%) on below-average volume (0.26x).",
-    "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and volume is weak (0.26x RVOL). The system will signal when specific price-pivot-volume conditions align.",
+    "market_structure": "TQQQ at $47.76 is below all major moving averages \u2014 9 EMA ($48.12), 21 EMA ($49.12), 8-week EMA ($50.26), 50 SMA ($51.54). This is a confirmed downtrend with all averages stacked bearishly. Price has been below the 50 SMA for 29 consecutive days. Below 21 EMA for 13 straight sessions. Distribution is elevated at 8 days in the last 25 \u2014 institutional selling pressure.",
+    "recent_action": "Mar 13: dropped 3.3% on 1.2x volume. Today closed with a small bullish candle (+0.8%) on below-average volume (0.40x).",
+    "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and volume is weak (0.40x RVOL). The system will signal when specific price-pivot-volume conditions align.",
     "watch_tomorrow": [
-      "Bullish: Reclaim of 9 EMA ($48.15) would be the first bullish step. Close above 21 EMA ($49.13) triggers 21EMA Reclaim signal (57.1% WR).",
-      "Bearish: Pivot Reject at PP ($47.69) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($47.42) opens path to S2 ($46.92).",
-      "Key pivot for tomorrow is $47.69 \u2014 above is constructive, below is vulnerable."
+      "Bullish: Reclaim of 9 EMA ($48.12) would be the first bullish step. Close above 21 EMA ($49.12) triggers 21EMA Reclaim signal (57.1% WR).",
+      "Bearish: Pivot Reject at PP ($47.64) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($47.3) opens path to S2 ($46.84).",
+      "Key pivot for tomorrow is $47.64 \u2014 above is constructive, below is vulnerable."
     ],
     "edge_context": "In bear trend, long signals have historically shown 60.0% win rate across 10 trades with -0.3% avg P&L. Short signals in bear trend: 60.0% WR across 25 trades, +3.3% avg. Below 8W EMA: long WR drops to 55.6%. v5 system: 167 trades, 56.9% WR, 1.33 PF, 511.57% total return over 7.2y.",
     "risk_level": "HIGH",
@@ -614,11 +614,11 @@
     {
       "date": "2026-03-16",
       "open": 47.37,
-      "high": 47.96,
-      "low": 47.19,
-      "close": 47.92,
-      "change_pct": 1.2,
-      "rvol": 0.26,
+      "high": 47.98,
+      "low": 47.18,
+      "close": 47.76,
+      "change_pct": 0.8,
+      "rvol": 0.4,
       "trend": "bear",
       "signal": null
     }
