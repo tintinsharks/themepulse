@@ -1988,7 +1988,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken, crpLookup }) {
   const [sortBy, setSortBy] = useState("cr");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "cr", dir: "desc" });
@@ -2169,37 +2169,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const hasLive = Object.keys(liveLookup).length > 0;
 
-  // Accumulate persistence readings from liveLookup (~every 30s poll)
-  useEffect(() => {
-    if (!hasLive) return;
-    const now = Date.now();
-    // Clear stale data from before today's 9:30 AM ET
-    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const todayOpen = new Date(et); todayOpen.setHours(9, 30, 0, 0);
-    const todayOpenMs = todayOpen.getTime() - (et.getTime() - now); // approx UTC of today's 9:30 ET
-    for (const [tk, arr] of persistRef.current) {
-      if (arr.length > 0 && arr[0].ts < todayOpenMs) persistRef.current.delete(tk);
-    }
-    for (const [tk, e] of Object.entries(liveLookup)) {
-      if (e.change == null) continue;
-      const arr = persistRef.current.get(tk) || [];
-      const prv = e.rel_volume != null ? projectedRVol(e.rel_volume) : null;
-      arr.push({ ts: now, chg: e.change, prv, cr: e.close_range ?? null, price: e.price ?? null, orh: e.orh ?? null });
-      if (arr.length > 120) arr.splice(0, arr.length - 120); // cap ~60 min
-      persistRef.current.set(tk, arr);
-    }
-  }, [liveLookup, hasLive]);
-
-  // CRP lookup: CR% persistence scores per ticker
-  const crpLookup = useMemo(() => {
-    const map = {};
-    for (const [tk, readings] of persistRef.current) {
-      const result = crPersistence(readings);
-      if (result) map[tk] = result;
-    }
-    return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveLookup, hasLive]);
+  // Note: persistence accumulation + crpLookup moved to AppMain (survives tab switches)
+  // persistRef still used locally for CR% trend arrows
 
   // Shared biotech/pharma/REIT exclusion set for NoBio filter
   const BIO_REIT_IND = useMemo(() => new Set([
@@ -8586,7 +8557,7 @@ function MorningBriefing({ portfolio, watchlist, stockMap, liveData, themeHealth
 }
 
 // ── PKN TAB ──
-function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData, portfolio, watchlist, homepage, erSipLookup }) {
+function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn, setPkn, pknWatch, setPknWatch, addToPkn, removeFromPkn, addToPknWatch, removeFromPknWatch, liveThemeData, portfolio, watchlist, homepage, erSipLookup, crpLookup }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8875,7 +8846,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
             Add tickers above or click <span style={{ color: "#e879f9" }}>+ PKN</span> on charts.
           </div>
         ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPkn} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} crpLookup={crpLookup} />
         )}
       </div>
 
@@ -9118,7 +9089,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
           </div>
         ) : (
           <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={pknWatchMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromPknWatch} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} crpLookup={crpLookup} />
           </div>
         )}
       </div>
@@ -9587,7 +9558,7 @@ function PreMarketBriefing({ briefing: externalBriefing, pipelineBriefing }) {
   );
 }
 
-function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage, erSipLookup }) {
+function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, portfolio, setPortfolio, watchlist, setWatchlist, addToWatchlist, removeFromWatchlist, addToPortfolio, removeFromPortfolio, liveThemeData, homepage, erSipLookup, crpLookup }) {
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -9932,7 +9903,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
             Add your holdings above to track live.
           </div>
         ) : (
-          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+          <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={portfolioMerged} sortKey={pSort} setter={setPSort} onRemove={removeFromPortfolio} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} crpLookup={crpLookup} />
         )}
       </div>
 
@@ -10179,7 +10150,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           </div>
         ) : (
           <div style={{ maxHeight: 464, overflowY: "auto", border: "1px solid #222230", borderRadius: 4 }}>
-            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />
+            <LiveSectionTable activeTicker={activeTicker} onTickerClick={onTickerClick} data={watchlistMerged} sortKey={wlSort} setter={setWlSort} onRemove={removeFromWatchlist} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} crpLookup={crpLookup} />
           </div>
         )}
       </div>
@@ -12344,6 +12315,44 @@ function AppMain({ authToken, onLogout }) {
     });
     return m;
   }, [baseStockMap, liveThemeData]);
+
+  // ── CRP: accumulate persistence readings at AppMain level (survives tab switches) ──
+  const appPersistRef = useRef(_persistMap);
+  const appHasLive = liveThemeData && liveThemeData.length > 0;
+  useEffect(() => {
+    if (!appHasLive) return;
+    const now = Date.now();
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const todayOpen = new Date(et); todayOpen.setHours(9, 30, 0, 0);
+    const todayOpenMs = todayOpen.getTime() - (et.getTime() - now);
+    for (const [tk, arr] of appPersistRef.current) {
+      if (arr.length > 0 && arr[0].ts < todayOpenMs) appPersistRef.current.delete(tk);
+    }
+    liveThemeData.forEach(e => {
+      if (e.change == null || !e.ticker) return;
+      const arr = appPersistRef.current.get(e.ticker) || [];
+      // Compute close_range inline
+      const range = (e.high != null && e.low != null) ? e.high - e.low : 0;
+      const cr = range > 0 && e.price != null ? Math.round((e.price - e.low) / range * 1000) / 10 : null;
+      const av = stockMap[e.ticker]?.avg_volume_raw;
+      const rv = e.rel_volume ?? (av > 0 && e.volume != null ? Math.round(e.volume / av * 100) / 100 : null);
+      const prv = rv != null ? projectedRVol(rv) : null;
+      arr.push({ ts: now, chg: e.change, prv, cr, price: e.price ?? null, orh: e.orh ?? null });
+      if (arr.length > 120) arr.splice(0, arr.length - 120);
+      appPersistRef.current.set(e.ticker, arr);
+    });
+  }, [liveThemeData, appHasLive, stockMap]);
+
+  const crpLookup = useMemo(() => {
+    const map = {};
+    for (const [tk, readings] of _persistMap) {
+      const result = crPersistence(readings);
+      if (result) map[tk] = result;
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveThemeData, appHasLive]);
+
   // ER / PM / AH source lookup — lets every tab show where a ticker came from
   const erSipLookup = useMemo(() => {
     if (!data) return {};
@@ -12737,7 +12746,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession}
-            aiQueue={aiQueue} setAiQueue={setAiQueue} aiAnalyzed={aiAnalyzed} setAiAnalyzed={setAiAnalyzed} authToken={authToken} />}
+            aiQueue={aiQueue} setAiQueue={setAiQueue} aiAnalyzed={aiAnalyzed} setAiAnalyzed={setAiAnalyzed} authToken={authToken} crpLookup={crpLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
@@ -12748,12 +12757,12 @@ function AppMain({ authToken, onLogout }) {
             portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
             addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
             addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
-            liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} />}
+            liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} crpLookup={crpLookup} />}
           {view === "pkn" && <PknView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
             pkn={pkn} setPkn={setPkn} pknWatch={pknWatch} setPknWatch={setPknWatch}
             addToPkn={addToPkn} removeFromPkn={removeFromPkn}
             addToPknWatch={addToPknWatch} removeFromPknWatch={removeFromPknWatch}
-            liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} homepage={homepage} erSipLookup={erSipLookup} />}
+            liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} homepage={homepage} erSipLookup={erSipLookup} crpLookup={crpLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <>
