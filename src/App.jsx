@@ -2939,7 +2939,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {/* CRP */}
               {(() => {
                 const crp = crpLookup[s.ticker];
-                if (!crp) return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: "#3a3a4a" }}>—</td>;
+                const rd = persistRef.current.get(s.ticker);
+                if (!crp) return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: "#505060" }}
+                  title={`readings: ${rd?.length ?? 0}, cr nulls: ${rd ? rd.filter(r => r.cr == null).length : '?'}, keys: ${persistRef.current.size}`}>
+                  {rd?.length ? `·${rd.length}` : '—'}</td>;
                 const sc = crp.score;
                 const color = sc >= 80 ? "#2bb886" : sc >= 60 ? "#60a5fa" : sc >= 40 ? "#fbbf24" : "#686878";
                 const volConfirmed = sc >= 70 && crp.avgPrv != null && crp.avgPrv >= 1.5;
