@@ -12423,6 +12423,12 @@ function AppMain({ authToken, onLogout }) {
       const result = crPersistence(readings);
       if (result) map[tk] = result;
     }
+    // Stamp _crpScore onto stockMap entries so sorters in all components work
+    if (stockMap) {
+      for (const tk of Object.keys(stockMap)) {
+        stockMap[tk]._crpScore = map[tk]?.score ?? null;
+      }
+    }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveThemeData, appHasLive]);
