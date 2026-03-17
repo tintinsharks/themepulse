@@ -38,13 +38,13 @@ const _persistMap = (() => {
     const saved = localStorage.getItem("tp_crp_persist");
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Check if data is from today (ET)
+      // Keep data if saved within last 2 days (ET) for 2D badge support
       const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-      const todayStr = et.toISOString().slice(0, 10);
-      if (parsed._date === todayStr && parsed._data) {
+      const savedDate = new Date(parsed._date + "T00:00:00");
+      const daysDiff = Math.floor((et - savedDate) / 86400000);
+      if (daysDiff <= 2 && parsed._data) {
         const map = new Map();
         for (const [tk, arr] of parsed._data) map.set(tk, arr);
-        console.log(`[CRP] restored ${map.size} tickers from localStorage`);
         return map;
       }
     }
