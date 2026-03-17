@@ -1898,6 +1898,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
       _caScore: pipe._caScore,
       _quality: quality,
       _q_factors: q_factors,
+      _crpScore: pipe._crpScore ?? null,
       themes: pipe.themes || [],
       theme: pipe.themes?.[0]?.theme || live.sector || "",
       subtheme: pipe.themes?.[0]?.subtheme || "",
@@ -7500,6 +7501,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       earnings_date: pipe.earnings_date, er: pipe.er, _scanHits: pipe._scanHits || [],
       qmag_score: pipe.qmag_score,
       _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore, _quality: quality, _q_factors: q_factors,
+      _crpScore: pipe._crpScore ?? null,
     };
   }, [stockMap]);
 
@@ -8721,7 +8723,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
       _scanHits: pipe._scanHits || [], qmag_score: pipe.qmag_score,
       _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore,
-      _quality: quality, _q_factors: q_factors,
+      _quality: quality, _q_factors: q_factors, _crpScore: pipe._crpScore ?? null,
     };
   }, [liveLookup, stockMap]);
 
@@ -9747,6 +9749,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       _caScore: pipe._caScore,
       _quality: quality,
       _q_factors: q_factors,
+      _crpScore: pipe._crpScore ?? null,
     };
   }, [liveLookup, stockMap]);
 
