@@ -12639,8 +12639,30 @@ function AppMain({ authToken, onLogout }) {
   // Scroll active ticker row into view on keyboard nav
   useEffect(() => {
     if (!chartTicker) return;
-    const el = document.querySelector(`[data-ticker="${chartTicker}"]`);
-    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // Find the first visible (rendered) row with this ticker
+    const els = document.querySelectorAll(`[data-ticker="${chartTicker}"]`);
+    for (const el of els) {
+      // Find the nearest scrollable ancestor
+      let parent = el.parentElement;
+      while (parent && parent !== document.body) {
+        const style = getComputedStyle(parent);
+        if ((style.overflowY === "auto" || style.overflowY === "scroll") && parent.scrollHeight > parent.clientHeight) {
+          // Scroll within the container
+          const elRect = el.getBoundingClientRect();
+          const parentRect = parent.getBoundingClientRect();
+          if (elRect.bottom > parentRect.bottom) {
+            parent.scrollTop += elRect.bottom - parentRect.bottom + 10;
+          } else if (elRect.top < parentRect.top) {
+            parent.scrollTop -= parentRect.top - elRect.top + 10;
+          }
+          return;
+        }
+        parent = parent.parentElement;
+      }
+      // Fallback
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      return;
+    }
   }, [chartTicker]);
 
   if (!data) {
