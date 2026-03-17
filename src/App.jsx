@@ -8855,9 +8855,16 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
         crDvTotal += dv; crWeighted += cr * dv;
       });
       const avgCR = crDvTotal > 0 ? Math.round(crWeighted / crDvTotal) : null;
+      let crpDvTotal = 0, crpWeighted = 0;
+      allStocks.forEach(s => {
+        const crpScore = s._crpScore ?? stockMap[s.ticker]?._crpScore; if (crpScore == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        crpDvTotal += dv; crpWeighted += crpScore * dv;
+      });
+      const avgCRP = crpDvTotal > 0 ? Math.round(crpWeighted / crpDvTotal) : null;
       const groupDv = allStocks.reduce((sum, s) => sum + (s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0), 0);
       const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
-      return { ...g, avgChg, avgRvol, avgCR, avgRS, avgAccel, groupDv, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
+      return { ...g, avgChg, avgRvol, avgCR, avgCRP, avgRS, avgAccel, groupDv, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
     });
     const dvVals = built.map(g => g.groupDv).filter(v => v > 0).sort((a, b) => a - b);
     const medianDv = dvVals.length > 0 ? dvVals[Math.floor(dvVals.length / 2)] : 1;
@@ -9138,6 +9145,13 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
                         {g.avgAccel != null ? `${g.avgAccel > 0 ? "+" : ""}${g.avgAccel.toFixed(1)}` : "—"}
                       </div>
                       <div onClick={() => setWlThemeSort("avgAccel")} style={{ fontSize: 8, color: wlThemeSort === "avgAccel" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Accel {wlThemeSort === "avgAccel" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgCRP ?? 0) >= 80 ? "#2bb886" : (g.avgCRP ?? 0) >= 60 ? "#60a5fa" : (g.avgCRP ?? 0) >= 40 ? "#fbbf24" : "#686878" }}>
+                        {g.avgCRP != null ? g.avgCRP : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgCRP")} style={{ fontSize: 8, color: wlThemeSort === "avgCRP" ? "#c084fc" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>CRP {wlThemeSort === "avgCRP" ? "▼" : ""}</div>
                     </div>
                   </div>
                 </div>
@@ -9908,11 +9922,19 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
         crWeighted += cr * dv;
       });
       const avgCR = crDvTotal > 0 ? Math.round(crWeighted / crDvTotal) : null;
+      // $Vol-weighted avg CRP
+      let crpDvTotal = 0, crpWeighted = 0;
+      allStocks.forEach(s => {
+        const crpScore = s._crpScore ?? stockMap[s.ticker]?._crpScore; if (crpScore == null) return;
+        const dv = s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0;
+        crpDvTotal += dv; crpWeighted += crpScore * dv;
+      });
+      const avgCRP = crpDvTotal > 0 ? Math.round(crpWeighted / crpDvTotal) : null;
       // Group total $vol — used for cross-group confidence weighting
       const groupDv = allStocks.reduce((sum, s) => sum + (s.avg_dollar_vol_raw || stockMap[s.ticker]?.avg_dollar_vol_raw || 0), 0);
       // Discovery: universe tickers NOT on watchlist with RS ≥ 80 and RVol ≥ 1.5
       const discoveries = g.uniStocks.filter(s => (s.rs_rank ?? 0) >= 80 && (s.rel_volume ?? 0) >= 1.5);
-      return { ...g, avgChg, avgRvol, avgCR, avgRS, avgAccel, groupDv, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
+      return { ...g, avgChg, avgRvol, avgCR, avgCRP, avgRS, avgAccel, groupDv, discoveries, ownCount: g.wlStocks.length + g.pfStocks.length, totalCount: allStocks.length };
     });
     // Cross-group confidence: dampen metrics for groups with below-median $vol
     const dvVals = built.map(g => g.groupDv).filter(v => v > 0).sort((a, b) => a - b);
@@ -10202,6 +10224,13 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                         {g.avgAccel != null ? `${g.avgAccel > 0 ? "+" : ""}${g.avgAccel.toFixed(1)}` : "—"}
                       </div>
                       <div onClick={() => setWlThemeSort("avgAccel")} style={{ fontSize: 8, color: wlThemeSort === "avgAccel" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>Accel {wlThemeSort === "avgAccel" ? "▼" : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontFamily: "monospace",
+                        color: (g.avgCRP ?? 0) >= 80 ? "#2bb886" : (g.avgCRP ?? 0) >= 60 ? "#60a5fa" : (g.avgCRP ?? 0) >= 40 ? "#fbbf24" : "#686878" }}>
+                        {g.avgCRP != null ? g.avgCRP : "—"}
+                      </div>
+                      <div onClick={() => setWlThemeSort("avgCRP")} style={{ fontSize: 8, color: wlThemeSort === "avgCRP" ? "#22d3ee" : "#505060", textTransform: "uppercase", cursor: "pointer" }}>CRP {wlThemeSort === "avgCRP" ? "▼" : ""}</div>
                     </div>
                   </div>
                 </div>
