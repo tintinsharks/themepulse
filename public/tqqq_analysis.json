@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-17T15:49:15.569198",
+  "generated": "2026-03-16T09:07:08.795154",
   "date": "2026-03-16",
   "close": 47.51,
   "trend": "bear",
@@ -33,184 +33,191 @@
   "probability_tables": {
     "by_signal_long": {
       "21EMA Dip Buy": {
-        "trades": 27,
-        "wins": 18,
-        "avg_pnl": 3.271111111111111,
-        "total_pnl": 231920.58,
+        "trades": 18,
+        "wins": 12,
+        "avg_pnl": 3.9972222222222222,
+        "total_pnl": 219169.32,
         "wr": 66.7
       },
       "21EMA Reclaim": {
-        "trades": 14,
-        "wins": 9,
-        "avg_pnl": 1.804285714285714,
-        "total_pnl": 78038.45000000001,
-        "wr": 64.3
+        "trades": 5,
+        "wins": 3,
+        "avg_pnl": 2.5759999999999996,
+        "total_pnl": 56799.029999999984,
+        "wr": 60.0
       },
       "50SMA Reclaim": {
-        "trades": 17,
-        "wins": 7,
-        "avg_pnl": 2.7788235294117647,
-        "total_pnl": 156599.22999999998,
-        "wr": 41.2
+        "trades": 3,
+        "wins": 2,
+        "avg_pnl": 10.026666666666666,
+        "total_pnl": 154510.62,
+        "wr": 66.7
       },
       "FTD": {
-        "trades": 31,
-        "wins": 17,
-        "avg_pnl": 0.6412903225806451,
-        "total_pnl": 116596.62000000001,
-        "wr": 54.8
+        "trades": 16,
+        "wins": 9,
+        "avg_pnl": 1.84375,
+        "total_pnl": 76643.59,
+        "wr": 56.2
       },
       "Pivot Reclaim": {
-        "trades": 34,
-        "wins": 20,
-        "avg_pnl": 0.7320588235294118,
-        "total_pnl": 57263.89999999999,
-        "wr": 58.8
+        "trades": 27,
+        "wins": 18,
+        "avg_pnl": 1.3477777777777777,
+        "total_pnl": 138822.89,
+        "wr": 66.7
       },
       "Support Bounce": {
-        "trades": 21,
+        "trades": 19,
         "wins": 12,
-        "avg_pnl": 0.12809523809523815,
-        "total_pnl": -15329.25,
-        "wr": 57.1
+        "avg_pnl": 1.6463157894736842,
+        "total_pnl": 115393.92000000001,
+        "wr": 63.2
       }
     },
     "by_signal_short": {
       "21EMA Break": {
-        "trades": 3,
-        "wins": 2,
-        "avg_pnl": 1.0233333333333332,
-        "total_pnl": 23039.14,
-        "wr": 66.7
+        "trades": 2,
+        "wins": 1,
+        "avg_pnl": 0.24,
+        "total_pnl": 4274.1,
+        "wr": 50.0
       },
       "Pivot Reject": {
-        "trades": 14,
-        "wins": 11,
-        "avg_pnl": 5.797142857142857,
-        "total_pnl": 69831.94999999997,
-        "wr": 78.6
+        "trades": 11,
+        "wins": 10,
+        "avg_pnl": 7.483636363636364,
+        "total_pnl": 109412.55,
+        "wr": 90.9
+      },
+      "R1 Reject": {
+        "trades": 1,
+        "wins": 0,
+        "avg_pnl": -6.11,
+        "total_pnl": -25736.01,
+        "wr": 0.0
       },
       "Volume Surge Short": {
-        "trades": 8,
+        "trades": 7,
         "wins": 2,
-        "avg_pnl": -0.1937500000000002,
-        "total_pnl": 13507.990000000005,
-        "wr": 25.0
+        "avg_pnl": 0.3199999999999997,
+        "total_pnl": -4875.479999999989,
+        "wr": 28.6
       }
     },
     "by_trend_long": {
       "bear": {
-        "trades": 10,
-        "wins": 6,
-        "avg_pnl": -0.259,
-        "total_pnl": 32696.09,
-        "wr": 60.0
+        "trades": 3,
+        "wins": 2,
+        "avg_pnl": 2.64,
+        "total_pnl": 46390.42,
+        "wr": 66.7
       },
       "bull": {
-        "trades": 120,
-        "wins": 71,
-        "avg_pnl": 1.6628333333333332,
-        "total_pnl": 517925.01,
-        "wr": 59.2
+        "trades": 80,
+        "wins": 53,
+        "avg_pnl": 2.617,
+        "total_pnl": 739793.01,
+        "wr": 66.2
       },
       "neutral": {
-        "trades": 14,
-        "wins": 6,
-        "avg_pnl": 0.8092857142857144,
-        "total_pnl": 74468.43,
-        "wr": 42.9
+        "trades": 5,
+        "wins": 1,
+        "avg_pnl": -1.0400000000000003,
+        "total_pnl": -24844.06,
+        "wr": 20.0
       }
     },
     "by_trend_short": {
       "bear": {
-        "trades": 25,
-        "wins": 15,
-        "avg_pnl": 3.3072,
-        "total_pnl": 106379.07999999996,
-        "wr": 60.0
+        "trades": 21,
+        "wins": 13,
+        "avg_pnl": 3.758571428571428,
+        "total_pnl": 83075.16000000002,
+        "wr": 61.9
       }
     },
     "by_rvol_long": {
       "high": {
         "trades": 3,
         "wins": 1,
-        "avg_pnl": -3.48,
-        "total_pnl": -14164.369999999999,
+        "avg_pnl": -0.5866666666666669,
+        "total_pnl": -7997.249999999999,
         "wr": 33.3
       },
       "low": {
-        "trades": 75,
-        "wins": 45,
-        "avg_pnl": 1.7868,
-        "total_pnl": 467726.79,
-        "wr": 60.0
+        "trades": 48,
+        "wins": 30,
+        "avg_pnl": 1.63875,
+        "total_pnl": 377254.12,
+        "wr": 62.5
       },
       "med": {
-        "trades": 66,
-        "wins": 37,
-        "avg_pnl": 1.2834848484848485,
-        "total_pnl": 171527.11,
-        "wr": 56.1
+        "trades": 37,
+        "wins": 25,
+        "avg_pnl": 3.6535135135135137,
+        "total_pnl": 392082.5,
+        "wr": 67.6
       }
     },
     "by_8w_ema_long": {
       "0": {
-        "trades": 18,
-        "wins": 10,
-        "avg_pnl": 1.2394444444444443,
-        "total_pnl": 112984.39,
-        "wr": 55.6
+        "trades": 5,
+        "wins": 3,
+        "avg_pnl": 3.076,
+        "total_pnl": 52504.24,
+        "wr": 60.0
       },
       "1": {
-        "trades": 126,
-        "wins": 73,
-        "avg_pnl": 1.475952380952381,
-        "total_pnl": 512105.14,
-        "wr": 57.9
+        "trades": 83,
+        "wins": 53,
+        "avg_pnl": 2.369879518072289,
+        "total_pnl": 708835.13,
+        "wr": 63.9
       }
     },
     "by_50sma_long": {
       "0": {
-        "trades": 20,
-        "wins": 11,
-        "avg_pnl": 0.7224999999999999,
-        "total_pnl": 111656.28,
-        "wr": 55.0
+        "trades": 6,
+        "wins": 2,
+        "avg_pnl": -0.79,
+        "total_pnl": 15432.539999999997,
+        "wr": 33.3
       },
       "1": {
-        "trades": 124,
-        "wins": 72,
-        "avg_pnl": 1.5631451612903224,
-        "total_pnl": 513433.25,
-        "wr": 58.1
+        "trades": 82,
+        "wins": 54,
+        "avg_pnl": 2.6441463414634145,
+        "total_pnl": 745906.83,
+        "wr": 65.9
       }
     }
   },
   "system_metrics": {
-    "total_trades": 169,
-    "long_trades": 144,
-    "short_trades": 25,
-    "win_rate": 58.0,
-    "long_wr": 57.6,
-    "short_wr": 60.0,
-    "avg_win": 7.27,
-    "avg_loss": -5.94,
+    "total_trades": 109,
+    "long_trades": 88,
+    "short_trades": 21,
+    "win_rate": 63.3,
+    "long_wr": 63.6,
+    "short_wr": 61.9,
+    "avg_win": 7.81,
+    "avg_loss": -6.2,
     "best_trade": 35.78,
     "worst_trade": -29.98,
-    "pf": 1.41,
-    "exp": 1.72,
-    "exp_dollar": 4328.22,
-    "total_pnl": 731468.61,
-    "total_ret": 731.47,
-    "cagr": 34.2,
-    "mdd": -41.09,
-    "sharpe": 0.96,
-    "calmar": 0.83,
-    "avg_hold": 5.2,
-    "max_win_streak": 7,
-    "max_loss_streak": 8,
+    "pf": 1.72,
+    "exp": 2.67,
+    "exp_dollar": 7746.92,
+    "total_pnl": 844414.53,
+    "total_ret": 844.41,
+    "cagr": 36.59,
+    "mdd": -34.13,
+    "sharpe": 1.11,
+    "calmar": 1.07,
+    "avg_hold": 5.6,
+    "max_win_streak": 6,
+    "max_loss_streak": 4,
     "cap": 100000,
-    "final_eq": 831468.62,
+    "final_eq": 944414.5,
     "years": 7.2,
     "bh_ret": 910.85,
     "bh_cagr": 37.89
@@ -223,7 +230,6 @@
   "consec_above_21": 0,
   "body_pct": 0.3,
   "bullish_candle": true,
-  "regime": null,
   "bias": "BEARISH",
   "long_pct": 10.0,
   "short_pct": 90.0,
@@ -233,90 +239,35 @@
     "recent_action": "Mar 13: dropped 3.3% on 1.2x volume. Today closed with a doji (indecision) on below-average volume (0.44x).",
     "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and volume is weak (0.44x RVOL) and distribution days elevated (7) \u2014 long entries paused (historically 47% WR when dist >= 7). The system will signal when specific price-pivot-volume conditions align.",
     "watch_tomorrow": [
-      "Bullish: Reclaim of 9 EMA ($48.18) would be the first bullish step. Close above 21 EMA ($49.16) triggers 21EMA Reclaim signal (64.3% WR).",
-      "Bearish: Pivot Reject at PP ($47.56) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($47.13) opens path to S2 ($46.76).",
+      "Bullish: Reclaim of 9 EMA ($48.18) would be the first bullish step. Close above 21 EMA ($49.16) triggers 21EMA Reclaim signal (60.0% WR).",
+      "Bearish: Pivot Reject at PP ($47.56) on 1.5x+ RVOL triggers short (90.9% WR). Break of S1 ($47.13) opens path to S2 ($46.76).",
       "Key pivot for tomorrow is $47.56 \u2014 above is constructive, below is vulnerable."
     ],
-    "edge_context": "In bear trend, long signals have historically shown 60.0% win rate across 10 trades with -0.3% avg P&L. Short signals in bear trend: 60.0% WR across 25 trades, +3.3% avg. Below 8W EMA: long WR drops to 55.6%. v5 system: 169 trades, 58.0% WR, 1.41 PF, 731.47% total return over 7.2y.",
+    "edge_context": " Short signals in bear trend: 61.9% WR across 21 trades, +3.8% avg. Below 8W EMA: long WR drops to 60.0%. v5 system: 109 trades, 63.3% WR, 1.72 PF, 844.41% total return over 7.2y.",
     "risk_level": "HIGH",
     "risk_description": "Elevated risk environment \u2014 wide ranges, bearish structure, distribution present."
   },
   "last_long_signal": {
-    "date": "2026-03-09",
-    "signal": "FTD",
-    "entry": 49.39,
-    "exit": 49.4,
-    "exit_date": "2026-03-10",
-    "pnl_pct": 0.02,
-    "exit_reason": "21EMA Exit",
-    "days_held": 1
+    "date": "2026-01-06",
+    "signal": "50SMA Reclaim",
+    "entry": 55.01,
+    "exit": 53.83,
+    "exit_date": "2026-01-14",
+    "pnl_pct": -2.15,
+    "exit_reason": "8W EMA Exit",
+    "days_held": 6
   },
   "last_short_signal": {
-    "date": "2026-02-04",
+    "date": "2025-11-14",
     "signal": "21EMA Break",
-    "entry": 49.76,
-    "exit": 48.47,
-    "exit_date": "2026-02-13",
-    "pnl_pct": 2.59,
-    "exit_reason": "Max Hold",
-    "days_held": 7
+    "entry": 52.37,
+    "exit": 52.12,
+    "exit_date": "2025-11-20",
+    "pnl_pct": 0.48,
+    "exit_reason": "Stop Loss",
+    "days_held": 4
   },
   "recent_trades": [
-    {
-      "entry_date": "2026-03-09",
-      "exit_date": "2026-03-10",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 49.39,
-      "exit": 49.4,
-      "pnl_pct": 0.02,
-      "exit_reason": "21EMA Exit",
-      "days_held": 1
-    },
-    {
-      "entry_date": "2026-02-04",
-      "exit_date": "2026-02-13",
-      "direction": "Short",
-      "signal": "21EMA Break",
-      "entry": 49.76,
-      "exit": 48.47,
-      "pnl_pct": 2.59,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2026-02-02",
-      "exit_date": "2026-02-03",
-      "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 55.1,
-      "exit": 52.52,
-      "pnl_pct": -4.68,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 1
-    },
-    {
-      "entry_date": "2026-01-22",
-      "exit_date": "2026-01-29",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 53.9,
-      "exit": 53.9,
-      "pnl_pct": 0.0,
-      "exit_reason": "Stop Loss",
-      "days_held": 5
-    },
-    {
-      "entry_date": "2026-01-15",
-      "exit_date": "2026-01-20",
-      "direction": "Long",
-      "signal": "21EMA Reclaim",
-      "entry": 54.38,
-      "exit": 50.73,
-      "pnl_pct": -6.71,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 2
-    },
     {
       "entry_date": "2026-01-06",
       "exit_date": "2026-01-14",
@@ -362,61 +313,6 @@
       "days_held": 4
     },
     {
-      "entry_date": "2025-11-10",
-      "exit_date": "2025-11-13",
-      "direction": "Long",
-      "signal": "21EMA Dip Buy",
-      "entry": 56.35,
-      "exit": 52.33,
-      "pnl_pct": -7.13,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 3
-    },
-    {
-      "entry_date": "2025-11-05",
-      "exit_date": "2025-11-07",
-      "direction": "Long",
-      "signal": "21EMA Dip Buy",
-      "entry": 56.62,
-      "exit": 52.0,
-      "pnl_pct": -8.16,
-      "exit_reason": "Stop Loss",
-      "days_held": 2
-    },
-    {
-      "entry_date": "2025-10-23",
-      "exit_date": "2025-11-03",
-      "direction": "Long",
-      "signal": "21EMA Dip Buy",
-      "entry": 53.61,
-      "exit": 59.16,
-      "pnl_pct": 10.35,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2025-10-13",
-      "exit_date": "2025-10-22",
-      "direction": "Long",
-      "signal": "21EMA Reclaim",
-      "entry": 51.62,
-      "exit": 52.3,
-      "pnl_pct": 1.32,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2025-10-08",
-      "exit_date": "2025-10-10",
-      "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 54.44,
-      "exit": 50.9,
-      "pnl_pct": -6.5,
-      "exit_reason": "Stop Loss",
-      "days_held": 2
-    },
-    {
       "entry_date": "2025-09-25",
       "exit_date": "2025-10-06",
       "direction": "Long",
@@ -428,59 +324,26 @@
       "days_held": 7
     },
     {
-      "entry_date": "2025-09-04",
-      "exit_date": "2025-09-15",
+      "entry_date": "2025-09-09",
+      "exit_date": "2025-09-18",
       "direction": "Long",
-      "signal": "21EMA Reclaim",
-      "entry": 45.76,
-      "exit": 49.62,
-      "pnl_pct": 8.44,
+      "signal": "Support Bounce",
+      "entry": 46.94,
+      "exit": 50.49,
+      "pnl_pct": 7.56,
       "exit_reason": "Max Hold",
       "days_held": 7
     },
     {
-      "entry_date": "2025-08-22",
-      "exit_date": "2025-09-02",
-      "direction": "Long",
-      "signal": "21EMA Reclaim",
-      "entry": 45.19,
-      "exit": 43.54,
-      "pnl_pct": -3.65,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 6
-    },
-    {
-      "entry_date": "2025-08-14",
+      "entry_date": "2025-08-12",
       "exit_date": "2025-08-20",
       "direction": "Long",
-      "signal": "Support Bounce",
-      "entry": 47.3,
-      "exit": 43.72,
-      "pnl_pct": -7.57,
-      "exit_reason": "Stop Loss",
-      "days_held": 4
-    },
-    {
-      "entry_date": "2025-08-04",
-      "exit_date": "2025-08-13",
-      "direction": "Long",
-      "signal": "21EMA Dip Buy",
-      "entry": 43.73,
-      "exit": 47.43,
-      "pnl_pct": 8.46,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2025-07-11",
-      "exit_date": "2025-07-22",
-      "direction": "Long",
-      "signal": "Support Bounce",
-      "entry": 41.86,
-      "exit": 43.35,
-      "pnl_pct": 3.56,
-      "exit_reason": "Max Hold",
-      "days_held": 7
+      "signal": "FTD",
+      "entry": 47.36,
+      "exit": 43.85,
+      "pnl_pct": -7.41,
+      "exit_reason": "21EMA Exit",
+      "days_held": 6
     },
     {
       "entry_date": "2025-06-12",
@@ -560,17 +423,6 @@
       "days_held": 1
     },
     {
-      "entry_date": "2025-03-19",
-      "exit_date": "2025-03-20",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 31.12,
-      "exit": 30.8,
-      "pnl_pct": -1.03,
-      "exit_reason": "21EMA Exit",
-      "days_held": 1
-    },
-    {
       "entry_date": "2025-03-10",
       "exit_date": "2025-03-19",
       "direction": "Short",
@@ -591,39 +443,6 @@
       "pnl_pct": 16.5,
       "exit_reason": "Max Hold",
       "days_held": 7
-    },
-    {
-      "entry_date": "2025-02-12",
-      "exit_date": "2025-02-21",
-      "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 42.6,
-      "exit": 41.85,
-      "pnl_pct": -1.76,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 6
-    },
-    {
-      "entry_date": "2025-01-30",
-      "exit_date": "2025-02-03",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 41.58,
-      "exit": 40.36,
-      "pnl_pct": -2.93,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 2
-    },
-    {
-      "entry_date": "2025-01-17",
-      "exit_date": "2025-01-27",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 41.57,
-      "exit": 39.57,
-      "pnl_pct": -4.81,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 5
     },
     {
       "entry_date": "2025-01-02",
@@ -714,17 +533,6 @@
       "days_held": 7
     },
     {
-      "entry_date": "2024-09-11",
-      "exit_date": "2024-09-20",
-      "direction": "Long",
-      "signal": "Support Bounce",
-      "entry": 32.28,
-      "exit": 35.06,
-      "pnl_pct": 8.61,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
       "entry_date": "2024-08-19",
       "exit_date": "2024-08-28",
       "direction": "Long",
@@ -747,13 +555,13 @@
       "days_held": 7
     },
     {
-      "entry_date": "2024-06-26",
-      "exit_date": "2024-07-08",
+      "entry_date": "2024-06-27",
+      "exit_date": "2024-07-09",
       "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 37.23,
-      "exit": 41.08,
-      "pnl_pct": 10.34,
+      "signal": "Support Bounce",
+      "entry": 37.5,
+      "exit": 41.17,
+      "pnl_pct": 9.79,
       "exit_reason": "Max Hold",
       "days_held": 7
     },
@@ -791,17 +599,6 @@
       "days_held": 4
     },
     {
-      "entry_date": "2024-05-03",
-      "exit_date": "2024-05-14",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 28.35,
-      "exit": 30.33,
-      "pnl_pct": 6.98,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
       "entry_date": "2024-04-15",
       "exit_date": "2024-04-24",
       "direction": "Short",
@@ -822,39 +619,6 @@
       "pnl_pct": -8.31,
       "exit_reason": "Stop Loss",
       "days_held": 4
-    },
-    {
-      "entry_date": "2024-03-20",
-      "exit_date": "2024-04-01",
-      "direction": "Long",
-      "signal": "21EMA Dip Buy",
-      "entry": 30.85,
-      "exit": 30.97,
-      "pnl_pct": 0.39,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2024-03-12",
-      "exit_date": "2024-03-18",
-      "direction": "Long",
-      "signal": "21EMA Dip Buy",
-      "entry": 30.94,
-      "exit": 29.69,
-      "pnl_pct": -4.04,
-      "exit_reason": "21EMA Exit",
-      "days_held": 4
-    },
-    {
-      "entry_date": "2024-02-22",
-      "exit_date": "2024-03-04",
-      "direction": "Long",
-      "signal": "21EMA Reclaim",
-      "entry": 30.08,
-      "exit": 31.19,
-      "pnl_pct": 3.69,
-      "exit_reason": "Max Hold",
-      "days_held": 7
     },
     {
       "entry_date": "2024-02-13",
@@ -923,17 +687,6 @@
       "days_held": 4
     },
     {
-      "entry_date": "2023-11-03",
-      "exit_date": "2023-11-14",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 18.79,
-      "exit": 21.47,
-      "pnl_pct": 14.26,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
       "entry_date": "2023-10-19",
       "exit_date": "2023-10-30",
       "direction": "Short",
@@ -945,59 +698,15 @@
       "days_held": 7
     },
     {
-      "entry_date": "2023-10-06",
-      "exit_date": "2023-10-13",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 18.67,
-      "exit": 18.7,
-      "pnl_pct": 0.16,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 5
-    },
-    {
-      "entry_date": "2023-09-27",
-      "exit_date": "2023-10-06",
+      "entry_date": "2023-09-29",
+      "exit_date": "2023-10-09",
       "direction": "Short",
-      "signal": "Pivot Reject",
-      "entry": 17.35,
-      "exit": 18.67,
-      "pnl_pct": -7.61,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2023-09-14",
-      "exit_date": "2023-09-15",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 20.95,
-      "exit": 19.88,
-      "pnl_pct": -5.11,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 1
-    },
-    {
-      "entry_date": "2023-08-29",
-      "exit_date": "2023-09-08",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 20.68,
-      "exit": 20.25,
-      "pnl_pct": -2.08,
-      "exit_reason": "21EMA Exit",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2023-08-25",
-      "exit_date": "2023-08-28",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 19.02,
-      "exit": 19.44,
-      "pnl_pct": 2.21,
-      "exit_reason": "21EMA Exit",
-      "days_held": 1
+      "signal": "R1 Reject",
+      "entry": 17.81,
+      "exit": 18.9,
+      "pnl_pct": -6.11,
+      "exit_reason": "Trail Stop",
+      "days_held": 6
     },
     {
       "entry_date": "2023-08-01",
@@ -1044,17 +753,6 @@
       "days_held": 7
     },
     {
-      "entry_date": "2023-06-14",
-      "exit_date": "2023-06-22",
-      "direction": "Long",
-      "signal": "Support Bounce",
-      "entry": 20.09,
-      "exit": 19.24,
-      "pnl_pct": -4.24,
-      "exit_reason": "Trail Stop",
-      "days_held": 5
-    },
-    {
       "entry_date": "2023-06-01",
       "exit_date": "2023-06-12",
       "direction": "Long",
@@ -1062,17 +760,6 @@
       "entry": 18.0,
       "exit": 19.25,
       "pnl_pct": 6.94,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2023-05-10",
-      "exit_date": "2023-05-19",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 14.4,
-      "exit": 15.87,
-      "pnl_pct": 10.21,
       "exit_reason": "Max Hold",
       "days_held": 7
     },
@@ -1099,24 +786,13 @@
       "days_held": 7
     },
     {
-      "entry_date": "2023-03-24",
-      "exit_date": "2023-04-04",
+      "entry_date": "2023-03-20",
+      "exit_date": "2023-03-29",
       "direction": "Long",
       "signal": "Pivot Reclaim",
-      "entry": 12.91,
-      "exit": 13.89,
-      "pnl_pct": 7.59,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2023-03-14",
-      "exit_date": "2023-03-23",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 11.39,
-      "exit": 12.78,
-      "pnl_pct": 12.2,
+      "entry": 12.41,
+      "exit": 13.11,
+      "pnl_pct": 5.64,
       "exit_reason": "Max Hold",
       "days_held": 7
     },
@@ -1187,15 +863,15 @@
       "days_held": 1
     },
     {
-      "entry_date": "2022-11-30",
+      "entry_date": "2022-12-02",
       "exit_date": "2022-12-06",
       "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 11.78,
+      "signal": "Support Bounce",
+      "entry": 11.7,
       "exit": 10.41,
-      "pnl_pct": -11.63,
+      "pnl_pct": -11.03,
       "exit_reason": "8W EMA Exit",
-      "days_held": 4
+      "days_held": 2
     },
     {
       "entry_date": "2022-11-10",
@@ -1206,28 +882,6 @@
       "exit": 10.59,
       "pnl_pct": -1.3,
       "exit_reason": "8W EMA Exit",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2022-10-21",
-      "exit_date": "2022-10-26",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 10.28,
-      "exit": 10.53,
-      "pnl_pct": 2.43,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 3
-    },
-    {
-      "entry_date": "2022-09-21",
-      "exit_date": "2022-09-30",
-      "direction": "Short",
-      "signal": "Pivot Reject",
-      "entry": 11.62,
-      "exit": 9.66,
-      "pnl_pct": 16.87,
-      "exit_reason": "Max Hold",
       "days_held": 7
     },
     {
@@ -1242,28 +896,6 @@
       "days_held": 7
     },
     {
-      "entry_date": "2022-08-25",
-      "exit_date": "2022-08-26",
-      "direction": "Long",
-      "signal": "21EMA Reclaim",
-      "entry": 17.22,
-      "exit": 15.2,
-      "pnl_pct": -11.74,
-      "exit_reason": "Stop Loss",
-      "days_held": 1
-    },
-    {
-      "entry_date": "2022-08-16",
-      "exit_date": "2022-08-22",
-      "direction": "Long",
-      "signal": "Support Bounce",
-      "entry": 19.32,
-      "exit": 16.95,
-      "pnl_pct": -12.27,
-      "exit_reason": "Stop Loss",
-      "days_held": 4
-    },
-    {
       "entry_date": "2022-08-05",
       "exit_date": "2022-08-16",
       "direction": "Long",
@@ -1273,39 +905,6 @@
       "pnl_pct": 9.46,
       "exit_reason": "Max Hold",
       "days_held": 7
-    },
-    {
-      "entry_date": "2022-07-27",
-      "exit_date": "2022-08-05",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 15.37,
-      "exit": 17.65,
-      "pnl_pct": 14.83,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2022-07-19",
-      "exit_date": "2022-07-26",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 14.23,
-      "exit": 13.66,
-      "pnl_pct": -4.01,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 5
-    },
-    {
-      "entry_date": "2022-07-05",
-      "exit_date": "2022-07-06",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 12.82,
-      "exit": 13.07,
-      "pnl_pct": 1.95,
-      "exit_reason": "21EMA Exit",
-      "days_held": 1
     },
     {
       "entry_date": "2022-05-05",
@@ -1330,17 +929,6 @@
       "days_held": 7
     },
     {
-      "entry_date": "2022-03-18",
-      "exit_date": "2022-03-29",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 26.58,
-      "exit": 31.28,
-      "pnl_pct": 17.68,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
       "entry_date": "2022-02-08",
       "exit_date": "2022-02-10",
       "direction": "Long",
@@ -1350,28 +938,6 @@
       "pnl_pct": -0.84,
       "exit_reason": "8W EMA Exit",
       "days_held": 2
-    },
-    {
-      "entry_date": "2022-01-26",
-      "exit_date": "2022-02-04",
-      "direction": "Short",
-      "signal": "Pivot Reject",
-      "entry": 26.58,
-      "exit": 29.35,
-      "pnl_pct": -10.42,
-      "exit_reason": "Max Hold",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2022-01-14",
-      "exit_date": "2022-01-18",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 35.94,
-      "exit": 33.35,
-      "pnl_pct": -7.21,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 1
     },
     {
       "entry_date": "2022-01-06",
@@ -1385,28 +951,6 @@
       "days_held": 3
     },
     {
-      "entry_date": "2022-01-03",
-      "exit_date": "2022-01-05",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 42.78,
-      "exit": 37.34,
-      "pnl_pct": -12.72,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 2
-    },
-    {
-      "entry_date": "2021-12-15",
-      "exit_date": "2021-12-17",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 41.45,
-      "exit": 37.7,
-      "pnl_pct": -9.05,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 2
-    },
-    {
       "entry_date": "2021-12-07",
       "exit_date": "2021-12-14",
       "direction": "Long",
@@ -1418,15 +962,15 @@
       "days_held": 5
     },
     {
-      "entry_date": "2021-11-24",
+      "entry_date": "2021-11-29",
       "exit_date": "2021-12-01",
       "direction": "Long",
       "signal": "21EMA Dip Buy",
-      "entry": 42.56,
+      "entry": 42.71,
       "exit": 38.78,
-      "pnl_pct": -8.88,
+      "pnl_pct": -9.2,
       "exit_reason": "8W EMA Exit",
-      "days_held": 4
+      "days_held": 2
     },
     {
       "entry_date": "2021-11-12",
@@ -1437,28 +981,6 @@
       "exit": 42.5,
       "pnl_pct": 2.75,
       "exit_reason": "Stop Loss",
-      "days_held": 7
-    },
-    {
-      "entry_date": "2021-10-29",
-      "exit_date": "2021-11-05",
-      "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 38.79,
-      "exit": 43.26,
-      "pnl_pct": 11.52,
-      "exit_reason": "Target",
-      "days_held": 5
-    },
-    {
-      "entry_date": "2021-10-19",
-      "exit_date": "2021-10-28",
-      "direction": "Long",
-      "signal": "FTD",
-      "entry": 35.71,
-      "exit": 38.22,
-      "pnl_pct": 7.03,
-      "exit_reason": "Max Hold",
       "days_held": 7
     },
     {
@@ -1473,26 +995,15 @@
       "days_held": 7
     },
     {
-      "entry_date": "2021-09-23",
-      "exit_date": "2021-09-24",
-      "direction": "Long",
-      "signal": "50SMA Reclaim",
-      "entry": 35.35,
-      "exit": 35.45,
-      "pnl_pct": 0.28,
-      "exit_reason": "21EMA Exit",
-      "days_held": 1
-    },
-    {
-      "entry_date": "2021-09-15",
+      "entry_date": "2021-09-16",
       "exit_date": "2021-09-20",
       "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 36.79,
-      "exit": 34.18,
-      "pnl_pct": -7.09,
+      "signal": "Support Bounce",
+      "entry": 36.86,
+      "exit": 34.17,
+      "pnl_pct": -7.3,
       "exit_reason": "Stop Loss",
-      "days_held": 3
+      "days_held": 2
     },
     {
       "entry_date": "2021-09-03",
@@ -1592,17 +1103,6 @@
       "pnl_pct": 3.73,
       "exit_reason": "Max Hold",
       "days_held": 7
-    },
-    {
-      "entry_date": "2021-03-17",
-      "exit_date": "2021-03-18",
-      "direction": "Long",
-      "signal": "Pivot Reclaim",
-      "entry": 23.5,
-      "exit": 21.35,
-      "pnl_pct": -9.15,
-      "exit_reason": "8W EMA Exit",
-      "days_held": 1
     }
   ],
   "setups": [
@@ -1691,30 +1191,30 @@
         "size_pct": 0.9
       },
       "metrics": {
-        "total_trades": 169,
-        "long_trades": 144,
-        "short_trades": 25,
-        "win_rate": 58.0,
-        "long_wr": 57.6,
-        "short_wr": 60.0,
-        "avg_win": 7.27,
-        "avg_loss": -5.94,
+        "total_trades": 109,
+        "long_trades": 88,
+        "short_trades": 21,
+        "win_rate": 63.3,
+        "long_wr": 63.6,
+        "short_wr": 61.9,
+        "avg_win": 7.81,
+        "avg_loss": -6.2,
         "best_trade": 35.78,
         "worst_trade": -29.98,
-        "pf": 1.41,
-        "exp": 1.72,
-        "exp_dollar": 4328.22,
-        "total_pnl": 731468.61,
-        "total_ret": 731.47,
-        "cagr": 34.2,
-        "mdd": -41.09,
-        "sharpe": 0.96,
-        "calmar": 0.83,
-        "avg_hold": 5.2,
-        "max_win_streak": 7,
-        "max_loss_streak": 8,
+        "pf": 1.72,
+        "exp": 2.67,
+        "exp_dollar": 7746.92,
+        "total_pnl": 844414.53,
+        "total_ret": 844.41,
+        "cagr": 36.59,
+        "mdd": -34.13,
+        "sharpe": 1.11,
+        "calmar": 1.07,
+        "avg_hold": 5.6,
+        "max_win_streak": 6,
+        "max_loss_streak": 4,
         "cap": 100000,
-        "final_eq": 831468.62,
+        "final_eq": 944414.5,
         "years": 7.2,
         "bh_ret": 910.85,
         "bh_cagr": 37.89
@@ -1728,81 +1228,26 @@
         "short_target": 38.53
       },
       "last_long_signal": {
-        "date": "2026-03-09",
-        "signal": "FTD",
-        "entry": 49.39,
-        "exit": 49.4,
-        "exit_date": "2026-03-10",
-        "pnl_pct": 0.02,
-        "exit_reason": "21EMA Exit",
-        "days_held": 1
+        "date": "2026-01-06",
+        "signal": "50SMA Reclaim",
+        "entry": 55.01,
+        "exit": 53.83,
+        "exit_date": "2026-01-14",
+        "pnl_pct": -2.15,
+        "exit_reason": "8W EMA Exit",
+        "days_held": 6
       },
       "last_short_signal": {
-        "date": "2026-02-04",
+        "date": "2025-11-14",
         "signal": "21EMA Break",
-        "entry": 49.76,
-        "exit": 48.47,
-        "exit_date": "2026-02-13",
-        "pnl_pct": 2.59,
-        "exit_reason": "Max Hold",
-        "days_held": 7
+        "entry": 52.37,
+        "exit": 52.12,
+        "exit_date": "2025-11-20",
+        "pnl_pct": 0.48,
+        "exit_reason": "Stop Loss",
+        "days_held": 4
       },
       "recent_trades": [
-        {
-          "entry_date": "2026-03-09",
-          "exit_date": "2026-03-10",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 49.39,
-          "exit": 49.4,
-          "pnl_pct": 0.02,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2026-02-04",
-          "exit_date": "2026-02-13",
-          "direction": "Short",
-          "signal": "21EMA Break",
-          "entry": 49.76,
-          "exit": 48.47,
-          "pnl_pct": 2.59,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2026-02-02",
-          "exit_date": "2026-02-03",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 55.1,
-          "exit": 52.52,
-          "pnl_pct": -4.68,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2026-01-22",
-          "exit_date": "2026-01-29",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 53.9,
-          "exit": 53.9,
-          "pnl_pct": 0.0,
-          "exit_reason": "Stop Loss",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2026-01-15",
-          "exit_date": "2026-01-20",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 54.38,
-          "exit": 50.73,
-          "pnl_pct": -6.71,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
         {
           "entry_date": "2026-01-06",
           "exit_date": "2026-01-14",
@@ -1848,61 +1293,6 @@
           "days_held": 4
         },
         {
-          "entry_date": "2025-11-10",
-          "exit_date": "2025-11-13",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 56.35,
-          "exit": 52.33,
-          "pnl_pct": -7.13,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 3
-        },
-        {
-          "entry_date": "2025-11-05",
-          "exit_date": "2025-11-07",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 56.62,
-          "exit": 52.0,
-          "pnl_pct": -8.16,
-          "exit_reason": "Stop Loss",
-          "days_held": 2
-        },
-        {
-          "entry_date": "2025-10-23",
-          "exit_date": "2025-11-03",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 53.61,
-          "exit": 59.16,
-          "pnl_pct": 10.35,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2025-10-13",
-          "exit_date": "2025-10-22",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 51.62,
-          "exit": 52.3,
-          "pnl_pct": 1.32,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2025-10-08",
-          "exit_date": "2025-10-10",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 54.44,
-          "exit": 50.9,
-          "pnl_pct": -6.5,
-          "exit_reason": "Stop Loss",
-          "days_held": 2
-        },
-        {
           "entry_date": "2025-09-25",
           "exit_date": "2025-10-06",
           "direction": "Long",
@@ -1914,59 +1304,26 @@
           "days_held": 7
         },
         {
-          "entry_date": "2025-09-04",
-          "exit_date": "2025-09-15",
+          "entry_date": "2025-09-09",
+          "exit_date": "2025-09-18",
           "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 45.76,
-          "exit": 49.62,
-          "pnl_pct": 8.44,
+          "signal": "Support Bounce",
+          "entry": 46.94,
+          "exit": 50.49,
+          "pnl_pct": 7.56,
           "exit_reason": "Max Hold",
           "days_held": 7
         },
         {
-          "entry_date": "2025-08-22",
-          "exit_date": "2025-09-02",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 45.19,
-          "exit": 43.54,
-          "pnl_pct": -3.65,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 6
-        },
-        {
-          "entry_date": "2025-08-14",
+          "entry_date": "2025-08-12",
           "exit_date": "2025-08-20",
           "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 47.3,
-          "exit": 43.72,
-          "pnl_pct": -7.57,
-          "exit_reason": "Stop Loss",
-          "days_held": 4
-        },
-        {
-          "entry_date": "2025-08-04",
-          "exit_date": "2025-08-13",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 43.73,
-          "exit": 47.43,
-          "pnl_pct": 8.46,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2025-07-11",
-          "exit_date": "2025-07-22",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 41.86,
-          "exit": 43.35,
-          "pnl_pct": 3.56,
-          "exit_reason": "Max Hold",
-          "days_held": 7
+          "signal": "FTD",
+          "entry": 47.36,
+          "exit": 43.85,
+          "pnl_pct": -7.41,
+          "exit_reason": "21EMA Exit",
+          "days_held": 6
         },
         {
           "entry_date": "2025-06-12",
@@ -2046,17 +1403,6 @@
           "days_held": 1
         },
         {
-          "entry_date": "2025-03-19",
-          "exit_date": "2025-03-20",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 31.12,
-          "exit": 30.8,
-          "pnl_pct": -1.03,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
-        },
-        {
           "entry_date": "2025-03-10",
           "exit_date": "2025-03-19",
           "direction": "Short",
@@ -2077,39 +1423,6 @@
           "pnl_pct": 16.5,
           "exit_reason": "Max Hold",
           "days_held": 7
-        },
-        {
-          "entry_date": "2025-02-12",
-          "exit_date": "2025-02-21",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 42.6,
-          "exit": 41.85,
-          "pnl_pct": -1.76,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 6
-        },
-        {
-          "entry_date": "2025-01-30",
-          "exit_date": "2025-02-03",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 41.58,
-          "exit": 40.36,
-          "pnl_pct": -2.93,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
-        {
-          "entry_date": "2025-01-17",
-          "exit_date": "2025-01-27",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 41.57,
-          "exit": 39.57,
-          "pnl_pct": -4.81,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 5
         },
         {
           "entry_date": "2025-01-02",
@@ -2200,17 +1513,6 @@
           "days_held": 7
         },
         {
-          "entry_date": "2024-09-11",
-          "exit_date": "2024-09-20",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 32.28,
-          "exit": 35.06,
-          "pnl_pct": 8.61,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
           "entry_date": "2024-08-19",
           "exit_date": "2024-08-28",
           "direction": "Long",
@@ -2233,13 +1535,13 @@
           "days_held": 7
         },
         {
-          "entry_date": "2024-06-26",
-          "exit_date": "2024-07-08",
+          "entry_date": "2024-06-27",
+          "exit_date": "2024-07-09",
           "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 37.23,
-          "exit": 41.08,
-          "pnl_pct": 10.34,
+          "signal": "Support Bounce",
+          "entry": 37.5,
+          "exit": 41.17,
+          "pnl_pct": 9.79,
           "exit_reason": "Max Hold",
           "days_held": 7
         },
@@ -2277,17 +1579,6 @@
           "days_held": 4
         },
         {
-          "entry_date": "2024-05-03",
-          "exit_date": "2024-05-14",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 28.35,
-          "exit": 30.33,
-          "pnl_pct": 6.98,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
           "entry_date": "2024-04-15",
           "exit_date": "2024-04-24",
           "direction": "Short",
@@ -2308,39 +1599,6 @@
           "pnl_pct": -8.31,
           "exit_reason": "Stop Loss",
           "days_held": 4
-        },
-        {
-          "entry_date": "2024-03-20",
-          "exit_date": "2024-04-01",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 30.85,
-          "exit": 30.97,
-          "pnl_pct": 0.39,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2024-03-12",
-          "exit_date": "2024-03-18",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 30.94,
-          "exit": 29.69,
-          "pnl_pct": -4.04,
-          "exit_reason": "21EMA Exit",
-          "days_held": 4
-        },
-        {
-          "entry_date": "2024-02-22",
-          "exit_date": "2024-03-04",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 30.08,
-          "exit": 31.19,
-          "pnl_pct": 3.69,
-          "exit_reason": "Max Hold",
-          "days_held": 7
         },
         {
           "entry_date": "2024-02-13",
@@ -2409,17 +1667,6 @@
           "days_held": 4
         },
         {
-          "entry_date": "2023-11-03",
-          "exit_date": "2023-11-14",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 18.79,
-          "exit": 21.47,
-          "pnl_pct": 14.26,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
           "entry_date": "2023-10-19",
           "exit_date": "2023-10-30",
           "direction": "Short",
@@ -2431,59 +1678,15 @@
           "days_held": 7
         },
         {
-          "entry_date": "2023-10-06",
-          "exit_date": "2023-10-13",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 18.67,
-          "exit": 18.7,
-          "pnl_pct": 0.16,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2023-09-27",
-          "exit_date": "2023-10-06",
+          "entry_date": "2023-09-29",
+          "exit_date": "2023-10-09",
           "direction": "Short",
-          "signal": "Pivot Reject",
-          "entry": 17.35,
-          "exit": 18.67,
-          "pnl_pct": -7.61,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2023-09-14",
-          "exit_date": "2023-09-15",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 20.95,
-          "exit": 19.88,
-          "pnl_pct": -5.11,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2023-08-29",
-          "exit_date": "2023-09-08",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 20.68,
-          "exit": 20.25,
-          "pnl_pct": -2.08,
-          "exit_reason": "21EMA Exit",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2023-08-25",
-          "exit_date": "2023-08-28",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 19.02,
-          "exit": 19.44,
-          "pnl_pct": 2.21,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
+          "signal": "R1 Reject",
+          "entry": 17.81,
+          "exit": 18.9,
+          "pnl_pct": -6.11,
+          "exit_reason": "Trail Stop",
+          "days_held": 6
         },
         {
           "entry_date": "2023-08-01",
@@ -2530,17 +1733,6 @@
           "days_held": 7
         },
         {
-          "entry_date": "2023-06-14",
-          "exit_date": "2023-06-22",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 20.09,
-          "exit": 19.24,
-          "pnl_pct": -4.24,
-          "exit_reason": "Trail Stop",
-          "days_held": 5
-        },
-        {
           "entry_date": "2023-06-01",
           "exit_date": "2023-06-12",
           "direction": "Long",
@@ -2548,17 +1740,6 @@
           "entry": 18.0,
           "exit": 19.25,
           "pnl_pct": 6.94,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2023-05-10",
-          "exit_date": "2023-05-19",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 14.4,
-          "exit": 15.87,
-          "pnl_pct": 10.21,
           "exit_reason": "Max Hold",
           "days_held": 7
         },
@@ -2585,24 +1766,13 @@
           "days_held": 7
         },
         {
-          "entry_date": "2023-03-24",
-          "exit_date": "2023-04-04",
+          "entry_date": "2023-03-20",
+          "exit_date": "2023-03-29",
           "direction": "Long",
           "signal": "Pivot Reclaim",
-          "entry": 12.91,
-          "exit": 13.89,
-          "pnl_pct": 7.59,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2023-03-14",
-          "exit_date": "2023-03-23",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 11.39,
-          "exit": 12.78,
-          "pnl_pct": 12.2,
+          "entry": 12.41,
+          "exit": 13.11,
+          "pnl_pct": 5.64,
           "exit_reason": "Max Hold",
           "days_held": 7
         },
@@ -2673,15 +1843,15 @@
           "days_held": 1
         },
         {
-          "entry_date": "2022-11-30",
+          "entry_date": "2022-12-02",
           "exit_date": "2022-12-06",
           "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 11.78,
+          "signal": "Support Bounce",
+          "entry": 11.7,
           "exit": 10.41,
-          "pnl_pct": -11.63,
+          "pnl_pct": -11.03,
           "exit_reason": "8W EMA Exit",
-          "days_held": 4
+          "days_held": 2
         },
         {
           "entry_date": "2022-11-10",
@@ -2692,28 +1862,6 @@
           "exit": 10.59,
           "pnl_pct": -1.3,
           "exit_reason": "8W EMA Exit",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2022-10-21",
-          "exit_date": "2022-10-26",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 10.28,
-          "exit": 10.53,
-          "pnl_pct": 2.43,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 3
-        },
-        {
-          "entry_date": "2022-09-21",
-          "exit_date": "2022-09-30",
-          "direction": "Short",
-          "signal": "Pivot Reject",
-          "entry": 11.62,
-          "exit": 9.66,
-          "pnl_pct": 16.87,
-          "exit_reason": "Max Hold",
           "days_held": 7
         },
         {
@@ -2728,28 +1876,6 @@
           "days_held": 7
         },
         {
-          "entry_date": "2022-08-25",
-          "exit_date": "2022-08-26",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 17.22,
-          "exit": 15.2,
-          "pnl_pct": -11.74,
-          "exit_reason": "Stop Loss",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2022-08-16",
-          "exit_date": "2022-08-22",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 19.32,
-          "exit": 16.95,
-          "pnl_pct": -12.27,
-          "exit_reason": "Stop Loss",
-          "days_held": 4
-        },
-        {
           "entry_date": "2022-08-05",
           "exit_date": "2022-08-16",
           "direction": "Long",
@@ -2759,39 +1885,6 @@
           "pnl_pct": 9.46,
           "exit_reason": "Max Hold",
           "days_held": 7
-        },
-        {
-          "entry_date": "2022-07-27",
-          "exit_date": "2022-08-05",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 15.37,
-          "exit": 17.65,
-          "pnl_pct": 14.83,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2022-07-19",
-          "exit_date": "2022-07-26",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 14.23,
-          "exit": 13.66,
-          "pnl_pct": -4.01,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2022-07-05",
-          "exit_date": "2022-07-06",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 12.82,
-          "exit": 13.07,
-          "pnl_pct": 1.95,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
         },
         {
           "entry_date": "2022-05-05",
@@ -2816,17 +1909,6 @@
           "days_held": 7
         },
         {
-          "entry_date": "2022-03-18",
-          "exit_date": "2022-03-29",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 26.58,
-          "exit": 31.28,
-          "pnl_pct": 17.68,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
           "entry_date": "2022-02-08",
           "exit_date": "2022-02-10",
           "direction": "Long",
@@ -2836,28 +1918,6 @@
           "pnl_pct": -0.84,
           "exit_reason": "8W EMA Exit",
           "days_held": 2
-        },
-        {
-          "entry_date": "2022-01-26",
-          "exit_date": "2022-02-04",
-          "direction": "Short",
-          "signal": "Pivot Reject",
-          "entry": 26.58,
-          "exit": 29.35,
-          "pnl_pct": -10.42,
-          "exit_reason": "Max Hold",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2022-01-14",
-          "exit_date": "2022-01-18",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 35.94,
-          "exit": 33.35,
-          "pnl_pct": -7.21,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
         },
         {
           "entry_date": "2022-01-06",
@@ -2871,28 +1931,6 @@
           "days_held": 3
         },
         {
-          "entry_date": "2022-01-03",
-          "exit_date": "2022-01-05",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 42.78,
-          "exit": 37.34,
-          "pnl_pct": -12.72,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
-        {
-          "entry_date": "2021-12-15",
-          "exit_date": "2021-12-17",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 41.45,
-          "exit": 37.7,
-          "pnl_pct": -9.05,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
-        {
           "entry_date": "2021-12-07",
           "exit_date": "2021-12-14",
           "direction": "Long",
@@ -2904,15 +1942,15 @@
           "days_held": 5
         },
         {
-          "entry_date": "2021-11-24",
+          "entry_date": "2021-11-29",
           "exit_date": "2021-12-01",
           "direction": "Long",
           "signal": "21EMA Dip Buy",
-          "entry": 42.56,
+          "entry": 42.71,
           "exit": 38.78,
-          "pnl_pct": -8.88,
+          "pnl_pct": -9.2,
           "exit_reason": "8W EMA Exit",
-          "days_held": 4
+          "days_held": 2
         },
         {
           "entry_date": "2021-11-12",
@@ -2923,28 +1961,6 @@
           "exit": 42.5,
           "pnl_pct": 2.75,
           "exit_reason": "Stop Loss",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2021-10-29",
-          "exit_date": "2021-11-05",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 38.79,
-          "exit": 43.26,
-          "pnl_pct": 11.52,
-          "exit_reason": "Target",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2021-10-19",
-          "exit_date": "2021-10-28",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 35.71,
-          "exit": 38.22,
-          "pnl_pct": 7.03,
-          "exit_reason": "Max Hold",
           "days_held": 7
         },
         {
@@ -2959,26 +1975,15 @@
           "days_held": 7
         },
         {
-          "entry_date": "2021-09-23",
-          "exit_date": "2021-09-24",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 35.35,
-          "exit": 35.45,
-          "pnl_pct": 0.28,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2021-09-15",
+          "entry_date": "2021-09-16",
           "exit_date": "2021-09-20",
           "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 36.79,
-          "exit": 34.18,
-          "pnl_pct": -7.09,
+          "signal": "Support Bounce",
+          "entry": 36.86,
+          "exit": 34.17,
+          "pnl_pct": -7.3,
           "exit_reason": "Stop Loss",
-          "days_held": 3
+          "days_held": 2
         },
         {
           "entry_date": "2021-09-03",
@@ -3078,17 +2083,6 @@
           "pnl_pct": 3.73,
           "exit_reason": "Max Hold",
           "days_held": 7
-        },
-        {
-          "entry_date": "2021-03-17",
-          "exit_date": "2021-03-18",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 23.5,
-          "exit": 21.35,
-          "pnl_pct": -9.15,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
         }
       ]
     },
@@ -3897,30 +2891,30 @@
         "extend_if_profit": 2
       },
       "metrics": {
-        "total_trades": 165,
-        "long_trades": 140,
-        "short_trades": 25,
-        "win_rate": 56.4,
-        "long_wr": 55.7,
-        "short_wr": 60.0,
-        "avg_win": 8.19,
-        "avg_loss": -5.53,
+        "total_trades": 105,
+        "long_trades": 84,
+        "short_trades": 21,
+        "win_rate": 61.0,
+        "long_wr": 60.7,
+        "short_wr": 61.9,
+        "avg_win": 8.84,
+        "avg_loss": -5.8,
         "best_trade": 32.21,
         "worst_trade": -29.98,
-        "pf": 1.5,
-        "exp": 2.21,
-        "exp_dollar": 8804.7,
-        "total_pnl": 1452776.07,
-        "total_ret": 1452.78,
-        "cagr": 46.36,
-        "mdd": -41.4,
-        "sharpe": 1.16,
-        "calmar": 1.12,
-        "avg_hold": 5.6,
-        "max_win_streak": 7,
-        "max_loss_streak": 8,
+        "pf": 1.79,
+        "exp": 3.13,
+        "exp_dollar": 11291.18,
+        "total_pnl": 1185573.49,
+        "total_ret": 1185.57,
+        "cagr": 42.57,
+        "mdd": -34.13,
+        "sharpe": 1.2,
+        "calmar": 1.25,
+        "avg_hold": 6.0,
+        "max_win_streak": 5,
+        "max_loss_streak": 4,
         "cap": 100000,
-        "final_eq": 1552776.03,
+        "final_eq": 1285573.45,
         "years": 7.2,
         "bh_ret": 910.85,
         "bh_cagr": 37.89
@@ -3938,81 +2932,26 @@
         "Conditional max hold: extend +2 days if profitable"
       ],
       "last_long_signal": {
-        "date": "2026-03-09",
-        "signal": "FTD",
-        "entry": 49.39,
-        "exit": 49.4,
-        "exit_date": "2026-03-10",
-        "pnl_pct": 0.02,
-        "exit_reason": "21EMA Exit",
-        "days_held": 1
+        "date": "2026-01-06",
+        "signal": "50SMA Reclaim",
+        "entry": 55.01,
+        "exit": 53.83,
+        "exit_date": "2026-01-14",
+        "pnl_pct": -2.15,
+        "exit_reason": "8W EMA Exit",
+        "days_held": 6
       },
       "last_short_signal": {
-        "date": "2026-02-04",
+        "date": "2025-11-14",
         "signal": "21EMA Break",
-        "entry": 49.76,
-        "exit": 48.58,
-        "exit_date": "2026-02-17",
-        "pnl_pct": 2.38,
+        "entry": 52.37,
+        "exit": 52.12,
+        "exit_date": "2025-11-20",
+        "pnl_pct": 0.48,
         "exit_reason": "Stop Loss",
-        "days_held": 8
+        "days_held": 4
       },
       "recent_trades": [
-        {
-          "entry_date": "2026-03-09",
-          "exit_date": "2026-03-10",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 49.39,
-          "exit": 49.4,
-          "pnl_pct": 0.02,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2026-02-04",
-          "exit_date": "2026-02-17",
-          "direction": "Short",
-          "signal": "21EMA Break",
-          "entry": 49.76,
-          "exit": 48.58,
-          "pnl_pct": 2.38,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2026-02-02",
-          "exit_date": "2026-02-03",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 55.1,
-          "exit": 52.52,
-          "pnl_pct": -4.68,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2026-01-22",
-          "exit_date": "2026-01-29",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 53.9,
-          "exit": 53.9,
-          "pnl_pct": 0.0,
-          "exit_reason": "Stop Loss",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2026-01-15",
-          "exit_date": "2026-01-20",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 54.38,
-          "exit": 50.73,
-          "pnl_pct": -6.71,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
         {
           "entry_date": "2026-01-06",
           "exit_date": "2026-01-14",
@@ -4047,61 +2986,6 @@
           "days_held": 4
         },
         {
-          "entry_date": "2025-11-10",
-          "exit_date": "2025-11-13",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 56.35,
-          "exit": 52.33,
-          "pnl_pct": -7.13,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 3
-        },
-        {
-          "entry_date": "2025-11-05",
-          "exit_date": "2025-11-07",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 56.62,
-          "exit": 52.0,
-          "pnl_pct": -8.16,
-          "exit_reason": "Stop Loss",
-          "days_held": 2
-        },
-        {
-          "entry_date": "2025-10-23",
-          "exit_date": "2025-11-04",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 53.61,
-          "exit": 61.84,
-          "pnl_pct": 15.34,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2025-10-13",
-          "exit_date": "2025-10-23",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 51.62,
-          "exit": 52.51,
-          "pnl_pct": 1.72,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2025-10-08",
-          "exit_date": "2025-10-10",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 54.44,
-          "exit": 50.9,
-          "pnl_pct": -6.5,
-          "exit_reason": "Stop Loss",
-          "days_held": 2
-        },
-        {
           "entry_date": "2025-09-25",
           "exit_date": "2025-10-07",
           "direction": "Long",
@@ -4113,70 +2997,26 @@
           "days_held": 8
         },
         {
-          "entry_date": "2025-09-04",
-          "exit_date": "2025-09-16",
+          "entry_date": "2025-09-09",
+          "exit_date": "2025-09-19",
           "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 45.76,
-          "exit": 49.96,
-          "pnl_pct": 9.17,
+          "signal": "Support Bounce",
+          "entry": 46.94,
+          "exit": 51.19,
+          "pnl_pct": 9.06,
           "exit_reason": "Stop Loss",
           "days_held": 8
         },
         {
-          "entry_date": "2025-08-22",
-          "exit_date": "2025-09-02",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 45.19,
-          "exit": 42.18,
-          "pnl_pct": -6.67,
-          "exit_reason": "Stop Loss",
-          "days_held": 6
-        },
-        {
-          "entry_date": "2025-08-14",
+          "entry_date": "2025-08-12",
           "exit_date": "2025-08-20",
           "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 47.3,
-          "exit": 43.72,
-          "pnl_pct": -7.57,
-          "exit_reason": "Stop Loss",
-          "days_held": 4
-        },
-        {
-          "entry_date": "2025-08-04",
-          "exit_date": "2025-08-14",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 43.73,
-          "exit": 48.16,
-          "pnl_pct": 10.13,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2025-07-11",
-          "exit_date": "2025-07-22",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 41.86,
-          "exit": 43.44,
-          "pnl_pct": 3.78,
-          "exit_reason": "Stop Loss",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2025-06-23",
-          "exit_date": "2025-07-02",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 37.35,
-          "exit": 40.51,
-          "pnl_pct": 8.45,
-          "exit_reason": "Stop Loss",
-          "days_held": 7
+          "signal": "FTD",
+          "entry": 47.36,
+          "exit": 43.85,
+          "pnl_pct": -7.41,
+          "exit_reason": "21EMA Exit",
+          "days_held": 6
         },
         {
           "entry_date": "2025-06-02",
@@ -4234,17 +3074,6 @@
           "days_held": 1
         },
         {
-          "entry_date": "2025-03-19",
-          "exit_date": "2025-03-20",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 31.12,
-          "exit": 30.8,
-          "pnl_pct": -1.03,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
-        },
-        {
           "entry_date": "2025-03-10",
           "exit_date": "2025-03-19",
           "direction": "Short",
@@ -4265,39 +3094,6 @@
           "pnl_pct": 11.36,
           "exit_reason": "Stop Loss",
           "days_held": 7
-        },
-        {
-          "entry_date": "2025-02-12",
-          "exit_date": "2025-02-21",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 42.6,
-          "exit": 41.85,
-          "pnl_pct": -1.76,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 6
-        },
-        {
-          "entry_date": "2025-01-30",
-          "exit_date": "2025-02-03",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 41.58,
-          "exit": 40.36,
-          "pnl_pct": -2.93,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
-        {
-          "entry_date": "2025-01-17",
-          "exit_date": "2025-01-27",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 41.57,
-          "exit": 39.57,
-          "pnl_pct": -4.81,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 5
         },
         {
           "entry_date": "2025-01-02",
@@ -4388,17 +3184,6 @@
           "days_held": 8
         },
         {
-          "entry_date": "2024-09-11",
-          "exit_date": "2024-09-24",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 32.28,
-          "exit": 37.06,
-          "pnl_pct": 14.82,
-          "exit_reason": "Stop Loss",
-          "days_held": 9
-        },
-        {
           "entry_date": "2024-08-19",
           "exit_date": "2024-08-28",
           "direction": "Long",
@@ -4421,13 +3206,13 @@
           "days_held": 7
         },
         {
-          "entry_date": "2024-06-26",
-          "exit_date": "2024-07-09",
+          "entry_date": "2024-06-27",
+          "exit_date": "2024-07-10",
           "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 37.23,
-          "exit": 41.44,
-          "pnl_pct": 11.31,
+          "signal": "Support Bounce",
+          "entry": 37.5,
+          "exit": 41.78,
+          "pnl_pct": 11.4,
           "exit_reason": "Stop Loss",
           "days_held": 8
         },
@@ -4465,17 +3250,6 @@
           "days_held": 4
         },
         {
-          "entry_date": "2024-05-03",
-          "exit_date": "2024-05-15",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 28.35,
-          "exit": 30.59,
-          "pnl_pct": 7.9,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
           "entry_date": "2024-04-15",
           "exit_date": "2024-04-23",
           "direction": "Short",
@@ -4496,39 +3270,6 @@
           "pnl_pct": -8.31,
           "exit_reason": "Stop Loss",
           "days_held": 4
-        },
-        {
-          "entry_date": "2024-03-20",
-          "exit_date": "2024-04-02",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 30.85,
-          "exit": 31.42,
-          "pnl_pct": 1.84,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2024-03-12",
-          "exit_date": "2024-03-18",
-          "direction": "Long",
-          "signal": "21EMA Dip Buy",
-          "entry": 30.94,
-          "exit": 29.69,
-          "pnl_pct": -4.04,
-          "exit_reason": "21EMA Exit",
-          "days_held": 4
-        },
-        {
-          "entry_date": "2024-02-22",
-          "exit_date": "2024-03-05",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 30.08,
-          "exit": 30.56,
-          "pnl_pct": 1.61,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
         },
         {
           "entry_date": "2024-02-13",
@@ -4597,17 +3338,6 @@
           "days_held": 4
         },
         {
-          "entry_date": "2023-11-03",
-          "exit_date": "2023-11-15",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 18.79,
-          "exit": 21.64,
-          "pnl_pct": 15.17,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
           "entry_date": "2023-10-19",
           "exit_date": "2023-10-30",
           "direction": "Short",
@@ -4619,59 +3349,15 @@
           "days_held": 7
         },
         {
-          "entry_date": "2023-10-06",
-          "exit_date": "2023-10-13",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 18.67,
-          "exit": 18.7,
-          "pnl_pct": 0.16,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2023-09-27",
-          "exit_date": "2023-10-06",
+          "entry_date": "2023-09-29",
+          "exit_date": "2023-10-09",
           "direction": "Short",
-          "signal": "Pivot Reject",
-          "entry": 17.35,
-          "exit": 18.05,
-          "pnl_pct": -4.03,
-          "exit_reason": "Stop Loss",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2023-09-14",
-          "exit_date": "2023-09-15",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 20.95,
-          "exit": 19.88,
-          "pnl_pct": -5.11,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2023-08-29",
-          "exit_date": "2023-09-08",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 20.68,
-          "exit": 20.25,
-          "pnl_pct": -2.08,
-          "exit_reason": "21EMA Exit",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2023-08-25",
-          "exit_date": "2023-08-28",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 19.02,
-          "exit": 19.44,
-          "pnl_pct": 2.21,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
+          "signal": "R1 Reject",
+          "entry": 17.81,
+          "exit": 18.9,
+          "pnl_pct": -6.11,
+          "exit_reason": "Trail Stop",
+          "days_held": 6
         },
         {
           "entry_date": "2023-08-01",
@@ -4718,17 +3404,6 @@
           "days_held": 8
         },
         {
-          "entry_date": "2023-06-14",
-          "exit_date": "2023-06-22",
-          "direction": "Long",
-          "signal": "Support Bounce",
-          "entry": 20.09,
-          "exit": 19.24,
-          "pnl_pct": -4.24,
-          "exit_reason": "Trail Stop",
-          "days_held": 5
-        },
-        {
           "entry_date": "2023-06-01",
           "exit_date": "2023-06-13",
           "direction": "Long",
@@ -4736,17 +3411,6 @@
           "entry": 18.0,
           "exit": 19.19,
           "pnl_pct": 6.6,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2023-05-10",
-          "exit_date": "2023-05-22",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 14.4,
-          "exit": 16.27,
-          "pnl_pct": 13.01,
           "exit_reason": "Stop Loss",
           "days_held": 8
         },
@@ -4773,26 +3437,15 @@
           "days_held": 7
         },
         {
-          "entry_date": "2023-03-24",
-          "exit_date": "2023-04-05",
+          "entry_date": "2023-03-20",
+          "exit_date": "2023-03-31",
           "direction": "Long",
           "signal": "Pivot Reclaim",
-          "entry": 12.91,
-          "exit": 13.29,
-          "pnl_pct": 2.91,
+          "entry": 12.41,
+          "exit": 14.12,
+          "pnl_pct": 13.81,
           "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
-          "entry_date": "2023-03-14",
-          "exit_date": "2023-03-23",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 11.39,
-          "exit": 12.9,
-          "pnl_pct": 13.21,
-          "exit_reason": "Stop Loss",
-          "days_held": 7
+          "days_held": 9
         },
         {
           "entry_date": "2023-03-02",
@@ -4861,15 +3514,15 @@
           "days_held": 1
         },
         {
-          "entry_date": "2022-11-30",
+          "entry_date": "2022-12-02",
           "exit_date": "2022-12-06",
           "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 11.78,
+          "signal": "Support Bounce",
+          "entry": 11.7,
           "exit": 10.41,
-          "pnl_pct": -11.63,
+          "pnl_pct": -11.03,
           "exit_reason": "8W EMA Exit",
-          "days_held": 4
+          "days_held": 2
         },
         {
           "entry_date": "2022-11-10",
@@ -4880,28 +3533,6 @@
           "exit": 10.59,
           "pnl_pct": -1.3,
           "exit_reason": "8W EMA Exit",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2022-10-21",
-          "exit_date": "2022-10-26",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 10.28,
-          "exit": 10.53,
-          "pnl_pct": 2.43,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 3
-        },
-        {
-          "entry_date": "2022-09-21",
-          "exit_date": "2022-09-30",
-          "direction": "Short",
-          "signal": "Pivot Reject",
-          "entry": 11.62,
-          "exit": 10.32,
-          "pnl_pct": 11.23,
-          "exit_reason": "Stop Loss",
           "days_held": 7
         },
         {
@@ -4916,17 +3547,6 @@
           "days_held": 8
         },
         {
-          "entry_date": "2022-08-25",
-          "exit_date": "2022-08-26",
-          "direction": "Long",
-          "signal": "21EMA Reclaim",
-          "entry": 17.22,
-          "exit": 15.2,
-          "pnl_pct": -11.74,
-          "exit_reason": "Stop Loss",
-          "days_held": 1
-        },
-        {
           "entry_date": "2022-08-05",
           "exit_date": "2022-08-17",
           "direction": "Long",
@@ -4936,39 +3556,6 @@
           "pnl_pct": 14.2,
           "exit_reason": "Stop Loss",
           "days_held": 8
-        },
-        {
-          "entry_date": "2022-07-27",
-          "exit_date": "2022-08-05",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 15.37,
-          "exit": 17.2,
-          "pnl_pct": 11.88,
-          "exit_reason": "Stop Loss",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2022-07-19",
-          "exit_date": "2022-07-26",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 14.23,
-          "exit": 13.66,
-          "pnl_pct": -4.01,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2022-07-05",
-          "exit_date": "2022-07-06",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 12.82,
-          "exit": 13.07,
-          "pnl_pct": 1.95,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
         },
         {
           "entry_date": "2022-05-10",
@@ -4993,17 +3580,6 @@
           "days_held": 8
         },
         {
-          "entry_date": "2022-03-18",
-          "exit_date": "2022-03-30",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 26.58,
-          "exit": 31.53,
-          "pnl_pct": 18.61,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
           "entry_date": "2022-02-08",
           "exit_date": "2022-02-10",
           "direction": "Long",
@@ -5013,28 +3589,6 @@
           "pnl_pct": -0.84,
           "exit_reason": "8W EMA Exit",
           "days_held": 2
-        },
-        {
-          "entry_date": "2022-01-26",
-          "exit_date": "2022-02-04",
-          "direction": "Short",
-          "signal": "Pivot Reject",
-          "entry": 26.58,
-          "exit": 29.29,
-          "pnl_pct": -10.18,
-          "exit_reason": "Stop Loss",
-          "days_held": 7
-        },
-        {
-          "entry_date": "2022-01-14",
-          "exit_date": "2022-01-18",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 35.94,
-          "exit": 33.35,
-          "pnl_pct": -7.21,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
         },
         {
           "entry_date": "2022-01-06",
@@ -5048,28 +3602,6 @@
           "days_held": 3
         },
         {
-          "entry_date": "2022-01-03",
-          "exit_date": "2022-01-05",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 42.78,
-          "exit": 37.34,
-          "pnl_pct": -12.72,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
-        {
-          "entry_date": "2021-12-15",
-          "exit_date": "2021-12-17",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 41.45,
-          "exit": 37.7,
-          "pnl_pct": -9.05,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 2
-        },
-        {
           "entry_date": "2021-12-07",
           "exit_date": "2021-12-14",
           "direction": "Long",
@@ -5081,15 +3613,15 @@
           "days_held": 5
         },
         {
-          "entry_date": "2021-11-24",
+          "entry_date": "2021-11-29",
           "exit_date": "2021-12-01",
           "direction": "Long",
           "signal": "21EMA Dip Buy",
-          "entry": 42.56,
+          "entry": 42.71,
           "exit": 38.78,
-          "pnl_pct": -8.88,
+          "pnl_pct": -9.2,
           "exit_reason": "8W EMA Exit",
-          "days_held": 4
+          "days_held": 2
         },
         {
           "entry_date": "2021-11-12",
@@ -5103,28 +3635,6 @@
           "days_held": 6
         },
         {
-          "entry_date": "2021-10-29",
-          "exit_date": "2021-11-05",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 38.79,
-          "exit": 43.26,
-          "pnl_pct": 11.52,
-          "exit_reason": "Target",
-          "days_held": 5
-        },
-        {
-          "entry_date": "2021-10-19",
-          "exit_date": "2021-10-29",
-          "direction": "Long",
-          "signal": "FTD",
-          "entry": 35.71,
-          "exit": 38.87,
-          "pnl_pct": 8.84,
-          "exit_reason": "Stop Loss",
-          "days_held": 8
-        },
-        {
           "entry_date": "2021-09-28",
           "exit_date": "2021-10-07",
           "direction": "Short",
@@ -5136,26 +3646,15 @@
           "days_held": 7
         },
         {
-          "entry_date": "2021-09-23",
-          "exit_date": "2021-09-24",
-          "direction": "Long",
-          "signal": "50SMA Reclaim",
-          "entry": 35.35,
-          "exit": 35.45,
-          "pnl_pct": 0.28,
-          "exit_reason": "21EMA Exit",
-          "days_held": 1
-        },
-        {
-          "entry_date": "2021-09-15",
+          "entry_date": "2021-09-16",
           "exit_date": "2021-09-20",
           "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 36.79,
-          "exit": 34.18,
-          "pnl_pct": -7.09,
+          "signal": "Support Bounce",
+          "entry": 36.86,
+          "exit": 34.17,
+          "pnl_pct": -7.3,
           "exit_reason": "Stop Loss",
-          "days_held": 3
+          "days_held": 2
         },
         {
           "entry_date": "2021-09-03",
@@ -5244,17 +3743,6 @@
           "pnl_pct": 4.37,
           "exit_reason": "Stop Loss",
           "days_held": 8
-        },
-        {
-          "entry_date": "2021-03-17",
-          "exit_date": "2021-03-18",
-          "direction": "Long",
-          "signal": "Pivot Reclaim",
-          "entry": 23.5,
-          "exit": 21.35,
-          "pnl_pct": -9.15,
-          "exit_reason": "8W EMA Exit",
-          "days_held": 1
         }
       ]
     },

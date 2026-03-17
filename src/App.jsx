@@ -351,16 +351,16 @@ function persistTrend(readings, field, threshold, orhBoost) {
 
 // ── CR% Persistence (CRP): composite score for sustained buyer control ──
 function crPersistence(readings) {
-  if (!readings || readings.length < 5) return null;
+  if (!readings || readings.length < 3) return null;
   const crs = readings.map(r => r.cr).filter(v => v != null);
-  if (crs.length < 5) return null;
+  if (crs.length < 3) return null;
   // Duration: % of readings with CR >= 80
   const durationPct = crs.filter(v => v >= 80).length / crs.length * 100;
   // Floor: how deep were dips? min(CR) / 80 * 100, capped at 100
   const floorScore = Math.min(Math.min(...crs) / 80 * 100, 100);
   // Trend: avg last-5 CR / avg all CR — fading or holding?
   const avgAll = crs.reduce((s, v) => s + v, 0) / crs.length;
-  const last5 = crs.slice(-5);
+  const last5 = crs.slice(-Math.min(5, crs.length));
   const avgLast5 = last5.reduce((s, v) => s + v, 0) / last5.length;
   const trendScore = avgAll > 0 ? Math.min(avgLast5 / avgAll * 100, 100) : 0;
   // Composite: 40% duration, 30% floor, 30% trend
