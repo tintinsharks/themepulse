@@ -700,6 +700,10 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
           {stock && (<>
             <Badge grade={stock.grade} />
             <span style={{ color: "#787888", fontSize: 12 }}>RS:{stock.rs_rank}</span>
+            {stock.qmag_score != null && <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+              color: stock.qmag_score >= 7 ? "#facc15" : stock.qmag_score >= 5 ? "#f59e0b" : "#d97706",
+              background: stock.qmag_score >= 7 ? "#facc1515" : stock.qmag_score >= 5 ? "#f59e0b15" : "#d9770615",
+              border: `1px solid ${stock.qmag_score >= 7 ? "#facc1540" : stock.qmag_score >= 5 ? "#f59e0b40" : "#d9770640"}` }}>QM:{stock.qmag_score}</span>}
             {stock.themes && stock.themes.length > 0 && (
               <span style={{ color: "#0d9163", fontSize: 11 }}>{stock.themes.map(t => t.subtheme ? `${t.theme} › ${t.subtheme}` : t.theme).join(", ")}</span>
             )}
@@ -1832,6 +1836,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
       earnings_date: pipe.earnings_date,
       er: pipe.er,
       chart_patterns: pipe.chart_patterns,
+      qmag_score: pipe.qmag_score,
       _scanHits: pipe._scanHits || [],
       _epsScore: pipe._epsScore,
       _msScore: pipe._msScore,
@@ -1854,7 +1859,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
     const sorters = { ticker: (a, b) => a.ticker.localeCompare(b.ticker),
       change: sortFn("change"), rs: sortFn("rs_rank"), rel_volume: sortFn("rel_volume"),
       volume: sortFn("avg_volume_raw"), dvol: sortFn("avg_dollar_vol_raw"),
-      hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
+      qm: sortFn("qmag_score"),
       eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), ca_score: sortFn("_caScore"),
       ret3m: sortFn("return_3m"), fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
       adr: sortFn("adr_pct"), theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
@@ -2238,9 +2243,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) hits.push("ZM");
 
       // ── Qullamaggie tag (from 09k scanner) ──
-      if (s.qmag_grade === 'A') hits.push("A");
-      else if (s.qmag_grade === 'B') hits.push("B");
-      else if (s.qmag_grade === 'C') hits.push("C");
+      if (s.qmag_score >= 7) hits.push("QM");
+      else if (s.qmag_score >= 5) hits.push("QM");
+      else if (s.qmag_score >= 3) hits.push("QM");
 
       if (hits.length > 0) hitMap[s.ticker] = hits;
     });
@@ -2323,7 +2328,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       ms_score: safe(s => s._msScore),
       ca_score: safe(s => s._caScore),
       ticker: (a, b) => a.ticker.localeCompare(b.ticker),
-      grade: safe(s => GRADE_ORDER[s.grade] ?? null),
+      qm: safe(s => s.qmag_score),
       rs: safe(s => s.rs_rank),
       ret1m: safe(s => s.return_1m),
       ret3m: safe(s => s.return_3m),
@@ -2579,16 +2584,16 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates, burstStocks, shortCandidates, scanTab, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
-    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, A: 0, B: 0, C: 0, "9M": 0 };
+    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, QM: 0, "9M": 0 };
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
 
   const columns = [
-    ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", "grade"], ["RS", "rs"],
+    ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"], ["QM", "qm"], ["RS", "rs"],
     ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"],
     ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
-    ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
+    ["3M%", "ret3m"], ["FrHi%", "fromhi"],
   ];
 
   return (
@@ -2665,7 +2670,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {[
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["A", "A", "#facc15"], ["B", "B", "#f59e0b"], ["C", "C", "#d97706"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
+          ["QM", "QM", "#facc15"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
         ].map(([tag, label, color]) => {
           const active = curFilters.has(tag);
           return (
@@ -2816,12 +2821,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   </span>
                 )}
               </td>
-              {/* Tags: chart pattern tags */}
-              <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                <PatternTags patterns={s.chart_patterns} />
-              </td>
-              {/* Grade */}
-              <td style={{ padding: "4px 8px", textAlign: "center" }}><Badge grade={s.grade} /></td>
+              {/* Theme */}
+              <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={theme?.theme || s.themes?.[0]?.theme || ""}>{theme?.theme || s.themes?.[0]?.theme || "—"}</td>
+              {/* Sub */}
+              <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={theme?.subtheme || s.themes?.[0]?.subtheme || ""}>{theme?.subtheme || s.themes?.[0]?.subtheme || "—"}</td>
+              {/* QM Score */}
+              <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+                color: s.qmag_score >= 7 ? "#facc15" : s.qmag_score >= 5 ? "#f59e0b" : s.qmag_score >= 3 ? "#d97706" : "#3a3a4a" }}>
+                {s.qmag_score ?? "—"}</td>
               {/* RS */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.min(s.rs_rank ?? 0, 99)}%`, background: (s.rs_rank ?? 0) >= 80 ? "#2bb88615" : (s.rs_rank ?? 0) >= 60 ? "#60a5fa12" : "#68687810", transition: "width 0.3s" }} />
@@ -2934,10 +2941,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 8px", textAlign: "center" }}><Ret v={s.return_3m} bold /></td>
               {/* FrHi% */}
               <td style={{ padding: "4px 8px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace" }}>{s.pct_from_high}%</td>
-              {/* Theme */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.themes?.[0]?.theme}>{s.themes?.[0]?.theme || "—"}</td>
-              {/* Subtheme */}
-              <td style={{ padding: "4px 8px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.themes?.[0]?.subtheme}>{s.themes?.[0]?.subtheme || "—"}</td>
             </tr>
           );
         })}</tbody>
@@ -6035,10 +6038,11 @@ function TQQQView() {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Tags", "hits"], ["Grade", null], ["RS", "rs"],
+  ["", null], ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"],
+  ["QM", "qm"], ["RS", "rs"],
   ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
   ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
-  ["3M%", "ret3m"], ["FrHi%", "fromhi"], ["Theme", "theme"], ["Sub", "subtheme"],
+  ["3M%", "ret3m"], ["FrHi%", "fromhi"],
 ];
 
 // ── LIGHTWEIGHT CHART (for Execution tab) ──
@@ -7389,6 +7393,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg, accel: pipe.accel,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display,
       earnings_date: pipe.earnings_date, er: pipe.er, _scanHits: pipe._scanHits || [],
+      qmag_score: pipe.qmag_score,
       _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore, _quality: quality, _q_factors: q_factors,
     };
   }, [stockMap]);
@@ -8095,12 +8100,14 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
           </span>
         )}
       </td>
-      {/* Tags: chart pattern tags */}
-      <td style={{ padding: "4px 6px", textAlign: "center" }}>
-        <PatternTags patterns={s.chart_patterns} />
-      </td>
-      {/* Grade */}
-      <td style={{ padding: "4px 6px", textAlign: "center" }}>{s.grade ? <Badge grade={s.grade} /> : <span style={{ color: "#3a3a4a" }}>—</span>}</td>
+      {/* Theme */}
+      <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.theme}>{s.theme || "—"}</td>
+      {/* Sub */}
+      <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
+      {/* QM Score */}
+      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
+        color: s.qmag_score >= 7 ? "#facc15" : s.qmag_score >= 5 ? "#f59e0b" : s.qmag_score >= 3 ? "#d97706" : "#3a3a4a" }}>
+        {s.qmag_score ?? "—"}</td>
       {/* RS */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#b8b8c8", fontFamily: "monospace", fontSize: 12 }}>{s.rs_rank ?? '—'}</td>
       {/* MS */}
@@ -8159,10 +8166,6 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       {/* FrHi% */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: near ? "#2bb886" : "#9090a0", fontFamily: "monospace", fontSize: 12 }}>
         {s.pct_from_high != null ? `${s.pct_from_high.toFixed != null ? s.pct_from_high.toFixed(0) : s.pct_from_high}%` : '—'}</td>
-      {/* Theme */}
-      <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.theme}>{s.theme || "—"}</td>
-      {/* Sub */}
-      <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
     </tr>
   );
 });
@@ -8595,7 +8598,8 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
       dvol_accel: pipe.dvol_accel, dvol_ratio_5_20: pipe.dvol_ratio_5_20, dvol_wow_chg: pipe.dvol_wow_chg, accel: pipe.accel,
       close_range: live.close_range ?? null,
       earnings_days: pipe.earnings_days, earnings_display: pipe.earnings_display, earnings_date: pipe.earnings_date, er: pipe.er,
-      _scanHits: pipe._scanHits || [], _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore,
+      _scanHits: pipe._scanHits || [], qmag_score: pipe.qmag_score,
+      _epsScore: pipe._epsScore, _msScore: pipe._msScore, _caScore: pipe._caScore,
       _quality: quality, _q_factors: q_factors,
     };
   }, [liveLookup, stockMap]);
@@ -8624,7 +8628,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
-    cr: sortFn("close_range"),
+    cr: sortFn("close_range"), qm: sortFn("qmag_score"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
@@ -9616,6 +9620,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
       earnings_date: pipe.earnings_date,
       er: pipe.er,
       _scanHits: pipe._scanHits || [],
+      qmag_score: pipe.qmag_score,
       _epsScore: pipe._epsScore,
       _msScore: pipe._msScore,
       _caScore: pipe._caScore,
@@ -9655,7 +9660,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
-    cr: sortFn("close_range"),
+    cr: sortFn("close_range"), qm: sortFn("qmag_score"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
