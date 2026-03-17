@@ -6629,6 +6629,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       maRefs.current.ema200 = chart.addLineSeries({
         color: "#8232c8", lineWidth: 1, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
       });
+      maRefs.current.ema40step = chart.addLineSeries({
+        color: "#fbbf24", lineWidth: 2, lineStyle: 0, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+      });
 
       // Volume series are on a separate chart panel (created below)
 
@@ -6911,6 +6914,31 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         const sma20 = calcSMA(closes, 20);
         const sma50 = calcSMA(closes, 50);
         const ema200 = calcEMA(closes, 200);
+        // 8-week stepped EMA: compute EMA(40) on weekly Friday closes, step onto daily bars
+        const ema40raw = calcEMA(closes, 40);
+        const ema40step = [];
+        if (tf === "D" || tf === "W") {
+          // Find weekly close values (last bar of each week)
+          const weeklyCloses = [];
+          const weeklyIdx = [];
+          for (let i = 0; i < bars.length; i++) {
+            const d = new Date(bars[i].date + "T00:00:00");
+            const dow = d.getDay(); // 0=Sun, 5=Fri
+            const isLastOfWeek = i === bars.length - 1 || (() => {
+              const nd = new Date(bars[i + 1].date + "T00:00:00");
+              return nd.getDay() <= dow || (nd - d) > 4 * 86400000;
+            })();
+            if (isLastOfWeek) { weeklyCloses.push(closes[i]); weeklyIdx.push(i); }
+          }
+          // EMA of weekly closes (8-period)
+          const wEma = calcEMA(weeklyCloses, 8);
+          // Step: hold each weekly EMA value until next weekly close
+          let wIdx = 0;
+          for (let i = 0; i < bars.length; i++) {
+            if (wIdx < weeklyIdx.length - 1 && i > weeklyIdx[wIdx]) wIdx++;
+            ema40step.push(wEma[wIdx] ?? null);
+          }
+        }
         const atr14 = calcATR(bars, 14);
 
         // ── ATR Extension Ladder (price lines from SMA50) ──
@@ -6973,6 +7001,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
         if (maRefs.current.sma50) maRefs.current.sma50.setData(toLine(sma50));
         if (maRefs.current.ema200) maRefs.current.ema200.setData(toLine(ema200));
+        if (maRefs.current.ema40step && ema40step.length > 0) maRefs.current.ema40step.setData(toLine(ema40step));
         if (maRefs.current.ema21hi) maRefs.current.ema21hi.setData(toLine(ema21hi));
         if (maRefs.current.ema21lo) maRefs.current.ema21lo.setData(toLine(ema21lo));
 
