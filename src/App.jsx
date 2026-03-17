@@ -32,8 +32,38 @@ const GRADE_COLORS = {
   "G+":"#FF3030","G":"#E01010",
 };
 
-// Module-level persistence map — survives component unmount/remount
-const _persistMap = new Map();
+// Module-level persistence map — survives component unmount/remount + page refresh via localStorage
+const _persistMap = (() => {
+  try {
+    const saved = localStorage.getItem("tp_crp_persist");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Check if data is from today (ET)
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const todayStr = et.toISOString().slice(0, 10);
+      if (parsed._date === todayStr && parsed._data) {
+        const map = new Map();
+        for (const [tk, arr] of parsed._data) map.set(tk, arr);
+        console.log(`[CRP] restored ${map.size} tickers from localStorage`);
+        return map;
+      }
+    }
+  } catch {}
+  return new Map();
+})();
+// Save persist map to localStorage periodically
+let _persistSaveTimer = null;
+function _schedulePersistSave() {
+  if (_persistSaveTimer) return;
+  _persistSaveTimer = setTimeout(() => {
+    _persistSaveTimer = null;
+    try {
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const todayStr = et.toISOString().slice(0, 10);
+      localStorage.setItem("tp_crp_persist", JSON.stringify({ _date: todayStr, _data: [..._persistMap.entries()] }));
+    } catch {}
+  }, 5000); // debounce 5s
+}
 
 function getQuad(wrs, mrs) {
   if (wrs >= 50 && mrs >= 50) return "STRONG";
@@ -6494,6 +6524,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const crChartRef = useRef(null);
   const crSeriesRef = useRef(null);
   const crMaRef = useRef(null);
+  const crpSeriesRef = useRef(null);
   const fourPctSeriesRef = useRef(null);
   const crErLineRef = useRef(null);
   const volChartRef = useRef(null);
@@ -6501,7 +6532,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
-  const [showCR, setShowCR] = useState(true);
+  const [showCR, setShowCR] = useState(false);
+  const [showCRP, setShowCRP] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
   const [topPaneOpen, setTopPaneOpen] = useState(true);
   const [volStats, setVolStats] = useState(null);
@@ -6547,7 +6579,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     chartContainerRef.current = el;
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
-      if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
+      if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; crpSeriesRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -6634,6 +6666,12 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         // 10-period SMA of CR%
         crMaRef.current = crChart.addLineSeries({
           color: "#fbbf2480", lineWidth: 1,
+          lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+        });
+        // CRP (rolling CR% persistence) — area series
+        crpSeriesRef.current = crChart.addAreaSeries({
+          topColor: "#60a5fa30", bottomColor: "#60a5fa05", lineColor: "#60a5fa", lineWidth: 2,
           lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
           autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
         });
@@ -7090,6 +7128,24 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             crMaRef.current.setData(crMaData);
           }
 
+          // Rolling CRP (CR% Persistence) — 10-bar lookback window
+          if (crpSeriesRef.current && crVals.length >= 3) {
+            const LOOKBACK = 10;
+            const crpData = [];
+            for (let i = 2; i < crVals.length; i++) {
+              const window = crVals.slice(Math.max(0, i - LOOKBACK + 1), i + 1);
+              const durPct = window.filter(v => v >= 80).length / window.length * 100;
+              const floorSc = Math.min(Math.min(...window) / 80 * 100, 100);
+              const last3 = window.slice(-Math.min(3, window.length));
+              const avgAll = window.reduce((s, v) => s + v, 0) / window.length;
+              const avgLast = last3.reduce((s, v) => s + v, 0) / last3.length;
+              const trendSc = avgAll > 0 ? Math.min(avgLast / avgAll * 100, 100) : 0;
+              const score = Math.round(durPct * 0.4 + floorSc * 0.3 + trendSc * 0.3);
+              crpData.push({ time: btime(bars[i]), value: Math.min(score, 100) });
+            }
+            crpSeriesRef.current.setData(crpData);
+          }
+
           // 4% Days overlay — diamond markers on an invisible line
           // Uses the fourPctSeries line at value=5 (bottom of pane) with markers above
           if (fourPctSeriesRef.current) {
@@ -7241,8 +7297,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   useEffect(() => {
     if (crSeriesRef.current) try { crSeriesRef.current.applyOptions({ visible: showCR }); } catch {}
     if (crMaRef.current) try { crMaRef.current.applyOptions({ visible: showCR }); } catch {}
+    if (crpSeriesRef.current) try { crpSeriesRef.current.applyOptions({ visible: showCRP }); } catch {}
     if (fourPctSeriesRef.current) try { fourPctSeriesRef.current.applyOptions({ visible: show4Pct }); } catch {}
-  }, [showCR, show4Pct]);
+  }, [showCR, showCRP, show4Pct]);
 
   // Price lines now managed inside data fetch useEffect (with ATR ladder, risk stops, etc.)
 
@@ -7265,6 +7322,10 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           <span onClick={() => setShowCR(p => !p)}
             style={{ cursor: "pointer", color: showCR ? "#2bb886" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
             CR%
+          </span>
+          <span onClick={() => setShowCRP(p => !p)}
+            style={{ cursor: "pointer", color: showCRP ? "#60a5fa" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
+            CRP
           </span>
           <span onClick={() => setShow4Pct(p => !p)}
             style={{ cursor: "pointer", userSelect: "none" }}>
@@ -12353,8 +12414,7 @@ function AppMain({ authToken, onLogout }) {
       if (arr.length > 120) arr.splice(0, arr.length - 120);
       appPersistRef.current.set(e.ticker, arr);
     });
-    console.log(`[CRP] accumulated: ${appPersistRef.current.size} tickers, sample:`,
-      [...appPersistRef.current.entries()].slice(0, 2).map(([t, a]) => `${t}:${a.length}r,cr=${a[a.length-1]?.cr}`).join(', '));
+    _schedulePersistSave();
   }, [liveThemeData, appHasLive, stockMap]);
 
   const crpLookup = useMemo(() => {
@@ -12363,7 +12423,6 @@ function AppMain({ authToken, onLogout }) {
       const result = crPersistence(readings);
       if (result) map[tk] = result;
     }
-    console.log(`[CRP] lookup: ${Object.keys(map).length} scores, persistMap size: ${_persistMap.size}`);
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveThemeData, appHasLive]);
