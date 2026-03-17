@@ -1972,8 +1972,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [greenOnly, setGreenOnly] = useState(false);
   const [zvrOnly, setZvrOnly] = useState(true);
   const [minRS, setMinRS] = useState(0);
-  const [minChg, setMinChg] = useState(2);
-  const [minRVol, setMinRVol] = useState(1.5);
+  const [minChg, setMinChg] = useState(0);
+  const [minRVol, setMinRVol] = useState(0.3);
   const [scanFilters, setScanFilters] = useState(new Set(["NoBio"]));
   const [activeTheme, setActiveTheme] = useState(null);
   const [mcapFilter, setMcapFilter] = useState("small");
