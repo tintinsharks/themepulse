@@ -1765,8 +1765,8 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
   const [liveData, setLiveData] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("rel_volume");
-  const [wlSort, setWlSort] = useState("rel_volume");
+  const [pSort, setPSort] = useState("cr");
+  const [wlSort, setWlSort] = useState("cr");
   const [drawerDragging, setDrawerDragging] = useState(false);
   const drawerRef = useRef(null);
 
@@ -1862,7 +1862,8 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
       qm: sortFn("qmag_score"),
       eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), ca_score: sortFn("_caScore"),
       ret3m: sortFn("return_3m"), fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
-      adr: sortFn("adr_pct"), theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
+      adr: sortFn("adr_pct"), cr: sortFn("close_range"),
+      theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
       subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
     };
     const sorted = [...list]; if (sorters[sk]) sorted.sort(sorters[sk]); return sorted;
@@ -1963,9 +1964,9 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
 }
 
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken }) {
-  const [sortBy, setSortBy] = useState("rvol");
+  const [sortBy, setSortBy] = useState("cr");
   const [sortDir, setSortDir] = useState("desc");
-  const [burstSort, setBurstSort] = useState({ col: "rvol", dir: "desc" });
+  const [burstSort, setBurstSort] = useState({ col: "cr", dir: "desc" });
   // Scan Watch filters
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
@@ -7354,7 +7355,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [tab, setTab] = useState("calc"); // open | closed | calc
-  const [pSort, setPSort] = useState("rvol");
+  const [pSort, setPSort] = useState("cr");
   const [calcTicker, setCalcTicker] = useState("");
 
   // O(1) lookup for live prices instead of O(n) find() per row
@@ -7409,7 +7410,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
       fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
       adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"), rel_volume: sortFn("rel_volume"),
-      volume: sortFn("avg_volume_raw"), rvol: sortFn("rel_volume"),
+      volume: sortFn("avg_volume_raw"), rvol: sortFn("rel_volume"), cr: sortFn("close_range"),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
       theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
       subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
@@ -8516,8 +8517,8 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("rel_volume");
-  const [wlSort, setWlSort] = useState("rel_volume");
+  const [pSort, setPSort] = useState("cr");
+  const [wlSort, setWlSort] = useState("cr");
   // Watchlist filters (cloned from LiveView)
   const [wlNearPivot, setWlNearPivot] = useState(false);
   const [wlGreenOnly, setWlGreenOnly] = useState(true);
@@ -9517,8 +9518,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("rel_volume");
-  const [wlSort, setWlSort] = useState("rel_volume");
+  const [pSort, setPSort] = useState("cr");
+  const [wlSort, setWlSort] = useState("cr");
   const [marketOpen, setMarketOpen] = useState(true);
   // Watchlist filters
   const [wlNearPivot, setWlNearPivot] = useState(false);
