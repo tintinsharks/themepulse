@@ -12341,6 +12341,8 @@ function AppMain({ authToken, onLogout }) {
       if (arr.length > 120) arr.splice(0, arr.length - 120);
       appPersistRef.current.set(e.ticker, arr);
     });
+    console.log(`[CRP] accumulated: ${appPersistRef.current.size} tickers, sample:`,
+      [...appPersistRef.current.entries()].slice(0, 2).map(([t, a]) => `${t}:${a.length}r,cr=${a[a.length-1]?.cr}`).join(', '));
   }, [liveThemeData, appHasLive, stockMap]);
 
   const crpLookup = useMemo(() => {
@@ -12349,6 +12351,7 @@ function AppMain({ authToken, onLogout }) {
       const result = crPersistence(readings);
       if (result) map[tk] = result;
     }
+    console.log(`[CRP] lookup: ${Object.keys(map).length} scores, persistMap size: ${_persistMap.size}`);
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveThemeData, appHasLive]);
