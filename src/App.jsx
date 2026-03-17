@@ -349,6 +349,28 @@ function persistTrend(readings, field, threshold, orhBoost) {
   return "flat";
 }
 
+// ── CR% Persistence (CRP): composite score for sustained buyer control ──
+function crPersistence(readings) {
+  if (!readings || readings.length < 5) return null;
+  const crs = readings.map(r => r.cr).filter(v => v != null);
+  if (crs.length < 5) return null;
+  // Duration: % of readings with CR >= 80
+  const durationPct = crs.filter(v => v >= 80).length / crs.length * 100;
+  // Floor: how deep were dips? min(CR) / 80 * 100, capped at 100
+  const floorScore = Math.min(Math.min(...crs) / 80 * 100, 100);
+  // Trend: avg last-5 CR / avg all CR — fading or holding?
+  const avgAll = crs.reduce((s, v) => s + v, 0) / crs.length;
+  const last5 = crs.slice(-5);
+  const avgLast5 = last5.reduce((s, v) => s + v, 0) / last5.length;
+  const trendScore = avgAll > 0 ? Math.min(avgLast5 / avgAll * 100, 100) : 0;
+  // Composite: 40% duration, 30% floor, 30% trend
+  const score = Math.round(durationPct * 0.4 + floorScore * 0.3 + trendScore * 0.3);
+  // Avg projected RVol from readings
+  const prvs = readings.map(r => r.prv).filter(v => v != null);
+  const avgPrv = prvs.length > 0 ? prvs.reduce((s, v) => s + v, 0) / prvs.length : null;
+  return { score: Math.min(score, 100), durationPct: Math.round(durationPct), floor: Math.round(floorScore), trend: Math.round(trendScore), avgPrv, readings: crs.length };
+}
+
 // ── Projected 9M volume check (run-rate extrapolation to EOD) ──
 function projectedEodVol(currentVol) {
   if (!currentVol || currentVol <= 0) return 0;
@@ -1862,7 +1884,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
       qm: sortFn("qmag_score"),
       eps_score: sortFn("_epsScore"), ms_score: sortFn("_msScore"), ca_score: sortFn("_caScore"),
       ret3m: sortFn("return_3m"), fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
-      adr: sortFn("adr_pct"), cr: sortFn("close_range"),
+      adr: sortFn("adr_pct"), cr: sortFn("close_range"), crp: sortFn("_crpScore"),
       theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
       subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
     };
@@ -2164,6 +2186,17 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     }
   }, [liveLookup, hasLive]);
 
+  // CRP lookup: CR% persistence scores per ticker
+  const crpLookup = useMemo(() => {
+    const map = {};
+    for (const [tk, readings] of persistRef.current) {
+      const result = crPersistence(readings);
+      if (result) map[tk] = result;
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveLookup, hasLive]);
+
   // Shared biotech/pharma/REIT exclusion set for NoBio filter
   const BIO_REIT_IND = useMemo(() => new Set([
     "Biotechnology", "Drug Manufacturers - General", "Drug Manufacturers - Specialty & Generic",
@@ -2269,7 +2302,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP", "DB", "HTF", "AB", "ST", "IPO"]);
 
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
-    const nonOrhFilters = new Set([...scanFilters].filter(f => f !== "ORH" && f !== "NoBio"));
+    const nonOrhFilters = new Set([...scanFilters].filter(f => f !== "ORH" && f !== "NoBio" && f !== "CRP"));
     if (nonOrhFilters.size === 0) {
       list = stocks.map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _epsScore: epsFinalMap[s.ticker] }));
     } else {
@@ -2277,7 +2310,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         const hits = new Set(hitMap[s.ticker] || []);
         const pats = new Set((s.chart_patterns || []).map(p => p.pattern));
         for (const f of scanFilters) {
-          if (f === "ORH" || f === "NoBio") continue; // handled separately
+          if (f === "ORH" || f === "NoBio" || f === "CRP") continue; // handled separately
           if (patternFilterTags.has(f)) {
             if (!pats.has(PATTERN_TAG_MAP[f])) return false;
           } else {
@@ -2312,6 +2345,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
+    if (scanFilters.has("CRP")) list = list.filter(s => (crpLookup[s.ticker]?.score ?? 0) >= 70);
     if (scanFilters.has("NoBio")) list = list.filter(s => !BIO_REIT_IND.has(s.industry));
     const safe = (fn) => (a, b) => {
       const av = fn(a), bv = fn(b);
@@ -2339,13 +2373,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       vol: safe(s => { const lv = liveLookup[s.ticker]?.volume; return lv != null ? (typeof lv === 'string' ? parseFloat(lv) : lv) : (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null); }),
       rvol: safe(s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume),
       cr: safe(s => liveLookup[s.ticker]?.close_range ?? null),
+      crp: safe(s => crpLookup[s.ticker]?.score ?? null),
       change: safe(s => liveLookup[s.ticker]?.change ?? s.change_pct),
       theme: (a, b) => (a.themes?.[0]?.theme || "").localeCompare(b.themes?.[0]?.theme || ""),
       subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
     };
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
     return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
-  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup, BIO_REIT_IND]);
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup, BIO_REIT_IND, crpLookup]);
 
   const burstStocks = useMemo(() => {
     let list = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
@@ -2391,6 +2426,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         return lv?.orh != null && lv?.price != null && lv.price > lv.orh;
       });
     }
+    if (burstScanFilters.has("CRP")) list = list.filter(b => (crpLookup[b.ticker]?.score ?? 0) >= 70);
     if (burstScanFilters.has("NoBio")) list = list.filter(b => !BIO_REIT_IND.has(stockMap[b.ticker]?.industry));
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
     const bSorters = {
@@ -2592,7 +2628,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
 
   const columns = [
     ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"], ["QM", "qm"], ["RS", "rs"],
-    ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"],
+    ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"], ["CRP", "crp"],
     ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"],
   ];
@@ -2671,7 +2707,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {[
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["QM", "QM", "#facc15"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
+          ["QM", "QM", "#facc15"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["CRP", "CRP", "#60a5fa"], ["NoBio", "NoBio", "#f87171"]
         ].map(([tag, label, color]) => {
           const active = curFilters.has(tag);
           return (
@@ -2701,7 +2737,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                 FB: "Flat Base — tight <15% consolidation after advance",
                 PP: "Power Play / 3 Weeks Tight — consecutive tight weekly closes",
                 "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)",
-                ORH: "Price above 5-min Opening Range High (9:30–9:35 ET)" };
+                ORH: "Price above 5-min Opening Range High (9:30–9:35 ET)",
+                CRP: "CR% Persistence ≥70 — sustained buyer control throughout the day" };
               const active = [...curFilters];
               if (active.length === 1) return descs[active[0]] || "";
               return active.map(f => f).join(" + ");
@@ -2894,6 +2931,22 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   {cr != null ? `${Math.round(cr)}%` : '—'}
                   {crTrend && <span style={{ fontSize: 8, marginLeft: 2, color: crTrend === "up" ? "#2bb886" : crTrend === "down" ? "#f87171" : "#505060" }}>
                     {crTrend === "up" ? "▲" : crTrend === "down" ? "▼" : "─"}</span>}</td>;
+              })()}
+              {/* CRP */}
+              {(() => {
+                const crp = crpLookup[s.ticker];
+                if (!crp) return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: "#3a3a4a" }}>—</td>;
+                const sc = crp.score;
+                const color = sc >= 80 ? "#2bb886" : sc >= 60 ? "#60a5fa" : sc >= 40 ? "#fbbf24" : "#686878";
+                const volConfirmed = sc >= 70 && crp.avgPrv != null && crp.avgPrv >= 1.5;
+                const prevCr = s.prev_close_range;
+                const multiDay = sc >= 70 && prevCr != null && prevCr >= 80;
+                return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color }}
+                  title={`CRP: ${sc} | Dur: ${crp.durationPct}% ≥80 | Floor: ${crp.floor} | Trend: ${crp.trend} | pRVol: ${crp.avgPrv != null ? crp.avgPrv.toFixed(1) + 'x' : '—'} | ${crp.readings} readings`}>
+                  {sc}
+                  {volConfirmed && <span style={{ fontSize: 8, marginLeft: 1, color: "#c084fc", fontWeight: 700 }}>V</span>}
+                  {multiDay && <span style={{ fontSize: 8, marginLeft: 1, color: "#f59e0b", fontWeight: 700 }}>2D</span>}
+                </td>;
               })()}
               {/* $Vol */}
               <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
@@ -6042,7 +6095,7 @@ const LIVE_COLUMNS = [
   ["", null], ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"],
   ["QM", "qm"], ["RS", "rs"],
   ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
-  ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+  ["$Vol", "dvol"], ["CR%", "cr"], ["CRP", "crp"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"],
 ];
 
@@ -7410,7 +7463,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
       change: sortFn("change"), rs: sortFn("rs_rank"), ret3m: sortFn("return_3m"),
       fromhi: (a, b) => (b.pct_from_high ?? -999) - (a.pct_from_high ?? -999),
       adr: sortFn("adr_pct"), dvol: sortFn("avg_dollar_vol_raw"), rel_volume: sortFn("rel_volume"),
-      volume: sortFn("avg_volume_raw"), rvol: sortFn("rel_volume"), cr: sortFn("close_range"),
+      volume: sortFn("avg_volume_raw"), rvol: sortFn("rel_volume"), cr: sortFn("close_range"), crp: sortFn("_crpScore"),
       hits: (a, b) => ((b._scanHits?.length || 0) - (a._scanHits?.length || 0)),
       theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
       subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
@@ -8063,7 +8116,7 @@ const LiveSortHeader = memo(function LiveSortHeader({ setter, current }) {
   );
 });
 
-const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup, portfolio, watchlist }) {
+const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup, portfolio, watchlist, crpLookup }) {
   const isActive = s.ticker === activeTicker;
   const rowRef = useRef(null);
   useEffect(() => {
@@ -8146,6 +8199,22 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: (s.close_range ?? 0) >= 80 ? "#2bb886" : (s.close_range ?? 0) >= 50 ? "#fbbf24" : (s.close_range ?? 0) >= 30 ? "#f97316" : s.close_range != null ? "#686878" : "#3a3a4a" }}>
         {s.close_range != null ? `${Math.round(s.close_range)}%` : "—"}</td>
+      {/* CRP */}
+      {(() => {
+        const crp = crpLookup?.[s.ticker];
+        if (!crp) return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color: "#3a3a4a" }}>—</td>;
+        const sc = crp.score;
+        const color = sc >= 80 ? "#2bb886" : sc >= 60 ? "#60a5fa" : sc >= 40 ? "#fbbf24" : "#686878";
+        const volConfirmed = sc >= 70 && crp.avgPrv != null && crp.avgPrv >= 1.5;
+        const prevCr = s.prev_close_range;
+        const multiDay = sc >= 70 && prevCr != null && prevCr >= 80;
+        return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11, color }}
+          title={`CRP: ${sc} | Dur: ${crp.durationPct}% ≥80 | Floor: ${crp.floor} | Trend: ${crp.trend} | pRVol: ${crp.avgPrv != null ? crp.avgPrv.toFixed(1) + 'x' : '—'} | ${crp.readings} readings`}>
+          {sc}
+          {volConfirmed && <span style={{ fontSize: 8, marginLeft: 1, color: "#c084fc", fontWeight: 700 }}>V</span>}
+          {multiDay && <span style={{ fontSize: 8, marginLeft: 1, color: "#f59e0b", fontWeight: 700 }}>2D</span>}
+        </td>;
+      })()}
       {/* ADR% */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
         color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
@@ -8171,13 +8240,13 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
   );
 });
 
-function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup, portfolio, watchlist }) {
+function LiveSectionTable({ data, sortKey, setter, onRemove, onAdd, addLabel, activeTicker, onTickerClick, erSipLookup, portfolio, watchlist, crpLookup }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
       <LiveSortHeader setter={setter} current={sortKey} />
       <tbody>
         {data.map(s => <LiveRow key={s.ticker} s={s} onRemove={onRemove} onAdd={onAdd} addLabel={addLabel}
-          activeTicker={activeTicker} onTickerClick={onTickerClick} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} />)}
+          activeTicker={activeTicker} onTickerClick={onTickerClick} erSipLookup={erSipLookup} portfolio={portfolio} watchlist={watchlist} crpLookup={crpLookup} />)}
       </tbody>
     </table>
   );
@@ -8629,7 +8698,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
-    cr: sortFn("close_range"), qm: sortFn("qmag_score"),
+    cr: sortFn("close_range"), crp: sortFn("_crpScore"), qm: sortFn("qmag_score"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
@@ -9661,7 +9730,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
     pe: (a, b) => (a.pe ?? 9999) - (b.pe ?? 9999),
     roe: sortFn("roe"), margin: sortFn("profit_margin"),
     rsi: sortFn("rsi"), price: sortFn("price"), accel: sortFn("accel"),
-    cr: sortFn("close_range"), qm: sortFn("qmag_score"),
+    cr: sortFn("close_range"), crp: sortFn("_crpScore"), qm: sortFn("qmag_score"),
     theme: (a, b) => (a.theme || "").localeCompare(b.theme || ""),
     subtheme: (a, b) => (a.subtheme || "").localeCompare(b.subtheme || ""),
   });
