@@ -2238,7 +2238,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       if (inLeadTheme && aboveMAs && nearHigh && goodGrade && hasVolume && s.atr_to_50 < 5) hits.push("ZM");
 
       // ── Qullamaggie tag (from 09k scanner) ──
-      if (s.qmag_grade) hits.push("QM");
+      if (s.qmag_grade === 'A') hits.push("A");
+      else if (s.qmag_grade === 'B') hits.push("B");
+      else if (s.qmag_grade === 'C') hits.push("C");
 
       if (hits.length > 0) hitMap[s.ticker] = hits;
     });
@@ -2577,7 +2579,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates, burstStocks, shortCandidates, scanTab, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
-    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, QM: 0, "9M": 0 };
+    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, A: 0, B: 0, C: 0, "9M": 0 };
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
@@ -2663,7 +2665,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {[
           ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
           ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
-          ["QM", "QM", "#facc15"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
+          ["A", "A", "#facc15"], ["B", "B", "#f59e0b"], ["C", "C", "#d97706"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["NoBio", "NoBio", "#f87171"]
         ].map(([tag, label, color]) => {
           const active = curFilters.has(tag);
           return (
