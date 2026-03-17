@@ -8969,7 +8969,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
           {/* Rank + Filter controls */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 9, color: "#505060", fontWeight: 600 }}>RANK BY</span>
-            {[["change","Chg%"],["rvol","RVol"],["rs","RS"],["cr","CR%"]].map(([k,l]) => (
+            {[["change","Chg%"],["rvol","RVol"],["rs","RS"],["cr","CR%"],["crp","CRP"]].map(([k,l]) => (
               <button key={k} onClick={() => setWlTickerRank(k)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
                 border: wlTickerRank === k ? "1px solid #c084fc" : "1px solid #3a3a4a",
                 background: wlTickerRank === k ? "#c084fc15" : "transparent", color: wlTickerRank === k ? "#c084fc" : "#686878", fontWeight: 600 }}>{l}</button>
@@ -8993,6 +8993,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
                   case "rvol": return lv?.rel_volume ?? s.rel_volume ?? -999;
                   case "rs": return s.rs_rank ?? stockMap[s.ticker]?.rs_rank ?? -999;
                   case "cr": return lv?.close_range ?? s.close_range ?? -999;
+                  case "crp": return s._crpScore ?? -999;
                   default: return lv?.change ?? s.change ?? -999;
                 }
               };
@@ -9024,6 +9025,7 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
                   case "rvol": return ` ${v.toFixed(1)}x`;
                   case "rs": return ` RS${Math.round(v)}`;
                   case "cr": return ` ${Math.round(v)}%`;
+                  case "crp": return ` CRP${Math.round(v)}`;
                   default: return ` ${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
                 }
               };
@@ -10027,7 +10029,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
           {/* Rank + Filter controls */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 9, color: "#505060", fontWeight: 600 }}>RANK BY</span>
-            {[["change","Chg%"],["rvol","RVol"],["rs","RS"],["cr","CR%"]].map(([k,l]) => (
+            {[["change","Chg%"],["rvol","RVol"],["rs","RS"],["cr","CR%"],["crp","CRP"]].map(([k,l]) => (
               <button key={k} onClick={() => setWlTickerRank(k)} style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, cursor: "pointer",
                 border: wlTickerRank === k ? "1px solid #22d3ee" : "1px solid #3a3a4a",
                 background: wlTickerRank === k ? "#22d3ee15" : "transparent", color: wlTickerRank === k ? "#22d3ee" : "#686878", fontWeight: 600 }}>{l}</button>
@@ -10052,6 +10054,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                   case "rvol": return lv?.rel_volume ?? s.rel_volume ?? -999;
                   case "rs": return s.rs_rank ?? stockMap[s.ticker]?.rs_rank ?? -999;
                   case "cr": return lv?.close_range ?? s.close_range ?? -999;
+                  case "crp": return s._crpScore ?? -999;
                   default: return lv?.change ?? s.change ?? -999;
                 }
               };
@@ -10084,6 +10087,7 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
                   case "rvol": return ` ${v.toFixed(1)}x`;
                   case "rs": return ` RS${Math.round(v)}`;
                   case "cr": return ` ${Math.round(v)}%`;
+                  case "crp": return ` CRP${Math.round(v)}`;
                   default: return ` ${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
                 }
               };
