@@ -1820,8 +1820,8 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
   const [liveData, setLiveData] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("cr");
-  const [wlSort, setWlSort] = useState("cr");
+  const [pSort, setPSort] = useState("crp");
+  const [wlSort, setWlSort] = useState("crp");
   const [drawerDragging, setDrawerDragging] = useState(false);
   const drawerRef = useRef(null);
 
@@ -2020,7 +2020,7 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
 }
 
 function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken, crpLookup }) {
-  const [sortBy, setSortBy] = useState("cr");
+  const [sortBy, setSortBy] = useState("crp");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "cr", dir: "desc" });
   // Scan Watch filters
@@ -7460,7 +7460,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [tab, setTab] = useState("calc"); // open | closed | calc
-  const [pSort, setPSort] = useState("cr");
+  const [pSort, setPSort] = useState("crp");
   const [calcTicker, setCalcTicker] = useState("");
 
   // O(1) lookup for live prices instead of O(n) find() per row
@@ -8639,8 +8639,8 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("cr");
-  const [wlSort, setWlSort] = useState("cr");
+  const [pSort, setPSort] = useState("crp");
+  const [wlSort, setWlSort] = useState("crp");
   // Watchlist filters (cloned from LiveView)
   const [wlNearPivot, setWlNearPivot] = useState(false);
   const [wlGreenOnly, setWlGreenOnly] = useState(true);
@@ -9640,8 +9640,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("cr");
-  const [wlSort, setWlSort] = useState("cr");
+  const [pSort, setPSort] = useState("crp");
+  const [wlSort, setWlSort] = useState("crp");
   const [marketOpen, setMarketOpen] = useState(true);
   // Watchlist filters
   const [wlNearPivot, setWlNearPivot] = useState(false);
