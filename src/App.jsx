@@ -32,6 +32,9 @@ const GRADE_COLORS = {
   "G+":"#FF3030","G":"#E01010",
 };
 
+// Module-level persistence map — survives component unmount/remount
+const _persistMap = new Map();
+
 function getQuad(wrs, mrs) {
   if (wrs >= 50 && mrs >= 50) return "STRONG";
   if (wrs >= 50) return "IMPROVING";
@@ -2080,8 +2083,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     }).catch(() => {});
   }, []);
 
-  // Persistence accumulator — tracks intraday readings per ticker for trend arrows
-  const persistRef = useRef(new Map()); // Map<ticker, [{ts, chg, prv, cr, price}]>
+  // Persistence accumulator — module-level so it survives Scan unmount/remount
+  // (useRef resets on remount, losing all accumulated readings)
+  const persistRef = useRef(_persistMap); // Map<ticker, [{ts, chg, prv, cr, price}]>
 
   // Apply theme filter from Leaders drill-down
   useEffect(() => {
