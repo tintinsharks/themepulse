@@ -9,6 +9,10 @@ const STRATEGY_PARAMS = {
   "v6.2": { label: "v6.2 (Risk-Adjusted+Tweaks)", adr_stop: 2.25, adr_target: 5.0, max_hold: 7, trail_mult: 3.0, be_trigger: 2.0, be_trail: 2.5, ema8w_exit: "strict", dd_reduce: 8, gap_filter: 4.0, time_decay_start: 5, time_decay_rate: 0.5, extend_if_profit: 2, description: "v6 + time-decay stop + conditional hold. 90t | 64% WR | 25.7% CAGR | -15.1% MDD" },
 };
 
+const SHORT_STRATEGY_PARAMS = {
+  short_v1: { label: "Short v1 (QQQ-Derived)", adr_stop: 2.0, adr_target: 5.0, max_hold: 5, trail_mult: 2.0, be_trigger: 0, be_trail: 0, time_decay_start: 0, extend_if_profit: 0, description: "QQQ regime + signals, execute on TQQQ short. 30% allocation, tighter stops." },
+};
+
 function computeLevels(entry, adr, daysHeld, currentPrice, dir, params) {
   const isLong = dir === "long";
   let stop = isLong ? entry - params.adr_stop * adr : entry + params.adr_stop * adr;
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "POST only" });
 
-  const { trade, strategies, currentPrice, adr, date, priorAnalyses } = req.body || {};
+  const { trade, strategies, currentPrice, adr, date, regime, priorAnalyses } = req.body || {};
   if (!trade?.entryPrice) return res.status(400).json({ ok: false, error: "Missing trade data" });
 
   const dir = trade.direction || "long";
@@ -117,6 +121,20 @@ export default async function handler(req, res) {
       }
       stratLines.push(`${params.label}: ${lvl.rec} | Stop $${lvl.stop} (risk: $${lvl.stopRisk}, ${lvl.stopRiskAdr} ADR) | Target $${lvl.target} (${lvl.targetPct}%) | Hold ${daysHeld}/${lvl.maxHold}d | Flags: ${[lvl.ratchet && "RATCHET", lvl.decay && "DECAY", lvl.stopHit && "STOP HIT", lvl.targetHit && "TARGET HIT", lvl.maxHoldReached && "MAX HOLD"].filter(Boolean).join(", ") || "none"}${comparison}`);
     }
+    // Add short strategy for short trades
+    if (dir === "short") {
+      for (const [key, params] of Object.entries(SHORT_STRATEGY_PARAMS)) {
+        const lvl = computeLevels(entry, adrVal, daysHeld, current, dir, params);
+        let comparison = "";
+        if (userStopRisk !== null) {
+          const modelRisk = parseFloat(lvl.stopRisk);
+          if (userStopRisk < modelRisk) comparison = ` ← USER STOP IS TIGHTER ($${userStopRisk.toFixed(2)} risk vs model $${modelRisk.toFixed(2)} risk)`;
+          else if (userStopRisk > modelRisk) comparison = ` ← USER STOP IS WIDER ($${userStopRisk.toFixed(2)} risk vs model $${modelRisk.toFixed(2)} risk)`;
+          else comparison = ` ← MATCHES user stop`;
+        }
+        stratLines.push(`${params.label}: ${lvl.rec} | Stop $${lvl.stop} (risk: $${lvl.stopRisk}, ${lvl.stopRiskAdr} ADR) | Target $${lvl.target} (${lvl.targetPct}%) | Hold ${daysHeld}/${lvl.maxHold}d | Flags: ${[lvl.stopHit && "STOP HIT", lvl.targetHit && "TARGET HIT", lvl.maxHoldReached && "MAX HOLD"].filter(Boolean).join(", ") || "none"}${comparison}`);
+      }
+    }
     stratSummary = stratLines.join("\n");
   } else {
     stratSummary = Object.entries(STRATEGY_PARAMS).map(([, p]) => `${p.label}: ${p.description}`).join("\n");
@@ -137,6 +155,13 @@ STRATEGY MODELS:
 - v5.2: v5 + time-decay stop (tightens 0.5 ADR/day after day 5) + hold extension (+2d if profitable). 111t, 54% WR, -31% MDD.
 - v6 (CHAMPION): Conservative long-only, 2.25 ADR stop, 5.0 ADR target, 7d max hold, DD reduction, gap filter. 94t, 67% WR, -12.8% MDD.
 - v6.2: v6 + time-decay + conditional hold. 90t, 64% WR, -15.1% MDD.
+- Short v1 (QQQ-Derived): Separate short system using QQQ regime + signals. 2.0 ADR stop, 5.0 ADR target, 5d max hold. Regime gate: QQQ < 200 SMA + BB Width > 60th pctile. Signals: Death Cross, Distribution Cluster, 21EMA Breakdown, VIX Spike, Failed Rally. 30% allocation.
+
+QQQ REGIME STATUS:
+- When regime info is provided, factor it into your analysis.
+- Long regime ON (QQQ > 200 SMA + low vol): favorable for long trades.
+- Short regime ON (QQQ < 200 SMA + high vol): favorable for short trades via QQQ-derived signals.
+- If the trade direction conflicts with the regime, flag this as a risk factor.
 
 BACKTESTED INSIGHTS (from 94 v6 champion trades — use these to inform your advice):
 - Max Hold (7 days) is the best exit: 98% WR, +6.48% avg. Let winners run to day 7.
@@ -191,6 +216,8 @@ General rules for BOTH sections:
 - If prior analyses are provided, this is a RUNNING JOURNAL. Note evolution, not repetition.
 - No markdown headers. The "---" separator is the only structural element.`;
 
+  const regimeLine = regime ? `\n- QQQ Regime: Long ${regime.long_regime ? "ON" : "OFF"} | Short ${regime.short_regime ? "ON" : "OFF"} | QQQ $${regime.qqq_close} | VIX ${regime.vix_close}` : "";
+
   const userMsg = `TQQQ Trade:
 - Direction: ${dir.toUpperCase()}
 - Entry: $${entry}${trade.entryDate ? ` on ${trade.entryDate}` : ""}
@@ -199,7 +226,7 @@ General rules for BOTH sections:
 - My stop: ${userStop ? `$${userStop} (dollar risk from entry: $${userStopRisk.toFixed(2)} = ${userStopRiskPct.toFixed(1)}% = ${userStopAdr ? userStopAdr.toFixed(2) + " ADR" : "N/A"})` : "not set"}
 - ADR: $${adrVal > 0 ? adrVal.toFixed(2) : "N/A"}
 - Date: ${date || "today"}
-- Status: ${trade.mode || "open"}
+- Status: ${trade.mode || "open"}${regimeLine}
 
 Strategy Analysis (computed from backtested models):
 ${stratSummary}${journalSection}

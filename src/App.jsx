@@ -5294,6 +5294,14 @@ function TQQQView() {
         {d.signal_type && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
           background: d.signal === 1 ? "#2bb88630" : "#f8717130", color: d.signal === 1 ? "#2bb886" : "#f87171" }}>
           SIGNAL: {d.signal_type}</span>}
+        {d.regime && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+          background: d.regime.long_regime ? "#2bb88615" : "#f8717115",
+          color: d.regime.long_regime ? "#2bb886" : "#f87171" }}>
+          L:{d.regime.long_regime ? "ON" : "OFF"}</span>}
+        {d.regime && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+          background: d.regime.short_regime ? "#f8717115" : "#50506015",
+          color: d.regime.short_regime ? "#f87171" : "#505060" }}>
+          S:{d.regime.short_regime ? "ON" : "OFF"}</span>}
         <span style={{ marginLeft: "auto", fontSize: 10, color: "#505060" }}>{d.date}</span>
       </div>
 
@@ -5312,6 +5320,10 @@ function TQQQView() {
           ["Dist", `${d.dist_count}/25`, d.dist_count >= 5 ? "#f87171" : "#9090a0"],
           ["FTD", d.ftd_active ? "Active" : "No", d.ftd_active ? "#2bb886" : "#505060"],
           ["<50d", `${d.consec_below_50}d`, d.consec_below_50 > 5 ? "#f87171" : "#9090a0"],
+          ...(d.regime ? [
+            ["QQQ", `$${d.regime.qqq_close}`, d.regime.long_regime ? "#2bb886" : "#f87171"],
+            ["VIX", `${d.regime.vix_close}`, d.regime.vix_close > 25 ? "#f87171" : d.regime.vix_close > 20 ? "#fbbf24" : "#2bb886"],
+          ] : []),
         ].map(([label, val, color]) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 10, color: "#505060", textTransform: "uppercase" }}>{label}</span>
@@ -5586,6 +5598,7 @@ function TQQQView() {
                             currentPrice: currentPrice,
                             adr: adrDollar.toFixed(2),
                             date: d.date,
+                            regime: d.regime || null,
                             priorAnalyses: priorHistory,
                           }),
                         });
