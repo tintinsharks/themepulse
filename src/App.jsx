@@ -2354,7 +2354,19 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       subtheme: (a, b) => (a.themes?.[0]?.subtheme || "").localeCompare(b.themes?.[0]?.subtheme || ""),
     };
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
-    return sortDir === "asc" && sortBy !== "default" ? sorted.reverse() : sorted;
+    if (sortDir === "asc" && sortBy !== "default") {
+      // Reverse non-null values but keep nulls at bottom
+      const withVal = sorted.filter(s => {
+        const fn = sorters[sortBy];
+        if (!fn) return true;
+        // Quick null check for safe()-based sorters
+        if (sortBy === "crp") return crpLookup[s.ticker]?.score != null;
+        return true;
+      });
+      const nulls = sorted.filter(s => sortBy === "crp" && crpLookup[s.ticker]?.score == null);
+      return [...withVal.reverse(), ...nulls];
+    }
+    return sorted;
   }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup, BIO_REIT_IND, crpLookup]);
 
   const burstStocks = useMemo(() => {
