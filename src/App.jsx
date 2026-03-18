@@ -1791,8 +1791,8 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
   const [liveData, setLiveData] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("crp");
-  const [wlSort, setWlSort] = useState("crp");
+  const [pSort, setPSort] = useState("change");
+  const [wlSort, setWlSort] = useState("change");
   const [drawerDragging, setDrawerDragging] = useState(false);
   const drawerRef = useRef(null);
 
@@ -7503,7 +7503,7 @@ function Execution({ trades, setTrades, stockMap, onTickerClick, activeTicker, o
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [tab, setTab] = useState("calc"); // open | closed | calc
-  const [pSort, setPSort] = useState("crp");
+  const [pSort, setPSort] = useState("change");
   const [calcTicker, setCalcTicker] = useState("");
 
   // O(1) lookup for live prices instead of O(n) find() per row
@@ -8682,8 +8682,8 @@ function PknView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pkn,
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("crp");
-  const [wlSort, setWlSort] = useState("crp");
+  const [pSort, setPSort] = useState("change");
+  const [wlSort, setWlSort] = useState("change");
   // Watchlist filters (cloned from LiveView)
   const [wlNearPivot, setWlNearPivot] = useState(false);
   const [wlGreenOnly, setWlGreenOnly] = useState(true);
@@ -9699,8 +9699,8 @@ function LiveView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, por
   const [lastUpdate, setLastUpdate] = useState(null);
   const [addTickerP, setAddTickerP] = useState("");
   const [addTickerW, setAddTickerW] = useState("");
-  const [pSort, setPSort] = useState("crp");
-  const [wlSort, setWlSort] = useState("crp");
+  const [pSort, setPSort] = useState("change");
+  const [wlSort, setWlSort] = useState("change");
   const [marketOpen, setMarketOpen] = useState(true);
   // Watchlist filters
   const [wlNearPivot, setWlNearPivot] = useState(false);
