@@ -2678,11 +2678,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "gapper" ? "#121218" : "transparent", color: scanTab === "gapper" ? "#f59e0b" : "#686878" }}>
           Gappers <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "gapper" ? "#f59e0b" : "#505060" }}>{gapperCandidates.length}</span>
         </button>
-        <button onClick={() => setScanTab("ep")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
-          border: scanTab === "ep" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "ep" ? "1px solid #121218" : "1px solid #3a3a4a",
-          background: scanTab === "ep" ? "#121218" : "transparent", color: scanTab === "ep" ? "#c084fc" : "#686878" }}>
-          EP Catalyst
-        </button>
         <button onClick={() => setScanTab("ai")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
           border: scanTab === "ai" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "ai" ? "1px solid #121218" : "1px solid #3a3a4a",
           background: scanTab === "ai" ? "#121218" : "transparent", color: scanTab === "ai" ? "#22d3ee" : "#686878" }}>
@@ -3490,15 +3485,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         </div>
       )}
       </>)}
-      {scanTab === "ep" && (
-        <EpisodicPivots stockMap={stockMap} onTickerClick={onTickerClick} activeTicker={activeTicker}
-          onVisibleTickers={onVisibleTickers} earningsMovers={earningsMovers} pmErTickers={pmErTickers} ahErTickers={ahErTickers} headlinesMap={headlinesMap}
-          pmTopMovers={pmTopMovers} ahTopMovers={ahTopMovers}
-          historicalEarningsMovers={historicalEarningsMovers}
-          focusList={focusList} onAddFocus={onAddFocus} onRemoveFocus={onRemoveFocus}
-          liveThemeData={externalLiveData} portfolio={portfolio} watchlist={watchlist}
-          pipelineMeta={pipelineMeta} marketSession={marketSession} />
-      )}
       {scanTab === "ai" && (
         <div style={{ padding: "8px 4px", maxHeight: "70vh", overflowY: "auto" }}>
           {/* Schedule status bar */}
