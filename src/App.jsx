@@ -6528,6 +6528,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const crpSeriesRef = useRef(null);
   const fourPctSeriesRef = useRef(null);
   const crErLineRef = useRef(null);
+  const atrxContainerRef = useRef(null);
+  const atrxChartRef = useRef(null);
+  const atrxSeriesRefs = useRef({});
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -6536,6 +6539,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [showCR, setShowCR] = useState(false);
   const [showCRP, setShowCRP] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
+  const [showATRX, setShowATRX] = useState(false);
   const [topPaneOpen, setTopPaneOpen] = useState(true);
   const [volStats, setVolStats] = useState(null);
   const [rawBars, setRawBars] = useState(null);
@@ -6581,6 +6585,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
       if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; crpSeriesRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
+      if (atrxChartRef.current) { try { atrxChartRef.current.remove(); } catch {} atrxChartRef.current = null; atrxSeriesRefs.current = {}; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
@@ -6642,6 +6647,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         if (crChartRef.current && crContainerRef.current) {
           try { crChartRef.current.resize(crContainerRef.current.clientWidth || 400, 90); } catch {}
         }
+        if (atrxChartRef.current && atrxContainerRef.current) {
+          try { atrxChartRef.current.resize(atrxContainerRef.current.clientWidth || 400, 110); } catch {}
+        }
         if (volChartRef.current && volContainerRef.current) {
           try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 120); } catch {}
         }
@@ -6696,9 +6704,48 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
           if (range) {
             if (crChartRef.current) try { crChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+            if (atrxChartRef.current) try { atrxChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
             if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
           }
         });
+      }
+
+      // ── ATRX Pro pane ──
+      if (atrxContainerRef.current) {
+        const atrxChart = LW.createChart(atrxContainerRef.current, {
+          width: atrxContainerRef.current.clientWidth || 400, height: 110,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38", scaleMargins: { top: 0.05, bottom: 0.05 } },
+          timeScale: { visible: false },
+          handleScroll: false, handleScale: false,
+        });
+        atrxChartRef.current = atrxChart;
+        // 50 SMA dist/ATR% line
+        atrxSeriesRefs.current.sma50 = atrxChart.addLineSeries({
+          color: "#2962FF", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        });
+        // 20 DMA dist/ATR% line
+        atrxSeriesRefs.current.dma20 = atrxChart.addLineSeries({
+          color: "#00BCD4", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        });
+        // 10W EMA dist/ATR% line
+        atrxSeriesRefs.current.ema10w = atrxChart.addLineSeries({
+          color: "#AB47BC", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        });
+        // VCS squares (invisible line + markers)
+        atrxSeriesRefs.current.vcs = atrxChart.addLineSeries({
+          color: "transparent", lineWidth: 0, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        });
+        // Reference lines
+        try {
+          atrxChart.addLineSeries({ color: "#ffffff40", lineWidth: 1, lineStyle: 0, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false })
+            .setData([]);
+          // Use price lines on sma50 series for reference
+          const refSeries = atrxSeriesRefs.current.sma50;
+          refSeries._atrxRefLines = true;
+        } catch {}
       }
 
       // ── Volume panel (bottom) ──
@@ -7240,6 +7287,118 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
+        // ── ATRX Pro: Distance from MAs in ATR% units + VCS ──
+        if (atrxSeriesRefs.current.sma50 && bars.length > 50) {
+          const ATR_LEN = 14, SMA50_LEN = 50, DMA20_LEN = 20, EMA10W_LEN = 50;
+          // RMA (Wilder's smoothing) for ATR
+          const calcRMA = (vals, period) => {
+            const out = []; let prev = null;
+            for (let i = 0; i < vals.length; i++) {
+              if (i < period - 1) { out.push(null); continue; }
+              if (prev == null) { prev = vals.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period; }
+              else { prev = (prev * (period - 1) + vals[i]) / period; }
+              out.push(prev);
+            }
+            return out;
+          };
+          // True Range
+          const trArr = bars.map((b, i) => {
+            if (i === 0) return b.high - b.low;
+            const pc = bars[i - 1].close;
+            return Math.max(b.high - b.low, Math.abs(b.high - pc), Math.abs(b.low - pc));
+          });
+          const atrArr = calcRMA(trArr, ATR_LEN);
+          const atrPct = atrArr.map((a, i) => a != null && closes[i] > 0 ? a / closes[i] : null);
+
+          // Distance from MAs in ATR% units
+          const dist50 = [], dist20 = [], dist10w = [];
+          for (let i = 0; i < bars.length; i++) {
+            const ap = atrPct[i];
+            if (ap == null || ap === 0) { dist50.push(null); dist20.push(null); dist10w.push(null); continue; }
+            const s50 = sma50[i]; const s20 = sma20[i]; const e10w = calcEMA(closes, EMA10W_LEN)[i];
+            dist50.push(s50 ? ((closes[i] - s50) / s50) / ap : null);
+            dist20.push(s20 ? ((closes[i] - s20) / s20) / ap : null);
+            dist10w.push(e10w ? ((closes[i] - e10w) / e10w) / ap : null);
+          }
+          // Pre-compute 10w EMA array (avoid recalc per bar)
+          const ema10wArr = calcEMA(closes, EMA10W_LEN);
+          for (let i = 0; i < bars.length; i++) {
+            const ap = atrPct[i];
+            if (ap == null || ap === 0) continue;
+            const e10w = ema10wArr[i];
+            dist10w[i] = e10w ? ((closes[i] - e10w) / e10w) / ap : null;
+          }
+
+          const toAtrxLine = (arr) => arr.map((v, i) => v != null ? { time: btime(bars[i]), value: Math.round(v * 100) / 100 } : null).filter(Boolean);
+
+          atrxSeriesRefs.current.sma50.setData(toAtrxLine(dist50));
+          atrxSeriesRefs.current.dma20.setData(toAtrxLine(dist20));
+          atrxSeriesRefs.current.ema10w.setData(toAtrxLine(dist10w));
+
+          // VCS (Volatility Contraction Score)
+          const vcsMarkers = [];
+          const vcsLine = [];
+          const VCS_SHORT = 5, VCS_LONG = 20, VCS_PEAK_LB = 40, VCS_VOL_SHORT = 5, VCS_VOL_LONG = 50, VCS_RANGE_LEN = 10;
+          const atrShort = calcRMA(trArr, VCS_SHORT);
+          const atrLong = calcRMA(trArr, VCS_LONG);
+          const volArr = bars.map(b => b.volume || 0);
+          const volShort = calcSMA(volArr, VCS_VOL_SHORT);
+          const volLong = calcSMA(volArr, VCS_VOL_LONG);
+
+          for (let i = Math.max(VCS_PEAK_LB, VCS_VOL_LONG); i < bars.length; i++) {
+            // ATR contraction: short vs peak
+            let peakAtr = 0;
+            for (let j = i - VCS_PEAK_LB; j <= i; j++) { if (atrLong[j] > peakAtr) peakAtr = atrLong[j]; }
+            const peakRatio = peakAtr > 0 ? atrShort[i] / peakAtr : 1;
+            const trendRatio = atrLong[i] > 0 ? atrShort[i] / atrLong[i] : 1;
+            const blendRatio = peakRatio * 0.6 + trendRatio * 0.4;
+            const atrScore = Math.max(0, Math.min(100, (1 - blendRatio) * 100));
+            // Volume dry-up
+            const volRatio = volLong[i] > 0 ? volShort[i] / volLong[i] : 1;
+            const volScore = Math.max(0, Math.min(100, (1 - volRatio) * 100));
+            // Range consistency
+            let narrowCount = 0;
+            for (let j = 0; j < VCS_RANGE_LEN && i - j - 1 >= 0; j++) {
+              if ((highs[i - j] - lows[i - j]) < (highs[i - j - 1] - lows[i - j - 1])) narrowCount++;
+            }
+            const consScore = (narrowCount / VCS_RANGE_LEN) * 100;
+            // Structure
+            let strucScore = 0;
+            const s50v = sma50[i], s20v = sma20[i], e10wv = ema10wArr[i];
+            if (s20v && closes[i] >= s20v) { strucScore += 20; if ((closes[i] - s20v) / s20v < 0.03) strucScore += 5; }
+            if (s50v && closes[i] >= s50v) { strucScore += 20; if ((closes[i] - s50v) / s50v < 0.05) strucScore += 5; }
+            if (e10wv && closes[i] >= e10wv) { strucScore += 20; if ((closes[i] - e10wv) / e10wv < 0.05) strucScore += 5; }
+            let recentHigh = 0;
+            for (let j = i - VCS_PEAK_LB; j <= i; j++) { if (highs[j] > recentHigh) recentHigh = highs[j]; }
+            const distHigh = recentHigh > 0 ? ((recentHigh - closes[i]) / recentHigh) * 100 : 100;
+            if (distHigh <= 10) strucScore += 25 * (1 - distHigh / 10);
+            strucScore = Math.min(100, strucScore);
+            // Composite
+            const vcs = (atrScore * 35 + volScore * 30 + consScore * 20 + strucScore * 15) / 100;
+            vcsLine.push({ time: btime(bars[i]), value: 0 });
+            const color = vcs >= 80 ? "#2bb886" : vcs >= 60 ? "#3b82f6" : "#68687840";
+            if (vcs >= 60) {
+              vcsMarkers.push({ time: btime(bars[i]), position: "aboveBar", color, shape: "square", size: 0, text: `${Math.round(vcs)}` });
+            }
+          }
+          if (atrxSeriesRefs.current.vcs) {
+            atrxSeriesRefs.current.vcs.setData(vcsLine);
+            vcsMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
+            atrxSeriesRefs.current.vcs.setMarkers(vcsMarkers);
+          }
+
+          // Reference lines (create once)
+          if (!atrxSeriesRefs.current.sma50._refLinesAdded) {
+            try {
+              atrxSeriesRefs.current.sma50.createPriceLine({ price: 0, color: "#ffffff40", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
+              atrxSeriesRefs.current.sma50.createPriceLine({ price: 4, color: "#fbbf2440", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
+              atrxSeriesRefs.current.sma50.createPriceLine({ price: 6, color: "#f9731640", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
+              atrxSeriesRefs.current.sma50.createPriceLine({ price: 8, color: "#ef444440", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
+              atrxSeriesRefs.current.sma50._refLinesAdded = true;
+            } catch {}
+          }
+        }
+
         // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
         const totalBars = bars.length;
         const visBars = tf === "30m" ? totalBars : tf === "W" ? 52 : tf === "M" ? 18 : 74;
@@ -7357,12 +7516,26 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             style={{ cursor: "pointer", color: showCRP ? "#60a5fa" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
             CRP
           </span>
+          <span onClick={() => setShowATRX(p => !p)}
+            style={{ cursor: "pointer", color: showATRX ? "#2962FF" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
+            ATRX
+          </span>
           <span onClick={() => setShow4Pct(p => !p)}
             style={{ cursor: "pointer", userSelect: "none" }}>
             <span style={{ color: show4Pct ? "#22d3ee" : "#3a3a4a" }}>4%</span><span style={{ color: show4Pct ? "#f472b6" : "#3a3a4a" }}>Days</span>
           </span>
         </div>
         {!topPaneOpen && <div style={{ height: 16 }} />}
+      </div>
+      {/* ATRX Pro pane */}
+      <div style={{ position: "relative", flexShrink: 0, borderBottom: showATRX ? "1px solid #2a2a38" : "none" }}>
+        <div ref={atrxContainerRef} style={{ width: "100%", height: showATRX ? 110 : 0, overflow: "hidden", transition: "height 0.15s ease" }} />
+        {showATRX && <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 8, alignItems: "center", pointerEvents: "none" }}>
+          <span style={{ color: "#2962FF", fontWeight: 600 }}>50SMA</span>
+          <span style={{ color: "#00BCD4", fontWeight: 600 }}>20DMA</span>
+          <span style={{ color: "#AB47BC", fontWeight: 600 }}>10WEMA</span>
+          <span style={{ color: "#505060" }}>ATRx</span>
+        </div>}
       </div>
       {/* Main chart */}
       <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
