@@ -6540,6 +6540,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [showCRP, setShowCRP] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
   const [showATRX, setShowATRX] = useState(false);
+  const [atrxStats, setAtrxStats] = useState(null);
   const [topPaneOpen, setTopPaneOpen] = useState(true);
   const [volStats, setVolStats] = useState(null);
   const [rawBars, setRawBars] = useState(null);
@@ -7329,6 +7330,24 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           atrxSeriesRefs.current.dma20.setData(toAtrxLine(dist20));
           atrxSeriesRefs.current.ema10w.setData(toAtrxLine(dist10w));
 
+          // ATRX dashboard stats — last values + Day vs ADR
+          const lastI = bars.length - 1;
+          const ADR_LEN = 20;
+          let adrSum = 0, adrCount = 0;
+          for (let i = Math.max(0, lastI - ADR_LEN + 1); i <= lastI; i++) {
+            if (bars[i - 1]) { adrSum += (bars[i].high - bars[i].low) / bars[i - 1].close; adrCount++; }
+          }
+          const adrPct = adrCount > 0 ? (adrSum / adrCount) * 100 : null;
+          const dayChgPct = lastI > 0 ? Math.abs((closes[lastI] - closes[lastI - 1]) / closes[lastI - 1] * 100) : null;
+          const dayVsAdr = adrPct > 0 && dayChgPct != null ? (dayChgPct / adrPct) * 100 : null;
+          setAtrxStats({
+            d20: dist20[lastI], d50: dist50[lastI], d10w: dist10w[lastI],
+            dayVsAdr, adrPct,
+            rawD20: sma20[lastI] ? ((closes[lastI] - sma20[lastI]) / sma20[lastI] * 100) : null,
+            rawD50: sma50[lastI] ? ((closes[lastI] - sma50[lastI]) / sma50[lastI] * 100) : null,
+            rawD10w: ema10wArr[lastI] ? ((closes[lastI] - ema10wArr[lastI]) / ema10wArr[lastI] * 100) : null,
+          });
+
           // VCS (Volatility Contraction Score)
           const vcsMarkers = [];
           const vcsLine = [];
@@ -7526,12 +7545,34 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       {/* ATRX Pro pane */}
       <div style={{ position: "relative", flexShrink: 0, borderBottom: showATRX ? "1px solid #2a2a38" : "none" }}>
         <div ref={atrxContainerRef} style={{ width: "100%", height: showATRX ? 110 : 0, overflow: "hidden", transition: "height 0.15s ease" }} />
-        {showATRX && <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 8, alignItems: "center", pointerEvents: "none" }}>
-          <span style={{ color: "#2962FF", fontWeight: 600 }}>50SMA</span>
-          <span style={{ color: "#00BCD4", fontWeight: 600 }}>20DMA</span>
-          <span style={{ color: "#AB47BC", fontWeight: 600 }}>10WEMA</span>
-          <span style={{ color: "#505060" }}>ATRx</span>
-        </div>}
+        {showATRX && <>
+          <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 8, alignItems: "center", pointerEvents: "none" }}>
+            <span style={{ color: "#2962FF", fontWeight: 600 }}>50SMA</span>
+            <span style={{ color: "#00BCD4", fontWeight: 600 }}>20DMA</span>
+            <span style={{ color: "#AB47BC", fontWeight: 600 }}>10WEMA</span>
+            <span style={{ color: "#505060" }}>ATRx</span>
+          </div>
+          {atrxStats && <div style={{ position: "absolute", top: 2, right: 4, zIndex: 5, pointerEvents: "none",
+            fontSize: 9, fontFamily: "monospace", display: "flex", gap: 8, alignItems: "center" }}>
+            {[
+              { label: "20D", val: atrxStats.d20, raw: atrxStats.rawD20, color: "#00BCD4" },
+              { label: "50S", val: atrxStats.d50, raw: atrxStats.rawD50, color: "#2962FF" },
+              { label: "10W", val: atrxStats.d10w, raw: atrxStats.rawD10w, color: "#AB47BC" },
+            ].map(({ label, val, raw, color }) => {
+              const absV = Math.abs(val ?? 0);
+              const c = absV >= 8 ? "#ef4444" : absV >= 6 ? "#f97316" : absV >= 4 ? "#fbbf24" : color;
+              return <span key={label} style={{ color: c }}>
+                {label} <b>{val != null ? `${val > 0 ? "+" : ""}${val.toFixed(1)}x` : "—"}</b>
+                <span style={{ color: "#505060", fontSize: 8 }}>{raw != null ? ` ${raw > 0 ? "+" : ""}${raw.toFixed(1)}%` : ""}</span>
+              </span>;
+            })}
+            {atrxStats.dayVsAdr != null && (() => {
+              const dv = atrxStats.dayVsAdr;
+              const c = dv >= 80 ? "#ef4444" : dv >= 60 ? "#fbbf24" : dv < 50 ? "#2bb886" : "#686878";
+              return <span style={{ color: c }}>DvA <b>{dv.toFixed(0)}%</b></span>;
+            })()}
+          </div>}
+        </>}
       </div>
       {/* Main chart */}
       <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
