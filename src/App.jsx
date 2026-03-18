@@ -11254,7 +11254,7 @@ function AppMain({ authToken, onLogout }) {
     }
     return map;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveThemeData, appHasLive]);
+  }, [liveThemeData, appHasLive, stockMap]);
 
   // ER / PM / AH source lookup — lets every tab show where a ticker came from
   const erSipLookup = useMemo(() => {
