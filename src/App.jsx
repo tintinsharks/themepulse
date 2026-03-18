@@ -6735,11 +6735,13 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         atrxSeriesRefs.current.ema10w = atrxChart.addLineSeries({
           color: "#AB47BC", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
         });
-        // RMV background (low volatility highlight)
+        // RMV background (low volatility highlight) — own scale so it doesn't distort ATRX lines
         atrxSeriesRefs.current.rmv = atrxChart.addHistogramSeries({
-          color: "#2bb88615", lastValueVisible: false, priceLineVisible: false,
-          priceFormat: { type: "price", precision: 1, minMove: 0.1 },
+          color: "#2bb88630", lastValueVisible: false, priceLineVisible: false,
+          priceScaleId: 'rmv',
+          priceFormat: { type: "price", precision: 0, minMove: 1 },
         });
+        atrxChart.priceScale('rmv').applyOptions({ visible: false, scaleMargins: { top: 0, bottom: 0 } });
         // VCS squares (invisible line + markers)
         atrxSeriesRefs.current.vcs = atrxChart.addLineSeries({
           color: "transparent", lineWidth: 0, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
@@ -7363,11 +7365,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
               if (i < RMV_LEN) { rmvData.push({ time: btime(bars[i]), value: 0, color: "transparent" }); continue; }
               const avgRange = dailyRanges.slice(i - RMV_LEN, i).reduce((s, v) => s + v, 0) / RMV_LEN;
               const rmv = avgRange > 0 ? (dailyRanges[i] / avgRange) * 100 : 50;
-              // Highlight when RMV <= 15 (tight consolidation) — show as tall bar to fill pane
+              // Highlight when RMV <= 15 (tight consolidation) — fill pane with color
               if (rmv <= 15) {
-                rmvData.push({ time: btime(bars[i]), value: 20, color: "#2bb88618" });
+                rmvData.push({ time: btime(bars[i]), value: 100, color: "#2bb88630" });
               } else if (rmv <= 30) {
-                rmvData.push({ time: btime(bars[i]), value: 20, color: "#2bb88608" });
+                rmvData.push({ time: btime(bars[i]), value: 100, color: "#2bb88615" });
               } else {
                 rmvData.push({ time: btime(bars[i]), value: 0, color: "transparent" });
               }
