@@ -2324,14 +2324,21 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const sorted = list.sort(sorters[sortBy] || sorters.hits);
     if (sortDir === "asc" && sortBy !== "default") {
       // Reverse non-null values but keep nulls at bottom
-      const withVal = sorted.filter(s => {
-        const fn = sorters[sortBy];
-        if (!fn) return true;
-        // Quick null check for safe()-based sorters
-        if (sortBy === "crp") return crpLookup[s.ticker]?.score != null;
-        return true;
-      });
-      const nulls = sorted.filter(s => sortBy === "crp" && crpLookup[s.ticker]?.score == null);
+      const valExtractors = {
+        vol: s => { const lv = liveLookup[s.ticker]?.volume; return lv != null ? (typeof lv === 'string' ? parseFloat(lv) : lv) : (s.avg_volume_raw && s.rel_volume ? s.avg_volume_raw * s.rel_volume : null); },
+        dvol: s => s.avg_dollar_vol_raw,
+        rvol: s => liveLookup[s.ticker]?.rel_volume ?? s.rel_volume,
+        cr: s => liveLookup[s.ticker]?.close_range ?? null,
+        crp: s => crpLookup[s.ticker]?.score ?? null,
+        change: s => liveLookup[s.ticker]?.change ?? s.change_pct,
+        rs: s => s.rs_rank, qm: s => s.qmag_score, adr: s => s.adr_pct,
+        ret1m: s => s.return_1m, ret3m: s => s.return_3m, fromhi: s => s.pct_from_high,
+        eps_score: s => s._epsScore, ms_score: s => s._msScore, ca_score: s => s._caScore,
+        quality: s => s._quality, hits: s => s._scanHits?.length,
+      };
+      const extract = valExtractors[sortBy] || (() => 0);
+      const withVal = sorted.filter(s => extract(s) != null);
+      const nulls = sorted.filter(s => extract(s) == null);
       return [...withVal.reverse(), ...nulls];
     }
     return sorted;
