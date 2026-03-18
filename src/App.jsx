@@ -1996,8 +1996,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [burstSort, setBurstSort] = useState({ col: "cr", dir: "desc" });
   // Scan Watch filters
   const [nearPivot, setNearPivot] = useState(false);
-  const [greenOnly, setGreenOnly] = useState(false);
-  const [zvrOnly, setZvrOnly] = useState(false);
+  const [greenOnly, setGreenOnly] = useState(true);
+  const [zvrOnly, setZvrOnly] = useState(true);
   const [minRS, setMinRS] = useState(0);
   const [minChg, setMinChg] = useState(0);
   const [minRVol, setMinRVol] = useState(0.3);
