@@ -7447,11 +7447,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
-        // Show last ~3.5 months (74 daily bars, 16 weekly, 6 monthly)
+        // Show last 3 months (63 daily bars, 13 weekly, 3 monthly) — maximized
         const totalBars = bars.length;
-        const visBars = tf === "30m" ? totalBars : tf === "W" ? 52 : tf === "M" ? 18 : 74;
+        const visBars = tf === "30m" ? totalBars : tf === "W" ? 13 : tf === "M" ? 3 : 63;
         const fromBar = totalBars > visBars ? totalBars - visBars : 0;
-        const visRange = { from: fromBar, to: totalBars + (tf === "30m" ? 5 : tf === "D" ? 27 : tf === "W" ? 8 : 3) };
+        const visRange = { from: fromBar, to: totalBars + (tf === "30m" ? 5 : tf === "D" ? 5 : tf === "W" ? 2 : 1) };
         chartRef.current.timeScale().setVisibleLogicalRange(visRange);
         if (atrxChartRef.current) try { atrxChartRef.current.timeScale().setVisibleLogicalRange(visRange); } catch {}
 
