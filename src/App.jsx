@@ -1990,14 +1990,14 @@ function MyStocksDrawer({ portfolio, watchlist, setPortfolio, setWatchlist, addT
   );
 }
 
-function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, aiQueue, setAiQueue, aiAnalyzed, setAiAnalyzed, authToken, crpLookup }) {
+function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, liveThemeData: externalLiveData, onLiveThemeData, portfolio, watchlist, setPortfolio, setWatchlist, addToPortfolio, removeFromPortfolio, addToWatchlist, removeFromWatchlist, initialThemeFilter, onConsumeThemeFilter, stockMap, filters, themeHealth, momentumBurst, erSipLookup, headlinesMap, earningsMovers, pmErTickers, ahErTickers, pmTopMovers, ahTopMovers, historicalEarningsMovers, focusList, onAddFocus, onRemoveFocus, pipelineMeta, marketSession, crpLookup }) {
   const [sortBy, setSortBy] = useState("crp");
   const [sortDir, setSortDir] = useState("desc");
   const [burstSort, setBurstSort] = useState({ col: "cr", dir: "desc" });
   // Scan Watch filters
   const [nearPivot, setNearPivot] = useState(false);
   const [greenOnly, setGreenOnly] = useState(false);
-  const [zvrOnly, setZvrOnly] = useState(true);
+  const [zvrOnly, setZvrOnly] = useState(false);
   const [minRS, setMinRS] = useState(0);
   const [minChg, setMinChg] = useState(0);
   const [minRVol, setMinRVol] = useState(0.3);
@@ -2020,7 +2020,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [burstMinDolVol, setBurstMinDolVol] = useState(50);
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
-  const [aiAnalysis, setAiAnalysis] = useState(null);
   const [expandedGapper, setExpandedGapper] = useState(null);
   const [expandedBurst, setExpandedBurst] = useState(null);
   const [expandedShort, setExpandedShort] = useState(null);
@@ -2038,52 +2037,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [shortTagFilters, setShortTagFilters] = useState(new Set());
   const [short9M, setShort9M] = useState(false);
   const [shortMinAdr, setShortMinAdr] = useState(0);
-  const [aiRunning, setAiRunning] = useState(false);
-  const [aiRunMsg, setAiRunMsg] = useState("");
-  const [aiQueueInput, setAiQueueInput] = useState("");
   // My Stocks drawer state
   const [myStocksOpen, setMyStocksOpen] = useState(true);
   const [drawerHeight, setDrawerHeight] = useState(200);
 
-  // Fetch AI analysis data — merge with localStorage to preserve previously analyzed tickers for the day
-  useEffect(() => {
-    const LS_KEY = "tp_ai_analysis";
-    const today = new Date().toISOString().slice(0, 10);
-    // Load cached analysis from localStorage (if it's from today)
-    let cached = null;
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed._cacheDate === today) cached = parsed;
-      }
-    } catch {}
-    // If we have a valid cache, use it immediately while fetching fresh data
-    if (cached) setAiAnalysis(cached);
-
-    fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).then(fresh => {
-      if (!fresh) return;
-      // Merge: cached tickers take priority (don't overwrite), fresh tickers fill in new ones
-      const base = cached || {};
-      const existingMap = {};
-      (base.tickers || []).forEach(t => { existingMap[t.ticker] = t; });
-      // Add fresh tickers only if not already cached
-      (fresh.tickers || []).forEach(t => {
-        if (!existingMap[t.ticker]) existingMap[t.ticker] = t;
-      });
-      const merged = {
-        ...fresh,
-        content: fresh.content, // always use latest summary
-        tickers: Object.values(existingMap),
-        _cacheDate: today,
-      };
-      // Sort: BUY first, then HOLD, then AVOID
-      const vOrder = { BUY: 0, HOLD: 1, AVOID: 2 };
-      merged.tickers.sort((a, b) => (vOrder[a.verdict] ?? 9) - (vOrder[b.verdict] ?? 9));
-      setAiAnalysis(merged);
-      try { localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
-    }).catch(() => {});
-  }, []);
 
   // Persistence accumulator — module-level so it survives Scan unmount/remount
   // (useRef resets on remount, losing all accumulated readings)
@@ -2631,11 +2588,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           border: scanTab === "gapper" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "gapper" ? "1px solid #121218" : "1px solid #3a3a4a",
           background: scanTab === "gapper" ? "#121218" : "transparent", color: scanTab === "gapper" ? "#f59e0b" : "#686878" }}>
           Gappers <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "gapper" ? "#f59e0b" : "#505060" }}>{gapperCandidates.length}</span>
-        </button>
-        <button onClick={() => setScanTab("ai")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
-          border: scanTab === "ai" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "ai" ? "1px solid #121218" : "1px solid #3a3a4a",
-          background: scanTab === "ai" ? "#121218" : "transparent", color: scanTab === "ai" ? "#22d3ee" : "#686878" }}>
-          AI Analysis
         </button>
         <button onClick={() => setScanTab("research")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
           border: scanTab === "research" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "research" ? "1px solid #121218" : "1px solid #3a3a4a",
@@ -3434,179 +3386,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         </div>
       )}
       </>)}
-      {scanTab === "ai" && (
-        <div style={{ padding: "8px 4px", maxHeight: "70vh", overflowY: "auto" }}>
-          {/* Schedule status bar */}
-          {(() => {
-            const now = new Date();
-            const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-            const day = et.getDay(); // 0=Sun
-            const h = et.getHours();
-            const m = et.getMinutes();
-            const minsNow = h * 60 + m;
-            const schedStart = 8 * 60, schedEnd = 17 * 60; // 8am-5pm ET
-            const isWeekday = day >= 1 && day <= 5;
-            // Find next run
-            let nextLabel;
-            if (isWeekday && minsNow < schedEnd) {
-              const nextHour = minsNow < schedStart ? schedStart : (Math.floor(minsNow / 60) + 1) * 60;
-              if (nextHour <= schedEnd) {
-                const diff = nextHour - minsNow;
-                nextLabel = diff <= 60 ? `~${diff}m` : `~${Math.floor(diff / 60)}h ${diff % 60}m`;
-              } else { nextLabel = "Mon 8:00 AM"; }
-            } else if (isWeekday && minsNow >= schedEnd) {
-              nextLabel = day === 5 ? "Mon 8:00 AM" : "Tomorrow 8:00 AM";
-            } else {
-              nextLabel = day === 0 ? "Mon 8:00 AM" : "Mon 8:00 AM";
-            }
-            // Last run age
-            let lastLabel = "—";
-            if (aiAnalysis?.updated_at) {
-              const ago = Math.floor((now - new Date(aiAnalysis.updated_at)) / 60000);
-              if (ago < 1) lastLabel = "just now";
-              else if (ago < 60) lastLabel = `${ago}m ago`;
-              else if (ago < 1440) lastLabel = `${Math.floor(ago / 60)}h ${ago % 60}m ago`;
-              else lastLabel = `${Math.floor(ago / 1440)}d ago`;
-            }
-            const isActive = isWeekday && minsNow >= schedStart && minsNow < schedEnd;
-            return (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, padding: "6px 10px",
-                background: "#1a1a2a", borderRadius: 6, border: "1px solid #2a2a3a", fontSize: 10 }}>
-                <span style={{ color: isActive ? "#2bb886" : "#686878" }}>{isActive ? "●" : "○"} {isActive ? "Live" : "Idle"}</span>
-                <span style={{ color: "#3a3a4a" }}>|</span>
-                <span style={{ color: "#888" }}>Last: <span style={{ color: "#c8c8d8" }}>{lastLabel}</span></span>
-                <span style={{ color: "#3a3a4a" }}>|</span>
-                <span style={{ color: "#888" }}>Next: <span style={{ color: "#22d3ee" }}>{nextLabel}</span></span>
-                <span style={{ color: "#3a3a4a" }}>|</span>
-                <span style={{ color: "#505060" }}>Hourly 8a–5p ET, weekdays</span>
-                {aiAnalysis?.filters && <><span style={{ color: "#3a3a4a" }}>|</span><span style={{ color: "#22d3ee" }}>{aiAnalysis.filters}</span></>}
-                <span style={{ color: "#3a3a4a" }}>|</span>
-                <button onClick={() => {
-                  if (aiRunning) return;
-                  setAiRunning(true); setAiRunMsg("Triggered...");
-                  fetch("http://localhost:7829/trigger", { method: "POST" })
-                    .then(r => r.json())
-                    .then(d => { setAiRunMsg(d.ok ? "Running (~15m)" : d.error || "Failed"); if (!d.ok) setAiRunning(false); })
-                    .catch(() => { setAiRunMsg("Server offline"); setAiRunning(false); });
-                  // Poll status every 30s until done
-                  const poll = setInterval(() => {
-                    fetch("http://localhost:7829/status").then(r => r.json()).then(d => {
-                      if (!d.running) { clearInterval(poll); setAiRunning(false); setAiRunMsg("Done — reload to see results"); }
-                    }).catch(() => { clearInterval(poll); setAiRunning(false); });
-                  }, 30000);
-                }} disabled={aiRunning}
-                  style={{ background: aiRunning ? "#2a2a3a" : "#1a3a2a", border: "1px solid #2bb886", borderRadius: 4,
-                    color: aiRunning ? "#686878" : "#2bb886", padding: "2px 8px", cursor: aiRunning ? "default" : "pointer",
-                    fontSize: 10, fontWeight: 600 }}>
-                  {aiRunning ? "⏳ Running..." : "▶ Run Now"}
-                </button>
-                {aiRunMsg && <span style={{ color: "#888", fontSize: 10 }}>{aiRunMsg}</span>}
-              </div>
-            );
-          })()}
-          {/* AI Queue — manually add tickers for Cowork analysis */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, padding: "6px 10px",
-            background: "#1a1a2a", borderRadius: 6, border: "1px solid #2a2a3a", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 10, color: "#22d3ee", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Queue</span>
-            <span style={{ color: "#3a3a4a" }}>|</span>
-            <input type="text" value={aiQueueInput} onChange={e => setAiQueueInput(e.target.value.toUpperCase())}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  const tickers = aiQueueInput.split(/[,\s]+/).map(t => t.trim().toUpperCase()).filter(t => t && !aiQueue.includes(t));
-                  if (tickers.length > 0) setAiQueue(prev => [...prev, ...tickers]);
-                  setAiQueueInput("");
-                }
-              }}
-              placeholder="Add ticker(s)..."
-              style={{ width: 120, padding: "3px 6px", borderRadius: 4, fontSize: 10, fontFamily: "monospace",
-                border: "1px solid #3a3a4a", background: "#121218", color: "#d4d4e0", outline: "none" }} />
-            <button onClick={() => {
-              const tickers = aiQueueInput.split(/[,\s]+/).map(t => t.trim().toUpperCase()).filter(t => t && !aiQueue.includes(t));
-              if (tickers.length > 0) setAiQueue(prev => [...prev, ...tickers]);
-              setAiQueueInput("");
-            }} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
-              background: "#1a3a3a", border: "1px solid #22d3ee", color: "#22d3ee" }}>+</button>
-            {aiQueue.length > 0 && <>
-              <span style={{ color: "#3a3a4a" }}>|</span>
-              {aiQueue.map(t => (
-                <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 3,
-                  background: "#22d3ee15", border: "1px solid #22d3ee40", fontSize: 10, fontFamily: "monospace", fontWeight: 600,
-                  color: "#22d3ee", cursor: "pointer" }}
-                  onClick={() => onTickerClick(t)}>
-                  {t}
-                  <span title="Mark analyzed" onClick={e => { e.stopPropagation(); setAiAnalyzed(prev => [...prev.filter(x => x.ticker !== t), { ticker: t, analyzedAt: Date.now() }]); setAiQueue(prev => prev.filter(x => x !== t)); }}
-                    style={{ color: "#4ade80", fontSize: 10, cursor: "pointer", marginLeft: 2 }}>&#x2713;</span>
-                  <span title="Remove" onClick={e => { e.stopPropagation(); setAiQueue(prev => prev.filter(x => x !== t)); }}
-                    style={{ color: "#686878", fontSize: 9, cursor: "pointer", marginLeft: 1 }}>&#x2715;</span>
-                </span>
-              ))}
-              <span style={{ color: "#3a3a4a" }}>|</span>
-              <button onClick={() => setAiQueue([])} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
-                border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
-            </>}
-            <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>{aiQueue.length} ticker{aiQueue.length !== 1 ? "s" : ""} queued</span>
-            <span style={{ color: "#3a3a4a" }}>|</span>
-            <button
-              disabled={aiRunning || aiQueue.length === 0}
-              onClick={async () => {
-                if (!authToken) { setAiRunMsg("Not authenticated"); return; }
-                setAiRunning(true); setAiRunMsg("Triggering...");
-                try {
-                  const resp = await fetch("/api/trigger-analysis", {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "trigger" }),
-                  });
-                  const json = await resp.json();
-                  if (json.ok) { setAiRunMsg("Triggered! Watcher will pick it up."); }
-                  else { setAiRunMsg(`Error: ${json.error}`); }
-                } catch (e) { setAiRunMsg(`Failed: ${e.message}`); }
-                setTimeout(() => { setAiRunning(false); setAiRunMsg(""); }, 5000);
-              }}
-              style={{ padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: aiRunning || aiQueue.length === 0 ? "not-allowed" : "pointer",
-                background: aiRunning ? "#1a2a2a" : "#0a2a1a", border: "1px solid #22d3ee", color: aiRunning ? "#505060" : "#22d3ee",
-                opacity: aiQueue.length === 0 ? 0.4 : 1, whiteSpace: "nowrap" }}>
-              {aiRunning ? "Running..." : "Run Analysis"}
-            </button>
-            {aiRunMsg && <span style={{ fontSize: 9, color: "#22d3ee", whiteSpace: "nowrap" }}>{aiRunMsg}</span>}
-          </div>
-          {/* Analyzed tickers — persisted 14 days */}
-          {aiAnalyzed.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, padding: "5px 10px",
-              background: "#121a12", borderRadius: 6, border: "1px solid #1a2a1a", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Analyzed</span>
-              <span style={{ color: "#3a3a4a" }}>|</span>
-              {aiAnalyzed.map(({ ticker: t, analyzedAt }) => {
-                const daysAgo = Math.floor((Date.now() - analyzedAt) / 86400000);
-                return (
-                  <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 3,
-                    background: "#4ade8010", border: "1px solid #4ade8030", fontSize: 10, fontFamily: "monospace", fontWeight: 600,
-                    color: "#4ade80", cursor: "pointer" }}
-                    onClick={() => onTickerClick(t)}>
-                    {t}
-                    <span style={{ fontSize: 8, color: "#4ade8080", fontWeight: 400, marginLeft: 2 }}>{daysAgo === 0 ? "today" : `${daysAgo}d`}</span>
-                    <span title="Re-queue" onClick={e => { e.stopPropagation(); if (!aiQueue.includes(t)) setAiQueue(prev => [...prev, t]); setAiAnalyzed(prev => prev.filter(x => x.ticker !== t)); }}
-                      style={{ color: "#22d3ee80", fontSize: 9, cursor: "pointer", marginLeft: 2 }}>&#x21bb;</span>
-                    <span title="Delete" onClick={e => { e.stopPropagation(); setAiAnalyzed(prev => prev.filter(x => x.ticker !== t)); }}
-                      style={{ color: "#686878", fontSize: 9, cursor: "pointer", marginLeft: 1 }}>&#x2715;</span>
-                  </span>
-                );
-              })}
-              <span style={{ color: "#3a3a4a" }}>|</span>
-              <button onClick={() => setAiAnalyzed([])} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
-                border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>
-              <span style={{ fontSize: 9, color: "#505060", marginLeft: "auto" }}>{aiAnalyzed.length} analyzed</span>
-            </div>
-          )}
-          {aiAnalysis?.tickers ? (
-            <TabbedAnalysis data={aiAnalysis} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
-          ) : aiAnalysis?.content ? (
-            <SimpleMarkdown text={aiAnalysis.content} />
-          ) : (
-            <div style={{ textAlign: "center", color: "#505060", padding: "40px 0", fontSize: 12 }}>No AI analysis available yet.</div>
-          )}
-        </div>
-      )}
       {scanTab === "research" && (
         <Grid stocks={stocks} onTickerClick={onTickerClick} activeTicker={activeTicker} onVisibleTickers={onVisibleTickers} />
       )}
@@ -5184,7 +4963,6 @@ function TQQQView() {
   });
   const [tradeMode, setTradeMode] = useState("open"); // 'open' or 'closed'
   const [showAnalysis, setShowAnalysis] = useState(() => !!localStorage.getItem("tp_tqqq_ai"));
-  const [aiAnalysis, setAiAnalysis] = useState(() => localStorage.getItem("tp_tqqq_ai") || "");
   const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
@@ -11517,16 +11295,6 @@ function AppMain({ authToken, onLogout }) {
   const [focusList, setFocusList] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_focus_list") || "[]"); } catch { return []; }
   });
-  const [aiQueue, setAiQueue] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("tp_ai_queue") || "[]"); } catch { return []; }
-  });
-  const [aiAnalyzed, setAiAnalyzed] = useState(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem("tp_ai_analyzed") || "[]");
-      const cutoff = Date.now() - 14 * 86400000;
-      return raw.filter(e => e.analyzedAt > cutoff);
-    } catch { return []; }
-  });
   const [serverLoaded, setServerLoaded] = useState(false);
 
   // Listen for external trade imports (from console) and storage changes from other tabs
@@ -11563,7 +11331,6 @@ function AppMain({ authToken, onLogout }) {
           if (d.data.pknWatch) setPknWatch(d.data.pknWatch);
           if (d.data.trades) setTrades(d.data.trades.map(migrateTrade));
           if (d.data.focusList) setFocusList(d.data.focusList);
-          if (d.data.aiQueue) setAiQueue(d.data.aiQueue);
           console.log("Loaded from server:", d.data);
         }
       })
@@ -11578,8 +11345,6 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => { localStorage.setItem("tp_pkn_watch", JSON.stringify(pknWatch)); }, [pknWatch]);
   useEffect(() => { localStorage.setItem("tp_trades", JSON.stringify(trades)); }, [trades]);
   useEffect(() => { localStorage.setItem("tp_focus_list", JSON.stringify(focusList)); }, [focusList]);
-  useEffect(() => { localStorage.setItem("tp_ai_queue", JSON.stringify(aiQueue)); }, [aiQueue]);
-  useEffect(() => { localStorage.setItem("tp_ai_analyzed", JSON.stringify(aiAnalyzed)); }, [aiAnalyzed]);
 
   // Save to server (debounced)
   const saveTimer = useRef(null);
@@ -11591,14 +11356,14 @@ function AppMain({ authToken, onLogout }) {
       fetch("/api/userdata", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch, focusList, aiQueue }),
+        body: JSON.stringify({ portfolio, watchlist, trades, pkn, pknWatch, focusList }),
       })
         .then(r => r.json())
         .then(d => console.log("Save result:", d))
         .catch(err => console.warn("Save failed:", err));
     }, 2000);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [portfolio, watchlist, trades, pkn, pknWatch, focusList, aiQueue, authToken, serverLoaded]);
+  }, [portfolio, watchlist, trades, pkn, pknWatch, focusList, authToken, serverLoaded]);
   const addToWatchlist = useCallback((t) => { const u = t.toUpperCase(); if (!watchlist.includes(u)) setWatchlist(p => [...p, u]); }, [watchlist]);
   const removeFromWatchlist = useCallback((t) => setWatchlist(p => p.filter(x => x !== t)), []);
   const addToPortfolio = useCallback((t) => { const u = t.toUpperCase(); if (!portfolio.includes(u)) setPortfolio(p => [...p, u]); }, [portfolio]);
@@ -11893,7 +11658,7 @@ function AppMain({ authToken, onLogout }) {
             stockMap={stockMap} filters={filters} themeHealth={data.theme_health} momentumBurst={liveMomentumBurst} erSipLookup={erSipLookup} headlinesMap={data.headlines || {}}
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession}
-            aiQueue={aiQueue} setAiQueue={setAiQueue} aiAnalyzed={aiAnalyzed} setAiAnalyzed={setAiAnalyzed} authToken={authToken} crpLookup={crpLookup} />}
+            crpLookup={crpLookup} />}
           </ErrorBoundary>
           <ErrorBoundary name="EP">
           {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker}
