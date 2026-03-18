@@ -11314,8 +11314,17 @@ function AppMain({ authToken, onLogout }) {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const todayOpen = new Date(et); todayOpen.setHours(9, 30, 0, 0);
     const todayOpenMs = todayOpen.getTime() - (et.getTime() - now);
+    // Only clear yesterday's readings once we have enough new ones for that ticker
+    // This preserves CRP scores from previous session until today's data takes over
     for (const [tk, arr] of appPersistRef.current) {
-      if (arr.length > 0 && arr[0].ts < todayOpenMs) appPersistRef.current.delete(tk);
+      if (arr.length > 0 && arr[0].ts < todayOpenMs) {
+        const todayReadings = arr.filter(r => r.ts >= todayOpenMs);
+        if (todayReadings.length >= 3) {
+          // Enough new data — replace with today-only readings
+          appPersistRef.current.set(tk, todayReadings);
+        }
+        // Otherwise keep yesterday's data until we accumulate enough today
+      }
     }
     liveThemeData.forEach(e => {
       if (e.change == null || !e.ticker) return;
