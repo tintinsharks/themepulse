@@ -6539,9 +6539,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [showCR, setShowCR] = useState(false);
   const [showCRP, setShowCRP] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
-  const [showATRX, setShowATRX] = useState(false);
+  const [showATRX, setShowATRX] = useState(true);
   const [atrxStats, setAtrxStats] = useState(null);
-  const [topPaneOpen, setTopPaneOpen] = useState(true);
+  const [topPaneOpen, setTopPaneOpen] = useState(false);
   const [volStats, setVolStats] = useState(null);
   const [rawBars, setRawBars] = useState(null);
 
