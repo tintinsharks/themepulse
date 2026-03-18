@@ -6774,6 +6774,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           color: "#2bb88640",
           lastValueVisible: false, priceLineVisible: false,
           priceScaleId: "right",
+          autoscaleInfoProvider: (original) => {
+            const res = original();
+            if (res?.priceRange) res.priceRange.minValue = 0;
+            return res;
+          },
         });
         volMaRef.current = volChart.addLineSeries({
           color: "#fbbf2480", lineWidth: 1,
