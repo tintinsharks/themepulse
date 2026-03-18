@@ -7311,22 +7311,15 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           const atrPct = atrArr.map((a, i) => a != null && closes[i] > 0 ? a / closes[i] : null);
 
           // Distance from MAs in ATR% units
+          const ema10wArr = calcEMA(closes, EMA10W_LEN);
           const dist50 = [], dist20 = [], dist10w = [];
           for (let i = 0; i < bars.length; i++) {
             const ap = atrPct[i];
             if (ap == null || ap === 0) { dist50.push(null); dist20.push(null); dist10w.push(null); continue; }
-            const s50 = sma50[i]; const s20 = sma20[i]; const e10w = calcEMA(closes, EMA10W_LEN)[i];
+            const s50 = sma50[i]; const s20 = sma20[i]; const e10w = ema10wArr[i];
             dist50.push(s50 ? ((closes[i] - s50) / s50) / ap : null);
             dist20.push(s20 ? ((closes[i] - s20) / s20) / ap : null);
             dist10w.push(e10w ? ((closes[i] - e10w) / e10w) / ap : null);
-          }
-          // Pre-compute 10w EMA array (avoid recalc per bar)
-          const ema10wArr = calcEMA(closes, EMA10W_LEN);
-          for (let i = 0; i < bars.length; i++) {
-            const ap = atrPct[i];
-            if (ap == null || ap === 0) continue;
-            const e10w = ema10wArr[i];
-            dist10w[i] = e10w ? ((closes[i] - e10w) / e10w) / ap : null;
           }
 
           const toAtrxLine = (arr) => arr.map((v, i) => v != null ? { time: btime(bars[i]), value: Math.round(v * 100) / 100 } : null).filter(Boolean);
@@ -7403,7 +7396,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         const totalBars = bars.length;
         const visBars = tf === "30m" ? totalBars : tf === "W" ? 52 : tf === "M" ? 18 : 74;
         const fromBar = totalBars > visBars ? totalBars - visBars : 0;
-        chartRef.current.timeScale().setVisibleLogicalRange({ from: fromBar, to: totalBars + (tf === "30m" ? 5 : tf === "D" ? 27 : tf === "W" ? 8 : 3) });
+        const visRange = { from: fromBar, to: totalBars + (tf === "30m" ? 5 : tf === "D" ? 27 : tf === "W" ? 8 : 3) };
+        chartRef.current.timeScale().setVisibleLogicalRange(visRange);
+        if (atrxChartRef.current) try { atrxChartRef.current.timeScale().setVisibleLogicalRange(visRange); } catch {}
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];
