@@ -2645,9 +2645,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates]);
 
   const columns = [
-    ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"], ["QM", "qm"], ["RS", "rs"],
+    ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"], ["ADR%", "adr"], ["QM", "qm"], ["RS", "rs"],
     ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "vol"], ["RVol", "rvol"], ["CR%", "cr"], ["CRP", "crp"],
-    ["$Vol", "dvol"], ["CR%", "cr"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+    ["$Vol", "dvol"], ["CR%", "cr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
     ["3M%", "ret3m"], ["FrHi%", "fromhi"],
   ];
 
@@ -2881,6 +2881,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={theme?.theme || s.themes?.[0]?.theme || ""}>{theme?.theme || s.themes?.[0]?.theme || "—"}</td>
               {/* Sub */}
               <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={theme?.subtheme || s.themes?.[0]?.subtheme || ""}>{theme?.subtheme || s.themes?.[0]?.subtheme || "—"}</td>
+              {/* ADR% */}
+              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
+                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
+                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
               {/* QM Score */}
               <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
                 color: s.qmag_score >= 7 ? "#facc15" : s.qmag_score >= 5 ? "#f59e0b" : s.qmag_score >= 3 ? "#d97706" : "#3a3a4a" }}>
@@ -2982,10 +2986,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               {(() => { const cr = liveLookup[s.ticker]?.close_range ?? s.close_range; return <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
                 color: (cr ?? 0) >= 80 ? "#2bb886" : (cr ?? 0) >= 50 ? "#fbbf24" : (cr ?? 0) >= 30 ? "#f97316" : cr != null ? "#686878" : "#3a3a4a" }}>
                 {cr != null ? `${Math.round(cr)}%` : "—"}</td>; })()}
-              {/* ADR% */}
-              <td style={{ padding: "4px 8px", textAlign: "center", fontFamily: "monospace",
-                color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : "#f97316" }}>
-                {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
               {/* Accel */}
               <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
                 color: (s.accel ?? 0) >= 5 ? "#2bb886" : (s.accel ?? 0) >= 2 ? "#4a9070" : (s.accel ?? 0) <= -5 ? "#f87171" : (s.accel ?? 0) <= -2 ? "#c06060" : s.accel != null ? "#686878" : "#3a3a4a" }}>
@@ -6113,10 +6113,10 @@ function TQQQView() {
 
 // ── LIVE VIEW ──
 const LIVE_COLUMNS = [
-  ["", null], ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"],
+  ["", null], ["Ticker", "ticker"], ["Theme", "theme"], ["Sub", "subtheme"], ["ADR%", "adr"],
   ["QM", "qm"], ["RS", "rs"],
   ["MS", "ms_score"], ["Chg%", "change"], ["Vol", "volume"], ["RVol", "rel_volume"],
-  ["$Vol", "dvol"], ["CR%", "cr"], ["CRP", "crp"], ["ADR%", "adr"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
+  ["$Vol", "dvol"], ["CR%", "cr"], ["CRP", "crp"], ["Accel", "accel"], ["EPS", "eps_score"], ["C&A", "ca_score"],
   ["3M%", "ret3m"], ["FrHi%", "fromhi"],
 ];
 
@@ -8490,6 +8490,10 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#686878", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.theme}>{s.theme || "—"}</td>
       {/* Sub */}
       <td style={{ padding: "4px 6px", textAlign: "center", color: "#505060", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.subtheme}>{s.subtheme || "—"}</td>
+      {/* ADR% */}
+      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
+        color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
+        {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
       {/* QM Score */}
       <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: s.qmag_score >= 7 ? "#facc15" : s.qmag_score >= 5 ? "#f59e0b" : s.qmag_score >= 3 ? "#d97706" : "#3a3a4a" }}>
@@ -8547,10 +8551,6 @@ const LiveRow = memo(function LiveRow({ s, onRemove, onAdd, addLabel, activeTick
           {multiDay && <span style={{ fontSize: 8, marginLeft: 1, color: "#f59e0b", fontWeight: 700 }}>2D</span>}
         </td>;
       })()}
-      {/* ADR% */}
-      <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 12,
-        color: s.adr_pct > 8 ? "#2dd4bf" : s.adr_pct > 5 ? "#2bb886" : s.adr_pct > 3 ? "#fbbf24" : s.adr_pct != null ? "#f97316" : "#3a3a4a" }}>
-        {s.adr_pct != null ? `${s.adr_pct}%` : '—'}</td>
       {/* Accel */}
       <td style={{ padding: "4px 6px", textAlign: "center", fontFamily: "monospace", fontSize: 11,
         color: (s.accel ?? 0) >= 5 ? "#2bb886" : (s.accel ?? 0) >= 2 ? "#4a9070" : (s.accel ?? 0) <= -5 ? "#f87171" : (s.accel ?? 0) <= -2 ? "#c06060" : s.accel != null ? "#686878" : "#3a3a4a" }}>
