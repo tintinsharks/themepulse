@@ -1121,12 +1121,12 @@ function ChartPanel({ ticker, stock, onClose, onTickerClick, watchlist, onAddWat
                 {stock._caScore != null && (() => {
                   const qs = stock.quarters || [];
                   const epsG = qs[0]?.eps_yoy; const salesG = qs[0]?.sales_yoy;
-                  const accel = qs[1]?.eps_yoy != null && qs[2]?.eps_yoy != null;
+                  const accel = qs[0]?.eps_yoy != null && qs[1]?.eps_yoy != null && qs[2]?.eps_yoy != null;
                   const roe = stock.roe;
                   const tip = [
                     `EPS ≥25%: ${epsG != null ? (epsG >= 25 ? "PASS" : "FAIL") + ` (${epsG.toFixed(0)}%)` : "N/A"} [2pt]`,
                     `Sales ≥25%: ${salesG != null ? (salesG >= 25 ? "PASS" : "FAIL") + ` (${salesG.toFixed(0)}%)` : "N/A"} [2pt]`,
-                    `EPS Accel: ${accel ? (qs[0].eps_yoy > qs[1].eps_yoy && qs[1].eps_yoy > qs[2].eps_yoy ? "PASS" : "FAIL") + ` (${qs[0].eps_yoy.toFixed(0)}>${qs[1].eps_yoy.toFixed(0)}>${qs[2].eps_yoy.toFixed(0)})` : "N/A"} [2pt]`,
+                    `EPS Accel: ${accel ? (qs[0].eps_yoy > qs[1].eps_yoy && qs[1].eps_yoy > qs[2].eps_yoy ? "PASS" : "FAIL") + ` (${qs[0].eps_yoy?.toFixed(0)}>${qs[1].eps_yoy?.toFixed(0)}>${qs[2].eps_yoy?.toFixed(0)})` : "N/A"} [2pt]`,
                     `ROE ≥17%: ${roe != null ? (roe >= 0.17 ? "PASS" : "FAIL") + ` (${(roe * 100).toFixed(1)}%)` : "N/A"} [1pt]`,
                   ].join("\n");
                   return <span style={{ display: "flex", alignItems: "baseline", gap: 4 }} title={tip}>
