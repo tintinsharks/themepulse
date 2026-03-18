@@ -128,17 +128,6 @@ const SourceBadge = memo(function SourceBadge({ source }) {
     color: s.color, background: s.bg, border: `1px solid ${s.border}`, verticalAlign: "super", marginLeft: 3 }}>{s.label}</span>;
 });
 
-// ── CHART PATTERN TAGS ──
-const PATTERN_COLORS = {
-  vcp: "#ec4899", cup_and_handle: "#2bb886", flat_base: "#a78bfa", power_play: "#f59e0b",
-  double_bottom: "#3b82f6", high_tight_flag: "#ef4444", ascending_base: "#14b8a6",
-  symmetrical_triangle: "#f97316", ipo_base: "#8b5cf6",
-};
-const PATTERN_ABBREV = {
-  vcp: "VCP", cup_and_handle: "C&H", flat_base: "FB", power_play: "PP",
-  double_bottom: "DB", high_tight_flag: "HTF", ascending_base: "AB",
-  symmetrical_triangle: "ST", ipo_base: "IPO",
-};
 // ── SHORT SCAN TAGS ──
 const SHORT_TAG_COLORS = {
   BD: "#f87171",  // Breakdown
@@ -150,24 +139,6 @@ const SHORT_TAG_COLORS = {
   DC: "#dc2626",  // Death Cross (50MA < 200MA)
   SQ: "#fbbf24",  // Squeeze Risk WARNING (high SI%)
 };
-const PatternTags = memo(function PatternTags({ patterns }) {
-  if (!patterns || !patterns.length) return null;
-  return patterns.map((p, i) => {
-    const color = PATTERN_COLORS[p.pattern] || "#9090a0";
-    const abbrev = PATTERN_ABBREV[p.pattern] || p.pattern;
-    const statusIcon = p.status === "breakout" ? "!" : "";
-    return (
-      <span key={i}
-        title={`${abbrev} (${p.status}) Q:${p.quality} | Depth:${p.depth_pct}% ${p.length_days}d | Pivot:$${p.pivot_price}`}
-        style={{ marginLeft: 3, padding: "0px 3px", borderRadius: 2, fontSize: 7, fontWeight: 700,
-          verticalAlign: "super", color, background: color + "20", border: `1px solid ${color}30`,
-          cursor: "default" }}>
-        {abbrev}{p.quality >= 80 ? statusIcon : ""}<span style={{ fontSize: 6, opacity: 0.7 }}>{p.quality}</span>
-      </span>
-    );
-  });
-});
-
 // ── Projected EOD RVol (Zanger-style volume signal) ──
 // Uses empirical U-shaped cumulative volume curve instead of linear extrapolation.
 // The first/last hours of trading carry ~22%/~28% of daily volume respectively,
@@ -2303,10 +2274,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     const epsFinalMap = {};
     stocks.forEach(s => { epsFinalMap[s.ticker] = stockMap[s.ticker]?._epsScore ?? null; });
 
-    // Pattern tag abbrev → pattern key mapping
-    const PATTERN_TAG_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play", DB: "double_bottom", HTF: "high_tight_flag", AB: "ascending_base", ST: "symmetrical_triangle", IPO: "ipo_base" };
-    const patternFilterTags = new Set(["VCP", "C&H", "FB", "PP", "DB", "HTF", "AB", "ST", "IPO"]);
-
     // No tag filters = show all stocks (with tags attached), tag filters = AND filter
     const nonOrhFilters = new Set([...scanFilters].filter(f => f !== "ORH" && f !== "NoBio" && f !== "CRP"));
     if (nonOrhFilters.size === 0) {
@@ -2314,14 +2281,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     } else {
       list = stocks.filter(s => {
         const hits = new Set(hitMap[s.ticker] || []);
-        const pats = new Set((s.chart_patterns || []).map(p => p.pattern));
         for (const f of scanFilters) {
           if (f === "ORH" || f === "NoBio" || f === "CRP") continue; // handled separately
-          if (patternFilterTags.has(f)) {
-            if (!pats.has(PATTERN_TAG_MAP[f])) return false;
-          } else {
-            if (!hits.has(f)) return false;
-          }
+          if (!hits.has(f)) return false;
         }
         return true;
       }).map(s => ({ ...s, _scanHits: hitMap[s.ticker] || [], _epsScore: epsFinalMap[s.ticker] }));
@@ -2429,14 +2391,6 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (burstMinDolVol > 0) list = list.filter(b => (b._avgDolVol || 0) >= burstMinDolVol * 1_000_000);
     // Apply 9M tag filter
     if (burstScanFilters.has("9M")) list = list.filter(b => b._is9M);
-    // Apply pattern tag filters on burst tab
-    const BURST_PAT_MAP = { VCP: "vcp", "C&H": "cup_and_handle", FB: "flat_base", PP: "power_play", DB: "double_bottom", HTF: "high_tight_flag", AB: "ascending_base", ST: "symmetrical_triangle", IPO: "ipo_base" };
-    for (const [tag, key] of Object.entries(BURST_PAT_MAP)) {
-      if (burstScanFilters.has(tag)) list = list.filter(b => {
-        const pats = b.chart_patterns || stockMap[b.ticker]?.chart_patterns || [];
-        return pats.some(p => p.pattern === key);
-      });
-    }
     // ORH filter on burst tab
     if (burstScanFilters.has("ORH")) {
       list = list.filter(b => {
@@ -2718,8 +2672,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const setCurActiveTheme = isBurst ? setBurstActiveTheme : setActiveTheme;
           return (<>
         {[
-          ["VCP", "VCP", "#ec4899"], ["C&H", "C&H", "#2bb886"], ["FB", "FB", "#a78bfa"], ["PP", "PP", "#f59e0b"],
-          ["DB", "DB", "#3b82f6"], ["HTF", "HTF", "#ef4444"], ["AB", "AB", "#14b8a6"], ["ST", "ST", "#f97316"], ["IPO", "IPO", "#8b5cf6"],
+          ["IPO", "IPO", "#8b5cf6"],
           ["QM", "QM", "#facc15"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["CRP", "CRP", "#60a5fa"], ["NoBio", "NoBio", "#f87171"]
         ].map(([tag, label, color]) => {
           const active = curFilters.has(tag);
@@ -2745,11 +2698,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         {!isBurst && curFilters.size > 0 && (
           <span style={{ color: "#9090a0", fontSize: 9, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {(() => {
-              const descs = { VCP: "Volatility Contraction Pattern — tightening pullbacks",
-                "C&H": "Cup & Handle — U-shaped base near highs",
-                FB: "Flat Base — tight <15% consolidation after advance",
-                PP: "Power Play / 3 Weeks Tight — consecutive tight weekly closes",
-                "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)",
+              const descs = { "9M": "Today vol≥8.9M but avg vol<8.9M (unusual activity)",
                 ORH: "Price above 5-min Opening Range High (9:30–9:35 ET)",
                 CRP: "CR% Persistence ≥70 — sustained buyer control throughout the day" };
               const active = [...curFilters];
@@ -4566,7 +4515,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
                         <Tk ticker={row.ticker} />
-                        <PatternTags patterns={stockMap[row.ticker]?.chart_patterns} />
                       </td>
                       {/* Headline */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
@@ -4740,7 +4688,6 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                         </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
                           {m.ticker}
-                          <PatternTags patterns={sMap.chart_patterns} />
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(liveVol)}
@@ -5195,58 +5142,6 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
           </div>
         </div>
       </div>
-
-      {/* Chart Patterns */}
-      {patternGroups.order.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#ec4899" }}>Chart Patterns</span>
-            <span style={{ fontSize: 10, color: "#686878" }}>Click pattern to view tickers</span>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: selectedPattern ? 8 : 0 }}>
-            {patternGroups.order.map(p => {
-              const color = PATTERN_COLORS[p] || "#9090a0";
-              const abbrev = PATTERN_ABBREV[p] || p;
-              const count = patternGroups.groups[p].length;
-              const isActive = selectedPattern === p;
-              return (
-                <div key={p} onClick={() => { setSelectedPattern(isActive ? null : p); setActiveBox("pat"); }}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 4,
-                    fontSize: 11, fontWeight: 700, cursor: "pointer", userSelect: "none",
-                    background: isActive ? color + "30" : color + "15",
-                    border: `1px solid ${isActive ? color : color + "40"}`,
-                    color: isActive ? color : color + "cc" }}>
-                  {abbrev} <span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7 }}>{count}</span>
-                </div>
-              );
-            })}
-          </div>
-          {selectedPattern && patternTickers.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-              {patternTickers.map(s => {
-                const gc = GRADE_COLORS[s.grade] || "#3a3a4a";
-                const pc = PATTERN_COLORS[selectedPattern] || "#9090a0";
-                const isActive = s.ticker === activeTicker;
-                return (
-                  <div key={s.ticker} data-ticker={s.ticker} onClick={() => clickInBox(s.ticker, "pat")}
-                    title={`${s.company} | ${PATTERN_ABBREV[selectedPattern]} Q:${s._pat.quality} ${s._pat.status} | Depth:${s._pat.depth_pct}% ${s._pat.length_days}d | Pivot:$${s._pat.pivot_price} | RS:${s.rs_rank} | Grade:${s.grade}`}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 6px", borderRadius: 4,
-                      fontSize: 11, fontFamily: "monospace", cursor: "pointer",
-                      background: isActive ? pc + "30" : gc + "20",
-                      border: isActive ? `1px solid ${pc}` : `1px solid ${gc}40`,
-                      color: s.atr_to_50 >= 7 ? "#f87171" : s.atr_to_50 >= 5 ? "#c084fc" : isActive ? "#fff" : "#bbb",
-                      fontWeight: s.atr_to_50 >= 5 || isActive ? 700 : 400 }}>
-                    <Badge grade={s.grade} />
-                    <Tk ticker={s.ticker} />
-                    <span style={{ fontSize: 7, color: pc, fontWeight: 700 }}>{s._pat.quality}</span>
-                    {s._pat.status === "breakout" && <span style={{ fontSize: 7, color: "#ef4444", fontWeight: 700 }}>!</span>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* RTS Grade Grid */}
       <div style={{ display: "flex", gap: 2, minWidth: 1300 }}>
