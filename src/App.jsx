@@ -6735,6 +6735,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         atrxSeriesRefs.current.ema10w = atrxChart.addLineSeries({
           color: "#AB47BC", lineWidth: 2, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
         });
+        // RMV background (low volatility highlight)
+        atrxSeriesRefs.current.rmv = atrxChart.addHistogramSeries({
+          color: "#2bb88615", lastValueVisible: false, priceLineVisible: false,
+          priceFormat: { type: "price", precision: 1, minMove: 0.1 },
+        });
         // VCS squares (invisible line + markers)
         atrxSeriesRefs.current.vcs = atrxChart.addLineSeries({
           color: "transparent", lineWidth: 0, lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
@@ -7348,6 +7353,34 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             rawD10w: ema10wArr[lastI] ? ((closes[lastI] - ema10wArr[lastI]) / ema10wArr[lastI] * 100) : null,
           });
 
+          // RMV (Relative Measured Volatility) — daily range vs 15-day avg range
+          // RMV 0-15 = tight consolidation (highlighted green on ATRX pane)
+          const RMV_LEN = 15;
+          if (atrxSeriesRefs.current.rmv && bars.length > RMV_LEN) {
+            const rmvData = [];
+            const dailyRanges = bars.map(b => b.high - b.low);
+            for (let i = 0; i < bars.length; i++) {
+              if (i < RMV_LEN) { rmvData.push({ time: btime(bars[i]), value: 0, color: "transparent" }); continue; }
+              const avgRange = dailyRanges.slice(i - RMV_LEN, i).reduce((s, v) => s + v, 0) / RMV_LEN;
+              const rmv = avgRange > 0 ? (dailyRanges[i] / avgRange) * 100 : 50;
+              // Highlight when RMV <= 15 (tight consolidation) — show as tall bar to fill pane
+              if (rmv <= 15) {
+                rmvData.push({ time: btime(bars[i]), value: 20, color: "#2bb88618" });
+              } else if (rmv <= 30) {
+                rmvData.push({ time: btime(bars[i]), value: 20, color: "#2bb88608" });
+              } else {
+                rmvData.push({ time: btime(bars[i]), value: 0, color: "transparent" });
+              }
+            }
+            atrxSeriesRefs.current.rmv.setData(rmvData);
+            // Add RMV to stats
+            const lastRmv = bars.length > RMV_LEN ? (() => {
+              const avgR = dailyRanges.slice(-RMV_LEN - 1, -1).reduce((s, v) => s + v, 0) / RMV_LEN;
+              return avgR > 0 ? Math.round(dailyRanges[lastI] / avgR * 100) : null;
+            })() : null;
+            setAtrxStats(prev => prev ? { ...prev, rmv: lastRmv } : prev);
+          }
+
           // VCS (Volatility Contraction Score)
           const vcsMarkers = [];
           const vcsLine = [];
@@ -7570,6 +7603,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
               const dv = atrxStats.dayVsAdr;
               const c = dv >= 80 ? "#ef4444" : dv >= 60 ? "#fbbf24" : dv < 50 ? "#2bb886" : "#686878";
               return <span style={{ color: c }}>DvA <b>{dv.toFixed(0)}%</b></span>;
+            })()}
+            {atrxStats.rmv != null && (() => {
+              const r = atrxStats.rmv;
+              const c = r <= 15 ? "#2bb886" : r <= 30 ? "#4a9070" : r >= 80 ? "#ef4444" : "#686878";
+              return <span style={{ color: c }}>RMV <b>{r}</b></span>;
             })()}
           </div>}
         </>}
