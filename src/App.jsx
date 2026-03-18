@@ -11925,7 +11925,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["quad","Quadrant"],["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["exec","Execution"],["tqqq","TQQQ"]].map(([id, label]) => (
+        {[["quad","Quadrant"],["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["exec","Execution"],["tqqq","TQQQ"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); if (id === "tqqq") setChartTicker("TQQQ"); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -12013,6 +12013,15 @@ function AppMain({ authToken, onLogout }) {
             earningsMovers={data.earnings_movers} pmErTickers={data.pm_earnings_movers} ahErTickers={data.ah_earnings_movers} pmTopMovers={data.pm_top_movers || data.pm_sip_movers || []} ahTopMovers={data.ah_top_movers || data.ah_sip_movers || []}
             historicalEarningsMovers={data.historical_earnings_movers || []} focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList} pipelineMeta={data.pipeline_meta} marketSession={marketSession}
             aiQueue={aiQueue} setAiQueue={setAiQueue} aiAnalyzed={aiAnalyzed} setAiAnalyzed={setAiAnalyzed} authToken={authToken} crpLookup={crpLookup} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="EP">
+          {view === "ep" && <EpisodicPivots stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker}
+            onVisibleTickers={onVisibleTickers} earningsMovers={data?.earnings_movers || []} pmErTickers={data?.pm_earnings_movers || []} ahErTickers={data?.ah_earnings_movers || []} headlinesMap={data?.headlines || {}}
+            pmTopMovers={data?.pm_top_movers || data?.pm_sip_movers || []} ahTopMovers={data?.ah_top_movers || data?.ah_sip_movers || []}
+            historicalEarningsMovers={data?.historical_earnings_movers || []}
+            focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList}
+            liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist}
+            pipelineMeta={data?.pipeline_meta} marketSession={marketSession} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
