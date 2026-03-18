@@ -2006,6 +2006,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [mcapFilter, setMcapFilter] = useState("small");
   const [volFilter, setVolFilter] = useState(0);
   const [minDolVol, setMinDolVol] = useState(50);
+  const [minAdr, setMinAdr] = useState(0);
+  const [maxAdr, setMaxAdr] = useState(99);
+  const [minRet1w, setMinRet1w] = useState(0);
+  const [activePreset, setActivePreset] = useState(null);
   // Momentum Burst filters (independent)
   const [burstNearPivot, setBurstNearPivot] = useState(false);
   const [burstGreenOnly, setBurstGreenOnly] = useState(true);
@@ -2018,6 +2022,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [burstMcapFilter, setBurstMcapFilter] = useState("small");
   const [burstVolFilter, setBurstVolFilter] = useState(0);
   const [burstMinDolVol, setBurstMinDolVol] = useState(50);
+  const [burstMinAdr, setBurstMinAdr] = useState(0);
+  const [burstMaxAdr, setBurstMaxAdr] = useState(99);
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
   const [expandedGapper, setExpandedGapper] = useState(null);
@@ -2215,6 +2221,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       else if (s.qmag_score >= 5) hits.push("QM");
       else if (s.qmag_score >= 3) hits.push("QM");
 
+      // ── Pocket Pivot tag ──
+      if ((s.pp_count_30d || 0) >= 1) hits.push("PP");
+
+      // ── Trend Base tag ──
+      if (s.trend_base === true) hits.push("TB");
+
+      // ── VCS tag ──
+      if ((s.vcs_score || 0) >= 60) hits.push("VCS");
+
       if (hits.length > 0) hitMap[s.ticker] = hits;
     });
 
@@ -2263,6 +2278,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (mcapFilter === "large") list = list.filter(s => (s.market_cap_raw || 0) >= 10_000_000_000);
     if (volFilter > 0) list = list.filter(s => (s.avg_volume_raw || 0) >= volFilter);
     if (minDolVol > 0) list = list.filter(s => (s.avg_dollar_vol_raw || 0) >= minDolVol * 1_000_000);
+    if (minAdr > 0) list = list.filter(s => (s.adr_pct || 0) >= minAdr);
+    if (maxAdr < 99) list = list.filter(s => (s.adr_pct || 0) <= maxAdr);
+    if (minRet1w > 0) list = list.filter(s => (s.return_1w || 0) >= minRet1w);
     // ORH filter: price above 5-min Opening Range High (server-side cached dayHigh from 9:30–9:40 ET)
     if (scanFilters.has("ORH")) {
       list = list.filter(s => {
@@ -2317,7 +2335,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       return [...withVal.reverse(), ...nulls];
     }
     return sorted;
-  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, liveLookup, BIO_REIT_IND, crpLookup]);
+  }, [stocks, leading, sortBy, sortDir, nearPivot, greenOnly, zvrOnly, minChg, minRVol, minRS, activeTheme, scanFilters, mcapFilter, volFilter, minDolVol, minAdr, maxAdr, minRet1w, liveLookup, BIO_REIT_IND, crpLookup]);
 
   const burstStocks = useMemo(() => {
     let list = (momentumBurst || []).filter(b => stockMap[b.ticker]).map(b => {
@@ -2346,6 +2364,8 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     if (burstMcapFilter === "large") list = list.filter(b => (b._mcap || 0) >= 10_000_000_000);
     if (burstVolFilter > 0) list = list.filter(b => (b._avgVol || 0) >= burstVolFilter);
     if (burstMinDolVol > 0) list = list.filter(b => (b._avgDolVol || 0) >= burstMinDolVol * 1_000_000);
+    if (burstMinAdr > 0) list = list.filter(b => (b._adr || 0) >= burstMinAdr);
+    if (burstMaxAdr < 99) list = list.filter(b => (b._adr || 0) <= burstMaxAdr);
     // Apply 9M tag filter
     if (burstScanFilters.has("9M")) list = list.filter(b => b._is9M);
     // ORH filter on burst tab
@@ -2357,6 +2377,9 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     }
     if (burstScanFilters.has("CRP")) list = list.filter(b => (crpLookup[b.ticker]?.score ?? 0) >= 70);
     if (burstScanFilters.has("NoBio")) list = list.filter(b => !BIO_REIT_IND.has(stockMap[b.ticker]?.industry));
+    if (burstScanFilters.has("PP")) list = list.filter(b => (stockMap[b.ticker]?.pp_count_30d || 0) >= 1);
+    if (burstScanFilters.has("TB")) list = list.filter(b => stockMap[b.ticker]?.trend_base === true);
+    if (burstScanFilters.has("VCS")) list = list.filter(b => (stockMap[b.ticker]?.vcs_score || 0) >= 60);
     const safe = (fn) => (a, b) => { const av = fn(a), bv = fn(b); if (av == null && bv == null) return 0; if (av == null) return 1; if (bv == null) return -1; return bv - av; };
     const bSorters = {
       change: safe(b => b.change_pct), dollar: safe(b => b.dollar_move), close: safe(b => b.close),
@@ -2366,7 +2389,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
     };
     const sorted = list.sort(bSorters[burstSort.col] || bSorters.change);
     return burstSort.dir === "asc" ? sorted.reverse() : sorted;
-  }, [momentumBurst, stocks, stockMap, burstMinRS, burstNearPivot, burstGreenOnly, burstZvrOnly, burstMinChg, burstMinRVol, burstActiveTheme, burstMcapFilter, burstVolFilter, burstMinDolVol, burstScanFilters, burstSort, BIO_REIT_IND]);
+  }, [momentumBurst, stocks, stockMap, burstMinRS, burstNearPivot, burstGreenOnly, burstZvrOnly, burstMinChg, burstMinRVol, burstActiveTheme, burstMcapFilter, burstVolFilter, burstMinDolVol, burstMinAdr, burstMaxAdr, burstScanFilters, burstSort, BIO_REIT_IND]);
 
   // ── Short Scan candidates ──
   const themeHealthMap = useMemo(() => {
@@ -2550,7 +2573,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   }, [candidates, burstStocks, shortCandidates, scanTab, onVisibleTickers]);
 
   const tagCounts = useMemo(() => {
-    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, QM: 0, "9M": 0 };
+    const counts = { T: 0, W: 0, L: 0, E: 0, EP: 0, CS: 0, ZM: 0, QM: 0, PP: 0, TB: 0, VCS: 0, "9M": 0 };
     candidates.forEach(s => (s._scanHits || []).forEach(h => { if (counts[h] !== undefined) counts[h]++; }));
     return counts;
   }, [candidates]);
@@ -2622,10 +2645,15 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           const setCurMinDolVol = isBurst ? setBurstMinDolVol : setMinDolVol;
           const curActiveTheme = isBurst ? burstActiveTheme : activeTheme;
           const setCurActiveTheme = isBurst ? setBurstActiveTheme : setActiveTheme;
+          const curMinAdr = isBurst ? burstMinAdr : minAdr;
+          const setCurMinAdr = isBurst ? setBurstMinAdr : setMinAdr;
+          const curMaxAdr = isBurst ? burstMaxAdr : maxAdr;
+          const setCurMaxAdr = isBurst ? setBurstMaxAdr : setMaxAdr;
           return (<>
         {[
           ["IPO", "IPO", "#8b5cf6"],
-          ["QM", "QM", "#facc15"], ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["CRP", "CRP", "#60a5fa"], ["NoBio", "NoBio", "#f87171"]
+          ["QM", "QM", "#facc15"], ["PP", "PP", "#22d3ee"], ["TB", "TB", "#14b8a6"], ["VCS", "VCS", "#3b82f6"],
+          ["9M", "9M", "#e879f9"], ["ORH", "ORH", "#22d3ee"], ["CRP", "CRP", "#60a5fa"], ["NoBio", "NoBio", "#f87171"]
         ].map(([tag, label, color]) => {
           const active = curFilters.has(tag);
           return (
@@ -2699,6 +2727,21 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
               background: curMinDolVol > 0 ? "#fbbf2410" : "transparent", color: curMinDolVol > 0 ? "#fbbf24" : "#686878", outline: "none" }} />
           <span style={{ fontSize: 9, color: "#686878" }}>M</span>
         </div>
+        <span style={{ color: "#3a3a4a" }}>|</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span style={{ fontSize: 10, color: (curMinAdr > 0 || curMaxAdr < 99) ? "#f97316" : "#686878", fontWeight: 600, whiteSpace: "nowrap" }}>ADR%</span>
+          <input type="text" value={curMinAdr || ""} placeholder="0"
+            onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setCurMinAdr(v === "" ? 0 : Number(v)); }}
+            style={{ width: 24, padding: "2px 3px", borderRadius: 4, fontSize: 10, fontFamily: "monospace", textAlign: "right",
+              border: curMinAdr > 0 ? "1px solid #f97316" : "1px solid #3a3a4a",
+              background: curMinAdr > 0 ? "#f9731610" : "transparent", color: curMinAdr > 0 ? "#f97316" : "#686878", outline: "none" }} />
+          <span style={{ fontSize: 9, color: "#686878" }}>–</span>
+          <input type="text" value={curMaxAdr < 99 ? curMaxAdr : ""} placeholder="∞"
+            onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setCurMaxAdr(v === "" ? 99 : Number(v)); }}
+            style={{ width: 24, padding: "2px 3px", borderRadius: 4, fontSize: 10, fontFamily: "monospace", textAlign: "right",
+              border: curMaxAdr < 99 ? "1px solid #f97316" : "1px solid #3a3a4a",
+              background: curMaxAdr < 99 ? "#f9731610" : "transparent", color: curMaxAdr < 99 ? "#f97316" : "#686878", outline: "none" }} />
+        </div>
         {curActiveTheme && (
           <button onClick={() => setCurActiveTheme(null)} style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, cursor: "pointer",
             border: "1px solid #60a5fa", background: "#60a5fa20", color: "#60a5fa", display: "flex", alignItems: "center", gap: 3 }}>
@@ -2707,6 +2750,56 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         )}
           </>);
         })()}
+      </div>}
+
+      {scanTab === "scan" && <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Presets:</span>
+        {[
+          ["21EMA", { mcap: "mid", vol: 1000000, scanTags: ["TB", "PP"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["4% Bull", { mcap: "mid", vol: 1000000, minRVol: 1, minChg: 4, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["Vol Up", { mcap: "mid", vol: 1000000, minRVol: 1.5, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["Mom 97", { vol: 1000000, minRS: 85, scanTags: ["TB"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["97 Club", { mcap: "mid", vol: 1000000, minRS: 90, scanTags: ["TB"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["VCS", { mcap: "mid", vol: 1000000, scanTags: ["VCS"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["PP", { mcap: "mid", vol: 1000000, scanTags: ["PP"], greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["PP Count", { mcap: "mid", vol: 1000000, scanTags: ["PP", "TB"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["Wk 20%+", { mcap: "mid", vol: 1000000, minRet1w: 20, minAdr: 3.5, maxAdr: 10, noBio: true }],
+        ].map(([name, config]) => (
+          <button key={name} onClick={() => {
+            const tags = new Set(config.scanTags || []);
+            if (config.noBio) tags.add("NoBio");
+            setScanFilters(tags);
+            setMcapFilter(config.mcap || "small");
+            setVolFilter(config.vol || 0);
+            setMinRS(config.minRS || 0);
+            setMinChg(config.minChg || 0);
+            setMinRVol(config.minRVol || 0);
+            setGreenOnly(config.greenOnly || false);
+            setMinAdr(config.minAdr || 0);
+            setMaxAdr(config.maxAdr || 99);
+            setMinRet1w(config.minRet1w || 0);
+            setActivePreset(name);
+          }} style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+            border: activePreset === name ? "1px solid #c084fc" : "1px solid #3a3a4a",
+            background: activePreset === name ? "#c084fc20" : "transparent",
+            color: activePreset === name ? "#c084fc" : "#9090a0" }}>
+            {name}
+          </button>
+        ))}
+        {activePreset && <button onClick={() => {
+          setScanFilters(new Set(["NoBio"]));
+          setMcapFilter("small");
+          setVolFilter(0);
+          setMinRS(0);
+          setMinChg(0);
+          setMinRVol(0);
+          setGreenOnly(false);
+          setMinAdr(0);
+          setMaxAdr(99);
+          setMinRet1w(0);
+          setActivePreset(null);
+        }} style={{ padding: "2px 6px", borderRadius: 4, fontSize: 9, cursor: "pointer",
+          border: "1px solid #505060", background: "transparent", color: "#787888" }}>Clear</button>}
       </div>}
 
       {scanTab === "scan" && (<>
