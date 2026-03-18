@@ -7322,7 +7322,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             dist10w.push(e10w ? ((closes[i] - e10w) / e10w) / ap : null);
           }
 
-          const toAtrxLine = (arr) => arr.map((v, i) => v != null ? { time: btime(bars[i]), value: Math.round(v * 100) / 100 } : null).filter(Boolean);
+          // Include ALL bars so logical indices align with main chart (use value 0 for warmup)
+          const toAtrxLine = (arr) => arr.map((v, i) => ({ time: btime(bars[i]), value: v != null ? Math.round(v * 100) / 100 : 0 }));
 
           atrxSeriesRefs.current.sma50.setData(toAtrxLine(dist50));
           atrxSeriesRefs.current.dma20.setData(toAtrxLine(dist20));
