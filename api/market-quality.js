@@ -177,14 +177,14 @@ function scoreBreadth(monitor, dashData) {
 
   // NYSE A/D approximation from monitor gauges
   const gauges = monitor?.gauges || {};
-  const t2108 = gauges.t2108 || 50;
+  const t2108 = parseFloat(gauges.t2108) || 50;
   const adLabel = t2108 > 55 ? "Positive" : t2108 > 45 ? "Neutral" : "Negative";
   details.nyse_ad = { value: `${t2108.toFixed(1)}%`, label: adLabel };
   score += pct(t2108, 25, 75) * 0.10;
 
   // NAS Highs/Lows from gauges
-  const up4 = gauges.up_4pct || 0;
-  const down4 = gauges.down_4pct || 0;
+  const up4 = parseFloat(gauges.up_4pct) || 0;
+  const down4 = parseFloat(gauges.down_4pct) || 0;
   const hlRatio = down4 > 0 ? (up4 / down4).toFixed(1) : up4 > 0 ? "∞" : "0";
   const hlLabel = (up4 / Math.max(down4, 1)) > 2 ? "Bulls dominate" : (up4 / Math.max(down4, 1)) > 1 ? "Mixed" : "Lows dominate";
   details.nas_highs_lows = { value: `${hlRatio}:1`, label: hlLabel };
@@ -281,7 +281,7 @@ function scoreExecution(monitor, dashData) {
   const gauges = monitor?.gauges || {};
 
   // Breakouts working? (up_4pct > 200 = healthy)
-  const up4 = gauges.up_4pct || 0;
+  const up4 = parseFloat(gauges.up_4pct) || 0;
   const breakouts = up4 > 300 ? "Yes" : up4 > 150 ? "Moderate" : "No";
   const breakoutsLabel = up4 > 300 ? "Healthy" : up4 > 150 ? "Selective" : "Failing";
   details.breakouts_working = { value: breakouts, label: breakoutsLabel };
@@ -290,7 +290,7 @@ function scoreExecution(monitor, dashData) {
   else score -= 10;
 
   // Leaders holding? (ratio_5d > 2 = leaders holding)
-  const ratio5d = gauges.ratio_5d || 1;
+  const ratio5d = parseFloat(gauges.ratio_5d) || 1;
   const leaders = ratio5d > 2.5 ? "Yes" : ratio5d > 1.5 ? "Moderate" : "No";
   const leadersLabel = ratio5d > 2.5 ? "Strong" : ratio5d > 1.5 ? "Mixed" : "Fading";
   details.leaders_holding = { value: leaders, label: leadersLabel };
@@ -299,7 +299,7 @@ function scoreExecution(monitor, dashData) {
   else score -= 10;
 
   // Pullbacks bought? (t2108 > 50 and positive trend)
-  const t2108 = gauges.t2108 || 50;
+  const t2108 = parseFloat(gauges.t2108) || 50;
   const pullbacks = t2108 > 55 ? "Yes" : t2108 > 40 ? "Selective" : "No";
   const pullbacksLabel = t2108 > 55 ? "Support" : t2108 > 40 ? "Weak" : "No support";
   details.pullbacks_bought = { value: pullbacks, label: pullbacksLabel };
@@ -307,7 +307,7 @@ function scoreExecution(monitor, dashData) {
   else if (t2108 < 40) score -= 10;
 
   // Follow-through (ratio_10d strength)
-  const ratio10d = gauges.ratio_10d || 1;
+  const ratio10d = parseFloat(gauges.ratio_10d) || 1;
   const followLabel = ratio10d > 2 ? "Strong" : ratio10d > 1.3 ? "Moderate" : "Weak";
   const followConviction = ratio10d > 2 ? "High conviction" : ratio10d > 1.3 ? "Moderate" : "Low conviction";
   details.follow_through = { value: followLabel, label: followConviction };

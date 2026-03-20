@@ -11680,7 +11680,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["quad","Quadrant"],["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["exec","Execution"],["tqqq","TQQQ"]].map(([id, label]) => (
+        {[["terminal","Terminal"],["quad","Quadrant"],["live","Live"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["exec","Execution"],["tqqq","TQQQ"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); if (id === "tqqq") setChartTicker("TQQQ"); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -11794,6 +11794,9 @@ function AppMain({ authToken, onLogout }) {
             addToPknWatch={addToPknWatch} removeFromPknWatch={removeFromPknWatch}
             liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} homepage={homepage} erSipLookup={erSipLookup} crpLookup={crpLookup} />}
           </ErrorBoundary>
+          {view === "terminal" && (
+            <iframe src="/terminal.html" style={{ width: "100%", height: "calc(100vh - 50px)", border: "none", background: "#0a0b10" }} />
+          )}
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <>
             {/* Pre-Market Briefing */}
