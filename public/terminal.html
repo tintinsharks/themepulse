@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Should I Be Trading? | Market Quality Terminal</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0b10;--bg2:#0f1118;--bg3:#151822;--border:#1e2230;
+  --text:#c8cdd8;--muted:#5a6178;--green:#00d26a;--red:#ff4757;
+  --amber:#ffa726;--cyan:#22d3ee;--blue:#3b82f6;
+}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code','Consolas',monospace;font-size:12px;overflow-x:hidden}
+a{color:var(--cyan);text-decoration:none}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.header-title{font-size:14px;font-weight:800;letter-spacing:1px;color:#fff}
+.header-title span{color:var(--muted);font-weight:400;font-size:12px;margin-left:8px}
+.header-right{display:flex;align-items:center;gap:12px;font-size:10px}
+.mode-toggle{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.mode-btn{padding:4px 10px;font-size:9px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);border:none;font-family:inherit;text-transform:uppercase;letter-spacing:1px}
+.mode-btn.active{background:var(--green);color:#000}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.refresh-btn{padding:3px 8px;font-size:9px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);border-radius:3px;cursor:pointer;font-family:inherit}
+.refresh-btn:hover{color:var(--text);border-color:var(--muted)}
+
+/* Ticker tape */
+.tape{display:flex;gap:16px;padding:6px 16px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.tape::-webkit-scrollbar{display:none}
+.tape-item{font-size:10px;font-weight:600}
+.tape-item .tk{color:var(--muted);margin-right:4px}
+
+/* Hero */
+.hero{display:flex;align-items:center;justify-content:center;gap:40px;padding:24px 16px;flex-wrap:wrap}
+.decision-badge{text-align:center}
+.decision-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px}
+.decision-value{font-size:28px;font-weight:900;padding:8px 24px;border-radius:6px;letter-spacing:2px}
+.decision-value.yes{background:rgba(0,210,106,.15);color:var(--green);border:2px solid var(--green)}
+.decision-value.caution{background:rgba(255,167,38,.15);color:var(--amber);border:2px solid var(--amber)}
+.decision-value.no{background:rgba(255,71,87,.15);color:var(--red);border:2px solid var(--red)}
+
+/* Score ring */
+.score-ring{position:relative;width:120px;height:120px}
+.score-ring svg{transform:rotate(-90deg)}
+.score-ring .bg-ring{stroke:var(--border);fill:none;stroke-width:8}
+.score-ring .fg-ring{fill:none;stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .8s ease}
+.score-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.score-value .num{font-size:32px;font-weight:900;color:#fff}
+.score-value .den{font-size:11px;color:var(--muted)}
+
+/* Sub scores */
+.sub-scores{display:flex;gap:24px;flex-wrap:wrap}
+.sub-score{text-align:center;min-width:70px}
+.sub-score .icon{font-size:14px;margin-bottom:2px}
+.sub-score .name{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.sub-score .val{font-size:18px;font-weight:800;color:#fff}
+.sub-score .bar{width:50px;height:3px;background:var(--border);border-radius:2px;margin:4px auto 0}
+.sub-score .bar-fill{height:100%;border-radius:2px;transition:width .5s ease}
+
+/* Position size */
+.pos-size{text-align:center}
+.pos-size .label{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.pos-size .val{font-size:16px;font-weight:800;margin-top:2px}
+.pos-size .sub{font-size:9px;color:var(--muted)}
+
+/* Alert banner */
+.alert-banner{padding:8px 16px;background:rgba(255,167,38,.08);border:1px solid rgba(255,167,38,.2);margin:8px 16px;border-radius:4px;font-size:11px;color:var(--amber);display:none}
+.alert-banner.visible{display:block}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;padding:8px 16px}
+@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}
+
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.panel-head{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)}
+.panel-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.panel-score{font-size:16px;font-weight:900}
+.panel-body{padding:8px 12px}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px}
+.detail-row .key{color:var(--muted)}
+.detail-row .val{font-weight:600}
+.detail-row .lbl{margin-left:6px;font-weight:700;font-size:9px}
+
+/* Bottom grid */
+.grid-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:8px 16px}
+@media(max-width:900px){.grid-bottom{grid-template-columns:1fr}}
+
+/* Sectors */
+.sector-row{display:flex;align-items:center;gap:6px;padding:2px 0;font-size:10px}
+.sector-name{width:70px;color:var(--muted);text-align:right}
+.sector-bar-wrap{flex:1;height:12px;background:var(--bg);border-radius:2px;position:relative;overflow:hidden}
+.sector-bar{height:100%;border-radius:2px;transition:width .5s ease;min-width:1px}
+.sector-chg{width:50px;text-align:right;font-weight:600}
+
+/* Weights */
+.weight-row{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:10px}
+.weight-name{width:80px;color:var(--muted)}
+.weight-bar-wrap{flex:1;height:14px;background:var(--bg);border-radius:3px;overflow:hidden}
+.weight-bar{height:100%;border-radius:3px;transition:width .5s ease}
+.weight-val{width:60px;text-align:right;font-weight:600}
+.total-row{display:flex;justify-content:space-between;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:6px}
+.total-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.total-value{font-size:20px;font-weight:900}
+.legend{font-size:8px;color:var(--muted);margin-top:6px;line-height:1.6}
+.legend .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px}
+
+/* Analysis */
+.analysis{margin:8px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px 16px}
+.analysis-head{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;justify-content:space-between}
+.analysis-head span{color:var(--muted);font-weight:400;font-size:9px}
+.analysis-body{font-size:11px;line-height:1.7;color:var(--text)}
+.analysis-body strong{color:#fff}
+
+/* Footer */
+.footer{padding:12px 16px;font-size:9px;color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:8px}
+
+/* Loading */
+.loading{opacity:.4;pointer-events:none}
+.skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px;height:14px;margin:4px 0}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <span class="header-title">SHOULD I BE TRADING?<span>MARKET QUALITY TERMINAL</span></span>
+  </div>
+  <div class="header-right">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-swing" onclick="setMode('swing')">SWING</button>
+      <button class="mode-btn" id="mode-day" onclick="setMode('day')">DAY</button>
+    </div>
+    <div class="live-dot"></div>
+    <span style="color:var(--green);font-weight:700">LIVE</span>
+    <span id="updated-ago" style="color:var(--muted)">--</span>
+    <button class="refresh-btn" onclick="refresh()">REFRESH</button>
+  </div>
+</div>
+
+<!-- Ticker tape -->
+<div class="tape" id="tape"></div>
+
+<!-- Alert banner -->
+<div class="alert-banner" id="alert-banner"></div>
+
+<!-- Hero -->
+<div class="hero" id="hero">
+  <div class="decision-badge">
+    <div class="decision-label">DECISION</div>
+    <div class="decision-value no" id="decision-badge">--</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:6px" id="decision-sub">Swing Trading</div>
+  </div>
+
+  <div class="score-ring" id="score-ring">
+    <svg width="120" height="120">
+      <circle class="bg-ring" cx="60" cy="60" r="52"/>
+      <circle class="fg-ring" id="ring-fg" cx="60" cy="60" r="52" stroke-dasharray="327" stroke-dashoffset="327"/>
+    </svg>
+    <div class="score-value">
+      <div class="num" id="score-num">--</div>
+      <div class="den">/ 100</div>
+    </div>
+  </div>
+
+  <div class="sub-scores" id="sub-scores"></div>
+
+  <div class="pos-size">
+    <div class="label">POSITION SIZE</div>
+    <div class="val" id="pos-size-val">--</div>
+    <div class="sub" id="pos-size-sub"></div>
+  </div>
+</div>
+
+<!-- Score panels -->
+<div class="grid" id="panels-grid"></div>
+
+<!-- Bottom panels -->
+<div class="grid-bottom" id="bottom-grid"></div>
+
+<!-- Terminal Analysis -->
+<div class="analysis" id="analysis-panel">
+  <div class="analysis-head">
+    <span>TERMINAL ANALYSIS <span style="font-weight:400;color:var(--muted)">AI-generated market assessment</span></span>
+    <span id="analysis-time"></span>
+  </div>
+  <div class="analysis-body" id="analysis-body">Loading...</div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <span>Data: FMP + ThemePulse Pipeline (live) | Auto-refresh: 45s | Not financial advice</span>
+  <span>Built with ThemePulse</span>
+</div>
+
+<script>
+var _mode = 'swing';
+var _data = null;
+var _lastFetch = 0;
+var _refreshTimer = null;
+
+function setMode(m) {
+  _mode = m;
+  document.getElementById('mode-swing').className = 'mode-btn' + (m === 'swing' ? ' active' : '');
+  document.getElementById('mode-day').className = 'mode-btn' + (m === 'day' ? ' active' : '');
+  document.getElementById('decision-sub').textContent = m === 'swing' ? 'Swing Trading' : 'Day Trading';
+  if (_data) render(_data);
+}
+
+function scoreColor(s) {
+  if (s >= 70) return 'var(--green)';
+  if (s >= 50) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function labelColor(label) {
+  var l = (label || '').toLowerCase();
+  if (/healthy|strong|intact|broad|high|support|falling|low|bulls|positive|clear|normal/.test(l)) return 'var(--green)';
+  if (/weak|fading|correcting|moderate|mixed|caution|selective|elevated|rising|narrow|spiking|neutral/.test(l)) return 'var(--amber)';
+  if (/extreme|broken|risk|fear|very weak|washout|failing|no support|negative|lows dominate|event/.test(l)) return 'var(--red)';
+  return 'var(--text)';
+}
+
+function renderTape(tape) {
+  var el = document.getElementById('tape');
+  el.innerHTML = tape.map(function(t) {
+    var c = parseFloat(t.change) >= 0 ? 'var(--green)' : 'var(--red)';
+    var sign = parseFloat(t.change) >= 0 ? '+' : '';
+    return '<span class="tape-item"><span class="tk">' + t.ticker + '</span>' +
+      '<span style="color:#fff">' + t.price + '</span> ' +
+      '<span style="color:' + c + '">' + sign + t.change + '%</span></span>';
+  }).join('');
+}
+
+function renderHero(d) {
+  // Decision badge
+  var badge = document.getElementById('decision-badge');
+  badge.textContent = d.decision;
+  badge.className = 'decision-value ' + (d.decision === 'YES' ? 'yes' : d.decision === 'CAUTION' ? 'caution' : 'no');
+
+  // Score ring
+  var total = d.total;
+  if (_mode === 'day') total = Math.max(0, total - 5); // tighter for day trading
+  document.getElementById('score-num').textContent = total;
+  var circ = 327; // 2*pi*52
+  var offset = circ - (circ * total / 100);
+  var fg = document.getElementById('ring-fg');
+  fg.style.stroke = scoreColor(total);
+  fg.style.strokeDashoffset = offset;
+
+  // Position size
+  var ps = document.getElementById('pos-size-val');
+  var psSub = document.getElementById('pos-size-sub');
+  ps.textContent = d.position_size;
+  ps.style.color = d.position_size === 'FULL' ? 'var(--green)' : d.position_size === 'REDUCED' ? 'var(--amber)' : 'var(--red)';
+  psSub.textContent = d.position_size === 'FULL' ? 'Press risk' : d.position_size === 'REDUCED' ? 'A+ setups only' : 'Preserve capital';
+
+  // Sub scores
+  var cats = [
+    { key: 'volatility', icon: '~', name: 'VOLATILITY' },
+    { key: 'trend', icon: '/', name: 'TREND' },
+    { key: 'breadth', icon: '#', name: 'BREADTH' },
+    { key: 'momentum', icon: '^', name: 'MOMENTUM' },
+    { key: 'macro', icon: '@', name: 'MACRO' },
+  ];
+  var subEl = document.getElementById('sub-scores');
+  subEl.innerHTML = cats.map(function(c) {
+    var s = d.scores[c.key]?.score ?? 0;
+    var col = scoreColor(s);
+    return '<div class="sub-score">' +
+      '<div class="icon">' + c.icon + '</div>' +
+      '<div class="name">' + c.name + '</div>' +
+      '<div class="val">' + s + '</div>' +
+      '<div class="bar"><div class="bar-fill" style="width:' + s + '%;background:' + col + '"></div></div>' +
+      '</div>';
+  }).join('');
+}
+
+function renderPanels(d) {
+  var cats = [
+    { key: 'volatility', title: 'VOLATILITY', icon: '~' },
+    { key: 'trend', title: 'TREND', icon: '/' },
+    { key: 'breadth', title: 'BREADTH', icon: '#' },
+    { key: 'momentum', title: 'MOMENTUM', icon: '^' },
+    { key: 'macro', title: 'MACRO', icon: '@' },
+  ];
+  var grid = document.getElementById('panels-grid');
+  grid.innerHTML = cats.map(function(c) {
+    var sc = d.scores[c.key] || {};
+    var details = sc.details || {};
+    var rows = Object.keys(details).map(function(k) {
+      var det = details[k];
+      var displayKey = k.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+      if (k === 'pct_above_50d') displayKey = '% > 50d MA';
+      if (k === 'pct_above_200d') displayKey = '% > 200d MA';
+      if (k === 'pct_above_20d') displayKey = '% > 20d MA';
+      if (k === 'nyse_ad') displayKey = 'NYSE A/D';
+      if (k === 'nas_highs_lows') displayKey = 'NAS Highs/Lows';
+      if (k === 'spx_vs_20d') displayKey = 'SPX vs 20d';
+      if (k === 'spx_vs_50d') displayKey = 'SPX vs 50d';
+      if (k === 'spx_vs_200d') displayKey = 'SPX vs 200d';
+      if (k === 'qqq_trend') displayKey = 'QQQ Trend';
+      if (k === 'vix_level') displayKey = 'VIX Level';
+      if (k === 'vix_trend') displayKey = 'VIX Trend';
+      if (k === 'vix_1y_pct') displayKey = 'VIX 1Y %ile';
+      if (k === 'put_call') displayKey = 'Put/Call';
+      if (k === 'yield_10y') displayKey = '10Y Yield';
+      if (k === 'fed_stance') displayKey = 'Fed Stance';
+      if (k === 'sectors_positive') displayKey = 'Sectors +';
+      return '<div class="detail-row"><span class="key">' + displayKey + '</span>' +
+        '<span><span class="val">' + det.value + '</span>' +
+        '<span class="lbl" style="color:' + labelColor(det.label) + '">' + det.label + '</span></span></div>';
+    }).join('');
+    return '<div class="panel"><div class="panel-head"><span class="panel-title" style="color:' + scoreColor(sc.score || 0) + '">' +
+      c.icon + ' ' + c.title + '</span><span class="panel-score" style="color:' + scoreColor(sc.score || 0) + '">' +
+      (sc.score || 0) + '</span></div><div class="panel-body">' + rows + '</div></div>';
+  }).join('');
+}
+
+function renderBottom(d) {
+  var grid = document.getElementById('bottom-grid');
+  var html = '';
+
+  // Execution Window
+  var ex = d.execution || {};
+  var exDetails = ex.details || {};
+  var exRows = Object.keys(exDetails).map(function(k) {
+    var det = exDetails[k];
+    var displayKey = k.replace(/_/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+    if (k === 'breakouts_working') displayKey = 'Breakouts working?';
+    if (k === 'leaders_holding') displayKey = 'Leaders holding?';
+    if (k === 'pullbacks_bought') displayKey = 'Pullbacks bought?';
+    if (k === 'follow_through') displayKey = 'Follow-through?';
+    return '<div class="detail-row"><span class="key">' + displayKey + '</span>' +
+      '<span><span class="val">' + det.value + '</span>' +
+      '<span class="lbl" style="color:' + labelColor(det.label) + '">' + det.label + '</span></span></div>';
+  }).join('');
+  html += '<div class="panel"><div class="panel-head"><span class="panel-title" style="color:' + scoreColor(ex.score || 0) + '">EXECUTION WINDOW</span>' +
+    '<span class="panel-score" style="color:' + scoreColor(ex.score || 0) + '">' + (ex.score || 0) + '</span></div>' +
+    '<div class="panel-body">' + exRows + '</div></div>';
+
+  // Sector Performance
+  var sectors = d.sectors || [];
+  var maxChg = Math.max.apply(null, sectors.map(function(s) { return Math.abs(s.change); }).concat([1]));
+  var sectorRows = sectors.map(function(s) {
+    var w = Math.abs(s.change) / maxChg * 100;
+    var col = s.change >= 0 ? 'var(--green)' : 'var(--red)';
+    var sign = s.change >= 0 ? '+' : '';
+    return '<div class="sector-row"><span class="sector-name">' + s.name + '</span>' +
+      '<div class="sector-bar-wrap"><div class="sector-bar" style="width:' + w + '%;background:' + col + '"></div></div>' +
+      '<span class="sector-chg" style="color:' + col + '">' + sign + s.change.toFixed(2) + '%</span></div>';
+  }).join('');
+  html += '<div class="panel"><div class="panel-head"><span class="panel-title" style="color:var(--cyan)"># SECTOR PERFORMANCE</span></div>' +
+    '<div class="panel-body">' + sectorRows + '</div></div>';
+
+  // Scoring Weights
+  var weights = d.weights || {};
+  var cats = ['volatility','momentum','trend','breadth','macro'];
+  var weightRows = cats.map(function(k) {
+    var sc = d.scores[k]?.score || 0;
+    var w = weights[k] || 0;
+    var col = scoreColor(sc);
+    return '<div class="weight-row"><span class="weight-name">' + k.charAt(0).toUpperCase() + k.slice(1) + '</span>' +
+      '<div class="weight-bar-wrap"><div class="weight-bar" style="width:' + sc + '%;background:' + col + '"></div></div>' +
+      '<span class="weight-val" style="color:' + col + '">' + sc + ' <span style="color:var(--muted);font-size:9px">x' + w + '%</span></span></div>';
+  }).join('');
+  var totalCol = scoreColor(d.total);
+  weightRows += '<div class="total-row"><span class="total-label">TOTAL SCORE</span><span class="total-value" style="color:' + totalCol + '">' + d.total + '/100</span></div>';
+  weightRows += '<div class="legend">' +
+    '<span class="dot" style="background:var(--green)"></span>80-100: YES (press risk) ' +
+    '<span class="dot" style="background:var(--amber);margin-left:8px"></span>60-79: CAUTION (selective) ' +
+    '<span class="dot" style="background:var(--red);margin-left:8px"></span>&lt;60: NO (preserve capital)</div>';
+  html += '<div class="panel"><div class="panel-head"><span class="panel-title" style="color:var(--cyan)">SCORING WEIGHTS</span></div>' +
+    '<div class="panel-body">' + weightRows + '</div></div>';
+
+  grid.innerHTML = html;
+}
+
+function renderAlert(d) {
+  var banner = document.getElementById('alert-banner');
+  var fomc = d.scores?.macro?.details?.fomc;
+  if (fomc && (fomc.label === 'Event risk!' || fomc.label === 'Caution')) {
+    banner.innerHTML = '&#9888; FOMC DECISION ' + fomc.value.toUpperCase() + '. Event risk elevated — consider reducing exposure.';
+    banner.className = 'alert-banner visible';
+  } else {
+    banner.className = 'alert-banner';
+  }
+}
+
+function render(d) {
+  _data = d;
+  renderTape(d.tape || []);
+  renderHero(d);
+  renderPanels(d);
+  renderBottom(d);
+  renderAlert(d);
+  document.getElementById('analysis-body').innerHTML = (d.analysis || '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  document.getElementById('analysis-time').textContent = 'Updated ' + new Date(d.timestamp).toLocaleString();
+}
+
+function updateAgo() {
+  if (!_lastFetch) return;
+  var s = Math.round((Date.now() - _lastFetch) / 1000);
+  document.getElementById('updated-ago').textContent = s + 's ago';
+}
+
+function refresh() {
+  document.body.classList.add('loading');
+  fetch('/api/market-quality')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        _lastFetch = Date.now();
+        render(d);
+      } else {
+        document.getElementById('analysis-body').textContent = 'Error: ' + (d.error || 'Unknown');
+      }
+      document.body.classList.remove('loading');
+    })
+    .catch(function(err) {
+      document.getElementById('analysis-body').textContent = 'Fetch error: ' + err;
+      document.body.classList.remove('loading');
+    });
+}
+
+// Initial load
+refresh();
+// Auto-refresh every 45s
+_refreshTimer = setInterval(refresh, 45000);
+// Update "ago" counter
+setInterval(updateAgo, 1000);
+</script>
+</body>
+</html>
