@@ -45,7 +45,23 @@ export default async function handler(req, res) {
       }
 
       if (req.method === "POST") {
-        const { ticker, decision, summary, scanNumber, filters, score, chg, rvol, theme, tabs } = req.body || {};
+        const body = req.body || {};
+
+        // If posting scan alert (full scan output markdown)
+        if (body.scanAlert !== undefined) {
+          const existing = await redisCmd("GET", SCAN_KEY);
+          const data = existing.result ? JSON.parse(existing.result) : { date: null, tickers: [], scans: [] };
+          const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+          if (data.date !== today) { data.date = today; data.tickers = []; data.scans = []; }
+          data.scanAlert = body.scanAlert;
+          data.scanNumber = body.scanNumber || data.scanNumber || 0;
+          data.updated = new Date().toISOString();
+          await redisCmd("SET", SCAN_KEY, JSON.stringify(data));
+          return res.status(200).json({ ok: true });
+        }
+
+        // Posting a deep dive ticker
+        const { ticker, decision, summary, scanNumber, filters, score, chg, rvol, theme, tabs } = body;
         if (!ticker || !decision) {
           return res.status(400).json({ ok: false, error: "ticker and decision required" });
         }

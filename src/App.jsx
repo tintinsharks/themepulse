@@ -383,15 +383,28 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
     }),
   };
 
+  const scanAlert = data?.scanAlert || "";
+  const hasAnything = scanAlert || scanTickers.length > 0;
+
   return (
     <div style={{ padding: 16, maxHeight: "100%", overflow: "auto" }}>
-      {scanTickers.length === 0 ? (
+      {!hasAnything ? (
         <div style={{ color: "#505060", fontSize: 11, padding: "40px 0", textAlign: "center" }}>
-          No scan deep dives yet today. Run /scan with Early Entry stocks to trigger analysis.
+          No scan results yet today. Run /scan to populate.
         </div>
-      ) : (
-        <TabbedAnalysis data={tabbedData} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
-      )}
+      ) : (<>
+        {/* Scan Alert — full scan output */}
+        {scanAlert && (
+          <div style={{ marginBottom: 20, background: "#14141f", border: "1px solid #222230", borderRadius: 8, padding: "14px 16px" }}>
+            <SimpleMarkdown text={scanAlert} />
+          </div>
+        )}
+        {/* Deep Dive Cards */}
+        {scanTickers.length > 0 && (<>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#22d3ee", marginBottom: 10, marginTop: scanAlert ? 4 : 0 }}>AI DEEP DIVE</div>
+          <TabbedAnalysis data={tabbedData} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
+        </>)}
+      </>)}
     </div>
   );
 }
