@@ -31,6 +31,9 @@
     },
     "api/ohlc.js": {
       "maxDuration": 15
+    },
+    "api/scan-scores.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
