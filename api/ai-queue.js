@@ -1,10 +1,12 @@
-// ── Public read-only endpoint for AI analysis queue ──
-// Cowork reads this to know which tickers to analyze.
-// Write happens via the authenticated userdata API.
+// ── AI Queue + Scan Analysis endpoint ──
+// GET /api/ai-queue             → AI analysis queue (for Cowork)
+// GET /api/ai-queue?scan=1      → Scan deep dive results (for UI)
+// POST /api/ai-queue?scan=1     → Store scan deep dive result (from /scan command)
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const DATA_KEY = "tp_userdata";
+const SCAN_KEY = "tp_scan_analysis";
 
 async function redisCmd(...args) {
   const resp = await fetch(UPSTASH_URL, {
@@ -22,17 +24,74 @@ async function redisCmd(...args) {
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Cache-Control", "no-cache");
-
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   if (!UPSTASH_URL || !UPSTASH_TOKEN) {
     return res.status(500).json({ ok: false, error: "Not configured" });
   }
 
+  const isScan = req.query.scan === "1";
+
   try {
+    // ── Scan Analysis routes ──
+    if (isScan) {
+      if (req.method === "GET") {
+        const result = await redisCmd("GET", SCAN_KEY);
+        const data = result.result ? JSON.parse(result.result) : { date: null, tickers: [], scans: [] };
+        return res.status(200).json({ ok: true, ...data });
+      }
+
+      if (req.method === "POST") {
+        const { ticker, decision, summary, scanNumber, filters, score, chg, rvol, theme } = req.body || {};
+        if (!ticker || !decision) {
+          return res.status(400).json({ ok: false, error: "ticker and decision required" });
+        }
+
+        const existing = await redisCmd("GET", SCAN_KEY);
+        const data = existing.result ? JSON.parse(existing.result) : { date: null, tickers: [], scans: [] };
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+
+        if (data.date !== today) {
+          data.date = today;
+          data.tickers = [];
+          data.scans = [];
+        }
+
+        const now = new Date().toISOString();
+        const entry = {
+          ticker, decision,
+          summary: summary || "",
+          scanNumber: scanNumber || 0,
+          filters: filters || {},
+          score: score || 0,
+          chg: chg || 0,
+          rvol: rvol || 0,
+          theme: theme || "",
+          analyzedAt: now,
+        };
+
+        const idx = data.tickers.findIndex(t => t.ticker === ticker);
+        if (idx >= 0) data.tickers[idx] = entry;
+        else data.tickers.push(entry);
+
+        data.scans.push({ ticker, decision, scanNumber: scanNumber || 0, at: now });
+        data.updated = now;
+
+        await redisCmd("SET", SCAN_KEY, JSON.stringify(data));
+        return res.status(200).json({ ok: true });
+      }
+
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    // ── Default: AI Queue (GET only) ──
+    if (req.method !== "GET") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const result = await redisCmd("GET", DATA_KEY);
     const data = result.result ? JSON.parse(result.result) : {};
     return res.status(200).json({

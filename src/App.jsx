@@ -348,7 +348,7 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
   useEffect(() => {
     const fetchData = () => {
       Promise.all([
-        fetch("/api/scan-analysis").then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch("/api/ai-queue?scan=1").then(r => r.ok ? r.json() : null).catch(() => null),
         fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).catch(() => null),
       ]).then(([scan, ai]) => {
         setData({ scan: scan?.ok ? scan : null, ai: ai?.tickers?.length ? ai : null });
