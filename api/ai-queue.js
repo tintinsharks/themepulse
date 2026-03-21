@@ -85,6 +85,12 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
+      if (req.method === "DELETE") {
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+        await redisCmd("SET", SCAN_KEY, JSON.stringify({ date: today, tickers: [], scans: [], updated: new Date().toISOString() }));
+        return res.status(200).json({ ok: true });
+      }
+
       return res.status(405).json({ error: "Method not allowed" });
     }
 
