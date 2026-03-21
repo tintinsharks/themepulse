@@ -339,17 +339,16 @@ function TabbedAnalysis({ data, SimpleMarkdownComponent, onTickerClick, activeTi
   );
 }
 
-// ── ScanAnalysisView: top-level AI Analysis tab showing deep dive results ──
+// ── ScanAnalysisView: top-level AI Analysis tab — reuses TabbedAnalysis format ──
 function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [expandedTicker, setExpandedTicker] = useState(null);
 
   useEffect(() => {
     const fetchData = () => {
       fetch("/api/ai-queue?scan=1").then(r => r.ok ? r.json() : null).catch(() => null)
         .then(scan => {
-          setData({ scan: scan?.ok ? scan : null });
+          setData(scan?.ok ? scan : null);
           setLoading(false);
         });
     };
@@ -358,85 +357,41 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
     return () => clearInterval(iv);
   }, []);
 
-  const verdictColor = v => v === "BUY" ? "#2bb886" : v === "HOLD" ? "#e6a627" : v === "SELL" ? "#ef4444" : "#686878";
-  const verdictBg = v => v === "BUY" ? "rgba(43,184,134,0.12)" : v === "HOLD" ? "rgba(230,166,39,0.12)" : v === "SELL" ? "rgba(239,68,68,0.12)" : "rgba(80,80,96,0.12)";
-  const verdictIcon = v => v === "BUY" ? " ★" : v === "SELL" ? " ⚠" : "";
-
   if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>Loading AI analysis...</div>;
 
-  const scanTickers = data?.scan?.tickers || [];
-  const hasScan = scanTickers.length > 0;
+  const scanTickers = data?.tickers || [];
+
+  // Transform scan data into TabbedAnalysis format
+  const tabbedData = {
+    content: data?.date ? `## Scan Deep Dive — ${data.date}` : "",
+    tickers: scanTickers.map(t => {
+      const live = liveThemeData?.find(l => l.ticker === t.ticker);
+      return {
+        ticker: t.ticker,
+        company: t.theme || "",
+        change_pct: live?.changePercent ?? t.chg ?? null,
+        grade: t.score > 0 ? `${t.score}/6` : null,
+        verdict: t.decision,
+        tabs: t.tabs || {
+          key_takeaways: t.summary || "No analysis available.",
+          signals: t.tabs?.signals || null,
+          revenue: t.tabs?.revenue || null,
+          thesis: t.tabs?.thesis || null,
+          risks: t.tabs?.risks || null,
+        },
+      };
+    }),
+  };
 
   return (
     <div style={{ padding: 16, maxHeight: "100%", overflow: "auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#d4d4e0", marginBottom: 4 }}>AI Analysis</div>
-        <div style={{ fontSize: 11, color: "#686878" }}>
-          Deep dive results from /scan
-          {data?.scan?.date && <span> — {data.scan.date}</span>}
+      {scanTickers.length === 0 ? (
+        <div style={{ color: "#505060", fontSize: 11, padding: "40px 0", textAlign: "center" }}>
+          No scan deep dives yet today. Run /scan with Early Entry stocks to trigger analysis.
         </div>
-      </div>
-
-      {/* Scan Deep Dive Section */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#22d3ee", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: hasScan ? "#2bb886" : "#3a3a4a", display: "inline-block" }} />
-          Scan Deep Dive
-          {hasScan && <span style={{ fontSize: 10, fontWeight: 400, color: "#686878" }}>({scanTickers.length} ticker{scanTickers.length !== 1 ? "s" : ""})</span>}
-        </div>
-        {!hasScan ? (
-          <div style={{ color: "#505060", fontSize: 11, padding: "20px 0", textAlign: "center", border: "1px solid #222230", borderRadius: 8, background: "#14141f" }}>
-            No scan deep dives yet today. Run /scan with Early Entry stocks to trigger analysis.
-          </div>
-        ) : (
-          scanTickers.map(t => {
-            const isOpen = expandedTicker === `scan-${t.ticker}`;
-            const live = liveThemeData?.find(l => l.ticker === t.ticker);
-            const liveChg = live?.changePercent ?? t.chg;
-            return (
-              <div key={`scan-${t.ticker}`} style={{ marginBottom: 8, border: "1px solid #2a2a3a", borderRadius: 8, background: "#12121e", overflow: "hidden" }}>
-                <div onClick={() => setExpandedTicker(isOpen ? null : `scan-${t.ticker}`)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer",
-                    background: isOpen ? "#1a1a2e" : "#14141f", borderBottom: isOpen ? "1px solid #2a2a3a" : "none" }}>
-                  <span onClick={e => { e.stopPropagation(); onTickerClick?.(t.ticker); }}
-                    style={{ color: t.ticker === activeTicker ? "#fff" : "#22d3ee", fontWeight: 700, fontSize: 14, letterSpacing: 0.5, cursor: "pointer",
-                      textDecoration: "underline", textDecorationColor: "#22d3ee40", textUnderlineOffset: 2 }}>{t.ticker}</span>
-                  {t.theme && <span style={{ color: "#505060", fontSize: 10, flex: 1 }}>{t.theme}</span>}
-                  {!t.theme && <span style={{ flex: 1 }} />}
-                  {t.score > 0 && <span style={{ color: "#9090a0", fontSize: 10, fontWeight: 600 }}>{t.score}/6</span>}
-                  {liveChg != null && <span style={{ color: liveChg >= 0 ? "#2bb886" : "#ef4444", fontSize: 11, fontWeight: 600 }}>{liveChg >= 0 ? "+" : ""}{Number(liveChg).toFixed(1)}%</span>}
-                  {t.rvol > 0 && <span style={{ color: "#686878", fontSize: 10 }}>{Number(t.rvol).toFixed(1)}x</span>}
-                  <span style={{ color: verdictColor(t.decision), background: verdictBg(t.decision), fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, letterSpacing: 0.5 }}>
-                    {t.decision}{verdictIcon(t.decision)}
-                  </span>
-                  <span style={{ color: "#505060", fontSize: 10, transform: isOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>▼</span>
-                </div>
-                {isOpen && (
-                  <div style={{ padding: "12px 14px" }}>
-                    <div style={{ color: "#c8c8d8", fontSize: 12, lineHeight: 1.6 }}>{t.summary}</div>
-                    {t.filters && Object.keys(t.filters).length > 0 && (
-                      <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {Object.entries(t.filters).map(([k, v]) => (
-                          <span key={k} style={{ fontSize: 9, padding: "2px 6px", borderRadius: 3, fontWeight: 600,
-                            background: v ? "rgba(43,184,134,0.15)" : "rgba(239,68,68,0.1)",
-                            color: v ? "#2bb886" : "#ef4444", border: `1px solid ${v ? "#2bb88630" : "#ef444430"}` }}>
-                            {k.toUpperCase()}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div style={{ marginTop: 8, fontSize: 9, color: "#505060" }}>
-                      Scan #{t.scanNumber} — {new Date(t.analyzedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" })} PT
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
-
+      ) : (
+        <TabbedAnalysis data={tabbedData} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
+      )}
     </div>
   );
 }

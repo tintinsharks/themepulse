@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       }
 
       if (req.method === "POST") {
-        const { ticker, decision, summary, scanNumber, filters, score, chg, rvol, theme } = req.body || {};
+        const { ticker, decision, summary, scanNumber, filters, score, chg, rvol, theme, tabs } = req.body || {};
         if (!ticker || !decision) {
           return res.status(400).json({ ok: false, error: "ticker and decision required" });
         }
@@ -70,6 +70,7 @@ export default async function handler(req, res) {
           chg: chg || 0,
           rvol: rvol || 0,
           theme: theme || "",
+          tabs: tabs || {},
           analyzedAt: now,
         };
 
