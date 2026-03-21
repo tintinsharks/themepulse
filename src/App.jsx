@@ -347,13 +347,11 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
 
   useEffect(() => {
     const fetchData = () => {
-      Promise.all([
-        fetch("/api/ai-queue?scan=1").then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch("/data/ai_analysis.json").then(r => r.ok ? r.json() : null).catch(() => null),
-      ]).then(([scan, ai]) => {
-        setData({ scan: scan?.ok ? scan : null, ai: ai?.tickers?.length ? ai : null });
-        setLoading(false);
-      });
+      fetch("/api/ai-queue?scan=1").then(r => r.ok ? r.json() : null).catch(() => null)
+        .then(scan => {
+          setData({ scan: scan?.ok ? scan : null });
+          setLoading(false);
+        });
     };
     fetchData();
     const iv = setInterval(fetchData, 120000);
@@ -367,9 +365,7 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
   if (loading) return <div style={{ color: "#686878", padding: 40, textAlign: "center", fontSize: 12 }}>Loading AI analysis...</div>;
 
   const scanTickers = data?.scan?.tickers || [];
-  const aiTickers = data?.ai?.tickers || [];
   const hasScan = scanTickers.length > 0;
-  const hasAi = aiTickers.length > 0;
 
   return (
     <div style={{ padding: 16, maxHeight: "100%", overflow: "auto" }}>
@@ -377,7 +373,7 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#d4d4e0", marginBottom: 4 }}>AI Analysis</div>
         <div style={{ fontSize: 11, color: "#686878" }}>
-          Deep dive results from /scan + queued AI research
+          Deep dive results from /scan
           {data?.scan?.date && <span> — {data.scan.date}</span>}
         </div>
       </div>
@@ -441,21 +437,6 @@ function ScanAnalysisView({ onTickerClick, activeTicker, stockMap, liveThemeData
         )}
       </div>
 
-      {/* AI Queue Research Section */}
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 8, height: 8, borderRadius: "50%", background: hasAi ? "#a78bfa" : "#3a3a4a", display: "inline-block" }} />
-          AI Research Queue
-          {hasAi && <span style={{ fontSize: 10, fontWeight: 400, color: "#686878" }}>({aiTickers.length} ticker{aiTickers.length !== 1 ? "s" : ""})</span>}
-        </div>
-        {!hasAi ? (
-          <div style={{ color: "#505060", fontSize: 11, padding: "20px 0", textAlign: "center", border: "1px solid #222230", borderRadius: 8, background: "#14141f" }}>
-            No tickers in AI research queue. Add tickers from Scan Watch to analyze.
-          </div>
-        ) : (
-          <TabbedAnalysis data={data.ai} SimpleMarkdownComponent={SimpleMarkdown} onTickerClick={onTickerClick} activeTicker={activeTicker} />
-        )}
-      </div>
     </div>
   );
 }
