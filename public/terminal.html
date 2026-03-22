@@ -292,7 +292,6 @@ a{color:var(--cyan);text-decoration:none}
         <span>THEME</span>
         <span style="text-align:right">AVG 1W</span>
         <span style="text-align:right">% GREEN</span>
-        <span style="text-align:right">STOCKS</span>
       </div>
       <div id="theme-health-left" style="flex:1;overflow-y:auto;max-height:400px"></div>
     </div>
@@ -306,7 +305,6 @@ a{color:var(--cyan);text-decoration:none}
         <span>SUBTHEME</span>
         <span style="text-align:right">AVG 1W</span>
         <span style="text-align:right">% GREEN</span>
-        <span style="text-align:right">STOCKS</span>
       </div>
       <div id="theme-health-right" style="flex:1;overflow-y:auto;max-height:400px"></div>
     </div>
@@ -568,7 +566,6 @@ function renderThemeHealth(d) {
       '<span class="th-theme-name">' + t.theme + '</span>' +
       '<span class="th-val" style="color:' + retCol + '">' + retSign + t.avgReturn1w.toFixed(1) + '%</span>' +
       '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + t.pctGreen + '%;background:' + greenCol + '"></span></span><span class="th-minibar-label" style="color:' + greenCol + '">' + t.pctGreen + '%</span></span>' +
-      '<span class="th-stock-count">' + t.stockCount + '</span>' +
       '</div>';
   }).join('');
 
