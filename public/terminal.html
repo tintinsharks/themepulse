@@ -184,6 +184,19 @@ a{color:var(--cyan);text-decoration:none}
 <!-- Alert banner -->
 <div class="alert-banner" id="alert-banner"></div>
 
+<!-- Session Bias -->
+<div style="padding:10px 16px 0">
+  <div style="font-size:12px;font-weight:800;color:#fff;letter-spacing:1px;margin-bottom:6px">PRE-MARKET BRIEFING</div>
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 14px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:1px;white-space:nowrap">SESSION BIAS</span>
+    <span style="font-size:12px;font-weight:800;letter-spacing:1px;white-space:nowrap" id="session-bias-label">--</span>
+    <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;position:relative">
+      <div id="session-bias-bar" style="height:100%;border-radius:3px;transition:width .6s ease;width:0%"></div>
+    </div>
+    <span style="font-size:11px;font-weight:700;min-width:30px;text-align:right" id="session-bias-pct">0%</span>
+  </div>
+</div>
+
 <!-- Hero -->
 <div class="hero" id="hero">
   <div class="decision-badge">
@@ -359,7 +372,26 @@ function renderTape(tape) {
   }).join('');
 }
 
+function renderSessionBias(d) {
+  var score = d.total || 0;
+  var label, color;
+  if (score >= 70) { label = 'BULLISH'; color = 'var(--green)'; }
+  else if (score >= 55) { label = 'LEAN LONG'; color = 'var(--green)'; }
+  else if (score >= 45) { label = 'NO EDGE'; color = 'var(--muted)'; }
+  else if (score >= 30) { label = 'LEAN SHORT'; color = 'var(--amber)'; }
+  else { label = 'BEARISH'; color = 'var(--red)'; }
+
+  document.getElementById('session-bias-label').textContent = label;
+  document.getElementById('session-bias-label').style.color = color;
+  document.getElementById('session-bias-pct').textContent = score + '%';
+  document.getElementById('session-bias-pct').style.color = color;
+  document.getElementById('session-bias-bar').style.width = score + '%';
+  document.getElementById('session-bias-bar').style.background = color;
+}
+
 function renderHero(d) {
+  renderSessionBias(d);
+
   // Decision badge
   var badge = document.getElementById('decision-badge');
   badge.textContent = d.decision;
