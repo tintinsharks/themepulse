@@ -671,21 +671,38 @@ export default async function handler(req, res) {
       breadthStats: breadth.breadthStats,
       themeHealth,
       quadrant: (() => {
-        const c = monitor?.current || {};
-        const up4 = c.up_4pct || 0, dn4 = c.down_4pct || 0;
-        const r5d = c.ratio_5d || 0;
-        const t = c.t2108 || 0;
-        const up25q = c.up_25q || 0, dn25q = c.down_25q || 0;
-        const up25m = c.up_25m || 0, dn25m = c.down_25m || 0;
-        const date = c.date || monitor?.date || '';
-        // Regime: based on ratio_5d + t2108
+        // Compute live from dashboard_data instead of nightly market_monitor
+        const stocks = dashData?.stocks || [];
+        const total = stocks.length || 1;
+        const date = new Date().toLocaleDateString();
+
+        // 4% movers (live from change_pct)
+        const up4 = stocks.filter(s => (s.change_pct || 0) >= 4).length;
+        const dn4 = stocks.filter(s => (s.change_pct || 0) <= -4).length;
+
+        // T2108: % above 40-day MA (approximate from above_50ma since we don't have 40d)
+        const above40 = stocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length;
+        const t = Math.round(above40 / total * 100 * 10) / 10;
+
+        // 25% quarter movers (from return_3m)
+        const up25q = stocks.filter(s => (s.return_3m || 0) >= 25).length;
+        const dn25q = stocks.filter(s => (s.return_3m || 0) <= -25).length;
+
+        // 25% month movers (from return_1m)
+        const up25m = stocks.filter(s => (s.return_1m || 0) >= 25).length;
+        const dn25m = stocks.filter(s => (s.return_1m || 0) <= -25).length;
+
+        // 5d ratio: use nightly cache if available, else estimate from up4/dn4
+        const r5d = monitor?.current?.ratio_5d || (dn4 > 0 ? Math.round(up4 / dn4 * 100) / 100 : up4 > 0 ? 9.99 : 0);
+
+        // Regime
         let regime, regimeColor;
         if (r5d >= 2 && t >= 50) { regime = "AGGRESSIVE"; regimeColor = "#00d26a"; }
         else if (r5d >= 1 && t >= 40) { regime = "BULLISH"; regimeColor = "#00d26a"; }
         else if (r5d >= 0.5 && t >= 30) { regime = "CAUTIOUS"; regimeColor = "#ffa726"; }
         else { regime = "DEFENSIVE"; regimeColor = "#ff4757"; }
-        // Score out of 4 for regime badge
         const regimeScore = r5d >= 2 ? 4 : r5d >= 1 ? 3 : r5d >= 0.5 ? 2 : 1;
+
         return {
           date, regime, regimeColor, regimeScore,
           gauges: [
