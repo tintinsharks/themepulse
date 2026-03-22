@@ -176,6 +176,14 @@ a{color:var(--cyan);text-decoration:none}
   </div>
 </div>
 
+<!-- Collapsible details section -->
+<div style="padding:0 16px 4px;margin-top:4px">
+  <button id="details-toggle" onclick="toggleDetails()" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:6px 14px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;text-transform:uppercase;letter-spacing:1px;width:100%;text-align:center">
+    ▼ SHOW DETAILS
+  </button>
+</div>
+<div id="details-section" style="display:none">
+
 <!-- Score panels -->
 <div class="grid" id="panels-grid"></div>
 
@@ -191,6 +199,8 @@ a{color:var(--cyan);text-decoration:none}
   <div class="analysis-body" id="analysis-body">Loading...</div>
 </div>
 
+</div><!-- end details-section -->
+
 <!-- Footer -->
 <div class="footer">
   <span>Data: FMP + ThemePulse Pipeline (live) | Auto-refresh: 45s | Not financial advice</span>
@@ -202,6 +212,13 @@ var _mode = 'swing';
 var _data = null;
 var _lastFetch = 0;
 var _refreshTimer = null;
+var _detailsOpen = false;
+
+function toggleDetails() {
+  _detailsOpen = !_detailsOpen;
+  document.getElementById('details-section').style.display = _detailsOpen ? 'block' : 'none';
+  document.getElementById('details-toggle').textContent = _detailsOpen ? '▲ HIDE DETAILS' : '▼ SHOW DETAILS';
+}
 
 function setMode(m) {
   _mode = m;
