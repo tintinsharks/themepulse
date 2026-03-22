@@ -117,6 +117,20 @@ a{color:var(--cyan);text-decoration:none}
 /* Footer */
 .footer{padding:12px 16px;font-size:9px;color:var(--muted);display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:8px}
 
+/* Breadth stat cards */
+.breadth-row{display:flex;gap:8px;padding:4px 16px;flex-wrap:wrap}
+.breadth-card{flex:1;min-width:160px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;position:relative;overflow:hidden}
+.breadth-card .bc-title{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.breadth-card .bc-values{display:flex;justify-content:space-between;align-items:baseline}
+.breadth-card .bc-left{text-align:left}
+.breadth-card .bc-right{text-align:right}
+.breadth-card .bc-num{font-size:18px;font-weight:800}
+.breadth-card .bc-count{font-size:9px;font-weight:600;margin-top:1px}
+.breadth-card .bc-label{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.breadth-card .bc-bar{display:flex;height:3px;border-radius:2px;overflow:hidden;margin-top:6px;background:var(--border)}
+.breadth-card .bc-bar-green{height:100%;background:var(--green);transition:width .5s ease}
+.breadth-card .bc-bar-red{height:100%;background:var(--red);transition:width .5s ease}
+
 /* Loading */
 .loading{opacity:.4;pointer-events:none}
 .skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px;height:14px;margin:4px 0}
@@ -173,6 +187,42 @@ a{color:var(--cyan);text-decoration:none}
     <div class="label">POSITION SIZE</div>
     <div class="val" id="pos-size-val">--</div>
     <div class="sub" id="pos-size-sub"></div>
+  </div>
+</div>
+
+<!-- Breadth stat cards -->
+<div class="breadth-row" id="breadth-row">
+  <div class="breadth-card" id="bc-adv-dec">
+    <div class="bc-title">ADVANCING / DECLINING</div>
+    <div class="bc-values">
+      <div class="bc-left"><div class="bc-num" style="color:var(--green)" id="bc-adv-pct">--</div><div class="bc-count" style="color:var(--green)" id="bc-adv-count">--</div><div class="bc-label">Advancing</div></div>
+      <div class="bc-right"><div class="bc-num" style="color:var(--red)" id="bc-dec-pct">--</div><div class="bc-count" style="color:var(--red)" id="bc-dec-count">--</div><div class="bc-label">Declining</div></div>
+    </div>
+    <div class="bc-bar"><div class="bc-bar-green" id="bc-adv-bar"></div><div class="bc-bar-red" id="bc-dec-bar"></div></div>
+  </div>
+  <div class="breadth-card" id="bc-nh-nl">
+    <div class="bc-title">NEW HIGH / NEW LOW</div>
+    <div class="bc-values">
+      <div class="bc-left"><div class="bc-num" style="color:var(--green)" id="bc-nh-pct">--</div><div class="bc-count" style="color:var(--green)" id="bc-nh-count">--</div><div class="bc-label">New High</div></div>
+      <div class="bc-right"><div class="bc-num" style="color:var(--red)" id="bc-nl-pct">--</div><div class="bc-count" style="color:var(--red)" id="bc-nl-count">--</div><div class="bc-label">New Low</div></div>
+    </div>
+    <div class="bc-bar"><div class="bc-bar-green" id="bc-nh-bar"></div><div class="bc-bar-red" id="bc-nl-bar"></div></div>
+  </div>
+  <div class="breadth-card" id="bc-sma50">
+    <div class="bc-title">ABOVE / BELOW SMA50</div>
+    <div class="bc-values">
+      <div class="bc-left"><div class="bc-num" style="color:var(--green)" id="bc-50a-pct">--</div><div class="bc-count" style="color:var(--green)" id="bc-50a-count">--</div><div class="bc-label">Above</div></div>
+      <div class="bc-right"><div class="bc-num" style="color:var(--red)" id="bc-50b-pct">--</div><div class="bc-count" style="color:var(--red)" id="bc-50b-count">--</div><div class="bc-label">Below</div></div>
+    </div>
+    <div class="bc-bar"><div class="bc-bar-green" id="bc-50a-bar"></div><div class="bc-bar-red" id="bc-50b-bar"></div></div>
+  </div>
+  <div class="breadth-card" id="bc-sma200">
+    <div class="bc-title">ABOVE / BELOW SMA200</div>
+    <div class="bc-values">
+      <div class="bc-left"><div class="bc-num" style="color:var(--green)" id="bc-200a-pct">--</div><div class="bc-count" style="color:var(--green)" id="bc-200a-count">--</div><div class="bc-label">Above</div></div>
+      <div class="bc-right"><div class="bc-num" style="color:var(--red)" id="bc-200b-pct">--</div><div class="bc-count" style="color:var(--red)" id="bc-200b-count">--</div><div class="bc-label">Below</div></div>
+    </div>
+    <div class="bc-bar"><div class="bc-bar-green" id="bc-200a-bar"></div><div class="bc-bar-red" id="bc-200b-bar"></div></div>
   </div>
 </div>
 
@@ -408,10 +458,46 @@ function renderAlert(d) {
   }
 }
 
+function renderBreadth(d) {
+  var b = d.breadthStats;
+  if (!b) return;
+  // Advancing / Declining
+  document.getElementById('bc-adv-pct').textContent = b.advancing.pct + '%';
+  document.getElementById('bc-adv-count').textContent = b.advancing.count;
+  document.getElementById('bc-dec-pct').textContent = b.declining.pct + '%';
+  document.getElementById('bc-dec-count').textContent = b.declining.count;
+  document.getElementById('bc-adv-bar').style.width = b.advancing.pct + '%';
+  document.getElementById('bc-dec-bar').style.width = b.declining.pct + '%';
+  // New High / New Low
+  var nhTotal = b.newHigh.pct + b.newLow.pct;
+  var nhBarPct = nhTotal > 0 ? Math.round(b.newHigh.pct / nhTotal * 100) : 50;
+  document.getElementById('bc-nh-pct').textContent = b.newHigh.pct + '%';
+  document.getElementById('bc-nh-count').textContent = b.newHigh.count;
+  document.getElementById('bc-nl-pct').textContent = b.newLow.pct + '%';
+  document.getElementById('bc-nl-count').textContent = b.newLow.count;
+  document.getElementById('bc-nh-bar').style.width = nhBarPct + '%';
+  document.getElementById('bc-nl-bar').style.width = (100 - nhBarPct) + '%';
+  // SMA50
+  document.getElementById('bc-50a-pct').textContent = b.sma50Above.pct + '%';
+  document.getElementById('bc-50a-count').textContent = b.sma50Above.count;
+  document.getElementById('bc-50b-pct').textContent = b.sma50Below.pct + '%';
+  document.getElementById('bc-50b-count').textContent = b.sma50Below.count;
+  document.getElementById('bc-50a-bar').style.width = b.sma50Above.pct + '%';
+  document.getElementById('bc-50b-bar').style.width = b.sma50Below.pct + '%';
+  // SMA200
+  document.getElementById('bc-200a-pct').textContent = b.sma200Above.pct + '%';
+  document.getElementById('bc-200a-count').textContent = b.sma200Above.count;
+  document.getElementById('bc-200b-pct').textContent = b.sma200Below.pct + '%';
+  document.getElementById('bc-200b-count').textContent = b.sma200Below.count;
+  document.getElementById('bc-200a-bar').style.width = b.sma200Above.pct + '%';
+  document.getElementById('bc-200b-bar').style.width = b.sma200Below.pct + '%';
+}
+
 function render(d) {
   _data = d;
   renderTape(d.tape || []);
   renderHero(d);
+  renderBreadth(d);
   renderPanels(d);
   renderBottom(d);
   renderAlert(d);

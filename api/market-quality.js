@@ -152,12 +152,19 @@ function scoreBreadth(monitor, dashData) {
 
   // Compute breadth from dashboard_data if available
   let pctAbove50 = 50, pctAbove200 = 50, pctAbove20 = 50;
+  let above50Count = 0, above200Count = 0, advCount = 0, decCount = 0, nhCount = 0, nlCount = 0, total = 0;
   if (dashData?.stocks?.length > 0) {
     const stocks = dashData.stocks;
-    const total = stocks.length;
-    pctAbove50 = Math.round(stocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length / total * 100);
-    pctAbove200 = Math.round(stocks.filter(s => s.above_200ma === 1 || s.sma200_above === 1).length / total * 100);
+    total = stocks.length;
+    above50Count = stocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length;
+    above200Count = stocks.filter(s => s.above_200ma === 1 || s.sma200_above === 1).length;
+    pctAbove50 = Math.round(above50Count / total * 100);
+    pctAbove200 = Math.round(above200Count / total * 100);
     pctAbove20 = Math.round(stocks.filter(s => s.sma20_above === 1).length / total * 100);
+    advCount = stocks.filter(s => (s.change_pct || 0) > 0).length;
+    decCount = total - advCount;
+    nhCount = stocks.filter(s => (s.pct_from_high || -999) >= -1).length;
+    nlCount = stocks.filter(s => (s.pct_from_high || 0) <= -50).length;
   }
 
   // % above 50d MA (strongest signal)
@@ -190,7 +197,23 @@ function scoreBreadth(monitor, dashData) {
   details.nas_highs_lows = { value: `${hlRatio}:1`, label: hlLabel };
   score += pct(up4 / Math.max(down4, 1), 0.3, 3) * 0.05;
 
-  return { score: clamp(Math.round(score)), details };
+  const advPct = total > 0 ? Math.round(advCount / total * 100) : 50;
+  const decPct = total > 0 ? 100 - advPct : 50;
+  const nhPct = total > 0 ? Math.round(nhCount / total * 100) : 0;
+  const nlPct = total > 0 ? Math.round(nlCount / total * 100) : 0;
+
+  const breadthStats = {
+    advancing: { pct: advPct, count: advCount },
+    declining: { pct: decPct, count: decCount },
+    newHigh: { pct: nhPct, count: nhCount },
+    newLow: { pct: nlPct, count: nlCount },
+    sma50Above: { pct: pctAbove50, count: above50Count },
+    sma50Below: { pct: 100 - pctAbove50, count: total - above50Count },
+    sma200Above: { pct: pctAbove200, count: above200Count },
+    sma200Below: { pct: 100 - pctAbove200, count: total - above200Count },
+  };
+
+  return { score: clamp(Math.round(score)), details, breadthStats };
 }
 
 function scoreMomentum(sectorQuotes) {
@@ -481,6 +504,7 @@ export default async function handler(req, res) {
       tape,
       sectors: momentum.sectors,
       weights: { volatility: 25, momentum: 25, trend: 20, breadth: 20, macro: 10 },
+      breadthStats: breadth.breadthStats,
     });
 
   } catch (err) {
