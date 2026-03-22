@@ -627,6 +627,15 @@ export default async function handler(req, res) {
 
     const briefing = briefingLines.join("\n");
 
+    // Enrich analysis with theme + gold star context
+    let enrichedAnalysis = analysis;
+    if (themeHealth.length > 0) {
+      const top3 = themeHealth.slice(0, 3).map(t => `${t.theme} (${t.score})`).join(", ");
+      enrichedAnalysis += ` Hottest themes: ${top3}.`;
+    }
+    const goldLine = briefingLines.find(l => l.startsWith("★"));
+    if (goldLine) enrichedAnalysis += ` ${goldLine}.`;
+
     // Build EP/SIP candidates for the day
     const ahSip = dashData?.ah_sip_movers || dashData?.ah_top_movers || [];
     const pmSip = dashData?.pm_sip_movers || dashData?.pm_top_movers || [];
@@ -742,7 +751,7 @@ export default async function handler(req, res) {
       position_size: positionSize,
       scores,
       execution,
-      analysis,
+      analysis: enrichedAnalysis,
       briefing,
       tape,
       sectors: momentum.sectors,
