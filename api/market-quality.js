@@ -692,23 +692,24 @@ export default async function handler(req, res) {
         const up25m = stocks.filter(s => (s.return_1m || 0) >= 25).length;
         const dn25m = stocks.filter(s => (s.return_1m || 0) <= -25).length;
 
-        // 5d ratio: use nightly cache if available, else estimate from up4/dn4
-        const r5d = monitor?.current?.ratio_5d || (dn4 > 0 ? Math.round(up4 / dn4 * 100) / 100 : up4 > 0 ? 9.99 : 0);
+        // 5d ratio: must come from market_monitor history (requires 5 days of data)
+        const r5d = monitor?.current?.ratio_5d ?? null;
 
-        // Regime
+        // Regime (use r5d if available, else fall back to t2108 + breadth only)
+        const r5dVal = r5d ?? 0;
         let regime, regimeColor;
-        if (r5d >= 2 && t >= 50) { regime = "AGGRESSIVE"; regimeColor = "#00d26a"; }
-        else if (r5d >= 1 && t >= 40) { regime = "BULLISH"; regimeColor = "#00d26a"; }
-        else if (r5d >= 0.5 && t >= 30) { regime = "CAUTIOUS"; regimeColor = "#ffa726"; }
+        if (r5dVal >= 2 && t >= 50) { regime = "AGGRESSIVE"; regimeColor = "#00d26a"; }
+        else if (r5dVal >= 1 && t >= 40) { regime = "BULLISH"; regimeColor = "#00d26a"; }
+        else if (r5dVal >= 0.5 && t >= 30) { regime = "CAUTIOUS"; regimeColor = "#ffa726"; }
         else { regime = "DEFENSIVE"; regimeColor = "#ff4757"; }
-        const regimeScore = r5d >= 2 ? 4 : r5d >= 1 ? 3 : r5d >= 0.5 ? 2 : 1;
+        const regimeScore = r5dVal >= 2 ? 4 : r5dVal >= 1 ? 3 : r5dVal >= 0.5 ? 2 : 1;
 
         return {
           date, regime, regimeColor, regimeScore,
           gauges: [
             { label: "4% Up", value: up4, color: up4 >= 200 ? "#00d26a" : up4 >= 100 ? "#ffa726" : "#ff4757" },
             { label: "4% Dn", value: dn4, color: dn4 <= 100 ? "#00d26a" : dn4 <= 200 ? "#ffa726" : "#ff4757" },
-            { label: "5d Ratio", value: r5d, color: r5d >= 1.5 ? "#00d26a" : r5d >= 0.5 ? "#ffa726" : "#ff4757" },
+            { label: "5d Ratio", value: r5d !== null ? r5dVal : "N/A", color: r5dVal >= 1.5 ? "#00d26a" : r5dVal >= 0.5 ? "#ffa726" : "#ff4757" },
             { label: "T2108", value: t + "%", color: t >= 50 ? "#00d26a" : t >= 30 ? "#ffa726" : "#ff4757" },
             { label: "25%Q↑", value: up25q, color: up25q >= 300 ? "#00d26a" : up25q >= 100 ? "#ffa726" : "#ff4757" },
             { label: "25%Q↓", value: dn25q, color: dn25q <= 200 ? "#00d26a" : dn25q <= 400 ? "#ffa726" : "#ff4757" },
