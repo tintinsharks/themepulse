@@ -2624,20 +2624,10 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
           background: scanTab === "scan" ? "#121218" : "transparent", color: scanTab === "scan" ? "#2bb886" : "#686878" }}>
           Scan Watch <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "scan" ? "#4aad8c" : "#505060" }}>{candidates.length}</span>
         </button>
-        <button onClick={() => setScanTab("burst")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
-          border: scanTab === "burst" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "burst" ? "1px solid #121218" : "1px solid #3a3a4a",
-          background: scanTab === "burst" ? "#121218" : "transparent", color: scanTab === "burst" ? "#f59e0b" : "#686878" }}>
-          ⚡ Momentum Burst <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "burst" ? "#f59e0b" : "#505060" }}>{burstStocks.length}</span>
-        </button>
         <button onClick={() => setScanTab("short")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
           border: scanTab === "short" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "short" ? "1px solid #121218" : "1px solid #3a3a4a",
           background: scanTab === "short" ? "#121218" : "transparent", color: scanTab === "short" ? "#f87171" : "#686878" }}>
-          Short Scan <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "short" ? "#f87171" : "#505060" }}>{shortCandidates.length}</span>
-        </button>
-        <button onClick={() => setScanTab("gapper")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
-          border: scanTab === "gapper" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "gapper" ? "1px solid #121218" : "1px solid #3a3a4a",
-          background: scanTab === "gapper" ? "#121218" : "transparent", color: scanTab === "gapper" ? "#f59e0b" : "#686878" }}>
-          Gappers <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "gapper" ? "#f59e0b" : "#505060" }}>{gapperCandidates.length}</span>
+          Shorts <span style={{ fontSize: 10, fontWeight: 400, color: scanTab === "short" ? "#f87171" : "#505060" }}>{shortCandidates.length}</span>
         </button>
         <button onClick={() => setScanTab("research")} style={{ padding: "4px 12px", borderRadius: "4px 4px 0 0", fontSize: 11, fontWeight: 700, cursor: "pointer",
           border: scanTab === "research" ? "1px solid #3a3a4a" : "1px solid transparent", borderBottom: scanTab === "research" ? "1px solid #121218" : "1px solid #3a3a4a",
@@ -2843,15 +2833,11 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Presets:</span>
         {[
           ["⚡ Power", { mcap: "mid", vol: 5000000, scanTags: ["QM", "VCS", "NoBio"], greenOnly: true, minRVol: 1.2, minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["21EMA", { mcap: "mid", vol: 1000000, scanTags: ["TB", "PP"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["★ Gold", { mcap: "mid", vol: 1000000, minRet1w: 5, minAdr: 3.5, maxAdr: 10, noBio: true, greenOnly: true }],
           ["4% Bull", { mcap: "mid", vol: 1000000, minRVol: 1, minChg: 4, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["Vol Up", { mcap: "mid", vol: 1000000, minRVol: 1.5, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["Mom 97", { vol: 1000000, minRS: 85, scanTags: ["TB"], minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["97 Club", { mcap: "mid", vol: 1000000, minRS: 90, scanTags: ["TB"], minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["VCS", { mcap: "mid", vol: 1000000, scanTags: ["VCS"], minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["PP", { mcap: "mid", vol: 1000000, scanTags: ["PP"], greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["PP Count", { mcap: "mid", vol: 1000000, scanTags: ["PP", "TB"], minAdr: 3.5, maxAdr: 10, noBio: true }],
-          ["Wk 20%+", { mcap: "mid", vol: 1000000, minRet1w: 20, minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["MB", { mcap: "mid", vol: 1000000, minRVol: 1.5, minChg: 3, greenOnly: true, scanTags: ["NoBio"], minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["9M Lava", { vol: 8900000, minAdr: 2.5, noBio: true }],
+          ["All", {}],
         ].map(([name, config]) => (
           <button key={name} onClick={() => {
             const tags = new Set(config.scanTags || []);
