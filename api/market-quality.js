@@ -456,6 +456,50 @@ export default async function handler(req, res) {
     const scores = { volatility, trend, breadth, momentum, macro, execution };
     const analysis = generateAnalysis(total, scores, decision);
 
+    // Build themeHealth
+    const themeHealth = [];
+    if (dashData?.themes?.length > 0 && dashData?.stocks?.length > 0) {
+      const stockMap = {};
+      dashData.stocks.forEach(s => { stockMap[s.ticker] = s; });
+      dashData.themes.slice(0, 40).forEach(theme => {
+        // Collect all tickers for this theme across subthemes
+        const allTickers = [];
+        (theme.subthemes || []).forEach(sub => {
+          (sub.tickers || []).forEach(tk => { if (!allTickers.includes(tk)) allTickers.push(tk); });
+        });
+        const stocks = allTickers.map(tk => stockMap[tk]).filter(Boolean);
+        if (stocks.length === 0) return;
+        const greenCount = stocks.filter(s => (s.change_pct || 0) > 0).length;
+        const avgReturn1w = stocks.reduce((sum, s) => sum + (s.return_1w || 0), 0) / stocks.length;
+        const avgReturn1m = stocks.reduce((sum, s) => sum + (s.return_1m || 0), 0) / stocks.length;
+
+        const subthemes = (theme.subthemes || []).map(sub => {
+          const subStocks = (sub.tickers || []).map(tk => stockMap[tk]).filter(Boolean);
+          if (subStocks.length === 0) return null;
+          const subGreen = subStocks.filter(s => (s.change_pct || 0) > 0).length;
+          const subAvg1w = subStocks.reduce((sum, s) => sum + (s.return_1w || 0), 0) / subStocks.length;
+          return {
+            name: sub.name,
+            stockCount: subStocks.length,
+            pctGreen: Math.round(subGreen / subStocks.length * 100),
+            avgReturn1w: Math.round(subAvg1w * 100) / 100,
+          };
+        }).filter(Boolean);
+
+        themeHealth.push({
+          theme: theme.theme,
+          stockCount: stocks.length,
+          pctGreen: Math.round(greenCount / stocks.length * 100),
+          avgReturn1w: Math.round(avgReturn1w * 100) / 100,
+          avgReturn1m: Math.round(avgReturn1m * 100) / 100,
+          breadth: theme.breadth || 0,
+          subthemes,
+        });
+      });
+      themeHealth.sort((a, b) => b.avgReturn1w - a.avgReturn1w);
+      themeHealth.splice(20); // limit to top 20
+    }
+
     // Build ticker tape
     const tape = [...INDEX_TICKERS, ...SECTOR_ETFS].map(tk => {
       const q = quotes[tk];
@@ -505,6 +549,7 @@ export default async function handler(req, res) {
       sectors: momentum.sectors,
       weights: { volatility: 25, momentum: 25, trend: 20, breadth: 20, macro: 10 },
       breadthStats: breadth.breadthStats,
+      themeHealth,
     });
 
   } catch (err) {

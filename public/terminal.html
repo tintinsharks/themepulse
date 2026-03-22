@@ -131,6 +131,28 @@ a{color:var(--cyan);text-decoration:none}
 .breadth-card .bc-bar-green{height:100%;background:var(--green);transition:width .5s ease}
 .breadth-card .bc-bar-red{height:100%;background:var(--red);transition:width .5s ease}
 
+/* Theme Health */
+.theme-health-section{margin:24px 16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.theme-health-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)}
+.theme-health-header .th-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--cyan)}
+.theme-health-header .th-sub{font-size:9px;color:var(--muted)}
+.th-col-headers{display:grid;grid-template-columns:1fr 72px 80px 80px 50px;gap:4px;padding:6px 14px;font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+.th-row{display:grid;grid-template-columns:1fr 72px 80px 80px 50px;gap:4px;padding:5px 14px;font-size:10px;cursor:pointer;border-bottom:1px solid rgba(30,34,48,.5);transition:background .15s}
+.th-row:hover{background:var(--bg3)}
+.th-row.expanded{background:var(--bg3)}
+.th-theme-name{font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.th-theme-name .th-arrow{font-size:8px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.th-theme-name .th-arrow.open{transform:rotate(90deg)}
+.th-val{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.th-minibar{display:flex;align-items:center;gap:4px}
+.th-minibar-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.th-minibar-fill{height:100%;border-radius:2px;transition:width .4s ease}
+.th-minibar-label{font-size:9px;font-weight:600;min-width:28px;text-align:right}
+.th-stock-count{text-align:right;color:var(--muted);font-size:9px}
+.th-sub-rows{overflow:hidden;transition:max-height .3s ease}
+.th-sub-row{display:grid;grid-template-columns:1fr 72px 80px 80px 50px;gap:4px;padding:3px 14px 3px 34px;font-size:9px;border-bottom:1px solid rgba(30,34,48,.3);color:var(--text)}
+.th-sub-row .th-theme-name{font-weight:500;color:var(--text)}
+
 /* Loading */
 .loading{opacity:.4;pointer-events:none}
 .skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px;height:14px;margin:4px 0}
@@ -256,6 +278,42 @@ a{color:var(--cyan);text-decoration:none}
   <span>Data: FMP + ThemePulse Pipeline (live) | Auto-refresh: 45s | Not financial advice</span>
   <span>Built with ThemePulse</span>
 </div>
+
+<!-- Theme Health Section -->
+<div class="theme-health-section" id="theme-health-section" style="display:none">
+  <div style="display:flex;gap:8px;min-height:300px">
+    <!-- Left: Themes -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div class="theme-health-header">
+        <span class="th-title">THEMES</span>
+        <span class="th-sub">by 1-week return</span>
+      </div>
+      <div class="th-col-headers">
+        <span>THEME</span>
+        <span style="text-align:right">AVG 1W</span>
+        <span style="text-align:right">% GREEN</span>
+        <span style="text-align:right">STOCKS</span>
+      </div>
+      <div id="theme-health-left" style="flex:1;overflow-y:auto;max-height:400px"></div>
+    </div>
+    <!-- Right: Subthemes -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div class="theme-health-header">
+        <span class="th-title">SUBTHEMES</span>
+        <span class="th-sub">by 1-week return</span>
+      </div>
+      <div class="th-col-headers">
+        <span>SUBTHEME</span>
+        <span style="text-align:right">AVG 1W</span>
+        <span style="text-align:right">% GREEN</span>
+        <span style="text-align:right">STOCKS</span>
+      </div>
+      <div id="theme-health-right" style="flex:1;overflow-y:auto;max-height:400px"></div>
+    </div>
+  </div>
+</div>
+
+<div style="height:16px"></div>
 
 <script>
 var _mode = 'swing';
@@ -493,6 +551,49 @@ function renderBreadth(d) {
   document.getElementById('bc-200b-bar').style.width = b.sma200Below.pct + '%';
 }
 
+function renderThemeHealth(d) {
+  var themes = d.themeHealth || [];
+  var section = document.getElementById('theme-health-section');
+  var leftBody = document.getElementById('theme-health-left');
+  var rightBody = document.getElementById('theme-health-right');
+  if (!themes.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  // Left column: Themes
+  leftBody.innerHTML = themes.map(function(t) {
+    var retCol = t.avgReturn1w >= 0 ? 'var(--green)' : 'var(--red)';
+    var retSign = t.avgReturn1w >= 0 ? '+' : '';
+    var greenCol = t.pctGreen >= 60 ? 'var(--green)' : t.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
+    return '<div class="th-row">' +
+      '<span class="th-theme-name">' + t.theme + '</span>' +
+      '<span class="th-val" style="color:' + retCol + '">' + retSign + t.avgReturn1w.toFixed(1) + '%</span>' +
+      '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + t.pctGreen + '%;background:' + greenCol + '"></span></span><span class="th-minibar-label" style="color:' + greenCol + '">' + t.pctGreen + '%</span></span>' +
+      '<span class="th-stock-count">' + t.stockCount + '</span>' +
+      '</div>';
+  }).join('');
+
+  // Right column: All subthemes flattened and sorted
+  var allSubs = [];
+  themes.forEach(function(t) {
+    (t.subthemes || []).forEach(function(sub) {
+      if (sub.stockCount >= 2) allSubs.push(sub);
+    });
+  });
+  allSubs.sort(function(a, b) { return b.avgReturn1w - a.avgReturn1w; });
+
+  rightBody.innerHTML = allSubs.slice(0, 40).map(function(sub) {
+    var sRetCol = sub.avgReturn1w >= 0 ? 'var(--green)' : 'var(--red)';
+    var sSign = sub.avgReturn1w >= 0 ? '+' : '';
+    var sGreenCol = sub.pctGreen >= 60 ? 'var(--green)' : sub.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
+    return '<div class="th-row">' +
+      '<span class="th-theme-name">' + sub.name + '</span>' +
+      '<span class="th-val" style="color:' + sRetCol + '">' + sSign + sub.avgReturn1w.toFixed(1) + '%</span>' +
+      '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + sub.pctGreen + '%;background:' + sGreenCol + '"></span></span><span class="th-minibar-label" style="color:' + sGreenCol + '">' + sub.pctGreen + '%</span></span>' +
+      '<span class="th-stock-count">' + sub.stockCount + '</span>' +
+      '</div>';
+  }).join('');
+}
+
 function render(d) {
   _data = d;
   renderTape(d.tape || []);
@@ -501,6 +602,7 @@ function render(d) {
   renderPanels(d);
   renderBottom(d);
   renderAlert(d);
+  renderThemeHealth(d);
   document.getElementById('analysis-body').innerHTML = (d.analysis || '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   document.getElementById('analysis-time').textContent = 'Updated ' + new Date(d.timestamp).toLocaleString();
 }
