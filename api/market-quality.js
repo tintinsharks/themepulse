@@ -567,6 +567,51 @@ export default async function handler(req, res) {
       });
     }
 
+    // Build pre-market briefing text
+    const briefingLines = [];
+    // Critical warnings
+    if (total < 40) briefingLines.push(`⚠️ TERMINAL SAYS NO (${total}/100) — SIT ON HANDS. Capital preservation mode.`);
+    else if (total < 60) briefingLines.push(`⚠️ CAUTION (${total}/100) — Reduce size, be selective.`);
+    else briefingLines.push(`✅ TERMINAL SAYS YES (${total}/100) — Full aggression.`);
+
+    // Market status
+    const vixLevel = vixQuote?.price?.toFixed(1) || "N/A";
+    const b50 = breadth.breadthStats?.sma50Above?.pct || "?";
+    briefingLines.push(`VIX: ${vixLevel} | Breadth: ${b50}% above 50MA | Position: ${positionSize}`);
+
+    // Top themes
+    if (themeHealth.length > 0) {
+      const top3 = themeHealth.slice(0, 3).map(t => `${t.theme} (${t.score})`).join(", ");
+      briefingLines.push(`Hottest themes: ${top3}`);
+    }
+
+    // Gold star candidates (top stocks in multiple timeframes)
+    if (dashData?.stocks?.length > 0) {
+      const valid = dashData.stocks.filter(s => s.return_1m && s.return_3m && s.return_6m && (s.avg_dollar_vol_raw || 0) > 1000000);
+      const n = valid.length;
+      if (n > 0) {
+        const top5_1m = new Set(valid.sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0)).slice(0, Math.max(n / 20, 1)).map(s => s.ticker));
+        const top5_3m = new Set(valid.sort((a, b) => (b.return_3m || 0) - (a.return_3m || 0)).slice(0, Math.max(n / 20, 1)).map(s => s.ticker));
+        const top5_6m = new Set(valid.sort((a, b) => (b.return_6m || 0) - (a.return_6m || 0)).slice(0, Math.max(n / 20, 1)).map(s => s.ticker));
+        const gold = [...top5_1m].filter(t => top5_3m.has(t) && top5_6m.has(t));
+        if (gold.length > 0) {
+          briefingLines.push(`★ Gold star candidates (${gold.length}): ${gold.slice(0, 8).join(", ")}`);
+        }
+      }
+    }
+
+    // EP movers
+    const ahMovers = dashData?.ah_earnings_movers || [];
+    const pmMovers = dashData?.pm_earnings_movers || [];
+    const epCount = ahMovers.length + pmMovers.length;
+    if (epCount > 0) {
+      const topEP = [...ahMovers, ...pmMovers].sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0)).slice(0, 3);
+      const epStr = topEP.map(m => `${m.ticker} ${(m.change_pct || 0) >= 0 ? "+" : ""}${(m.change_pct || 0).toFixed(1)}%`).join(", ");
+      briefingLines.push(`EP movers (${epCount}): ${epStr}`);
+    }
+
+    const briefing = briefingLines.join("\n");
+
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -576,6 +621,7 @@ export default async function handler(req, res) {
       scores,
       execution,
       analysis,
+      briefing,
       tape,
       sectors: momentum.sectors,
       weights: { volatility: 25, momentum: 25, trend: 20, breadth: 20, macro: 10 },
