@@ -304,6 +304,18 @@ a{color:var(--cyan);text-decoration:none}
 </div>
 
 <!-- Theme Health Section -->
+<!-- Market Sentiment Gauge -->
+<div style="margin:24px 16px 0;padding:12px 20px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+  <div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg, var(--red) 0%, var(--amber) 40%, #666 50%, var(--amber) 60%, var(--green) 100%);margin-bottom:6px">
+    <div id="sentiment-dot" style="position:absolute;top:-4px;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--bg);box-shadow:0 0 6px rgba(255,255,255,.4);transform:translateX(-50%);left:50%;transition:left .6s ease"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:700;letter-spacing:1px">
+    <span style="color:var(--red)">BEARISH</span>
+    <span style="color:var(--muted)">NEUTRAL</span>
+    <span style="color:var(--green)">BULLISH</span>
+  </div>
+</div>
+
 <div class="theme-health-section" id="theme-health-section" style="display:none">
   <div style="display:flex;gap:8px;min-height:300px">
     <!-- Left: Themes -->
@@ -390,6 +402,12 @@ function toggleBriefing() {
   document.getElementById('briefing-arrow').textContent = _briefingOpen ? '▲' : '▼';
 }
 
+function renderSentimentGauge(d) {
+  var score = d.total || 0;
+  var pct = Math.max(2, Math.min(98, score));
+  document.getElementById('sentiment-dot').style.left = pct + '%';
+}
+
 function renderBriefing(d) {
   var body = document.getElementById('briefing-body');
   if (d.briefing) {
@@ -419,6 +437,7 @@ function renderSessionBias(d) {
 function renderHero(d) {
   renderSessionBias(d);
   renderBriefing(d);
+  renderSentimentGauge(d);
 
   // Decision badge
   var badge = document.getElementById('decision-badge');
