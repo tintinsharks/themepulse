@@ -1,0 +1,490 @@
+// api/market-quality.js — Market Quality Terminal scoring engine
+// Computes Volatility, Trend, Breadth, Momentum, Macro scores → total 0-100
+// Data: FMP live quotes + market_monitor.json + dashboard_data.json
+
+export const config = { maxDuration: 15 };
+
+// ── FOMC 2026 dates (hardcoded) ──
+const FOMC_DATES = [
+  "2026-01-28","2026-01-29","2026-03-18","2026-03-19",
+  "2026-05-06","2026-05-07","2026-06-17","2026-06-18",
+  "2026-07-29","2026-07-30","2026-09-16","2026-09-17",
+  "2026-10-28","2026-10-29","2026-12-09","2026-12-10",
+];
+
+const SECTOR_ETFS = ["XLK","XLF","XLE","XLV","XLI","XLY","XLP","XLU","XLB","XLRE","XLC"];
+const SECTOR_NAMES = {
+  XLK:"Technology",XLF:"Financials",XLE:"Energy",XLV:"Health Care",
+  XLI:"Industrials",XLY:"Cons Disc",XLP:"Cons Staples",XLU:"Utilities",
+  XLB:"Materials",XLRE:"Real Estate",XLC:"Communication"
+};
+
+const INDEX_TICKERS = ["SPY","QQQ","DIA","IWM"];
+
+function clamp(v, lo = 0, hi = 100) { return Math.max(lo, Math.min(hi, v)); }
+function pct(v, lo, hi) { return clamp(((v - lo) / (hi - lo)) * 100); }
+
+// ── Fetch FMP batch quotes ──
+async function fetchQuotes(tickers, apiKey) {
+  const url = `https://financialmodelingprep.com/stable/batch-quote?symbols=${tickers.join(",")}&apikey=${apiKey}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return {};
+    const data = await r.json();
+    const map = {};
+    (Array.isArray(data) ? data : []).forEach(q => { if (q.symbol) map[q.symbol] = q; });
+    return map;
+  } catch { return {}; }
+}
+
+// ── Fetch JSON from own origin ──
+async function fetchJson(origin, path) {
+  try {
+    const r = await fetch(`${origin}${path}`, { headers: { "User-Agent": "ThemePulse-Internal" } });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// ── Scoring functions ──
+
+function scoreVolatility(vix) {
+  if (!vix) return { score: 50, details: {} };
+  const level = vix.price || 20;
+  const change = vix.changePercentage || 0;
+
+  // VIX level score: lower = better for swing trading
+  let levelScore;
+  if (level < 13) levelScore = 100;
+  else if (level < 16) levelScore = 85;
+  else if (level < 20) levelScore = 70;
+  else if (level < 25) levelScore = 45;
+  else if (level < 30) levelScore = 20;
+  else levelScore = 5;
+
+  // VIX trend: falling = good
+  let trendLabel, trendAdj;
+  if (change < -3) { trendLabel = "Falling"; trendAdj = 10; }
+  else if (change < -0.5) { trendLabel = "Easing"; trendAdj = 5; }
+  else if (change < 1) { trendLabel = "Stable"; trendAdj = 0; }
+  else if (change < 5) { trendLabel = "Rising"; trendAdj = -10; }
+  else { trendLabel = "Spiking"; trendAdj = -20; }
+
+  // VIX 1Y percentile (approximate from level)
+  let percentile;
+  if (level < 12) percentile = 5;
+  else if (level < 14) percentile = 15;
+  else if (level < 16) percentile = 25;
+  else if (level < 18) percentile = 40;
+  else if (level < 20) percentile = 50;
+  else if (level < 23) percentile = 65;
+  else if (level < 27) percentile = 80;
+  else if (level < 35) percentile = 90;
+  else percentile = 97;
+
+  // Put/Call estimate from VIX regime
+  let putCall, putCallLabel;
+  if (level < 16) { putCall = 0.75; putCallLabel = "Normal"; }
+  else if (level < 22) { putCall = 0.88; putCallLabel = "Moderate"; }
+  else if (level < 28) { putCall = 0.95; putCallLabel = "Fear elevated"; }
+  else { putCall = 1.15; putCallLabel = "Extreme fear"; }
+
+  const score = clamp(levelScore + trendAdj);
+
+  return {
+    score,
+    details: {
+      vix_level: { value: level.toFixed(2), label: level < 16 ? "Low" : level < 22 ? "Normal" : level < 28 ? "High" : "Extreme" },
+      vix_trend: { value: `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`, label: trendLabel },
+      vix_1y_pct: { value: `${percentile}th`, label: percentile < 25 ? "Low" : percentile < 50 ? "Normal" : percentile < 75 ? "Elevated" : "High" },
+      put_call: { value: putCall.toFixed(2), label: putCallLabel },
+    }
+  };
+}
+
+function scoreTrend(quotes, monitor) {
+  const spy = quotes.SPY || {};
+  const qqq = quotes.QQQ || {};
+  const indices = monitor?.indices || {};
+  const spyMa = indices.SPY || {};
+  const qqqMa = indices.QQQ || {};
+
+  let score = 0;
+  const details = {};
+
+  // SPX vs 20d
+  const above20 = spyMa.above_ema21 ?? (spy.price > (spyMa.ema21 || 0));
+  details.spx_vs_20d = { value: above20 ? "Above" : "Below", label: above20 ? "Healthy" : "Weak" };
+  if (above20) score += 20;
+
+  // SPX vs 50d
+  const above50 = spyMa.above_sma50 ?? true;
+  details.spx_vs_50d = { value: above50 ? "Above" : "Below", label: above50 ? "Healthy" : "Weak" };
+  if (above50) score += 25;
+
+  // SPX vs 200d
+  const above200 = spyMa.above_sma200 ?? true;
+  details.spx_vs_200d = { value: above200 ? "Above" : "Intact", label: above200 ? "Intact" : "Broken" };
+  if (above200) score += 25;
+
+  // QQQ trend
+  const qAbove50 = qqqMa.above_sma50 ?? true;
+  const qqqTrendLabel = qAbove50 ? (qqqMa.above_ema21 ? "Strong" : "Above") : "Below";
+  details.qqq_trend = { value: `${qAbove50 ? "Above" : "Below"} 50d`, label: qqqTrendLabel };
+  if (qAbove50) score += 15;
+
+  // Regime
+  const allAbove = above20 && above50 && above200;
+  const allBelow = !above20 && !above50;
+  let regime;
+  if (allAbove) { regime = "Uptrend"; score += 15; }
+  else if (allBelow && !above200) { regime = "Downtrend"; }
+  else if (!above20 && above50) { regime = "Correcting"; score += 5; }
+  else { regime = "Chop"; score += 8; }
+  details.regime = { value: regime, label: regime === "Uptrend" ? "Healthy" : regime === "Correcting" ? "Correcting" : regime === "Chop" ? "Mixed" : "Risk-off" };
+
+  return { score: clamp(score), details };
+}
+
+function scoreBreadth(monitor, dashData) {
+  const details = {};
+  let score = 0;
+
+  // Compute breadth from dashboard_data if available
+  let pctAbove50 = 50, pctAbove200 = 50, pctAbove20 = 50;
+  if (dashData?.stocks?.length > 0) {
+    const stocks = dashData.stocks;
+    const total = stocks.length;
+    pctAbove50 = Math.round(stocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length / total * 100);
+    pctAbove200 = Math.round(stocks.filter(s => s.above_200ma === 1 || s.sma200_above === 1).length / total * 100);
+    pctAbove20 = Math.round(stocks.filter(s => s.sma20_above === 1).length / total * 100);
+  }
+
+  // % above 50d MA (strongest signal)
+  const b50Label = pctAbove50 > 65 ? "Healthy" : pctAbove50 > 50 ? "Weak" : pctAbove50 > 35 ? "Very weak" : "Washout";
+  details.pct_above_50d = { value: `${pctAbove50}%`, label: b50Label };
+  score += pct(pctAbove50, 20, 80) * 0.35;
+
+  // % above 200d MA
+  const b200Label = pctAbove200 > 70 ? "Healthy" : pctAbove200 > 55 ? "Moderate" : "Weak";
+  details.pct_above_200d = { value: `${pctAbove200}%`, label: b200Label };
+  score += pct(pctAbove200, 30, 85) * 0.30;
+
+  // % above 20d MA
+  const b20Label = pctAbove20 > 60 ? "Healthy" : pctAbove20 > 45 ? "Moderate" : "Very weak";
+  details.pct_above_20d = { value: `${pctAbove20}%`, label: b20Label };
+  score += pct(pctAbove20, 20, 75) * 0.20;
+
+  // NYSE A/D approximation from monitor gauges
+  const gauges = monitor?.gauges || {};
+  const t2108 = parseFloat(gauges.t2108) || 50;
+  const adLabel = t2108 > 55 ? "Positive" : t2108 > 45 ? "Neutral" : "Negative";
+  details.nyse_ad = { value: `${t2108.toFixed(1)}%`, label: adLabel };
+  score += pct(t2108, 25, 75) * 0.10;
+
+  // NAS Highs/Lows from gauges
+  const up4 = parseFloat(gauges.up_4pct) || 0;
+  const down4 = parseFloat(gauges.down_4pct) || 0;
+  const hlRatio = down4 > 0 ? (up4 / down4).toFixed(1) : up4 > 0 ? "∞" : "0";
+  const hlLabel = (up4 / Math.max(down4, 1)) > 2 ? "Bulls dominate" : (up4 / Math.max(down4, 1)) > 1 ? "Mixed" : "Lows dominate";
+  details.nas_highs_lows = { value: `${hlRatio}:1`, label: hlLabel };
+  score += pct(up4 / Math.max(down4, 1), 0.3, 3) * 0.05;
+
+  return { score: clamp(Math.round(score)), details };
+}
+
+function scoreMomentum(sectorQuotes) {
+  const sectors = SECTOR_ETFS.map(tk => ({
+    ticker: tk,
+    name: SECTOR_NAMES[tk],
+    change: sectorQuotes[tk]?.changePercentage ?? 0,
+  })).sort((a, b) => b.change - a.change);
+
+  const positive = sectors.filter(s => s.change > 0).length;
+  const leader = sectors[0] || { name: "N/A", change: 0 };
+  const laggard = sectors[sectors.length - 1] || { name: "N/A", change: 0 };
+
+  // Participation score
+  const participationScore = pct(positive, 0, 11) * 0.5;
+
+  // Spread between top 3 and bottom 3
+  const top3Avg = sectors.slice(0, 3).reduce((s, x) => s + x.change, 0) / 3;
+  const bot3Avg = sectors.slice(-3).reduce((s, x) => s + x.change, 0) / 3;
+  const spread = top3Avg - bot3Avg;
+
+  // Leadership quality
+  const leadershipScore = leader.change > 0 ? Math.min(leader.change * 10, 25) : 0;
+
+  const score = clamp(Math.round(participationScore + leadershipScore + (positive > 6 ? 25 : positive > 3 ? 15 : 0)));
+
+  return {
+    score,
+    details: {
+      sectors_positive: { value: `${positive}/11`, label: positive > 7 ? "Broad" : positive > 4 ? "Mixed" : "Very thin" },
+      leader: { value: leader.name, label: `${leader.change >= 0 ? "+" : ""}${leader.change.toFixed(2)}%` },
+      laggard: { value: laggard.name, label: `${laggard.change.toFixed(2)}%` },
+      participation: { value: positive > 7 ? "High" : positive > 4 ? "Moderate" : "Low", label: positive > 7 ? "Broad" : "Narrow" },
+    },
+    sectors,
+  };
+}
+
+function scoreMacro(quotes) {
+  let score = 70; // start neutral-positive
+  const details = {};
+
+  // FOMC proximity
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  let fomcDays = 999;
+  let fomcLabel = "";
+  for (const d of FOMC_DATES) {
+    const diff = (new Date(d) - today) / 86400000;
+    if (diff >= -1 && diff < fomcDays) { fomcDays = diff; }
+  }
+  if (fomcDays <= 0) { fomcLabel = "TODAY"; score -= 20; }
+  else if (fomcDays <= 1) { fomcLabel = "Tomorrow"; score -= 15; }
+  else if (fomcDays <= 3) { fomcLabel = `${Math.ceil(fomcDays)}d away`; score -= 8; }
+  else { fomcLabel = `${Math.ceil(fomcDays)}d away`; }
+  const fomcRisk = fomcDays <= 1 ? "Event risk!" : fomcDays <= 3 ? "Caution" : "Clear";
+  details.fomc = { value: fomcLabel, label: fomcRisk };
+
+  // 10Y yield (TNX)
+  const tnx = quotes["^TNX"] || quotes.TNX || {};
+  const yieldVal = tnx.price || 4.0;
+  const yieldChg = tnx.changePercentage || 0;
+  const yieldTrend = yieldChg > 1 ? "Rising" : yieldChg < -1 ? "Falling" : "Stable";
+  details.yield_10y = { value: `${yieldVal.toFixed(2)}%`, label: yieldTrend };
+  if (yieldChg > 2) score -= 10;
+  else if (yieldChg < -1) score += 5;
+
+  // DXY
+  const dxy = quotes.DX || quotes.UUP || {};
+  const dxyVal = dxy.price || 100;
+  const dxyChg = dxy.changePercentage || 0;
+  const dxyTrend = dxyChg > 0.3 ? "Strengthening" : dxyChg < -0.3 ? "Weakening" : "Stable";
+  details.dxy = { value: dxyVal.toFixed(2), label: dxyTrend };
+  if (dxyChg > 1) score -= 5;
+
+  // Fed stance (hardcoded for current cycle)
+  details.fed_stance = { value: "Hold", label: "3.50-3.75%" };
+
+  // Geopolitical (hardcoded — update as needed)
+  details.geopolitical = { value: "Moderate", label: "Monitor" };
+
+  return { score: clamp(score), details };
+}
+
+function scoreExecution(monitor, dashData) {
+  let score = 50;
+  const details = {};
+  const gauges = monitor?.gauges || {};
+
+  // Breakouts working? (up_4pct > 200 = healthy)
+  const up4 = parseFloat(gauges.up_4pct) || 0;
+  const breakouts = up4 > 300 ? "Yes" : up4 > 150 ? "Moderate" : "No";
+  const breakoutsLabel = up4 > 300 ? "Healthy" : up4 > 150 ? "Selective" : "Failing";
+  details.breakouts_working = { value: breakouts, label: breakoutsLabel };
+  if (up4 > 300) score += 15;
+  else if (up4 > 150) score += 5;
+  else score -= 10;
+
+  // Leaders holding? (ratio_5d > 2 = leaders holding)
+  const ratio5d = parseFloat(gauges.ratio_5d) || 1;
+  const leaders = ratio5d > 2.5 ? "Yes" : ratio5d > 1.5 ? "Moderate" : "No";
+  const leadersLabel = ratio5d > 2.5 ? "Strong" : ratio5d > 1.5 ? "Mixed" : "Fading";
+  details.leaders_holding = { value: leaders, label: leadersLabel };
+  if (ratio5d > 2.5) score += 15;
+  else if (ratio5d > 1.5) score += 5;
+  else score -= 10;
+
+  // Pullbacks bought? (t2108 > 50 and positive trend)
+  const t2108 = parseFloat(gauges.t2108) || 50;
+  const pullbacks = t2108 > 55 ? "Yes" : t2108 > 40 ? "Selective" : "No";
+  const pullbacksLabel = t2108 > 55 ? "Support" : t2108 > 40 ? "Weak" : "No support";
+  details.pullbacks_bought = { value: pullbacks, label: pullbacksLabel };
+  if (t2108 > 55) score += 10;
+  else if (t2108 < 40) score -= 10;
+
+  // Follow-through (ratio_10d strength)
+  const ratio10d = parseFloat(gauges.ratio_10d) || 1;
+  const followLabel = ratio10d > 2 ? "Strong" : ratio10d > 1.3 ? "Moderate" : "Weak";
+  const followConviction = ratio10d > 2 ? "High conviction" : ratio10d > 1.3 ? "Moderate" : "Low conviction";
+  details.follow_through = { value: followLabel, label: followConviction };
+  if (ratio10d > 2) score += 10;
+  else if (ratio10d < 1) score -= 10;
+
+  return { score: clamp(score), details };
+}
+
+function generateAnalysis(total, scores, decision) {
+  const { volatility, trend, breadth, momentum, macro, execution } = scores;
+  const parts = [];
+
+  if (decision === "NO") {
+    parts.push(`**AVOID TRADING.** The current environment scores ${total}/100 — well below the 60-point threshold for active swing trading.`);
+  } else if (decision === "CAUTION") {
+    parts.push(`**SELECTIVE TRADING ONLY.** The environment scores ${total}/100 — in the caution zone. Limit to A+ setups with reduced position sizes.`);
+  } else {
+    parts.push(`**GREEN LIGHT.** The environment scores ${total}/100 — conditions favor active swing trading with normal position sizing.`);
+  }
+
+  // Breadth commentary
+  if (breadth.score < 40) {
+    const b50 = breadth.details.pct_above_50d?.value || "N/A";
+    parts.push(`Market breadth is deteriorating: ${b50} of stocks trade above their 50-day moving average.`);
+  } else if (breadth.score > 70) {
+    parts.push(`Breadth is healthy and supportive of new positions.`);
+  }
+
+  // Volatility
+  if (volatility.score < 40) {
+    const vl = volatility.details.vix_level?.value || "N/A";
+    parts.push(`VIX at ${vl} signals elevated fear and wider stops required.`);
+  }
+
+  // Momentum
+  const secPos = momentum.details.sectors_positive?.value || "N/A";
+  parts.push(`${secPos} sectors are positive — ${momentum.details.leader?.value || "N/A"} leads at ${momentum.details.leader?.label || ""}.`);
+
+  // FOMC
+  if (macro.details.fomc?.label === "Event risk!" || macro.details.fomc?.label === "Caution") {
+    parts.push(`FOMC rate decision is ${macro.details.fomc?.value} — injecting event risk.`);
+  }
+
+  // Suggested action
+  if (decision === "NO") {
+    parts.push(`Suggested action: Sit on hands. Wait for breadth to improve and VIX to settle before re-engaging. Capital preservation is the priority.`);
+  } else if (decision === "CAUTION") {
+    parts.push(`Suggested action: Reduce position sizes by 50%. Only take setups with clear institutional-quality bases and volume confirmation.`);
+  } else {
+    parts.push(`Suggested action: Trade with conviction. Favor momentum leaders in strong themes. Use normal position sizing.`);
+  }
+
+  return parts.join(" ");
+}
+
+// ── Main handler ──
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  try {
+    const fmpKey = process.env.FMP_API_KEY;
+    if (!fmpKey) return res.status(500).json({ error: "FMP_API_KEY not configured" });
+
+    const origin = `https://${req.headers.host}`;
+
+    // Parallel fetches
+    const [quotes, monitor, dashData] = await Promise.all([
+      fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
+      fetchJson(origin, "/market_monitor.json"),
+      fetchJson(origin, "/dashboard_data.json"),
+    ]);
+
+    // Also try to get VIX directly
+    let vixQuote = quotes.VIXY || null;
+    // If we have VIXY, estimate VIX from it (VIXY tracks VIX short-term futures)
+    // Better: use FMP index quote
+    try {
+      const vixResp = await fetch(`https://financialmodelingprep.com/api/v3/quote/%5EVIX?apikey=${fmpKey}`);
+      if (vixResp.ok) {
+        const vd = await vixResp.json();
+        if (Array.isArray(vd) && vd[0]) vixQuote = vd[0];
+      }
+    } catch {}
+
+    // Try TNX
+    let tnxQuote = null;
+    try {
+      const tnxResp = await fetch(`https://financialmodelingprep.com/api/v3/quote/%5ETNX?apikey=${fmpKey}`);
+      if (tnxResp.ok) {
+        const td = await tnxResp.json();
+        if (Array.isArray(td) && td[0]) tnxQuote = td[0];
+      }
+    } catch {}
+
+    // Score each dimension
+    const volatility = scoreVolatility(vixQuote);
+    const trend = scoreTrend(quotes, monitor);
+    const breadth = scoreBreadth(monitor, dashData);
+    const momentum = scoreMomentum(quotes);
+    const macro = scoreMacro({ ...quotes, "^TNX": tnxQuote });
+    const execution = scoreExecution(monitor, dashData);
+
+    // Weighted total
+    const total = Math.round(
+      volatility.score * 0.25 +
+      momentum.score * 0.25 +
+      trend.score * 0.20 +
+      breadth.score * 0.20 +
+      macro.score * 0.10
+    );
+
+    // Decision
+    let decision, positionSize;
+    if (total >= 80) { decision = "YES"; positionSize = "FULL"; }
+    else if (total >= 60) { decision = "CAUTION"; positionSize = "REDUCED"; }
+    else if (total >= 40) { decision = "NO"; positionSize = "MINIMAL"; }
+    else { decision = "NO"; positionSize = "NONE"; }
+
+    const scores = { volatility, trend, breadth, momentum, macro, execution };
+    const analysis = generateAnalysis(total, scores, decision);
+
+    // Build ticker tape
+    const tape = [...INDEX_TICKERS, ...SECTOR_ETFS].map(tk => {
+      const q = quotes[tk];
+      if (!q) return null;
+      return {
+        ticker: tk,
+        price: q.price?.toFixed(2),
+        change: q.changePercentage?.toFixed(2),
+      };
+    }).filter(Boolean);
+
+    // Add VIX to tape
+    if (vixQuote) {
+      tape.splice(1, 0, {
+        ticker: "VIX",
+        price: (vixQuote.price || 0).toFixed(2),
+        change: (vixQuote.changePercentage || 0).toFixed(2),
+      });
+    }
+    // Add TNX
+    if (tnxQuote) {
+      tape.splice(2, 0, {
+        ticker: "TNX",
+        price: (tnxQuote.price || 0).toFixed(2),
+        change: (tnxQuote.changePercentage || 0).toFixed(2),
+      });
+    }
+    // Add DXY proxy
+    if (quotes.UUP) {
+      tape.splice(3, 0, {
+        ticker: "DXY",
+        price: (quotes.UUP.price || 0).toFixed(2),
+        change: (quotes.UUP.changePercentage || 0).toFixed(2),
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+      decision,
+      total,
+      position_size: positionSize,
+      scores,
+      execution,
+      analysis,
+      tape,
+      sectors: momentum.sectors,
+      weights: { volatility: 25, momentum: 25, trend: 20, breadth: 20, macro: 10 },
+    });
+
+  } catch (err) {
+    console.error("Market quality error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+}
