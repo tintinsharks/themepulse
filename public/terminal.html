@@ -284,9 +284,9 @@ a{color:var(--cyan);text-decoration:none}
   <div style="display:flex;gap:8px;min-height:300px">
     <!-- Left: Themes -->
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-      <div class="theme-health-header">
-        <span class="th-title">THEMES</span>
-        <span class="th-sub">by composite strength</span>
+      <div class="theme-health-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="th-title" id="th-left-title">THEMES</span> <span class="th-sub">by strength</span></span>
+        <button id="th-left-all-btn" onclick="resetLeftColumn()" style="display:none;padding:2px 8px;font-size:9px;font-weight:700;background:var(--bg);border:1px solid var(--border);color:var(--cyan);border-radius:3px;cursor:pointer;font-family:inherit">BACK</button>
       </div>
       <div class="th-col-headers">
         <span>THEME</span>
@@ -552,15 +552,81 @@ function renderBreadth(d) {
 var _themeHealthData = [];
 var _selectedTheme = null;
 
+var _selectedSubtheme = null;
+
 function renderSubRow(sub) {
   var sc = sub.score || 0;
   var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
   var sGreenCol = sub.pctGreen >= 60 ? 'var(--green)' : sub.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
-  return '<div class="th-row">' +
+  return '<div class="th-row" data-sub="' + sub.name + '" onclick="selectSubtheme(\'' + sub.name.replace(/'/g, "\\'") + '\')" style="cursor:pointer;border-left:2px solid transparent">' +
     '<span class="th-theme-name">' + sub.name + '</span>' +
     '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
     '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + sub.pctGreen + '%;background:' + sGreenCol + '"></span></span><span class="th-minibar-label" style="color:' + sGreenCol + '">' + sub.pctGreen + '%</span></span>' +
     '</div>';
+}
+
+function selectSubtheme(subName) {
+  _selectedSubtheme = subName;
+  var leftBody = document.getElementById('theme-health-left');
+  var leftTitle = document.getElementById('th-left-title');
+  var leftAllBtn = document.getElementById('th-left-all-btn');
+
+  // Find the subtheme data
+  var subData = null;
+  _themeHealthData.forEach(function(t) {
+    (t.subthemes || []).forEach(function(sub) {
+      if (sub.name === subName) subData = sub;
+    });
+  });
+
+  if (!subData || !subData.tickers || !subData.tickers.length) {
+    leftTitle.textContent = subName;
+    leftAllBtn.style.display = 'inline-block';
+    leftBody.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">No ticker data available</div>';
+    return;
+  }
+
+  leftTitle.textContent = subName;
+  leftAllBtn.style.display = 'inline-block';
+
+  leftBody.innerHTML = subData.tickers.map(function(tk) {
+    var chgCol = tk.chg >= 0 ? 'var(--green)' : 'var(--red)';
+    var chgSign = tk.chg >= 0 ? '+' : '';
+    return '<div class="th-row" style="cursor:default">' +
+      '<span class="th-theme-name" style="gap:4px"><span style="color:var(--cyan);min-width:45px">' + tk.ticker + '</span><span style="color:var(--muted);font-weight:400;font-size:9px;overflow:hidden;text-overflow:ellipsis">' + tk.company + '</span></span>' +
+      '<span class="th-val" style="color:var(--text)">RS ' + tk.rs + '</span>' +
+      '<span class="th-val" style="color:' + chgCol + '">' + chgSign + tk.chg + '%</span>' +
+      '</div>';
+  }).join('');
+
+  // Highlight selected subtheme on right
+  var rows = document.querySelectorAll('#theme-health-right .th-row');
+  rows.forEach(function(row) {
+    row.style.borderLeft = row.getAttribute('data-sub') === subName ? '2px solid var(--cyan)' : '2px solid transparent';
+  });
+}
+
+function resetLeftColumn() {
+  _selectedSubtheme = null;
+  var leftTitle = document.getElementById('th-left-title');
+  var leftAllBtn = document.getElementById('th-left-all-btn');
+  leftTitle.textContent = 'THEMES';
+  leftAllBtn.style.display = 'none';
+  renderThemeLeft();
+}
+
+function renderThemeLeft() {
+  var leftBody = document.getElementById('theme-health-left');
+  leftBody.innerHTML = _themeHealthData.map(function(t) {
+    var sc = t.score || 0;
+    var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
+    var greenCol = t.pctGreen >= 60 ? 'var(--green)' : t.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
+    return '<div class="th-row" data-theme="' + t.theme + '" onclick="renderRightColumn(\'' + t.theme.replace(/'/g, "\\'") + '\')" style="cursor:pointer;border-left:2px solid transparent">' +
+      '<span class="th-theme-name">' + t.theme + '</span>' +
+      '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
+      '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + t.pctGreen + '%;background:' + greenCol + '"></span></span><span class="th-minibar-label" style="color:' + greenCol + '">' + t.pctGreen + '%</span></span>' +
+      '</div>';
+  }).join('');
 }
 
 function renderRightColumn(themeName) {
@@ -609,17 +675,8 @@ function renderThemeHealth(d) {
   if (!themes.length) { section.style.display = 'none'; return; }
   section.style.display = 'block';
 
-  // Left column: Themes sorted by composite score (clickable)
-  leftBody.innerHTML = themes.map(function(t) {
-    var sc = t.score || 0;
-    var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
-    var greenCol = t.pctGreen >= 60 ? 'var(--green)' : t.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
-    return '<div class="th-row" data-theme="' + t.theme + '" onclick="renderRightColumn(\'' + t.theme.replace(/'/g, "\\'") + '\')" style="cursor:pointer;border-left:2px solid transparent">' +
-      '<span class="th-theme-name">' + t.theme + '</span>' +
-      '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
-      '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + t.pctGreen + '%;background:' + greenCol + '"></span></span><span class="th-minibar-label" style="color:' + greenCol + '">' + t.pctGreen + '%</span></span>' +
-      '</div>';
-  }).join('');
+  // Left column: Themes sorted by composite score
+  renderThemeLeft();
 
   // Right column: default to all subthemes
   renderRightColumn(null);

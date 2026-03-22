@@ -505,11 +505,17 @@ export default async function handler(req, res) {
           const sStr = clamp((subAbove50 / subStocks.length * 50) + (subNearHi / subStocks.length * 50), 0, 100);
           const sMTF = clamp(50 + subAvg3m * 0.3, 0, 100);
           const subScore = Math.round(sMom * 0.30 + sMF * 0.25 + sStr * 0.25 + sMTF * 0.20);
+          // Include top tickers sorted by RS rank
+          const subTickers = subStocks
+            .map(s => ({ ticker: s.ticker, company: s.company || '', rs: s.rs_rank || 0, chg: Math.round((s.change_pct || 0) * 100) / 100, ret1w: Math.round((s.return_1w || 0) * 100) / 100 }))
+            .sort((a, b) => b.rs - a.rs)
+            .slice(0, 20);
           return {
             name: sub.name,
             stockCount: subStocks.length,
             pctGreen: Math.round(subGreen / subStocks.length * 100),
             score: subScore,
+            tickers: subTickers,
           };
         }).filter(Boolean);
 
