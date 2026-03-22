@@ -433,14 +433,51 @@ function setView(v) {
   }
 }
 
+var _liveSortKey = 'chg';
+var _liveSortDir = -1; // -1 = descending
+var _livePortfolio = [];
+var _liveWatchlist = [];
+
+function sortLiveData(items, key, dir) {
+  return items.slice().sort(function(a, b) {
+    var av = a[key], bv = b[key];
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * ((av || 0) - (bv || 0));
+  });
+}
+
+function setLiveSort(key) {
+  if (_liveSortKey === key) {
+    _liveSortDir *= -1;
+  } else {
+    _liveSortKey = key;
+    _liveSortDir = -1;
+  }
+  document.getElementById('live-portfolio').innerHTML = renderLiveTable(_livePortfolio, 'No positions');
+  document.getElementById('live-watchlist').innerHTML = renderLiveTable(_liveWatchlist, 'No watchlist items');
+}
+
 function renderLiveTable(items, emptyMsg) {
   if (!items || items.length === 0) {
     return '<div class="live-empty">' + emptyMsg + '</div>';
   }
-  var html = '<table class="live-table"><thead><tr>' +
-    '<th>TICKER</th><th>PRICE</th><th>CHG%</th><th>1W%</th><th>RS</th><th>THEME</th>' +
-    '</tr></thead><tbody>';
-  items.forEach(function(item) {
+  var sorted = sortLiveData(items, _liveSortKey, _liveSortDir);
+  var cols = [
+    { key: 'ticker', label: 'TICKER' },
+    { key: 'price', label: 'PRICE' },
+    { key: 'chg', label: 'CHG%' },
+    { key: 'ret1w', label: '1W%' },
+    { key: 'rs', label: 'RS' },
+    { key: 'theme', label: 'THEME' },
+  ];
+  var html = '<table class="live-table"><thead><tr>';
+  cols.forEach(function(col) {
+    var arrow = _liveSortKey === col.key ? (_liveSortDir > 0 ? ' ▲' : ' ▼') : '';
+    var color = _liveSortKey === col.key ? 'var(--cyan)' : 'var(--muted)';
+    html += '<th onclick="setLiveSort(\'' + col.key + '\')" style="cursor:pointer;color:' + color + '">' + col.label + arrow + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+  sorted.forEach(function(item) {
     var chgCol = item.chg >= 0 ? 'var(--green)' : 'var(--red)';
     var chgSign = item.chg >= 0 ? '+' : '';
     var retCol = item.ret1w >= 0 ? 'var(--green)' : 'var(--red)';
@@ -462,8 +499,10 @@ function renderLiveTable(items, emptyMsg) {
 }
 
 function renderLiveView(d) {
-  document.getElementById('live-portfolio').innerHTML = renderLiveTable(d.portfolio, 'No positions');
-  document.getElementById('live-watchlist').innerHTML = renderLiveTable(d.watchlist, 'No watchlist items');
+  _livePortfolio = d.portfolio || [];
+  _liveWatchlist = d.watchlist || [];
+  document.getElementById('live-portfolio').innerHTML = renderLiveTable(_livePortfolio, 'No positions');
+  document.getElementById('live-watchlist').innerHTML = renderLiveTable(_liveWatchlist, 'No watchlist items');
 }
 
 function toggleDetails() {
