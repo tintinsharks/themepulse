@@ -157,6 +157,19 @@ a{color:var(--cyan);text-decoration:none}
 .loading{opacity:.4;pointer-events:none}
 .skeleton{background:linear-gradient(90deg,var(--bg3) 25%,var(--border) 50%,var(--bg3) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px;height:14px;margin:4px 0}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Live View */
+.live-section{display:none;padding:12px 16px}
+.live-section.visible{display:block}
+.live-group{margin-bottom:16px}
+.live-group-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--cyan);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.live-table{width:100%;border-collapse:collapse}
+.live-table th{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);text-align:right;padding:4px 8px;border-bottom:1px solid var(--border)}
+.live-table th:first-child{text-align:left}
+.live-table td{font-size:10px;font-weight:600;padding:5px 8px;text-align:right;border-bottom:1px solid rgba(30,34,48,.5);font-variant-numeric:tabular-nums}
+.live-table td:first-child{text-align:left;color:#fff;font-weight:700}
+.live-table tr:hover{background:var(--bg3)}
+.live-empty{padding:20px;text-align:center;font-size:11px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -170,6 +183,10 @@ a{color:var(--cyan);text-decoration:none}
     <div class="mode-toggle">
       <button class="mode-btn active" id="mode-swing" onclick="setMode('swing')">SWING</button>
       <button class="mode-btn" id="mode-day" onclick="setMode('day')">DAY</button>
+    </div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="view-market" onclick="setView('market')">MARKET</button>
+      <button class="mode-btn" id="view-live" onclick="setView('live')">LIVE</button>
     </div>
     <div class="live-dot"></div>
     <span style="color:var(--green);font-weight:700">LIVE</span>
@@ -298,7 +315,7 @@ a{color:var(--cyan);text-decoration:none}
 
 <!-- Theme Health Section -->
 <!-- Timeframe Toggle + Market Sentiment Gauge -->
-<div style="margin:24px 16px 0;padding:12px 20px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+<div id="sentiment-section" style="margin:24px 16px 0;padding:12px 20px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">MARKET SENTIMENT</span>
     <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden">
@@ -349,14 +366,105 @@ a{color:var(--cyan);text-decoration:none}
   </div>
 </div>
 
+<!-- Live View Section -->
+<div class="live-section" id="live-section">
+  <div class="live-group">
+    <div class="live-group-title">PORTFOLIO</div>
+    <div id="live-portfolio"></div>
+  </div>
+  <div class="live-group">
+    <div class="live-group-title">WATCHLIST</div>
+    <div id="live-watchlist"></div>
+  </div>
+</div>
+
 <div style="height:16px"></div>
 
 <script>
 var _mode = 'swing';
+var _view = 'market';
 var _data = null;
 var _lastFetch = 0;
 var _refreshTimer = null;
 var _detailsOpen = false;
+
+function setView(v) {
+  _view = v;
+  document.getElementById('view-market').className = 'mode-btn' + (v === 'market' ? ' active' : '');
+  document.getElementById('view-live').className = 'mode-btn' + (v === 'live' ? ' active' : '');
+
+  // Elements to hide/show for market view
+  var marketEls = ['hero', 'breadth-row', 'details-section', 'theme-health-section'];
+  // Also hide the collapsible details toggle, discord briefing, sentiment gauge
+  var marketContainers = document.querySelectorAll('.hero, .breadth-row, .theme-health-section');
+
+  // IDs of market-view elements to hide/show
+  var marketIds = ['hero', 'breadth-row', 'theme-health-section', 'sentiment-section', 'details-section'];
+
+  if (v === 'live') {
+    // Hide all market content below session bias bar
+    marketIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    // Hide the details toggle button
+    var detailsToggleParent = document.getElementById('details-toggle')?.parentElement;
+    if (detailsToggleParent) detailsToggleParent.style.display = 'none';
+    // Hide discord briefing toggle + section
+    var briefingToggle = document.getElementById('briefing-toggle')?.parentElement;
+    if (briefingToggle) briefingToggle.style.display = 'none';
+    // Show live section
+    document.getElementById('live-section').className = 'live-section visible';
+    if (_data) renderLiveView(_data);
+  } else {
+    // Restore market content
+    document.getElementById('hero').style.display = '';
+    document.getElementById('breadth-row').style.display = '';
+    document.getElementById('sentiment-section').style.display = '';
+    var detailsToggleParent2 = document.getElementById('details-toggle')?.parentElement;
+    if (detailsToggleParent2) detailsToggleParent2.style.display = '';
+    if (_detailsOpen) document.getElementById('details-section').style.display = 'block';
+    // Discord briefing
+    var briefingToggle2 = document.getElementById('briefing-toggle')?.parentElement;
+    if (briefingToggle2) briefingToggle2.style.display = '';
+    // Theme health (re-render will set display)
+    if (_data && _data.themeHealth && _data.themeHealth.length > 0) {
+      document.getElementById('theme-health-section').style.display = 'block';
+    }
+    // Hide live section
+    document.getElementById('live-section').className = 'live-section';
+  }
+}
+
+function renderLiveTable(items, emptyMsg) {
+  if (!items || items.length === 0) {
+    return '<div class="live-empty">' + emptyMsg + '</div>';
+  }
+  var html = '<table class="live-table"><thead><tr>' +
+    '<th>TICKER</th><th>PRICE</th><th>CHG%</th><th>1W%</th><th>RS</th><th>THEME</th>' +
+    '</tr></thead><tbody>';
+  items.forEach(function(item) {
+    var chgCol = item.chg >= 0 ? 'var(--green)' : 'var(--red)';
+    var chgSign = item.chg >= 0 ? '+' : '';
+    var retCol = item.ret1w >= 0 ? 'var(--green)' : 'var(--red)';
+    var retSign = item.ret1w >= 0 ? '+' : '';
+    var price = typeof item.price === 'number' ? item.price.toFixed(2) : item.price;
+    var chg = typeof item.chg === 'number' ? item.chg.toFixed(2) : item.chg;
+    var ret1w = typeof item.ret1w === 'number' ? item.ret1w.toFixed(1) : item.ret1w;
+    html += '<tr>' +
+      '<td>' + item.ticker + (item.company ? ' <span style="color:var(--muted);font-weight:400;font-size:9px">' + item.company.split(' ').slice(0,2).join(' ') + '</span>' : '') + '</td>' +
+      '<td style="color:#fff">' + price + '</td>' +
+      '<td style="color:' + chgCol + '">' + chgSign + chg + '%</td>' +
+      '<td style="color:' + retCol + '">' + retSign + ret1w + '%</td>' +
+      '<td>' + (item.rs || '--') + '</td>' +
+      '<td style="color:var(--muted);font-size:9px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (item.theme || '') + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderLiveView(d) {
+  document.getElementById('live-portfolio').innerHTML = renderLiveTable(d.portfolio, 'No positions');
+  document.getElementById('live-watchlist').innerHTML = renderLiveTable(d.watchlist, 'No watchlist items');
+}
 
 function toggleDetails() {
   _detailsOpen = !_detailsOpen;
@@ -794,8 +902,11 @@ function render(d) {
   renderBottom(d);
   renderAlert(d);
   renderThemeHealth(d);
+  renderLiveView(d);
   document.getElementById('analysis-body').innerHTML = (d.analysis || '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   document.getElementById('analysis-time').textContent = 'Updated ' + new Date(d.timestamp).toLocaleString();
+  // Re-apply view state after render (theme health render may have changed display)
+  if (_view === 'live') setView('live');
 }
 
 function updateAgo() {

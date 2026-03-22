@@ -401,10 +401,11 @@ export default async function handler(req, res) {
     const origin = `https://${req.headers.host}`;
 
     // Parallel fetches
-    const [quotes, monitor, dashData] = await Promise.all([
+    const [quotes, monitor, dashData, userData] = await Promise.all([
       fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
       fetchJson(origin, "/market_monitor.json"),
       fetchJson(origin, "/dashboard_data.json"),
+      fetchJson(origin, "/api/userdata"),
     ]);
 
     // Also try to get VIX directly
@@ -612,6 +613,34 @@ export default async function handler(req, res) {
 
     const briefing = briefingLines.join("\n");
 
+    // Build portfolio & watchlist live view data
+    const stockMap = {};
+    if (dashData?.stocks?.length > 0) {
+      dashData.stocks.forEach(s => { stockMap[s.ticker] = s; });
+    }
+    const portfolioTickers = userData?.portfolio || [];
+    const watchlistTickers = userData?.watchlist || [];
+
+    // Fetch live quotes for portfolio/watchlist tickers not already in quotes
+    const liveTickers = [...new Set([...portfolioTickers, ...watchlistTickers])].filter(tk => !quotes[tk]);
+    if (liveTickers.length > 0) {
+      const liveQuotes = await fetchQuotes(liveTickers, fmpKey);
+      Object.assign(quotes, liveQuotes);
+    }
+
+    const buildLiveRow = (tk) => ({
+      ticker: tk,
+      company: stockMap[tk]?.company || '',
+      price: quotes[tk]?.price || stockMap[tk]?.close || 0,
+      chg: quotes[tk]?.changePercentage ?? stockMap[tk]?.change_pct ?? 0,
+      ret1w: stockMap[tk]?.return_1w || 0,
+      rs: stockMap[tk]?.rs_rank || 0,
+      theme: stockMap[tk]?.themes?.[0]?.theme || '',
+    });
+
+    const portfolio = portfolioTickers.map(buildLiveRow);
+    const watchlist = watchlistTickers.map(buildLiveRow);
+
     return res.status(200).json({
       ok: true,
       timestamp: new Date().toISOString(),
@@ -627,6 +656,8 @@ export default async function handler(req, res) {
       weights: { volatility: 25, momentum: 25, trend: 20, breadth: 20, macro: 10 },
       breadthStats: breadth.breadthStats,
       themeHealth,
+      portfolio,
+      watchlist,
     });
 
   } catch (err) {
