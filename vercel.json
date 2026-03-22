@@ -20,9 +20,6 @@
     "api/tqqq-analyze.js": {
       "maxDuration": 60
     },
-    "api/catalyst-summary.js": {
-      "maxDuration": 30
-    },
     "api/earnings-call.js": {
       "maxDuration": 30
     },
