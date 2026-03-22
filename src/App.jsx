@@ -2647,23 +2647,38 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
-      {/* Theme Rotation Heatmap — shown on scan tab */}
-      {scanTab === "scan" && themeHealth && themeHealth.length > 0 && (() => {
-        const rotationThemes = themeHealth
+      {/* Subtheme Rotation Heatmap — shown on scan tab */}
+      {scanTab === "scan" && themes && themes.length > 0 && (() => {
+        // Build subtheme performance from live data or pipeline returns
+        const subthemeList = [];
+        (themes || []).forEach(t => {
+          (t.subthemes || []).forEach(sub => {
+            const tickers = sub.tickers || [];
+            if (tickers.length < 2) return;
+            const returns = tickers.map(tk => stockMap[tk]?.return_1w ?? null).filter(v => v !== null);
+            if (returns.length === 0) return;
+            const avgRet = returns.reduce((a, b) => a + b, 0) / returns.length;
+            const greenPct = returns.filter(r => r > 0).length / returns.length * 100;
+            subthemeList.push({ name: sub.name, theme: t.theme, avgRet: Math.round(avgRet * 100) / 100, greenPct: Math.round(greenPct), count: tickers.length });
+          });
+        });
+        // Also include theme-level rotation data if available
+        const rotationThemes = (themeHealth || [])
           .filter(h => h.rotation && h.rotation.wow_change !== null)
-          .sort((a, b) => (b.rotation.wow_change || 0) - (a.rotation.wow_change || 0))
-          .slice(0, 20);
-        if (rotationThemes.length === 0) return null;
-        const maxAbs = Math.max(...rotationThemes.map(h => Math.abs(h.rotation.wow_change || 0)), 0.01);
+          .map(h => ({ name: h.theme, theme: h.theme, avgRet: h.rotation.wow_change, greenPct: Math.round((h.rotation.pct_green_today || 0)), count: h.rotation.stock_count || 0, isTheme: true }));
+        // Merge: prefer subthemes, fall back to theme-level rotation
+        const items = subthemeList.length > 0 ? subthemeList.sort((a, b) => b.avgRet - a.avgRet).slice(0, 25) : rotationThemes.sort((a, b) => b.avgRet - a.avgRet).slice(0, 20);
+        if (items.length === 0) return null;
+        const maxAbs = Math.max(...items.map(h => Math.abs(h.avgRet || 0)), 0.01);
         return (
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 10, color: "#686878", fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-              THEME ROTATION
-              <span style={{ fontSize: 9, fontWeight: 400, color: "#505060" }}>week-over-week change</span>
+              SUBTHEME ROTATION
+              <span style={{ fontSize: 9, fontWeight: 400, color: "#505060" }}>1-week avg return by subtheme</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 3, maxHeight: 68, overflowY: "auto" }}>
-              {rotationThemes.map(h => {
-                const wow = h.rotation.wow_change || 0;
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 3, maxHeight: 68, overflowY: "auto" }}>
+              {items.map(h => {
+                const wow = h.avgRet || 0;
                 const intensity = Math.min(Math.abs(wow) / maxAbs, 1);
                 const isAccel = wow > 0;
                 const bg = isAccel
@@ -2674,12 +2689,12 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   : `rgba(239, 68, 68, ${0.2 + intensity * 0.5})`;
                 const textColor = isAccel ? "#34d399" : "#f87171";
                 return (
-                  <div key={h.theme} onClick={() => setActiveTheme(activeTheme === h.theme ? null : h.theme)}
+                  <div key={h.name} onClick={() => setActiveTheme(activeTheme === h.theme ? null : h.theme)}
                     style={{ background: bg, border: `1px solid ${borderColor}`, borderRadius: 4, padding: "3px 6px",
                       cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", minWidth: 0,
                       outline: activeTheme === h.theme ? "1px solid #60a5fa" : "none" }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: "#c0c0d0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 4 }}>
-                      {h.theme}
+                      {h.name}
                     </span>
                     <span style={{ fontSize: 9, fontWeight: 700, color: textColor, whiteSpace: "nowrap" }}>
                       {wow > 0 ? "+" : ""}{wow.toFixed(1)}%
@@ -2827,7 +2842,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       {scanTab === "scan" && <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Presets:</span>
         {[
-          ["⚡ Power", { mcap: "mid", vol: 5000000, minRS: 90, scanTags: ["QM", "VCS", "NoBio"], greenOnly: true, minRVol: 1.2, minAdr: 3.5, maxAdr: 10, noBio: true }],
+          ["⚡ Power", { mcap: "mid", vol: 5000000, scanTags: ["QM", "VCS", "NoBio"], greenOnly: true, minRVol: 1.2, minAdr: 3.5, maxAdr: 10, noBio: true }],
           ["21EMA", { mcap: "mid", vol: 1000000, scanTags: ["TB", "PP"], minAdr: 3.5, maxAdr: 10, noBio: true }],
           ["4% Bull", { mcap: "mid", vol: 1000000, minRVol: 1, minChg: 4, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
           ["Vol Up", { mcap: "mid", vol: 1000000, minRVol: 1.5, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
