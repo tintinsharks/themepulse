@@ -630,7 +630,29 @@ export default async function handler(req, res) {
     // Build EP/SIP candidates for the day
     const ahSip = dashData?.ah_sip_movers || dashData?.ah_top_movers || [];
     const pmSip = dashData?.pm_sip_movers || dashData?.pm_top_movers || [];
-    const allEpSip = [...ahMovers, ...pmMovers, ...ahSip, ...pmSip];
+    let allEpSip = [...ahMovers, ...pmMovers, ...ahSip, ...pmSip];
+
+    // Fallback: if no EP/SIP movers from TheStockCatalyst, scan dashboard_data for 4%+ movers with 50K+ vol
+    if (allEpSip.length === 0 && dashData?.stocks?.length > 0) {
+      allEpSip = dashData.stocks
+        .filter(s => Math.abs(s.change_pct || 0) >= 4 && (s.avg_volume_raw || 0) >= 50000)
+        .map(s => {
+          const themes = s.themes || [];
+          return {
+            ticker: s.ticker,
+            company: s.company || '',
+            change_pct: s.change_pct || 0,
+            volume: s.avg_volume_raw || 0,
+            category: (s.avg_volume_raw || 0) >= 8900000 ? 'LAVA' : 'SIP',
+            magna_score: null,
+            ep_quality: null,
+            ep_quality_label: null,
+            session: 'EOD',
+            recent_headlines: [],
+          };
+        });
+    }
+
     const epCandidates = allEpSip
       .filter(m => Math.abs(m.change_pct || m.ext_hours_change_pct || 0) >= 3)
       .sort((a, b) => Math.abs(b.change_pct || b.ext_hours_change_pct || 0) - Math.abs(a.change_pct || a.ext_hours_change_pct || 0))
