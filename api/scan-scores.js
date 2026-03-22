@@ -197,11 +197,25 @@ function runFilters(stock, scores, themeClusters, liveQuote) {
   filters.eps = { pass: eps != null && eps >= 85, value: eps };
   if (filters.eps.pass) total++;
 
-  // Filter 5: RVol + Chg — RVol 1.2x+ AND Chg 3%+
+  // Filter 5: RVol + Chg — Tiered volume validation
   const rvol = liveQuote?.rel_volume ?? stock.rel_volume;
   const chg = liveQuote?.changePercentage ?? stock.change_pct;
-  filters.rvolChg = { pass: rvol >= 1.2 && chg >= 3, rvol: Math.round(rvol * 100) / 100, chg: Math.round(chg * 100) / 100 };
-  if (filters.rvolChg.pass) total++;
+  const rvolRound = Math.round(rvol * 100) / 100;
+  const chgRound = Math.round(chg * 100) / 100;
+  let volStrength = "NONE";
+  let rvolPoints = 0;
+  if (rvol >= 2.0 && chg >= 4) {
+    volStrength = "STRONG";
+    rvolPoints = 2;
+  } else if (rvol >= 1.5 && chg >= 3) {
+    volStrength = "CONFIRMED";
+    rvolPoints = 1;
+  } else if (rvol >= 1.2 && chg >= 3) {
+    volStrength = "WEAK";
+    rvolPoints = 0.5;
+  }
+  filters.rvolChg = { pass: rvolPoints >= 0.5, rvol: rvolRound, chg: chgRound, volStrength, points: rvolPoints };
+  total += rvolPoints >= 1 ? 1 : (rvolPoints === 0.5 ? 0.5 : 0);
 
   // Filter 6: Theme clustering — 3+ stocks in same theme green
   const themes = Array.isArray(stock.themes) ? stock.themes : (stock.themes ? [stock.themes] : []);

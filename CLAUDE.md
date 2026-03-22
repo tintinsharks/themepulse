@@ -86,7 +86,6 @@ This dashboard supports a **CAN SLIM / momentum breakout** style:
 - **RS/TS rankings**: Relative Strength + Trend Strength composite grades (A+ through G)
 - **Theme-based**: Stocks grouped by sector themes (AI, Cybersecurity, GLP-1, etc.)
 - **Episodic Pivots**: Gap+volume+range breakout scanner (Pradeep Bonde method)
-- **Chart Patterns**: VCP, Cup & Handle, Flat Base, Power Play, Ascending Base, Double Bottom, HTF, IPO Base, Symmetrical Triangle
 - **Momentum Burst**: Stockbee +4% breakout scan
 - **Key metrics**: ADR%, distance from moving averages in ATR multiples, float, dollar volume
 

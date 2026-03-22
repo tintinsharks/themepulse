@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Fragment, memo, Component, lazy, Suspense } from "react";
+import { getETNow, GRADE_COLORS, _volCurve, _cumVolFrac, projectedRVol, getQuad, QC } from "./utils.js";
 const USMarketQuadrant = lazy(() => import("./USMarketQuadrant.jsx"));
 
 // ── Error Boundary ──
@@ -22,15 +23,7 @@ class ErrorBoundary extends Component {
   }
 }
 
-const GRADE_COLORS = {
-  "A+":"#1B7A2B","A":"#2E8B3C","A-":"#44A04D",
-  "B+":"#5CB85C","B":"#78C878","B-":"#93D893",
-  "C+":"#B0E8B0","C":"#CCF2CC","C-":"#E8F8E8",
-  "D+":"#e5e5e5","D":"#FFF0F0","D-":"#FFE0E0",
-  "E+":"#FFCECE","E":"#FFBABA","E-":"#FFA5A5",
-  "F+":"#FF8C8C","F":"#FF7070","F-":"#FF5050",
-  "G+":"#FF3030","G":"#E01010",
-};
+// GRADE_COLORS imported from utils.js
 
 // Module-level persistence map — survives component unmount/remount + page refresh via localStorage
 const _persistMap = (() => {
@@ -39,7 +32,7 @@ const _persistMap = (() => {
     if (saved) {
       const parsed = JSON.parse(saved);
       // Keep data if saved within last 2 days (ET) for 2D badge support
-      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const et = getETNow();
       const savedDate = new Date(parsed._date + "T00:00:00");
       const daysDiff = Math.floor((et - savedDate) / 86400000);
       if (daysDiff <= 2 && parsed._data) {
@@ -58,26 +51,14 @@ function _schedulePersistSave() {
   _persistSaveTimer = setTimeout(() => {
     _persistSaveTimer = null;
     try {
-      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const et = getETNow();
       const todayStr = et.toISOString().slice(0, 10);
       localStorage.setItem("tp_crp_persist", JSON.stringify({ _date: todayStr, _data: [..._persistMap.entries()] }));
     } catch {}
   }, 5000); // debounce 5s
 }
 
-function getQuad(wrs, mrs) {
-  if (wrs >= 50 && mrs >= 50) return "STRONG";
-  if (wrs >= 50) return "IMPROVING";
-  if (mrs >= 50) return "WEAKENING";
-  return "WEAK";
-}
-
-const QC = {
-  STRONG: { bg: "#064e3b", text: "#4aad8c", tag: "#059669" },
-  IMPROVING: { bg: "#422006", text: "#fcd34d", tag: "#d97706" },
-  WEAKENING: { bg: "#431407", text: "#fdba74", tag: "#ea580c" },
-  WEAK: { bg: "#450a0a", text: "#fca5a5", tag: "#dc2626" },
-};
+// getQuad and QC imported from utils.js
 
 const Ret = memo(function Ret({ v, bold }) {
   if (v == null) return <span style={{ color: "#787888" }}>—</span>;
@@ -139,38 +120,7 @@ const SHORT_TAG_COLORS = {
   DC: "#dc2626",  // Death Cross (50MA < 200MA)
   SQ: "#fbbf24",  // Squeeze Risk WARNING (high SI%)
 };
-// ── Projected EOD RVol (Zanger-style volume signal) ──
-// Uses empirical U-shaped cumulative volume curve instead of linear extrapolation.
-// The first/last hours of trading carry ~22%/~28% of daily volume respectively,
-// while midday half-hours carry only ~5% each. Linear projection (390/elapsed)
-// massively over-projects early in the day; this curve corrects for that.
-// Formula: projectedRVol = actualRVol / expectedCumulativeFraction(timeOfDay)
-const _volCurve = [ // [minutesSinceOpen, cumulativeFraction]
-  [0,0],[30,.117],[60,.205],[90,.275],[120,.335],[150,.388],
-  [180,.438],[210,.488],[240,.538],[270,.592],[300,.652],
-  [330,.722],[360,.817],[390,1]
-];
-function _cumVolFrac(mins) {
-  if (mins <= 0) return 0;
-  if (mins >= 390) return 1;
-  for (let i = 1; i < _volCurve.length; i++) {
-    if (mins <= _volCurve[i][0]) {
-      const [m0, f0] = _volCurve[i - 1], [m1, f1] = _volCurve[i];
-      return f0 + (f1 - f0) * ((mins - m0) / (m1 - m0));
-    }
-  }
-  return 1;
-}
-function projectedRVol(rv) {
-  if (!rv || rv <= 0) return rv || 0;
-  const now = new Date();
-  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const open = new Date(et); open.setHours(9, 30, 0, 0);
-  const close = new Date(et); close.setHours(16, 0, 0, 0);
-  if (et <= open || et >= close) return rv; // pre-market or after close
-  const frac = _cumVolFrac((et - open) / 60000);
-  return frac > 0 ? rv / frac : rv;
-}
+// _volCurve, _cumVolFrac, projectedRVol imported from utils.js
 
 // ── SimpleMarkdown: lightweight markdown→JSX for AI analysis tab ──
 function SimpleMarkdown({ text }) {
@@ -448,8 +398,7 @@ function crPersistence(readings) {
 // ── Projected 9M volume check (run-rate extrapolation to EOD) ──
 function projectedEodVol(currentVol) {
   if (!currentVol || currentVol <= 0) return 0;
-  const now = new Date();
-  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const et = getETNow();
   const open = new Date(et); open.setHours(9, 30, 0, 0);
   const close = new Date(et); close.setHours(16, 0, 0, 0);
   const elapsed = (et - open) / 60000; // minutes since open
@@ -2697,6 +2646,51 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         <div style={{ flex: 1, borderBottom: "1px solid #3a3a4a" }} />
       </div>
 
+      {/* Theme Rotation Heatmap — shown on scan tab */}
+      {scanTab === "scan" && themeHealth && themeHealth.length > 0 && (() => {
+        const rotationThemes = themeHealth
+          .filter(h => h.rotation && h.rotation.wow_change !== null)
+          .sort((a, b) => (b.rotation.wow_change || 0) - (a.rotation.wow_change || 0))
+          .slice(0, 20);
+        if (rotationThemes.length === 0) return null;
+        const maxAbs = Math.max(...rotationThemes.map(h => Math.abs(h.rotation.wow_change || 0)), 0.01);
+        return (
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: "#686878", fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+              THEME ROTATION
+              <span style={{ fontSize: 9, fontWeight: 400, color: "#505060" }}>week-over-week change</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 3, maxHeight: 68, overflowY: "auto" }}>
+              {rotationThemes.map(h => {
+                const wow = h.rotation.wow_change || 0;
+                const intensity = Math.min(Math.abs(wow) / maxAbs, 1);
+                const isAccel = wow > 0;
+                const bg = isAccel
+                  ? `rgba(16, 185, 129, ${0.08 + intensity * 0.32})`
+                  : `rgba(239, 68, 68, ${0.08 + intensity * 0.32})`;
+                const borderColor = isAccel
+                  ? `rgba(16, 185, 129, ${0.2 + intensity * 0.5})`
+                  : `rgba(239, 68, 68, ${0.2 + intensity * 0.5})`;
+                const textColor = isAccel ? "#34d399" : "#f87171";
+                return (
+                  <div key={h.theme} onClick={() => setActiveTheme(activeTheme === h.theme ? null : h.theme)}
+                    style={{ background: bg, border: `1px solid ${borderColor}`, borderRadius: 4, padding: "3px 6px",
+                      cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", minWidth: 0,
+                      outline: activeTheme === h.theme ? "1px solid #60a5fa" : "none" }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: "#c0c0d0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 4 }}>
+                      {h.theme}
+                    </span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: textColor, whiteSpace: "nowrap" }}>
+                      {wow > 0 ? "+" : ""}{wow.toFixed(1)}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Shared filters — apply to scan + burst tabs (EP/AI/Short have their own content) */}
       {scanTab !== "ep" && scanTab !== "ai" && scanTab !== "short" && scanTab !== "gapper" && scanTab !== "research" && <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
         {/* Tag filters — use tab-specific state */}
@@ -2832,6 +2826,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
       {scanTab === "scan" && <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 10, color: "#686878", fontWeight: 600 }}>Presets:</span>
         {[
+          ["⚡ Power", { mcap: "mid", vol: 5000000, minRS: 90, scanTags: ["QM", "VCS", "NoBio"], greenOnly: true, minRVol: 1.2, minAdr: 3.5, maxAdr: 10, noBio: true }],
           ["21EMA", { mcap: "mid", vol: 1000000, scanTags: ["TB", "PP"], minAdr: 3.5, maxAdr: 10, noBio: true }],
           ["4% Bull", { mcap: "mid", vol: 1000000, minRVol: 1, minChg: 4, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
           ["Vol Up", { mcap: "mid", vol: 1000000, minRVol: 1.5, greenOnly: true, minAdr: 3.5, maxAdr: 10, noBio: true }],
@@ -3745,6 +3740,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         _revGrowthYoY: er.rev_growth_yoy ?? null,
         _epsGrowthYoY: er.eps_growth_yoy ?? null,
         days_ago: m.days_ago ?? 0,
+        // MAGNA / Category / Gap Hold / Neglect fields (from pipeline, may not exist yet)
+        _magna_score: m.magna_score ?? null,
+        _magna_flags: m.magna_flags ?? null,
+        _category: m.category ?? null,
+        _neglect_score: m.neglect_score ?? null,
+        _gap_hold_score: m.gap_hold_score ?? m.ep_signals?.consolidation?.gap_hold_score ?? null,
+        _gap_hold_label: m.gap_hold_label ?? m.ep_signals?.consolidation?.gap_hold_label ?? null,
+        _sizing_guide: m.sizing_guide ?? null,
       };
     });
 
@@ -3840,6 +3843,14 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
         _grossMargin: s.profit_margin ?? null,
         _netMargin: s.oper_margin ?? null,
         _moverData: m,
+        // MAGNA / Category / Gap Hold / Neglect fields
+        _magna_score: m.magna_score ?? null,
+        _magna_flags: m.magna_flags ?? null,
+        _category: m.category ?? null,
+        _neglect_score: m.neglect_score ?? null,
+        _gap_hold_score: m.gap_hold_score ?? m.ep_signals?.consolidation?.gap_hold_score ?? null,
+        _gap_hold_label: m.gap_hold_label ?? m.ep_signals?.consolidation?.gap_hold_label ?? null,
+        _sizing_guide: m.sizing_guide ?? null,
       };
     };
 
@@ -4460,15 +4471,68 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {row._source === "upcoming" ? "AMC" : row._source === "per" ? "PER" : row._source === "aer" ? "AER" : row._source === "pm" ? "PreM" : row._source === "ah" ? "AftM" : row._source === "manual" ? "MAN" : row._source.toUpperCase()}
                         </span>
                       </td>
-                      {/* Ticker */}
+                      {/* Ticker + Category pill */}
                       <td style={{ padding: "3px 4px", fontWeight: 600, fontSize: 10, fontFamily: "monospace",
                         color: isActive ? "#fbbf24" : "#a8a8b8" }}>
-                        <Tk ticker={row.ticker} />
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <Tk ticker={row.ticker} />
+                          {row._category === "CAT" && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#9333ea20", color: "#c084fc", fontWeight: 600, lineHeight: "14px" }}>CAT</span>}
+                          {row._category === "DOG" && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#f9731620", color: "#f97316", fontWeight: 600, lineHeight: "14px" }}>DOG</span>}
+                          {row._category === "LAVA" && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#22d3ee20", color: "#22d3ee", fontWeight: 600, lineHeight: "14px" }}>LAVA</span>}
+                        </span>
                       </td>
-                      {/* Headline */}
+                      {/* Headline + MAGNA / Gap Hold / Neglect / Sizing badges */}
                       <td style={{ padding: "3px 6px", fontSize: 9, color: row._upcoming ? "#787888" : "#a8a8b8",
                         lineHeight: 1.4, verticalAlign: "top", overflow: "hidden",
                         fontStyle: row._upcoming ? "italic" : "normal", whiteSpace: "normal", wordWrap: "break-word" }}>
+                        {/* Badge row: MAGNA + Gap Hold + Neglect + Sizing */}
+                        {(row._magna_score >= 2 || row._gap_hold_score != null || row._neglect_score >= 2 || row._sizing_guide || row._category) && (
+                          <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 2, flexWrap: "wrap" }}>
+                            {/* MAGNA Score Badge */}
+                            {row._magna_score >= 4 && (
+                              <span style={{ fontSize: 7, padding: "0px 4px", borderRadius: 3, background: "#2bb88625", color: "#2bb886", fontWeight: 700, fontFamily: "monospace", lineHeight: "14px" }}
+                                title={row._magna_flags ? `M·A·G·N·A: ${row._magna_flags}` : "MAGNA 4/4"}>
+                                MAGNA 4 {row._magna_flags && <span style={{ color: "#2bb88099" }}>{row._magna_flags}</span>}
+                              </span>
+                            )}
+                            {row._magna_score === 3 && (
+                              <span style={{ fontSize: 7, padding: "0px 4px", borderRadius: 3, background: "#4a9a6a25", color: "#4a9a6a", fontWeight: 700, fontFamily: "monospace", lineHeight: "14px" }}
+                                title={row._magna_flags ? `MAGNA flags: ${row._magna_flags}` : "MAGNA 3/4"}>
+                                MAGNA 3 {row._magna_flags && <span style={{ color: "#4a9a6a99" }}>{row._magna_flags}</span>}
+                              </span>
+                            )}
+                            {row._magna_score === 2 && (
+                              <span style={{ fontSize: 7, padding: "0px 4px", borderRadius: 3, background: "#fbbf2420", color: "#fbbf24", fontWeight: 700, fontFamily: "monospace", lineHeight: "14px" }}
+                                title={row._magna_flags ? `MAGNA flags: ${row._magna_flags}` : "MAGNA 2/4"}>
+                                MAGNA 2 {row._magna_flags && <span style={{ color: "#fbbf2499" }}>{row._magna_flags}</span>}
+                              </span>
+                            )}
+                            {/* Gap Hold Score */}
+                            {row._gap_hold_score != null && (
+                              <span style={{ fontSize: 7, padding: "0px 4px", borderRadius: 3, fontWeight: 600, fontFamily: "monospace", lineHeight: "14px",
+                                background: row._gap_hold_score >= 4 ? "#2bb88620" : row._gap_hold_score >= 3 ? "#fbbf2420" : "#f8717120",
+                                color: row._gap_hold_score >= 4 ? "#2bb886" : row._gap_hold_score >= 3 ? "#fbbf24" : "#f87171" }}>
+                                {row._gap_hold_label || (row._gap_hold_score >= 4 ? "HELD" : row._gap_hold_score >= 3 ? "BASING" : "FADING")} {row._gap_hold_score}/5
+                              </span>
+                            )}
+                            {/* Neglect Indicator */}
+                            {row._neglect_score >= 2 && (
+                              <span style={{ fontSize: 7, color: "#686878", fontStyle: "italic", lineHeight: "14px" }}>
+                                {"👀"} Neglected
+                              </span>
+                            )}
+                            {/* Sizing Guide */}
+                            {row._sizing_guide ? (
+                              <span style={{ fontSize: 7, color: row._category === "DOG" ? "#f97316" : "#4a9a6a", fontStyle: "italic", lineHeight: "14px" }}>
+                                {row._sizing_guide}
+                              </span>
+                            ) : row._category === "CAT" || row._category === "LAVA" ? (
+                              <span style={{ fontSize: 7, color: "#4a9a6a", fontStyle: "italic", lineHeight: "14px" }}>Full size</span>
+                            ) : row._category === "DOG" ? (
+                              <span style={{ fontSize: 7, color: "#f97316", fontStyle: "italic", lineHeight: "14px" }}>5-10%</span>
+                            ) : null}
+                          </div>
+                        )}
                         {row._upcoming ? (
                           <span style={{ color: "#787888" }}>Reports after close today</span>
                         ) : row._recentHeadlines && row._recentHeadlines.length > 0 ? (
@@ -4636,7 +4700,12 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           {rs != null ? rs : "—"}
                         </td>
                         <td style={{ padding: "3px 6px", fontWeight: 600, color: m.in_universe ? "#a8a8b8" : "#686878" }}>
-                          {m.ticker}
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            {m.ticker}
+                            {m.category === "CAT" && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#9333ea20", color: "#c084fc", fontWeight: 600, lineHeight: "14px" }}>CAT</span>}
+                            {m.category === "DOG" && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#f9731620", color: "#f97316", fontWeight: 600, lineHeight: "14px" }}>DOG</span>}
+                            {m.category === "LAVA" && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#22d3ee20", color: "#22d3ee", fontWeight: 600, lineHeight: "14px" }}>LAVA</span>}
+                          </span>
                         </td>
                         <td style={{ padding: "3px 6px", textAlign: "right", fontFamily: "monospace", color: "#686878" }}>
                           {fmtVol(liveVol)}
@@ -4664,8 +4733,26 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
                           color: daysAgo <= 1 ? "#2bb886" : daysAgo <= 3 ? "#a8a8b8" : "#686878" }}>
                           {daysAgo}d
                         </td>
-                        <td style={{ padding: "3px 6px", color: hlColor, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 9 }}>
-                          {m.recent_headlines && m.recent_headlines.length > 0 ? m.recent_headlines[0] : "—"}
+                        <td style={{ padding: "3px 6px", color: hlColor, maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", fontSize: 9 }}>
+                          {/* MAGNA / Gap Hold / Neglect badges for historical rows */}
+                          {(m.magna_score >= 2 || m.gap_hold_score != null || m.neglect_score >= 2 || m.category) && (
+                            <span style={{ display: "inline-flex", gap: 3, marginRight: 4 }}>
+                              {m.magna_score >= 4 && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#2bb88625", color: "#2bb886", fontWeight: 700, fontFamily: "monospace" }}>M{m.magna_score}</span>}
+                              {m.magna_score === 3 && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#4a9a6a25", color: "#4a9a6a", fontWeight: 700, fontFamily: "monospace" }}>M3</span>}
+                              {m.magna_score === 2 && <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, background: "#fbbf2420", color: "#fbbf24", fontWeight: 700, fontFamily: "monospace" }}>M2</span>}
+                              {(m.gap_hold_score ?? (m.ep_signals?.consolidation?.gap_hold_score)) != null && (() => {
+                                const ghs = m.gap_hold_score ?? m.ep_signals?.consolidation?.gap_hold_score;
+                                const ghl = m.gap_hold_label ?? m.ep_signals?.consolidation?.gap_hold_label;
+                                return <span style={{ fontSize: 7, padding: "0px 3px", borderRadius: 3, fontWeight: 600, fontFamily: "monospace",
+                                  background: ghs >= 4 ? "#2bb88620" : ghs >= 3 ? "#fbbf2420" : "#f8717120",
+                                  color: ghs >= 4 ? "#2bb886" : ghs >= 3 ? "#fbbf24" : "#f87171" }}>
+                                  {ghl || (ghs >= 4 ? "HELD" : ghs >= 3 ? "BASING" : "FADING")} {ghs}/5
+                                </span>;
+                              })()}
+                              {m.neglect_score >= 2 && <span style={{ fontSize: 7, color: "#686878", fontStyle: "italic" }}>{"👀"}</span>}
+                            </span>
+                          )}
+                          <span style={{ whiteSpace: "nowrap" }}>{m.recent_headlines && m.recent_headlines.length > 0 ? m.recent_headlines[0] : "—"}</span>
                         </td>
                       </tr>
                     );
@@ -11388,7 +11475,7 @@ function AppMain({ authToken, onLogout }) {
   useEffect(() => {
     if (!appHasLive) return;
     const now = Date.now();
-    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const et = getETNow();
     const todayOpen = new Date(et); todayOpen.setHours(9, 30, 0, 0);
     const todayOpenMs = todayOpen.getTime() - (et.getTime() - now);
     // Only clear yesterday's readings once we have enough new ones for that ticker
