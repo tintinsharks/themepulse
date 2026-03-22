@@ -204,6 +204,13 @@ a{color:var(--cyan);text-decoration:none}
     <span id="briefing-arrow" style="font-size:8px;color:var(--muted)">▼</span>
   </button>
   <div id="briefing-section" style="display:none;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px 14px">
+    <div style="margin-bottom:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
+      <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">
+        <span>TERMINAL ANALYSIS</span>
+        <span id="analysis-time" style="font-weight:400"></span>
+      </div>
+      <div id="analysis-body" style="font-size:11px;line-height:1.7;color:var(--text)">Loading...</div>
+    </div>
     <pre id="briefing-body" style="font-family:inherit;font-size:10px;line-height:1.8;color:var(--text);white-space:pre-wrap;margin:0">Loading briefing...</pre>
   </div>
 </div>
@@ -286,14 +293,6 @@ a{color:var(--cyan);text-decoration:none}
 <!-- Bottom panels -->
 <div class="grid-bottom" id="bottom-grid"></div>
 
-<!-- Terminal Analysis -->
-<div class="analysis" id="analysis-panel">
-  <div class="analysis-head">
-    <span>TERMINAL ANALYSIS <span style="font-weight:400;color:var(--muted)">AI-generated market assessment</span></span>
-    <span id="analysis-time"></span>
-  </div>
-  <div class="analysis-body" id="analysis-body">Loading...</div>
-</div>
 
 </div><!-- end details-section -->
 
