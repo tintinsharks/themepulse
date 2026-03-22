@@ -405,7 +405,21 @@ export default async function handler(req, res) {
       fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
       fetchJson(origin, "/market_monitor.json"),
       fetchJson(origin, "/dashboard_data.json"),
-      fetchJson(origin, "/api/userdata"),
+      (async () => {
+        // Fetch userdata directly from Upstash Redis (bypasses auth)
+        const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+        const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+        if (!upstashUrl || !upstashToken) return { portfolio: [], watchlist: [] };
+        try {
+          const r = await fetch(upstashUrl, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${upstashToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify(["GET", "tp_userdata"]),
+          });
+          const result = await r.json();
+          return result.result ? JSON.parse(result.result) : { portfolio: [], watchlist: [] };
+        } catch { return { portfolio: [], watchlist: [] }; }
+      })(),
     ]);
 
     // Also try to get VIX directly
