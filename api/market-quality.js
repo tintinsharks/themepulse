@@ -718,6 +718,38 @@ export default async function handler(req, res) {
           ],
         };
       })(),
+      trend: (() => {
+        // Build trend data from market_monitor history
+        const history = monitor?.history || [];
+        const last3 = history.slice(-3).reverse();
+        const indices = monitor?.indices || {};
+        // Compute net new highs from dashboard_data
+        const stocks = dashData?.stocks || [];
+        const totalStocks = stocks.length || 1;
+        const nearHigh = stocks.filter(s => (s.pct_from_high || -100) >= -1).length;
+        const nearLow = stocks.filter(s => (s.pct_from_high || -100) <= -50).length;
+        const nnh = nearHigh - nearLow;
+        const above50 = stocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length;
+        const above200 = stocks.filter(s => s.above_200ma === 1).length;
+        const pct50 = Math.round(above50 / totalStocks * 100);
+        const pct200 = Math.round(above200 / totalStocks * 100);
+        // Trend status
+        const status = nnh < 0 ? "DOWN" : nnh > 20 ? "UP" : "FLAT";
+        const statusColor = status === "UP" ? "#00d26a" : status === "DOWN" ? "#ff4757" : "#ffa726";
+        return {
+          status, statusColor,
+          current: { hi: nearHigh, lo: nearLow, nnh, pct50, pct200 },
+          history: last3.map(h => ({
+            date: h.date,
+            hi: h.up_4pct || 0,
+            lo: h.down_4pct || 0,
+            nnh: (h.up_4pct || 0) - (h.down_4pct || 0),
+            pct50: h.t2108 ? Math.round(h.t2108) : null,
+            pct200: null,
+          })),
+          summary: `NNH ${nnh >= 0 ? 'positive' : 'negative'}. ${pct50}% above 50MA.`,
+        };
+      })(),
       portfolio,
       watchlist,
       upcomingEarnings: (() => {

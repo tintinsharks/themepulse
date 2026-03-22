@@ -318,6 +318,30 @@ a{color:var(--cyan);text-decoration:none}
   </div>
 </div>
 
+<!-- Expandable Trend Panel -->
+<div style="padding:0 16px;margin-top:4px">
+  <button id="trend-toggle" onclick="toggleTrend()" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:5px 14px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center">
+    <span style="display:flex;align-items:center;gap:6px"><span id="trend-dot" style="width:8px;height:8px;border-radius:50%"></span><span style="color:#fff">TREND</span></span>
+    <span style="display:flex;align-items:center;gap:8px"><span id="trend-status" style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:3px"></span><span id="trend-arrow" style="font-size:8px;color:var(--muted)">▼</span></span>
+  </button>
+  <div id="trend-section" style="display:none;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px 14px">
+    <table style="width:100%;border-collapse:collapse;font-size:10px;font-family:inherit">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:3px 0;color:var(--muted);font-size:8px;font-weight:700">DATE</th>
+          <th style="text-align:right;padding:3px 4px;color:var(--muted);font-size:8px;font-weight:700">Hi</th>
+          <th style="text-align:right;padding:3px 4px;color:var(--muted);font-size:8px;font-weight:700">Lo</th>
+          <th style="text-align:right;padding:3px 4px;color:var(--muted);font-size:8px;font-weight:700">NNH</th>
+          <th style="text-align:right;padding:3px 4px;color:var(--muted);font-size:8px;font-weight:700">50SMA</th>
+          <th style="text-align:right;padding:3px 4px;color:var(--muted);font-size:8px;font-weight:700">200SMA</th>
+        </tr>
+      </thead>
+      <tbody id="trend-body"></tbody>
+    </table>
+    <div id="trend-summary" style="margin-top:8px;font-size:10px;font-weight:600;color:var(--text)"></div>
+  </div>
+</div>
+
 <!-- Collapsible details section -->
 <div style="padding:0 16px 4px;margin-top:4px">
   <button id="details-toggle" onclick="toggleDetails()" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:6px 14px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;text-transform:uppercase;letter-spacing:1px;width:100%;text-align:center">
@@ -607,6 +631,46 @@ function setTimeframe(tf) {
   }
 }
 
+var _trendOpen = false;
+function toggleTrend() {
+  _trendOpen = !_trendOpen;
+  document.getElementById('trend-section').style.display = _trendOpen ? 'block' : 'none';
+  document.getElementById('trend-arrow').textContent = _trendOpen ? '▲' : '▼';
+}
+
+function renderTrend(d) {
+  var t = d.trend;
+  if (!t) return;
+  document.getElementById('trend-dot').style.background = t.statusColor;
+  document.getElementById('trend-status').textContent = t.status;
+  document.getElementById('trend-status').style.background = t.statusColor + '20';
+  document.getElementById('trend-status').style.color = t.statusColor;
+  document.getElementById('trend-status').style.border = '1px solid ' + t.statusColor;
+
+  // Current + history rows
+  var rows = '';
+  var cur = t.current;
+  var nnhCol = cur.nnh >= 0 ? 'var(--green)' : 'var(--red)';
+  rows += '<tr style="border-bottom:1px solid rgba(30,34,48,.5)"><td style="padding:3px 0;color:var(--text);font-weight:600">Today</td>' +
+    '<td style="text-align:right;padding:3px 4px;color:var(--green)">' + cur.hi + '</td>' +
+    '<td style="text-align:right;padding:3px 4px;color:var(--red)">' + (-cur.lo) + '</td>' +
+    '<td style="text-align:right;padding:3px 4px;color:' + nnhCol + '">' + cur.nnh + '</td>' +
+    '<td style="text-align:right;padding:3px 4px;color:' + (cur.pct50 >= 50 ? 'var(--green)' : 'var(--red)') + '">' + cur.pct50 + '%</td>' +
+    '<td style="text-align:right;padding:3px 4px;color:' + (cur.pct200 >= 50 ? 'var(--green)' : 'var(--red)') + '">' + cur.pct200 + '%</td></tr>';
+
+  (t.history || []).forEach(function(h) {
+    var hNnhCol = h.nnh >= 0 ? 'var(--green)' : 'var(--red)';
+    rows += '<tr style="border-bottom:1px solid rgba(30,34,48,.5)"><td style="padding:3px 0;color:var(--muted)">' + (h.date || '') + '</td>' +
+      '<td style="text-align:right;padding:3px 4px;color:var(--green)">' + h.hi + '</td>' +
+      '<td style="text-align:right;padding:3px 4px;color:var(--red)">' + h.lo + '</td>' +
+      '<td style="text-align:right;padding:3px 4px;color:' + hNnhCol + '">' + h.nnh + '</td>' +
+      '<td style="text-align:right;padding:3px 4px;color:' + ((h.pct50||0) >= 50 ? 'var(--green)' : 'var(--red)') + '">' + (h.pct50 !== null ? h.pct50 + '%' : '--') + '</td>' +
+      '<td style="text-align:right;padding:3px 4px;color:var(--muted)">--</td></tr>';
+  });
+  document.getElementById('trend-body').innerHTML = rows;
+  document.getElementById('trend-summary').innerHTML = '<span style="color:' + t.statusColor + '">' + t.summary + '</span>';
+}
+
 function renderQuadrant(d) {
   var q = d.quadrant;
   if (!q) return;
@@ -718,6 +782,7 @@ function renderHero(d) {
   renderFutures(d);
   renderEarnings(d);
   renderQuadrant(d);
+  renderTrend(d);
   renderSentimentGauge(d);
 
   // Decision badge
