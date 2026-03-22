@@ -571,20 +571,6 @@ function renderBottom(d) {
     '<span class="panel-score" style="color:' + scoreColor(ex.score || 0) + '">' + (ex.score || 0) + '</span></div>' +
     '<div class="panel-body">' + exRows + '</div></div>';
 
-  // Sector Performance
-  var sectors = d.sectors || [];
-  var maxChg = Math.max.apply(null, sectors.map(function(s) { return Math.abs(s.change); }).concat([1]));
-  var sectorRows = sectors.map(function(s) {
-    var w = Math.abs(s.change) / maxChg * 100;
-    var col = s.change >= 0 ? 'var(--green)' : 'var(--red)';
-    var sign = s.change >= 0 ? '+' : '';
-    return '<div class="sector-row"><span class="sector-name">' + s.name + '</span>' +
-      '<div class="sector-bar-wrap"><div class="sector-bar" style="width:' + w + '%;background:' + col + '"></div></div>' +
-      '<span class="sector-chg" style="color:' + col + '">' + sign + s.change.toFixed(2) + '%</span></div>';
-  }).join('');
-  html += '<div class="panel"><div class="panel-head"><span class="panel-title" style="color:var(--cyan)"># SECTOR PERFORMANCE</span></div>' +
-    '<div class="panel-body">' + sectorRows + '</div></div>';
-
   // Scoring Weights
   var weights = d.weights || {};
   var cats = ['volatility','momentum','trend','breadth','macro'];
