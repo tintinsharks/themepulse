@@ -472,17 +472,44 @@ export default async function handler(req, res) {
         const greenCount = stocks.filter(s => (s.change_pct || 0) > 0).length;
         const avgReturn1w = stocks.reduce((sum, s) => sum + (s.return_1w || 0), 0) / stocks.length;
         const avgReturn1m = stocks.reduce((sum, s) => sum + (s.return_1m || 0), 0) / stocks.length;
+        const avgReturn3m = stocks.reduce((sum, s) => sum + (s.return_3m || 0), 0) / stocks.length;
 
+        // Composite Theme Strength Score (0-100)
+        // Momentum (30%): avg 1w + 1m returns normalized
+        const momScore = clamp(50 + avgReturn1w * 3 + avgReturn1m * 0.5, 0, 100);
+        // Money Flow (25%): % of stocks with positive relative volume (RVol > 1)
+        const rvolPositive = stocks.filter(s => (s.rel_volume || 0) > 1).length;
+        const moneyFlowScore = clamp(rvolPositive / stocks.length * 100, 0, 100);
+        // Strong Stocks (25%): % above 50 SMA + near highs
+        const above50 = stocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length;
+        const nearHighs = stocks.filter(s => (s.pct_from_high || -100) >= -10).length;
+        const strongScore = clamp((above50 / stocks.length * 50) + (nearHighs / stocks.length * 50), 0, 100);
+        // Multi-Timeframe (20%): 3-month return normalized
+        const mtfScore = clamp(50 + avgReturn3m * 0.3, 0, 100);
+
+        const compositeScore = Math.round(momScore * 0.30 + moneyFlowScore * 0.25 + strongScore * 0.25 + mtfScore * 0.20);
+
+        // Compute composite for subthemes too
         const subthemes = (theme.subthemes || []).map(sub => {
           const subStocks = (sub.tickers || []).map(tk => stockMap[tk]).filter(Boolean);
           if (subStocks.length === 0) return null;
           const subGreen = subStocks.filter(s => (s.change_pct || 0) > 0).length;
           const subAvg1w = subStocks.reduce((sum, s) => sum + (s.return_1w || 0), 0) / subStocks.length;
+          const subAvg1m = subStocks.reduce((sum, s) => sum + (s.return_1m || 0), 0) / subStocks.length;
+          const subAvg3m = subStocks.reduce((sum, s) => sum + (s.return_3m || 0), 0) / subStocks.length;
+          const subRvol = subStocks.filter(s => (s.rel_volume || 0) > 1).length;
+          const subAbove50 = subStocks.filter(s => s.above_50ma === 1 || s.sma50_above === 1).length;
+          const subNearHi = subStocks.filter(s => (s.pct_from_high || -100) >= -10).length;
+          const sMom = clamp(50 + subAvg1w * 3 + subAvg1m * 0.5, 0, 100);
+          const sMF = clamp(subRvol / subStocks.length * 100, 0, 100);
+          const sStr = clamp((subAbove50 / subStocks.length * 50) + (subNearHi / subStocks.length * 50), 0, 100);
+          const sMTF = clamp(50 + subAvg3m * 0.3, 0, 100);
+          const subScore = Math.round(sMom * 0.30 + sMF * 0.25 + sStr * 0.25 + sMTF * 0.20);
           return {
             name: sub.name,
             stockCount: subStocks.length,
             pctGreen: Math.round(subGreen / subStocks.length * 100),
-            avgReturn1w: Math.round(subAvg1w * 100) / 100,
+            score: subScore,
           };
         }).filter(Boolean);
 
@@ -490,13 +517,11 @@ export default async function handler(req, res) {
           theme: theme.theme,
           stockCount: stocks.length,
           pctGreen: Math.round(greenCount / stocks.length * 100),
-          avgReturn1w: Math.round(avgReturn1w * 100) / 100,
-          avgReturn1m: Math.round(avgReturn1m * 100) / 100,
-          breadth: theme.breadth || 0,
+          score: compositeScore,
           subthemes,
         });
       });
-      themeHealth.sort((a, b) => b.avgReturn1w - a.avgReturn1w);
+      themeHealth.sort((a, b) => b.score - a.score);
       themeHealth.splice(20); // limit to top 20
     }
 

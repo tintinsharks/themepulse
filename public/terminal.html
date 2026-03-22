@@ -286,11 +286,11 @@ a{color:var(--cyan);text-decoration:none}
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <div class="theme-health-header">
         <span class="th-title">THEMES</span>
-        <span class="th-sub">by 1-week return</span>
+        <span class="th-sub">by composite strength</span>
       </div>
       <div class="th-col-headers">
         <span>THEME</span>
-        <span style="text-align:right">AVG 1W</span>
+        <span style="text-align:right">STRENGTH</span>
         <span style="text-align:right">% GREEN</span>
       </div>
       <div id="theme-health-left" style="flex:1;overflow-y:auto;max-height:400px"></div>
@@ -299,11 +299,11 @@ a{color:var(--cyan);text-decoration:none}
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <div class="theme-health-header">
         <span class="th-title">SUBTHEMES</span>
-        <span class="th-sub">by 1-week return</span>
+        <span class="th-sub">by composite strength</span>
       </div>
       <div class="th-col-headers">
         <span>SUBTHEME</span>
-        <span style="text-align:right">AVG 1W</span>
+        <span style="text-align:right">STRENGTH</span>
         <span style="text-align:right">% GREEN</span>
       </div>
       <div id="theme-health-right" style="flex:1;overflow-y:auto;max-height:400px"></div>
@@ -557,36 +557,35 @@ function renderThemeHealth(d) {
   if (!themes.length) { section.style.display = 'none'; return; }
   section.style.display = 'block';
 
-  // Left column: Themes
+  // Left column: Themes sorted by composite score
   leftBody.innerHTML = themes.map(function(t) {
-    var retCol = t.avgReturn1w >= 0 ? 'var(--green)' : 'var(--red)';
-    var retSign = t.avgReturn1w >= 0 ? '+' : '';
+    var sc = t.score || 0;
+    var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
     var greenCol = t.pctGreen >= 60 ? 'var(--green)' : t.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
     return '<div class="th-row">' +
       '<span class="th-theme-name">' + t.theme + '</span>' +
-      '<span class="th-val" style="color:' + retCol + '">' + retSign + t.avgReturn1w.toFixed(1) + '%</span>' +
+      '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
       '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + t.pctGreen + '%;background:' + greenCol + '"></span></span><span class="th-minibar-label" style="color:' + greenCol + '">' + t.pctGreen + '%</span></span>' +
       '</div>';
   }).join('');
 
-  // Right column: All subthemes flattened and sorted
+  // Right column: All subthemes sorted by composite score
   var allSubs = [];
   themes.forEach(function(t) {
     (t.subthemes || []).forEach(function(sub) {
       if (sub.stockCount >= 2) allSubs.push(sub);
     });
   });
-  allSubs.sort(function(a, b) { return b.avgReturn1w - a.avgReturn1w; });
+  allSubs.sort(function(a, b) { return (b.score || 0) - (a.score || 0); });
 
   rightBody.innerHTML = allSubs.slice(0, 40).map(function(sub) {
-    var sRetCol = sub.avgReturn1w >= 0 ? 'var(--green)' : 'var(--red)';
-    var sSign = sub.avgReturn1w >= 0 ? '+' : '';
+    var sc = sub.score || 0;
+    var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
     var sGreenCol = sub.pctGreen >= 60 ? 'var(--green)' : sub.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
     return '<div class="th-row">' +
       '<span class="th-theme-name">' + sub.name + '</span>' +
-      '<span class="th-val" style="color:' + sRetCol + '">' + sSign + sub.avgReturn1w.toFixed(1) + '%</span>' +
+      '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
       '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + sub.pctGreen + '%;background:' + sGreenCol + '"></span></span><span class="th-minibar-label" style="color:' + sGreenCol + '">' + sub.pctGreen + '%</span></span>' +
-      '<span class="th-stock-count">' + sub.stockCount + '</span>' +
       '</div>';
   }).join('');
 }
