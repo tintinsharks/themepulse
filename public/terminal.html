@@ -288,7 +288,7 @@ a{color:var(--cyan);text-decoration:none}
         <span><span class="th-title" id="th-left-title">THEMES</span> <span class="th-sub">by strength</span></span>
         <button id="th-left-all-btn" onclick="resetLeftColumn()" style="display:none;padding:2px 8px;font-size:9px;font-weight:700;background:var(--bg);border:1px solid var(--border);color:var(--cyan);border-radius:3px;cursor:pointer;font-family:inherit">BACK</button>
       </div>
-      <div class="th-col-headers">
+      <div class="th-col-headers" id="th-left-col-headers">
         <span>THEME</span>
         <span style="text-align:right">STRENGTH</span>
         <span style="text-align:right">% GREEN</span>
@@ -588,6 +588,8 @@ function selectSubtheme(subName) {
 
   leftTitle.textContent = subName;
   leftAllBtn.style.display = 'inline-block';
+  document.getElementById('th-left-col-headers').innerHTML = '<span>TICKER</span><span style="text-align:right">RS</span><span style="text-align:right">1W%</span><span style="text-align:right">FROM HIGH</span>';
+  document.getElementById('th-left-col-headers').style.gridTemplateColumns = '1fr 40px 50px 55px';
 
   leftBody.innerHTML = subData.tickers.map(function(tk) {
     var retCol = tk.ret1w >= 0 ? 'var(--green)' : 'var(--red)';
@@ -614,6 +616,8 @@ function resetLeftColumn() {
   var leftAllBtn = document.getElementById('th-left-all-btn');
   leftTitle.textContent = 'THEMES';
   leftAllBtn.style.display = 'none';
+  document.getElementById('th-left-col-headers').innerHTML = '<span>THEME</span><span style="text-align:right">STRENGTH</span><span style="text-align:right">% GREEN</span>';
+  document.getElementById('th-left-col-headers').style.gridTemplateColumns = '1fr 50px 90px';
   renderThemeLeft();
 }
 
