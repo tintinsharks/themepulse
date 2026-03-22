@@ -897,11 +897,12 @@ function renderEarnings(d) {
 function renderBriefing(d) {
   var body = document.getElementById('briefing-body');
   if (d.briefing) {
-    // Replace ticker symbols (1-5 uppercase letters) with clickable links
+    // Only make known tickers clickable (portfolio + watchlist)
+    var knownTickers = new Set();
+    (d.portfolio || []).forEach(function(s) { knownTickers.add(s.ticker); });
+    (d.watchlist || []).forEach(function(s) { knownTickers.add(s.ticker); });
     var html = d.briefing.replace(/\b([A-Z]{1,5})\b/g, function(match) {
-      // Skip common non-ticker words
-      var skip = ['THE','AND','FOR','NOT','YES','NO','ALL','VIX','SMA','ADR','ATR','EPS','YOY','QOQ','BMO','AMC','IPO','CEO','FDA','SEC','ETF','RSI','SIP','CAT','DOG','LAVA','GOLD','PLAN','WARN'];
-      if (skip.indexOf(match) >= 0) return match;
+      if (!knownTickers.has(match)) return match;
       return '<span class="clickable-ticker" onclick="event.stopPropagation();openChart(\'' + match + '\')" style="color:var(--cyan)">' + match + '</span>';
     });
     body.innerHTML = html;
