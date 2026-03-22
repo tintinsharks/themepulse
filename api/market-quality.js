@@ -691,10 +691,14 @@ export default async function handler(req, res) {
           .map(d => ({ date: d.date, time: d.time, tickers: d.tickers.slice(0, 12) }));
       })(),
       futures: await (async () => {
-        // Scrape futures from Finviz
+        // Scrape futures from Finviz Elite
         try {
-          const r = await fetch("https://finviz.com/futures.ashx", {
-            headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+          const cookies = process.env.FINVIZ_COOKIES || "";
+          const r = await fetch("https://elite.finviz.com/futures.ashx", {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+              "Cookie": cookies,
+            },
             signal: AbortSignal.timeout(8000),
           });
           if (!r.ok) return [];
