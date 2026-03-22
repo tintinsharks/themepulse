@@ -632,7 +632,25 @@ export default async function handler(req, res) {
     const pmSip = dashData?.pm_sip_movers || dashData?.pm_top_movers || [];
     let allEpSip = [...ahMovers, ...pmMovers, ...ahSip, ...pmSip];
 
-    // Fallback: if no EP/SIP movers from TheStockCatalyst, scan dashboard_data for 4%+ movers with 50K+ vol
+    // Add AH/PM movers from pipeline scanner (09l_ah_movers.py)
+    const ahPmMovers = dashData?.ah_pm_movers || [];
+    if (ahPmMovers.length > 0) {
+      ahPmMovers.forEach(m => {
+        if (!allEpSip.some(e => e.ticker === m.ticker)) {
+          allEpSip.push({
+            ticker: m.ticker,
+            company: m.company || '',
+            change_pct: m.change_pct || 0,
+            volume: m.volume || 0,
+            category: (m.volume || 0) >= 8900000 ? 'LAVA' : 'SIP',
+            session: m.session || 'AH',
+            recent_headlines: [],
+          });
+        }
+      });
+    }
+
+    // Fallback: if still no movers, scan dashboard_data for 4%+ movers with 50K+ vol
     if (allEpSip.length === 0 && dashData?.stocks?.length > 0) {
       allEpSip = dashData.stocks
         .filter(s => Math.abs(s.change_pct || 0) >= 4 && (s.avg_volume_raw || 0) >= 50000)
