@@ -11329,6 +11329,7 @@ function AppMain({ authToken, onLogout }) {
   }, []);
   const [data, setData] = useState(null);
   const [view, setView] = useState("live");
+  const [terminalMode, setTerminalMode] = useState("market"); // "market" or "live"
   const [showStrongPopover, setShowStrongPopover] = useState(false);
   const [scanThemeFilter, setScanThemeFilter] = useState(null);
   const [filters, setFilters] = useState({ minRTS: 0, quad: null, search: "" });
@@ -12056,7 +12057,25 @@ function AppMain({ authToken, onLogout }) {
             liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist} homepage={homepage} erSipLookup={erSipLookup} crpLookup={crpLookup} />}
           </ErrorBoundary>
           {view === "terminal" && (
-            <iframe src="/terminal.html" style={{ width: "100%", height: "calc(100vh - 50px)", border: "none", background: "#0a0b10" }} />
+            <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 50px)" }}>
+              {/* Terminal sub-nav: MARKET / LIVE */}
+              <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "4px 16px", background: "#0a0b10", borderBottom: "1px solid #1e2230" }}>
+                <button onClick={() => setTerminalMode("market")} style={{ padding: "5px 14px", fontSize: 10, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "monospace", letterSpacing: 1, background: terminalMode === "market" ? "#0d9163" : "transparent", color: terminalMode === "market" ? "#000" : "#5a6178", borderRadius: "4px 4px 0 0" }}>MARKET</button>
+                <button onClick={() => setTerminalMode("live")} style={{ padding: "5px 14px", fontSize: 10, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "monospace", letterSpacing: 1, background: terminalMode === "live" ? "#0d9163" : "transparent", color: terminalMode === "live" ? "#000" : "#5a6178", borderRadius: "4px 4px 0 0" }}>LIVE</button>
+              </div>
+              {terminalMode === "market" && (
+                <iframe src="/terminal.html" style={{ flex: 1, width: "100%", border: "none", background: "#0a0b10" }} />
+              )}
+              {terminalMode === "live" && (
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  <LiveView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
+                    portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
+                    addToWatchlist={addToWatchlist} removeFromWatchlist={removeFromWatchlist}
+                    addToPortfolio={addToPortfolio} removeFromPortfolio={removeFromPortfolio}
+                    liveThemeData={liveThemeData} homepage={homepage} erSipLookup={erSipLookup} crpLookup={crpLookup} />
+                </div>
+              )}
+            </div>
           )}
           <ErrorBoundary name="Market Quadrant">
           {view === "quad" && <>
