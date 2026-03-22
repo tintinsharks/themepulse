@@ -627,6 +627,27 @@ export default async function handler(req, res) {
 
     const briefing = briefingLines.join("\n");
 
+    // Build EP/SIP candidates for the day
+    const ahSip = dashData?.ah_sip_movers || dashData?.ah_top_movers || [];
+    const pmSip = dashData?.pm_sip_movers || dashData?.pm_top_movers || [];
+    const allEpSip = [...ahMovers, ...pmMovers, ...ahSip, ...pmSip];
+    const epCandidates = allEpSip
+      .filter(m => Math.abs(m.change_pct || m.ext_hours_change_pct || 0) >= 3)
+      .sort((a, b) => Math.abs(b.change_pct || b.ext_hours_change_pct || 0) - Math.abs(a.change_pct || a.ext_hours_change_pct || 0))
+      .slice(0, 15)
+      .map(m => ({
+        ticker: m.ticker,
+        company: m.company || '',
+        chg: Math.round((m.change_pct || m.ext_hours_change_pct || 0) * 100) / 100,
+        volume: m.volume || 0,
+        category: m.category || (m.er ? 'CAT' : 'SIP'),
+        magna: m.magna_score ?? null,
+        epQuality: m.ep_quality ?? null,
+        epLabel: m.ep_quality_label || null,
+        session: m.session || (ahMovers.includes(m) || ahSip.includes(m) ? 'AH' : 'PM'),
+        headlines: (m.recent_headlines || m.headlines || []).slice(0, 1).map(h => typeof h === 'string' ? h : h.title || h.text || ''),
+      }));
+
     // Build portfolio & watchlist live view data
     const stockMap = {};
     if (dashData?.stocks?.length > 0) {
@@ -771,6 +792,7 @@ export default async function handler(req, res) {
       portfolio,
       watchlist,
       liveGrouped,
+      epCandidates,
       upcomingEarnings: (() => {
         if (!dashData?.stocks) return [];
         const byDate = {};

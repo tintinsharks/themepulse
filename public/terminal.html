@@ -245,6 +245,10 @@ a{color:var(--cyan);text-decoration:none}
       </div>
           <pre id="briefing-body" style="font-family:inherit;font-size:10px;line-height:1.8;color:var(--text);white-space:pre-wrap;margin:0">Loading briefing...</pre>
         </div>
+        <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">EP / SIP CANDIDATES</div>
+          <div id="ep-candidates-body" style="font-size:10px;line-height:1.7;color:var(--text)">Loading...</div>
+        </div>
       </div>
       <!-- Right: Futures -->
       <div style="min-width:320px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
@@ -879,6 +883,32 @@ function renderFutures(d) {
   }).join('');
 }
 
+function renderEpCandidates(d) {
+  var body = document.getElementById('ep-candidates-body');
+  var items = d.epCandidates || [];
+  if (!items.length) { body.innerHTML = '<span style="color:var(--muted);font-size:10px">No EP/SIP candidates today</span>'; return; }
+  body.innerHTML = items.map(function(ep) {
+    var chgCol = ep.chg >= 0 ? 'var(--green)' : 'var(--red)';
+    var chgSign = ep.chg >= 0 ? '+' : '';
+    var catCol = ep.category === 'CAT' ? '#c084fc' : ep.category === 'DOG' ? '#f59e0b' : ep.category === 'LAVA' ? 'var(--cyan)' : 'var(--muted)';
+    var epqBadge = ep.epLabel ? '<span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-left:4px;' +
+      (ep.epLabel === 'ELITE' ? 'background:#00d26a20;color:#00d26a' : ep.epLabel === 'STRONG' ? 'background:#00d26a15;color:#4ade80' : 'background:#ffa72610;color:#ffa726') +
+      '">' + ep.epLabel + ' ' + (ep.epQuality || '') + '/10</span>' : '';
+    var headline = ep.headlines && ep.headlines[0] ? '<div style="font-size:9px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ep.headlines[0] + '</div>' : '';
+    return '<div style="padding:4px 0;border-bottom:1px solid rgba(30,34,48,.5)">' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+      '<span class="clickable-ticker" onclick="event.stopPropagation();openChart(\'' + ep.ticker + '\')" style="color:var(--cyan);font-weight:700">' + ep.ticker + '</span>' +
+      '<span style="font-size:9px;color:' + catCol + ';font-weight:700">' + (ep.category || '') + '</span>' +
+      '<span style="color:' + chgCol + ';font-weight:700">' + chgSign + ep.chg + '%</span>' +
+      '<span style="font-size:9px;color:var(--muted)">' + ep.session + '</span>' +
+      (ep.magna !== null ? '<span style="font-size:8px;color:var(--muted)">M' + ep.magna + '</span>' : '') +
+      epqBadge +
+      '</div>' +
+      headline +
+      '</div>';
+  }).join('');
+}
+
 function renderEarnings(d) {
   var body = document.getElementById('earnings-body');
   var items = d.upcomingEarnings || [];
@@ -934,6 +964,7 @@ function renderHero(d) {
   renderBriefing(d);
   renderFutures(d);
   renderEarnings(d);
+  renderEpCandidates(d);
   renderQuadrant(d);
   renderTrend(d);
   renderBias(d);
