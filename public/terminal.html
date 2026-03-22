@@ -170,6 +170,8 @@ a{color:var(--cyan);text-decoration:none}
 .live-table td:first-child{text-align:left;color:#fff;font-weight:700}
 .live-table tr:hover{background:var(--bg3)}
 .live-empty{padding:20px;text-align:center;font-size:11px;color:var(--muted)}
+.clickable-ticker{cursor:pointer}
+.clickable-ticker:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -465,6 +467,12 @@ a{color:var(--cyan);text-decoration:none}
 <div style="height:16px"></div>
 
 <script>
+function openChart(ticker) {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'openChart', ticker: ticker }, '*');
+  }
+}
+
 var _mode = 'swing';
 var _view = 'market';
 var _data = null;
@@ -570,7 +578,7 @@ function renderLiveTable(items, emptyMsg) {
     var chg = typeof item.chg === 'number' ? item.chg.toFixed(2) : item.chg;
     var ret1w = typeof item.ret1w === 'number' ? item.ret1w.toFixed(1) : item.ret1w;
     html += '<tr>' +
-      '<td>' + item.ticker + (item.company ? ' <span style="color:var(--muted);font-weight:400;font-size:9px">' + item.company.split(' ').slice(0,2).join(' ') + '</span>' : '') + '</td>' +
+      '<td><span class="clickable-ticker" onclick="event.stopPropagation();openChart(\'' + item.ticker + '\')" style="color:var(--cyan)">' + item.ticker + '</span>' + (item.company ? ' <span style="color:var(--muted);font-weight:400;font-size:9px">' + item.company.split(' ').slice(0,2).join(' ') + '</span>' : '') + '</td>' +
       '<td style="color:#fff">' + price + '</td>' +
       '<td style="color:' + chgCol + '">' + chgSign + chg + '%</td>' +
       '<td style="color:' + retCol + '">' + retSign + ret1w + '%</td>' +
@@ -801,7 +809,7 @@ function renderEarnings(d) {
   if (!items.length) { body.innerHTML = '<span style="color:var(--muted)">No upcoming earnings</span>'; return; }
   body.innerHTML = items.map(function(e) {
     var tickers = e.tickers.map(function(tk) {
-      return '<span style="color:var(--cyan);margin-right:6px">' + tk + '</span>';
+      return '<span class="clickable-ticker" onclick="event.stopPropagation();openChart(\'' + tk + '\')" style="color:var(--cyan);margin-right:6px">' + tk + '</span>';
     }).join('');
     return '<div style="margin-bottom:4px">' +
       '<span style="color:var(--muted);min-width:70px;display:inline-block">' + e.date + '/' + e.time + '</span> ' +
@@ -1075,7 +1083,7 @@ function selectSubtheme(subName) {
     var retSign = retVal >= 0 ? '+' : '';
     var hiCol = tk.fromHigh >= -5 ? 'var(--green)' : tk.fromHigh >= -15 ? 'var(--amber)' : 'var(--red)';
     return '<div style="display:grid;grid-template-columns:1fr 40px 50px 55px;gap:4px;padding:5px 14px;font-size:10px;border-bottom:1px solid rgba(30,34,48,.5)">' +
-      '<span style="font-weight:700;color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + tk.company + '">' + tk.ticker + ' <span style="color:var(--muted);font-weight:400;font-size:9px">' + tk.company.split(' ').slice(0,2).join(' ') + '</span></span>' +
+      '<span style="font-weight:700;color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + tk.company + '"><span class="clickable-ticker" onclick="event.stopPropagation();openChart(\'' + tk.ticker + '\')">' + tk.ticker + '</span> <span style="color:var(--muted);font-weight:400;font-size:9px">' + tk.company.split(' ').slice(0,2).join(' ') + '</span></span>' +
       '<span style="text-align:right;font-weight:600;color:var(--text)">' + tk.rs + '</span>' +
       '<span style="text-align:right;font-weight:600;color:' + retCol + '">' + retSign + retVal + '%</span>' +
       '<span style="text-align:right;font-weight:600;color:' + hiCol + '">' + tk.fromHigh + '%</span>' +

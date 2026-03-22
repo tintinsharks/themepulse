@@ -11635,6 +11635,17 @@ function AppMain({ authToken, onLogout }) {
   const openChart = useCallback((t) => setChartTicker(prev => prev === t ? null : t), []);
   const closeChart = useCallback(() => setChartTicker(null), []);
 
+  // Listen for postMessage from Terminal iframe to open chart panel
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.data?.type === 'openChart' && event.data?.ticker) {
+        openChart(event.data.ticker);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [openChart]);
+
   // Watchlist + Portfolio + Manual EPs state (hoisted for access from ChartPanel)
   const [portfolio, setPortfolio] = useState(() => {
     try { return JSON.parse(localStorage.getItem("tp_portfolio") || "[]"); } catch { return []; }
