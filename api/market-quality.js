@@ -507,7 +507,7 @@ export default async function handler(req, res) {
           const subScore = Math.round(sMom * 0.30 + sMF * 0.25 + sStr * 0.25 + sMTF * 0.20);
           // Include top tickers sorted by RS rank
           const subTickers = subStocks
-            .map(s => ({ ticker: s.ticker, company: s.company || '', rs: s.rs_rank || 0, chg: Math.round((s.change_pct || 0) * 100) / 100, ret1w: Math.round((s.return_1w || 0) * 100) / 100, fromHigh: Math.round((s.pct_from_high || s.off_52w_high || 0) * 10) / 10 }))
+            .map(s => ({ ticker: s.ticker, company: s.company || '', rs: s.rs_rank || 0, chg: Math.round((s.change_pct || 0) * 100) / 100, ret1w: Math.round((s.return_1w || 0) * 100) / 100, ret1m: Math.round((s.return_1m || 0) * 100) / 100, ret3m: Math.round((s.return_3m || 0) * 100) / 100, fromHigh: Math.round((s.pct_from_high || s.off_52w_high || 0) * 10) / 10 }))
             .sort((a, b) => b.rs - a.rs)
             .slice(0, 20);
           return {

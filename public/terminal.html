@@ -299,8 +299,17 @@ a{color:var(--cyan);text-decoration:none}
 
 
 <!-- Theme Health Section -->
-<!-- Market Sentiment Gauge -->
+<!-- Timeframe Toggle + Market Sentiment Gauge -->
 <div style="margin:24px 16px 0;padding:12px 20px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">MARKET SENTIMENT</span>
+    <div style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden">
+      <button class="tf-btn active" id="tf-1d" onclick="setTimeframe('1d')" style="padding:3px 10px;font-size:9px;font-weight:700;cursor:pointer;background:var(--green);color:#000;border:none;font-family:inherit">1D</button>
+      <button class="tf-btn" id="tf-1w" onclick="setTimeframe('1w')" style="padding:3px 10px;font-size:9px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);border:none;border-left:1px solid var(--border);font-family:inherit">1W</button>
+      <button class="tf-btn" id="tf-1m" onclick="setTimeframe('1m')" style="padding:3px 10px;font-size:9px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);border:none;border-left:1px solid var(--border);font-family:inherit">1M</button>
+      <button class="tf-btn" id="tf-3m" onclick="setTimeframe('3m')" style="padding:3px 10px;font-size:9px;font-weight:700;cursor:pointer;background:transparent;color:var(--muted);border:none;border-left:1px solid var(--border);font-family:inherit">3M</button>
+    </div>
+  </div>
   <div style="position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg, var(--red) 0%, var(--amber) 40%, #666 50%, var(--amber) 60%, var(--green) 100%);margin-bottom:6px">
     <div id="sentiment-dot" style="position:absolute;top:-4px;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--bg);box-shadow:0 0 6px rgba(255,255,255,.4);transform:translateX(-50%);left:50%;transition:left .6s ease"></div>
   </div>
@@ -397,8 +406,32 @@ function toggleBriefing() {
   document.getElementById('briefing-arrow').textContent = _briefingOpen ? '▲' : '▼';
 }
 
+var _timeframe = '1d';
+
+function setTimeframe(tf) {
+  _timeframe = tf;
+  ['1d','1w','1m','3m'].forEach(function(t) {
+    var btn = document.getElementById('tf-' + t);
+    btn.style.background = t === tf ? 'var(--green)' : 'transparent';
+    btn.style.color = t === tf ? '#000' : 'var(--muted)';
+  });
+  if (_data) {
+    renderSentimentGauge(_data);
+    // Re-render ticker drill-down if active
+    if (_selectedSubtheme) selectSubtheme(_selectedSubtheme);
+  }
+}
+
 function renderSentimentGauge(d) {
+  // Compute sentiment based on timeframe
   var score = d.total || 0;
+  if (_timeframe !== '1d' && d.themeHealth && d.themeHealth.length > 0) {
+    // Compute avg theme score weighted by timeframe
+    var avgPctGreen = d.themeHealth.reduce(function(s, t) { return s + t.pctGreen; }, 0) / d.themeHealth.length;
+    if (_timeframe === '1w') score = Math.round(avgPctGreen * 0.6 + score * 0.4);
+    else if (_timeframe === '1m') score = Math.round(avgPctGreen * 0.7 + (d.breadthStats?.sma50Above?.pct || 50) * 0.3);
+    else if (_timeframe === '3m') score = Math.round((d.breadthStats?.sma200Above?.pct || 50) * 0.5 + avgPctGreen * 0.5);
+  }
   var pct = Math.max(2, Math.min(98, score));
   document.getElementById('sentiment-dot').style.left = pct + '%';
 }
@@ -665,14 +698,20 @@ function selectSubtheme(subName) {
   document.getElementById('th-left-col-headers').innerHTML = '<span>TICKER</span><span style="text-align:right">RS</span><span style="text-align:right">1W%</span><span style="text-align:right">FROM HIGH</span>';
   document.getElementById('th-left-col-headers').style.gridTemplateColumns = '1fr 40px 50px 55px';
 
+  // Get return value based on selected timeframe
+  var tfLabel = _timeframe === '1d' ? 'CHG' : _timeframe === '1w' ? '1W' : _timeframe === '1m' ? '1M' : '3M';
+  document.getElementById('th-left-col-headers').innerHTML = '<span>TICKER</span><span style="text-align:right">RS</span><span style="text-align:right">' + tfLabel + '%</span><span style="text-align:right">FROM HIGH</span>';
+  document.getElementById('th-left-col-headers').style.gridTemplateColumns = '1fr 40px 50px 55px';
+
   leftBody.innerHTML = subData.tickers.map(function(tk) {
-    var retCol = tk.ret1w >= 0 ? 'var(--green)' : 'var(--red)';
-    var retSign = tk.ret1w >= 0 ? '+' : '';
+    var retVal = _timeframe === '1d' ? tk.chg : _timeframe === '1w' ? tk.ret1w : _timeframe === '1m' ? (tk.ret1m || 0) : (tk.ret3m || 0);
+    var retCol = retVal >= 0 ? 'var(--green)' : 'var(--red)';
+    var retSign = retVal >= 0 ? '+' : '';
     var hiCol = tk.fromHigh >= -5 ? 'var(--green)' : tk.fromHigh >= -15 ? 'var(--amber)' : 'var(--red)';
     return '<div style="display:grid;grid-template-columns:1fr 40px 50px 55px;gap:4px;padding:5px 14px;font-size:10px;border-bottom:1px solid rgba(30,34,48,.5)">' +
       '<span style="font-weight:700;color:var(--cyan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + tk.company + '">' + tk.ticker + ' <span style="color:var(--muted);font-weight:400;font-size:9px">' + tk.company.split(' ').slice(0,2).join(' ') + '</span></span>' +
-      '<span style="text-align:right;font-weight:600;color:var(--text)">RS ' + tk.rs + '</span>' +
-      '<span style="text-align:right;font-weight:600;color:' + retCol + '">' + retSign + tk.ret1w + '%</span>' +
+      '<span style="text-align:right;font-weight:600;color:var(--text)">' + tk.rs + '</span>' +
+      '<span style="text-align:right;font-weight:600;color:' + retCol + '">' + retSign + retVal + '%</span>' +
       '<span style="text-align:right;font-weight:600;color:' + hiCol + '">' + tk.fromHigh + '%</span>' +
       '</div>';
   }).join('');
