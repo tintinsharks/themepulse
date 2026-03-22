@@ -297,9 +297,9 @@ a{color:var(--cyan);text-decoration:none}
     </div>
     <!-- Right: Subthemes -->
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-      <div class="theme-health-header">
-        <span class="th-title">SUBTHEMES</span>
-        <span class="th-sub">by composite strength</span>
+      <div class="theme-health-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="th-title" id="th-right-title">ALL SUBTHEMES</span> <span class="th-sub">by strength</span></span>
+        <button id="th-all-btn" onclick="renderRightColumn(null)" style="display:none;padding:2px 8px;font-size:9px;font-weight:700;background:var(--bg);border:1px solid var(--border);color:var(--cyan);border-radius:3px;cursor:pointer;font-family:inherit">ALL</button>
       </div>
       <div class="th-col-headers">
         <span>SUBTHEME</span>
@@ -549,45 +549,80 @@ function renderBreadth(d) {
   document.getElementById('bc-200b-bar').style.width = b.sma200Below.pct + '%';
 }
 
+var _themeHealthData = [];
+var _selectedTheme = null;
+
+function renderSubRow(sub) {
+  var sc = sub.score || 0;
+  var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
+  var sGreenCol = sub.pctGreen >= 60 ? 'var(--green)' : sub.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
+  return '<div class="th-row">' +
+    '<span class="th-theme-name">' + sub.name + '</span>' +
+    '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
+    '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + sub.pctGreen + '%;background:' + sGreenCol + '"></span></span><span class="th-minibar-label" style="color:' + sGreenCol + '">' + sub.pctGreen + '%</span></span>' +
+    '</div>';
+}
+
+function renderRightColumn(themeName) {
+  var rightBody = document.getElementById('theme-health-right');
+  var rightTitle = document.getElementById('th-right-title');
+  var allBtn = document.getElementById('th-all-btn');
+
+  if (!themeName) {
+    // Show all subthemes
+    _selectedTheme = null;
+    rightTitle.textContent = 'ALL SUBTHEMES';
+    allBtn.style.display = 'none';
+    var allSubs = [];
+    _themeHealthData.forEach(function(t) {
+      (t.subthemes || []).forEach(function(sub) {
+        if (sub.stockCount >= 2) allSubs.push(sub);
+      });
+    });
+    allSubs.sort(function(a, b) { return (b.score || 0) - (a.score || 0); });
+    rightBody.innerHTML = allSubs.slice(0, 40).map(renderSubRow).join('');
+  } else {
+    // Show subthemes for selected theme
+    _selectedTheme = themeName;
+    rightTitle.textContent = themeName;
+    allBtn.style.display = 'inline-block';
+    var theme = _themeHealthData.find(function(t) { return t.theme === themeName; });
+    var subs = (theme && theme.subthemes || []).filter(function(s) { return s.stockCount >= 1; });
+    subs.sort(function(a, b) { return (b.score || 0) - (a.score || 0); });
+    rightBody.innerHTML = subs.length > 0 ? subs.map(renderSubRow).join('') :
+      '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">No subthemes with data</div>';
+  }
+
+  // Highlight selected theme row
+  var rows = document.querySelectorAll('#theme-health-left .th-row');
+  rows.forEach(function(row) {
+    row.style.background = row.getAttribute('data-theme') === _selectedTheme ? 'var(--bg3)' : '';
+    row.style.borderLeft = row.getAttribute('data-theme') === _selectedTheme ? '2px solid var(--cyan)' : '2px solid transparent';
+  });
+}
+
 function renderThemeHealth(d) {
   var themes = d.themeHealth || [];
+  _themeHealthData = themes;
   var section = document.getElementById('theme-health-section');
   var leftBody = document.getElementById('theme-health-left');
-  var rightBody = document.getElementById('theme-health-right');
   if (!themes.length) { section.style.display = 'none'; return; }
   section.style.display = 'block';
 
-  // Left column: Themes sorted by composite score
+  // Left column: Themes sorted by composite score (clickable)
   leftBody.innerHTML = themes.map(function(t) {
     var sc = t.score || 0;
     var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
     var greenCol = t.pctGreen >= 60 ? 'var(--green)' : t.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
-    return '<div class="th-row">' +
+    return '<div class="th-row" data-theme="' + t.theme + '" onclick="renderRightColumn(\'' + t.theme.replace(/'/g, "\\'") + '\')" style="cursor:pointer;border-left:2px solid transparent">' +
       '<span class="th-theme-name">' + t.theme + '</span>' +
       '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
       '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + t.pctGreen + '%;background:' + greenCol + '"></span></span><span class="th-minibar-label" style="color:' + greenCol + '">' + t.pctGreen + '%</span></span>' +
       '</div>';
   }).join('');
 
-  // Right column: All subthemes sorted by composite score
-  var allSubs = [];
-  themes.forEach(function(t) {
-    (t.subthemes || []).forEach(function(sub) {
-      if (sub.stockCount >= 2) allSubs.push(sub);
-    });
-  });
-  allSubs.sort(function(a, b) { return (b.score || 0) - (a.score || 0); });
-
-  rightBody.innerHTML = allSubs.slice(0, 40).map(function(sub) {
-    var sc = sub.score || 0;
-    var scoreCol = sc >= 70 ? 'var(--green)' : sc >= 45 ? 'var(--amber)' : 'var(--red)';
-    var sGreenCol = sub.pctGreen >= 60 ? 'var(--green)' : sub.pctGreen >= 40 ? 'var(--amber)' : 'var(--red)';
-    return '<div class="th-row">' +
-      '<span class="th-theme-name">' + sub.name + '</span>' +
-      '<span class="th-val" style="color:' + scoreCol + ';font-weight:800">' + sc + '</span>' +
-      '<span class="th-minibar"><span class="th-minibar-track"><span class="th-minibar-fill" style="width:' + sub.pctGreen + '%;background:' + sGreenCol + '"></span></span><span class="th-minibar-label" style="color:' + sGreenCol + '">' + sub.pctGreen + '%</span></span>' +
-      '</div>';
-  }).join('');
+  // Right column: default to all subthemes
+  renderRightColumn(null);
 }
 
 function render(d) {
