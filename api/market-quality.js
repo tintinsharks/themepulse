@@ -691,42 +691,25 @@ export default async function handler(req, res) {
           .map(d => ({ date: d.date, time: d.time, tickers: d.tickers.slice(0, 12) }));
       })(),
       futures: await (async () => {
-        // Scrape futures from Finviz Elite
+        // Fetch futures/forex/crypto from FMP batch-quote
         try {
-          const cookies = process.env.FINVIZ_COOKIES || "";
-          const r = await fetch("https://elite.finviz.com/futures.ashx", {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-              "Cookie": cookies,
-            },
-            signal: AbortSignal.timeout(8000),
-          });
+          const symbols = ["CLUSD","NGUSD","GCUSD","EURUSD","USDJPY","GBPUSD","BTCUSD"];
+          const labels = { CLUSD:"Crude Oil", NGUSD:"Natural Gas", GCUSD:"Gold", EURUSD:"EUR/USD", USDJPY:"USD/JPY", GBPUSD:"GBP/USD", BTCUSD:"BTC/USD" };
+          const url = `https://financialmodelingprep.com/stable/batch-quote?symbols=${symbols.join(",")}&apikey=${fmpKey}`;
+          const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
           if (!r.ok) return [];
-          const html = await r.text();
-          const results = [];
-          const wanted = {
-            "Crude Oil": true, "Natural Gas": true, "Gold": true,
-            "E-Mini Dow": "Dow", "E-Mini S&P 500": "S&P 500", "E-Mini Nasdaq": "Nasdaq 100", "E-Mini Russell": "Russell 2000",
-            "EUR/USD": true, "USD/JPY": true, "GBP/USD": true, "Bitcoin": "BTC/USD",
-          };
-          // Parse table rows - Finviz futures page has rows with: label, last, change, change%
-          const rowRe = /<td[^>]*class="[^"]*futures[^"]*"[^>]*>([^<]+)<\/td>/gi;
-          const rows = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
-          for (const row of rows) {
-            const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
-            if (cells.length >= 4) {
-              const label = cells[0];
-              for (const [key, val] of Object.entries(wanted)) {
-                if (label.includes(key)) {
-                  const name = typeof val === 'string' ? val : key;
-                  const price = parseFloat(cells[1]?.replace(/,/g, ''));
-                  const change = parseFloat(cells[2]?.replace(/,/g, ''));
-                  const pct = parseFloat(cells[3]?.replace(/[%,]/g, ''));
-                  if (!isNaN(price)) results.push({ name, price, change: isNaN(change) ? null : change, changePct: isNaN(pct) ? null : pct });
-                  break;
-                }
-              }
-            }
+          const data = await r.json();
+          const results = (Array.isArray(data) ? data : []).map(q => ({
+            name: labels[q.symbol] || q.name || q.symbol,
+            price: q.price ?? null,
+            change: q.change ?? null,
+            changePct: q.changePercentage ?? null,
+          }));
+          // Add index futures from existing quotes
+          const idxMap = { SPY:"S&P 500", QQQ:"Nasdaq 100", DIA:"Dow", IWM:"Russell 2000" };
+          for (const [sym, name] of Object.entries(idxMap)) {
+            const q = quotes[sym];
+            if (q) results.push({ name, price: q.price, change: q.change, changePct: q.changePercentage });
           }
           return results;
         } catch { return []; }
