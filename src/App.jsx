@@ -2045,6 +2045,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
   const [burstMaxAdr, setBurstMaxAdr] = useState(99);
   const [showLeaders, setShowLeaders] = useState(false);
   const [scanTab, setScanTab] = useState("scan"); // "scan", "burst", "ep", "ai", or "short"
+  const [researchView, setResearchView] = useState("leaders"); // "leaders" or "grid"
   const [expandedGapper, setExpandedGapper] = useState(null);
   const [expandedBurst, setExpandedBurst] = useState(null);
   const [expandedShort, setExpandedShort] = useState(null);
@@ -3551,9 +3552,100 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
         </div>
       )}
       </>)}
-      {scanTab === "research" && (
-        <Grid stocks={stocks} onTickerClick={onTickerClick} activeTicker={activeTicker} onVisibleTickers={onVisibleTickers} />
-      )}
+      {scanTab === "research" && (() => {
+        // --- Momentum Leaderboard ---
+        const leaderFilteredStocks = stocks.filter(s => {
+          const mcap = s.market_cap_raw || 0;
+          const dolVol = s.avg_dollar_vol_raw || 0;
+          if (mcap <= 2e9 && dolVol <= 1e6) return false;
+          if (BIO_REIT_IND.has(s.industry)) return false;
+          return true;
+        });
+        const top1m = leaderFilteredStocks.filter(s => s.return_1m != null && s.return_1m !== 0)
+          .sort((a, b) => (b.return_1m || 0) - (a.return_1m || 0)).slice(0, 30);
+        const top3m = leaderFilteredStocks.filter(s => s.return_3m != null && s.return_3m !== 0)
+          .sort((a, b) => (b.return_3m || 0) - (a.return_3m || 0)).slice(0, 30);
+        const top6m = leaderFilteredStocks.filter(s => s.return_6m != null && s.return_6m !== 0)
+          .sort((a, b) => (b.return_6m || 0) - (a.return_6m || 0)).slice(0, 30);
+
+        const tickerSets = [new Set(top1m.map(s => s.ticker)), new Set(top3m.map(s => s.ticker)), new Set(top6m.map(s => s.ticker))];
+        const allTickers = new Set([...tickerSets[0], ...tickerSets[1], ...tickerSets[2]]);
+        const overlapCount = {};
+        allTickers.forEach(t => { overlapCount[t] = tickerSets.filter(s => s.has(t)).length; });
+        const in3 = Object.values(overlapCount).filter(v => v === 3).length;
+        const in2plus = Object.values(overlapCount).filter(v => v >= 2).length;
+
+        const renderCol = (title, list, returnKey) => (
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderRight: "1px solid #2a2a3a" }}>
+            <div style={{ padding: "6px 8px", fontSize: 11, fontWeight: 800, color: "#a0a0b0", letterSpacing: "0.05em",
+              background: "#1a1a24", borderBottom: "1px solid #2a2a3a", textAlign: "center" }}>{title}</div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ position: "sticky", top: 0, background: "#16161e", zIndex: 1 }}>
+                    {["#", "", "Ticker", "Ret%", "Theme", "ADR%", "Vol Q"].map(h => (
+                      <th key={h} style={{ padding: "3px 4px", textAlign: h === "#" || h === "" ? "center" : "left",
+                        fontSize: 9, color: "#606070", fontWeight: 700, borderBottom: "1px solid #2a2a3a" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((s, i) => {
+                    const ret = s[returnKey] || 0;
+                    const oc = overlapCount[s.ticker] || 1;
+                    const theme = (s.themes && s.themes[0]) ? s.themes[0].substring(0, 12) : "";
+                    const isActive = s.ticker === activeTicker;
+                    return (
+                      <tr key={s.ticker} style={{ height: 20, background: isActive ? "#1e2a3a" : "transparent",
+                        borderBottom: "1px solid #1e1e28", cursor: "pointer" }}
+                        onClick={() => onTickerClick(s.ticker)}>
+                        <td style={{ padding: "1px 4px", textAlign: "center", color: "#505060", fontFamily: "monospace", fontSize: 10 }}>{i + 1}</td>
+                        <td style={{ padding: "1px 2px", textAlign: "center", fontSize: 11, width: 14 }}>
+                          {oc === 3 ? <span style={{ color: "#ffd700" }}>★</span> : oc === 2 ? <span style={{ color: "#4a9eff" }}>●</span> : ""}
+                        </td>
+                        <td style={{ padding: "1px 4px", fontWeight: 700, color: isActive ? "#22d3ee" : "#d0d0e0", fontSize: 11 }}>{s.ticker}</td>
+                        <td style={{ padding: "1px 4px", fontFamily: "monospace", fontWeight: 600, fontSize: 10,
+                          color: ret > 0 ? "#0d9163" : ret < 0 ? "#e05050" : "#808090" }}>{ret > 0 ? "+" : ""}{ret.toFixed(1)}%</td>
+                        <td style={{ padding: "1px 4px", color: "#707080", fontSize: 9, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{theme}</td>
+                        <td style={{ padding: "1px 4px", fontFamily: "monospace", fontSize: 10, color: "#909098" }}>{s.adr_pct != null ? s.adr_pct.toFixed(1) : "-"}</td>
+                        <td style={{ padding: "1px 4px", fontFamily: "monospace", fontSize: 10, color: "#909098" }}>{s.vol_setup_quality || "-"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+
+        return (<div>
+          {/* Toggle bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderBottom: "1px solid #2a2a3a", background: "#121218" }}>
+            <button onClick={() => setResearchView("leaders")} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+              cursor: "pointer", border: researchView === "leaders" ? "1px solid #0d9163" : "1px solid #3a3a4a",
+              background: researchView === "leaders" ? "#0d916322" : "#1a1a24", color: researchView === "leaders" ? "#0d9163" : "#808090" }}>Leaderboards</button>
+            <button onClick={() => setResearchView("grid")} style={{ padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+              cursor: "pointer", border: researchView === "grid" ? "1px solid #0d9163" : "1px solid #3a3a4a",
+              background: researchView === "grid" ? "#0d916322" : "#1a1a24", color: researchView === "grid" ? "#0d9163" : "#808090" }}>Full Grid</button>
+            {researchView === "leaders" && (
+              <span style={{ marginLeft: 12, fontSize: 11, color: "#808090" }}>
+                <span style={{ color: "#ffd700" }}>★</span> <strong style={{ color: "#d0d0e0" }}>{in3}</strong> stocks in all 3 timeframes
+                <span style={{ margin: "0 8px", color: "#3a3a4a" }}>|</span>
+                <span style={{ color: "#4a9eff" }}>●</span> <strong style={{ color: "#d0d0e0" }}>{in2plus}</strong> stocks in 2+ timeframes
+              </span>
+            )}
+          </div>
+          {researchView === "leaders" ? (
+            <div style={{ display: "flex", height: "calc(100vh - 120px)", background: "#121218" }}>
+              {renderCol("1M TOP GAINERS", top1m, "return_1m")}
+              {renderCol("3M TOP GAINERS", top3m, "return_3m")}
+              {renderCol("6M TOP GAINERS", top6m, "return_6m")}
+            </div>
+          ) : (
+            <Grid stocks={stocks} onTickerClick={onTickerClick} activeTicker={activeTicker} onVisibleTickers={onVisibleTickers} />
+          )}
+        </div>);
+      })()}
     </div>
     {/* Theme Leaders side panel */}
     {showLeaders && (
