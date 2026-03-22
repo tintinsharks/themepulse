@@ -650,10 +650,28 @@ export default async function handler(req, res) {
       ret1w: stockMap[tk]?.return_1w || 0,
       rs: stockMap[tk]?.rs_rank || 0,
       theme: stockMap[tk]?.themes?.[0]?.theme || '',
+      subtheme: stockMap[tk]?.themes?.[0]?.subtheme || stockMap[tk]?.themes?.[0]?.theme || '',
+      rvol: stockMap[tk]?.rel_volume || quotes[tk]?.volume / (stockMap[tk]?.avg_volume_raw || 1) || 0,
     });
 
     const portfolio = portfolioTickers.map(buildLiveRow);
     const watchlist = watchlistTickers.map(buildLiveRow);
+
+    // Group portfolio + watchlist by subtheme
+    const allLive = [...(portfolio || []), ...(watchlist || [])];
+    const liveGroups = {};
+    allLive.forEach(s => {
+      const theme = s.theme || 'Ungrouped';
+      const subtheme = s.subtheme || theme;
+      if (!liveGroups[subtheme]) liveGroups[subtheme] = { name: subtheme, theme, stocks: [] };
+      liveGroups[subtheme].stocks.push(s);
+    });
+    // Compute group-level metrics
+    const liveGrouped = Object.values(liveGroups).map(g => {
+      const avgChg = g.stocks.reduce((s, st) => s + (st.chg || 0), 0) / g.stocks.length;
+      const avgRvol = g.stocks.reduce((s, st) => s + (st.rvol || 0), 0) / g.stocks.length;
+      return { ...g, avgChg: Math.round(avgChg * 100) / 100, avgRvol: Math.round(avgRvol * 10) / 10, count: g.stocks.length };
+    }).sort((a, b) => b.avgChg - a.avgChg);
 
     return res.status(200).json({
       ok: true,
@@ -752,6 +770,7 @@ export default async function handler(req, res) {
       })(),
       portfolio,
       watchlist,
+      liveGrouped,
       upcomingEarnings: (() => {
         if (!dashData?.stocks) return [];
         const byDate = {};
