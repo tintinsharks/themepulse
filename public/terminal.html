@@ -342,6 +342,26 @@ a{color:var(--cyan);text-decoration:none}
   </div>
 </div>
 
+<!-- Expandable Bias Panel -->
+<div style="padding:0 16px;margin-top:4px">
+  <button id="bias-toggle" onclick="toggleBias()" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:5px 14px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center">
+    <span style="display:flex;align-items:center;gap:6px"><span id="bias-dot" style="width:8px;height:8px;border-radius:50%"></span><span style="color:#fff">BIAS</span></span>
+    <span style="display:flex;align-items:center;gap:8px"><span id="bias-status" style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:3px"></span><span id="bias-arrow" style="font-size:8px;color:var(--muted)">▼</span></span>
+  </button>
+  <div id="bias-section" style="display:none;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px 14px">
+    <table style="width:100%;border-collapse:collapse;font-size:10px;font-family:inherit">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:3px 0;color:var(--muted);font-size:8px;font-weight:700">DATE</th>
+          <th style="text-align:right;padding:3px 4px;color:var(--muted);font-size:8px;font-weight:700">% > 200</th>
+        </tr>
+      </thead>
+      <tbody id="bias-body"></tbody>
+    </table>
+    <div id="bias-summary" style="margin-top:8px;font-size:10px;font-weight:600"></div>
+  </div>
+</div>
+
 <!-- Collapsible details section -->
 <div style="padding:0 16px 4px;margin-top:4px">
   <button id="details-toggle" onclick="toggleDetails()" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:6px 14px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;text-transform:uppercase;letter-spacing:1px;width:100%;text-align:center">
@@ -671,6 +691,47 @@ function renderTrend(d) {
   document.getElementById('trend-summary').innerHTML = '<span style="color:' + t.statusColor + '">' + t.summary + '</span>';
 }
 
+var _biasOpen = false;
+function toggleBias() {
+  _biasOpen = !_biasOpen;
+  document.getElementById('bias-section').style.display = _biasOpen ? 'block' : 'none';
+  document.getElementById('bias-arrow').textContent = _biasOpen ? '▲' : '▼';
+}
+
+function renderBias(d) {
+  // Compute current % above 200 SMA live
+  var stocks = d.breadthStats || {};
+  var pct200 = stocks.sma200Above?.pct || 0;
+  var status = pct200 >= 60 ? 'BULLISH' : pct200 >= 45 ? 'NEUTRAL' : 'BEARISH';
+  var statusColor = status === 'BULLISH' ? 'var(--green)' : status === 'BEARISH' ? 'var(--red)' : 'var(--amber)';
+
+  document.getElementById('bias-dot').style.background = statusColor;
+  document.getElementById('bias-status').textContent = status;
+  document.getElementById('bias-status').style.background = statusColor.replace('var(--green)','rgba(0,210,106,.2)').replace('var(--red)','rgba(255,71,87,.2)').replace('var(--amber)','rgba(255,167,38,.2)');
+  document.getElementById('bias-status').style.color = statusColor;
+  document.getElementById('bias-status').style.border = '1px solid ' + statusColor;
+
+  // Build rows: today (live) + history from market_monitor
+  var rows = '';
+  var valCol = pct200 >= 50 ? 'var(--green)' : 'var(--red)';
+  rows += '<tr style="border-bottom:1px solid rgba(30,34,48,.5)"><td style="padding:3px 0;color:var(--text);font-weight:600">Today</td>' +
+    '<td style="text-align:right;padding:3px 4px;color:' + valCol + ';font-weight:700">' + pct200 + '%</td></tr>';
+
+  // History from monitor
+  var history = (d._monitorHistory || []).slice(-5).reverse();
+  history.forEach(function(h) {
+    var hPct = h.t2108_200 || h.pct200 || null;
+    if (hPct === null) return;
+    var hCol = hPct >= 50 ? 'var(--green)' : 'var(--red)';
+    rows += '<tr style="border-bottom:1px solid rgba(30,34,48,.5)"><td style="padding:3px 0;color:var(--muted)">' + (h.date || '') + '</td>' +
+      '<td style="text-align:right;padding:3px 4px;color:' + hCol + ';font-weight:700">' + hPct + '%</td></tr>';
+  });
+
+  document.getElementById('bias-body').innerHTML = rows;
+  document.getElementById('bias-summary').innerHTML = '<span style="color:' + statusColor + '">' + pct200 + '% above 200MA. ' +
+    (status === 'BEARISH' ? 'Long-term bearish regime.' : status === 'BULLISH' ? 'Long-term bullish regime.' : 'Neutral bias.') + '</span>';
+}
+
 function renderQuadrant(d) {
   var q = d.quadrant;
   if (!q) return;
@@ -783,6 +844,7 @@ function renderHero(d) {
   renderEarnings(d);
   renderQuadrant(d);
   renderTrend(d);
+  renderBias(d);
   renderSentimentGauge(d);
 
   // Decision badge
