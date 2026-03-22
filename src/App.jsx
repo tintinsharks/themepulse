@@ -3594,7 +3594,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                   {list.map((s, i) => {
                     const ret = s[returnKey] || 0;
                     const oc = overlapCount[s.ticker] || 1;
-                    const theme = (s.themes && s.themes[0]) ? s.themes[0].substring(0, 12) : "";
+                    const theme = (s.themes && s.themes[0]) ? (typeof s.themes[0] === 'string' ? s.themes[0] : s.themes[0].subtheme || s.themes[0].theme || '').substring(0, 12) : "";
                     const isActive = s.ticker === activeTicker;
                     return (
                       <tr key={s.ticker} style={{ height: 20, background: isActive ? "#1e2a3a" : "transparent",

@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThemePulse Trading Signals</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2333;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --green: #3fb950;
+  --green-bg: rgba(63,185,80,0.12);
+  --red: #f85149;
+  --red-bg: rgba(248,81,73,0.12);
+  --yellow: #d29922;
+  --yellow-bg: rgba(210,153,34,0.12);
+  --blue: #58a6ff;
+  --blue-bg: rgba(88,166,255,0.12);
+  --purple: #bc8cff;
+  --purple-bg: rgba(188,140,255,0.12);
+  --orange: #f0883e;
+  --orange-bg: rgba(240,136,62,0.12);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; font-size:14px; }
+.app { max-width:1400px; margin:0 auto; padding:16px; }
+
+/* Header */
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; padding:14px 20px; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.header h1 { font-size:20px; font-weight:700; }
+.header h1 span { color:var(--blue); }
+.data-date { color:var(--text-dim); font-size:13px; }
+
+/* Regime Dashboard */
+.regime-section { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+@media(max-width:900px) { .regime-section { grid-template-columns:1fr; } }
+
+.regime-card { padding:16px 20px; border-radius:10px; border:1px solid var(--border); background:var(--surface); }
+.regime-card h2 { font-size:14px; color:var(--text-dim); margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+
+.regime-main { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+.regime-dot { width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+.regime-label { font-size:22px; font-weight:800; }
+.regime-sublabel { font-size:13px; color:var(--text-dim); }
+
+.regime-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.regime-stat { padding:8px; background:var(--surface2); border-radius:6px; text-align:center; }
+.regime-stat .val { font-size:16px; font-weight:700; }
+.regime-stat .lbl { font-size:10px; color:var(--text-dim); text-transform:uppercase; }
+
+.index-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.index-card { padding:10px; background:var(--surface2); border-radius:6px; text-align:center; }
+.index-card .name { font-size:11px; color:var(--text-dim); }
+.index-card .price { font-size:15px; font-weight:700; margin:2px 0; }
+.index-card .ma-badges { display:flex; gap:3px; justify-content:center; flex-wrap:wrap; }
+.ma-badge { padding:1px 5px; border-radius:3px; font-size:9px; font-weight:600; }
+.ma-above { background:var(--green-bg); color:var(--green); }
+.ma-below { background:var(--red-bg); color:var(--red); }
+
+/* Breadth Chart */
+.breadth-bar { display:flex; align-items:center; gap:8px; margin:4px 0; }
+.breadth-bar .blabel { font-size:11px; color:var(--text-dim); min-width:90px; text-align:right; }
+.breadth-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; position:relative; overflow:hidden; }
+.breadth-fill { height:100%; border-radius:4px; transition:width 0.5s; }
+.breadth-bar .bval { font-size:12px; font-weight:600; min-width:45px; }
+
+/* Tabs */
+.tabs { display:flex; gap:4px; margin-bottom:14px; background:var(--surface); padding:4px; border-radius:10px; border:1px solid var(--border); overflow-x:auto; }
+.tab { padding:10px 18px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; color:var(--text-dim); transition:all 0.15s; border:none; background:none; white-space:nowrap; }
+.tab:hover { color:var(--text); background:var(--surface2); }
+.tab.active { background:var(--blue); color:#fff; }
+.tab .cnt { margin-left:4px; font-size:11px; opacity:0.7; }
+
+/* Filters */
+.filter-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+.filter-bar label { font-size:12px; color:var(--text-dim); font-weight:600; }
+.filter-bar select, .filter-bar input { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:6px; font-size:13px; }
+.filter-bar select:focus, .filter-bar input:focus { outline:none; border-color:var(--blue); }
+.signal-count { font-size:13px; color:var(--text-dim); margin-bottom:8px; }
+
+/* Signal Grid */
+.signal-grid { display:grid; gap:8px; }
+.signal-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; transition:border-color 0.15s; }
+.signal-card:hover { border-color:var(--blue); }
+
+.signal-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.sig-ticker { font-size:17px; font-weight:700; min-width:70px; }
+.sig-company { color:var(--text-dim); font-size:12px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:100px; }
+.sig-grade { padding:2px 8px; border-radius:5px; font-weight:700; font-size:12px; }
+.sig-badge { padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+.badge-ep { background:var(--purple-bg); color:var(--purple); border:1px solid rgba(188,140,255,0.25); }
+.badge-mb { background:var(--orange-bg); color:var(--orange); border:1px solid rgba(240,136,62,0.25); }
+.badge-theme { background:var(--blue-bg); color:var(--blue); border:1px solid rgba(88,166,255,0.25); }
+.badge-consol { background:var(--green-bg); color:var(--green); border:1px solid rgba(63,185,80,0.25); }
+
+.sig-reason { font-size:12px; color:var(--text-dim); margin-top:5px; }
+.sig-metrics { display:flex; gap:14px; margin-top:8px; flex-wrap:wrap; }
+.sig-m { font-size:12px; }
+.sig-m .ml { color:var(--text-dim); }
+.sig-m .mv { font-weight:600; margin-left:3px; }
+
+.themes-list { font-size:11px; color:var(--text-dim); margin-top:4px; }
+.themes-list span { background:var(--surface2); padding:1px 6px; border-radius:3px; margin-right:4px; }
+
+.pos-g { color:var(--green); }
+.pos-r { color:var(--red); }
+.pos-y { color:var(--yellow); }
+.pos-b { color:var(--blue); }
+
+/* Theme Table */
+.theme-grid { display:grid; gap:6px; }
+.theme-row { display:grid; grid-template-columns:160px 60px 60px 70px 70px 70px 60px 100px; gap:8px; align-items:center; padding:8px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; font-size:13px; }
+.theme-row.hdr { background:none; border:none; font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:600; letter-spacing:0.3px; }
+.theme-name { font-weight:700; }
+.quad-chip { padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; text-align:center; }
+@media(max-width:768px) {
+  .theme-row { grid-template-columns:120px repeat(4,1fr); font-size:12px; }
+  .theme-row > *:nth-child(n+7) { display:none; }
+}
+
+/* Chart */
+.chart-box { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+.chart-box h3 { font-size:14px; margin-bottom:10px; }
+canvas { max-height:300px; }
+
+.no-data { text-align:center; padding:40px; color:var(--text-dim); }
+.no-data h3 { margin-bottom:8px; }
+
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+.link-out { color:var(--blue); text-decoration:none; font-size:12px; }
+.link-out:hover { text-decoration:underline; }
+
+.score-bar { display:inline-block; height:4px; border-radius:2px; vertical-align:middle; margin-left:4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1><span>ThemePulse</span> Trading Signals</h1>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div class="data-date" id="dataDate">Loading data...</div>
+    </div>
+  </div>
+
+  <!-- MARKET REGIME -->
+  <div class="regime-section">
+    <div class="regime-card" id="regimeCard">
+      <h2>Market Regime</h2>
+      <div class="regime-main">
+        <div class="regime-dot" id="regimeDot"></div>
+        <div>
+          <div class="regime-label" id="regimeLabel">--</div>
+          <div class="regime-sublabel" id="regimeSub"></div>
+        </div>
+      </div>
+      <div class="regime-stats" id="regimeStats"></div>
+      <div style="margin-top:12px;">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Breadth Gauges</div>
+        <div id="breadthBars"></div>
+      </div>
+    </div>
+    <div class="regime-card">
+      <h2>Index Status</h2>
+      <div class="index-row" id="indexRow"></div>
+      <div style="margin-top:14px;">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Signal Summary</div>
+        <div id="signalSummary"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('all',this)">All Signals <span class="cnt" id="cntAll">0</span></button>
+    <button class="tab" onclick="switchTab('ep',this)">Episodic Pivots <span class="cnt" id="cntEp">0</span></button>
+    <button class="tab" onclick="switchTab('mb',this)">Momentum Burst <span class="cnt" id="cntMb">0</span></button>
+    <button class="tab" onclick="switchTab('leaders',this)">Theme Leaders <span class="cnt" id="cntLead">0</span></button>
+    <button class="tab" onclick="switchTab('themes',this)">Theme Rotation</button>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filter-bar" id="filterBar">
+    <label>Grade:</label>
+    <select id="fGrade" onchange="render()">
+      <option value="D-">D- and above</option>
+      <option value="C-">C- and above</option>
+      <option value="B-" selected>B- and above</option>
+      <option value="A-">A- and above</option>
+    </select>
+    <label>Min $ Vol:</label>
+    <select id="fVol" onchange="render()">
+      <option value="1000000">$1M+</option>
+      <option value="10000000">$10M+</option>
+      <option value="50000000" selected>$50M+</option>
+      <option value="100000000">$100M+</option>
+    </select>
+    <label>EP Status:</label>
+    <select id="fEpStatus" onchange="render()">
+      <option value="all">All</option>
+      <option value="consolidating">Consolidating (best)</option>
+      <option value="basing">Basing</option>
+      <option value="fresh">Fresh (today)</option>
+    </select>
+    <label>Theme:</label>
+    <select id="fTheme" onchange="render()">
+      <option value="all">All Themes</option>
+    </select>
+    <label>Search:</label>
+    <input type="text" id="fSearch" placeholder="Ticker..." oninput="render()" style="width:90px;">
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content"></div>
+</div>
+
+<script>
+// ========== STATE ==========
+let DATA = null, MONITOR = null, TAB = 'all';
+const GO = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F','G'];
+const GC = {'A+':'#1B7A2B','A':'#1fa834','A-':'#28b540','B+':'#4CAF50','B':'#66BB6A','B-':'#81C784','C+':'#FFB300','C':'#FFA000','C-':'#FF8F00','D+':'#F57C00','D':'#EF6C00','D-':'#E65100','F':'#D32F2F','G':'#E01010'};
+
+// ========== LOAD DATA ==========
+async function boot() {
+  const paths = [
+    ['dashboard_data.json','market_monitor.json'],
+    ['../public/dashboard_data.json','../public/market_monitor.json'],
+  ];
+  for (const [dp,mp] of paths) {
+    try {
+      const r = await fetch(dp);
+      if (r.ok) {
+        DATA = await r.json();
+        try { const m = await fetch(mp); if (m.ok) MONITOR = await m.json(); } catch(e) {}
+        break;
+      }
+    } catch(e) {}
+  }
+  if (!DATA) {
+    document.getElementById('content').innerHTML = `<div class="no-data"><h3>Load Data</h3><p>Place this file in <code>themepulse/public/</code> or load manually:</p><input type="file" accept=".json" onchange="loadFile(event)" style="margin:10px;"></div>`;
+    return;
+  }
+  init();
+}
+
+function loadFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { DATA = JSON.parse(ev.target.result); init(); };
+  r.readAsText(f);
+}
+
+// ========== INIT ==========
+function init() {
+  document.getElementById('dataDate').textContent = `Data: ${DATA.date || '?'}`;
+  populateThemeFilter();
+  buildRegime();
+  render();
+}
+
+function populateThemeFilter() {
+  const sel = document.getElementById('fTheme');
+  sel.innerHTML = '<option value="all">All Themes</option>';
+  (DATA.themes || []).sort((a,b) => b.rts - a.rts).forEach(t => {
+    sel.innerHTML += `<option value="${t.theme}">${t.theme} (RTS ${t.rts?.toFixed(0)})</option>`;
+  });
+}
+
+// ========== MARKET REGIME ==========
+function buildRegime() {
+  let regime = 'neutral', label = 'NEUTRAL', sub = '', color = 'var(--yellow)';
+  let stats = [], bars = [];
+
+  if (MONITOR && MONITOR.current) {
+    const c = MONITOR.current;
+    const idx = MONITOR.indices || {};
+
+    // Scoring
+    let bull = 0, bear = 0;
+    if (c.ratio_5d >= 2.0) bull++; if (c.ratio_5d < 0.8) bear++;
+    if (c.ratio_10d >= 2.0) bull++; if (c.ratio_10d < 0.8) bear++;
+    if (c.up_25q >= 500) bull++; if (c.up_25q < 300) bear++;
+    if (c.t2108 >= 55) bull++; if (c.t2108 < 30) bear++;
+    if (idx.SPY?.above_ema21) bull++; else bear++;
+    if (idx.QQQ?.above_ema21) bull++; else bear++;
+    if (idx.SPY?.above_sma50) bull++; if (!idx.SPY?.above_sma200) bear++;
+
+    if (bull >= 5) { regime='bullish'; label='FULL BULL'; color='var(--green)'; sub='Strong breadth + trend confirmation. Swing long freely.'; }
+    else if (bull >= 3 && bear <= 2) { regime='lean-bull'; label='LEAN BULLISH'; color='var(--green)'; sub='Favoring longs but stay selective. Focus on A/B grade setups.'; }
+    else if (bear >= 5) { regime='bearish'; label='BEARISH'; color='var(--red)'; sub='Breadth deteriorating. Avoid new longs unless A+ setups.'; }
+    else if (bear >= 3 && bull <= 2) { regime='lean-bear'; label='LEAN BEARISH'; color='var(--red)'; sub='Caution. Reduce exposure, tighten stops, smaller size.'; }
+    else { regime='neutral'; label='NEUTRAL / CHOPPY'; color='var(--yellow)'; sub='Mixed signals. Be selective, focus on best-in-class themes only.'; }
+
+    stats = [
+      { lbl:'5d Ratio', val:c.ratio_5d?.toFixed(2), color: c.ratio_5d >= 2 ? 'pos-g' : c.ratio_5d < 0.8 ? 'pos-r' : '' },
+      { lbl:'T2108', val:c.t2108?.toFixed(1)+'%', color: c.t2108 >= 55 ? 'pos-g' : c.t2108 < 30 ? 'pos-r' : 'pos-y' },
+      { lbl:'Up 25% QTR', val:c.up_25q, color: c.up_25q >= 500 ? 'pos-g' : c.up_25q < 300 ? 'pos-r' : 'pos-y' },
+      { lbl:'Up 4% Today', val:c.up_4pct, color: c.up_4pct >= 300 ? 'pos-g' : c.up_4pct < 100 ? 'pos-r' : '' },
+      { lbl:'Dn 4% Today', val:c.down_4pct, color: c.down_4pct >= 300 ? 'pos-r' : c.down_4pct < 100 ? 'pos-g' : '' },
+      { lbl:'10d Ratio', val:c.ratio_10d?.toFixed(2), color: c.ratio_10d >= 2 ? 'pos-g' : c.ratio_10d < 0.8 ? 'pos-r' : '' },
+    ];
+
+    // Breadth bars
+    const maxQ = Math.max(c.up_25q, c.down_25q, 1);
+    bars = [
+      { label:'Up 4% Today', val:c.up_4pct, max:600, color:'var(--green)' },
+      { label:'Down 4% Today', val:c.down_4pct, max:600, color:'var(--red)' },
+      { label:'Up 25% QTR', val:c.up_25q, max:1200, color:'var(--green)' },
+      { label:'Down 25% QTR', val:c.down_25q, max:1200, color:'var(--red)' },
+      { label:'T2108', val:c.t2108, max:100, color:'var(--blue)' },
+    ];
+
+    // Index cards
+    const idxHtml = Object.entries(idx).map(([sym,d]) => `
+      <div class="index-card">
+        <div class="name">${d.name || sym}</div>
+        <div class="price">$${d.price?.toFixed(2)}</div>
+        <div class="ma-badges">
+          <span class="ma-badge ${d.above_ema10 ? 'ma-above' : 'ma-below'}">10d</span>
+          <span class="ma-badge ${d.above_ema21 ? 'ma-above' : 'ma-below'}">21d</span>
+          <span class="ma-badge ${d.above_sma50 ? 'ma-above' : 'ma-below'}">50d</span>
+          <span class="ma-badge ${d.above_sma200 ? 'ma-above' : 'ma-below'}">200d</span>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('indexRow').innerHTML = idxHtml;
+  } else {
+    // Fallback from stock data
+    const stocks = DATA.stocks || [];
+    const a50 = stocks.filter(s => s.sma50_above).length;
+    const pct = (a50 / stocks.length * 100);
+    if (pct > 60) { regime='bullish'; label='BULLISH (est)'; color='var(--green)'; sub=`${pct.toFixed(0)}% above 50d MA`; }
+    else if (pct < 40) { regime='bearish'; label='BEARISH (est)'; color='var(--red)'; sub=`${pct.toFixed(0)}% above 50d MA`; }
+    else { label='NEUTRAL (est)'; sub=`${pct.toFixed(0)}% above 50d MA`; }
+    stats = [{ lbl:'% > 50d MA', val:pct.toFixed(0)+'%', color:'' }];
+  }
+
+  document.getElementById('regimeDot').style.background = color;
+  document.getElementById('regimeLabel').textContent = label;
+  document.getElementById('regimeLabel').style.color = color;
+  document.getElementById('regimeSub').textContent = sub;
+
+  document.getElementById('regimeStats').innerHTML = stats.map(s =>
+    `<div class="regime-stat"><div class="val ${s.color}">${s.val}</div><div class="lbl">${s.lbl}</div></div>`
+  ).join('');
+
+  document.getElementById('breadthBars').innerHTML = bars.map(b => {
+    const pct = Math.min(b.val / b.max * 100, 100);
+    return `<div class="breadth-bar">
+      <span class="blabel">${b.label}</span>
+      <div class="breadth-track"><div class="breadth-fill" style="width:${pct}%;background:${b.color};"></div></div>
+      <span class="bval">${typeof b.val === 'number' && b.val % 1 ? b.val.toFixed(1) : b.val}</span>
+    </div>`;
+  }).join('');
+
+  window._regime = regime;
+
+  // Signal summary
+  const epCount = (DATA.ep_signals || []).filter(e => e.consol?.status !== 'failed').length;
+  const mbCount = (DATA.momentum_burst || []).filter(m => m.in_universe).length;
+  const erCount = (DATA.earnings_movers || []).length;
+  document.getElementById('signalSummary').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <div class="regime-stat"><div class="val pos-b">${epCount}</div><div class="lbl">EP Signals</div></div>
+      <div class="regime-stat"><div class="val" style="color:var(--orange)">${mbCount}</div><div class="lbl">Mom. Bursts</div></div>
+      <div class="regime-stat"><div class="val pos-g">${erCount}</div><div class="lbl">Earnings Movers</div></div>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:var(--text-dim);">
+      <strong style="color:var(--text);">Regime Action:</strong>
+      ${regime.includes('bull') ? 'Swing longs in leading themes. EP consolidating & momentum bursts are primary setups.' :
+        regime.includes('bear') ? 'Defensive only. Only take A+ grade EPs with massive volume. Reduce position count.' :
+        'Be selective. Focus on top 3 themes by RTS. Only take B+ or better setups with volume confirmation.'}
+    </div>
+  `;
+}
+
+// ========== SIGNAL GENERATION ==========
+function gradeRank(g) { const i = GO.indexOf(g); return i === -1 ? 99 : i; }
+function passGrade(g) { return gradeRank(g) <= gradeRank(document.getElementById('fGrade').value); }
+function passVol(s) { return (s.avg_dollar_vol_raw || 0) >= parseFloat(document.getElementById('fVol').value); }
+
+function buildAllSignals() {
+  if (!DATA) return [];
+  const sigs = [];
+  const sm = {}; (DATA.stocks || []).forEach(s => sm[s.ticker] = s);
+  const seen = new Set();
+
+  // --- Episodic Pivots ---
+  (DATA.ep_signals || []).forEach(ep => {
+    const s = sm[ep.ticker]; if (!s) return;
+    if (ep.consol?.status === 'failed' || ep.consol?.status === 'extended_pullback') return;
+    if (ep.avg_vol < 30000) return;
+
+    // Composite score
+    let score = 0;
+    score += (100 - gradeRank(s.grade) * 7); // grade bonus
+    score += (s.rs_rank || 0) * 0.3;          // RS rank
+    score += Math.min((ep.vol_ratio || 0) * 5, 30); // volume ratio
+    score += ep.consol?.status === 'consolidating' ? 25 : ep.consol?.status === 'basing' ? 15 : 0; // consolidation premium
+    score += (s.rts_score || 0) * 0.15;       // trend strength
+    if (s.accel > 20) score += 10;             // dollar vol acceleration
+
+    sigs.push({
+      type: 'ep', ticker: ep.ticker, stock: s, ep, score,
+      badge: `EP ${ep.ep_type === 'power' ? 'PWR' : 'GAP'}`,
+      badge2: ep.consol?.status || '',
+      reason: `${ep.change_pct?.toFixed(1)}% on ${ep.vol_ratio?.toFixed(1)}x vol (${ep.days_ago}d ago) | ${ep.consol?.status}${ep.consol?.pullback_pct ? ', pb ' + ep.consol.pullback_pct.toFixed(1) + '%' : ''}`,
+    });
+  });
+
+  // --- Momentum Bursts ---
+  (DATA.momentum_burst || []).forEach(mb => {
+    const s = sm[mb.ticker]; if (!s) return;
+    if (!mb.in_universe) return;
+    if (seen.has(mb.ticker)) return; // might overlap with EP
+
+    let score = 0;
+    score += (100 - gradeRank(s.grade || mb.grade) * 7);
+    score += (s.rs_rank || mb.rs_rank || 0) * 0.3;
+    score += Math.min((mb.close_range || 0) / 3, 30);
+    score += Math.min((mb.vol_ratio || 0) * 4, 20);
+
+    sigs.push({
+      type: 'mb', ticker: mb.ticker, stock: s, mb, score,
+      badge: `MB ${mb.scan.join('+')}`,
+      badge2: '',
+      reason: `${mb.change_pct?.toFixed(1)}% move, close range ${mb.close_range?.toFixed(0)}%, vol ${mb.vol_ratio?.toFixed(1)}x | $${mb.dollar_move?.toFixed(2)} body`,
+    });
+  });
+
+  // Mark EP/MB tickers
+  const sigTickers = new Set(sigs.map(s => s.ticker));
+
+  // --- Theme Leaders ---
+  const topThemes = (DATA.themes || []).filter(t => t.rts >= 55).sort((a,b) => b.rts - a.rts);
+  topThemes.forEach(theme => {
+    (theme.subthemes || []).forEach(sub => {
+      (sub.tickers || []).forEach(ticker => {
+        if (sigTickers.has(ticker)) return;
+        const s = sm[ticker]; if (!s) return;
+        if (s.rs_rank < 70 || !s.sma20_above) return;
+        if (gradeRank(s.grade) > gradeRank('B-')) return;
+
+        let score = 0;
+        score += (100 - gradeRank(s.grade) * 7);
+        score += (s.rs_rank || 0) * 0.25;
+        score += theme.rts * 0.2;
+        score += (s.accel || 0) > 10 ? 8 : 0;
+
+        sigs.push({
+          type: 'leaders', ticker, stock: s, theme, score,
+          badge: theme.theme,
+          badge2: '',
+          reason: `RS ${s.rs_rank} | Theme RTS ${theme.rts?.toFixed(0)} | Breadth ${theme.breadth?.toFixed(0)}% | ${s.return_1m?.toFixed(1)}% 1M`,
+        });
+        sigTickers.add(ticker);
+      });
+    });
+  });
+
+  sigs.sort((a,b) => b.score - a.score);
+  return sigs;
+}
+
+function filterSigs(sigs) {
+  const search = document.getElementById('fSearch').value.toUpperCase().trim();
+  const epStatus = document.getElementById('fEpStatus').value;
+  const themeF = document.getElementById('fTheme').value;
+
+  return sigs.filter(sig => {
+    if (!passGrade(sig.stock.grade)) return false;
+    if (!passVol(sig.stock)) return false;
+    if (search && !sig.ticker.includes(search)) return false;
+    if (epStatus !== 'all' && sig.type === 'ep' && sig.ep?.consol?.status !== epStatus) return false;
+    if (themeF !== 'all') {
+      const themes = sig.stock.themes?.map(t => t.theme) || [];
+      if (!themes.includes(themeF)) return false;
+    }
+    return true;
+  });
+}
+
+// ========== RENDERING ==========
+function switchTab(t, btn) {
+  TAB = t;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  render();
+}
+
+function render() {
+  const all = buildAllSignals();
+  const filtered = filterSigs(all);
+
+  const byType = (t) => filtered.filter(s => s.type === t);
+  document.getElementById('cntAll').textContent = filtered.length;
+  document.getElementById('cntEp').textContent = byType('ep').length;
+  document.getElementById('cntMb').textContent = byType('mb').length;
+  document.getElementById('cntLead').textContent = byType('leaders').length;
+
+  if (TAB === 'themes') { renderThemes(); return; }
+
+  const list = TAB === 'all' ? filtered :
+               TAB === 'ep' ? byType('ep') :
+               TAB === 'mb' ? byType('mb') :
+               TAB === 'leaders' ? byType('leaders') : filtered;
+
+  if (!list.length) {
+    document.getElementById('content').innerHTML = '<div class="no-data"><h3>No signals match filters</h3><p>Try lowering grade or volume thresholds.</p></div>';
+    return;
+  }
+
+  // Regime warning
+  let regimeNote = '';
+  if (window._regime?.includes('bear')) {
+    regimeNote = `<div style="padding:10px 14px;background:var(--red-bg);border:1px solid rgba(248,81,73,0.2);border-radius:8px;margin-bottom:10px;font-size:13px;color:var(--red);">
+      <strong>Bearish regime active.</strong> Signals shown but use extreme caution. Consider only top-scored A+ grade setups with massive volume.
+    </div>`;
+  }
+
+  const maxScore = list[0]?.score || 1;
+
+  document.getElementById('content').innerHTML = `
+    ${regimeNote}
+    <div class="signal-count">Showing ${Math.min(list.length, 60)} of ${list.length} signals, ranked by composite score</div>
+    <div class="signal-grid">
+      ${list.slice(0, 60).map(sig => renderCard(sig, maxScore)).join('')}
+    </div>`;
+}
+
+function renderCard(sig, maxScore) {
+  const s = sig.stock;
+  const gc = GC[s.grade] || '#888';
+  const badgeClass = sig.type === 'ep' ? 'badge-ep' : sig.type === 'mb' ? 'badge-mb' : 'badge-theme';
+  const scorePct = (sig.score / maxScore * 100).toFixed(0);
+  const scoreColor = sig.score / maxScore > 0.7 ? 'var(--green)' : sig.score / maxScore > 0.4 ? 'var(--yellow)' : 'var(--text-dim)';
+
+  const themeChips = (s.themes || []).map(t => `<span>${t.theme}</span>`).join('');
+
+  // Key metrics vary by signal type
+  let metrics = '';
+  metrics += `<span class="sig-m"><span class="ml">RS:</span><span class="mv">${s.rs_rank || '?'}</span></span>`;
+  metrics += `<span class="sig-m"><span class="ml">RSI:</span><span class="mv ${(s.rsi||0) > 70 ? 'pos-y' : ''}">${s.rsi?.toFixed(0) || '?'}</span></span>`;
+  if (s.return_1m != null) metrics += `<span class="sig-m"><span class="ml">1M:</span><span class="mv ${s.return_1m >= 0 ? 'pos-g' : 'pos-r'}">${s.return_1m.toFixed(1)}%</span></span>`;
+  if (s.return_3m != null) metrics += `<span class="sig-m"><span class="ml">3M:</span><span class="mv ${s.return_3m >= 0 ? 'pos-g' : 'pos-r'}">${s.return_3m.toFixed(1)}%</span></span>`;
+  if (s.adr_pct) metrics += `<span class="sig-m"><span class="ml">ADR:</span><span class="mv">${s.adr_pct.toFixed(1)}%</span></span>`;
+  if (s.accel) metrics += `<span class="sig-m"><span class="ml">$Vol Accel:</span><span class="mv ${s.accel > 0 ? 'pos-g' : s.accel < -20 ? 'pos-r' : ''}">${s.accel.toFixed(0)}</span></span>`;
+  if (s.pct_from_high != null && s.pct_from_high !== 0) metrics += `<span class="sig-m"><span class="ml">From Hi:</span><span class="mv pos-r">${s.pct_from_high.toFixed(1)}%</span></span>`;
+  metrics += `<span class="sig-m"><span class="ml">$Vol:</span><span class="mv">${s.avg_dollar_vol || '?'}</span></span>`;
+
+  if (sig.type === 'ep' && sig.ep) {
+    metrics += `<span class="sig-m"><span class="ml">VolR:</span><span class="mv">${sig.ep.vol_ratio?.toFixed(1)}x</span></span>`;
+    metrics += `<span class="sig-m"><span class="ml">Gap:</span><span class="mv">${sig.ep.gap_pct?.toFixed(1)}%</span></span>`;
+  }
+  if (sig.type === 'mb' && sig.mb) {
+    metrics += `<span class="sig-m"><span class="ml">ClsRng:</span><span class="mv">${sig.mb.close_range?.toFixed(0)}%</span></span>`;
+  }
+
+  return `
+    <div class="signal-card">
+      <div class="signal-row">
+        <div class="sig-ticker">${sig.ticker}</div>
+        <span class="sig-badge ${badgeClass}">${sig.badge}</span>
+        ${sig.badge2 ? `<span class="sig-badge badge-consol">${sig.badge2}</span>` : ''}
+        <div class="sig-company">${s.company || ''}</div>
+        <div style="font-size:13px;font-weight:700;">$${(s.price || s.close)?.toFixed(2)}</div>
+        <div class="sig-grade" style="background:${gc}18;color:${gc};border:1px solid ${gc}33">${s.grade || '?'}</div>
+        <div style="font-size:11px;color:${scoreColor};font-weight:600;min-width:35px;text-align:right;" title="Composite score">
+          ${sig.score.toFixed(0)}
+          <div class="score-bar" style="width:${scorePct * 0.4}px;background:${scoreColor};"></div>
+        </div>
+        <a class="link-out" href="https://finviz.com/quote.ashx?t=${sig.ticker}" target="_blank">Chart</a>
+      </div>
+      <div class="sig-reason">${sig.reason}</div>
+      <div class="sig-metrics">${metrics}</div>
+      ${themeChips ? `<div class="themes-list">${themeChips}</div>` : ''}
+    </div>`;
+}
+
+// ========== THEMES ==========
+function renderThemes() {
+  const themes = (DATA.themes || []).sort((a,b) => b.rts - a.rts);
+
+  const quadColor = (t) => {
+    const strong = t.rts >= 60, improving = t.return_1w >= 0;
+    if (strong && improving) return { l:'LEADING', c:'var(--green)', bg:'var(--green-bg)' };
+    if (strong && !improving) return { l:'WEAKENING', c:'var(--yellow)', bg:'var(--yellow-bg)' };
+    if (!strong && improving) return { l:'IMPROVING', c:'var(--blue)', bg:'var(--blue-bg)' };
+    return { l:'LAGGING', c:'var(--red)', bg:'var(--red-bg)' };
+  };
+
+  document.getElementById('content').innerHTML = `
+    <div class="chart-box">
+      <h3>Theme Strength (RTS) & Momentum Quadrant</h3>
+      <canvas id="themeScatter"></canvas>
+    </div>
+    <div class="theme-grid">
+      <div class="theme-row hdr">
+        <div>Theme</div><div>RTS</div><div>RS</div><div>1W</div><div>1M</div><div>3M</div><div>Brdth</div><div>Quadrant</div>
+      </div>
+      ${themes.map(t => {
+        const q = quadColor(t);
+        return `<div class="theme-row" style="cursor:pointer;" onclick="document.getElementById('fTheme').value='${t.theme}';switchTab('all',document.querySelector('.tab'));">
+          <div class="theme-name">${t.theme}</div>
+          <div style="font-weight:700;">${t.rts?.toFixed(0)}</div>
+          <div>${t.rs?.toFixed(0)}</div>
+          <div class="${t.return_1w >= 0 ? 'pos-g' : 'pos-r'}">${t.return_1w?.toFixed(1)}%</div>
+          <div class="${t.return_1m >= 0 ? 'pos-g' : 'pos-r'}">${t.return_1m?.toFixed(1)}%</div>
+          <div class="${t.return_3m >= 0 ? 'pos-g' : 'pos-r'}">${t.return_3m?.toFixed(1)}%</div>
+          <div>${t.breadth?.toFixed(0)}%</div>
+          <div><span class="quad-chip" style="background:${q.bg};color:${q.c}">${q.l}</span></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Scatter: RTS (x) vs 1W Return (y)
+  const ctx = document.getElementById('themeScatter').getContext('2d');
+  new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Themes',
+        data: themes.map(t => ({ x: t.rts, y: t.return_1w, label: t.theme })),
+        backgroundColor: themes.map(t => {
+          const q = quadColor(t);
+          return q.c.replace('var(--','').replace(')','') === 'green' ? 'rgba(63,185,80,0.7)' :
+                 q.l === 'WEAKENING' ? 'rgba(210,153,34,0.7)' :
+                 q.l === 'IMPROVING' ? 'rgba(88,166,255,0.7)' : 'rgba(248,81,73,0.7)';
+        }),
+        pointRadius: 8,
+        pointHoverRadius: 10,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.raw.label}: RTS ${ctx.raw.x?.toFixed(0)}, 1W ${ctx.raw.y?.toFixed(1)}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'RTS Score (Strength)', color: '#8b949e' },
+          grid: { color: '#30363d' }, ticks: { color: '#8b949e' },
+          min: 0, max: 100
+        },
+        y: {
+          title: { display: true, text: '1W Return % (Momentum)', color: '#8b949e' },
+          grid: { color: '#30363d' }, ticks: { color: '#8b949e' },
+        }
+      },
+      // Draw quadrant lines
+      animation: {
+        onComplete: function() {
+          const chart = this;
+          const ctx2 = chart.ctx;
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          ctx2.save();
+          ctx2.strokeStyle = 'rgba(255,255,255,0.1)';
+          ctx2.lineWidth = 1;
+          ctx2.setLineDash([5,5]);
+          // Vertical at RTS 60
+          const x60 = xScale.getPixelForValue(60);
+          ctx2.beginPath(); ctx2.moveTo(x60, yScale.top); ctx2.lineTo(x60, yScale.bottom); ctx2.stroke();
+          // Horizontal at 0%
+          const y0 = yScale.getPixelForValue(0);
+          ctx2.beginPath(); ctx2.moveTo(xScale.left, y0); ctx2.lineTo(xScale.right, y0); ctx2.stroke();
+          ctx2.restore();
+
+          // Labels for theme names
+          ctx2.save();
+          ctx2.fillStyle = '#e6edf3';
+          ctx2.font = '10px -apple-system,sans-serif';
+          chart.data.datasets[0].data.forEach((pt, i) => {
+            const x = xScale.getPixelForValue(pt.x);
+            const y = yScale.getPixelForValue(pt.y);
+            ctx2.fillText(pt.label.substring(0, 12), x + 10, y + 3);
+          });
+          ctx2.restore();
+        }
+      }
+    }
+  });
+}
+
+// ========== BOOT ==========
+boot();
+</script>
+</body>
+</html>
