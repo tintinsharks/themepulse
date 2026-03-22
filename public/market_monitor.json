@@ -1,6 +1,6 @@
 {
   "date": "2026-03-20",
-  "generated": "2026-03-22 18:27",
+  "generated": "2026-03-22 22:00",
   "total_stocks": 3488,
   "current": {
     "date": "2026-03-20",
@@ -551,7 +551,7 @@
     "E-COMMERCE": [
       {
         "date": "2026-03-20",
-        "breadth": 11.0
+        "breadth": 12.0
       }
     ],
     "CYBER": [
