@@ -402,7 +402,7 @@ export default async function handler(req, res) {
 
     // Parallel fetches
     const [quotes, monitor, dashData, userData] = await Promise.all([
-      fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP", "CL=F", "NG=F", "GC=F", "ES=F", "NQ=F", "YM=F", "RTY=F", "EURUSD=X", "USDJPY=X", "GBPUSD=X", "BTC-USD"], fmpKey),
+      fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
       fetchJson(origin, "/market_monitor.json"),
       fetchJson(origin, "/dashboard_data.json"),
       (async () => {
@@ -672,22 +672,61 @@ export default async function handler(req, res) {
       themeHealth,
       portfolio,
       watchlist,
-      futures: [
-        { name: "Crude Oil", sym: "CL=F" },
-        { name: "Natural Gas", sym: "NG=F" },
-        { name: "Gold", sym: "GC=F" },
-        { name: "Dow", sym: "YM=F" },
-        { name: "S&P 500", sym: "ES=F" },
-        { name: "Nasdaq 100", sym: "NQ=F" },
-        { name: "Russell 2000", sym: "RTY=F" },
-        { name: "EUR/USD", sym: "EURUSD=X" },
-        { name: "USD/JPY", sym: "USDJPY=X" },
-        { name: "GBP/USD", sym: "GBPUSD=X" },
-        { name: "BTC/USD", sym: "BTC-USD" },
-      ].map(f => {
-        const q = quotes[f.sym];
-        return { name: f.name, price: q?.price ?? null, change: q?.change ?? null, changePct: q?.changePercentage ?? null };
-      }),
+      upcomingEarnings: (() => {
+        if (!dashData?.stocks) return [];
+        const byDate = {};
+        dashData.stocks.forEach(s => {
+          const disp = s.earnings_display;
+          const days = s.earnings_days;
+          if (!disp || !days || days < 0 || days > 10) return;
+          const time = disp.includes('/a') ? 'a' : disp.includes('/b') ? 'b' : '';
+          const dateStr = disp.replace(/\/[ab]$/, '').trim();
+          const key = dateStr + '/' + time;
+          if (!byDate[key]) byDate[key] = { date: dateStr, time, tickers: [] };
+          byDate[key].tickers.push(s.ticker);
+        });
+        return Object.values(byDate)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(0, 10)
+          .map(d => ({ date: d.date, time: d.time, tickers: d.tickers.slice(0, 12) }));
+      })(),
+      futures: await (async () => {
+        // Scrape futures from Finviz
+        try {
+          const r = await fetch("https://finviz.com/futures.ashx", {
+            headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!r.ok) return [];
+          const html = await r.text();
+          const results = [];
+          const wanted = {
+            "Crude Oil": true, "Natural Gas": true, "Gold": true,
+            "E-Mini Dow": "Dow", "E-Mini S&P 500": "S&P 500", "E-Mini Nasdaq": "Nasdaq 100", "E-Mini Russell": "Russell 2000",
+            "EUR/USD": true, "USD/JPY": true, "GBP/USD": true, "Bitcoin": "BTC/USD",
+          };
+          // Parse table rows - Finviz futures page has rows with: label, last, change, change%
+          const rowRe = /<td[^>]*class="[^"]*futures[^"]*"[^>]*>([^<]+)<\/td>/gi;
+          const rows = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+          for (const row of rows) {
+            const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1].replace(/<[^>]+>/g, '').trim());
+            if (cells.length >= 4) {
+              const label = cells[0];
+              for (const [key, val] of Object.entries(wanted)) {
+                if (label.includes(key)) {
+                  const name = typeof val === 'string' ? val : key;
+                  const price = parseFloat(cells[1]?.replace(/,/g, ''));
+                  const change = parseFloat(cells[2]?.replace(/,/g, ''));
+                  const pct = parseFloat(cells[3]?.replace(/[%,]/g, ''));
+                  if (!isNaN(price)) results.push({ name, price, change: isNaN(change) ? null : change, changePct: isNaN(pct) ? null : pct });
+                  break;
+                }
+              }
+            }
+          }
+          return results;
+        } catch { return []; }
+      })(),
     });
 
   } catch (err) {
