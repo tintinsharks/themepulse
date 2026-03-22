@@ -402,7 +402,7 @@ export default async function handler(req, res) {
 
     // Parallel fetches
     const [quotes, monitor, dashData, userData] = await Promise.all([
-      fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
+      fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP", "CL=F", "NG=F", "GC=F", "ES=F", "NQ=F", "YM=F", "RTY=F", "EURUSD=X", "USDJPY=X", "GBPUSD=X", "BTC-USD"], fmpKey),
       fetchJson(origin, "/market_monitor.json"),
       fetchJson(origin, "/dashboard_data.json"),
       (async () => {
@@ -672,6 +672,22 @@ export default async function handler(req, res) {
       themeHealth,
       portfolio,
       watchlist,
+      futures: [
+        { name: "Crude Oil", sym: "CL=F" },
+        { name: "Natural Gas", sym: "NG=F" },
+        { name: "Gold", sym: "GC=F" },
+        { name: "Dow", sym: "YM=F" },
+        { name: "S&P 500", sym: "ES=F" },
+        { name: "Nasdaq 100", sym: "NQ=F" },
+        { name: "Russell 2000", sym: "RTY=F" },
+        { name: "EUR/USD", sym: "EURUSD=X" },
+        { name: "USD/JPY", sym: "USDJPY=X" },
+        { name: "GBP/USD", sym: "GBPUSD=X" },
+        { name: "BTC/USD", sym: "BTC-USD" },
+      ].map(f => {
+        const q = quotes[f.sym];
+        return { name: f.name, price: q?.price ?? null, change: q?.change ?? null, changePct: q?.changePercentage ?? null };
+      }),
     });
 
   } catch (err) {
