@@ -232,7 +232,10 @@ a{color:var(--cyan);text-decoration:none}
           <div id="analysis-body" style="font-size:11px;line-height:1.7;color:var(--text)">Loading...</div>
         </div>
         <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">DISCORD BRIEFING</div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">
+        <span>DISCORD BRIEFING</span>
+        <span id="briefing-time" style="font-weight:400"></span>
+      </div>
           <pre id="briefing-body" style="font-family:inherit;font-size:10px;line-height:1.8;color:var(--text);white-space:pre-wrap;margin:0">Loading briefing...</pre>
         </div>
       </div>
@@ -642,6 +645,7 @@ function renderBriefing(d) {
   } else {
     body.textContent = 'No briefing data available.';
   }
+  document.getElementById('briefing-time').textContent = 'Updated ' + new Date(d.timestamp).toLocaleString();
 }
 
 function renderSessionBias(d) {
