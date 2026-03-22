@@ -336,6 +336,24 @@ a{color:var(--cyan);text-decoration:none}
 
 
 <!-- Theme Health Section -->
+<!-- Market Quadrant -->
+<div id="quadrant-section" style="margin:16px 16px 0;padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div>
+      <span style="font-size:12px;font-weight:800;color:#fff">Market Quadrant</span>
+      <span id="quad-date" style="font-size:10px;color:var(--muted);margin-left:8px"></span>
+    </div>
+    <div style="display:flex;gap:4px;align-items:center">
+      <span id="quad-mom" style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;border:1px solid var(--border)">MOM</span>
+      <span id="quad-swg" style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;border:1px solid var(--border)">SWG</span>
+      <span id="quad-trd" style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;border:1px solid var(--border)">TRD</span>
+      <span id="quad-bias" style="font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;border:1px solid var(--border)">BIAS</span>
+      <span id="quad-regime" style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:4px;margin-left:4px"></span>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap" id="quad-gauges"></div>
+</div>
+
 <!-- Timeframe Toggle + Market Sentiment Gauge -->
 <div id="sentiment-section" style="margin:24px 16px 0;padding:12px 20px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -421,7 +439,7 @@ function setView(v) {
   var marketContainers = document.querySelectorAll('.hero, .breadth-row, .theme-health-section');
 
   // IDs of market-view elements to hide/show
-  var marketIds = ['hero', 'breadth-row', 'theme-health-section', 'sentiment-section', 'details-section'];
+  var marketIds = ['hero', 'breadth-row', 'quadrant-section', 'theme-health-section', 'sentiment-section', 'details-section'];
 
   if (v === 'live') {
     // Hide all market content below session bias bar
@@ -589,6 +607,35 @@ function setTimeframe(tf) {
   }
 }
 
+function renderQuadrant(d) {
+  var q = d.quadrant;
+  if (!q) return;
+  document.getElementById('quad-date').textContent = q.date || '';
+  document.getElementById('quad-regime').textContent = q.regimeScore + '/4 ' + q.regime;
+  document.getElementById('quad-regime').style.background = q.regimeColor + '20';
+  document.getElementById('quad-regime').style.color = q.regimeColor;
+  document.getElementById('quad-regime').style.border = '1px solid ' + q.regimeColor;
+  // Indicator pills
+  var pills = ['mom','swg','trd','bias'];
+  var pillColors = q.regimeScore >= 3 ? ['#00d26a','#00d26a','#00d26a','#00d26a'] :
+    q.regimeScore >= 2 ? ['#ffa726','#ffa726','#ff4757','#ff4757'] : ['#ff4757','#ff4757','#ff4757','#ff4757'];
+  pills.forEach(function(p, i) {
+    var el = document.getElementById('quad-' + p);
+    var active = i < q.regimeScore;
+    el.style.background = active ? pillColors[i] + '30' : 'transparent';
+    el.style.color = active ? pillColors[i] : 'var(--muted)';
+    el.style.borderColor = active ? pillColors[i] : 'var(--border)';
+  });
+  // Gauges
+  var gauges = document.getElementById('quad-gauges');
+  gauges.innerHTML = q.gauges.map(function(g) {
+    return '<div style="text-align:center;min-width:70px;flex:1;padding:4px 0">' +
+      '<div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">' + g.label + '</div>' +
+      '<div style="font-size:16px;font-weight:800;color:' + g.color + '">' + g.value + '</div>' +
+      '</div>';
+  }).join('');
+}
+
 function renderSentimentGauge(d) {
   // Compute sentiment based on timeframe
   var score = d.total || 0;
@@ -670,6 +717,7 @@ function renderHero(d) {
   renderBriefing(d);
   renderFutures(d);
   renderEarnings(d);
+  renderQuadrant(d);
   renderSentimentGauge(d);
 
   // Decision badge

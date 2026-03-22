@@ -670,6 +670,36 @@ export default async function handler(req, res) {
       weights: { volatility: 25, momentum: 25, trend: 20, breadth: 20, macro: 10 },
       breadthStats: breadth.breadthStats,
       themeHealth,
+      quadrant: (() => {
+        const c = monitor?.current || {};
+        const up4 = c.up_4pct || 0, dn4 = c.down_4pct || 0;
+        const r5d = c.ratio_5d || 0;
+        const t = c.t2108 || 0;
+        const up25q = c.up_25q || 0, dn25q = c.down_25q || 0;
+        const up25m = c.up_25m || 0, dn25m = c.down_25m || 0;
+        const date = c.date || monitor?.date || '';
+        // Regime: based on ratio_5d + t2108
+        let regime, regimeColor;
+        if (r5d >= 2 && t >= 50) { regime = "AGGRESSIVE"; regimeColor = "#00d26a"; }
+        else if (r5d >= 1 && t >= 40) { regime = "BULLISH"; regimeColor = "#00d26a"; }
+        else if (r5d >= 0.5 && t >= 30) { regime = "CAUTIOUS"; regimeColor = "#ffa726"; }
+        else { regime = "DEFENSIVE"; regimeColor = "#ff4757"; }
+        // Score out of 4 for regime badge
+        const regimeScore = r5d >= 2 ? 4 : r5d >= 1 ? 3 : r5d >= 0.5 ? 2 : 1;
+        return {
+          date, regime, regimeColor, regimeScore,
+          gauges: [
+            { label: "4% Up", value: up4, color: up4 >= 200 ? "#00d26a" : up4 >= 100 ? "#ffa726" : "#ff4757" },
+            { label: "4% Dn", value: dn4, color: dn4 <= 100 ? "#00d26a" : dn4 <= 200 ? "#ffa726" : "#ff4757" },
+            { label: "5d Ratio", value: r5d, color: r5d >= 1.5 ? "#00d26a" : r5d >= 0.5 ? "#ffa726" : "#ff4757" },
+            { label: "T2108", value: t + "%", color: t >= 50 ? "#00d26a" : t >= 30 ? "#ffa726" : "#ff4757" },
+            { label: "25%Q↑", value: up25q, color: up25q >= 300 ? "#00d26a" : up25q >= 100 ? "#ffa726" : "#ff4757" },
+            { label: "25%Q↓", value: dn25q, color: dn25q <= 200 ? "#00d26a" : dn25q <= 400 ? "#ffa726" : "#ff4757" },
+            { label: "25%M↑", value: up25m, color: up25m >= 50 ? "#00d26a" : up25m >= 20 ? "#ffa726" : "#ff4757" },
+            { label: "25%M↓", value: dn25m, color: dn25m <= 30 ? "#00d26a" : dn25m <= 80 ? "#ffa726" : "#ff4757" },
+          ],
+        };
+      })(),
       portfolio,
       watchlist,
       upcomingEarnings: (() => {
