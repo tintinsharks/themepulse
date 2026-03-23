@@ -230,7 +230,7 @@ a{color:var(--cyan);text-decoration:none}
   <div id="briefing-section" style="display:none;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px 14px">
     <div style="display:flex;gap:10px">
       <span id="briefing-body" style="display:none"></span><span id="briefing-time" style="display:none"></span>
-      <!-- Left: Analysis -->
+      <!-- Left: Analysis + EP/SIP -->
       <div style="flex:1;display:flex;flex-direction:column;gap:10px">
         <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
           <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">
@@ -239,8 +239,12 @@ a{color:var(--cyan);text-decoration:none}
           </div>
           <div id="analysis-body" style="font-size:11px;line-height:1.7;color:var(--text)">Loading...</div>
         </div>
+        <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">EP / SIP CANDIDATES</div>
+          <div id="ep-candidates-body" style="font-size:10px;line-height:1.7;color:var(--text)">Loading...</div>
+        </div>
       </div>
-      <!-- Right: Futures + Earnings + EP/SIP -->
+      <!-- Right: Futures + Earnings -->
       <div style="min-width:320px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:4px">
         <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">FUTURES</div>
         <table id="futures-table" style="width:100%;border-collapse:collapse;font-size:10px;font-family:inherit">
@@ -249,10 +253,6 @@ a{color:var(--cyan);text-decoration:none}
         <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">EARNINGS RELEASE</div>
           <div id="earnings-body" style="font-size:10px;line-height:1.8"></div>
-        </div>
-        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">EP / SIP CANDIDATES</div>
-          <div id="ep-candidates-body" style="font-size:10px;line-height:1.7;color:var(--text)">Loading...</div>
         </div>
       </div>
     </div>
