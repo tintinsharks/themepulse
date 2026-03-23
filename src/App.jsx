@@ -3597,7 +3597,7 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
                     const theme = (s.themes && s.themes[0]) ? (typeof s.themes[0] === 'string' ? s.themes[0] : s.themes[0].subtheme || s.themes[0].theme || '').substring(0, 12) : "";
                     const isActive = s.ticker === activeTicker;
                     return (
-                      <tr key={s.ticker} style={{ height: 20, background: isActive ? "#1e2a3a" : "transparent",
+                      <tr key={s.ticker} data-ticker={s.ticker} style={{ height: 20, background: isActive ? "#1e2a3a" : "transparent",
                         borderBottom: "1px solid #1e1e28", cursor: "pointer" }}
                         onClick={() => onTickerClick(s.ticker)}>
                         <td style={{ padding: "1px 4px", textAlign: "center", color: "#505060", fontFamily: "monospace", fontSize: 10 }}>{i + 1}</td>
@@ -3637,7 +3637,14 @@ function Scan({ stocks, themes, onTickerClick, activeTicker, onVisibleTickers, l
             )}
           </div>
           {researchView === "leaders" ? (
-            <div style={{ display: "flex", height: "calc(100vh - 120px)", background: "#121218" }}>
+            <div style={{ display: "flex", height: "calc(100vh - 120px)", background: "#121218" }}
+              ref={el => {
+                if (el && onVisibleTickers) {
+                  // Combine all unique tickers from all 3 columns for keyboard nav
+                  const all = [...new Set([...top1m, ...top3m, ...top6m].map(s => s.ticker))];
+                  onVisibleTickers(all);
+                }
+              }}>
               {renderCol("1M TOP GAINERS", top1m, "return_1m")}
               {renderCol("3M TOP GAINERS", top3m, "return_3m")}
               {renderCol("6M TOP GAINERS", top6m, "return_6m")}
