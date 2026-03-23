@@ -1,37 +1,6 @@
 {
-  "content": "## AI Research Queue — March 21, 2026\n\nAnalyzed 2 tickers from manual queue. Both showing strong momentum setups with confirming fundamentals.",
-  "updated_at": "2026-03-21T13:40:00Z",
+  "content": "# AI Analysis\n\nNo tickers in the AI analysis queue on 2026-03-23.",
+  "updated_at": "2026-03-23T15:05:06Z",
   "filters": "AI Queue (Manual)",
-  "tickers": [
-    {
-      "ticker": "PLTR",
-      "company": "Palantir Technologies",
-      "change_pct": 5.3,
-      "market_cap": "$245B",
-      "grade": "A",
-      "verdict": "BUY",
-      "tabs": {
-        "key_takeaways": "**Palantir** is breaking out of a 6-week consolidation on 2.4x relative volume. The AIP (Artificial Intelligence Platform) bootcamp pipeline has expanded to 900+ engagements, converting at 35% to production contracts.\n\n- **Government segment** grew 33% YoY, accelerating from 20% two quarters ago\n- **Commercial US** revenue up 70% YoY — the fastest-growing segment\n- **Rule of 40 score**: 68 (adjusted operating margin 37% + revenue growth 31%)\n- Net dollar retention rate climbed to 118%, showing expanding customer spend",
-        "signals": "**Technical Setup**: Clean breakout from flat base at $108 after 6-week consolidation. Volume on breakout day was 2.4x average — institutional confirmation.\n\n**RS Rating**: 96 — top 4% of all stocks. Relative strength line making new highs ahead of price.\n\n**Moving Averages**: Price > 10w > 21w > 50w — all trending up in proper order. 10w SMA slope steepening.\n\n**Channel Position**: Trading at 94% of channel range — near highs but not overextended due to tight consolidation.",
-        "revenue": "| Quarter | Revenue | Growth | Op Margin |\n|---------|---------|--------|-----------|\n| Q4 2025 | $828M | +36% | 39% |\n| Q3 2025 | $726M | +30% | 37% |\n| Q2 2025 | $678M | +27% | 35% |\n| Q1 2025 | $634M | +21% | 32% |\n\nRevenue acceleration over 4 quarters (21% → 36%) is textbook institutional magnet. Commercial growth at 70% is the key driver — shows AIP platform gaining enterprise traction beyond government.",
-        "thesis": "**Bull Case**: Palantir is the picks-and-shovels play for enterprise AI adoption. AIP bootcamps are a genius go-to-market — companies try the platform for free, see results in days, and convert to 7-figure contracts. The commercial acceleration from 27% to 70% in 4 quarters suggests we're in early innings of an S-curve.\n\n**Why Now**: Government AI spending is mandated to increase under new executive orders. The DoD just expanded their Palantir contract by $480M. Commercial pipeline is converting faster than analysts expected — consensus estimates are likely too low for next 2 quarters.",
-        "risks": "- **Valuation**: Trading at 85x forward earnings — requires continued 30%+ growth to justify multiple\n- **Stock-based compensation**: Still elevated at 22% of revenue, though declining quarter-over-quarter\n- **Government concentration**: 55% of revenue from government — policy shifts could impact\n- **Insider selling**: CEO Alex Karp has a 10b5-1 plan selling ~$20M/month — optics concern but programmatic\n- **Technical risk**: Extended 18% above 50-day MA — a pullback to the 21-day (~$102) would be healthy before adding size"
-      }
-    },
-    {
-      "ticker": "CRDO",
-      "company": "Credo Technology",
-      "change_pct": 3.8,
-      "market_cap": "$12.4B",
-      "grade": "A+",
-      "verdict": "BUY",
-      "tabs": {
-        "key_takeaways": "**Credo Technology** is a high-speed connectivity semiconductor company riding the AI data center buildout. Their HiWire active electrical cables (AECs) are replacing traditional optical solutions at lower cost and power.\n\n- **Revenue** surged 154% YoY in latest quarter — fastest growth in the semiconductor sector\n- **Gross margins** expanded to 63%, up from 58% a year ago — pricing power confirmed\n- **Customer wins**: Microsoft and Amazon are primary customers, with Meta recently qualified\n- **TAM expansion**: 800G to 1.6T transition doubles their addressable market in 2026",
-        "signals": "**Technical Setup**: Building a 4-week handle on a 12-week cup base. Pivot point at $82. Volume has been drying up in the handle — classic supply exhaustion.\n\n**RS Rating**: 99 — top 1% of all stocks. RS line in new high ground for 8 consecutive weeks.\n\n**Float**: Only 165M shares with 8% short interest — potential squeeze catalyst on breakout.\n\n**Accumulation**: A+ grade — 7 of last 10 weeks showed above-average volume on up weeks. Institutional sponsorship accelerating.",
-        "revenue": "| Quarter | Revenue | Growth | Gross Margin |\n|---------|---------|--------|--------------|\n| Q3 FY26 | $135M | +154% | 63% |\n| Q2 FY26 | $102M | +89% | 61% |\n| Q1 FY26 | $72M | +64% | 59% |\n| Q4 FY25 | $58M | +52% | 58% |\n\nRevenue acceleration from 52% to 154% over 4 quarters is exceptional. This is a company going from $200M run rate to $600M+ in one year. Gross margin expansion confirms they're not buying growth with discounts.",
-        "thesis": "**Bull Case**: Credo is solving the biggest bottleneck in AI data centers — moving data between GPUs. Their AEC technology uses 70% less power than optical cables at 40% lower cost. As GPU clusters scale from thousands to hundreds of thousands of chips, the connectivity market explodes.\n\n**Why Now**: The 800G to 1.6T transition is happening in H2 2026. Credo's 1.6T AECs are already sampling with hyperscalers. First-mover advantage in a market projected to grow from $2B to $8B by 2028. With only $500M in trailing revenue, they have massive room to grow into their $12B market cap.",
-        "risks": "- **Customer concentration**: Top 2 customers (Microsoft, Amazon) represent ~75% of revenue — loss of either would be devastating\n- **Competition**: Broadcom and Marvell are developing competing AEC solutions — could pressure ASPs by late 2026\n- **Valuation**: Trading at 25x forward revenue — priced for perfection\n- **Execution risk**: Ramping to $600M+ revenue requires flawless manufacturing scale-up\n- **Cyclicality**: Semiconductor spending is inherently cyclical — a hyperscaler capex pause would hit hard"
-      }
-    }
-  ]
+  "tickers": []
 }
