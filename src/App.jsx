@@ -3706,6 +3706,17 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
   const [showLegend, setShowLegend] = useState(false);
   const [histCollapsed, setHistCollapsed] = useState(false);
   const [focusCollapsed, setFocusCollapsed] = useState(true);
+  const [earnCalCollapsed, setEarnCalCollapsed] = useState(false);
+  const [earningsCalendar, setEarningsCalendar] = useState(null);
+  const [earnCalDay, setEarnCalDay] = useState(null); // selected day filter
+
+  // Fetch earnings calendar
+  useEffect(() => {
+    fetch("/data/earnings_calendar.json")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.earnings) setEarningsCalendar(d); })
+      .catch(() => {});
+  }, []);
 
   // Sort state for Historical tables
   const [histSort, setHistSort] = useState({ col: "rvol", dir: "desc" });
@@ -4722,6 +4733,169 @@ function EpisodicPivots({ stockMap, onTickerClick, activeTicker, onVisibleTicker
           </div>
         )}
       </div>
+
+      {/* ── EARNINGS CALENDAR ── */}
+      {earningsCalendar && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+            <span onClick={() => setEarnCalCollapsed(p => !p)}
+              style={{ fontSize: 11, color: "#22d3ee", fontWeight: 600, cursor: "pointer", userSelect: "none" }}>
+              {earnCalCollapsed ? "▶" : "▼"} Earnings Calendar
+            </span>
+            <span style={{ fontSize: 9, color: "#4a4a5a" }}>{earningsCalendar.week_label}</span>
+            {earningsCalendar.ep_watch?.high_priority?.length > 0 && (
+              <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: "#f59e0b20", color: "#f59e0b", fontWeight: 600 }}>
+                {earningsCalendar.ep_watch.high_priority.length} EP Watch
+              </span>
+            )}
+          </div>
+          {!earnCalCollapsed && (
+            <div>
+              {/* Day tabs */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                <span onClick={() => setEarnCalDay(null)}
+                  style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, cursor: "pointer",
+                    background: earnCalDay === null ? "#22d3ee20" : "#1a1a26",
+                    color: earnCalDay === null ? "#22d3ee" : "#686878", fontWeight: 600 }}>All</span>
+                {earningsCalendar.earnings.map(day => {
+                  const d = new Date(day.date + "T12:00:00");
+                  const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                  const isToday = day.date === new Date().toISOString().slice(0, 10);
+                  return (
+                    <span key={day.date} onClick={() => setEarnCalDay(day.date)}
+                      style={{ fontSize: 9, padding: "2px 8px", borderRadius: 3, cursor: "pointer",
+                        background: earnCalDay === day.date ? "#22d3ee20" : isToday ? "#f59e0b15" : "#1a1a26",
+                        color: earnCalDay === day.date ? "#22d3ee" : isToday ? "#f59e0b" : "#686878",
+                        fontWeight: 600, border: isToday ? "1px solid #f59e0b30" : "none" }}>
+                      {label} ({day.stocks.length})
+                    </span>
+                  );
+                })}
+              </div>
+              {/* EP Watch badges */}
+              {earningsCalendar.ep_watch && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                  {earningsCalendar.ep_watch.high_priority.map(ep => (
+                    <span key={ep.symbol} onClick={() => onTickerClick(ep.symbol)}
+                      style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                        background: ep.reason.includes("CAT") ? "#2bb88618" : ep.reason.includes("LAVA") ? "#f9731618" : "#22d3ee18",
+                        color: ep.reason.includes("CAT") ? "#2bb886" : ep.reason.includes("LAVA") ? "#f97316" : "#22d3ee",
+                        fontWeight: 600 }}>
+                      {ep.symbol} {ep.time} {ep.date.slice(5)}
+                      <span style={{ fontSize: 7, opacity: 0.7, marginLeft: 4 }}>
+                        {ep.reason.includes("CAT") ? "CAT" : ep.reason.includes("LAVA") ? "LAVA" : "EP"}
+                      </span>
+                    </span>
+                  ))}
+                  {earningsCalendar.ep_watch.short_watch?.map(ep => (
+                    <span key={ep.symbol + "_s"} onClick={() => onTickerClick(ep.symbol)}
+                      style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                        background: "#f8717118", color: "#f87171", fontWeight: 600 }}>
+                      {ep.symbol} {ep.time} {ep.date.slice(5)}
+                      <span style={{ fontSize: 7, opacity: 0.7, marginLeft: 4 }}>SHORT</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Calendar table */}
+              <div style={{ maxHeight: 300, overflow: "auto", borderRadius: 4, border: "1px solid #1a1a26" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col style={{ width: 62 }} />
+                    <col style={{ width: 48 }} />
+                    <col style={{ width: 38 }} />
+                    <col />
+                    <col style={{ width: 62 }} />
+                    <col style={{ width: 56 }} />
+                    <col style={{ width: 56 }} />
+                    <col style={{ width: 56 }} />
+                    <col style={{ width: 56 }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+                      {["Date", "Ticker", "Time", "Company", "Mkt Cap", "Rev Est", "Rev Gr%", "EPS Est", "EPS Gr%"].map(h => (
+                        <th key={h} style={{ position: "sticky", top: 0, background: "#0d0d14", zIndex: 1,
+                          padding: "4px 4px", textAlign: "left", color: "#686878", fontWeight: 500, fontSize: 9 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {earningsCalendar.earnings
+                      .filter(day => !earnCalDay || day.date === earnCalDay)
+                      .flatMap(day => day.stocks.map(s => {
+                        const isEpWatch = earningsCalendar.ep_watch?.high_priority?.some(e => e.symbol === s.symbol);
+                        const isShortWatch = earningsCalendar.ep_watch?.short_watch?.some(e => e.symbol === s.symbol);
+                        const d = new Date(day.date + "T12:00:00");
+                        const dayLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+                        return (
+                          <tr key={s.symbol + day.date}
+                            style={{ borderBottom: "1px solid #1a1a26", cursor: "pointer",
+                              borderLeft: isEpWatch ? "3px solid #2bb886" : isShortWatch ? "3px solid #f87171" : "3px solid transparent" }}
+                            onClick={() => onTickerClick(s.symbol)}>
+                            <td style={{ padding: "3px 4px", color: "#a8a8b8", fontSize: 9 }}>{dayLabel}</td>
+                            <td style={{ padding: "3px 4px", color: isEpWatch ? "#2bb886" : isShortWatch ? "#f87171" : "#e8e8f0", fontWeight: 600 }}>
+                              {s.symbol}
+                            </td>
+                            <td style={{ padding: "3px 4px", color: s.time === "BMO" ? "#22d3ee" : s.time === "AMC" ? "#c084fc" : "#4a4a5a", fontSize: 9 }}>
+                              {s.time}
+                            </td>
+                            <td style={{ padding: "3px 4px", color: "#787888", fontSize: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {s.name}
+                            </td>
+                            <td style={{ padding: "3px 4px", color: "#a8a8b8", textAlign: "right", fontSize: 9 }}>
+                              {s.mktCap >= 1e9 ? `$${(s.mktCap / 1e9).toFixed(1)}B` : `$${(s.mktCap / 1e6).toFixed(0)}M`}
+                            </td>
+                            <td style={{ padding: "3px 4px", color: "#a8a8b8", textAlign: "right", fontSize: 9 }}>
+                              {s.revEst ? (s.revEst >= 1e9 ? `$${(s.revEst / 1e9).toFixed(1)}B` : `$${(s.revEst / 1e6).toFixed(0)}M`) : "—"}
+                            </td>
+                            <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9,
+                              color: s.revGrowth > 0.5 ? "#2bb886" : s.revGrowth > 0.1 ? "#4a9a6a" : s.revGrowth > 0 ? "#787888" : s.revGrowth != null ? "#f87171" : "#4a4a5a" }}>
+                              {s.revGrowth != null ? `${(s.revGrowth * 100).toFixed(0)}%` : "—"}
+                            </td>
+                            <td style={{ padding: "3px 4px", color: "#a8a8b8", textAlign: "right", fontSize: 9 }}>
+                              {s.epsEst != null ? `$${s.epsEst.toFixed(2)}` : "—"}
+                            </td>
+                            <td style={{ padding: "3px 4px", textAlign: "right", fontSize: 9,
+                              color: s.epsGrowth > 1.0 ? "#2bb886" : s.epsGrowth > 0.2 ? "#4a9a6a" : s.epsGrowth > 0 ? "#787888" : s.epsGrowth != null ? "#f87171" : "#4a4a5a",
+                              fontWeight: s.epsGrowth > 1.0 ? 700 : 400 }}>
+                              {s.epsGrowth != null ? `${(s.epsGrowth * 100).toFixed(0)}%` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      }))
+                    }
+                  </tbody>
+                </table>
+              </div>
+              {/* Gap Tracker (post-earnings) */}
+              {earningsCalendar.gap_tracker && Object.keys(earningsCalendar.gap_tracker).length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600, marginBottom: 6 }}>
+                    Gap Tracker ({Object.keys(earningsCalendar.gap_tracker).length})
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {Object.entries(earningsCalendar.gap_tracker).map(([sym, d]) => (
+                      <div key={sym} onClick={() => onTickerClick(sym)}
+                        style={{ padding: "4px 8px", borderRadius: 4, cursor: "pointer", fontSize: 9,
+                          background: d.gap_pct > 0 ? "#2bb88612" : "#f8717112",
+                          border: `1px solid ${d.gap_pct > 0 ? "#2bb88630" : "#f8717130"}` }}>
+                        <span style={{ color: d.gap_pct > 0 ? "#2bb886" : "#f87171", fontWeight: 700 }}>{sym}</span>
+                        <span style={{ color: "#a8a8b8", marginLeft: 4 }}>{d.gap_pct > 0 ? "+" : ""}{d.gap_pct}%</span>
+                        <span style={{ color: "#686878", marginLeft: 4 }}>EP:{d.ep_quality}/10</span>
+                        {d.category && <span style={{ marginLeft: 4, fontSize: 7, padding: "0 3px", borderRadius: 2,
+                          background: d.category === "CAT" ? "#2bb88620" : d.category === "LAVA" ? "#f9731620" : "#22d3ee20",
+                          color: d.category === "CAT" ? "#2bb886" : d.category === "LAVA" ? "#f97316" : "#22d3ee" }}>{d.category}</span>}
+                        <span style={{ marginLeft: 4, fontSize: 7,
+                          color: d.status === "CONFIRMED" ? "#2bb886" : d.status === "FADED" ? "#f87171" : "#686878" }}>{d.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── HISTORICAL + FOCUS SIDE BY SIDE ── */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>

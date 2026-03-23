@@ -88,8 +88,10 @@ echo ""
 echo "▶ Copying JSONs to $PUBLIC/"
 cp "$OUTPUT/dashboard_data.json" "$PUBLIC/dashboard_data.json"
 cp "$OUTPUT/market_monitor.json" "$PUBLIC/market_monitor.json"
+[ -f "$OUTPUT/earnings_calendar.json" ] && cp "$OUTPUT/earnings_calendar.json" "$PUBLIC/data/earnings_calendar.json"
 echo "  ✅ dashboard_data.json"
 echo "  ✅ market_monitor.json"
+echo "  ✅ earnings_calendar.json"
 
 # ── Deploy ─────────────────────────────────────────────────────
 echo ""
