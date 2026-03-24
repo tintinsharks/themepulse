@@ -5484,12 +5484,36 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 }
 
 // ── PEG VIEW (Power Earnings Gaps) ──
-function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegSetups, pegScanDate }) {
+function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegSetups, pegScanDate, liveThemeData }) {
   const [sort, setSort] = useState({ col: "score", dir: "desc" });
   const [filter, setFilter] = useState("all"); // all, held, basing, fading
   const [minScore, setMinScore] = useState(0);
 
-  const setups = useMemo(() => pegSetups || [], [pegSetups]);
+  // Build live lookup for real-time chg% and rvol
+  const liveLookup = useMemo(() => {
+    const m = {};
+    if (liveThemeData) liveThemeData.forEach(s => {
+      const e = { ...s };
+      // Derive rel_volume from live volume + static avg_volume if missing
+      if (e.rel_volume == null && e.volume != null) {
+        const av = stockMap[e.ticker]?.avg_volume_raw;
+        if (av > 0) e.rel_volume = Math.round(e.volume / av * 100) / 100;
+      }
+      m[e.ticker] = e;
+    });
+    return m;
+  }, [liveThemeData, stockMap]);
+
+  const setups = useMemo(() => (pegSetups || []).map(r => {
+    const live = liveLookup[r.ticker];
+    const pipe = stockMap[r.ticker];
+    return {
+      ...r,
+      _liveChg: live?.changePercent ?? live?.change_pct ?? pipe?.change_pct ?? null,
+      _liveRvol: live?.rel_volume ?? pipe?.rel_volume ?? null,
+      _livePrice: live?.price ?? r.last_close,
+    };
+  }), [pegSetups, liveLookup, stockMap]);
 
   const filtered = useMemo(() => {
     let rows = setups;
@@ -5502,10 +5526,10 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
 
   const sorted = useMemo(() => {
     const numVal = {
-      score: r => r.score, gap: r => r.gap_pct, chg: r => r.change_pct,
-      rvol: r => r.vol_ratio, days: r => r.days_since, bars: r => r.flag_bars,
+      score: r => r.score, gap: r => r.gap_pct, chg: r => r._liveChg ?? r.change_pct,
+      rvol: r => r._liveRvol ?? r.vol_ratio, days: r => r.days_since, bars: r => r.flag_bars,
       retr: r => r.retracement, hold: r => r.gap_hold, width: r => r.width_metric,
-      volc: r => r.vol_contraction, close: r => r.last_close, clpos: r => r.close_pos,
+      volc: r => r.vol_contraction, close: r => r._livePrice ?? r.last_close, clpos: r => r.close_pos,
     };
     let rows = [...filtered];
     const fn = numVal[sort.col];
@@ -5561,9 +5585,10 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
               <th style={{ ...thStyle, textAlign: "left", paddingLeft: 12 }}>Ticker</th>
               <th style={{ ...thStyle, textAlign: "left" }}>Pattern</th>
               <th onClick={() => toggleSort("score")} style={thStyle}>Score{sortArrow("score")}</th>
-              <th onClick={() => toggleSort("gap")} style={thStyle}>Gap%{sortArrow("gap")}</th>
               <th onClick={() => toggleSort("chg")} style={thStyle}>Chg%{sortArrow("chg")}</th>
               <th onClick={() => toggleSort("rvol")} style={thStyle}>RVol{sortArrow("rvol")}</th>
+              <th onClick={() => toggleSort("close")} style={thStyle}>Price{sortArrow("close")}</th>
+              <th onClick={() => toggleSort("gap")} style={{ ...thStyle, borderLeft: "1px solid #2a2a3a" }}>Gap%{sortArrow("gap")}</th>
               <th onClick={() => toggleSort("days")} style={thStyle}>Days{sortArrow("days")}</th>
               <th onClick={() => toggleSort("hold")} style={thStyle}>Hold{sortArrow("hold")}</th>
               <th style={{ ...thStyle, textAlign: "left" }}>Status</th>
@@ -5571,7 +5596,6 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
               <th onClick={() => toggleSort("clpos")} style={thStyle}>ClPos{sortArrow("clpos")}</th>
               <th onClick={() => toggleSort("width")} style={thStyle}>Width{sortArrow("width")}</th>
               <th onClick={() => toggleSort("volc")} style={thStyle}>VolC{sortArrow("volc")}</th>
-              <th onClick={() => toggleSort("close")} style={thStyle}>Close{sortArrow("close")}</th>
             </tr>
           </thead>
           <tbody>
@@ -5594,9 +5618,10 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
                   </td>
                   <td style={{ padding: "4px 6px", fontSize: 10, color: r.pattern === "Flat Top Squeeze" ? "#4aad8c" : r.pattern === "Tight Bull Flag" ? "#60a5fa" : r.pattern === "Descending Flag" ? "#fbbf24" : "#787888" }}>{r.pattern}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: r.score >= 150 ? "#4aad8c" : r.score >= 100 ? "#e0e0e8" : "#787888" }}>{r.score.toFixed(0)}</td>
-                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.gap_pct >= 10 ? "#4aad8c" : "#e0e0e8" }}>{r.gap_pct.toFixed(1)}</td>
-                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.change_pct >= 15 ? "#4aad8c" : "#e0e0e8" }}>{r.change_pct.toFixed(1)}</td>
-                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.vol_ratio >= 5 ? "#4aad8c" : r.vol_ratio >= 3 ? "#e0e0e8" : "#787888" }}>{r.vol_ratio.toFixed(1)}x</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 600, color: (r._liveChg ?? 0) >= 3 ? "#4aad8c" : (r._liveChg ?? 0) >= 0 ? "#e0e0e8" : "#f87171" }}>{r._liveChg != null ? `${r._liveChg >= 0 ? "+" : ""}${r._liveChg.toFixed(1)}%` : "—"}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: (r._liveRvol ?? 0) >= 2 ? "#4aad8c" : (r._liveRvol ?? 0) >= 1.2 ? "#e0e0e8" : "#787888" }}>{r._liveRvol != null ? `${r._liveRvol.toFixed(1)}x` : "—"}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#e0e0e8" }}>{(r._livePrice ?? r.last_close).toFixed(2)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.gap_pct >= 10 ? "#4aad8c" : "#787888", borderLeft: "1px solid #1a1a26" }}>{r.gap_pct.toFixed(1)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#787888" }}>{r.days_since}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 600, color: holdColor(r.gap_hold_label) }}>{r.gap_hold}/5</td>
                   <td style={{ padding: "4px 6px", fontSize: 10, fontWeight: 600, color: holdColor(r.gap_hold_label) }}>{r.gap_hold_label}</td>
@@ -5604,7 +5629,6 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.close_pos >= 0.7 ? "#4aad8c" : "#787888" }}>{r.close_pos.toFixed(2)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.width_metric < 8 ? "#4aad8c" : "#787888" }}>{r.width_metric.toFixed(1)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.vol_contraction < 0.4 ? "#4aad8c" : "#787888" }}>{r.vol_contraction.toFixed(2)}</td>
-                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#e0e0e8" }}>{r.last_close.toFixed(2)}</td>
                 </tr>
               );
             })}
@@ -12356,7 +12380,8 @@ function AppMain({ authToken, onLogout }) {
           </ErrorBoundary>
           <ErrorBoundary name="PEG">
           {view === "peg" && <PEGView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker}
-            onVisibleTickers={onVisibleTickers} pegSetups={data?.peg_setups || []} pegScanDate={data?.peg_scan_date} />}
+            onVisibleTickers={onVisibleTickers} pegSetups={data?.peg_setups || []} pegScanDate={data?.peg_scan_date}
+            liveThemeData={liveThemeData} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
