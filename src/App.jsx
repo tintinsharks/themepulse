@@ -5533,6 +5533,7 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
       rvol: r => r._liveRvol ?? r.vol_ratio, days: r => r.days_since, bars: r => r.flag_bars,
       retr: r => r.retracement, hold: r => r.gap_hold, width: r => r.width_metric,
       volc: r => r.vol_contraction, close: r => r._livePrice ?? r.last_close, clpos: r => r.close_pos,
+      d1: r => r.day1_pct ?? -Infinity, d3: r => r.day3_pct ?? -Infinity,
     };
     let rows = [...filtered];
     const fn = numVal[sort.col];
@@ -5601,6 +5602,8 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
               <th onClick={() => toggleSort("score")} style={thStyle}>Score{sortArrow("score")}</th>
               <th onClick={() => toggleSort("chg")} style={thStyle}>Chg%{sortArrow("chg")}</th>
               <th onClick={() => toggleSort("rvol")} style={thStyle}>RVol{sortArrow("rvol")}</th>
+              <th onClick={() => toggleSort("d1")} style={thStyle}>D1%{sortArrow("d1")}</th>
+              <th onClick={() => toggleSort("d3")} style={thStyle}>D3%{sortArrow("d3")}</th>
               <th onClick={() => toggleSort("close")} style={thStyle}>Price{sortArrow("close")}</th>
               <th onClick={() => toggleSort("gap")} style={{ ...thStyle, borderLeft: "1px solid #2a2a3a" }}>Gap%{sortArrow("gap")}</th>
               <th style={{ ...thStyle, textAlign: "center" }}>Session</th>
@@ -5635,6 +5638,8 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: r.score >= 150 ? "#4aad8c" : r.score >= 100 ? "#e0e0e8" : "#787888" }}>{r.score.toFixed(0)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 600, color: (r._liveChg ?? 0) >= 3 ? "#4aad8c" : (r._liveChg ?? 0) >= 0 ? "#e0e0e8" : "#f87171" }}>{r._liveChg != null ? `${r._liveChg >= 0 ? "+" : ""}${r._liveChg.toFixed(1)}%` : "—"}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: (r._liveRvol ?? 0) >= 2 ? "#4aad8c" : (r._liveRvol ?? 0) >= 1.2 ? "#e0e0e8" : "#787888" }}>{r._liveRvol != null ? `${r._liveRvol.toFixed(1)}x` : "—"}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.day1_pct != null ? (r.day1_pct >= 0 ? "#4aad8c" : "#f87171") : "#4a4a5a" }}>{r.day1_pct != null ? `${r.day1_pct >= 0 ? "+" : ""}${r.day1_pct.toFixed(1)}` : "—"}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.day3_pct != null ? (r.day3_pct >= 0 ? "#4aad8c" : "#f87171") : "#4a4a5a" }}>{r.day3_pct != null ? `${r.day3_pct >= 0 ? "+" : ""}${r.day3_pct.toFixed(1)}` : "—"}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#e0e0e8" }}>{(r._livePrice ?? r.last_close).toFixed(2)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.gap_pct >= 10 ? "#4aad8c" : "#787888", borderLeft: "1px solid #1a1a26" }}>{r.gap_pct.toFixed(1)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "center", fontSize: 10, fontWeight: 600, color: r.session === "BMO" ? "#f59e0b" : "#60a5fa" }}>{r.session || "—"}</td>
