@@ -5483,6 +5483,139 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
   );
 }
 
+// ── PEG VIEW (Power Earnings Gaps) ──
+function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegSetups, pegScanDate }) {
+  const [sort, setSort] = useState({ col: "score", dir: "desc" });
+  const [filter, setFilter] = useState("all"); // all, held, basing, fading
+  const [minScore, setMinScore] = useState(0);
+
+  const setups = useMemo(() => pegSetups || [], [pegSetups]);
+
+  const filtered = useMemo(() => {
+    let rows = setups;
+    if (filter === "held") rows = rows.filter(r => r.gap_hold_label === "HELD");
+    else if (filter === "basing") rows = rows.filter(r => r.gap_hold_label === "BASING");
+    else if (filter === "fading") rows = rows.filter(r => r.gap_hold_label === "FADING");
+    if (minScore > 0) rows = rows.filter(r => r.score >= minScore);
+    return rows;
+  }, [setups, filter, minScore]);
+
+  const sorted = useMemo(() => {
+    const numVal = {
+      score: r => r.score, gap: r => r.gap_pct, chg: r => r.change_pct,
+      rvol: r => r.vol_ratio, days: r => r.days_since, bars: r => r.flag_bars,
+      retr: r => r.retracement, hold: r => r.gap_hold, width: r => r.width_metric,
+      volc: r => r.vol_contraction, close: r => r.last_close, clpos: r => r.close_pos,
+    };
+    let rows = [...filtered];
+    const fn = numVal[sort.col];
+    if (fn) rows.sort((a, b) => sort.dir === "desc" ? (fn(b) ?? -Infinity) - (fn(a) ?? -Infinity) : (fn(a) ?? -Infinity) - (fn(b) ?? -Infinity));
+    return rows;
+  }, [filtered, sort]);
+
+  // Report visible tickers for keyboard nav
+  useEffect(() => {
+    if (onVisibleTickers) onVisibleTickers(sorted.map(r => r.ticker));
+  }, [sorted, onVisibleTickers]);
+
+  const toggleSort = (col) => setSort(prev => ({ col, dir: prev.col === col && prev.dir === "desc" ? "asc" : "desc" }));
+  const sortArrow = (col) => sort.col === col ? (sort.dir === "desc" ? " ▼" : " ▲") : "";
+
+  const heldCount = setups.filter(r => r.gap_hold_label === "HELD").length;
+  const basingCount = setups.filter(r => r.gap_hold_label === "BASING").length;
+  const fadingCount = setups.filter(r => r.gap_hold_label === "FADING").length;
+
+  const holdColor = (label) => label === "HELD" ? "#4aad8c" : label === "BASING" ? "#fbbf24" : "#f87171";
+
+  const thStyle = { padding: "5px 6px", textAlign: "right", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#787888", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#121218", zIndex: 1 };
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ padding: "12px 16px 8px", borderBottom: "1px solid #222230" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#e0e0e8" }}>Power Earnings Gaps</span>
+          <span style={{ fontSize: 11, color: "#686878" }}>{setups.length} setups</span>
+          {pegScanDate && <span style={{ fontSize: 10, color: "#4a4a5a" }}>Scanned {pegScanDate}</span>}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {[["all", `All (${setups.length})`], ["held", `HELD (${heldCount})`], ["basing", `BASING (${basingCount})`], ["fading", `FADING (${fadingCount})`]].map(([id, label]) => (
+            <button key={id} onClick={() => setFilter(id)} style={{
+              padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+              border: filter === id ? "1px solid #0d916350" : "1px solid #2a2a3a",
+              background: filter === id ? "#0d916315" : "transparent",
+              color: filter === id ? "#4aad8c" : "#787888",
+            }}>{label}</button>
+          ))}
+          <span style={{ marginLeft: 12, fontSize: 11, color: "#686878" }}>Min score:</span>
+          <input type="number" value={minScore || ""} onChange={e => setMinScore(Number(e.target.value) || 0)} placeholder="0"
+            style={{ width: 50, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a3a", background: "#1a1a26", color: "#e0e0e8", fontSize: 11 }} />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #2a2a3a" }}>
+              <th style={{ ...thStyle, textAlign: "left", paddingLeft: 12 }}>Ticker</th>
+              <th style={{ ...thStyle, textAlign: "left" }}>Pattern</th>
+              <th onClick={() => toggleSort("score")} style={thStyle}>Score{sortArrow("score")}</th>
+              <th onClick={() => toggleSort("gap")} style={thStyle}>Gap%{sortArrow("gap")}</th>
+              <th onClick={() => toggleSort("chg")} style={thStyle}>Chg%{sortArrow("chg")}</th>
+              <th onClick={() => toggleSort("rvol")} style={thStyle}>RVol{sortArrow("rvol")}</th>
+              <th onClick={() => toggleSort("days")} style={thStyle}>Days{sortArrow("days")}</th>
+              <th onClick={() => toggleSort("hold")} style={thStyle}>Hold{sortArrow("hold")}</th>
+              <th style={{ ...thStyle, textAlign: "left" }}>Status</th>
+              <th onClick={() => toggleSort("retr")} style={thStyle}>Retr%{sortArrow("retr")}</th>
+              <th onClick={() => toggleSort("clpos")} style={thStyle}>ClPos{sortArrow("clpos")}</th>
+              <th onClick={() => toggleSort("width")} style={thStyle}>Width{sortArrow("width")}</th>
+              <th onClick={() => toggleSort("volc")} style={thStyle}>VolC{sortArrow("volc")}</th>
+              <th onClick={() => toggleSort("close")} style={thStyle}>Close{sortArrow("close")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(r => {
+              const s = stockMap[r.ticker] || {};
+              const isActive = r.ticker === activeTicker;
+              return (
+                <tr key={r.ticker} onClick={() => onTickerClick(r.ticker)}
+                  data-ticker={r.ticker}
+                  style={{
+                    borderBottom: "1px solid #1a1a26", cursor: "pointer",
+                    borderLeft: `3px solid ${holdColor(r.gap_hold_label)}`,
+                    background: isActive ? "#fbbf2420" : "transparent",
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#ffffff08"; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
+                  <td style={{ padding: "4px 6px 4px 12px", fontWeight: 600, fontSize: 12, color: "#e0e0e8" }}>
+                    {r.ticker}
+                    {s.company && <div style={{ fontSize: 9, color: "#5a5a6a", fontWeight: 400 }}>{s.company}</div>}
+                  </td>
+                  <td style={{ padding: "4px 6px", fontSize: 10, color: r.pattern === "Flat Top Squeeze" ? "#4aad8c" : r.pattern === "Tight Bull Flag" ? "#60a5fa" : r.pattern === "Descending Flag" ? "#fbbf24" : "#787888" }}>{r.pattern}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: r.score >= 150 ? "#4aad8c" : r.score >= 100 ? "#e0e0e8" : "#787888" }}>{r.score.toFixed(0)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.gap_pct >= 10 ? "#4aad8c" : "#e0e0e8" }}>{r.gap_pct.toFixed(1)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.change_pct >= 15 ? "#4aad8c" : "#e0e0e8" }}>{r.change_pct.toFixed(1)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.vol_ratio >= 5 ? "#4aad8c" : r.vol_ratio >= 3 ? "#e0e0e8" : "#787888" }}>{r.vol_ratio.toFixed(1)}x</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#787888" }}>{r.days_since}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 600, color: holdColor(r.gap_hold_label) }}>{r.gap_hold}/5</td>
+                  <td style={{ padding: "4px 6px", fontSize: 10, fontWeight: 600, color: holdColor(r.gap_hold_label) }}>{r.gap_hold_label}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.retracement > -5 ? "#4aad8c" : r.retracement > -10 ? "#fbbf24" : "#f87171" }}>{r.retracement.toFixed(1)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.close_pos >= 0.7 ? "#4aad8c" : "#787888" }}>{r.close_pos.toFixed(2)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.width_metric < 8 ? "#4aad8c" : "#787888" }}>{r.width_metric.toFixed(1)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.vol_contraction < 0.4 ? "#4aad8c" : "#787888" }}>{r.vol_contraction.toFixed(2)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#e0e0e8" }}>{r.last_close.toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {sorted.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#4a4a5a" }}>No PEG setups found with current filters</div>}
+      </div>
+    </div>
+  );
+}
+
 // ── TQQQ VIEW ──
 function TQQQView() {
   const [d, setD] = useState(null);
@@ -12123,7 +12256,7 @@ function AppMain({ authToken, onLogout }) {
 
       {/* Nav + filters */}
       <div className="tp-nav" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderBottom: "1px solid #222230", flexShrink: 0 }}>
-        {[["terminal","Terminal"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["ai","AI"],["exec","Execution"],["tqqq","TQQQ"]].map(([id, label]) => (
+        {[["terminal","Terminal"],["pkn","PKN"],["scan","Scan Watch"],["ep","EP"],["peg","PEG"],["ai","AI"],["exec","Execution"],["tqqq","TQQQ"]].map(([id, label]) => (
           <button key={id} onClick={() => { setView(id); setVisibleTickers([]); if (id === "exec") setChartTicker(null); if (id === "tqqq") setChartTicker("TQQQ"); }} style={{ padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
             border: view === id ? "1px solid #0d916350" : "1px solid transparent",
             background: view === id ? "#0d916315" : "transparent", color: view === id ? "#4aad8c" : "#787888" }}>{label}</button>
@@ -12220,6 +12353,10 @@ function AppMain({ authToken, onLogout }) {
             focusList={focusList} onAddFocus={addToFocusList} onRemoveFocus={removeFromFocusList}
             liveThemeData={liveThemeData} portfolio={portfolio} watchlist={watchlist}
             pipelineMeta={data?.pipeline_meta} marketSession={marketSession} />}
+          </ErrorBoundary>
+          <ErrorBoundary name="PEG">
+          {view === "peg" && <PEGView stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker}
+            onVisibleTickers={onVisibleTickers} pegSetups={data?.peg_setups || []} pegScanDate={data?.peg_scan_date} />}
           </ErrorBoundary>
           <ErrorBoundary name="Execution">
           {view === "exec" && <Execution trades={trades} setTrades={setTrades} stockMap={stockMap} onTickerClick={openChart} activeTicker={chartTicker} onVisibleTickers={onVisibleTickers}
