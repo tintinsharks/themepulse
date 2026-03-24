@@ -5487,6 +5487,7 @@ function Grid({ stocks, onTickerClick, activeTicker, onVisibleTickers }) {
 function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegSetups, pegScanDate, liveThemeData }) {
   const [sort, setSort] = useState({ col: "score", dir: "desc" });
   const [filter, setFilter] = useState("all"); // all, held, basing, fading
+  const [sessionFilter, setSessionFilter] = useState("all"); // all, bmo, amc
   const [minScore, setMinScore] = useState(0);
 
   // Build live lookup for real-time chg% and rvol
@@ -5520,9 +5521,11 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
     if (filter === "held") rows = rows.filter(r => r.gap_hold_label === "HELD");
     else if (filter === "basing") rows = rows.filter(r => r.gap_hold_label === "BASING");
     else if (filter === "fading") rows = rows.filter(r => r.gap_hold_label === "FADING");
+    if (sessionFilter === "bmo") rows = rows.filter(r => r.session === "BMO");
+    else if (sessionFilter === "amc") rows = rows.filter(r => r.session === "AMC");
     if (minScore > 0) rows = rows.filter(r => r.score >= minScore);
     return rows;
-  }, [setups, filter, minScore]);
+  }, [setups, filter, sessionFilter, minScore]);
 
   const sorted = useMemo(() => {
     const numVal = {
@@ -5548,6 +5551,8 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
   const heldCount = setups.filter(r => r.gap_hold_label === "HELD").length;
   const basingCount = setups.filter(r => r.gap_hold_label === "BASING").length;
   const fadingCount = setups.filter(r => r.gap_hold_label === "FADING").length;
+  const bmoCount = setups.filter(r => r.session === "BMO").length;
+  const amcCount = setups.filter(r => r.session === "AMC").length;
 
   const holdColor = (label) => label === "HELD" ? "#4aad8c" : label === "BASING" ? "#fbbf24" : "#f87171";
 
@@ -5571,6 +5576,15 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
               color: filter === id ? "#4aad8c" : "#787888",
             }}>{label}</button>
           ))}
+          <div style={{ width: 1, height: 16, background: "#2a2a3a", margin: "0 4px" }} />
+          {[["all", "All"], ["bmo", `BMO (${bmoCount})`], ["amc", `AMC (${amcCount})`]].map(([id, label]) => (
+            <button key={`s-${id}`} onClick={() => setSessionFilter(id)} style={{
+              padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+              border: sessionFilter === id ? "1px solid #60a5fa50" : "1px solid #2a2a3a",
+              background: sessionFilter === id ? "#60a5fa15" : "transparent",
+              color: sessionFilter === id ? "#60a5fa" : "#787888",
+            }}>{label}</button>
+          ))}
           <span style={{ marginLeft: 12, fontSize: 11, color: "#686878" }}>Min score:</span>
           <input type="number" value={minScore || ""} onChange={e => setMinScore(Number(e.target.value) || 0)} placeholder="0"
             style={{ width: 50, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a3a", background: "#1a1a26", color: "#e0e0e8", fontSize: 11 }} />
@@ -5589,6 +5603,7 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
               <th onClick={() => toggleSort("rvol")} style={thStyle}>RVol{sortArrow("rvol")}</th>
               <th onClick={() => toggleSort("close")} style={thStyle}>Price{sortArrow("close")}</th>
               <th onClick={() => toggleSort("gap")} style={{ ...thStyle, borderLeft: "1px solid #2a2a3a" }}>Gap%{sortArrow("gap")}</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>Session</th>
               <th onClick={() => toggleSort("days")} style={thStyle}>Days{sortArrow("days")}</th>
               <th onClick={() => toggleSort("hold")} style={thStyle}>Hold{sortArrow("hold")}</th>
               <th style={{ ...thStyle, textAlign: "left" }}>Status</th>
@@ -5622,6 +5637,7 @@ function PEGView({ stockMap, onTickerClick, activeTicker, onVisibleTickers, pegS
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: (r._liveRvol ?? 0) >= 2 ? "#4aad8c" : (r._liveRvol ?? 0) >= 1.2 ? "#e0e0e8" : "#787888" }}>{r._liveRvol != null ? `${r._liveRvol.toFixed(1)}x` : "—"}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#e0e0e8" }}>{(r._livePrice ?? r.last_close).toFixed(2)}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: r.gap_pct >= 10 ? "#4aad8c" : "#787888", borderLeft: "1px solid #1a1a26" }}>{r.gap_pct.toFixed(1)}</td>
+                  <td style={{ padding: "4px 6px", textAlign: "center", fontSize: 10, fontWeight: 600, color: r.session === "BMO" ? "#f59e0b" : "#60a5fa" }}>{r.session || "—"}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, color: "#787888" }}>{r.days_since}</td>
                   <td style={{ padding: "4px 6px", textAlign: "right", fontFamily: "monospace", fontSize: 11, fontWeight: 600, color: holdColor(r.gap_hold_label) }}>{r.gap_hold}/5</td>
                   <td style={{ padding: "4px 6px", fontSize: 10, fontWeight: 600, color: holdColor(r.gap_hold_label) }}>{r.gap_hold_label}</td>
