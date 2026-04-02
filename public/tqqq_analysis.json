@@ -1,34 +1,34 @@
 {
-  "generated": "2026-04-01T21:09:42.616352",
-  "date": "2026-04-01",
-  "close": 43.23,
+  "generated": "2026-04-02T14:22:36.545950",
+  "date": "2026-04-02",
+  "close": 42.06,
   "trend": "bear",
-  "rvol": 1.03,
-  "adr_pct": 4.51,
+  "rvol": 0.39,
+  "adr_pct": 4.5,
   "above_8w_ema": false,
   "above_50_sma": false,
   "above_21_ema": false,
-  "correction_depth": -14.8,
+  "correction_depth": -17.1,
   "signal": 0,
   "signal_type": "",
   "tomorrow_pivots": {
-    "pp": 43.21,
-    "r1": 44.0,
-    "r2": 44.78,
-    "s1": 42.43,
-    "s2": 41.64
+    "pp": 41.56,
+    "r1": 42.68,
+    "r2": 43.3,
+    "s1": 40.94,
+    "s2": 39.82
   },
   "key_levels": {
-    "long_stop": 38.35,
-    "long_target": 51.03,
-    "short_stop": 48.11,
-    "short_target": 35.43
+    "long_stop": 37.33,
+    "long_target": 49.62,
+    "short_stop": 46.79,
+    "short_target": 34.5
   },
   "ema_levels": {
-    "ema9": 42.31,
-    "ema21": 44.62,
-    "ema40": 46.9,
-    "sma50": 48.89
+    "ema9": 42.26,
+    "ema21": 44.38,
+    "ema40": 46.66,
+    "sma50": 48.67
   },
   "probability_tables": {
     "by_signal_long": {
@@ -202,7 +202,7 @@
     "exp_dollar": 3063.28,
     "total_pnl": 511567.67,
     "total_ret": 511.57,
-    "cagr": 28.4,
+    "cagr": 28.39,
     "mdd": -41.53,
     "sharpe": 0.86,
     "calmar": 0.68,
@@ -212,30 +212,30 @@
     "cap": 100000,
     "final_eq": 611567.68,
     "years": 7.2,
-    "bh_ret": 862.81,
-    "bh_cagr": 36.7
+    "bh_ret": 836.75,
+    "bh_cagr": 36.17
   },
-  "above_9_ema": true,
+  "above_9_ema": false,
   "ftd_active": false,
-  "dist_count": 8,
-  "consec_below_50": 41,
-  "consec_below_21": 25,
+  "dist_count": 7,
+  "consec_below_50": 42,
+  "consec_below_21": 26,
   "consec_above_21": 0,
-  "body_pct": 1.4,
+  "body_pct": 2.9,
   "bullish_candle": true,
   "regime": null,
   "bias": "BEARISH",
-  "long_pct": 27.0,
-  "short_pct": 73.0,
+  "long_pct": 18.0,
+  "short_pct": 82.0,
   "briefing": {
     "headline": "Bear trend intact. All moving averages stacked against longs. No trade.",
-    "market_structure": "TQQQ at $43.23 is above 9 EMA ($42.31) but below 21 EMA ($44.62), 8-week EMA ($46.9), 50 SMA ($48.89). Price has been below the 50 SMA for 41 consecutive days. Below 21 EMA for 25 straight sessions. Currently in a -14.8% correction from recent highs. Distribution is elevated at 8 days in the last 25 \u2014 institutional selling pressure.",
-    "recent_action": "Mar 31: rallied 6.3% on 1.2x volume Mar 30: dropped 5.9% on 0.8x volume Mar 27: dropped 4.6% on 1.0x volume. Today closed with a moderate bullish candle (+1.4%) on average volume (1.03x).",
-    "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and Wednesday entries are filtered (historically 39% WR, -$145K total) and distribution days elevated (8) \u2014 long entries paused (historically 47% WR when dist >= 7). The system will signal when specific price-pivot-volume conditions align.",
+    "market_structure": "TQQQ at $42.06 is below all major moving averages \u2014 9 EMA ($42.26), 21 EMA ($44.38), 8-week EMA ($46.66), 50 SMA ($48.67). This is a confirmed downtrend with all averages stacked bearishly. Price has been below the 50 SMA for 42 consecutive days. Below 21 EMA for 26 straight sessions. Currently in a -17.1% correction from recent highs. Distribution is elevated at 7 days in the last 25 \u2014 institutional selling pressure.",
+    "recent_action": "Mar 31: rallied 6.3% on 1.2x volume Mar 30: dropped 5.9% on 0.8x volume Mar 27: dropped 4.6% on 1.0x volume. Today closed with a moderate bullish candle (+2.9%) on below-average volume (0.39x).",
+    "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and volume is weak (0.39x RVOL) and distribution days elevated (7) \u2014 long entries paused (historically 47% WR when dist >= 7). The system will signal when specific price-pivot-volume conditions align.",
     "watch_tomorrow": [
-      "Bullish: Close above 21 EMA ($44.62) triggers 21EMA Reclaim signal (57.1% WR). Close above 50 SMA ($48.89) triggers 50SMA Reclaim (37.5% WR).",
-      "Bearish: Pivot Reject at PP ($43.21) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($42.43) opens path to S2 ($41.64).",
-      "Key pivot for tomorrow is $43.21 \u2014 above is constructive, below is vulnerable."
+      "Bullish: Reclaim of 9 EMA ($42.26) would be the first bullish step. Close above 21 EMA ($44.38) triggers 21EMA Reclaim signal (57.1% WR).",
+      "Bearish: Pivot Reject at PP ($41.56) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($40.94) opens path to S2 ($39.82).",
+      "Key pivot for tomorrow is $41.56 \u2014 above is constructive, below is vulnerable."
     ],
     "edge_context": "In bear trend, long signals have historically shown 60.0% win rate across 10 trades with -0.3% avg P&L. Short signals in bear trend: 60.0% WR across 25 trades, +3.3% avg. Below 8W EMA: long WR drops to 55.6%. v5 system: 167 trades, 56.9% WR, 1.33 PF, 511.57% total return over 7.2y.",
     "risk_level": "HIGH",
@@ -1598,26 +1598,10 @@
     {
       "name": "FTD Watch",
       "direction": "LONG",
-      "desc": "In correction (-14.8%), FTD could fire on up day with volume"
-    },
-    {
-      "name": "Pivot Reject",
-      "direction": "SHORT",
-      "desc": "Above PP ($40.77), rejection could trigger short"
+      "desc": "In correction (-17.1%), FTD could fire on up day with volume"
     }
   ],
   "last_5_bars": [
-    {
-      "date": "2026-03-26",
-      "open": 43.23,
-      "high": 43.68,
-      "low": 41.37,
-      "close": 41.4,
-      "change_pct": -4.2,
-      "rvol": 0.92,
-      "trend": "bear",
-      "signal": null
-    },
     {
       "date": "2026-03-27",
       "open": 40.56,
@@ -1661,6 +1645,17 @@
       "rvol": 1.03,
       "trend": "bear",
       "signal": null
+    },
+    {
+      "date": "2026-04-02",
+      "open": 40.89,
+      "high": 42.18,
+      "low": 40.44,
+      "close": 42.06,
+      "change_pct": 2.9,
+      "rvol": 0.39,
+      "trend": "bear",
+      "signal": null
     }
   ],
   "strategies": {
@@ -1700,7 +1695,7 @@
         "exp_dollar": 3063.28,
         "total_pnl": 511567.67,
         "total_ret": 511.57,
-        "cagr": 28.4,
+        "cagr": 28.39,
         "mdd": -41.53,
         "sharpe": 0.86,
         "calmar": 0.68,
@@ -1710,16 +1705,16 @@
         "cap": 100000,
         "final_eq": 611567.68,
         "years": 7.2,
-        "bh_ret": 862.81,
-        "bh_cagr": 36.7
+        "bh_ret": 836.75,
+        "bh_cagr": 36.17
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 38.35,
-        "long_target": 51.03,
-        "short_stop": 48.11,
-        "short_target": 35.43
+        "long_stop": 37.33,
+        "long_target": 49.62,
+        "short_stop": 46.79,
+        "short_target": 34.5
       },
       "last_long_signal": {
         "date": "2026-03-09",
@@ -3114,7 +3109,7 @@
         "exp_dollar": 3013.21,
         "total_pnl": 280228.15,
         "total_ret": 280.23,
-        "cagr": 20.25,
+        "cagr": 20.24,
         "mdd": -13.33,
         "sharpe": 1.06,
         "calmar": 1.52,
@@ -3124,14 +3119,14 @@
         "cap": 100000,
         "final_eq": 380228.14,
         "years": 7.2,
-        "bh_ret": 862.81,
-        "bh_cagr": 36.7
+        "bh_ret": 836.75,
+        "bh_cagr": 36.17
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 38.84,
-        "long_target": 52.98
+        "long_stop": 37.81,
+        "long_target": 51.51
       },
       "structural_features": [
         "Long-only (shorts removed \u2014 38% WR net losers)",
@@ -3895,7 +3890,7 @@
         "exp_dollar": 6282.59,
         "total_pnl": 1024062.52,
         "total_ret": 1024.06,
-        "cagr": 39.65,
+        "cagr": 39.64,
         "mdd": -41.46,
         "sharpe": 1.06,
         "calmar": 0.96,
@@ -3905,16 +3900,16 @@
         "cap": 100000,
         "final_eq": 1124062.52,
         "years": 7.2,
-        "bh_ret": 862.81,
-        "bh_cagr": 36.7
+        "bh_ret": 836.75,
+        "bh_cagr": 36.17
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 38.35,
-        "long_target": 51.03,
-        "short_stop": 48.11,
-        "short_target": 35.43
+        "long_stop": 37.33,
+        "long_target": 49.62,
+        "short_stop": 46.79,
+        "short_target": 34.5
       },
       "engine_tweaks": [
         "Time-decay stop: tighten by 0.5*ADR/day after day 5",
@@ -5272,24 +5267,24 @@
         "exp_dollar": 2979.84,
         "total_pnl": 268185.15,
         "total_ret": 268.19,
-        "cagr": 19.71,
+        "cagr": 19.7,
         "mdd": -15.58,
         "sharpe": 1.01,
-        "calmar": 1.27,
+        "calmar": 1.26,
         "avg_hold": 6.0,
         "max_win_streak": 7,
         "max_loss_streak": 4,
         "cap": 100000,
         "final_eq": 368185.16,
         "years": 7.2,
-        "bh_ret": 862.81,
-        "bh_cagr": 36.7
+        "bh_ret": 836.75,
+        "bh_cagr": 36.17
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 38.84,
-        "long_target": 52.98
+        "long_stop": 37.81,
+        "long_target": 51.51
       },
       "engine_tweaks": [
         "Time-decay stop: tighten by 0.5*ADR/day after day 5",
