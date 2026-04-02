@@ -1,34 +1,34 @@
 {
-  "generated": "2026-04-02T16:38:22.338073",
+  "generated": "2026-04-02T17:35:41.327538",
   "date": "2026-04-02",
-  "close": 42.53,
+  "close": 42.9,
   "trend": "bear",
-  "rvol": 0.8,
-  "adr_pct": 4.68,
+  "rvol": 0.86,
+  "adr_pct": 4.64,
   "above_8w_ema": false,
   "above_50_sma": false,
   "above_21_ema": false,
-  "correction_depth": -16.2,
+  "correction_depth": -15.5,
   "signal": 0,
   "signal_type": "",
   "tomorrow_pivots": {
-    "pp": 42.17,
-    "r1": 43.91,
-    "r2": 45.28,
-    "s1": 40.8,
-    "s2": 39.06
+    "pp": 42.3,
+    "r1": 44.15,
+    "r2": 45.41,
+    "s1": 41.04,
+    "s2": 39.19
   },
   "key_levels": {
-    "long_stop": 37.56,
-    "long_target": 50.48,
-    "short_stop": 47.5,
-    "short_target": 34.58
+    "long_stop": 37.93,
+    "long_target": 50.85,
+    "short_stop": 47.87,
+    "short_target": 34.95
   },
   "ema_levels": {
-    "ema9": 42.36,
-    "ema21": 44.43,
-    "ema40": 46.68,
-    "sma50": 48.68
+    "ema9": 42.43,
+    "ema21": 44.46,
+    "ema40": 46.7,
+    "sma50": 48.69
   },
   "probability_tables": {
     "by_signal_long": {
@@ -212,8 +212,8 @@
     "cap": 100000,
     "final_eq": 611567.68,
     "years": 7.2,
-    "bh_ret": 847.22,
-    "bh_cagr": 36.38
+    "bh_ret": 855.46,
+    "bh_cagr": 36.54
   },
   "above_9_ema": true,
   "ftd_active": false,
@@ -221,7 +221,7 @@
   "consec_below_50": 42,
   "consec_below_21": 26,
   "consec_above_21": 0,
-  "body_pct": 4.0,
+  "body_pct": 4.9,
   "bullish_candle": true,
   "regime": null,
   "bias": "BEARISH",
@@ -229,13 +229,13 @@
   "short_pct": 73.0,
   "briefing": {
     "headline": "Bear trend intact. All moving averages stacked against longs. No trade.",
-    "market_structure": "TQQQ at $42.53 is above 9 EMA ($42.36) but below 21 EMA ($44.43), 8-week EMA ($46.68), 50 SMA ($48.68). Price has been below the 50 SMA for 42 consecutive days. Below 21 EMA for 26 straight sessions. Currently in a -16.2% correction from recent highs. Distribution is elevated at 7 days in the last 25 \u2014 institutional selling pressure.",
-    "recent_action": "Apr 02: rallied 4.0% on 0.8x volume Mar 31: rallied 6.3% on 1.2x volume Mar 30: dropped 5.9% on 0.8x volume. Today closed with a strong bullish candle (+4.0%) on average volume (0.80x).",
+    "market_structure": "TQQQ at $42.9 is above 9 EMA ($42.43) but below 21 EMA ($44.46), 8-week EMA ($46.7), 50 SMA ($48.69). Price has been below the 50 SMA for 42 consecutive days. Below 21 EMA for 26 straight sessions. Currently in a -15.5% correction from recent highs. Distribution is elevated at 7 days in the last 25 \u2014 institutional selling pressure.",
+    "recent_action": "Apr 02: rallied 4.9% on 0.9x volume Mar 31: rallied 6.3% on 1.2x volume Mar 30: dropped 5.9% on 0.8x volume. Today closed with a strong bullish candle (+4.9%) on average volume (0.86x).",
     "recommendation": "NO SIGNAL \u2014 Stay flat. The model is flat because the trend is bearish with price below the 8-week EMA and distribution days elevated (7) \u2014 long entries paused (historically 47% WR when dist >= 7). The system will signal when specific price-pivot-volume conditions align.",
     "watch_tomorrow": [
-      "Bullish: Close above 21 EMA ($44.43) triggers 21EMA Reclaim signal (57.1% WR). Close above 50 SMA ($48.68) triggers 50SMA Reclaim (37.5% WR).",
-      "Bearish: Pivot Reject at PP ($42.17) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($40.8) opens path to S2 ($39.06).",
-      "Key pivot for tomorrow is $42.17 \u2014 above is constructive, below is vulnerable."
+      "Bullish: Close above 21 EMA ($44.46) triggers 21EMA Reclaim signal (57.1% WR). Close above 50 SMA ($48.69) triggers 50SMA Reclaim (37.5% WR).",
+      "Bearish: Pivot Reject at PP ($42.3) on 1.5x+ RVOL triggers short (78.6% WR). Break of S1 ($41.04) opens path to S2 ($39.19).",
+      "Key pivot for tomorrow is $42.3 \u2014 above is constructive, below is vulnerable."
     ],
     "edge_context": "In bear trend, long signals have historically shown 60.0% win rate across 10 trades with -0.3% avg P&L. Short signals in bear trend: 60.0% WR across 25 trades, +3.3% avg. Below 8W EMA: long WR drops to 55.6%. v5 system: 167 trades, 56.9% WR, 1.33 PF, 511.57% total return over 7.2y.",
     "risk_level": "HIGH",
@@ -1598,7 +1598,7 @@
     {
       "name": "FTD Watch",
       "direction": "LONG",
-      "desc": "In correction (-16.2%), FTD could fire on up day with volume"
+      "desc": "In correction (-15.5%), FTD could fire on up day with volume"
     }
   ],
   "last_5_bars": [
@@ -1651,9 +1651,9 @@
       "open": 40.89,
       "high": 43.55,
       "low": 40.44,
-      "close": 42.53,
-      "change_pct": 4.0,
-      "rvol": 0.8,
+      "close": 42.9,
+      "change_pct": 4.9,
+      "rvol": 0.86,
       "trend": "bear",
       "signal": null
     }
@@ -1705,16 +1705,16 @@
         "cap": 100000,
         "final_eq": 611567.68,
         "years": 7.2,
-        "bh_ret": 847.22,
-        "bh_cagr": 36.38
+        "bh_ret": 855.46,
+        "bh_cagr": 36.54
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 37.56,
-        "long_target": 50.48,
-        "short_stop": 47.5,
-        "short_target": 34.58
+        "long_stop": 37.93,
+        "long_target": 50.85,
+        "short_stop": 47.87,
+        "short_target": 34.95
       },
       "last_long_signal": {
         "date": "2026-03-09",
@@ -3119,14 +3119,14 @@
         "cap": 100000,
         "final_eq": 380228.14,
         "years": 7.2,
-        "bh_ret": 847.22,
-        "bh_cagr": 36.38
+        "bh_ret": 855.46,
+        "bh_cagr": 36.54
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 38.06,
-        "long_target": 52.47
+        "long_stop": 38.43,
+        "long_target": 52.84
       },
       "structural_features": [
         "Long-only (shorts removed \u2014 38% WR net losers)",
@@ -3900,16 +3900,16 @@
         "cap": 100000,
         "final_eq": 1124062.52,
         "years": 7.2,
-        "bh_ret": 847.22,
-        "bh_cagr": 36.38
+        "bh_ret": 855.46,
+        "bh_cagr": 36.54
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 37.56,
-        "long_target": 50.48,
-        "short_stop": 47.5,
-        "short_target": 34.58
+        "long_stop": 37.93,
+        "long_target": 50.85,
+        "short_stop": 47.87,
+        "short_target": 34.95
       },
       "engine_tweaks": [
         "Time-decay stop: tighten by 0.5*ADR/day after day 5",
@@ -5277,14 +5277,14 @@
         "cap": 100000,
         "final_eq": 368185.16,
         "years": 7.2,
-        "bh_ret": 847.22,
-        "bh_cagr": 36.38
+        "bh_ret": 855.46,
+        "bh_cagr": 36.54
       },
       "signal": 0,
       "signal_type": null,
       "key_levels": {
-        "long_stop": 38.06,
-        "long_target": 52.47
+        "long_stop": 38.43,
+        "long_target": 52.84
       },
       "engine_tweaks": [
         "Time-decay stop: tighten by 0.5*ADR/day after day 5",
