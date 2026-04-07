@@ -595,6 +595,8 @@ const SORT_BUTTONS = [
 // Get the comparable value for a row given a sort key
 function rowSortValue(r, key) {
   switch (key) {
+    case "ticker":
+      return r.ticker || "";
     case "rs":
       return r.rs || 0;
     case "change":
@@ -609,24 +611,125 @@ function rowSortValue(r, key) {
       return r.qmagScore || 0;
     case "chgOpen":
       return r.chgOpen || 0;
+    case "liveVol":
+      return r.liveVol || 0;
+    case "cr":
+      return r.cr || 0;
+    case "adr":
+      return r.adr || 0;
+    case "subtheme":
+      return r.subtheme || "";
     default:
       return 0;
   }
 }
 
+// ── Tag filter predicates (ported from Aria dashboard.py _compute_scan_tags) ─
+// Each tag is a function (stock) → boolean. Reference: Aria filterDescs in
+// dashboard.html ~line 4604.
+const TAG_PREDICATES = {
+  W: {
+    label: "W",
+    desc:
+      "Winners — above 50MA, within 15% of 52W high, RS ≥ 85, ADR > 2%. Uptrending leaders near new highs.",
+    test: (s) =>
+      s.above_50ma === 1 &&
+      (s.off_52w_high || -100) >= -15 &&
+      (s.rs_rank || 0) >= 85 &&
+      (s.adr_pct || 0) > 2,
+  },
+  L: {
+    label: "L",
+    desc:
+      "Liquid — Price > $10, MCap ≥ $300M, Vol ≥ 1M, $Vol ≥ $100M, ADR > 3%. Institutional-grade liquid names only.",
+    test: (s) =>
+      (s.price || s.close || 0) > 10 &&
+      (s.market_cap_raw || 0) >= 300e6 &&
+      (s.avg_volume_raw || 0) >= 1e6 &&
+      (s.avg_dollar_vol_raw || 0) >= 100e6 &&
+      (s.adr_pct || 0) > 3,
+  },
+  E: {
+    label: "E",
+    desc:
+      "Early — RS 50-85, 10%+ off highs, above 50MA. Stocks building RS before breaking out — early stage leaders.",
+    test: (s) => {
+      const rs = s.rs_rank || 0;
+      return (
+        rs >= 50 &&
+        rs < 85 &&
+        (s.off_52w_high || 0) <= -10 &&
+        s.above_50ma === 1
+      );
+    },
+  },
+  CS: {
+    label: "CS",
+    desc:
+      "CAN SLIM — EPS growth ≥ 40%, within 10% of high, RS ≥ 80, sales ≥ 25%. IBD-style screen.",
+    test: (s) =>
+      (s.eps_yoy || 0) >= 40 &&
+      (s.off_52w_high || -100) >= -10 &&
+      (s.rs_rank || 0) >= 80 &&
+      (s.sales_yoy || 0) >= 25,
+  },
+  ZM: {
+    label: "ZM",
+    desc:
+      "Zanger — Above 50/20 MA, within 15% of high, grade A/B, $Vol ≥ $20M. Dan Zanger continuation setup.",
+    test: (s) => {
+      const g = (s.grade || "")[0];
+      return (
+        (g === "A" || g === "B") &&
+        (s.sma20_pct || -1) >= 0 &&
+        (s.sma50_pct || -1) >= 0 &&
+        (s.off_52w_high || -100) >= -15 &&
+        (s.avg_dollar_vol_raw || 0) >= 20e6
+      );
+    },
+  },
+  QM: {
+    label: "QM",
+    desc:
+      "Qullamaggie — QM score ≥ 5. VCP/tight base near highs with volatility contraction.",
+    test: (s) => (s.qmag_score || 0) >= 5,
+  },
+  "9M": {
+    label: "9M",
+    desc:
+      "9M — Today's volume ≥ 8.9M shares but avg daily volume < 8.9M. Unusual institutional activity.",
+    // 9M is computed at row time using LIVE volume — handled in the row build loop, not here
+    test: () => true,
+  },
+};
+
 function ScanWatch({ stocks, onTickerClick }) {
-  // ── State: filters + sort ───────────────────────────────────────────────
+  // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState(DEFAULT_SORT);
   const [activePreset, setActivePreset] = useState(null);
+  const [activeTags, setActiveTags] = useState(() => new Set());
 
   const updateFilter = useCallback((patch) => {
     setFilters((f) => ({ ...f, ...patch }));
   }, []);
 
-  // Toggle preset on/off (clicking again clears it)
+  // Toggle preset on/off (clicking again clears it). Clears tags too,
+  // matching Aria behavior (presets and tags are mutually exclusive).
   const togglePreset = useCallback((key) => {
     setActivePreset((cur) => (cur === key ? null : key));
+    setActiveTags(new Set());
+  }, []);
+
+  // Toggle a tag on/off. Also clears the active preset (mutex).
+  const toggleTag = useCallback((tag) => {
+    setActivePreset(null);
+    setActiveTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
   }, []);
 
   // Sort: left-click = primary, right-click (context menu) = secondary
@@ -664,9 +767,16 @@ function ScanWatch({ stocks, onTickerClick }) {
       if (activePreset && PRESETS[activePreset]) {
         if (!PRESETS[activePreset].test(s)) return false;
       }
+      // Apply tag filters (all selected tags must match)
+      // 9M is computed at row time using live volume — skip here.
+      for (const tag of activeTags) {
+        if (tag === "9M") continue;
+        const pred = TAG_PREDICATES[tag];
+        if (pred && !pred.test(s)) return false;
+      }
       return true;
     });
-  }, [stocks, filters, activePreset]);
+  }, [stocks, filters, activePreset, activeTags]);
 
   // ── Step 2: rank candidates by stale chg_pct, take top 150 ──────────────
   const topCandidates = useMemo(() => {
@@ -689,10 +799,13 @@ function ScanWatch({ stocks, onTickerClick }) {
   // ── Step 4: merge static + live, apply post-enrichment filters, sort ────
   const rows = useMemo(() => {
     const out = [];
+    const want9m = activeTags.has("9M");
     for (const s of topCandidates) {
       const q = liveQuotes.get(s.ticker);
       const price = q?.price ?? s.price ?? s.close ?? 0;
       const open = q?.open ?? null;
+      const high = q?.high ?? null;
+      const low = q?.low ?? null;
       const chg = q?.change ?? s.change_pct ?? 0;
       const liveVol = q?.volume ?? null;
       const avgVol = s.avg_volume_raw || 0;
@@ -703,6 +816,11 @@ function ScanWatch({ stocks, onTickerClick }) {
       const chgOpen =
         open != null && open > 0
           ? Math.round(((price - open) / open) * 10000) / 100
+          : null;
+      // CR% (closing range): how close to high of day. (close-low)/(high-low)*100
+      const cr =
+        high != null && low != null && high > low
+          ? Math.round(((price - low) / (high - low)) * 100)
           : null;
 
       // Chg>0% filter — applies to either Open or Chg mode
@@ -715,6 +833,10 @@ function ScanWatch({ stocks, onTickerClick }) {
       if (filters.minChg > 0 && chg < filters.minChg) continue;
       // RV≥ slider
       if (filters.minRvol > 0 && rvol < filters.minRvol) continue;
+      // 9M tag — today's vol >= 8.9M but avg < 8.9M (unusual institutional)
+      if (want9m) {
+        if (!liveVol || liveVol < 8_900_000 || avgVol >= 8_900_000) continue;
+      }
 
       out.push({
         ticker: s.ticker,
@@ -723,8 +845,9 @@ function ScanWatch({ stocks, onTickerClick }) {
         chg,
         chgOpen,
         rvol,
+        cr,
         accel: s.accel || 0,
-        magna: 0, // not in pipeline; lives in rvol_picks
+        magna: 0,
         qmagScore: s.qmag_score || 0,
         adr: s.adr_pct || 0,
         rs: s.rs_rank || 0,
@@ -737,20 +860,25 @@ function ScanWatch({ stocks, onTickerClick }) {
         liveVol: liveVol || 0,
       });
     }
-    // Sort: primary DESC, secondary DESC tiebreaker
+    // Sort: primary DESC, secondary DESC tiebreaker. String values use locale.
+    const cmp = (a, b, key) => {
+      const va = rowSortValue(a, key);
+      const vb = rowSortValue(b, key);
+      if (typeof va === "string" || typeof vb === "string") {
+        return String(vb).localeCompare(String(va));
+      }
+      return (vb || 0) - (va || 0);
+    };
     out.sort((a, b) => {
-      const va = rowSortValue(a, sort.primary);
-      const vb = rowSortValue(b, sort.primary);
-      if (vb !== va) return vb - va;
+      const c = cmp(a, b, sort.primary);
+      if (c !== 0) return c;
       if (sort.secondary && sort.secondary !== sort.primary) {
-        const sa = rowSortValue(a, sort.secondary);
-        const sb = rowSortValue(b, sort.secondary);
-        return sb - sa;
+        return cmp(a, b, sort.secondary);
       }
       return 0;
     });
     return out.slice(0, 50);
-  }, [topCandidates, liveQuotes, filters, sort]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -899,6 +1027,34 @@ function ScanWatch({ stocks, onTickerClick }) {
           {PRESETS[activePreset].desc}
         </div>
       )}
+
+      {/* Tag filter row */}
+      <div
+        style={{
+          padding: "4px 12px",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 3,
+          alignItems: "center",
+          borderBottom: `1px solid ${ARIA.border}`,
+          fontFamily: "monospace",
+        }}
+      >
+        {Object.entries(TAG_PREDICATES).map(([key, t]) => {
+          const on = activeTags.has(key);
+          const accent = key === "9M" ? ARIA.yellow : ARIA.green;
+          return (
+            <button
+              key={key}
+              onClick={() => toggleTag(key)}
+              title={t.desc}
+              style={pillStyle(on, accent)}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Toggle/input filter row */}
       <div
@@ -1065,124 +1221,221 @@ function ScanWatch({ stocks, onTickerClick }) {
         })}
       </div>
 
-      {/* Results table */}
+      {/* Results table — Aria default column order: Ticker | BO | Open%/Chg% | RV | Vol | CR% | ADR | Sub */}
       <div
         style={{
           maxHeight: 480,
           overflowY: "auto",
+          overflowX: "auto",
           fontFamily: "monospace",
         }}
       >
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            tableLayout: "auto",
-          }}
-        >
-          <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard }}>
-            <tr>
-              <th style={{ ...headerCell, textAlign: "left" }}>#</th>
-              <th style={{ ...headerCell, textAlign: "left" }}>Ticker</th>
-              <th style={headerCell}>Open%</th>
-              <th style={headerCell}>Chg%</th>
-              <th style={headerCell}>RVol</th>
-              <th style={headerCell}>Vol</th>
-              <th style={headerCell}>Price</th>
-              <th style={headerCell}>ADR</th>
-              <th style={headerCell}>RS</th>
-              <th style={{ ...headerCell, textAlign: "left" }}>Sub</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={10}
-                  style={{
-                    padding: 12,
-                    textAlign: "center",
-                    color: ARIA.textMuted,
-                    fontSize: 10,
-                  }}
-                >
-                  No results — waiting for live data…
-                </td>
-              </tr>
-            )}
-            {rows.map((r, i) => (
-              <tr
-                key={r.ticker}
-                onClick={() => onTickerClick && onTickerClick(r.ticker)}
-                style={{
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = ARIA.bgHover)
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "transparent")
-                }
-              >
-                <td
-                  style={{ ...bodyCell, color: ARIA.textMuted, textAlign: "left" }}
-                >
-                  {i + 1}
-                </td>
-                <td
-                  style={{
-                    ...bodyCell,
-                    textAlign: "left",
-                    fontWeight: 700,
-                    color: ARIA.text,
-                  }}
-                >
-                  {r.ticker}
-                </td>
-                <td style={{ ...bodyCell, color: colorChg(r.chgOpen) }}>
-                  {fmtPct(r.chgOpen)}
-                </td>
-                <td style={{ ...bodyCell, color: colorChg(r.chg) }}>
-                  {fmtPct(r.chg)}
-                </td>
-                <td style={{ ...bodyCell, color: ARIA.purple }}>
-                  {r.rvol > 0 ? r.rvol.toFixed(1) + "x" : "—"}
-                </td>
-                <td style={{ ...bodyCell, color: ARIA.textDim }}>
-                  {fmtVol(r.liveVol)}
-                </td>
-                <td style={{ ...bodyCell, color: ARIA.textDim }}>
-                  {r.price ? "$" + r.price.toFixed(2) : "—"}
-                </td>
-                <td style={{ ...bodyCell, color: ARIA.cyan }}>
-                  {r.adr ? r.adr.toFixed(1) + "%" : "—"}
-                </td>
-                <td
-                  style={{
-                    ...bodyCell,
-                    color: r.rs >= 90 ? ARIA.green : ARIA.textDim,
-                  }}
-                >
-                  {r.rs || "—"}
-                </td>
-                <td
-                  style={{
-                    ...bodyCell,
-                    textAlign: "left",
-                    color: ARIA.textDim,
-                    maxWidth: 180,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {r.subtheme}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ScanWatchTable
+          rows={rows}
+          sort={sort}
+          onSort={setPrimarySort}
+          onSort2={setSecondarySort}
+          chgMode={filters.chgMode}
+          onTickerClick={onTickerClick}
+        />
       </div>
     </div>
+  );
+}
+
+// ── ScanWatchTable: Aria-faithful results table with click-to-sort headers ──
+function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick }) {
+  // Click = primary sort, right-click = secondary sort
+  const handleHeaderClick = (key) => onSort(key);
+  const handleHeaderContext = (e, key) => {
+    e.preventDefault();
+    onSort2(key);
+  };
+
+  const Th = ({ k, label, align = "right", sticky }) => {
+    const isPrimary = sort.primary === k;
+    const isSecondary = sort.secondary === k;
+    const arrow = isPrimary ? " ▼" : "";
+    const color = isPrimary
+      ? ARIA.green
+      : isSecondary
+      ? ARIA.cyan
+      : ARIA.textMuted;
+    return (
+      <th
+        onClick={() => handleHeaderClick(k)}
+        onContextMenu={(e) => handleHeaderContext(e, k)}
+        title="Click = primary sort, right-click = secondary"
+        style={{
+          padding: "4px 6px",
+          fontSize: 8,
+          fontWeight: 700,
+          color,
+          textTransform: "uppercase",
+          letterSpacing: 0.3,
+          textAlign: align,
+          borderBottom: `1px solid ${ARIA.border}`,
+          whiteSpace: "nowrap",
+          cursor: "pointer",
+          background: ARIA.bgCard,
+          userSelect: "none",
+          ...(sticky && { position: "sticky", left: 0, zIndex: 1 }),
+        }}
+      >
+        {label}
+        {arrow}
+        {isSecondary && !isPrimary && (
+          <sup style={{ fontSize: 5, color: ARIA.cyan }}>2</sup>
+        )}
+      </th>
+    );
+  };
+
+  const colorChg = (v) =>
+    v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const fmtPct = (v) =>
+    v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+  const fmtVol = (v) => {
+    if (!v) return "—";
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+    return String(v);
+  };
+  const colorRvol = (v) =>
+    v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
+  const colorCr = (v) =>
+    v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
+  const colorBo = (v) =>
+    v == null || v === 0 ? ARIA.textMuted : v >= 7 ? ARIA.green : v >= 5 ? ARIA.blue : ARIA.textDim;
+
+  const chgKey = chgMode === "open" ? "chgOpen" : "change";
+  const chgLabel = chgMode === "open" ? "Open%" : "Chg%";
+
+  const bodyCell = {
+    padding: "3px 6px",
+    fontSize: 10,
+    textAlign: "right",
+    borderBottom: `1px solid ${ARIA.border}`,
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        tableLayout: "auto",
+      }}
+    >
+      <thead
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 2,
+          background: ARIA.bgCard,
+        }}
+      >
+        <tr>
+          <Th k="ticker" label="Ticker" align="left" sticky />
+          <Th k="qm_bo" label="BO" />
+          <Th k={chgKey} label={chgLabel} />
+          <Th k="rvol" label="RV" />
+          <Th k="liveVol" label="Vol" />
+          <Th k="cr" label="CR%" />
+          <Th k="adr" label="ADR" />
+          <Th k="rs" label="RS" />
+          <Th k="subtheme" label="Sub" align="left" />
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 && (
+          <tr>
+            <td
+              colSpan={9}
+              style={{
+                padding: 12,
+                textAlign: "center",
+                color: ARIA.textMuted,
+                fontSize: 10,
+              }}
+            >
+              No results — adjust filters or wait for live data…
+            </td>
+          </tr>
+        )}
+        {rows.map((r) => {
+          const chgVal = chgMode === "open" && r.chgOpen != null ? r.chgOpen : r.chg;
+          return (
+            <tr
+              key={r.ticker}
+              onClick={() => onTickerClick && onTickerClick(r.ticker)}
+              style={{ cursor: "pointer" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = ARIA.bgHover)
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <td
+                style={{
+                  ...bodyCell,
+                  textAlign: "left",
+                  fontWeight: 700,
+                  color: ARIA.text,
+                  position: "sticky",
+                  left: 0,
+                  background: ARIA.bgCard,
+                }}
+              >
+                {r.ticker}
+              </td>
+              <td style={{ ...bodyCell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
+                {r.qmagScore || "—"}
+              </td>
+              <td style={{ ...bodyCell, color: colorChg(chgVal) }}>
+                {fmtPct(chgVal)}
+              </td>
+              <td style={{ ...bodyCell, color: colorRvol(r.rvol) }}>
+                {r.rvol > 0 ? r.rvol.toFixed(1) + "x" : "—"}
+              </td>
+              <td style={{ ...bodyCell, color: ARIA.textDim, fontSize: 9 }}>
+                {fmtVol(r.liveVol)}
+              </td>
+              <td style={{ ...bodyCell, color: colorCr(r.cr) }}>
+                {r.cr != null ? r.cr + "%" : "—"}
+              </td>
+              <td style={{ ...bodyCell, color: ARIA.cyan }}>
+                {r.adr ? r.adr.toFixed(1) + "%" : "—"}
+              </td>
+              <td
+                style={{
+                  ...bodyCell,
+                  color:
+                    r.rs >= 80 ? ARIA.green : r.rs >= 60 ? ARIA.blue : ARIA.textMuted,
+                }}
+              >
+                {r.rs || "—"}
+              </td>
+              <td
+                style={{
+                  ...bodyCell,
+                  textAlign: "left",
+                  color: ARIA.cyan,
+                  fontSize: 8,
+                  maxWidth: 90,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={r.subtheme}
+              >
+                {r.subtheme || "—"}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
