@@ -1954,7 +1954,411 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Lightweight Charts loader (CDN, lazy)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Loads TradingView's lightweight-charts library from jsDelivr the first time
+// any chart component mounts. Same pattern as the legacy themepulse App.jsx.
+// Avoids bundling 200KB into the main app.
+
+const LW_CDN_URL =
+  "https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js";
+
+let lwLoadPromise = null;
+function loadLightweightCharts() {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
+  if (lwLoadPromise) return lwLoadPromise;
+  lwLoadPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = LW_CDN_URL;
+    s.async = true;
+    s.onload = () => resolve(window.LightweightCharts);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return lwLoadPromise;
+}
+
+function useLightweightCharts() {
+  const [LW, setLW] = useState(() =>
+    typeof window !== "undefined" ? window.LightweightCharts || null : null
+  );
+  useEffect(() => {
+    if (LW) return;
+    loadLightweightCharts().then((lib) => setLW(lib || null));
+  }, [LW]);
+  return LW;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// LWChart — single OHLC + volume chart component
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Renders a candlestick + volume chart for the given ticker/interval.
+// Calls /api/ohlc to fetch bars. Re-fetches when ticker or interval changes.
+//
+// Props:
+//   ticker: string — symbol to chart
+//   interval: "1d" | "5m" | "30m" — Yahoo Finance interval
+//   height: number — total px (chart + volume)
+//   onOhlcUpdate: (latestBar) => void — fires with the most recent bar so the
+//     parent can show O/H/L/C/% in the header
+
+function LWChart({ ticker, interval = "1d", height = 460, onOhlcUpdate }) {
+  const LW = useLightweightCharts();
+  const containerRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+  const candleSeriesRef = React.useRef(null);
+  const volumeSeriesRef = React.useRef(null);
+  const [error, setError] = useState(null);
+
+  // Create the chart once LW is loaded + container is mounted
+  useEffect(() => {
+    if (!LW || !containerRef.current) return;
+    const el = containerRef.current;
+    const chart = LW.createChart(el, {
+      width: el.clientWidth,
+      height,
+      layout: {
+        background: { color: "transparent" },
+        textColor: ARIA.textDim,
+        fontFamily: "monospace",
+        fontSize: 9,
+      },
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.03)" },
+        horzLines: { color: "rgba(255,255,255,0.03)" },
+      },
+      rightPriceScale: {
+        borderColor: ARIA.border,
+        scaleMargins: { top: 0.05, bottom: 0.25 },
+      },
+      timeScale: {
+        borderColor: ARIA.border,
+        timeVisible: interval !== "1d",
+        secondsVisible: false,
+      },
+      crosshair: {
+        mode: 1,
+      },
+      handleScale: { mouseWheel: true, pinch: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true },
+    });
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: ARIA.green,
+      downColor: ARIA.red,
+      borderUpColor: ARIA.green,
+      borderDownColor: ARIA.red,
+      wickUpColor: ARIA.green,
+      wickDownColor: ARIA.red,
+    });
+    const volumeSeries = chart.addHistogramSeries({
+      color: ARIA.textMuted,
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+
+    // Resize observer
+    const ro = new ResizeObserver(() => {
+      if (chartRef.current && el) {
+        chartRef.current.applyOptions({
+          width: el.clientWidth,
+          height,
+        });
+      }
+    });
+    ro.observe(el);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+    };
+  }, [LW, height, interval]);
+
+  // Fetch OHLC data when ticker/interval changes
+  useEffect(() => {
+    if (!ticker || !candleSeriesRef.current || !volumeSeriesRef.current) return;
+    let cancelled = false;
+    setError(null);
+    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (!d || !d.ok) {
+          setError(d?.error || "fetch failed");
+          return;
+        }
+        const bars = d.ohlc || d.data || [];
+        if (!bars.length) {
+          setError("no data");
+          return;
+        }
+        const candleData = bars.map((b) => ({
+          time: b.time,
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+        }));
+        const volData = bars.map((b) => ({
+          time: b.time,
+          value: b.volume || 0,
+          color: b.close >= b.open ? `${ARIA.green}40` : `${ARIA.red}40`,
+        }));
+        candleSeriesRef.current.setData(candleData);
+        volumeSeriesRef.current.setData(volData);
+        chartRef.current?.timeScale().fitContent();
+        // Notify parent of latest bar for header display
+        const latest = bars[bars.length - 1];
+        if (onOhlcUpdate && latest) onOhlcUpdate(latest);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker, interval, LW, onOhlcUpdate]);
+
+  return (
+    <div style={{ position: "relative", width: "100%", height }}>
+      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      {!LW && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: ARIA.textMuted,
+            fontSize: 9,
+          }}
+        >
+          Loading chart library…
+        </div>
+      )}
+      {error && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 8,
+            color: ARIA.red,
+            fontSize: 9,
+            fontFamily: "monospace",
+          }}
+        >
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// ChartPanelInline — Aria-faithful inline chart panel
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Replaces the slide-in TradingView iframe with Aria's actual layout:
+//   - Header: ticker, OHLC display, +WL/+PF buttons, D/W toggles, 5m/30m
+//     toggles, ticker input
+//   - Body: dual pane — Daily/Weekly chart (flex 7) | 5m/30m intraday (flex 3)
+//   - Always visible at the top of the dashboard, next to Scan Watch
+//
+// Aria reference: dashboard.html lines 3725-3791
+
+function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
+  const [tf, setTf] = useState("D"); // "D" or "W"
+  const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
+  const [latestBar, setLatestBar] = useState(null);
+  const [tickerInput, setTickerInput] = useState("");
+
+  const dailyInterval = tf === "W" ? "1d" : "1d"; // weekly interval not in /api/ohlc yet
+  const intradayInterval = intradayTf === "30m" ? "30m" : "5m";
+
+  const submitTicker = () => {
+    const t = tickerInput.trim().toUpperCase();
+    if (t) {
+      onTickerChange(t);
+      setTickerInput("");
+    }
+  };
+
+  const ohlcLine = latestBar
+    ? `O${latestBar.open?.toFixed(2)}  H${latestBar.high?.toFixed(2)}  L${latestBar.low?.toFixed(2)}  C${latestBar.close?.toFixed(2)}  Vol${(
+        (latestBar.volume || 0) / 1e6
+      ).toFixed(1)}M`
+    : "O— H— L— C— Vol—";
+
+  const tfBtn = (key, label, current, setter) => {
+    const on = current === key;
+    return (
+      <button
+        onClick={() => setter(key)}
+        style={{
+          fontSize: 9,
+          padding: "2px 8px",
+          borderRadius: 3,
+          cursor: "pointer",
+          fontFamily: "monospace",
+          border: `1px solid ${on ? ARIA.green : ARIA.border}`,
+          color: on ? ARIA.green : ARIA.textMuted,
+          background: on ? ARIA.glowGreen : "transparent",
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        background: ARIA.bgCard,
+        border: `1px solid ${ARIA.border}`,
+        borderRadius: 14,
+        marginBottom: 8,
+        overflow: "hidden",
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          padding: "6px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          borderBottom: `1px solid ${ARIA.border}`,
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: ARIA.text,
+            fontFamily: "monospace",
+          }}
+        >
+          {ticker}
+        </span>
+        <span
+          style={{
+            fontSize: 10,
+            fontFamily: "monospace",
+            color: ARIA.textMuted,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {ohlcLine}
+        </span>
+        <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
+        {tfBtn("D", "D", tf, setTf)}
+        {tfBtn("W", "W", tf, setTf)}
+        <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
+        {tfBtn("5m", "5m", intradayTf, setIntradayTf)}
+        {tfBtn("30m", "30m", intradayTf, setIntradayTf)}
+        <a
+          href={`https://www.tradingview.com/chart/?symbol=${ticker}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            fontSize: 9,
+            color: ARIA.cyan,
+            textDecoration: "none",
+            padding: "2px 6px",
+            borderRadius: 3,
+            border: `1px solid ${ARIA.cyan}40`,
+            marginLeft: 4,
+          }}
+        >
+          TV ↗
+        </a>
+        <input
+          value={tickerInput}
+          onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && submitTicker()}
+          placeholder="Ticker"
+          style={{
+            width: 60,
+            fontSize: 9,
+            padding: "2px 6px",
+            background: ARIA.bg,
+            border: `1px solid ${ARIA.border}`,
+            borderRadius: 3,
+            color: ARIA.textDim,
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+            outline: "none",
+            marginLeft: "auto",
+          }}
+        />
+      </div>
+
+      {/* Body: dual-pane chart split */}
+      <div
+        style={{
+          display: "flex",
+          gap: 0,
+          height,
+        }}
+      >
+        {/* Left pane: Daily chart (flex 7) */}
+        <div
+          style={{
+            flex: 7,
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 100,
+            overflow: "hidden",
+            borderRight: `1px solid ${ARIA.border}`,
+          }}
+        >
+          <LWChart
+            ticker={ticker}
+            interval={dailyInterval}
+            height={height}
+            onOhlcUpdate={setLatestBar}
+          />
+        </div>
+        {/* Right pane: Intraday chart (flex 3) */}
+        <div
+          style={{
+            flex: 3,
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 100,
+            overflow: "hidden",
+          }}
+        >
+          <LWChart ticker={ticker} interval={intradayInterval} height={height} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Chart Panel (Phase 2.4 — TradingView iframe split panel)
+// LEGACY — kept for reference but no longer rendered. Replaced by
+// ChartPanelInline above.
 // ──────────────────────────────────────────────────────────────────────────
 //
 // Right-side draggable split panel. When a ticker is clicked anywhere in the
@@ -2665,19 +3069,15 @@ function AppMain() {
   const data = useDashboardData();
   const picks = usePicks(60000); // refresh picks every 60s
 
-  // Chart panel state (Phase 2.4)
-  const [chartTicker, setChartTicker] = useState(null);
-  const [chartWidth, setChartWidth] = useState(() => {
-    const saved = parseInt(localStorage.getItem("themepulse-chart-width") || "0", 10);
-    return saved && saved > 360 ? saved : 640;
+  // Active ticker for the inline chart panel (Phase 2.6)
+  // Default to TQQQ to match Aria's behavior. Persists in localStorage.
+  const [chartTicker, setChartTicker] = useState(() => {
+    return localStorage.getItem("themepulse-chart-ticker") || "TQQQ";
   });
   const handleTickerClick = useCallback((ticker) => {
+    if (!ticker) return;
     setChartTicker(ticker);
-  }, []);
-  const closeChart = useCallback(() => setChartTicker(null), []);
-  const handleChartResize = useCallback((w) => {
-    setChartWidth(w);
-    localStorage.setItem("themepulse-chart-width", String(w));
+    localStorage.setItem("themepulse-chart-ticker", ticker);
   }, []);
 
   if (data.loading) {
@@ -2777,59 +3177,58 @@ function AppMain() {
         </div>
       </div>
 
-      {/* Main content — leave space on the right for the chart panel when open */}
+      {/* Main content — Aria-faithful layout */}
       <div
         style={{
           padding: "12px 16px",
-          maxWidth: 1400,
+          maxWidth: 1600,
           margin: "0 auto",
-          marginRight: chartTicker ? chartWidth + 16 : "auto",
-          transition: "margin-right 0.15s",
         }}
       >
+        {/* Top: Market Breadth Bar (full width) */}
         <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
+
+        {/* Charts + Scan Watch row — chart on left (flex 1), Scan Watch column 320px on right */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "stretch",
+            marginBottom: 8,
+          }}
+        >
+          <ChartPanelInline
+            ticker={chartTicker}
+            onTickerChange={handleTickerClick}
+          />
+          <div style={{ width: 340, flexShrink: 0, minWidth: 280 }}>
+            <ScanWatch
+              stocks={stocks}
+              onTickerClick={handleTickerClick}
+            />
+          </div>
+        </div>
+
+        {/* Agent Picks (full width below chart row) */}
         <AgentPicks
           rvolPicks={picks.rvolPicks}
           pmPicks={picks.pmPicks}
           ahPicks={picks.ahPicks}
           onTickerClick={handleTickerClick}
         />
+
+        {/* Bottom row: Watchlist + TQQQ */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: chartTicker ? "1fr" : "2fr 1fr",
+            gridTemplateColumns: "1fr 1fr",
             gap: 8,
           }}
         >
-          <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
-          {!chartTicker && (
-            <div>
-              <Watchlist onTickerClick={handleTickerClick} />
-              <TQQQPanel />
-            </div>
-          )}
+          <Watchlist onTickerClick={handleTickerClick} />
+          <TQQQPanel />
         </div>
-        {chartTicker && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 8,
-            }}
-          >
-            <Watchlist onTickerClick={handleTickerClick} />
-            <TQQQPanel />
-          </div>
-        )}
       </div>
-
-      {/* Chart side panel */}
-      <ChartPanel
-        ticker={chartTicker}
-        onClose={closeChart}
-        width={chartWidth}
-        onResize={handleChartResize}
-      />
     </div>
   );
 }
