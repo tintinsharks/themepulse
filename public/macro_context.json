@@ -1,15 +1,15 @@
 {
   "date": "2026-04-07",
-  "generated": "2026-04-07 04:39",
-  "vix": 24.17,
+  "generated": "2026-04-07 14:59",
+  "vix": 26.76,
   "vixChg": null,
   "tenYearYield": null,
   "yieldBps": null,
   "dxy": null,
   "dxyChg": null,
   "putCallRatio": null,
-  "regime": "CAUTION",
-  "regimeReason": "Caution warranted: elevated vol",
+  "regime": "RISK-OFF",
+  "regimeReason": "Risk-off environment: high vol",
   "t2108": null,
   "ratio5d": null
 }
