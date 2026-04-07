@@ -25,6 +25,28 @@ export const COLOR = {
   cyan:       "#22d3ee",  // Earnings Intel accent
 };
 
+// ── Aria-faithful theme palette (ported from Aria base.html dark theme) ──
+// Use these for the new Aria trading dashboard panels — pixel-faithful clone.
+export const ARIA = {
+  bg:           "#0a0a0f",
+  bgCard:       "rgba(22, 22, 30, 0.8)",
+  bgRow:        "rgba(28, 28, 38, 0.6)",
+  bgHover:      "rgba(40, 40, 55, 0.5)",
+  border:       "rgba(255, 255, 255, 0.06)",
+  borderLight:  "rgba(255, 255, 255, 0.1)",
+  text:         "#eeeef0",
+  textDim:      "#9d9daa",
+  textMuted:    "#5c5c6e",
+  green:        "#34d399",
+  red:          "#f87171",
+  yellow:       "#fbbf24",
+  blue:         "#60a5fa",
+  purple:       "#c084fc",
+  cyan:         "#22d3ee",
+  glowGreen:    "rgba(52, 211, 153, 0.15)",
+  glass:        "rgba(255, 255, 255, 0.03)",
+};
+
 // ── Padding presets ──
 
 export const PAD_PILL = { padding: "1px 5px" };         // ~18x — small pill/badge

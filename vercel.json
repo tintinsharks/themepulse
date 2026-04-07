@@ -11,11 +11,26 @@
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=60, stale-while-revalidate=300" }
       ]
+    },
+    {
+      "source": "/(rvol|pm|ah)_picks.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, stale-while-revalidate=300" }
+      ]
     }
   ],
   "functions": {
     "api/live.js": {
       "maxDuration": 30
+    },
+    "api/agent-picks.js": {
+      "maxDuration": 10
+    },
+    "api/pm-picks.js": {
+      "maxDuration": 10
+    },
+    "api/ah-picks.js": {
+      "maxDuration": 10
     },
     "api/tqqq-analyze.js": {
       "maxDuration": 60

@@ -1,0 +1,55 @@
+{
+  "picks": [
+    {
+      "ticker": "HUM",
+      "rank": 1,
+      "score": 82,
+      "entry_price": 201.28,
+      "stop_price": 194.49,
+      "shares": 220,
+      "reasoning": "[PM] Grade B+ | CMS finalized 2.48% Medicare Advantage rate hike for 2027 vs 0.09% proposed \u2014 massive positive surprise. HUM is most MA-levered (~80% revenue). Gap +10.2% on heavy vol. Strongest direct beneficiary.",
+      "source": "PM"
+    },
+    {
+      "ticker": "ALHC",
+      "rank": 2,
+      "score": 80,
+      "entry_price": 20.85,
+      "stop_price": 20.06,
+      "shares": 1898,
+      "reasoning": "[PM] Grade B+ | Pure-play managed care / Medicare Advantage. Same CMS rate hike catalyst. Gap +11.7%. Higher beta play on the MA theme. Lower PM volume (52K) \u2014 watch for liquidity at open.",
+      "source": "PM"
+    },
+    {
+      "ticker": "UNH",
+      "rank": 3,
+      "score": 75,
+      "entry_price": 300.0,
+      "stop_price": 292.14,
+      "shares": 190,
+      "reasoning": "[PM] Grade B | Mega-cap beneficiary of CMS MA rate hike. Gap +6.6%. Most liquid name in the group. Diversified beyond MA so smaller % move, but institutional flow will be heavy.",
+      "source": "PM"
+    },
+    {
+      "ticker": "ADVB",
+      "rank": 4,
+      "score": 55,
+      "entry_price": 7.42,
+      "stop_price": 6.98,
+      "shares": 3409,
+      "reasoning": "[PM] Grade C | +68% gap on Acellent Technologies acquisition (AI financial verification). Speculative small-cap biotech, post reverse-split. High fade risk \u2014 use tight stop, trail aggressively.",
+      "source": "PM"
+    },
+    {
+      "ticker": "SKYQ",
+      "rank": 5,
+      "score": 35,
+      "entry_price": 6.72,
+      "stop_price": 5.86,
+      "shares": 1744,
+      "reasoning": "[PM] Grade D | +34% gap on post reverse-split Nasdaq compliance + oil sector momentum. No fundamental catalyst. Pure momentum play \u2014 high fade probability. Trade only if holds VWAP at open.",
+      "source": "PM"
+    }
+  ],
+  "updated": "2026-04-07 06:06"
+}

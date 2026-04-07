@@ -1,0 +1,808 @@
+{
+  "picks": [
+    {
+      "ticker": "AESI",
+      "rank": 6,
+      "score": 53,
+      "entry_price": 11.15,
+      "reasoning": "[RVOL] Chg -0.0% | 5.3x RVol | M0/4 | F\ud83d\udd3450 T\u26aa6 S\ud83d\udfe268 \u2192 NEUTRAL | Oil & Gas Equipment & Se | Atlas Energy Solutions remains under pressure following yest",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 41,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE -4%, NM -5%, OM -1%)",
+            "growth": "neutral (Rev -8%, EPS -238%, 5yS 59%)",
+            "health": "bearish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 6,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "bearish (0.36)",
+            "momentum": "bullish (0.64)",
+            "volatility": "bearish (0.40)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 68,
+          "reasoning": {
+            "insider": "41\u2191/9\u2193",
+            "news": "3\u2191/6\u2193"
+          }
+        }
+      },
+      "catalyst": "Atlas Energy Solutions remains under pressure following yesterday's $300M convertible notes offering and weak Q1 preliminary results guiding to a $40-43M net loss. The dilutive raise plus soft prelim earnings continues to weigh on the proppant sand producer. Watch for the formal Q1 print, convert pricing, and any commentary on power generation equipment monetization to see if the overhang clears.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "HTZ",
+      "rank": 7,
+      "score": 32,
+      "entry_price": 5.83,
+      "reasoning": "[RVOL] Chg +9.9% | 2.2x RVol | M2/4 | F\ud83d\udfe225 T\u26aa0 S\ud83d\udfe289 \u2192 BULLISH | Rental & Leasing Service | Hertz is up 11.4% on continued momentum from Bill Ackman's 1",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 38,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 25,
+          "reasoning": {
+            "profitability": "neutral (ROE 163%, NM -9%, OM 1%)",
+            "growth": "neutral (Rev -1%, EPS 60%, 5yS 4%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 0,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 89,
+          "reasoning": {
+            "insider": "42\u2191/2\u2193",
+            "news": "4\u2191/2\u2193"
+          }
+        }
+      },
+      "catalyst": "Hertz is up 11.4% on continued momentum from Bill Ackman's 19.8% Pershing Square stake disclosed in 2025, with the turnaround narrative gaining traction ahead of the May 7 Q1 earnings report. Fleet rationalization and pricing power improvements are the bull thesis. Watch the May earnings print and any updates on fleet mix, residual values, and EV impairment cleanup.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "NGD",
+      "rank": 8,
+      "score": 24,
+      "entry_price": 9.08,
+      "reasoning": "[RVOL] Chg -4.1% | 1.4x RVol | M2/4 | F\ud83d\udfe250 T\u26aa8 S\ud83d\udd3454 \u2192 NEUTRAL | Gold | New Gold is selling off 4% on heavy volume as gold miners pu",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 37,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "neutral (ROE 10%, NM 11%, OM 20%)",
+            "growth": "bullish (Rev 78%, EPS 260%, 5yS 10%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 8,
+          "reasoning": {
+            "trend": "bearish (0.76)",
+            "mean_rev": "bullish (0.57)",
+            "momentum": "neutral (0.50)",
+            "volatility": "bullish (0.23)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bearish",
+          "confidence": 54,
+          "reasoning": {
+            "insider": "0\u2191/0\u2193",
+            "news": "6\u2191/7\u2193"
+          }
+        }
+      },
+      "catalyst": "New Gold is selling off 4% on heavy volume as gold miners pull back broadly after a strong run, with technical signals deeply bearish (RSI 12, death cross 50/200 MA). The move looks like profit-taking and sector rotation rather than a fundamental negative \u2014 gold prices remain elevated and NGD's operations are intact. Watch whether the broader gold complex (GDX, ARMN, AEM) finds support and if NGD holds key technical levels around $11.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "AEHR",
+      "rank": 9,
+      "score": 13,
+      "entry_price": 51.67,
+      "reasoning": "[RVOL] Chg -0.9% | 1.3x RVol | M0/4 | F\ud83d\udd3450 T\ud83d\udfe279 S\ud83d\udfe276 \u2192 BULLISH | Semiconductors | AEHR Test Systems reports Q3 fiscal 2026 earnings TODAY afte",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 68,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE -3%, NM -7%, OM -7%)",
+            "growth": "neutral (Rev -26%, EPS -267%, 5yS 37%)",
+            "health": "bearish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 79,
+          "reasoning": {
+            "trend": "bullish (0.97)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "bullish (1.00)",
+            "volatility": "bullish (1.00)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 76,
+          "reasoning": {
+            "insider": "42\u2191/8\u2193",
+            "news": "9\u2191/5\u2193"
+          }
+        }
+      },
+      "catalyst": "AEHR Test Systems reports Q3 fiscal 2026 earnings TODAY after the close (5 PM ET) \u2014 this is a binary catalyst event. The setup is loaded: recent silicon photonics customer wins and AI processor burn-in orders have driven shares to fresh highs into the print. Watch the result and forward guidance closely \u2014 a beat-and-raise tied to AI/SiC could trigger a major continuation move; a miss would unwind the recent run-up sharply.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "SSL",
+      "rank": 10,
+      "score": 16,
+      "entry_price": 13.48,
+      "reasoning": "[RVOL] Chg +8.1% | 1.1x RVol | M1/4 | F\ud83d\udd3450 T\ud83d\udfe247 S\ud83d\udfe262 \u2192 BULLISH | Chemicals - Specialty | Sasol is up 6.8% as the South African chemicals/energy produ",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 53,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE 4%, NM 3%, OM 15%)",
+            "growth": "bearish (Rev -4%, EPS -95%, 5yS 5%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 47,
+          "reasoning": {
+            "trend": "bullish (0.77)",
+            "mean_rev": "bearish (0.57)",
+            "momentum": "bullish (1.00)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 62,
+          "reasoning": {
+            "insider": "2\u2191/0\u2193",
+            "news": "4\u2191/3\u2193"
+          }
+        }
+      },
+      "catalyst": "Sasol is up 6.8% as the South African chemicals/energy producer benefits from a combination of firmer oil prices and rand weakness, both of which boost margins. Recent operational updates have been more constructive after a difficult 2025. Watch for follow-through on cost-out execution and any updates on the Mozambique gas situation.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "NEXT",
+      "rank": 11,
+      "score": 16,
+      "entry_price": 8.69,
+      "reasoning": "[RVOL] Chg +4.5% | 1.1x RVol | M1/4 | F\ud83d\udd3475 T\ud83d\udfe237 S\ud83d\udfe251 \u2192 BULLISH | Oil & Gas Exploration &  | NextDecade is up 3.6% as LNG export momentum continues, with",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 54,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 75,
+          "reasoning": {
+            "profitability": "bearish (ROE -321%, NM 0%, OM 0%)",
+            "growth": "bearish (Rev 0%, EPS -172%, 5yS 0%)",
+            "health": "bearish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 37,
+          "reasoning": {
+            "trend": "bullish (0.96)",
+            "mean_rev": "bearish (0.32)",
+            "momentum": "bullish (1.00)",
+            "volatility": "bearish (0.95)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 51,
+          "reasoning": {
+            "insider": "19\u2191/30\u2193",
+            "news": "6\u2191/1\u2193"
+          }
+        }
+      },
+      "catalyst": "NextDecade is up 3.6% as LNG export momentum continues, with the company progressing on Rio Grande LNG Phase 2 FID and locking in long-term offtake agreements. The broader US LNG export thesis remains intact with global gas prices firm. Watch for additional offtake announcements and any updates on the Phase 2 financing package.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "DJCO",
+      "rank": 12,
+      "score": 11,
+      "entry_price": 528.26,
+      "reasoning": "[RVOL] Chg +1.9% | 1.1x RVol | M0/4 | F\ud83d\udfe275 T\u26aa5 S\ud83d\udd3470 \u2192 NEUTRAL | Software - Application | Daily Journal is up 1.2% on light volume \u2014 the Charlie Munge",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 50,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 75,
+          "reasoning": {
+            "profitability": "bullish (ROE 29%, NM 128%, OM 11%)",
+            "growth": "bullish (Rev 10%, EPS -173%, 5yS 15%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 5,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "bullish (0.26)",
+            "volatility": "bearish (0.60)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bearish",
+          "confidence": 70,
+          "reasoning": {
+            "insider": "10\u2191/34\u2193",
+            "news": "2\u2191/0\u2193"
+          }
+        }
+      },
+      "catalyst": "Daily Journal is up 1.2% on light volume \u2014 the Charlie Munger-associated value name typically moves on annual meeting headlines and disclosure of equity portfolio changes. No specific catalyst today; the stock is illiquid and moves on small flows. Watch for any 13F-style updates on the company's listed equity holdings.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "BKSY",
+      "rank": 13,
+      "score": 20,
+      "entry_price": 32.84,
+      "reasoning": "[RVOL] Chg +6.2% | 1.0x RVol | M2/4 | F\u26aa25 T\ud83d\udfe261 S\ud83d\udfe272 \u2192 BULLISH | Hardware, Equipment & Pa | Catalyst pending research",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 53,
+        "fundamentals": {
+          "signal": "neutral",
+          "confidence": 25,
+          "reasoning": {
+            "profitability": "bearish (ROE -74%, NM -66%, OM -44%)",
+            "growth": "bullish (Rev 16%, EPS 98%, 5yS 33%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 61,
+          "reasoning": {
+            "trend": "bullish (1.00)",
+            "mean_rev": "bearish (0.01)",
+            "momentum": "neutral (0.50)",
+            "volatility": "bullish (0.53)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 72,
+          "reasoning": {
+            "insider": "38\u2191/12\u2193",
+            "news": "5\u2191/3\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "GME",
+      "rank": 14,
+      "score": 15,
+      "entry_price": 23.41,
+      "reasoning": "[RVOL] Chg +1.4% | 1.0x RVol | M1/4 | F\ud83d\udd3425 T\u26aa0 S\ud83d\udd3474 \u2192 BEARISH | Specialty Retail | Catalyst pending research",
+      "agents": {
+        "overall": "bearish",
+        "confidence": 33,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 25,
+          "reasoning": {
+            "profitability": "bearish (ROE 3%, NM 3%, OM -1%)",
+            "growth": "neutral (Rev -5%, EPS 325%, 5yS -7%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 0,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bearish",
+          "confidence": 74,
+          "reasoning": {
+            "insider": "11\u2191/38\u2193",
+            "news": "3\u2191/6\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "NOK",
+      "rank": 15,
+      "score": 10,
+      "entry_price": 8.84,
+      "reasoning": "[RVOL] Chg -0.6% | 1.0x RVol | M0/4 | F\ud83d\udd3450 T\ud83d\udfe224 S\ud83d\udfe269 \u2192 BULLISH | Communication Equipment | Catalyst pending research",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 48,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE 3%, NM 3%, OM 8%)",
+            "growth": "bearish (Rev -16%, EPS -36%, 5yS -4%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 24,
+          "reasoning": {
+            "trend": "bullish (0.48)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 69,
+          "reasoning": {
+            "insider": "0\u2191/0\u2193",
+            "news": "9\u2191/4\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "NPO",
+      "rank": 16,
+      "score": 9,
+      "entry_price": 254.27,
+      "reasoning": "[RVOL] Chg +0.2% | 0.9x RVol | M0/4 | F\ud83d\udd3425 T\u26aa0 S\ud83d\udfe282 \u2192 NEUTRAL | Industrial - Machinery | Catalyst pending research",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 36,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 25,
+          "reasoning": {
+            "profitability": "bearish (ROE 3%, NM 4%, OM 14%)",
+            "growth": "neutral (Rev 14%, EPS -330%, 5yS 8%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 0,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 82,
+          "reasoning": {
+            "insider": "45\u2191/5\u2193",
+            "news": "4\u2191/3\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "AAOI",
+      "rank": 17,
+      "score": 18,
+      "entry_price": 117.8,
+      "reasoning": "[RVOL] Chg +9.6% | 0.8x RVol | M2/4 | F\u26aa25 T\ud83d\udfe239 S\ud83d\udfe265 \u2192 BULLISH | Semiconductors | Applied Optoelectronics is up 3.8% on continued momentum fro",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 43,
+        "fundamentals": {
+          "signal": "neutral",
+          "confidence": 25,
+          "reasoning": {
+            "profitability": "bearish (ROE -5%, NM -8%, OM -12%)",
+            "growth": "bullish (Rev 34%, EPS 99%, 5yS 21%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 39,
+          "reasoning": {
+            "trend": "bullish (0.96)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 65,
+          "reasoning": {
+            "insider": "27\u2191/23\u2193",
+            "news": "10\u2191/2\u2193"
+          }
+        }
+      },
+      "catalyst": "Applied Optoelectronics is up 3.8% on continued momentum from its $124M in new 800G single-mode transceiver orders announced in late March, on top of an earlier $200M 1.6T order from a major hyperscaler. The company is guiding over $1B in 2026 revenue and ramping monthly 800G output from 90K units to over 500K by year-end. Watch hyperscaler capex commentary and follow-through into peers (LITE, COHR) as the AI optical transceiver thesis plays out.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "DCO",
+      "rank": 18,
+      "score": 8,
+      "entry_price": 133.41,
+      "reasoning": "[RVOL] Chg +2.6% | 0.8x RVol | M0/4 | F\ud83d\udd3475 T\u26aa6 S\ud83d\udfe271 \u2192 NEUTRAL | Aerospace & Defense | Catalyst pending research",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 51,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 75,
+          "reasoning": {
+            "profitability": "bearish (ROE -5%, NM -4%, OM -4%)",
+            "growth": "bearish (Rev 9%, EPS 4%, 5yS 6%)",
+            "health": "bearish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 6,
+          "reasoning": {
+            "trend": "bullish (0.10)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 71,
+          "reasoning": {
+            "insider": "45\u2191/5\u2193",
+            "news": "3\u2191/7\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "ING",
+      "rank": 19,
+      "score": 13,
+      "entry_price": 26.66,
+      "reasoning": "[RVOL] Chg -0.5% | 0.8x RVol | M1/4 | F\ud83d\udfe250 T\u26aa3 S\ud83d\udd3467 \u2192 NEUTRAL | Banks - Diversified | Catalyst pending research",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 40,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bullish (ROE 13%, NM 27%, OM 40%)",
+            "growth": "neutral (Rev 7%, EPS 30%, 5yS -3%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 3,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "bullish (0.05)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bearish",
+          "confidence": 67,
+          "reasoning": {
+            "insider": "0\u2191/0\u2193",
+            "news": "3\u2191/6\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "LYG",
+      "rank": 20,
+      "score": 18,
+      "entry_price": 5.16,
+      "reasoning": "[RVOL] Chg -1.6% | 0.8x RVol | M2/4 | F\ud83d\udfe250 T\u26aa4 S\u26aa50 \u2192 BULLISH | Banks - Regional | Catalyst pending research",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 35,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE 11%, NM 7%, OM 10%)",
+            "growth": "bullish (Rev 110%, EPS 200%, 5yS 36%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 4,
+          "reasoning": {
+            "trend": "neutral (0.50)",
+            "mean_rev": "bullish (0.07)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "neutral",
+          "confidence": 50,
+          "reasoning": {
+            "insider": "0\u2191/0\u2193",
+            "news": "8\u2191/8\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "UMC",
+      "rank": 21,
+      "score": 12,
+      "entry_price": 9.19,
+      "reasoning": "[RVOL] Chg +5.7% | 0.7x RVol | M1/4 | F\ud83d\udfe225 T\u26aa11 S\ud83d\udfe267 \u2192 BULLISH | Semiconductors | Catalyst pending research",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 34,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 25,
+          "reasoning": {
+            "profitability": "neutral (ROE 11%, NM 18%, OM 19%)",
+            "growth": "neutral (Rev 2%, EPS 19%, 5yS 3%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 11,
+          "reasoning": {
+            "trend": "bearish (0.37)",
+            "mean_rev": "bullish (0.23)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 67,
+          "reasoning": {
+            "insider": "0\u2191/0\u2193",
+            "news": "6\u2191/3\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "INTC",
+      "rank": 22,
+      "score": 7,
+      "entry_price": 52.62,
+      "reasoning": "[RVOL] Chg +3.6% | 0.7x RVol | M0/4 | F\ud83d\udd3450 T\ud83d\udfe221 S\ud83d\udfe282 \u2192 BULLISH | Semiconductors | Intel is up 2.3% as semiconductor sentiment remains construc",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 51,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE 0%, NM -1%, OM 0%)",
+            "growth": "bearish (Rev -4%, EPS -300%, 5yS -10%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "bullish",
+          "confidence": 21,
+          "reasoning": {
+            "trend": "bullish (0.41)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 82,
+          "reasoning": {
+            "insider": "48\u2191/2\u2193",
+            "news": "7\u2191/5\u2193"
+          }
+        }
+      },
+      "catalyst": "Intel is up 2.3% as semiconductor sentiment remains constructive, with the stock benefiting from Foundry traction, Gaudi AI chip momentum, and the ongoing turnaround narrative under new CEO Lip-Bu Tan. Sector rotation back into legacy semis after the recent AI mega-cap consolidation is helping. Watch for Q1 earnings later this month and any new foundry customer announcements that could validate the Pat Gelsinger-era investments now bearing fruit.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "SAM",
+      "rank": 23,
+      "score": 12,
+      "entry_price": 251.97,
+      "reasoning": "[RVOL] Chg +2.1% | 0.7x RVol | M1/4 | F\ud83d\udfe250 T\u26aa12 S\ud83d\udfe275 \u2192 BULLISH | Beverages - Alcoholic | Boston Beer is up 2% on continued recovery in the alcoholic ",
+      "agents": {
+        "overall": "bullish",
+        "confidence": 46,
+        "fundamentals": {
+          "signal": "bullish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE 13%, NM 5%, OM 7%)",
+            "growth": "bullish (Rev 26%, EPS 37%, 5yS 0%)",
+            "health": "bullish (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 12,
+          "reasoning": {
+            "trend": "bullish (0.20)",
+            "mean_rev": "neutral (0.50)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 75,
+          "reasoning": {
+            "insider": "43\u2191/5\u2193",
+            "news": "3\u2191/5\u2193"
+          }
+        }
+      },
+      "catalyst": "Boston Beer is up 2% on continued recovery in the alcoholic beverages space after a weak 2025, with Truly Hard Seltzer and Twisted Tea showing improving trends. Sector rotation into consumer staples is helping the move. Watch for Q1 earnings and any updates on innovation pipeline beyond core seltzer and tea franchises.",
+      "source": "RVOL"
+    },
+    {
+      "ticker": "BTE",
+      "rank": 24,
+      "score": 7,
+      "entry_price": 4.46,
+      "reasoning": "[RVOL] Chg +1.2% | 0.7x RVol | M0/4 | F\ud83d\udd3450 T\u26aa16 S\ud83d\udfe262 \u2192 NEUTRAL | Oil & Gas Exploration &  | Catalyst pending research",
+      "agents": {
+        "overall": "neutral",
+        "confidence": 43,
+        "fundamentals": {
+          "signal": "bearish",
+          "confidence": 50,
+          "reasoning": {
+            "profitability": "bearish (ROE -25%, NM -41%, OM 15%)",
+            "growth": "bearish (Rev -265%, EPS -2120%, 5yS -1%)",
+            "health": "neutral (proxy: ROE/OM/EPS+)",
+            "valuation": "neutral (n/a)"
+          }
+        },
+        "technicals": {
+          "signal": "neutral",
+          "confidence": 16,
+          "reasoning": {
+            "trend": "bullish (0.28)",
+            "mean_rev": "bearish (0.07)",
+            "momentum": "neutral (0.50)",
+            "volatility": "neutral (0.50)",
+            "stat_arb": "neutral (0.50)"
+          }
+        },
+        "sentiment": {
+          "signal": "bullish",
+          "confidence": 62,
+          "reasoning": {
+            "insider": "0\u2191/0\u2193",
+            "news": "5\u2191/3\u2193"
+          }
+        }
+      },
+      "catalyst": "Catalyst pending research",
+      "source": "RVOL"
+    }
+  ],
+  "commentary": {
+    "market": "Indexes are red with SPY -0.46%, QQQ -0.68%, IWM -0.31%, DIA -0.54% \u2014 small-caps leading is a real risk-on tell. Macro backdrop: VXX +4.22% (vol bid (defensive)), TLT -0.57% (yields rising (TLT off, growth headwind)), UUP -0.11% (dollar flat), Gold +0.07%, Oil +1.82%. Sector leadership: Energy +0.60%, Utilities +0.50%, REITs -0.06%. Lagging: Materials -0.72%, Staples -1.24%, Discretionary -1.68%. Defensives bid over cyclicals \u2014 risk-off rotation underway. Internals: T2108 33% above 50MA \u00b7 52% above 200SMA \u00b7 4% movers 154\u2191/79\u2193 (1.95x) \u00b7 NH/NL 167/58 (2.88x). Internals neutral. Regime: CAUTION. Size at 50%, demand multi-factor confirmation, tighter stops. Avoid chasing extended names.",
+    "subthemes": "2 subthemes have 2+ stocks moving together. Top clusters by participation:\n\u2022 Semiconductors (4 names, avg +4.5%, 0.9x): led by AAOI \u2014 Applied Optoelectronics is up 3.\n\u2022 Oil & Gas Exploration & Production (2 names, avg +2.9%, 0.9x): led by NEXT \u2014 NextDecade is up 3.",
+    "patterns": "Cross-cluster catalyst patterns: Earnings inflection (15 mentions) \u00b7 Energy / commodities (10 mentions) \u00b7 AI / data center buildout (7 mentions) \u00b7 M&A / capital action (1 mentions). Watch for rotation between these themes as the dominant story. Earnings reactions are driving the tape \u2014 focus on stocks with both beat-and-raise prints AND post-earnings volume confirmation."
+  },
+  "updated": "2026-04-07 09:37"
+}
