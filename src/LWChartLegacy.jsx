@@ -386,22 +386,11 @@ function IntradayChart({ ticker, avgVolume }) {
         </div>
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
       </div>
-      {/* PM Volume Profile pane */}
-      <div style={{ position: "relative", height: 50, borderTop: "1px solid #2a2a38", flexShrink: 0, background: "#0d0d14" }}>
-        <div ref={pmVolContainerRef} style={{ width: "100%", height: "100%" }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none", display: "flex", alignItems: "baseline", gap: 4 }}>
-          PM Vol{pmVolInfo && <span style={{ fontSize: 10, fontWeight: 700, color: "#38bdf8", fontFamily: "monospace" }}>
-            {pmVolInfo.total >= 1e6 ? (pmVolInfo.total / 1e6).toFixed(1) + "M" : pmVolInfo.total >= 1e3 ? Math.round(pmVolInfo.total / 1e3) + "K" : pmVolInfo.total}
-          </span>}
-        </div>
-      </div>
-      {/* ZVR pane */}
-      <div style={{ position: "relative", height: 55, borderTop: "1px solid #2a2a38", flexShrink: 0 }}>
-        <div ref={zvrContainerRef} style={{ width: "100%", height: "100%" }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none", display: "flex", alignItems: "baseline", gap: 4 }}>
-          ZVR{zvrPct && <span style={{ fontSize: 12, fontWeight: 700, color: zvrPct.color, fontFamily: "monospace" }}>{zvrPct.value}%</span>}
-        </div>
-      </div>
+      {/* PM Vol + ZVR panes removed per user request. The chart init code
+          checks `if (pmVolContainerRef.current)` before creating those
+          sub-charts, so leaving the refs unattached makes the init silently
+          skip them. The refs themselves stay declared at the top of the
+          component so hook order doesn't change. */}
     </div>
   );
 }

@@ -2156,10 +2156,10 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
           height,
         }}
       >
-        {/* Left pane: Daily/Weekly chart with all indicators (flex 7) */}
+        {/* Left pane: Daily/Weekly chart with all indicators */}
         <div
           style={{
-            flex: 7,
+            flex: 6,
             display: "flex",
             flexDirection: "column",
             minWidth: 100,
@@ -2172,10 +2172,11 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
             <LegacyLWChart ticker={ticker} tf={tf} />
           </ErrorBoundary>
         </div>
-        {/* Right pane: 5m/30m intraday with ORB + ZVR (flex 3) */}
+        {/* Right pane: 5m/30m intraday with ORB highlight (PM Vol + ZVR
+            panes removed). Bumped to flex 5 (was 3) per user request. */}
         <div
           style={{
-            flex: 3,
+            flex: 5,
             display: "flex",
             flexDirection: "column",
             minWidth: 100,
