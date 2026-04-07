@@ -2849,6 +2849,70 @@ function Watchlist({ stockMap, onTickerClick }) {
                 </span>
               )}
             </div>
+            {/* Discover section: high-RS tickers in this subtheme not owned */}
+            {g.discoveries && g.discoveries.length > 0 && (
+              <div
+                style={{
+                  marginTop: 4,
+                  paddingTop: 3,
+                  borderTop: `1px solid ${ARIA.border}`,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 7,
+                    fontWeight: 700,
+                    color: ARIA.cyan,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Discover
+                </span>{" "}
+                <span
+                  style={{
+                    fontSize: 7,
+                    color: ARIA.textMuted,
+                  }}
+                >
+                  RS≥80 + RVol≥1.5x
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 3,
+                    marginTop: 2,
+                  }}
+                >
+                  {g.discoveries.map((d) => (
+                    <span
+                      key={d.ticker}
+                      onClick={() =>
+                        onTickerClick && onTickerClick(d.ticker)
+                      }
+                      title={`Add ${d.ticker} to watchlist (click chart) — RS ${d.rs}, RVol ${d.rvol}x`}
+                      style={{
+                        cursor: "pointer",
+                        fontSize: 8,
+                        padding: "1px 4px",
+                        borderRadius: 3,
+                        border: "1px solid rgba(34,211,238,0.2)",
+                        background: "rgba(34,211,238,0.05)",
+                        color: ARIA.cyan,
+                      }}
+                    >
+                      {d.ticker} RS{d.rs}{" "}
+                      {d.change != null
+                        ? (d.change > 0 ? "+" : "") +
+                          d.change.toFixed(1) +
+                          "%"
+                        : ""}
+                      {d.rvol ? " " + d.rvol.toFixed(1) + "x" : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
