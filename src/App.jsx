@@ -2041,15 +2041,21 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
 //
 // Aria reference: dashboard.html lines 3725-3791
 
-function ChartPanelInline({ ticker, onTickerChange, height = 580 }) {
+function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
   const ARIA = useAriaTheme();
   const [tf, setTf] = useState("D"); // "D" or "W"
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
-  const [latestBar, setLatestBar] = useState(null);
   const [tickerInput, setTickerInput] = useState("");
 
   const dailyInterval = tf === "W" ? "1d" : "1d"; // weekly interval not in /api/ohlc yet
   const intradayInterval = intradayTf === "30m" ? "30m" : "5m";
+
+  // Live quote for the active ticker — drives the OHLC + RVol header line
+  const tickerList = useMemo(() => (ticker ? [ticker] : []), [ticker]);
+  const { quotes } = useLiveQuotes(tickerList, 30000);
+  const liveQuote = quotes.get(ticker);
+  const stockInfo = stockMap?.[ticker] || {};
+  const avgVol = stockInfo.avg_volume_raw || 0;
 
   const submitTicker = () => {
     const t = tickerInput.trim().toUpperCase();
@@ -2059,11 +2065,30 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580 }) {
     }
   };
 
-  const ohlcLine = latestBar
-    ? `O${latestBar.open?.toFixed(2)}  H${latestBar.high?.toFixed(2)}  L${latestBar.low?.toFixed(2)}  C${latestBar.close?.toFixed(2)}  Vol${(
-        (latestBar.volume || 0) / 1e6
-      ).toFixed(1)}M`
-    : "O— H— L— C— Vol—";
+  // Build the OHLC + Vol + RVol + Chg% line
+  const fmtVol = (v) => {
+    if (!v) return "—";
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+    return String(v);
+  };
+  const liveVol = liveQuote?.volume || 0;
+  const rvol =
+    liveVol && avgVol > 0
+      ? Math.round((liveVol / avgVol) * 100) / 100
+      : null;
+  const chgPct = liveQuote?.change ?? null;
+  const ohlcLine = liveQuote
+    ? `O${(liveQuote.open || 0).toFixed(2)}  H${(liveQuote.high || 0).toFixed(2)}  L${(liveQuote.low || 0).toFixed(2)}  C${(liveQuote.price || 0).toFixed(2)}`
+    : "O— H— L— C—";
+  const chgColor =
+    chgPct == null
+      ? ARIA.textMuted
+      : chgPct > 0
+      ? ARIA.green
+      : chgPct < 0
+      ? ARIA.red
+      : ARIA.textMuted;
 
   const tfBtn = (key, label, current, setter) => {
     const on = current === key;
@@ -2133,6 +2158,39 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580 }) {
         >
           {ohlcLine}
         </span>
+        {chgPct != null && (
+          <span
+            style={{
+              fontSize: 10,
+              fontFamily: "monospace",
+              fontWeight: 700,
+              color: chgColor,
+            }}
+          >
+            {(chgPct > 0 ? "+" : "") + chgPct.toFixed(2) + "%"}
+          </span>
+        )}
+        <span
+          style={{
+            fontSize: 10,
+            fontFamily: "monospace",
+            color: ARIA.textMuted,
+          }}
+        >
+          Vol {fmtVol(liveVol)}
+        </span>
+        {rvol != null && (
+          <span
+            style={{
+              fontSize: 10,
+              fontFamily: "monospace",
+              color: rvol >= 1.5 ? ARIA.purple : ARIA.textMuted,
+              fontWeight: rvol >= 1.5 ? 700 : 400,
+            }}
+          >
+            RVol {rvol.toFixed(2)}x
+          </span>
+        )}
         <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
         {tfBtn("D", "D", tf, setTf)}
         {tfBtn("W", "W", tf, setTf)}
@@ -3730,6 +3788,7 @@ function AppMain() {
           <ChartPanelInline
             ticker={chartTicker}
             onTickerChange={handleTickerClick}
+            stockMap={stockMap}
           />
           <div style={{ width: 340, flexShrink: 0, minWidth: 280 }}>
             <ScanWatch
