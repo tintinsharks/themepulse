@@ -3524,10 +3524,14 @@ function TQQQPanel() {
 // ──────────────────────────────────────────────────────────────────────────
 
 function AppMain() {
+  // ── ALL hooks must be at the top, before any conditional return ────────
+  // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
+  // which caused React error #310 ("Rendered more hooks than during the
+  // previous render") on the loading→loaded transition.
   const data = useDashboardData();
   const picks = usePicks(60000); // refresh picks every 60s
 
-  // Active ticker for the inline chart panel (Phase 2.6)
+  // Active ticker for the inline chart panel.
   // Default to TQQQ to match Aria's behavior. Persists in localStorage.
   const [chartTicker, setChartTicker] = useState(() => {
     return localStorage.getItem("themepulse-chart-ticker") || "TQQQ";
@@ -3538,6 +3542,18 @@ function AppMain() {
     localStorage.setItem("themepulse-chart-ticker", ticker);
   }, []);
 
+  // stockMap depends on data.pipeline.stocks. Compute it BEFORE the early
+  // returns so the hook count is stable across loading→loaded transitions.
+  const stocks = data.pipeline?.stocks || [];
+  const stockMap = useMemo(() => {
+    const m = {};
+    stocks.forEach((s) => {
+      if (s.ticker) m[s.ticker] = s;
+    });
+    return m;
+  }, [stocks]);
+
+  // ── Now safe to do conditional early returns ───────────────────────────
   if (data.loading) {
     return (
       <div
@@ -3575,15 +3591,6 @@ function AppMain() {
       </div>
     );
   }
-
-  const stocks = data.pipeline?.stocks || [];
-  const stockMap = useMemo(() => {
-    const m = {};
-    stocks.forEach((s) => {
-      if (s.ticker) m[s.ticker] = s;
-    });
-    return m;
-  }, [stocks]);
 
   return (
     <div
