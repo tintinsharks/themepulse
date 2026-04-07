@@ -1957,218 +1957,8 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// Lightweight Charts loader (CDN, lazy)
-// ──────────────────────────────────────────────────────────────────────────
-//
-// Loads TradingView's lightweight-charts library from jsDelivr the first time
-// any chart component mounts. Same pattern as the legacy themepulse App.jsx.
-// Avoids bundling 200KB into the main app.
-
-const LW_CDN_URL =
-  "https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js";
-
-let lwLoadPromise = null;
-function loadLightweightCharts() {
-  if (typeof window === "undefined") return Promise.resolve(null);
-  if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
-  if (lwLoadPromise) return lwLoadPromise;
-  lwLoadPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = LW_CDN_URL;
-    s.async = true;
-    s.onload = () => resolve(window.LightweightCharts);
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-  return lwLoadPromise;
-}
-
-function useLightweightCharts() {
-  const [LW, setLW] = useState(() =>
-    typeof window !== "undefined" ? window.LightweightCharts || null : null
-  );
-  useEffect(() => {
-    if (LW) return;
-    loadLightweightCharts().then((lib) => setLW(lib || null));
-  }, [LW]);
-  return LW;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// LWChart — single OHLC + volume chart component
-// ──────────────────────────────────────────────────────────────────────────
-//
-// Renders a candlestick + volume chart for the given ticker/interval.
-// Calls /api/ohlc to fetch bars. Re-fetches when ticker or interval changes.
-//
-// Props:
-//   ticker: string — symbol to chart
-//   interval: "1d" | "5m" | "30m" — Yahoo Finance interval
-//   height: number — total px (chart + volume)
-//   onOhlcUpdate: (latestBar) => void — fires with the most recent bar so the
-//     parent can show O/H/L/C/% in the header
-
-function LWChart({ ticker, interval = "1d", height = 460, onOhlcUpdate }) {
-  const LW = useLightweightCharts();
-  const containerRef = React.useRef(null);
-  const chartRef = React.useRef(null);
-  const candleSeriesRef = React.useRef(null);
-  const volumeSeriesRef = React.useRef(null);
-  const [error, setError] = useState(null);
-
-  // Create the chart once LW is loaded + container is mounted
-  useEffect(() => {
-    if (!LW || !containerRef.current) return;
-    const el = containerRef.current;
-    const chart = LW.createChart(el, {
-      width: el.clientWidth,
-      height,
-      layout: {
-        background: { color: "transparent" },
-        textColor: ARIA.textDim,
-        fontFamily: "monospace",
-        fontSize: 9,
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.03)" },
-        horzLines: { color: "rgba(255,255,255,0.03)" },
-      },
-      rightPriceScale: {
-        borderColor: ARIA.border,
-        scaleMargins: { top: 0.05, bottom: 0.25 },
-      },
-      timeScale: {
-        borderColor: ARIA.border,
-        timeVisible: interval !== "1d",
-        secondsVisible: false,
-      },
-      crosshair: {
-        mode: 1,
-      },
-      handleScale: { mouseWheel: true, pinch: true },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true },
-    });
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: ARIA.green,
-      downColor: ARIA.red,
-      borderUpColor: ARIA.green,
-      borderDownColor: ARIA.red,
-      wickUpColor: ARIA.green,
-      wickDownColor: ARIA.red,
-    });
-    const volumeSeries = chart.addHistogramSeries({
-      color: ARIA.textMuted,
-      priceFormat: { type: "volume" },
-      priceScaleId: "",
-    });
-    volumeSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
-    });
-    chartRef.current = chart;
-    candleSeriesRef.current = candleSeries;
-    volumeSeriesRef.current = volumeSeries;
-
-    // Resize observer
-    const ro = new ResizeObserver(() => {
-      if (chartRef.current && el) {
-        chartRef.current.applyOptions({
-          width: el.clientWidth,
-          height,
-        });
-      }
-    });
-    ro.observe(el);
-
-    return () => {
-      ro.disconnect();
-      chart.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-      volumeSeriesRef.current = null;
-    };
-  }, [LW, height, interval]);
-
-  // Fetch OHLC data when ticker/interval changes
-  useEffect(() => {
-    if (!ticker || !candleSeriesRef.current || !volumeSeriesRef.current) return;
-    let cancelled = false;
-    setError(null);
-    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        if (!d || !d.ok) {
-          setError(d?.error || "fetch failed");
-          return;
-        }
-        const bars = d.ohlc || d.data || [];
-        if (!bars.length) {
-          setError("no data");
-          return;
-        }
-        const candleData = bars.map((b) => ({
-          time: b.time,
-          open: b.open,
-          high: b.high,
-          low: b.low,
-          close: b.close,
-        }));
-        const volData = bars.map((b) => ({
-          time: b.time,
-          value: b.volume || 0,
-          color: b.close >= b.open ? `${ARIA.green}40` : `${ARIA.red}40`,
-        }));
-        candleSeriesRef.current.setData(candleData);
-        volumeSeriesRef.current.setData(volData);
-        chartRef.current?.timeScale().fitContent();
-        // Notify parent of latest bar for header display
-        const latest = bars[bars.length - 1];
-        if (onOhlcUpdate && latest) onOhlcUpdate(latest);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(String(e));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [ticker, interval, LW, onOhlcUpdate]);
-
-  return (
-    <div style={{ position: "relative", width: "100%", height }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      {!LW && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: ARIA.textMuted,
-            fontSize: 9,
-          }}
-        >
-          Loading chart library…
-        </div>
-      )}
-      {error && (
-        <div
-          style={{
-            position: "absolute",
-            top: 4,
-            right: 8,
-            color: ARIA.red,
-            fontSize: 9,
-            fontFamily: "monospace",
-          }}
-        >
-          {error}
-        </div>
-      )}
-    </div>
-  );
-}
+// (LWChart loader removed in Phase 2.7 — the legacy LWChart in
+//  src/LWChartLegacy.jsx has its own loadLW() helper that we delegate to.)
 
 // ──────────────────────────────────────────────────────────────────────────
 // ChartPanelInline — Aria-faithful inline chart panel
@@ -2318,7 +2108,9 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
 
       {/* Body: dual-pane chart split — uses verbatim legacy LWChart +
           IntradayChart for full indicator parity (EMAs, ATR-X, CR%, RS line,
-          ORB, ZVR, etc). See src/LWChartLegacy.jsx. */}
+          ORB, ZVR, etc). See src/LWChartLegacy.jsx. Each pane is wrapped in
+          its own ErrorBoundary so a chart crash can't take down the whole
+          page. */}
       <div
         style={{
           display: "flex",
@@ -2338,7 +2130,9 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
             position: "relative",
           }}
         >
-          <LegacyLWChart ticker={ticker} tf={tf} />
+          <ErrorBoundary>
+            <LegacyLWChart ticker={ticker} tf={tf} />
+          </ErrorBoundary>
         </div>
         {/* Right pane: 5m/30m intraday with ORB + ZVR (flex 3) */}
         <div
@@ -2351,169 +2145,11 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
             position: "relative",
           }}
         >
-          <LegacyIntradayChart ticker={ticker} />
+          <ErrorBoundary>
+            <LegacyIntradayChart ticker={ticker} />
+          </ErrorBoundary>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Chart Panel (Phase 2.4 — TradingView iframe split panel)
-// LEGACY — kept for reference but no longer rendered. Replaced by
-// ChartPanelInline above.
-// ──────────────────────────────────────────────────────────────────────────
-//
-// Right-side draggable split panel. When a ticker is clicked anywhere in the
-// dashboard, the panel opens with a TradingView iframe of that ticker.
-//   - Drag the left edge to resize
-//   - Esc to close
-//   - Reuses ticker selection across all panels via the `selectedTicker` state
-//     in AppMain (passed down via openChart callback)
-//
-// Phase 2.4b will add: ticker info side panel (news + company description)
-// Phase 2.5 (optional) will add: custom LWChart for OHLC with intraday TFs
-// ──────────────────────────────────────────────────────────────────────────
-
-function ChartPanel({ ticker, onClose, width, onResize }) {
-  // Drag-to-resize handler
-  const handleMouseDown = useCallback(
-    (e) => {
-      e.preventDefault();
-      const startX = e.clientX;
-      const startW = width;
-      function onMove(ev) {
-        const dx = startX - ev.clientX;
-        const newW = Math.max(360, Math.min(1200, startW + dx));
-        onResize(newW);
-      }
-      function onUp() {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-      }
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    },
-    [width, onResize]
-  );
-
-  // Esc to close
-  useEffect(() => {
-    if (!ticker) return;
-    function onKey(e) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [ticker, onClose]);
-
-  if (!ticker) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width,
-        background: ARIA.bg,
-        borderLeft: `1px solid ${ARIA.borderLight}`,
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 200,
-        boxShadow: "-4px 0 24px rgba(0,0,0,0.4)",
-      }}
-    >
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: -3,
-          bottom: 0,
-          width: 6,
-          cursor: "ew-resize",
-          zIndex: 201,
-        }}
-      />
-      {/* Header */}
-      <div
-        style={{
-          padding: "8px 12px",
-          background: ARIA.bgCard,
-          borderBottom: `1px solid ${ARIA.border}`,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 800,
-            color: ARIA.text,
-            fontFamily: "monospace",
-          }}
-        >
-          {ticker}
-        </span>
-        <span
-          style={{
-            fontSize: 8,
-            color: ARIA.textMuted,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-          }}
-        >
-          TradingView
-        </span>
-        <a
-          href={`https://www.tradingview.com/chart/?symbol=${ticker}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            marginLeft: "auto",
-            fontSize: 8,
-            color: ARIA.cyan,
-            textDecoration: "none",
-            padding: "2px 6px",
-            borderRadius: 3,
-            border: `1px solid ${ARIA.cyan}40`,
-          }}
-        >
-          Open in TV ↗
-        </a>
-        <button
-          onClick={onClose}
-          style={{
-            background: "transparent",
-            border: `1px solid ${ARIA.border}`,
-            color: ARIA.textMuted,
-            padding: "2px 8px",
-            borderRadius: 3,
-            cursor: "pointer",
-            fontSize: 10,
-            fontFamily: "monospace",
-          }}
-        >
-          ✕
-        </button>
-      </div>
-      {/* Iframe */}
-      <iframe
-        key={ticker}
-        title={ticker}
-        src={`https://s.tradingview.com/widgetembed/?frameElementId=tv_${ticker}&symbol=${ticker}&interval=D&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=%5B%5D&theme=dark&style=1&timezone=America%2FNew_York&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=themepulse.vercel.app&utm_medium=widget&utm_campaign=chart`}
-        style={{
-          flex: 1,
-          width: "100%",
-          border: "none",
-          background: ARIA.bg,
-        }}
-        allowFullScreen
-      />
     </div>
   );
 }
@@ -2664,13 +2300,32 @@ function Watchlist({ stockMap, onTickerClick }) {
     [watchlist, buildRow]
   );
 
-  // Theme groups for Themes view: group all rows by subtheme
+  // Build a subtheme index from the full universe — used by the Discover
+  // section to surface owned-theme tickers the user doesn't yet have.
+  const subthemeIndex = useMemo(() => {
+    const idx = new Map();
+    if (!stockMap) return idx;
+    Object.values(stockMap).forEach((s) => {
+      const sub =
+        (s.themes && s.themes[0] && s.themes[0].subtheme) ||
+        s.industry ||
+        "";
+      if (!sub) return;
+      if (!idx.has(sub)) idx.set(sub, []);
+      idx.get(sub).push(s);
+    });
+    return idx;
+  }, [stockMap]);
+
+  // Theme groups for Themes view: group all rows by subtheme + compute
+  // discoveries (high-RS, high-RVol tickers in same subtheme not owned).
   const themeGroups = useMemo(() => {
     const all = [...portRows, ...watchRows];
     const dedup = new Map();
     all.forEach((r) => {
       if (!dedup.has(r.ticker)) dedup.set(r.ticker, r);
     });
+    const ownedSet = new Set([...portfolio, ...watchlist]);
     const byTheme = new Map();
     dedup.forEach((r) => {
       const key = r.subtheme || "Other";
@@ -2686,17 +2341,37 @@ function Watchlist({ stockMap, onTickerClick }) {
     const groups = Array.from(byTheme.values());
     groups.forEach((g) => {
       const n = g.rows.length;
-      if (!n) return;
-      const sum = (k) => g.rows.reduce((acc, r) => acc + (r[k] || 0), 0);
-      g.avgChg = sum("change") / n;
-      g.avgChgOpen = sum("chgOpen") / n;
-      g.avgRvol = sum("rvol") / n;
-      g.avgRs = Math.round(sum("rs") / n);
-      g.avgCr = Math.round(sum("cr") / n);
-      g.count = n;
+      if (n) {
+        const sum = (k) => g.rows.reduce((acc, r) => acc + (r[k] || 0), 0);
+        g.avgChg = sum("change") / n;
+        g.avgChgOpen = sum("chgOpen") / n;
+        g.avgRvol = sum("rvol") / n;
+        g.avgRs = Math.round(sum("rs") / n);
+        g.avgCr = Math.round(sum("cr") / n);
+        g.count = n;
+      }
+      // Discover: stocks in the same subtheme that the user doesn't own,
+      // filtered by RS ≥ 80 AND stale rel_volume ≥ 1.5x. Top 8.
+      const peers = subthemeIndex.get(g.name) || [];
+      g.discoveries = peers
+        .filter((s) => {
+          if (!s.ticker || ownedSet.has(s.ticker)) return false;
+          if ((s.rs_rank || 0) < 80) return false;
+          if ((s.rel_volume || 0) < 1.5) return false;
+          if ((s.price || s.close || 0) < 5) return false;
+          return true;
+        })
+        .sort((a, b) => (b.rs_rank || 0) - (a.rs_rank || 0))
+        .slice(0, 8)
+        .map((s) => ({
+          ticker: s.ticker,
+          rs: s.rs_rank || 0,
+          change: s.change_pct || 0,
+          rvol: s.rel_volume || 0,
+        }));
     });
     return groups;
-  }, [portRows, watchRows]);
+  }, [portRows, watchRows, portfolio, watchlist, subthemeIndex]);
 
   const rankVal = useCallback(
     (r) => {
