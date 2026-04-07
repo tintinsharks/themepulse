@@ -353,7 +353,7 @@ function IntradayChart({ ticker, avgVolume }) {
   }, [ticker]);
 
   return (
-    <div style={{ height: 395, borderTop: "1px solid #2a2a38", display: "flex", flexDirection: "column" }}>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Main 5m ORB chart */}
       <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
         <div style={{ position: "absolute", top: 4, left: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>

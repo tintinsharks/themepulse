@@ -25,9 +25,12 @@ export const COLOR = {
   cyan:       "#22d3ee",  // Earnings Intel accent
 };
 
-// ── Aria-faithful theme palette (ported from Aria base.html dark theme) ──
-// Use these for the new Aria trading dashboard panels — pixel-faithful clone.
-export const ARIA = {
+// ── Aria-faithful theme palettes (ported from Aria base.html) ──
+// Two palettes: ARIA_DARK (default) and ARIA_LIGHT (matches Aria's
+// [data-theme="light"] block). Components consume the active palette
+// via useAriaTheme() in App.jsx.
+
+export const ARIA_DARK = {
   bg:           "#0a0a0f",
   bgCard:       "rgba(22, 22, 30, 0.8)",
   bgRow:        "rgba(28, 28, 38, 0.6)",
@@ -46,6 +49,30 @@ export const ARIA = {
   glowGreen:    "rgba(52, 211, 153, 0.15)",
   glass:        "rgba(255, 255, 255, 0.03)",
 };
+
+export const ARIA_LIGHT = {
+  bg:           "#f8f9fc",
+  bgCard:       "rgba(255, 255, 255, 0.85)",
+  bgRow:        "rgba(241, 243, 249, 0.7)",
+  bgHover:      "rgba(228, 231, 240, 0.6)",
+  border:       "rgba(0, 0, 0, 0.06)",
+  borderLight:  "rgba(0, 0, 0, 0.1)",
+  text:         "#0f0f14",
+  textDim:      "#4a4a5a",
+  textMuted:    "#7a7a8e",
+  green:        "#059669",
+  red:          "#dc2626",
+  yellow:       "#d97706",
+  blue:         "#2563eb",
+  purple:       "#7c3aed",
+  cyan:         "#0891b2",
+  glowGreen:    "rgba(5, 150, 105, 0.1)",
+  glass:        "rgba(0, 0, 0, 0.02)",
+};
+
+// Default export for backwards compat — points at the dark palette so any
+// non-themed component still gets a sensible static value.
+export const ARIA = ARIA_DARK;
 
 // ── Padding presets ──
 

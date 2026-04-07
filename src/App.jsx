@@ -15,11 +15,38 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { ARIA } from "./styles.js";
+import { ARIA_DARK, ARIA_LIGHT } from "./styles.js";
 import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
 } from "./LWChartLegacy.jsx";
+
+// ──────────────────────────────────────────────────────────────────────────
+// Theme system: Aria light/dark palettes via React context
+// ──────────────────────────────────────────────────────────────────────────
+//
+// The App root reads themepulse-theme from localStorage and provides the
+// active palette + toggle via AriaThemeContext. Each component starts with
+//   const ARIA = useAriaTheme();
+// then references ARIA.bg, ARIA.text, etc. as before — the values flip when
+// the user toggles theme.
+//
+// NOTE: the legacy chart components (LWChartLegacy.jsx) use hardcoded dark
+// hex colors and don't yet respect this theme. Phase 2.8b will thread the
+// palette into them.
+
+const AriaThemeContext = React.createContext({
+  ARIA: ARIA_DARK,
+  themeMode: "dark",
+  toggleTheme: () => {},
+});
+
+function useAriaTheme() {
+  return React.useContext(AriaThemeContext).ARIA;
+}
+function useAriaThemeControls() {
+  return React.useContext(AriaThemeContext);
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constants — ported from Aria's scan-watch defaults
@@ -448,6 +475,7 @@ const INDEX_LIST = [
 ];
 
 function MarketBreadthBar({ stocks, onTickerClick }) {
+  const ARIA = useAriaTheme();
   // Live index quotes via existing /api/live (poll every 30s during market hours)
   const indexTickers = useMemo(() => INDEX_LIST.map((i) => i.ticker), []);
   const { quotes } = useLiveQuotes(indexTickers, 30000);
@@ -746,6 +774,7 @@ const TAG_PREDICATES = {
 };
 
 function ScanWatch({ stocks, onTickerClick }) {
+  const ARIA = useAriaTheme();
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState(DEFAULT_SORT);
@@ -1287,6 +1316,7 @@ function ScanWatch({ stocks, onTickerClick }) {
 
 // ── ScanWatchTable: Aria-faithful results table with click-to-sort headers ──
 function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick }) {
+  const ARIA = useAriaTheme();
   // Click = primary sort, right-click = secondary sort
   const handleHeaderClick = (key) => onSort(key);
   const handleHeaderContext = (e, key) => {
@@ -1501,6 +1531,7 @@ const sigIcon = (s) =>
   s === "bullish" ? "▲" : s === "bearish" ? "▼" : "◆";
 
 function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
+  const ARIA = useAriaTheme();
   // ── State: tab, commentary collapse, expanded row ──────────────────────
   const [tab, setTab] = useState(() => {
     if (typeof window === "undefined") return "all";
@@ -2010,7 +2041,8 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
 //
 // Aria reference: dashboard.html lines 3725-3791
 
-function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
+function ChartPanelInline({ ticker, onTickerChange, height = 580 }) {
+  const ARIA = useAriaTheme();
   const [tf, setTf] = useState("D"); // "D" or "W"
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
   const [latestBar, setLatestBar] = useState(null);
@@ -2221,6 +2253,7 @@ const RANK_METRICS = [
 ];
 
 function Watchlist({ stockMap, onTickerClick }) {
+  const ARIA = useAriaTheme();
   const [view, setView] = useState(
     () => localStorage.getItem("themepulse-pw-view") || "themes"
   );
@@ -3158,6 +3191,7 @@ function Watchlist({ stockMap, onTickerClick }) {
 // ──────────────────────────────────────────────────────────────────────────
 
 function TQQQPanel() {
+  const ARIA = useAriaTheme();
   const [data, setData] = useState(null);
   const [view, setView] = useState("model"); // "model" or "trades"
 
@@ -3529,6 +3563,8 @@ function AppMain() {
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
   // which caused React error #310 ("Rendered more hooks than during the
   // previous render") on the loading→loaded transition.
+  const ARIA = useAriaTheme();
+  const { themeMode, toggleTheme } = useAriaThemeControls();
   const data = useDashboardData();
   const picks = usePicks(60000); // refresh picks every 60s
 
@@ -3642,11 +3678,32 @@ function AppMain() {
         <div
           style={{
             marginLeft: "auto",
-            color: ARIA.textMuted,
-            fontSize: 10,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          {stocks.length.toLocaleString()} stocks · {data.pipeline?.date || ""}
+          <span style={{ color: ARIA.textMuted, fontSize: 10 }}>
+            {stocks.length.toLocaleString()} stocks · {data.pipeline?.date || ""}
+          </span>
+          <button
+            onClick={toggleTheme}
+            title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+            style={{
+              background: "transparent",
+              border: `1px solid ${ARIA.border}`,
+              color: ARIA.textDim,
+              padding: "4px 10px",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontFamily: "monospace",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+            }}
+          >
+            {themeMode === "dark" ? "Light" : "Dark"}
+          </button>
         </div>
       </div>
 
@@ -3711,9 +3768,30 @@ function AppMain() {
 // ──────────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [themeMode, setThemeMode] = useState(
+    () => localStorage.getItem("themepulse-theme") || "dark"
+  );
+  const toggleTheme = useCallback(() => {
+    setThemeMode((m) => {
+      const next = m === "dark" ? "light" : "dark";
+      localStorage.setItem("themepulse-theme", next);
+      return next;
+    });
+  }, []);
+  const ARIA = themeMode === "light" ? ARIA_LIGHT : ARIA_DARK;
+  // Set body bg so the area outside the maxWidth container also flips
+  useEffect(() => {
+    document.body.style.background = ARIA.bg;
+  }, [ARIA.bg]);
+  const ctxValue = useMemo(
+    () => ({ ARIA, themeMode, toggleTheme }),
+    [ARIA, themeMode, toggleTheme]
+  );
   return (
-    <ErrorBoundary>
-      <AppMain />
-    </ErrorBoundary>
+    <AriaThemeContext.Provider value={ctxValue}>
+      <ErrorBoundary>
+        <AppMain />
+      </ErrorBoundary>
+    </AriaThemeContext.Provider>
   );
 }
