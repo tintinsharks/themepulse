@@ -15,7 +15,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { ARIA_DARK, ARIA_LIGHT } from "./styles.js";
+import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
