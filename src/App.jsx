@@ -2029,6 +2029,29 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
 // (LWChart loader removed in Phase 2.7 — the legacy LWChart in
 //  src/LWChartLegacy.jsx has its own loadLW() helper that we delegate to.)
 
+// Aria-style colored mini-badge (used in chart header for 9M / VOL / HI / Grade)
+const badgeStyle = (color) => ({
+  fontSize: 9,
+  padding: "0 3px",
+  borderRadius: 2,
+  fontWeight: 700,
+  color,
+  border: `1px solid ${color}`,
+  background: `${color}26`,
+  marginLeft: 3,
+});
+
+// CANSLIM stat: "<label> <value>%" with muted label and colored value
+function CSStat({ label, v, clr, ARIA }) {
+  const val = v != null ? (v > 0 ? "+" : "") + v.toFixed(0) + "%" : "—";
+  return (
+    <span>
+      <span style={{ color: ARIA.textMuted, fontSize: 8 }}>{label}</span>{" "}
+      <span style={{ color: clr, fontWeight: 600 }}>{val}</span>
+    </span>
+  );
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // ChartPanelInline — Aria-faithful inline chart panel
 // ──────────────────────────────────────────────────────────────────────────
@@ -2047,7 +2070,7 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
   const [tickerInput, setTickerInput] = useState("");
 
-  const dailyInterval = tf === "W" ? "1d" : "1d"; // weekly interval not in /api/ohlc yet
+  const dailyInterval = tf === "W" ? "1d" : "1d";
   const intradayInterval = intradayTf === "30m" ? "30m" : "5m";
 
   // Live quote for the active ticker — drives the OHLC + RVol header line
@@ -2057,6 +2080,111 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
   const stockInfo = stockMap?.[ticker] || {};
   const avgVol = stockInfo.avg_volume_raw || 0;
 
+  // Aria-faithful OHLC line: O H L C +chg ($abs+%) Vol RV + badges
+  const o = liveQuote?.open ?? 0;
+  const h = liveQuote?.high ?? 0;
+  const l = liveQuote?.low ?? 0;
+  const c = liveQuote?.price ?? 0;
+  const chgPct = liveQuote?.change ?? null;
+  const chgAbs = liveQuote && c && chgPct != null ? c - c / (1 + chgPct / 100) : null;
+  const liveVol = liveQuote?.volume || 0;
+  const rvol = liveVol && avgVol > 0 ? Math.round((liveVol / avgVol) * 100) / 100 : null;
+
+  const fmtVol = (v) => {
+    if (!v) return "—";
+    if (v >= 1e9) return (v / 1e9).toFixed(2) + "B";
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+    return String(v);
+  };
+
+  const chgColor =
+    chgPct == null
+      ? ARIA.textMuted
+      : chgPct >= 0
+      ? ARIA.green
+      : ARIA.red;
+  const rvColor = rvol == null
+    ? ARIA.textMuted
+    : rvol >= 1.5
+    ? ARIA.purple
+    : rvol >= 1
+    ? ARIA.textDim
+    : ARIA.textMuted;
+
+  // 9M badge: today's volume >= 8.9M but avg < 8.9M (unusual institutional)
+  const todayVol = avgVol * (rvol || 0);
+  const has9M = todayVol >= 8_900_000 && avgVol < 8_900_000;
+  const fromHi = stockInfo.off_52w_high;
+  const grade = stockInfo.grade || "";
+  const gradeColor =
+    grade && grade[0] === "A" ? ARIA.green : grade && grade[0] === "B" ? ARIA.blue : ARIA.textMuted;
+
+  // CANSLIM stats from stockMap
+  const csClr = (v) =>
+    v == null ? ARIA.textMuted : v > 25 ? ARIA.green : v > 0 ? ARIA.textDim : ARIA.red;
+  const epsYoy = stockInfo.eps_yoy ?? null;
+  const epsYoyPrev = stockInfo.eps_yoy_prev ?? null;
+  const salesYoy = stockInfo.sales_yoy ?? null;
+  const salesYoyPrev = stockInfo.sales_yoy_prev ?? null;
+  const epsThisY = stockInfo.eps_this_y ?? null;
+  const eps5y = stockInfo.eps_past_5y ?? null;
+  const sales5y = stockInfo.sales_past_5y ?? null;
+  const margin = (() => {
+    const m = stockInfo.profit_margin ?? null;
+    return m != null ? (m < 1 ? m * 100 : m) : null;
+  })();
+  const magna = stockInfo.magna ?? null;
+  const adr = stockInfo.adr_pct ?? null;
+  const erDate = stockInfo.earnings_display || "";
+
+  // Portfolio/Watchlist add/remove (mirrors Aria's +WL / +PF buttons)
+  const [portfolio, setPortfolio] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [watchlist, setWatchlist] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  // Re-read on every render so adds from Watchlist component sync (cheap)
+  useEffect(() => {
+    const sync = () => {
+      try {
+        setPortfolio(JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]"));
+        setWatchlist(JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]"));
+      } catch {}
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
+  const inPF = portfolio.includes(ticker);
+  const inWL = watchlist.includes(ticker);
+  const toggleWL = useCallback(() => {
+    setWatchlist((prev) => {
+      const next = prev.includes(ticker)
+        ? prev.filter((x) => x !== ticker)
+        : [...prev, ticker];
+      localStorage.setItem("themepulse-watchlist", JSON.stringify(next));
+      return next;
+    });
+  }, [ticker]);
+  const togglePF = useCallback(() => {
+    setPortfolio((prev) => {
+      const next = prev.includes(ticker)
+        ? prev.filter((x) => x !== ticker)
+        : [...prev, ticker];
+      localStorage.setItem("themepulse-portfolio", JSON.stringify(next));
+      return next;
+    });
+  }, [ticker]);
+
   const submitTicker = () => {
     const t = tickerInput.trim().toUpperCase();
     if (t) {
@@ -2064,31 +2192,6 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
       setTickerInput("");
     }
   };
-
-  // Build the OHLC + Vol + RVol + Chg% line
-  const fmtVol = (v) => {
-    if (!v) return "—";
-    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
-    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
-    return String(v);
-  };
-  const liveVol = liveQuote?.volume || 0;
-  const rvol =
-    liveVol && avgVol > 0
-      ? Math.round((liveVol / avgVol) * 100) / 100
-      : null;
-  const chgPct = liveQuote?.change ?? null;
-  const ohlcLine = liveQuote
-    ? `O${(liveQuote.open || 0).toFixed(2)}  H${(liveQuote.high || 0).toFixed(2)}  L${(liveQuote.low || 0).toFixed(2)}  C${(liveQuote.price || 0).toFixed(2)}`
-    : "O— H— L— C—";
-  const chgColor =
-    chgPct == null
-      ? ARIA.textMuted
-      : chgPct > 0
-      ? ARIA.green
-      : chgPct < 0
-      ? ARIA.red
-      : ARIA.textMuted;
 
   const tfBtn = (key, label, current, setter) => {
     const on = current === key;
@@ -2125,72 +2228,126 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
         flexDirection: "column",
       }}
     >
-      {/* Header row */}
+      {/* Header row 1: Title + OHLC + Chg + Vol + RV + badges + buttons */}
       <div
         style={{
           padding: "6px 14px",
           display: "flex",
           alignItems: "center",
           gap: 6,
-          borderBottom: `1px solid ${ARIA.border}`,
           flexWrap: "wrap",
         }}
       >
         <span
           style={{
-            fontSize: 13,
+            fontSize: 11,
             fontWeight: 700,
             color: ARIA.text,
             fontFamily: "monospace",
+            flexShrink: 0,
           }}
         >
           {ticker}
         </span>
+        {/* OHLC line — alternating muted/dim colors like Aria */}
         <span
           style={{
-            fontSize: 10,
+            fontSize: 11,
             fontFamily: "monospace",
-            color: ARIA.textMuted,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            display: "flex",
+            alignItems: "baseline",
+            gap: 4,
           }}
         >
-          {ohlcLine}
+          <span style={{ color: ARIA.textMuted }}>O</span>
+          <span style={{ color: ARIA.textDim }}>{o.toFixed(2)}</span>
+          <span style={{ color: ARIA.textMuted }}>H</span>
+          <span style={{ color: ARIA.textDim }}>{h.toFixed(2)}</span>
+          <span style={{ color: ARIA.textMuted }}>L</span>
+          <span style={{ color: ARIA.textDim }}>{l.toFixed(2)}</span>
+          <span style={{ color: ARIA.textMuted }}>C</span>
+          <span style={{ color: ARIA.textDim }}>{c.toFixed(2)}</span>
+          {chgPct != null && (
+            <span style={{ fontWeight: 700, color: chgColor, marginLeft: 4 }}>
+              {(chgAbs >= 0 ? "+" : "") + chgAbs.toFixed(2)} ({(chgPct >= 0 ? "+" : "") + chgPct.toFixed(2)}%)
+            </span>
+          )}
+          <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>Vol</span>
+          <span style={{ color: ARIA.textDim }}>{fmtVol(liveVol)}</span>
+          {rvol != null && (
+            <>
+              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>RV</span>
+              <span style={{ color: rvColor, fontWeight: rvol >= 1.5 ? 700 : 400 }}>
+                {rvol.toFixed(1)}x
+              </span>
+            </>
+          )}
+          {/* Badges: 9M / VOL / HI / Grade / ER / ADR */}
+          {has9M && (
+            <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>
+          )}
+          {rvol != null && rvol >= 2 && (
+            <span style={badgeStyle("#c084fc")}>VOL</span>
+          )}
+          {fromHi != null && fromHi >= -3 && (
+            <span style={badgeStyle(ARIA.green)}>HI</span>
+          )}
+          {grade && (
+            <span style={badgeStyle(gradeColor)}>{grade}</span>
+          )}
+          {erDate && (
+            <>
+              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>ER</span>
+              <span style={{ color: ARIA.textDim }}>{erDate.replace(/~/g, " ").trim()}</span>
+            </>
+          )}
+          {adr != null && (
+            <>
+              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>ADR</span>
+              <span style={{ color: ARIA.cyan }}>{adr.toFixed(1)}%</span>
+            </>
+          )}
         </span>
-        {chgPct != null && (
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: "monospace",
-              fontWeight: 700,
-              color: chgColor,
-            }}
-          >
-            {(chgPct > 0 ? "+" : "") + chgPct.toFixed(2) + "%"}
-          </span>
-        )}
-        <span
+        {/* +WL +PF buttons */}
+        <button
+          onClick={toggleWL}
+          title={inWL ? "Remove from Watchlist" : "Add to Watchlist"}
           style={{
-            fontSize: 10,
+            fontSize: 8,
+            padding: "2px 6px",
+            borderRadius: 3,
+            border: `1px solid ${ARIA.cyan}80`,
+            color: inWL ? ARIA.bg : ARIA.cyan,
+            background: inWL ? ARIA.cyan : "transparent",
+            cursor: "pointer",
             fontFamily: "monospace",
-            color: ARIA.textMuted,
+            fontWeight: 700,
+            flexShrink: 0,
           }}
         >
-          Vol {fmtVol(liveVol)}
-        </span>
-        {rvol != null && (
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: "monospace",
-              color: rvol >= 1.5 ? ARIA.purple : ARIA.textMuted,
-              fontWeight: rvol >= 1.5 ? 700 : 400,
-            }}
-          >
-            RVol {rvol.toFixed(2)}x
-          </span>
-        )}
+          {inWL ? "✓WL" : "+WL"}
+        </button>
+        <button
+          onClick={togglePF}
+          title={inPF ? "Remove from Portfolio" : "Add to Portfolio"}
+          style={{
+            fontSize: 8,
+            padding: "2px 6px",
+            borderRadius: 3,
+            border: `1px solid ${ARIA.yellow}80`,
+            color: inPF ? ARIA.bg : ARIA.yellow,
+            background: inPF ? ARIA.yellow : "transparent",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {inPF ? "✓PF" : "+PF"}
+        </button>
         <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
         {tfBtn("D", "D", tf, setTf)}
         {tfBtn("W", "W", tf, setTf)}
@@ -2208,7 +2365,6 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
             padding: "2px 6px",
             borderRadius: 3,
             border: `1px solid ${ARIA.cyan}40`,
-            marginLeft: 4,
           }}
         >
           TV ↗
@@ -2232,6 +2388,68 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
             marginLeft: "auto",
           }}
         />
+      </div>
+
+      {/* Header row 2: CANSLIM stats line (Aria-faithful) */}
+      <div
+        style={{
+          padding: "0 14px 4px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          fontSize: 9,
+          fontFamily: "monospace",
+          borderBottom: `1px solid ${ARIA.border}`,
+        }}
+      >
+        <CSStat label="EPS" v={epsYoy} clr={csClr(epsYoy)} ARIA={ARIA} />
+        <CSStat label="Prev" v={epsYoyPrev} clr={csClr(epsYoyPrev)} ARIA={ARIA} />
+        <span style={{ color: ARIA.border }}>|</span>
+        <CSStat label="Sales" v={salesYoy} clr={csClr(salesYoy)} ARIA={ARIA} />
+        <CSStat label="Prev" v={salesYoyPrev} clr={csClr(salesYoyPrev)} ARIA={ARIA} />
+        <span style={{ color: ARIA.border }}>|</span>
+        <CSStat label="EPS Y" v={epsThisY} clr={csClr(epsThisY)} ARIA={ARIA} />
+        <CSStat label="5Y" v={eps5y} clr={csClr(eps5y)} ARIA={ARIA} />
+        <CSStat label="Sales 5Y" v={sales5y} clr={csClr(sales5y)} ARIA={ARIA} />
+        <span style={{ color: ARIA.border }}>|</span>
+        <CSStat
+          label="Margin"
+          v={margin}
+          clr={
+            margin == null
+              ? ARIA.textMuted
+              : margin >= 20
+              ? ARIA.green
+              : margin > 0
+              ? ARIA.textDim
+              : ARIA.red
+          }
+          ARIA={ARIA}
+        />
+        {magna != null && (
+          <>
+            <span style={{ color: ARIA.border }}>|</span>
+            <span>
+              <span style={{ color: ARIA.textMuted, fontSize: 8 }}>MAGNA</span>{" "}
+              <span
+                style={{
+                  fontWeight: 700,
+                  color:
+                    magna >= 80
+                      ? ARIA.green
+                      : magna >= 60
+                      ? ARIA.blue
+                      : magna >= 40
+                      ? ARIA.textDim
+                      : ARIA.textMuted,
+                }}
+              >
+                {magna}
+              </span>
+            </span>
+          </>
+        )}
       </div>
 
       {/* Body: dual-pane chart split — uses verbatim legacy LWChart +
