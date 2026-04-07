@@ -16,6 +16,10 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { ARIA } from "./styles.js";
+import {
+  LWChart as LegacyLWChart,
+  IntradayChart as LegacyIntradayChart,
+} from "./LWChartLegacy.jsx";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Constants — ported from Aria's scan-watch defaults
@@ -2312,7 +2316,9 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
         />
       </div>
 
-      {/* Body: dual-pane chart split */}
+      {/* Body: dual-pane chart split — uses verbatim legacy LWChart +
+          IntradayChart for full indicator parity (EMAs, ATR-X, CR%, RS line,
+          ORB, ZVR, etc). See src/LWChartLegacy.jsx. */}
       <div
         style={{
           display: "flex",
@@ -2320,7 +2326,7 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
           height,
         }}
       >
-        {/* Left pane: Daily chart (flex 7) */}
+        {/* Left pane: Daily/Weekly chart with all indicators (flex 7) */}
         <div
           style={{
             flex: 7,
@@ -2329,16 +2335,12 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
             minWidth: 100,
             overflow: "hidden",
             borderRight: `1px solid ${ARIA.border}`,
+            position: "relative",
           }}
         >
-          <LWChart
-            ticker={ticker}
-            interval={dailyInterval}
-            height={height}
-            onOhlcUpdate={setLatestBar}
-          />
+          <LegacyLWChart ticker={ticker} tf={tf} />
         </div>
-        {/* Right pane: Intraday chart (flex 3) */}
+        {/* Right pane: 5m/30m intraday with ORB + ZVR (flex 3) */}
         <div
           style={{
             flex: 3,
@@ -2346,9 +2348,10 @@ function ChartPanelInline({ ticker, onTickerChange, height = 520 }) {
             flexDirection: "column",
             minWidth: 100,
             overflow: "hidden",
+            position: "relative",
           }}
         >
-          <LWChart ticker={ticker} interval={intradayInterval} height={height} />
+          <LegacyIntradayChart ticker={ticker} />
         </div>
       </div>
     </div>
@@ -2523,36 +2526,659 @@ function ChartPanel({ ticker, onClose, width, onResize }) {
 // Phase 2.4; Vercel KV sync via /api/userdata lands in Phase 4.
 // ──────────────────────────────────────────────────────────────────────────
 
-function Watchlist({ onTickerClick }) {
-  const [tickers, setTickers] = useState(() => {
+// ──────────────────────────────────────────────────────────────────────────
+// Watchlist (Phase 2.7 — Aria-faithful with Portfolio + Themes view)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Aria reference: dashboard.html lines 3801-3843 + JS 4360-4530
+// Two sections: Portfolio (yellow) + Watchlist (green)
+// Two views: List (default tables) + Themes (grouped by subtheme with rank)
+// Rank metrics: Chg% / RVol / RS / CR% / Open%
+// Theme groups computed client-side from dashboard_data.json themes field.
+// ──────────────────────────────────────────────────────────────────────────
+
+const RANK_METRICS = [
+  { key: "change", label: "Chg%" },
+  { key: "rvol", label: "RVol" },
+  { key: "rs", label: "RS" },
+  { key: "cr", label: "CR%" },
+  { key: "chgOpen", label: "Open%" },
+];
+
+function Watchlist({ stockMap, onTickerClick }) {
+  const [view, setView] = useState(
+    () => localStorage.getItem("themepulse-pw-view") || "themes"
+  );
+  const [rankBy, setRankBy] = useState(
+    () => localStorage.getItem("themepulse-pw-rankby") || "change"
+  );
+  const [portfolio, setPortfolio] = useState(() => {
     try {
-      const saved = localStorage.getItem("themepulse-watchlist");
-      if (saved) return JSON.parse(saved);
+      const s = localStorage.getItem("themepulse-portfolio");
+      if (s) return JSON.parse(s);
+    } catch {}
+    return [];
+  });
+  const [watchlist, setWatchlist] = useState(() => {
+    try {
+      const s = localStorage.getItem("themepulse-watchlist");
+      if (s) return JSON.parse(s);
     } catch {}
     return ["AAPL", "NVDA", "TSLA", "MSFT", "META"];
   });
-  const [input, setInput] = useState("");
+  const [pInput, setPInput] = useState("");
+  const [wInput, setWInput] = useState("");
+  const [expandedThemes, setExpandedThemes] = useState(() => new Set());
 
-  useEffect(() => {
-    localStorage.setItem("themepulse-watchlist", JSON.stringify(tickers));
-  }, [tickers]);
-
-  const { quotes } = useLiveQuotes(tickers, 60000);
-
-  const addTicker = useCallback(() => {
-    const t = input.trim().toUpperCase();
-    if (!t) return;
-    setTickers((prev) => (prev.includes(t) ? prev : [...prev, t]));
-    setInput("");
-  }, [input]);
-  const removeTicker = useCallback((t) => {
-    setTickers((prev) => prev.filter((x) => x !== t));
+  const setViewPersist = useCallback((v) => {
+    setView(v);
+    localStorage.setItem("themepulse-pw-view", v);
+  }, []);
+  const setRankByPersist = useCallback((k) => {
+    setRankBy(k);
+    localStorage.setItem("themepulse-pw-rankby", k);
   }, []);
 
-  const fmtChg = (v) =>
-    v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+  useEffect(() => {
+    localStorage.setItem("themepulse-portfolio", JSON.stringify(portfolio));
+  }, [portfolio]);
+  useEffect(() => {
+    localStorage.setItem("themepulse-watchlist", JSON.stringify(watchlist));
+  }, [watchlist]);
+
+  const addPortfolio = useCallback(() => {
+    const t = pInput.trim().toUpperCase();
+    if (!t) return;
+    setPortfolio((prev) => (prev.includes(t) ? prev : [...prev, t]));
+    setPInput("");
+  }, [pInput]);
+  const addWatchlist = useCallback(() => {
+    const t = wInput.trim().toUpperCase();
+    if (!t) return;
+    setWatchlist((prev) => (prev.includes(t) ? prev : [...prev, t]));
+    setWInput("");
+  }, [wInput]);
+  const removeTicker = useCallback((list, t) => {
+    if (list === "portfolio") {
+      setPortfolio((prev) => prev.filter((x) => x !== t));
+    } else {
+      setWatchlist((prev) => prev.filter((x) => x !== t));
+    }
+  }, []);
+
+  // Live quotes for all unique tickers
+  const allTickers = useMemo(() => {
+    const set = new Set([...portfolio, ...watchlist]);
+    return Array.from(set);
+  }, [portfolio, watchlist]);
+  const { quotes } = useLiveQuotes(allTickers, 60000);
+
+  // Per-row data merging static + live
+  const buildRow = useCallback(
+    (ticker) => {
+      const s = stockMap?.[ticker] || {};
+      const q = quotes.get(ticker);
+      const price = q?.price ?? s.price ?? s.close ?? null;
+      const open = q?.open ?? null;
+      const high = q?.high ?? null;
+      const low = q?.low ?? null;
+      const liveVol = q?.volume ?? null;
+      const avgVol = s.avg_volume_raw || 0;
+      const change = q?.change ?? s.change_pct ?? 0;
+      const chgOpen =
+        open != null && open > 0
+          ? Math.round(((price - open) / open) * 10000) / 100
+          : null;
+      const cr =
+        high != null && low != null && high > low
+          ? Math.round(((price - low) / (high - low)) * 100)
+          : null;
+      const rvol =
+        liveVol && avgVol > 0
+          ? Math.round((liveVol / avgVol) * 100) / 100
+          : s.rel_volume || 0;
+      return {
+        ticker,
+        price,
+        change,
+        chgOpen,
+        cr,
+        rvol,
+        rs: s.rs_rank || 0,
+        accel: s.accel || 0,
+        grade: s.grade || "",
+        theme: (s.themes && s.themes[0] && s.themes[0].theme) || s.sector || "",
+        subtheme:
+          (s.themes && s.themes[0] && s.themes[0].subtheme) || s.industry || "",
+      };
+    },
+    [stockMap, quotes]
+  );
+
+  const portRows = useMemo(
+    () => portfolio.map(buildRow),
+    [portfolio, buildRow]
+  );
+  const watchRows = useMemo(
+    () => watchlist.map(buildRow),
+    [watchlist, buildRow]
+  );
+
+  // Theme groups for Themes view: group all rows by subtheme
+  const themeGroups = useMemo(() => {
+    const all = [...portRows, ...watchRows];
+    const dedup = new Map();
+    all.forEach((r) => {
+      if (!dedup.has(r.ticker)) dedup.set(r.ticker, r);
+    });
+    const byTheme = new Map();
+    dedup.forEach((r) => {
+      const key = r.subtheme || "Other";
+      if (!byTheme.has(key)) {
+        byTheme.set(key, {
+          name: key,
+          theme: r.theme,
+          rows: [],
+        });
+      }
+      byTheme.get(key).rows.push(r);
+    });
+    const groups = Array.from(byTheme.values());
+    groups.forEach((g) => {
+      const n = g.rows.length;
+      if (!n) return;
+      const sum = (k) => g.rows.reduce((acc, r) => acc + (r[k] || 0), 0);
+      g.avgChg = sum("change") / n;
+      g.avgChgOpen = sum("chgOpen") / n;
+      g.avgRvol = sum("rvol") / n;
+      g.avgRs = Math.round(sum("rs") / n);
+      g.avgCr = Math.round(sum("cr") / n);
+      g.count = n;
+    });
+    return groups;
+  }, [portRows, watchRows]);
+
+  const rankVal = useCallback(
+    (r) => {
+      switch (rankBy) {
+        case "rvol":
+          return r.rvol || 0;
+        case "rs":
+          return r.rs || 0;
+        case "cr":
+          return r.cr || 0;
+        case "chgOpen":
+          return r.chgOpen || 0;
+        default:
+          return r.change || 0;
+      }
+    },
+    [rankBy]
+  );
+
+  const fmtRank = useCallback(
+    (r) => {
+      const v = rankVal(r);
+      switch (rankBy) {
+        case "rvol":
+          return v.toFixed(1) + "x";
+        case "rs":
+          return "RS" + Math.round(v);
+        case "cr":
+          return Math.round(v) + "%";
+        case "chgOpen":
+        default:
+          return (v > 0 ? "+" : "") + v.toFixed(1) + "%";
+      }
+    },
+    [rankBy, rankVal]
+  );
+
+  const themeAvg = useCallback(
+    (g) => {
+      switch (rankBy) {
+        case "rvol":
+          return g.avgRvol || 0;
+        case "rs":
+          return g.avgRs || 0;
+        case "cr":
+          return g.avgCr || 0;
+        case "chgOpen":
+          return g.avgChgOpen || 0;
+        default:
+          return g.avgChg || 0;
+      }
+    },
+    [rankBy]
+  );
+
+  const sortedGroups = useMemo(() => {
+    return themeGroups.slice().sort((a, b) => themeAvg(b) - themeAvg(a));
+  }, [themeGroups, themeAvg]);
+
   const colorChg = (v) =>
     v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const fmtChg = (v) =>
+    v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+
+  // ── List view: simple table for one section ──
+  const SectionTable = ({ rows, accent, list, onAddInput, onAddSubmit, addInput, count }) => (
+    <div style={{ padding: "6px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <span
+          style={{
+            color: accent,
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}
+        >
+          {list === "portfolio" ? "Portfolio" : "Watchlist"}
+        </span>
+        <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
+        <input
+          value={addInput}
+          onChange={(e) => onAddInput(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && onAddSubmit()}
+          placeholder="Add..."
+          style={{
+            marginLeft: "auto",
+            width: 50,
+            fontSize: 9,
+            padding: "1px 4px",
+            background: ARIA.bg,
+            border: `1px solid ${ARIA.border}`,
+            borderRadius: 3,
+            color: ARIA.textDim,
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+            outline: "none",
+          }}
+        />
+        <button
+          onClick={onAddSubmit}
+          style={{
+            fontSize: 9,
+            padding: "1px 5px",
+            borderRadius: 3,
+            cursor: "pointer",
+            background: `${accent}26`,
+            border: `1px solid ${accent}`,
+            color: accent,
+          }}
+        >
+          +
+        </button>
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ color: ARIA.textMuted, fontSize: 8, padding: "2px 0" }}>
+          Empty
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {rows.map((r) => (
+            <div
+              key={r.ticker}
+              style={{
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+                fontSize: 9,
+              }}
+            >
+              <span
+                onClick={() => onTickerClick && onTickerClick(r.ticker)}
+                style={{
+                  fontWeight: 700,
+                  color: ARIA.text,
+                  cursor: "pointer",
+                  minWidth: 48,
+                }}
+              >
+                {r.ticker}
+              </span>
+              <span style={{ color: ARIA.textDim, minWidth: 50 }}>
+                {r.price != null ? "$" + r.price.toFixed(2) : "—"}
+              </span>
+              <span
+                style={{
+                  color: colorChg(r.change),
+                  fontWeight: 700,
+                  minWidth: 56,
+                }}
+              >
+                {fmtChg(r.change)}
+              </span>
+              <span
+                style={{
+                  color: ARIA.cyan,
+                  fontSize: 7,
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={r.subtheme}
+              >
+                {r.subtheme || "—"}
+              </span>
+              <button
+                onClick={() => removeTicker(list, r.ticker)}
+                title="Remove"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: ARIA.textMuted,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Themes view ──
+  const renderThemes = () => {
+    if (sortedGroups.length === 0) {
+      return (
+        <div
+          style={{
+            color: ARIA.textMuted,
+            fontSize: 9,
+            padding: 8,
+          }}
+        >
+          Add watchlist tickers first.
+        </div>
+      );
+    }
+
+    // Global rank across all rows for per-ticker rank pills
+    const allRows = [];
+    sortedGroups.forEach((g) => g.rows.forEach((r) => allRows.push(r)));
+    const globalRanked = allRows.slice().sort((a, b) => rankVal(b) - rankVal(a));
+    const globalRankMap = {};
+    globalRanked.forEach((r, i) => (globalRankMap[r.ticker] = i + 1));
+
+    return sortedGroups.map((g) => {
+      const isPos = (g.avgChg || 0) >= 0;
+      const barW = Math.min(100, (Math.abs(g.avgChg || 0) / 3) * 100);
+      const isExp = expandedThemes.has(g.name);
+      const sortedTk = g.rows.slice().sort((a, b) => rankVal(b) - rankVal(a));
+      const maxShow = isExp ? 999 : 10;
+      const shown = sortedTk.slice(0, maxShow);
+      const hidden = sortedTk.length - shown.length;
+
+      return (
+        <div
+          key={g.name}
+          style={{
+            borderBottom: `1px solid ${ARIA.border}`,
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${barW}%`,
+              background: isPos
+                ? "rgba(43,184,134,0.08)"
+                : "rgba(248,113,113,0.08)",
+              pointerEvents: "none",
+            }}
+          />
+          <div style={{ padding: "6px 8px", position: "relative" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 4,
+                marginBottom: 3,
+              }}
+            >
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: 10,
+                  color: ARIA.text,
+                }}
+              >
+                {g.name}
+              </span>
+              {g.theme && g.theme !== g.name && (
+                <span
+                  style={{
+                    fontSize: 8,
+                    color: ARIA.textMuted,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {g.theme}
+                </span>
+              )}
+              <span style={{ fontSize: 8, color: ARIA.textMuted }}>
+                ({g.count})
+              </span>
+            </div>
+            {/* Aggregate stats row */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                fontSize: 8,
+                marginBottom: 4,
+              }}
+            >
+              <span
+                style={{
+                  color: colorChg(g.avgChg),
+                  fontWeight: 700,
+                }}
+              >
+                {(g.avgChg > 0 ? "+" : "") + (g.avgChg || 0).toFixed(2) + "%"}
+                <span
+                  style={{
+                    fontSize: 7,
+                    color: ARIA.textMuted,
+                    display: "block",
+                  }}
+                >
+                  AVG CHG
+                </span>
+              </span>
+              <span
+                style={{
+                  color: g.avgRvol >= 1.5 ? ARIA.purple : ARIA.textMuted,
+                }}
+              >
+                {(g.avgRvol || 0).toFixed(1) + "x"}
+                <span
+                  style={{
+                    fontSize: 7,
+                    color: ARIA.textMuted,
+                    display: "block",
+                  }}
+                >
+                  RVOL
+                </span>
+              </span>
+              {g.avgCr != null && (
+                <span
+                  style={{
+                    color:
+                      g.avgCr >= 70
+                        ? ARIA.green
+                        : g.avgCr >= 40
+                        ? ARIA.textDim
+                        : ARIA.red,
+                  }}
+                >
+                  {g.avgCr + "%"}
+                  <span
+                    style={{
+                      fontSize: 7,
+                      color: ARIA.textMuted,
+                      display: "block",
+                    }}
+                  >
+                    CR%
+                  </span>
+                </span>
+              )}
+              <span
+                style={{
+                  color:
+                    g.avgRs >= 80
+                      ? ARIA.green
+                      : g.avgRs >= 50
+                      ? ARIA.text
+                      : ARIA.red,
+                }}
+              >
+                {g.avgRs}
+                <span
+                  style={{
+                    fontSize: 7,
+                    color: ARIA.textMuted,
+                    display: "block",
+                  }}
+                >
+                  AVG RS
+                </span>
+              </span>
+            </div>
+            {/* Ranked ticker pills */}
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 3,
+                alignItems: "center",
+              }}
+            >
+              {shown.map((r, i) => {
+                const rank = i + 1;
+                const gRank = globalRankMap[r.ticker] || "—";
+                const rankC =
+                  rank <= 3
+                    ? ARIA.yellow
+                    : rank <= 5
+                    ? ARIA.textDim
+                    : ARIA.textMuted;
+                const gRankC =
+                  gRank <= 10
+                    ? ARIA.cyan
+                    : gRank <= 25
+                    ? ARIA.textDim
+                    : ARIA.textMuted;
+                const chgC = colorChg(r.change);
+                const bg =
+                  r.change >= 0
+                    ? "rgba(43,184,134,0.12)"
+                    : "rgba(248,113,113,0.12)";
+                const bd =
+                  r.change >= 0
+                    ? "rgba(43,184,134,0.25)"
+                    : "rgba(248,113,113,0.25)";
+                return (
+                  <span
+                    key={r.ticker}
+                    onClick={() => onTickerClick && onTickerClick(r.ticker)}
+                    style={{
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "baseline",
+                      gap: 2,
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                      fontSize: 9,
+                      background: bg,
+                      border: `1px solid ${bd}`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 7,
+                        color: rankC,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {rank}
+                    </span>
+                    <span
+                      style={{ fontSize: 6, color: gRankC }}
+                      title={`Global rank #${gRank}`}
+                    >
+                      #{gRank}
+                    </span>
+                    <span style={{ fontWeight: 600, color: chgC }}>
+                      {r.ticker}
+                    </span>
+                    <span style={{ fontSize: 8, color: chgC }}>
+                      {fmtRank(r)}
+                    </span>
+                  </span>
+                );
+              })}
+              {hidden > 0 && (
+                <span
+                  onClick={() =>
+                    setExpandedThemes((prev) => {
+                      const next = new Set(prev);
+                      next.add(g.name);
+                      return next;
+                    })
+                  }
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 8,
+                    padding: "1px 5px",
+                    borderRadius: 3,
+                    border: `1px solid ${ARIA.border}`,
+                    color: ARIA.textMuted,
+                  }}
+                >
+                  +{hidden} more
+                </span>
+              )}
+              {isExp && sortedTk.length > 10 && (
+                <span
+                  onClick={() =>
+                    setExpandedThemes((prev) => {
+                      const next = new Set(prev);
+                      next.delete(g.name);
+                      return next;
+                    })
+                  }
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 8,
+                    padding: "1px 5px",
+                    borderRadius: 3,
+                    border: `1px solid ${ARIA.border}`,
+                    color: ARIA.textMuted,
+                  }}
+                >
+                  collapse
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
 
   return (
     <div
@@ -2564,9 +3190,10 @@ function Watchlist({ onTickerClick }) {
         overflow: "hidden",
       }}
     >
+      {/* Header with view toggle */}
       <div
         style={{
-          padding: "5px 12px",
+          padding: "6px 10px",
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -2584,108 +3211,162 @@ function Watchlist({ onTickerClick }) {
         >
           Watchlist
         </span>
-        <span style={{ fontSize: 8, color: ARIA.textMuted }}>
-          ({tickers.length})
-        </span>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && addTicker()}
-          placeholder="+ ticker"
-          style={{
-            marginLeft: "auto",
-            width: 90,
-            fontSize: 9,
-            padding: "2px 6px",
-            background: ARIA.bg,
-            border: `1px solid ${ARIA.border}`,
-            borderRadius: 3,
-            color: ARIA.text,
-            fontFamily: "monospace",
-            outline: "none",
-          }}
-        />
-        <button onClick={addTicker} style={pillStyle(true, ARIA.green)}>
-          Add
-        </button>
-      </div>
-      <div
-        style={{
-          fontSize: 10,
-          fontFamily: "monospace",
-          maxHeight: 280,
-          overflowY: "auto",
-        }}
-      >
-        {tickers.length === 0 && (
-          <div
+        <div style={{ display: "flex", gap: 0, marginLeft: "auto" }}>
+          <button
+            onClick={() => setViewPersist("list")}
             style={{
-              padding: 12,
-              color: ARIA.textMuted,
-              fontSize: 9,
-              textAlign: "center",
+              fontSize: 8,
+              padding: "2px 6px",
+              borderRadius: "3px 0 0 3px",
+              cursor: "pointer",
+              fontFamily: "monospace",
+              border: `1px solid ${view === "list" ? ARIA.green : ARIA.border}`,
+              color: view === "list" ? ARIA.green : ARIA.textMuted,
+              background: view === "list" ? ARIA.glowGreen : "transparent",
             }}
           >
-            Empty — add tickers above
-          </div>
-        )}
-        {tickers.map((t) => {
-          const q = quotes.get(t);
-          const chg = q?.change ?? null;
-          return (
-            <div
-              key={t}
+            List
+          </button>
+          <button
+            onClick={() => setViewPersist("themes")}
+            style={{
+              fontSize: 8,
+              padding: "2px 6px",
+              borderRadius: "0 3px 3px 0",
+              cursor: "pointer",
+              fontFamily: "monospace",
+              border: `1px solid ${view === "themes" ? ARIA.green : ARIA.border}`,
+              color: view === "themes" ? ARIA.green : ARIA.textMuted,
+              background: view === "themes" ? ARIA.glowGreen : "transparent",
+            }}
+          >
+            Themes
+          </button>
+        </div>
+      </div>
+
+      {/* List view */}
+      {view === "list" && (
+        <div
+          style={{
+            maxHeight: 320,
+            overflowY: "auto",
+            fontFamily: "monospace",
+          }}
+        >
+          <SectionTable
+            rows={portRows}
+            accent={ARIA.yellow}
+            list="portfolio"
+            count={portfolio.length}
+            addInput={pInput}
+            onAddInput={setPInput}
+            onAddSubmit={addPortfolio}
+          />
+          <SectionTable
+            rows={watchRows}
+            accent={ARIA.green}
+            list="watchlist"
+            count={watchlist.length}
+            addInput={wInput}
+            onAddInput={setWInput}
+            onAddSubmit={addWatchlist}
+          />
+        </div>
+      )}
+
+      {/* Themes view */}
+      {view === "themes" && (
+        <div>
+          {/* Rank toggle row */}
+          <div
+            style={{
+              padding: "4px 8px",
+              borderBottom: `1px solid ${ARIA.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span
               style={{
-                padding: "5px 12px",
-                borderBottom: `1px solid ${ARIA.border}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
+                fontSize: 8,
+                color: ARIA.textMuted,
+                textTransform: "uppercase",
               }}
             >
-              <span
-                onClick={() => onTickerClick && onTickerClick(t)}
-                style={{
-                  fontWeight: 700,
-                  color: ARIA.text,
-                  cursor: "pointer",
-                  minWidth: 50,
-                }}
+              Rank by
+            </span>
+            {RANK_METRICS.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setRankByPersist(m.key)}
+                style={pillStyle(rankBy === m.key, ARIA.green)}
               >
-                {t}
-              </span>
-              <span style={{ color: ARIA.textDim, minWidth: 60 }}>
-                {q?.price != null ? "$" + q.price.toFixed(2) : "—"}
-              </span>
-              <span
-                style={{
-                  color: colorChg(chg),
-                  fontWeight: 700,
-                  minWidth: 60,
-                }}
-              >
-                {fmtChg(chg)}
-              </span>
-              <span style={{ marginLeft: "auto" }}>
-                <button
-                  onClick={() => removeTicker(t)}
-                  title="Remove"
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: ARIA.textMuted,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    padding: 0,
-                  }}
-                >
-                  ×
-                </button>
-              </span>
-            </div>
-          );
-        })}
-      </div>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {/* Quick add bar (themes view doesn't show List sections) */}
+          <div
+            style={{
+              padding: "4px 8px",
+              borderBottom: `1px solid ${ARIA.border}`,
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              fontSize: 9,
+              fontFamily: "monospace",
+            }}
+          >
+            <input
+              value={wInput}
+              onChange={(e) => setWInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && addWatchlist()}
+              placeholder="+ ticker"
+              style={{
+                flex: 1,
+                fontSize: 9,
+                padding: "2px 6px",
+                background: ARIA.bg,
+                border: `1px solid ${ARIA.border}`,
+                borderRadius: 3,
+                color: ARIA.text,
+                fontFamily: "monospace",
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={addWatchlist}
+              style={pillStyle(true, ARIA.green)}
+            >
+              +WL
+            </button>
+            <button
+              onClick={() => {
+                const t = wInput.trim().toUpperCase();
+                if (!t) return;
+                setPortfolio((prev) =>
+                  prev.includes(t) ? prev : [...prev, t]
+                );
+                setWInput("");
+              }}
+              style={pillStyle(true, ARIA.yellow)}
+            >
+              +PF
+            </button>
+          </div>
+          <div
+            style={{
+              maxHeight: 320,
+              overflowY: "auto",
+              fontFamily: "monospace",
+            }}
+          >
+            {renderThemes()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3119,6 +3800,13 @@ function AppMain() {
   }
 
   const stocks = data.pipeline?.stocks || [];
+  const stockMap = useMemo(() => {
+    const m = {};
+    stocks.forEach((s) => {
+      if (s.ticker) m[s.ticker] = s;
+    });
+    return m;
+  }, [stocks]);
 
   return (
     <div
@@ -3225,7 +3913,7 @@ function AppMain() {
             gap: 8,
           }}
         >
-          <Watchlist onTickerClick={handleTickerClick} />
+          <Watchlist stockMap={stockMap} onTickerClick={handleTickerClick} />
           <TQQQPanel />
         </div>
       </div>
