@@ -2029,6 +2029,46 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
 // (LWChart loader removed in Phase 2.7 — the legacy LWChart in
 //  src/LWChartLegacy.jsx has its own loadLW() helper that we delegate to.)
 
+// Cross-component pub/sub for portfolio + watchlist sync. Whenever any
+// component mutates `themepulse-portfolio` or `themepulse-watchlist` in
+// localStorage, it dispatches `tp-pw-changed` so all subscribers re-read.
+function useLocalStorageList(key) {
+  const [list, setList] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key) || "[]");
+    } catch {
+      return [];
+    }
+  });
+  // Subscribe to updates from any component (or other tabs via storage event)
+  useEffect(() => {
+    const reread = () => {
+      try {
+        setList(JSON.parse(localStorage.getItem(key) || "[]"));
+      } catch {
+        setList([]);
+      }
+    };
+    window.addEventListener("tp-pw-changed", reread);
+    window.addEventListener("storage", reread);
+    return () => {
+      window.removeEventListener("tp-pw-changed", reread);
+      window.removeEventListener("storage", reread);
+    };
+  }, [key]);
+  // Setter writes to localStorage and notifies other subscribers
+  const update = useCallback(
+    (next) => {
+      const value = typeof next === "function" ? next(list) : next;
+      localStorage.setItem(key, JSON.stringify(value));
+      setList(value);
+      window.dispatchEvent(new CustomEvent("tp-pw-changed"));
+    },
+    [key, list]
+  );
+  return [list, update];
+}
+
 // Aria-style colored mini-badge (used in chart header for 9M / VOL / HI / Grade)
 const badgeStyle = (color) => ({
   fontSize: 9,
@@ -2176,52 +2216,21 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
   const adr = stockInfo.adr_pct ?? null;
   const erDate = stockInfo.earnings_display || "";
 
-  // Portfolio/Watchlist add/remove (mirrors Aria's +WL / +PF buttons)
-  const [portfolio, setPortfolio] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]");
-    } catch {
-      return [];
-    }
-  });
-  const [watchlist, setWatchlist] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]");
-    } catch {
-      return [];
-    }
-  });
-  // Re-read on every render so adds from Watchlist component sync (cheap)
-  useEffect(() => {
-    const sync = () => {
-      try {
-        setPortfolio(JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]"));
-        setWatchlist(JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]"));
-      } catch {}
-    };
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
-  }, []);
+  // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
+  const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
   const inPF = portfolio.includes(ticker);
   const inWL = watchlist.includes(ticker);
   const toggleWL = useCallback(() => {
-    setWatchlist((prev) => {
-      const next = prev.includes(ticker)
-        ? prev.filter((x) => x !== ticker)
-        : [...prev, ticker];
-      localStorage.setItem("themepulse-watchlist", JSON.stringify(next));
-      return next;
-    });
-  }, [ticker]);
+    setWatchlist((prev) =>
+      prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
+    );
+  }, [ticker, setWatchlist]);
   const togglePF = useCallback(() => {
-    setPortfolio((prev) => {
-      const next = prev.includes(ticker)
-        ? prev.filter((x) => x !== ticker)
-        : [...prev, ticker];
-      localStorage.setItem("themepulse-portfolio", JSON.stringify(next));
-      return next;
-    });
-  }, [ticker]);
+    setPortfolio((prev) =>
+      prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
+    );
+  }, [ticker, setPortfolio]);
 
   const submitTicker = () => {
     const t = tickerInput.trim().toUpperCase();
@@ -2608,20 +2617,9 @@ function Watchlist({ stockMap, onTickerClick }) {
   const [rankBy, setRankBy] = useState(
     () => localStorage.getItem("themepulse-pw-rankby") || "change"
   );
-  const [portfolio, setPortfolio] = useState(() => {
-    try {
-      const s = localStorage.getItem("themepulse-portfolio");
-      if (s) return JSON.parse(s);
-    } catch {}
-    return [];
-  });
-  const [watchlist, setWatchlist] = useState(() => {
-    try {
-      const s = localStorage.getItem("themepulse-watchlist");
-      if (s) return JSON.parse(s);
-    } catch {}
-    return ["AAPL", "NVDA", "TSLA", "MSFT", "META"];
-  });
+  // Shared hook so chart header +WL/+PF buttons stay in sync with this panel
+  const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
   const [pInput, setPInput] = useState("");
   const [wInput, setWInput] = useState("");
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
@@ -2634,13 +2632,6 @@ function Watchlist({ stockMap, onTickerClick }) {
     setRankBy(k);
     localStorage.setItem("themepulse-pw-rankby", k);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("themepulse-portfolio", JSON.stringify(portfolio));
-  }, [portfolio]);
-  useEffect(() => {
-    localStorage.setItem("themepulse-watchlist", JSON.stringify(watchlist));
-  }, [watchlist]);
 
   const addPortfolio = useCallback(() => {
     const t = pInput.trim().toUpperCase();
