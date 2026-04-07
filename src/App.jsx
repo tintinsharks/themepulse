@@ -2070,6 +2070,44 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
   const [tickerInput, setTickerInput] = useState("");
 
+  // Draggable split between daily (left) and intraday (right) panes.
+  // Stored as a 0..1 fraction of the chart body width assigned to the LEFT.
+  // Default 0.55 ≈ Aria's flex 6/(6+5).
+  const [splitFrac, setSplitFrac] = useState(() => {
+    const saved = parseFloat(localStorage.getItem("themepulse-chart-split") || "");
+    return Number.isFinite(saved) && saved > 0.15 && saved < 0.85 ? saved : 0.55;
+  });
+  const chartBodyRef = React.useRef(null);
+  const startDrag = useCallback((e) => {
+    e.preventDefault();
+    const body = chartBodyRef.current;
+    if (!body) return;
+    const rect = body.getBoundingClientRect();
+    function onMove(ev) {
+      const x = (ev.clientX || 0) - rect.left;
+      const f = Math.max(0.15, Math.min(0.85, x / rect.width));
+      setSplitFrac(f);
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      // Persist after drag ends
+      try {
+        const body2 = chartBodyRef.current;
+        if (body2) {
+          const r2 = body2.getBoundingClientRect();
+          // Read latest splitFrac via DOM measurement
+        }
+      } catch {}
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+  // Persist whenever splitFrac changes
+  useEffect(() => {
+    localStorage.setItem("themepulse-chart-split", String(splitFrac));
+  }, [splitFrac]);
+
   const dailyInterval = tf === "W" ? "1d" : "1d";
   const intradayInterval = intradayTf === "30m" ? "30m" : "5m";
 
@@ -2452,27 +2490,28 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
         )}
       </div>
 
-      {/* Body: dual-pane chart split — uses verbatim legacy LWChart +
-          IntradayChart for full indicator parity (EMAs, ATR-X, CR%, RS line,
-          ORB, ZVR, etc). See src/LWChartLegacy.jsx. Each pane is wrapped in
-          its own ErrorBoundary so a chart crash can't take down the whole
-          page. */}
+      {/* Body: dual-pane chart split with draggable divider.
+          splitFrac controls how much horizontal space the LEFT pane gets
+          (0.15 .. 0.85). Persisted to localStorage so the choice survives
+          reloads. Each pane is in its own ErrorBoundary so a chart crash
+          can't take down the page. */}
       <div
+        ref={chartBodyRef}
         style={{
           display: "flex",
           gap: 0,
           height,
+          position: "relative",
         }}
       >
         {/* Left pane: Daily/Weekly chart with all indicators */}
         <div
           style={{
-            flex: 6,
+            width: `${splitFrac * 100}%`,
             display: "flex",
             flexDirection: "column",
             minWidth: 100,
             overflow: "hidden",
-            borderRight: `1px solid ${ARIA.border}`,
             position: "relative",
           }}
         >
@@ -2480,11 +2519,44 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
             <LegacyLWChart ticker={ticker} tf={tf} />
           </ErrorBoundary>
         </div>
-        {/* Right pane: 5m/30m intraday with ORB highlight (PM Vol + ZVR
-            panes removed). Bumped to flex 5 (was 3) per user request. */}
+
+        {/* Draggable divider — matches Aria's chart-split-divider */}
+        <div
+          onMouseDown={startDrag}
+          style={{
+            width: 6,
+            cursor: "col-resize",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+            zIndex: 5,
+            userSelect: "none",
+          }}
+          onMouseEnter={(e) => {
+            const inner = e.currentTarget.firstChild;
+            if (inner) inner.style.background = ARIA.green;
+          }}
+          onMouseLeave={(e) => {
+            const inner = e.currentTarget.firstChild;
+            if (inner) inner.style.background = ARIA.border;
+          }}
+        >
+          <div
+            style={{
+              width: 1,
+              height: "100%",
+              background: ARIA.border,
+              transition: "background 0.15s",
+            }}
+          />
+        </div>
+
+        {/* Right pane: 5m/30m intraday with ORB highlight */}
         <div
           style={{
-            flex: 5,
+            width: `${(1 - splitFrac) * 100}%`,
             display: "flex",
             flexDirection: "column",
             minWidth: 100,
