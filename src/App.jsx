@@ -2140,11 +2140,28 @@ function CSStat({ label, v, clr, ARIA }) {
 //
 // Aria reference: dashboard.html lines 3725-3791
 
-function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
+function ChartPanelInline({
+  ticker,
+  onTickerChange,
+  height = 580,
+  stockMap,
+  // Agent picks data — when present, the right pane gets a Chart/Picks subtab
+  rvolPicks,
+  pmPicks,
+  ahPicks,
+}) {
   const ARIA = useAriaTheme();
   const [tf, setTf] = useState("D"); // "D" or "W"
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
   const [tickerInput, setTickerInput] = useState("");
+  // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
+  const [rightTab, setRightTab] = useState(
+    () => localStorage.getItem("themepulse-chart-righttab") || "chart"
+  );
+  const setRightTabPersist = useCallback((t) => {
+    setRightTab(t);
+    localStorage.setItem("themepulse-chart-righttab", t);
+  }, []);
 
   // Draggable split between daily (left) and intraday (right) panes.
   // Stored as a 0..1 fraction of the chart body width assigned to the LEFT.
@@ -2598,7 +2615,7 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
           />
         </div>
 
-        {/* Right pane: 5m/30m intraday with ORB highlight */}
+        {/* Right pane: subtab between intraday chart and agent picks */}
         <div
           style={{
             width: `${(1 - splitFrac) * 100}%`,
@@ -2609,9 +2626,86 @@ function ChartPanelInline({ ticker, onTickerChange, height = 580, stockMap }) {
             position: "relative",
           }}
         >
-          <ErrorBoundary>
-            <LegacyIntradayChart ticker={ticker} />
-          </ErrorBoundary>
+          {/* Subtab bar */}
+          <div
+            style={{
+              display: "flex",
+              gap: 0,
+              padding: "4px 8px",
+              borderBottom: `1px solid ${ARIA.border}`,
+              background: ARIA.bgCard,
+              flexShrink: 0,
+            }}
+          >
+            <button
+              onClick={() => setRightTabPersist("chart")}
+              style={{
+                fontSize: 9,
+                padding: "3px 10px",
+                borderRadius: "4px 0 0 4px",
+                cursor: "pointer",
+                fontFamily: "monospace",
+                fontWeight: 700,
+                border: `1px solid ${
+                  rightTab === "chart" ? ARIA.green : ARIA.border
+                }`,
+                color: rightTab === "chart" ? ARIA.green : ARIA.textMuted,
+                background:
+                  rightTab === "chart" ? ARIA.glowGreen : "transparent",
+              }}
+            >
+              CHART
+            </button>
+            <button
+              onClick={() => setRightTabPersist("picks")}
+              style={{
+                fontSize: 9,
+                padding: "3px 10px",
+                borderRadius: "0 4px 4px 0",
+                cursor: "pointer",
+                fontFamily: "monospace",
+                fontWeight: 700,
+                border: `1px solid ${
+                  rightTab === "picks" ? ARIA.green : ARIA.border
+                }`,
+                borderLeft: "none",
+                color: rightTab === "picks" ? ARIA.green : ARIA.textMuted,
+                background:
+                  rightTab === "picks" ? ARIA.glowGreen : "transparent",
+              }}
+            >
+              AGENT PICKS
+            </button>
+          </div>
+
+          {/* Subtab content */}
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {rightTab === "chart" && (
+              <ErrorBoundary>
+                <LegacyIntradayChart ticker={ticker} />
+              </ErrorBoundary>
+            )}
+            {rightTab === "picks" && (
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                <ErrorBoundary>
+                  <AgentPicks
+                    rvolPicks={rvolPicks}
+                    pmPicks={pmPicks}
+                    ahPicks={ahPicks}
+                    onTickerClick={onTickerChange}
+                  />
+                </ErrorBoundary>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -4157,6 +4251,9 @@ function AppMain() {
             ticker={chartTicker}
             onTickerChange={handleTickerClick}
             stockMap={stockMap}
+            rvolPicks={picks.rvolPicks}
+            pmPicks={picks.pmPicks}
+            ahPicks={picks.ahPicks}
           />
           <div style={{ width: 340, flexShrink: 0, minWidth: 280 }}>
             <ScanWatch
@@ -4166,13 +4263,8 @@ function AppMain() {
           </div>
         </div>
 
-        {/* Agent Picks (full width below chart row) */}
-        <AgentPicks
-          rvolPicks={picks.rvolPicks}
-          pmPicks={picks.pmPicks}
-          ahPicks={picks.ahPicks}
-          onTickerClick={handleTickerClick}
-        />
+        {/* Agent Picks moved into ChartPanelInline as a right-pane subtab.
+            See ChartPanelInline rightTab state. */}
 
         {/* Bottom row: Watchlist + TQQQ */}
         <div
