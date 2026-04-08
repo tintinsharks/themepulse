@@ -39,6 +39,8 @@ const AriaThemeContext = React.createContext({
   ARIA: ARIA_DARK,
   themeMode: "dark",
   toggleTheme: () => {},
+  zoom: 1,
+  changeZoom: () => {},
 });
 
 function useAriaTheme() {
@@ -3937,7 +3939,7 @@ function AppMain() {
   // which caused React error #310 ("Rendered more hooks than during the
   // previous render") on the loading→loaded transition.
   const ARIA = useAriaTheme();
-  const { themeMode, toggleTheme } = useAriaThemeControls();
+  const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
   const picks = usePicks(60000); // refresh picks every 60s
 
@@ -4077,6 +4079,56 @@ function AppMain() {
           >
             {themeMode === "dark" ? "Light" : "Dark"}
           </button>
+          {/* A-/A+ text size buttons (Aria-faithful, persisted) */}
+          <div style={{ display: "flex" }}>
+            <button
+              onClick={() => changeZoom(-1)}
+              title="Decrease text size"
+              style={{
+                background: "transparent",
+                border: `1px solid ${ARIA.border}`,
+                borderRight: "none",
+                color: ARIA.textDim,
+                padding: "4px 6px",
+                borderRadius: "4px 0 0 4px",
+                cursor: "pointer",
+                fontFamily: "monospace",
+                fontSize: 10,
+                letterSpacing: 1,
+              }}
+            >
+              A-
+            </button>
+            <button
+              onClick={() => changeZoom(1)}
+              title="Increase text size"
+              style={{
+                background: "transparent",
+                border: `1px solid ${ARIA.border}`,
+                color: ARIA.textDim,
+                padding: "4px 6px",
+                borderRadius: "0 4px 4px 0",
+                cursor: "pointer",
+                fontFamily: "monospace",
+                fontSize: 10,
+                letterSpacing: 1,
+              }}
+            >
+              A+
+            </button>
+          </div>
+          <span
+            style={{
+              fontSize: 9,
+              color: ARIA.textMuted,
+              fontFamily: "monospace",
+              minWidth: 28,
+              textAlign: "right",
+            }}
+            title="Current zoom level"
+          >
+            {Math.round(zoom * 100)}%
+          </span>
         </div>
       </div>
 
@@ -4086,6 +4138,7 @@ function AppMain() {
           padding: "12px 16px",
           maxWidth: 1600,
           margin: "0 auto",
+          zoom: zoom,
         }}
       >
         {/* Top: Market Breadth Bar (full width) */}
@@ -4152,14 +4205,29 @@ export default function App() {
       return next;
     });
   }, []);
+  // Aria-style A-/A+ text size zoom (CSS zoom property, persisted in localStorage)
+  const [zoom, setZoom] = useState(() => {
+    const z = parseFloat(localStorage.getItem("themepulse-zoom") || "1");
+    return Number.isFinite(z) && z >= 0.5 && z <= 2 ? z : 1;
+  });
+  const changeZoom = useCallback((dir) => {
+    setZoom((cur) => {
+      let next = Math.round((cur + dir * 0.05) * 100) / 100;
+      if (next < 0.5) next = 0.5;
+      if (next > 2) next = 2;
+      localStorage.setItem("themepulse-zoom", String(next));
+      return next;
+    });
+  }, []);
+
   const ARIA = themeMode === "light" ? ARIA_LIGHT : ARIA_DARK;
   // Set body bg so the area outside the maxWidth container also flips
   useEffect(() => {
     document.body.style.background = ARIA.bg;
   }, [ARIA.bg]);
   const ctxValue = useMemo(
-    () => ({ ARIA, themeMode, toggleTheme }),
-    [ARIA, themeMode, toggleTheme]
+    () => ({ ARIA, themeMode, toggleTheme, zoom, changeZoom }),
+    [ARIA, themeMode, toggleTheme, zoom, changeZoom]
   );
   return (
     <AriaThemeContext.Provider value={ctxValue}>
