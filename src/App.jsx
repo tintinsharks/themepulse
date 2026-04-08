@@ -908,10 +908,13 @@ function ScanWatch({ stocks, onTickerClick }) {
       if (filters.minChg > 0 && chg < filters.minChg) continue;
       // RV≥ slider
       if (filters.minRvol > 0 && rvol < filters.minRvol) continue;
-      // 9M tag — today's vol >= 8.9M but avg < 8.9M (unusual institutional)
-      if (want9m) {
-        if (!liveVol || liveVol < 8_900_000 || avgVol >= 8_900_000) continue;
-      }
+      // 9M flag: today's vol >= 8.9M shares but avg < 8.9M (unusual institutional).
+      // Computed for EVERY row so the badge can render even when the 9M
+      // tag filter isn't active. The filter still drops non-matching rows
+      // when toggled on.
+      const is9m =
+        !!(liveVol && liveVol >= 8_900_000 && avgVol < 8_900_000);
+      if (want9m && !is9m) continue;
 
       out.push({
         ticker: s.ticker,
@@ -933,6 +936,7 @@ function ScanWatch({ stocks, onTickerClick }) {
           s.industry ||
           "",
         liveVol: liveVol || 0,
+        is9m,
       });
     }
     // Sort: primary DESC, secondary DESC tiebreaker. String values use locale.
@@ -1454,7 +1458,25 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick })
                   background: ARIA.bgCard,
                 }}
               >
-                {r.ticker}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  {r.ticker}
+                  {r.is9m && (
+                    <span
+                      title="9M — today's volume ≥ 8.9M shares but avg < 8.9M (unusual institutional activity)"
+                      style={{
+                        fontSize: 7,
+                        fontWeight: 800,
+                        color: ARIA.yellow,
+                        border: `1px solid ${ARIA.yellow}`,
+                        background: `${ARIA.yellow}26`,
+                        padding: "0 3px",
+                        borderRadius: 2,
+                      }}
+                    >
+                      9M
+                    </span>
+                  )}
+                </span>
               </td>
               <td style={{ ...bodyCell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
                 {r.qmagScore || "—"}
