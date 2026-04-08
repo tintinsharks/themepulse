@@ -1563,9 +1563,25 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
     });
   }, []);
 
+  // Extract Chg% from a pick. Scanner picks have it embedded in reasoning
+  // ("[RVOL] Chg +12.3% | ..."); PM/AH picks have it as "+12.3%" or
+  // "-4.5%" inside their reasoning string. Returns 0 if not found.
+  const extractChg = (p) => {
+    if (!p) return 0;
+    if (typeof p.chg === "number") return p.chg;
+    const r = p.reasoning || "";
+    // Match "Chg +12.3%" or "+12.3%" or "-4.5%"
+    let m = r.match(/Chg\s*([+-]?\d+(?:\.\d+)?)%/i);
+    if (m) return parseFloat(m[1]);
+    m = r.match(/([+-]\d+(?:\.\d+)?)%/);
+    if (m) return parseFloat(m[1]);
+    return 0;
+  };
+
   // ── Merge picks from the three sources ─────────────────────────────────
-  // PM and AH picks are pinned at the top; RVol fills the rest. Dedupe by
-  // ticker (PM > AH > RVol priority).
+  // Dedupe by ticker (PM > AH > RVol priority for the source label, but the
+  // ALL view sorts by Chg% descending — PM/AH are NOT auto-pinned to top).
+  // The PM/AH/RVol tabs preserve their original posted order.
   const merged = useMemo(() => {
     const seen = new Set();
     const out = [];
@@ -1575,27 +1591,38 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
       for (const p of picks) {
         if (!p || !p.ticker || seen.has(p.ticker)) continue;
         seen.add(p.ticker);
-        out.push({ ...p, source: p.source || source });
+        out.push({
+          ...p,
+          source: p.source || source,
+          _chg: extractChg(p),
+        });
       }
     }
 
     add(pmPicks?.picks, "PM");
     add(ahPicks?.picks, "AH");
     add(rvolPicks?.picks, "RVOL");
-
-    // Renumber ranks 1..N for the merged list
-    out.forEach((p, i) => (p.rank = i + 1));
     return out;
   }, [rvolPicks, pmPicks, ahPicks]);
 
-  // Filter by tab
+  // Filter and sort by tab
   const visible = useMemo(() => {
-    if (tab === "all") return merged;
-    if (tab === "pm") return merged.filter((p) => p.source === "PM");
-    if (tab === "ah") return merged.filter((p) => p.source === "AH");
-    if (tab === "rvol")
-      return merged.filter((p) => p.source === "RVOL" || !p.source);
-    return merged;
+    let arr;
+    if (tab === "all") {
+      // Sort the entire combined list by Chg% descending — no source pinning
+      arr = merged.slice().sort((a, b) => (b._chg || 0) - (a._chg || 0));
+    } else if (tab === "pm") {
+      arr = merged.filter((p) => p.source === "PM");
+    } else if (tab === "ah") {
+      arr = merged.filter((p) => p.source === "AH");
+    } else if (tab === "rvol") {
+      arr = merged.filter((p) => p.source === "RVOL" || !p.source);
+    } else {
+      arr = merged;
+    }
+    // Renumber rank in the visible order so the displayed #1 matches the
+    // top of the current tab/sort
+    return arr.map((p, i) => ({ ...p, rank: i + 1 }));
   }, [merged, tab]);
 
   const commentary = rvolPicks?.commentary || {};
