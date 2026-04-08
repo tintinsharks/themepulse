@@ -2173,6 +2173,8 @@ function AgentPicks({
                     borderLeft: `2px solid ${
                       hasAgents ? sigColor(p.agents.overall) : ARIA.cyan
                     }`,
+                    maxHeight: 360,
+                    overflowY: "auto",
                   }}
                 >
                   {hasAgents && (
