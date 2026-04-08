@@ -31,6 +31,91 @@ async function fmp(endpoint, params = "") {
   }
 }
 
+// ── MAGNA scoring (0-4) — Massive earnings, Acceleration, Gap, Neglect ────
+//
+// Ported from compute_magna in 09r_rvol_catalyst_scan.py. A discrete 0-4
+// quality score where each point is a presence-of-quality bonus.
+//
+// M: EPS or Sales growth >= 25% YoY
+// A: Sales growth >= 40% (acceleration)
+// G: Today's chg >= 4% (gap)
+// N: Institutional ownership 0% < x < 40% (low / "neglected")
+function computeMagna({ epsGrowth, salesGrowth, chgPct, instOwnPct }) {
+  let score = 0;
+  const details = [];
+  const eps = Number(epsGrowth) || 0;
+  const sales = Number(salesGrowth) || 0;
+  const chg = Number(chgPct) || 0;
+  const inst = Number(instOwnPct) || 0;
+  if (eps >= 25 || sales >= 25) {
+    score++;
+    details.push(`M: EPS ${eps.toFixed(0)}%/Sales ${sales.toFixed(0)}%`);
+  }
+  if (sales >= 40) {
+    score++;
+    details.push(`A: Sales accel ${sales.toFixed(0)}%`);
+  }
+  if (chg >= 4) {
+    score++;
+    details.push(`G: Gap +${chg.toFixed(1)}%`);
+  }
+  if (inst > 0 && inst < 40) {
+    score++;
+    details.push(`N: Low inst ${inst.toFixed(0)}%`);
+  }
+  return { score, details };
+}
+
+// ── Directional weighted overall score ────────────────────────────────────
+//
+// Combines the 4 agents + MAGNA into a single 0-100 directional score
+// where 0 = full bearish, 50 = neutral, 100 = full bullish.
+//
+//   For each agent: signedContribution = sigNumeric × (confidence/100) × weight
+//     bullish=+1, neutral=0, bearish=-1
+//   MAGNA: always non-negative (0..4 normalized to 0..1) since it's a
+//     presence-of-quality score, not directional. Counted as bullish bias.
+//
+//   raw = (Σ agentContribs + magnaNorm × magnaWeight) / (Σ weights)
+//   raw is in [-1, +1]
+//   final = round((raw + 1) × 50) → 0..100
+//
+// Weights:
+//   technicals  0.25   highest — price action is the most actionable signal
+//   fundamentals 0.20
+//   sentiment   0.20
+//   attention   0.20
+//   magna       0.15   discrete bonus for high-quality growth + setup
+function directionalScore(agents, magnaScore) {
+  const sigMap = { bullish: 1, neutral: 0, bearish: -1 };
+  const weighted = [
+    { agent: agents.fundamentals, weight: 0.2 },
+    { agent: agents.technicals, weight: 0.25 },
+    { agent: agents.sentiment, weight: 0.2 },
+    { agent: agents.attention, weight: 0.2 },
+  ];
+  const MAGNA_WEIGHT = 0.15;
+
+  let agentSum = 0;
+  let totalWeight = 0;
+  for (const { agent, weight } of weighted) {
+    if (!agent) continue;
+    const sig = sigMap[agent.signal] ?? 0;
+    const conf = (agent.confidence || 0) / 100;
+    agentSum += sig * conf * weight;
+    totalWeight += weight;
+  }
+  // MAGNA contributes a positive bias proportional to its 0-4 score
+  const magnaNorm = Math.max(0, Math.min(4, magnaScore || 0)) / 4;
+  agentSum += magnaNorm * MAGNA_WEIGHT;
+  totalWeight += MAGNA_WEIGHT;
+
+  const raw = totalWeight > 0 ? agentSum / totalWeight : 0;
+  // Map [-1, +1] → [0, 100]
+  const score = Math.round((raw + 1) * 50);
+  return Math.max(0, Math.min(100, score));
+}
+
 // ── Fundamentals agent (port from score_fundamentals) ─────────────────────
 function scoreFundamentals(metricsTtm, ratiosTtm, growth) {
   const m = metricsTtm || {};
@@ -407,7 +492,17 @@ export default async function handler(req, res) {
       researchCatalyst(ticker, q.changePercentage),
     ]);
 
-    // Aggregate overall
+    // MAGNA — uses growth + chg from FMP data we already have. Inst ownership
+    // is left at 0 (would need an extra /institutional-ownership call); the
+    // 'N' bonus point will fire if the user wires that up later.
+    const magna = computeMagna({
+      epsGrowth: ((g0 && g0.epsgrowth) || 0) * 100,
+      salesGrowth: ((g0 && g0.revenueGrowth) || 0) * 100,
+      chgPct: q.changePercentage || 0,
+      instOwnPct: 0,
+    });
+
+    // Aggregate overall (signed bull/bear majority across the 4 agents)
     const sigs = [funds.signal, tech.signal, sent.signal, attn.signal];
     const bull = sigs.filter((s) => s === "bullish").length;
     const bear = sigs.filter((s) => s === "bearish").length;
@@ -419,6 +514,17 @@ export default async function handler(req, res) {
         sent.confidence +
         attn.confidence) /
         4
+    );
+
+    // Directional weighted 0-100 score (50 = neutral)
+    const score = directionalScore(
+      {
+        fundamentals: funds,
+        technicals: tech,
+        sentiment: sent,
+        attention: attn,
+      },
+      magna.score
     );
 
     const pick = {
@@ -434,10 +540,12 @@ export default async function handler(req, res) {
       low: q.dayLow || null,
       volume: q.volume || 0,
       market_cap: q.marketCap || null,
-      score: Math.min(50 + avgConf / 2, 100),
+      score,
+      magna_score: magna.score,
+      magna_details: magna.details,
       reasoning: `Chg ${(q.changePercentage || 0).toFixed(
         1
-      )}% | ${prof.industry || ""}`,
+      )}% | M${magna.score}/4 | ${prof.industry || ""}`,
       catalyst: catalyst || null,
       source: "ANALYZED",
       agents: {

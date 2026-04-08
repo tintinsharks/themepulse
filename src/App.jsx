@@ -1737,14 +1737,20 @@ function AgentPicks({
     );
   };
 
+  // Directional score: 0-100 where 50 = neutral, >50 bullish, <50 bearish.
+  // Color tiers: 70+ strong bull (green), 55-70 mild bull (blue),
+  //              45-55 neutral (dim), 30-45 mild bear (yellow),
+  //              <30 strong bear (red).
   const scoreColor = (score) =>
-    score >= 80
+    score >= 70
       ? ARIA.green
-      : score >= 60
+      : score >= 55
       ? ARIA.blue
-      : score >= 40
+      : score >= 45
       ? ARIA.textDim
-      : ARIA.textMuted;
+      : score >= 30
+      ? ARIA.yellow
+      : ARIA.red;
 
   return (
     <div
