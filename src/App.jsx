@@ -83,7 +83,7 @@ const DEFAULT_FILTERS = {
   minDvolM: 20,        // dollar volume floor in millions
   minChg: 0,           // Chg≥ slider (%)
   minRvol: 0,          // RV≥ slider (×)
-  chgMode: "open",     // "open" or "chg" — which column the gain filter & sort apply to
+  chgMode: "chg",      // "open" or "chg" — which column the gain filter & sort apply to (default chg per user request)
 };
 
 const DEFAULT_SORT = { primary: "rvol", secondary: "change" }; // Aria default
@@ -659,7 +659,6 @@ const SORT_BUTTONS = [
   { key: "accel", label: "Acc" },
   { key: "magna", label: "MAG" },
   { key: "qm_bo", label: "BO" },
-  { key: "chgOpen", label: "Open%" },
 ];
 
 // Get the comparable value for a row given a sort key
@@ -1021,17 +1020,6 @@ function ScanWatch({ stocks, onTickerClick }) {
         <span style={{ fontSize: 8, color: ARIA.textMuted }}>
           ({rows.length})
         </span>
-        <button
-          onClick={() =>
-            updateFilter({
-              chgMode: filters.chgMode === "open" ? "chg" : "open",
-            })
-          }
-          title="Toggle whether the gain filter and Open%/Chg% column apply to chgOpen or change_pct"
-          style={pillStyle(filters.chgMode === "chg", ARIA.cyan)}
-        >
-          {filters.chgMode === "open" ? "Open mode" : "Chg mode"}
-        </button>
         <div
           style={{
             marginLeft: "auto",
