@@ -2088,6 +2088,32 @@ function AgentPicks({
                     </div>
                   )}
                 </div>
+                {/* Delete button — only for ANALYZED picks */}
+                {p.source === "ANALYZED" && onAnalyzedRemove && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAnalyzedRemove(p.ticker);
+                    }}
+                    title={`Remove ${p.ticker} from analyzed`}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: ARIA.textMuted,
+                      cursor: "pointer",
+                      fontSize: 14,
+                      lineHeight: 1,
+                      padding: "0 4px",
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = ARIA.red)}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = ARIA.textMuted)
+                    }
+                  >
+                    ×
+                  </button>
+                )}
               </div>
 
               {/* Expanded panel: catalyst (always) + agent breakdown (RVol only) */}
