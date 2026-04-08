@@ -1654,12 +1654,20 @@ function AgentPicks({
     } else if (tab === "rvol") {
       arr = merged.filter((p) => p.source === "RVOL");
     } else if (tab === "analyzed") {
-      // Show in user's analysis order (newest first), not by Chg%
-      arr = (analyzedPicks || []).map((p) => ({
-        ...p,
-        source: "ANALYZED",
-        _chg: extractChg(p),
-      }));
+      // Rank by total directional score (highest first); fall back to Chg%
+      arr = (analyzedPicks || [])
+        .map((p) => ({
+          ...p,
+          source: "ANALYZED",
+          _chg: extractChg(p),
+        }))
+        .sort((a, b) => {
+          const sa = Number(a.score);
+          const sb = Number(b.score);
+          if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb)
+            return sb - sa;
+          return (b._chg || 0) - (a._chg || 0);
+        });
     } else {
       arr = merged;
     }
