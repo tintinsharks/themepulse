@@ -947,7 +947,7 @@ function ScanWatch({ stocks, onTickerClick }) {
       }
       return 0;
     });
-    return out.slice(0, 50);
+    return out.slice(0, 25);
   }, [topCandidates, liveQuotes, filters, sort, activeTags]);
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -1940,28 +1940,32 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
                 </div>
               </div>
 
-              {/* Expanded agent breakdown */}
-              {hasAgents && isOpen && (
+              {/* Expanded panel: catalyst (always) + agent breakdown (RVol only) */}
+              {isOpen && (
                 <div
                   style={{
                     marginTop: 6,
                     padding: 8,
                     background: ARIA.bgRow,
                     borderRadius: 4,
-                    borderLeft: `2px solid ${sigColor(p.agents.overall)}`,
+                    borderLeft: `2px solid ${
+                      hasAgents ? sigColor(p.agents.overall) : ARIA.cyan
+                    }`,
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: sigColor(p.agents.overall),
-                      marginBottom: 6,
-                    }}
-                  >
-                    OVERALL: {(p.agents.overall || "").toUpperCase()} (
-                    {p.agents.confidence || 0}%)
-                  </div>
+                  {hasAgents && (
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: sigColor(p.agents.overall),
+                        marginBottom: 6,
+                      }}
+                    >
+                      OVERALL: {(p.agents.overall || "").toUpperCase()} (
+                      {p.agents.confidence || 0}%)
+                    </div>
+                  )}
                   {p.catalyst && p.catalyst.length > 5 && (
                     <div
                       style={{
@@ -1990,47 +1994,62 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
                       {p.catalyst}
                     </div>
                   )}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: 8,
-                    }}
-                  >
-                    {["fundamentals", "technicals", "sentiment"].map((k) => {
-                      const sub = p.agents[k];
-                      if (!sub) return <div key={k} style={{ minWidth: 0 }} />;
-                      return (
-                        <div key={k} style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: 8,
-                              fontWeight: 700,
-                              color: sigColor(sub.signal),
-                              marginBottom: 3,
-                            }}
-                          >
-                            {sigIcon(sub.signal)} {k.toUpperCase()} —{" "}
-                            {sub.signal} ({sub.confidence}%)
+                  {hasAgents && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: 8,
+                      }}
+                    >
+                      {["fundamentals", "technicals", "sentiment"].map((k) => {
+                        const sub = p.agents[k];
+                        if (!sub)
+                          return <div key={k} style={{ minWidth: 0 }} />;
+                        return (
+                          <div key={k} style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color: sigColor(sub.signal),
+                                marginBottom: 3,
+                              }}
+                            >
+                              {sigIcon(sub.signal)} {k.toUpperCase()} —{" "}
+                              {sub.signal} ({sub.confidence}%)
+                            </div>
+                            {sub.reasoning &&
+                              Object.entries(sub.reasoning).map(([rk, rv]) => (
+                                <div
+                                  key={rk}
+                                  style={{
+                                    fontSize: 8,
+                                    color: ARIA.textDim,
+                                    lineHeight: 1.4,
+                                    wordBreak: "break-word",
+                                  }}
+                                >
+                                  • {rk}: {rv}
+                                </div>
+                              ))}
                           </div>
-                          {sub.reasoning &&
-                            Object.entries(sub.reasoning).map(([rk, rv]) => (
-                              <div
-                                key={rk}
-                                style={{
-                                  fontSize: 8,
-                                  color: ARIA.textDim,
-                                  lineHeight: 1.4,
-                                  wordBreak: "break-word",
-                                }}
-                              >
-                                • {rk}: {rv}
-                              </div>
-                            ))}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!hasAgents &&
+                    !(p.catalyst && p.catalyst.length > 5) && (
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: ARIA.textMuted,
+                          fontStyle: "italic",
+                        }}
+                      >
+                        No catalyst research available for this pick.
+                      </div>
+                    )}
                 </div>
               )}
             </div>
