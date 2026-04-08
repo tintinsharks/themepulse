@@ -32,15 +32,18 @@ async function fmp(endpoint, params = "") {
 }
 
 // ── Fundamentals agent (port from score_fundamentals) ─────────────────────
-function scoreFundamentals(metrics, ratios, growth) {
-  const m = metrics || {};
-  const r = ratios || {};
+function scoreFundamentals(metricsTtm, ratiosTtm, growth) {
+  const m = metricsTtm || {};
+  const r = ratiosTtm || {};
   const g = growth || {};
-  const roe = r.returnOnEquityTTM || m.roeTTM || 0;
-  const netMargin = r.netProfitMarginTTM || m.netIncomePerShareTTM || 0;
-  const opMargin = r.operatingProfitMarginTTM || 0;
-  const revG = g.threeYRevenueGrowthPerShare || g.revenueGrowth || 0;
-  const epsG = g.threeYNetIncomeGrowthPerShare || g.epsgrowth || 0;
+  // ROE lives on key-metrics-ttm. Margins live on ratios-ttm.
+  const roe = m.returnOnEquityTTM ?? m.roeTTM ?? 0;
+  const netMargin = r.netProfitMarginTTM ?? r.bottomLineProfitMarginTTM ?? 0;
+  const opMargin = r.operatingProfitMarginTTM ?? r.ebitMarginTTM ?? 0;
+  // Growth: prefer the latest annual revenueGrowth/epsgrowth fields,
+  // fall back to 3-year per-share rates.
+  const revG = g.revenueGrowth ?? g.threeYRevenueGrowthPerShare ?? 0;
+  const epsG = g.epsgrowth ?? g.threeYNetIncomeGrowthPerShare ?? 0;
 
   const signals = [];
   const reasoning = {};
@@ -382,16 +385,17 @@ export default async function handler(req, res) {
       return res.status(404).json({ ok: false, error: `No data for ${ticker}` });
     }
 
-    // Profile + ratios + growth in parallel
-    const [profile, ratios, metrics, growth] = await Promise.all([
+    // Profile + TTM ratios + TTM key metrics + growth (latest annual)
+    // ratios-ttm has the margin fields; key-metrics-ttm has ROE.
+    const [profile, ratiosTtm, metricsTtm, growth] = await Promise.all([
       fmp("profile", `symbol=${ticker}`),
-      fmp("ratios", `symbol=${ticker}&period=annual&limit=1`),
-      fmp("key-metrics", `symbol=${ticker}&period=annual&limit=1`),
+      fmp("ratios-ttm", `symbol=${ticker}`),
+      fmp("key-metrics-ttm", `symbol=${ticker}`),
       fmp("financial-growth", `symbol=${ticker}&period=annual&limit=1`),
     ]);
     const prof = (profile && profile[0]) || {};
-    const r0 = (ratios && ratios[0]) || {};
-    const m0 = (metrics && metrics[0]) || {};
+    const r0 = (ratiosTtm && ratiosTtm[0]) || {};
+    const m0 = (metricsTtm && metricsTtm[0]) || {};
     const g0 = (growth && growth[0]) || {};
 
     // 4 agents in parallel
