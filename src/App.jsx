@@ -1535,8 +1535,9 @@ function AgentPicks({
   const ARIA = useAriaTheme();
   // ── State: tab, commentary collapse, expanded row ──────────────────────
   const [tab, setTab] = useState(() => {
-    if (typeof window === "undefined") return "all";
-    return localStorage.getItem("aria-ap-tab") || "all";
+    if (typeof window === "undefined") return "analyzed";
+    // Force-default to 'analyzed' since auto sources are disabled.
+    return "analyzed";
   });
   const [commOpen, setCommOpen] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -1655,23 +1656,24 @@ function AgentPicks({
     return () => clearInterval(t);
   }, []);
 
-  // Parse all three source timestamps and find the most recent one
+  // Refresh info: most-recent analyzed_at across the local Analyzed list.
+  // (Auto sources PM/AH/RVol are disabled so we don't include them here.)
   const refreshInfo = useMemo(() => {
+    if (!Array.isArray(analyzedPicks) || analyzedPicks.length === 0) {
+      return { latest: null, sources: [] };
+    }
     const parse = (s) => {
       if (!s) return null;
       const t = Date.parse(s);
       return Number.isFinite(t) ? t : null;
     };
-    const sources = [
-      { label: "RVol", ts: parse(rvolPicks?.updated) },
-      { label: "PM", ts: parse(pmPicks?.updated) },
-      { label: "AH", ts: parse(ahPicks?.updated) },
-    ];
-    const valid = sources.filter((s) => s.ts != null);
-    if (!valid.length) return { latest: null, sources: [] };
-    valid.sort((a, b) => b.ts - a.ts);
-    return { latest: valid[0], sources: valid };
-  }, [rvolPicks, pmPicks, ahPicks]);
+    const items = analyzedPicks
+      .map((p) => ({ label: p.ticker, ts: parse(p.analyzed_at) }))
+      .filter((x) => x.ts != null)
+      .sort((a, b) => b.ts - a.ts);
+    if (!items.length) return { latest: null, sources: [] };
+    return { latest: items[0], sources: items };
+  }, [analyzedPicks]);
 
   const fmtRelative = (ts) => {
     if (!ts) return "—";
@@ -1754,11 +1756,8 @@ function AgentPicks({
           Agent Picks
         </span>
         <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
+          {/* Auto sources (PM/AH/RVol) disabled — manual Analyze only */}
           {tabBtn("analyzed", "Analyzed")}
-          {tabBtn("all", "All")}
-          {tabBtn("pm", "PM")}
-          {tabBtn("ah", "AH")}
-          {tabBtn("rvol", "RVol")}
         </div>
         {/* Last refresh — clock + relative time, hover for per-source breakdown */}
         <div
@@ -2224,10 +2223,27 @@ function AgentPicks({
 
 const ANALYZED_KEY = "themepulse-analyzed-picks";
 const ANALYZED_MAX = 50;
+const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 function loadAnalyzed() {
   try {
-    return JSON.parse(localStorage.getItem(ANALYZED_KEY) || "[]");
+    const raw = JSON.parse(localStorage.getItem(ANALYZED_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    // Drop entries older than ANALYZED_TTL_MS based on `analyzed_at` field.
+    // analyzed_at is set server-side by /api/analyze-ticker as ISO 8601.
+    const cutoff = Date.now() - ANALYZED_TTL_MS;
+    const fresh = raw.filter((p) => {
+      if (!p || !p.analyzed_at) return false;
+      const t = Date.parse(p.analyzed_at);
+      return Number.isFinite(t) && t >= cutoff;
+    });
+    // Persist back if we filtered anything (keeps storage clean)
+    if (fresh.length !== raw.length) {
+      try {
+        localStorage.setItem(ANALYZED_KEY, JSON.stringify(fresh));
+      } catch {}
+    }
+    return fresh;
   } catch {
     return [];
   }
@@ -4319,7 +4335,9 @@ function AppMain() {
   const ARIA = useAriaTheme();
   const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
-  const picks = usePicks(60000); // refresh picks every 60s
+  // usePicks disabled — auto sources (PM/AH/RVol) no longer fired by CI.
+  // Agent Picks panel is now driven entirely by useAnalyzedPicks.
+  const picks = { rvolPicks: null, pmPicks: null, ahPicks: null };
   const { list: analyzedPicks, removePick: removeAnalyzed } = useAnalyzedPicks();
   const { isAnalyzing, activeTicker: analyzingTicker, analyze } = useAnalyzer();
   // After analyze succeeds, switch the right pane to the picks subtab so the
