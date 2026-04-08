@@ -2075,6 +2075,24 @@ function AgentPicks({
                         {p.agents.overall.toUpperCase()}
                       </span>
                     )}
+                    {/* Analyzed-at timestamp on the right edge */}
+                    {p.analyzed_at && (
+                      <span
+                        title={`Analyzed at ${new Date(
+                          p.analyzed_at
+                        ).toLocaleString()}`}
+                        style={{
+                          fontSize: 7,
+                          color: ARIA.textMuted,
+                          fontFamily: "monospace",
+                          marginLeft: hasAgents ? 6 : "auto",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {fmtClock(Date.parse(p.analyzed_at))} ·{" "}
+                        {fmtRelative(Date.parse(p.analyzed_at))}
+                      </span>
+                    )}
                   </div>
                   {p.reasoning && (
                     <div
