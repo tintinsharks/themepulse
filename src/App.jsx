@@ -1997,13 +1997,48 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
                         {p.shares} shares
                       </span>
                     )}
+                    {hasAgents &&
+                      p.agents.attention &&
+                      ["HIGH", "EXTREME"].includes(
+                        p.agents.attention.tier ||
+                          (p.agents.attention.reasoning &&
+                            p.agents.attention.reasoning.tier) ||
+                          ""
+                      ) && (
+                        <span
+                          title={`Attention: ${
+                            p.agents.attention.tier ||
+                            p.agents.attention.reasoning?.tier
+                          } (${p.agents.attention.confidence}%)`}
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 800,
+                            color: ARIA.yellow,
+                            border: `1px solid ${ARIA.yellow}`,
+                            background: `${ARIA.yellow}26`,
+                            padding: "0 4px",
+                            borderRadius: 2,
+                            marginLeft: "auto",
+                          }}
+                        >
+                          🔥{p.agents.attention.confidence}
+                        </span>
+                      )}
                     {hasAgents && (
                       <span
                         style={{
                           fontSize: 7,
                           color: sigColor(p.agents.overall),
                           fontWeight: 700,
-                          marginLeft: "auto",
+                          marginLeft:
+                            p.agents.attention &&
+                            ["HIGH", "EXTREME"].includes(
+                              p.agents.attention.tier ||
+                                p.agents.attention.reasoning?.tier ||
+                                ""
+                            )
+                              ? 4
+                              : "auto",
                         }}
                       >
                         {sigIcon(p.agents.overall)}{" "}
@@ -2083,11 +2118,11 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gridTemplateColumns: "1fr 1fr 1fr 1fr",
                         gap: 8,
                       }}
                     >
-                      {["fundamentals", "technicals", "sentiment"].map((k) => {
+                      {["fundamentals", "technicals", "sentiment", "attention"].map((k) => {
                         const sub = p.agents[k];
                         if (!sub)
                           return <div key={k} style={{ minWidth: 0 }} />;
