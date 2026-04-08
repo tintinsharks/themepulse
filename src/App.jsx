@@ -2284,19 +2284,54 @@ function AgentPicks({
                             {p.agents.subtheme.signal} ({p.agents.subtheme.confidence}%)
                           </div>
                           {p.agents.subtheme.reasoning &&
-                            Object.entries(p.agents.subtheme.reasoning).map(([rk, rv]) => (
-                              <div
-                                key={rk}
-                                style={{
-                                  fontSize: 8,
-                                  color: ARIA.textDim,
-                                  lineHeight: 1.4,
-                                  wordBreak: "break-word",
-                                }}
-                              >
-                                • {rk}: {rv}
-                              </div>
-                            ))}
+                            Object.entries(p.agents.subtheme.reasoning).map(([rk, rv]) => {
+                              const isNarr = rk === "narrative" && typeof rv === "string" && rv.length > 20;
+                              if (isNarr) {
+                                const paras = rv.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+                                return (
+                                  <div key={rk} style={{ marginTop: 4 }}>
+                                    <div
+                                      style={{
+                                        fontSize: 8,
+                                        color: ARIA.textMuted,
+                                        textTransform: "uppercase",
+                                        letterSpacing: 0.4,
+                                        marginBottom: 3,
+                                      }}
+                                    >
+                                      • narrative
+                                    </div>
+                                    {paras.map((para, i) => (
+                                      <p
+                                        key={i}
+                                        style={{
+                                          fontSize: 9,
+                                          color: ARIA.text,
+                                          lineHeight: 1.5,
+                                          margin: "0 0 6px 8px",
+                                          wordBreak: "break-word",
+                                        }}
+                                      >
+                                        {para}
+                                      </p>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div
+                                  key={rk}
+                                  style={{
+                                    fontSize: 8,
+                                    color: ARIA.textDim,
+                                    lineHeight: 1.4,
+                                    wordBreak: "break-word",
+                                  }}
+                                >
+                                  • {rk}: {rv}
+                                </div>
+                              );
+                            })}
                         </div>
                       )}
                     </>

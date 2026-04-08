@@ -502,7 +502,7 @@ async function scoreSubtheme(ticker) {
         year: "numeric",
       });
       const peerNames = leaders.slice(0, 5).join(", ");
-      const prompt = `Analyze the "${subtheme}" subtheme (parent theme: ${theme}) as of ${today}. Top stocks by relative strength: ${peerNames}. In 3-4 sentences: (1) what's driving this subtheme right now (catalysts, macro, sector rotation), (2) any visible institutional rotation INTO this subtheme (fund flows, smart money, notable buyers), (3) whether the leaders look like a coordinated group move or scattered. Plain prose, no markdown, no preamble.`;
+      const prompt = `Analyze the "${subtheme}" subtheme (parent theme: ${theme}) as of ${today}. Top stocks by relative strength: ${peerNames}. Write THREE short paragraphs separated by a blank line:\n\nParagraph 1: what's driving this subtheme right now (catalysts, macro, sector rotation).\n\nParagraph 2: visible institutional rotation INTO this subtheme (fund flows, smart money, notable buyers).\n\nParagraph 3: whether the leaders look like a coordinated group move or scattered, and which names look strongest.\n\nPlain prose, no markdown, no headers, no preamble. Separate paragraphs with a blank line.`;
       const r = await fetch(
         "https://openrouter.ai/api/v1/chat/completions",
         {
@@ -528,7 +528,10 @@ async function scoreSubtheme(ticker) {
           ((d.choices || [])[0] || {}).message?.content || ""
         )
           .replace(/\[\d+\]/g, "")
-          .replace(/\s+/g, " ")
+          // Collapse runs of spaces/tabs but preserve newlines
+          .replace(/[ \t]+/g, " ")
+          // Normalize 3+ newlines to a clean paragraph break
+          .replace(/\n{3,}/g, "\n\n")
           .trim();
       }
     }
