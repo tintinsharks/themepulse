@@ -1616,7 +1616,58 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
   }, [merged, tab]);
 
   const commentary = rvolPicks?.commentary || {};
-  const updated = rvolPicks?.updated || pmPicks?.updated || ahPicks?.updated;
+
+  // Live "X seconds ago" refresh ticker — updates every 10s so the relative
+  // time stays accurate without spamming re-renders.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Parse all three source timestamps and find the most recent one
+  const refreshInfo = useMemo(() => {
+    const parse = (s) => {
+      if (!s) return null;
+      const t = Date.parse(s);
+      return Number.isFinite(t) ? t : null;
+    };
+    const sources = [
+      { label: "RVol", ts: parse(rvolPicks?.updated) },
+      { label: "PM", ts: parse(pmPicks?.updated) },
+      { label: "AH", ts: parse(ahPicks?.updated) },
+    ];
+    const valid = sources.filter((s) => s.ts != null);
+    if (!valid.length) return { latest: null, sources: [] };
+    valid.sort((a, b) => b.ts - a.ts);
+    return { latest: valid[0], sources: valid };
+  }, [rvolPicks, pmPicks, ahPicks]);
+
+  const fmtRelative = (ts) => {
+    if (!ts) return "—";
+    const diffSec = Math.max(0, Math.round((now - ts) / 1000));
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.round(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.round(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.round(diffH / 24);
+    return `${diffD}d ago`;
+  };
+  const fmtClock = (ts) => {
+    if (!ts) return "—";
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  };
+
+  const refreshTooltip = refreshInfo.sources
+    .map((s) => `${s.label}: ${fmtClock(s.ts)} (${fmtRelative(s.ts)})`)
+    .join("\n");
 
   // ── Render ──────────────────────────────────────────────────────────────
   const tabBtn = (t, label) => {
@@ -1678,17 +1729,49 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
           {tabBtn("ah", "AH")}
           {tabBtn("rvol", "RVol")}
         </div>
-        <span
+        {/* Last refresh — clock + relative time, hover for per-source breakdown */}
+        <div
+          title={refreshTooltip || "No refresh data yet"}
           style={{
             marginLeft: "auto",
-            fontSize: 7,
-            color: ARIA.textMuted,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 1,
+            lineHeight: 1.15,
+            cursor: "default",
           }}
         >
-          {visible.length
-            ? `${visible.length} picks${updated ? " · " + updated : ""}`
-            : "Waiting for picks…"}
-        </span>
+          {refreshInfo.latest ? (
+            <>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  color: ARIA.green,
+                }}
+              >
+                {fmtClock(refreshInfo.latest.ts)}
+              </span>
+              <span
+                style={{
+                  fontSize: 7,
+                  color: ARIA.textMuted,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}
+              >
+                refreshed {fmtRelative(refreshInfo.latest.ts)} ·{" "}
+                {refreshInfo.latest.label}
+              </span>
+            </>
+          ) : (
+            <span style={{ fontSize: 7, color: ARIA.textMuted }}>
+              Waiting for picks…
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Commentary (collapsible) */}
