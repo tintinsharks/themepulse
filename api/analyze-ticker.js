@@ -89,12 +89,13 @@ function computeMagna({ epsGrowth, salesGrowth, chgPct, instOwnPct }) {
 function directionalScore(agents, magnaScore) {
   const sigMap = { bullish: 1, neutral: 0, bearish: -1 };
   const weighted = [
-    { agent: agents.fundamentals, weight: 0.2 },
-    { agent: agents.technicals, weight: 0.25 },
-    { agent: agents.sentiment, weight: 0.2 },
-    { agent: agents.attention, weight: 0.2 },
+    { agent: agents.fundamentals, weight: 0.17 },
+    { agent: agents.technicals, weight: 0.22 },
+    { agent: agents.sentiment, weight: 0.17 },
+    { agent: agents.attention, weight: 0.17 },
+    { agent: agents.subtheme, weight: 0.17 },
   ];
-  const MAGNA_WEIGHT = 0.15;
+  const MAGNA_WEIGHT = 0.1;
 
   let agentSum = 0;
   let totalWeight = 0;
@@ -403,6 +404,166 @@ async function scoreAttention(ticker) {
   };
 }
 
+// ── Subtheme agent — peer cohort analysis ────────────────────────────────
+//
+// Strong stocks in strong themes. We pull dashboard_data.json from the
+// Vercel CDN (cached), locate the ticker's primary subtheme, then compute:
+//   - peer count, median RS rank, % strong (rs_rank >= 80)
+//   - mean 1-month return, top 5 leaders
+//   - directional signal: bullish if median RS > 70 AND %strong >= 30%,
+//     bearish if median RS < 40
+// We also fire a Sonar query for narrative ("why is this subtheme moving,
+// any institutional rotation").
+async function scoreSubtheme(ticker) {
+  let stocks = null;
+  try {
+    const r = await fetch(
+      "https://themepulse.vercel.app/dashboard_data.json",
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (r.ok) {
+      const d = await r.json();
+      stocks = d.stocks || [];
+    }
+  } catch {
+    /* offline */
+  }
+  if (!stocks || !stocks.length) {
+    return {
+      signal: "neutral",
+      confidence: 0,
+      reasoning: { error: "dashboard_data unavailable" },
+    };
+  }
+  const target = stocks.find((s) => s.ticker === ticker);
+  const themes = (target && target.themes) || [];
+  const subtheme = themes[0] && themes[0].subtheme;
+  const theme = themes[0] && themes[0].theme;
+  if (!subtheme) {
+    return {
+      signal: "neutral",
+      confidence: 0,
+      reasoning: { subtheme: "not classified" },
+    };
+  }
+  const peers = stocks.filter(
+    (s) =>
+      s.ticker !== ticker &&
+      Array.isArray(s.themes) &&
+      s.themes.some((t) => t && t.subtheme === subtheme)
+  );
+  if (peers.length < 2) {
+    return {
+      signal: "neutral",
+      confidence: 0,
+      reasoning: { subtheme, peers: `${peers.length} (too few)` },
+    };
+  }
+  const ranks = peers
+    .map((p) => Number(p.rs_rank))
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  const medianRS = ranks.length
+    ? ranks[Math.floor(ranks.length / 2)]
+    : 0;
+  const strongCount = ranks.filter((r) => r >= 80).length;
+  const strongPct = ranks.length
+    ? Math.round((strongCount / ranks.length) * 100)
+    : 0;
+  const rets = peers
+    .map((p) => Number(p.return_1m))
+    .filter((n) => Number.isFinite(n));
+  const meanRet1m = rets.length
+    ? rets.reduce((a, b) => a + b, 0) / rets.length
+    : 0;
+  const leaders = peers
+    .filter((p) => Number.isFinite(Number(p.rs_rank)))
+    .sort((a, b) => Number(b.rs_rank) - Number(a.rs_rank))
+    .slice(0, 5)
+    .map(
+      (p) =>
+        `${p.ticker}(RS${p.rs_rank}${
+          Number.isFinite(Number(p.return_1m))
+            ? `, ${Number(p.return_1m) >= 0 ? "+" : ""}${Number(
+                p.return_1m
+              ).toFixed(0)}%`
+            : ""
+        })`
+    );
+
+  // Narrative: why is this subtheme moving?
+  let narrative = "";
+  try {
+    const tok = process.env.OPENROUTER_API_KEY;
+    if (tok) {
+      const today = new Date().toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      const peerNames = leaders.slice(0, 5).join(", ");
+      const prompt = `Analyze the "${subtheme}" subtheme (parent theme: ${theme}) as of ${today}. Top stocks by relative strength: ${peerNames}. In 3-4 sentences: (1) what's driving this subtheme right now (catalysts, macro, sector rotation), (2) any visible institutional rotation INTO this subtheme (fund flows, smart money, notable buyers), (3) whether the leaders look like a coordinated group move or scattered. Plain prose, no markdown, no preamble.`;
+      const r = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tok}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://themepulse.vercel.app",
+            "X-Title": "ThemePulse Subtheme",
+          },
+          body: JSON.stringify({
+            model: "perplexity/sonar",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 350,
+            temperature: 0.3,
+          }),
+          signal: AbortSignal.timeout(20000),
+        }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        narrative = (
+          ((d.choices || [])[0] || {}).message?.content || ""
+        )
+          .replace(/\[\d+\]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Score
+  let signal = "neutral";
+  let conf = 50;
+  if (medianRS >= 70 && strongPct >= 30) {
+    signal = "bullish";
+    conf = Math.min(60 + strongPct / 2, 95);
+  } else if (medianRS < 40) {
+    signal = "bearish";
+    conf = Math.min(60 + (40 - medianRS), 90);
+  } else {
+    conf = 40 + Math.round(medianRS / 5);
+  }
+
+  return {
+    signal,
+    confidence: Math.round(conf),
+    reasoning: {
+      subtheme: `${subtheme} (${theme})`,
+      peers: `${peers.length} stocks`,
+      median_rs: `${medianRS}`,
+      strong: `${strongCount}/${ranks.length} ≥ RS80 (${strongPct}%)`,
+      mean_1m: `${meanRet1m >= 0 ? "+" : ""}${meanRet1m.toFixed(1)}%`,
+      leaders: leaders.join(", ") || "none",
+      narrative: narrative || "n/a",
+    },
+  };
+}
+
 // ── Catalyst research via OpenRouter Perplexity Sonar ─────────────────────
 async function researchCatalyst(ticker, chg) {
   const tok = process.env.OPENROUTER_API_KEY;
@@ -483,12 +644,13 @@ export default async function handler(req, res) {
     const m0 = (metricsTtm && metricsTtm[0]) || {};
     const g0 = (growth && growth[0]) || {};
 
-    // 4 agents in parallel
-    const [funds, tech, sent, attn, catalyst] = await Promise.all([
+    // 5 agents + catalyst in parallel
+    const [funds, tech, sent, attn, sub, catalyst] = await Promise.all([
       Promise.resolve(scoreFundamentals(m0, r0, g0)),
       scoreTechnicals(ticker),
       scoreSentiment(ticker),
       scoreAttention(ticker),
+      scoreSubtheme(ticker),
       researchCatalyst(ticker, q.changePercentage),
     ]);
 
@@ -503,7 +665,7 @@ export default async function handler(req, res) {
     });
 
     // Aggregate overall (signed bull/bear majority across the 4 agents)
-    const sigs = [funds.signal, tech.signal, sent.signal, attn.signal];
+    const sigs = [funds.signal, tech.signal, sent.signal, attn.signal, sub.signal];
     const bull = sigs.filter((s) => s === "bullish").length;
     const bear = sigs.filter((s) => s === "bearish").length;
     const overall =
@@ -512,8 +674,9 @@ export default async function handler(req, res) {
       (funds.confidence +
         tech.confidence +
         sent.confidence +
-        attn.confidence) /
-        4
+        attn.confidence +
+        sub.confidence) /
+        5
     );
 
     // Directional weighted 0-100 score (50 = neutral)
@@ -523,6 +686,7 @@ export default async function handler(req, res) {
         technicals: tech,
         sentiment: sent,
         attention: attn,
+        subtheme: sub,
       },
       magna.score
     );
@@ -555,6 +719,7 @@ export default async function handler(req, res) {
         technicals: tech,
         sentiment: sent,
         attention: attn,
+        subtheme: sub,
       },
     };
 

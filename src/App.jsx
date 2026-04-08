@@ -2217,48 +2217,87 @@ function AgentPicks({
                     </div>
                   )}
                   {hasAgents && (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr 1fr",
-                        gap: 8,
-                      }}
-                    >
-                      {["fundamentals", "technicals", "sentiment", "attention"].map((k) => {
-                        const sub = p.agents[k];
-                        if (!sub)
-                          return <div key={k} style={{ minWidth: 0 }} />;
-                        return (
-                          <div key={k} style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 8,
-                                fontWeight: 700,
-                                color: sigColor(sub.signal),
-                                marginBottom: 3,
-                              }}
-                            >
-                              {sigIcon(sub.signal)} {k.toUpperCase()} —{" "}
-                              {sub.signal} ({sub.confidence}%)
+                    <>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                          gap: 8,
+                        }}
+                      >
+                        {["fundamentals", "technicals", "sentiment", "attention"].map((k) => {
+                          const sub = p.agents[k];
+                          if (!sub)
+                            return <div key={k} style={{ minWidth: 0 }} />;
+                          return (
+                            <div key={k} style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: 700,
+                                  color: sigColor(sub.signal),
+                                  marginBottom: 3,
+                                }}
+                              >
+                                {sigIcon(sub.signal)} {k.toUpperCase()} —{" "}
+                                {sub.signal} ({sub.confidence}%)
+                              </div>
+                              {sub.reasoning &&
+                                Object.entries(sub.reasoning).map(([rk, rv]) => (
+                                  <div
+                                    key={rk}
+                                    style={{
+                                      fontSize: 8,
+                                      color: ARIA.textDim,
+                                      lineHeight: 1.4,
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    • {rk}: {rv}
+                                  </div>
+                                ))}
                             </div>
-                            {sub.reasoning &&
-                              Object.entries(sub.reasoning).map(([rk, rv]) => (
-                                <div
-                                  key={rk}
-                                  style={{
-                                    fontSize: 8,
-                                    color: ARIA.textDim,
-                                    lineHeight: 1.4,
-                                    wordBreak: "break-word",
-                                  }}
-                                >
-                                  • {rk}: {rv}
-                                </div>
-                              ))}
+                          );
+                        })}
+                      </div>
+                      {p.agents.subtheme && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: 6,
+                            background: "#0d0d12",
+                            borderRadius: 3,
+                            borderLeft: `2px solid ${sigColor(p.agents.subtheme.signal)}`,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 8,
+                              fontWeight: 700,
+                              color: sigColor(p.agents.subtheme.signal),
+                              marginBottom: 3,
+                            }}
+                          >
+                            {sigIcon(p.agents.subtheme.signal)} SUBTHEME —{" "}
+                            {p.agents.subtheme.signal} ({p.agents.subtheme.confidence}%)
                           </div>
-                        );
-                      })}
-                    </div>
+                          {p.agents.subtheme.reasoning &&
+                            Object.entries(p.agents.subtheme.reasoning).map(([rk, rv]) => (
+                              <div
+                                key={rk}
+                                style={{
+                                  fontSize: 8,
+                                  color: ARIA.textDim,
+                                  lineHeight: 1.4,
+                                  wordBreak: "break-word",
+                                }}
+                              >
+                                • {rk}: {rv}
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </>
                   )}
                   {!hasAgents &&
                     !(p.catalyst && p.catalyst.length > 5) && (
@@ -2286,6 +2325,148 @@ function AgentPicks({
 //  src/LWChartLegacy.jsx has its own loadLW() helper that we delegate to.)
 
 // ──────────────────────────────────────────────────────────────────────────
+// Server-side persistent state: analyzedPicks + watchlist + portfolio
+// ──────────────────────────────────────────────────────────────────────────
+//
+// All three lists live in Vercel KV under one key, fetched/written via
+// /api/userdata. localStorage is used as an offline cache so the UI loads
+// instantly and survives offline reads, but the server is the source of
+// truth across browser tabs/devices.
+//
+// Write strategy: optimistic local update → localStorage → debounced 1.5s
+// server POST. Multiple updates within the debounce window collapse to a
+// single round trip.
+
+const SERVER_STATE_KEY = "themepulse-server-state";
+const SERVER_DEBOUNCE_MS = 1500;
+const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // mirrors server-side filter
+const ANALYZED_MAX = 50;
+
+function emptyServerState() {
+  return { analyzedPicks: [], watchlist: [], portfolio: [], updated_at: null };
+}
+
+function loadCachedState() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SERVER_STATE_KEY) || "null");
+    if (raw && typeof raw === "object") {
+      // Mirror server TTL on the cached read so stale picks vanish even
+      // before the next server GET fires.
+      const cutoff = Date.now() - ANALYZED_TTL_MS;
+      raw.analyzedPicks = (raw.analyzedPicks || []).filter((p) => {
+        if (!p || !p.analyzed_at) return false;
+        const t = Date.parse(p.analyzed_at);
+        return Number.isFinite(t) && t >= cutoff;
+      });
+      return { ...emptyServerState(), ...raw };
+    }
+  } catch {}
+  return emptyServerState();
+}
+
+function saveCachedState(state) {
+  try {
+    localStorage.setItem(SERVER_STATE_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent("tp-server-state-changed"));
+  } catch {}
+}
+
+// Module-level singleton so all components share the same in-memory state
+// + debounce timer (avoids race conditions where two components race to
+// POST overlapping snapshots).
+let _moduleState = null;
+let _moduleSubs = new Set();
+let _debounceTimer = null;
+
+function _getState() {
+  if (_moduleState === null) _moduleState = loadCachedState();
+  return _moduleState;
+}
+
+function _setState(updater) {
+  const cur = _getState();
+  const next = typeof updater === "function" ? updater(cur) : updater;
+  // Apply TTL on every write
+  next.analyzedPicks = (next.analyzedPicks || [])
+    .filter((p) => {
+      if (!p || !p.analyzed_at) return false;
+      const t = Date.parse(p.analyzed_at);
+      return Number.isFinite(t) && t >= Date.now() - ANALYZED_TTL_MS;
+    })
+    .slice(0, ANALYZED_MAX);
+  _moduleState = { ...cur, ...next, updated_at: new Date().toISOString() };
+  saveCachedState(_moduleState);
+  // Notify subscribers
+  for (const fn of _moduleSubs) fn(_moduleState);
+  // Debounce server POST
+  if (_debounceTimer) clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(_pushToServer, SERVER_DEBOUNCE_MS);
+}
+
+async function _pushToServer() {
+  _debounceTimer = null;
+  const s = _getState();
+  try {
+    const r = await fetch("/api/userdata", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        analyzedPicks: s.analyzedPicks,
+        watchlist: s.watchlist,
+        portfolio: s.portfolio,
+      }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.ok) {
+        _moduleState = { ...emptyServerState(), ...d };
+        saveCachedState(_moduleState);
+        for (const fn of _moduleSubs) fn(_moduleState);
+      }
+    }
+  } catch {
+    // Network error — stay in localStorage-only mode, will retry on next mutation
+  }
+}
+
+async function _pullFromServer() {
+  try {
+    const r = await fetch("/api/userdata", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.ok) {
+      _moduleState = { ...emptyServerState(), ...d };
+      saveCachedState(_moduleState);
+      for (const fn of _moduleSubs) fn(_moduleState);
+    }
+  } catch {
+    /* offline — keep cached state */
+  }
+}
+
+function useServerState() {
+  const [state, setStateLocal] = useState(_getState);
+  useEffect(() => {
+    _moduleSubs.add(setStateLocal);
+    // Initial server pull (only fires once per page load due to module state)
+    _pullFromServer();
+    // Cross-tab sync
+    const onStorage = () => {
+      _moduleState = loadCachedState();
+      setStateLocal(_moduleState);
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("tp-server-state-changed", onStorage);
+    return () => {
+      _moduleSubs.delete(setStateLocal);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("tp-server-state-changed", onStorage);
+    };
+  }, []);
+  return state;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Analyzed picks: on-demand 4-agent analysis stored in localStorage
 // ──────────────────────────────────────────────────────────────────────────
 //
@@ -2293,64 +2474,21 @@ function AgentPicks({
 // is prepended to the local list (cap 50, dedupe by ticker, newest first).
 // The Agent Picks subtab renders this list under a new "Analyzed" tab.
 
-const ANALYZED_KEY = "themepulse-analyzed-picks";
-const ANALYZED_MAX = 50;
-const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
-
-function loadAnalyzed() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(ANALYZED_KEY) || "[]");
-    if (!Array.isArray(raw)) return [];
-    // Drop entries older than ANALYZED_TTL_MS based on `analyzed_at` field.
-    // analyzed_at is set server-side by /api/analyze-ticker as ISO 8601.
-    const cutoff = Date.now() - ANALYZED_TTL_MS;
-    const fresh = raw.filter((p) => {
-      if (!p || !p.analyzed_at) return false;
-      const t = Date.parse(p.analyzed_at);
-      return Number.isFinite(t) && t >= cutoff;
-    });
-    // Persist back if we filtered anything (keeps storage clean)
-    if (fresh.length !== raw.length) {
-      try {
-        localStorage.setItem(ANALYZED_KEY, JSON.stringify(fresh));
-      } catch {}
-    }
-    return fresh;
-  } catch {
-    return [];
-  }
-}
-function saveAnalyzed(list) {
-  try {
-    localStorage.setItem(ANALYZED_KEY, JSON.stringify(list));
-    window.dispatchEvent(new CustomEvent("tp-analyzed-changed"));
-  } catch {}
-}
-
 function useAnalyzedPicks() {
-  const [list, setList] = useState(() => loadAnalyzed());
-  useEffect(() => {
-    const reread = () => setList(loadAnalyzed());
-    window.addEventListener("tp-analyzed-changed", reread);
-    window.addEventListener("storage", reread);
-    return () => {
-      window.removeEventListener("tp-analyzed-changed", reread);
-      window.removeEventListener("storage", reread);
-    };
-  }, []);
+  const state = useServerState();
+  const list = state.analyzedPicks || [];
   const addPick = useCallback((pick) => {
     if (!pick || !pick.ticker) return;
-    const cur = loadAnalyzed();
-    const filtered = cur.filter((p) => p.ticker !== pick.ticker);
-    const next = [pick, ...filtered].slice(0, ANALYZED_MAX);
-    saveAnalyzed(next);
-    setList(next);
+    _setState((s) => {
+      const filtered = (s.analyzedPicks || []).filter((p) => p.ticker !== pick.ticker);
+      return { ...s, analyzedPicks: [pick, ...filtered] };
+    });
   }, []);
   const removePick = useCallback((ticker) => {
-    const cur = loadAnalyzed();
-    const next = cur.filter((p) => p.ticker !== ticker);
-    saveAnalyzed(next);
-    setList(next);
+    _setState((s) => ({
+      ...s,
+      analyzedPicks: (s.analyzedPicks || []).filter((p) => p.ticker !== ticker),
+    }));
   }, []);
   return { list, addPick, removePick };
 }
@@ -2398,38 +2536,24 @@ function useAnalyzer() {
 // component mutates `themepulse-portfolio` or `themepulse-watchlist` in
 // localStorage, it dispatches `tp-pw-changed` so all subscribers re-read.
 function useLocalStorageList(key) {
-  const [list, setList] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(key) || "[]");
-    } catch {
-      return [];
-    }
-  });
-  // Subscribe to updates from any component (or other tabs via storage event)
-  useEffect(() => {
-    const reread = () => {
-      try {
-        setList(JSON.parse(localStorage.getItem(key) || "[]"));
-      } catch {
-        setList([]);
-      }
-    };
-    window.addEventListener("tp-pw-changed", reread);
-    window.addEventListener("storage", reread);
-    return () => {
-      window.removeEventListener("tp-pw-changed", reread);
-      window.removeEventListener("storage", reread);
-    };
-  }, [key]);
-  // Setter writes to localStorage and notifies other subscribers
+  const state = useServerState();
+  const field =
+    key === "themepulse-watchlist"
+      ? "watchlist"
+      : key === "themepulse-portfolio"
+      ? "portfolio"
+      : null;
+  const list = field ? state[field] || [] : [];
   const update = useCallback(
     (next) => {
-      const value = typeof next === "function" ? next(list) : next;
-      localStorage.setItem(key, JSON.stringify(value));
-      setList(value);
-      window.dispatchEvent(new CustomEvent("tp-pw-changed"));
+      if (!field) return;
+      _setState((s) => {
+        const cur = s[field] || [];
+        const value = typeof next === "function" ? next(cur) : next;
+        return { ...s, [field]: value };
+      });
     },
-    [key, list]
+    [field]
   );
   return [list, update];
 }
