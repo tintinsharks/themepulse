@@ -2755,45 +2755,39 @@ function ChartPanelInline({
               flexShrink: 0,
             }}
           >
-            <button
-              onClick={() => setRightTabPersist("chart")}
-              style={{
-                fontSize: 9,
-                padding: "3px 10px",
-                borderRadius: "4px 0 0 4px",
-                cursor: "pointer",
-                fontFamily: "monospace",
-                fontWeight: 700,
-                border: `1px solid ${
-                  rightTab === "chart" ? ARIA.green : ARIA.border
-                }`,
-                color: rightTab === "chart" ? ARIA.green : ARIA.textMuted,
-                background:
-                  rightTab === "chart" ? ARIA.glowGreen : "transparent",
-              }}
-            >
-              CHART
-            </button>
-            <button
-              onClick={() => setRightTabPersist("picks")}
-              style={{
-                fontSize: 9,
-                padding: "3px 10px",
-                borderRadius: "0 4px 4px 0",
-                cursor: "pointer",
-                fontFamily: "monospace",
-                fontWeight: 700,
-                border: `1px solid ${
-                  rightTab === "picks" ? ARIA.green : ARIA.border
-                }`,
-                borderLeft: "none",
-                color: rightTab === "picks" ? ARIA.green : ARIA.textMuted,
-                background:
-                  rightTab === "picks" ? ARIA.glowGreen : "transparent",
-              }}
-            >
-              AGENT PICKS
-            </button>
+            {[
+              { key: "chart", label: "CHART" },
+              { key: "picks", label: "AGENT PICKS" },
+              { key: "watchlist", label: "WATCHLIST" },
+            ].map((t, i, arr) => {
+              const on = rightTab === t.key;
+              const isFirst = i === 0;
+              const isLast = i === arr.length - 1;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setRightTabPersist(t.key)}
+                  style={{
+                    fontSize: 9,
+                    padding: "3px 10px",
+                    borderRadius: isFirst
+                      ? "4px 0 0 4px"
+                      : isLast
+                      ? "0 4px 4px 0"
+                      : "0",
+                    cursor: "pointer",
+                    fontFamily: "monospace",
+                    fontWeight: 700,
+                    border: `1px solid ${on ? ARIA.green : ARIA.border}`,
+                    borderLeft: isFirst ? undefined : "none",
+                    color: on ? ARIA.green : ARIA.textMuted,
+                    background: on ? ARIA.glowGreen : "transparent",
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Subtab content */}
@@ -2818,6 +2812,16 @@ function ChartPanelInline({
                     rvolPicks={rvolPicks}
                     pmPicks={pmPicks}
                     ahPicks={ahPicks}
+                    onTickerClick={onTickerChange}
+                  />
+                </ErrorBoundary>
+              </div>
+            )}
+            {rightTab === "watchlist" && (
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                <ErrorBoundary>
+                  <Watchlist
+                    stockMap={stockMap}
                     onTickerClick={onTickerChange}
                   />
                 </ErrorBoundary>
@@ -4381,20 +4385,11 @@ function AppMain() {
           </div>
         </div>
 
-        {/* Agent Picks moved into ChartPanelInline as a right-pane subtab.
-            See ChartPanelInline rightTab state. */}
+        {/* Agent Picks + Watchlist moved into ChartPanelInline as right-pane
+            subtabs. See ChartPanelInline rightTab state. */}
 
-        {/* Bottom row: Watchlist + TQQQ */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-          }}
-        >
-          <Watchlist stockMap={stockMap} onTickerClick={handleTickerClick} />
-          <TQQQPanel />
-        </div>
+        {/* Bottom row: TQQQ Model panel */}
+        <TQQQPanel />
       </div>
     </div>
   );
