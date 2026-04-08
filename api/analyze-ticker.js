@@ -516,10 +516,10 @@ async function scoreSubtheme(ticker) {
           body: JSON.stringify({
             model: "perplexity/sonar",
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 350,
+            max_tokens: 900,
             temperature: 0.3,
           }),
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(25000),
         }
       );
       if (r.ok) {
