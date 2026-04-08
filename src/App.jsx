@@ -851,11 +851,14 @@ function ScanWatch({ stocks, onTickerClick }) {
   }, [stocks, filters, activePreset, activeTags]);
 
   // ── Step 2: rank candidates by stale chg_pct, take top 150 ──────────────
+  // Live-enrichment universe — capped at 500 (FMP batch-quote single-call
+  // limit). 'Infinity' on the final result slice means we show every row
+  // that passes the filters, drawn from this 500-stock pre-filtered pool.
   const topCandidates = useMemo(() => {
     return candidates
       .slice()
       .sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
-      .slice(0, 150);
+      .slice(0, 500);
   }, [candidates]);
 
   // ── Step 3: live enrichment ─────────────────────────────────────────────
@@ -949,7 +952,8 @@ function ScanWatch({ stocks, onTickerClick }) {
       }
       return 0;
     });
-    return out.slice(0, 25);
+    // No cap — show all candidates that pass the filters
+    return out;
   }, [topCandidates, liveQuotes, filters, sort, activeTags]);
 
   // ── Render ──────────────────────────────────────────────────────────────
