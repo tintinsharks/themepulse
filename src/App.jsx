@@ -1524,7 +1524,14 @@ const sigColor = (s) =>
 const sigIcon = (s) =>
   s === "bullish" ? "▲" : s === "bearish" ? "▼" : "◆";
 
-function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
+function AgentPicks({
+  rvolPicks,
+  pmPicks,
+  ahPicks,
+  analyzedPicks,
+  onAnalyzedRemove,
+  onTickerClick,
+}) {
   const ARIA = useAriaTheme();
   // ── State: tab, commentary collapse, expanded row ──────────────────────
   const [tab, setTab] = useState(() => {
@@ -1596,8 +1603,20 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
     add(pmPicks?.picks, "PM");
     add(ahPicks?.picks, "AH");
     add(rvolPicks?.picks, "RVOL");
+    // Analyzed picks (on-demand from /api/analyze-ticker)
+    if (Array.isArray(analyzedPicks)) {
+      for (const p of analyzedPicks) {
+        if (!p || !p.ticker || seen.has(p.ticker)) continue;
+        seen.add(p.ticker);
+        out.push({
+          ...p,
+          source: "ANALYZED",
+          _chg: extractChg(p),
+        });
+      }
+    }
     return out;
-  }, [rvolPicks, pmPicks, ahPicks]);
+  }, [rvolPicks, pmPicks, ahPicks, analyzedPicks]);
 
   // Filter and sort by tab
   const visible = useMemo(() => {
@@ -1610,14 +1629,21 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
     } else if (tab === "ah") {
       arr = merged.filter((p) => p.source === "AH");
     } else if (tab === "rvol") {
-      arr = merged.filter((p) => p.source === "RVOL" || !p.source);
+      arr = merged.filter((p) => p.source === "RVOL");
+    } else if (tab === "analyzed") {
+      // Show in user's analysis order (newest first), not by Chg%
+      arr = (analyzedPicks || []).map((p) => ({
+        ...p,
+        source: "ANALYZED",
+        _chg: extractChg(p),
+      }));
     } else {
       arr = merged;
     }
     // Renumber rank in the visible order so the displayed #1 matches the
     // top of the current tab/sort
     return arr.map((p, i) => ({ ...p, rank: i + 1 }));
-  }, [merged, tab]);
+  }, [merged, tab, analyzedPicks]);
 
   const commentary = rvolPicks?.commentary || {};
 
@@ -1728,6 +1754,7 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
           Agent Picks
         </span>
         <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
+          {tabBtn("analyzed", "Analyzed")}
           {tabBtn("all", "All")}
           {tabBtn("pm", "PM")}
           {tabBtn("ah", "AH")}
@@ -2187,6 +2214,98 @@ function AgentPicks({ rvolPicks, pmPicks, ahPicks, onTickerClick }) {
 // (LWChart loader removed in Phase 2.7 — the legacy LWChart in
 //  src/LWChartLegacy.jsx has its own loadLW() helper that we delegate to.)
 
+// ──────────────────────────────────────────────────────────────────────────
+// Analyzed picks: on-demand 4-agent analysis stored in localStorage
+// ──────────────────────────────────────────────────────────────────────────
+//
+// User clicks "Analyze" on a ticker → POST to /api/analyze-ticker → result
+// is prepended to the local list (cap 50, dedupe by ticker, newest first).
+// The Agent Picks subtab renders this list under a new "Analyzed" tab.
+
+const ANALYZED_KEY = "themepulse-analyzed-picks";
+const ANALYZED_MAX = 50;
+
+function loadAnalyzed() {
+  try {
+    return JSON.parse(localStorage.getItem(ANALYZED_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+function saveAnalyzed(list) {
+  try {
+    localStorage.setItem(ANALYZED_KEY, JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent("tp-analyzed-changed"));
+  } catch {}
+}
+
+function useAnalyzedPicks() {
+  const [list, setList] = useState(() => loadAnalyzed());
+  useEffect(() => {
+    const reread = () => setList(loadAnalyzed());
+    window.addEventListener("tp-analyzed-changed", reread);
+    window.addEventListener("storage", reread);
+    return () => {
+      window.removeEventListener("tp-analyzed-changed", reread);
+      window.removeEventListener("storage", reread);
+    };
+  }, []);
+  const addPick = useCallback((pick) => {
+    if (!pick || !pick.ticker) return;
+    const cur = loadAnalyzed();
+    const filtered = cur.filter((p) => p.ticker !== pick.ticker);
+    const next = [pick, ...filtered].slice(0, ANALYZED_MAX);
+    saveAnalyzed(next);
+    setList(next);
+  }, []);
+  const removePick = useCallback((ticker) => {
+    const cur = loadAnalyzed();
+    const next = cur.filter((p) => p.ticker !== ticker);
+    saveAnalyzed(next);
+    setList(next);
+  }, []);
+  return { list, addPick, removePick };
+}
+
+// Triggers a /api/analyze-ticker call and on success appends to the list.
+// Returns { isAnalyzing, error, analyze(ticker) }.
+function useAnalyzer() {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTicker, setActiveTicker] = useState(null);
+  const { addPick } = useAnalyzedPicks();
+  const analyze = useCallback(
+    async (ticker) => {
+      if (!ticker || isAnalyzing) return null;
+      setIsAnalyzing(true);
+      setActiveTicker(ticker.toUpperCase());
+      setError(null);
+      try {
+        const r = await fetch("/api/analyze-ticker", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker: ticker.toUpperCase() }),
+        });
+        const d = await r.json();
+        if (!r.ok || !d.ok) {
+          setError(d.error || `HTTP ${r.status}`);
+          return null;
+        }
+        addPick(d.pick);
+        return d.pick;
+      } catch (e) {
+        setError(String(e));
+        return null;
+      } finally {
+        setIsAnalyzing(false);
+        setActiveTicker(null);
+      }
+    },
+    [isAnalyzing, addPick]
+  );
+  return { isAnalyzing, activeTicker, error, analyze };
+}
+
 // Cross-component pub/sub for portfolio + watchlist sync. Whenever any
 // component mutates `themepulse-portfolio` or `themepulse-watchlist` in
 // localStorage, it dispatches `tp-pw-changed` so all subscribers re-read.
@@ -2271,6 +2390,11 @@ function ChartPanelInline({
   rvolPicks,
   pmPicks,
   ahPicks,
+  analyzedPicks,
+  onAnalyze,
+  isAnalyzing,
+  analyzingTicker,
+  onAnalyzedRemove,
 }) {
   const ARIA = useAriaTheme();
   const [tf, setTf] = useState("D"); // "D" or "W"
@@ -2570,6 +2694,38 @@ function ChartPanelInline({
         >
           {inPF ? "✓PF" : "+PF"}
         </button>
+        {/* Analyze button — runs the 4-agent analysis on the active ticker */}
+        {onAnalyze && (
+          <button
+            onClick={() => onAnalyze(ticker)}
+            disabled={isAnalyzing}
+            title={
+              isAnalyzing && analyzingTicker === ticker
+                ? "Analyzing…"
+                : "Run 4-agent analysis (Fund / Tech / Sent / Attn + catalyst)"
+            }
+            style={{
+              fontSize: 8,
+              padding: "2px 6px",
+              borderRadius: 3,
+              border: `1px solid ${ARIA.purple}80`,
+              color:
+                isAnalyzing && analyzingTicker === ticker
+                  ? ARIA.bg
+                  : ARIA.purple,
+              background:
+                isAnalyzing && analyzingTicker === ticker
+                  ? ARIA.purple
+                  : "transparent",
+              cursor: isAnalyzing ? "wait" : "pointer",
+              fontFamily: "monospace",
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {isAnalyzing && analyzingTicker === ticker ? "…" : "🔬 ANALYZE"}
+          </button>
+        )}
         <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
         {tfBtn("D", "D", tf, setTf)}
         {tfBtn("W", "W", tf, setTf)}
@@ -2816,6 +2972,8 @@ function ChartPanelInline({
                     rvolPicks={rvolPicks}
                     pmPicks={pmPicks}
                     ahPicks={ahPicks}
+                    analyzedPicks={analyzedPicks}
+                    onAnalyzedRemove={onAnalyzedRemove}
                     onTickerClick={onTickerChange}
                   />
                 </ErrorBoundary>
@@ -4162,6 +4320,25 @@ function AppMain() {
   const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
   const picks = usePicks(60000); // refresh picks every 60s
+  const { list: analyzedPicks, removePick: removeAnalyzed } = useAnalyzedPicks();
+  const { isAnalyzing, activeTicker: analyzingTicker, analyze } = useAnalyzer();
+  // After analyze succeeds, switch the right pane to the picks subtab so the
+  // user immediately sees the new analysis. The analyze() helper handles
+  // localStorage append; we just trigger the UI flip.
+  const handleAnalyze = useCallback(
+    async (ticker) => {
+      const result = await analyze(ticker);
+      if (result) {
+        try {
+          localStorage.setItem("themepulse-chart-righttab", "picks");
+          localStorage.setItem("aria-ap-tab", "analyzed");
+          window.dispatchEvent(new CustomEvent("tp-pw-changed"));
+        } catch {}
+      }
+      return result;
+    },
+    [analyze]
+  );
 
   // Active ticker for the inline chart panel.
   // Default to TQQQ to match Aria's behavior. Persists in localStorage.
@@ -4380,6 +4557,11 @@ function AppMain() {
             rvolPicks={picks.rvolPicks}
             pmPicks={picks.pmPicks}
             ahPicks={picks.ahPicks}
+            analyzedPicks={analyzedPicks}
+            onAnalyze={handleAnalyze}
+            isAnalyzing={isAnalyzing}
+            analyzingTicker={analyzingTicker}
+            onAnalyzedRemove={removeAnalyzed}
           />
           <div style={{ width: 340, flexShrink: 0, minWidth: 280 }}>
             <ScanWatch

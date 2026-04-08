@@ -44,8 +44,8 @@
     "api/market-quality.js": {
       "maxDuration": 30
     },
-    "api/macro-context.js": {
-      "maxDuration": 15
+    "api/analyze-ticker.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
