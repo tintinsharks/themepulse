@@ -1315,6 +1315,43 @@ function ScanWatch({ stocks, onTickerClick }) {
 // ── ScanWatchTable: Aria-faithful results table with click-to-sort headers ──
 function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick }) {
   const ARIA = useAriaTheme();
+  // Keyboard nav: track selected ticker, allow ↑/↓ to move and load chart.
+  // Persist selected by ticker (not index) so reorders/filter changes don't
+  // jump to a random row.
+  const [selectedTicker, setSelectedTicker] = useState(null);
+  const wrapRef = React.useRef(null);
+  // Whenever rows change, validate selection still exists; otherwise pick row 0.
+  const visibleTickers = rows.map((r) => r.ticker);
+  useEffect(() => {
+    if (!visibleTickers.length) return;
+    if (!selectedTicker || !visibleTickers.includes(selectedTicker)) {
+      setSelectedTicker(visibleTickers[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length, visibleTickers.join(",")]);
+  const onKeyDown = useCallback(
+    (e) => {
+      if (!visibleTickers.length) return;
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const cur = selectedTicker
+        ? visibleTickers.indexOf(selectedTicker)
+        : -1;
+      let next = cur < 0 ? 0 : cur + (e.key === "ArrowDown" ? 1 : -1);
+      if (next < 0) next = 0;
+      if (next >= visibleTickers.length) next = visibleTickers.length - 1;
+      const t = visibleTickers[next];
+      setSelectedTicker(t);
+      onTickerClick && onTickerClick(t);
+      // Scroll selected row into view
+      const row = wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`);
+      if (row && row.scrollIntoView) {
+        row.scrollIntoView({ block: "nearest" });
+      }
+    },
+    [visibleTickers, selectedTicker, onTickerClick]
+  );
+
   // Click = primary sort, right-click = secondary sort
   const handleHeaderClick = (key) => onSort(key);
   const handleHeaderContext = (e, key) => {
@@ -1390,6 +1427,13 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick })
   };
 
   return (
+    <div
+      ref={wrapRef}
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      onMouseEnter={() => wrapRef.current && wrapRef.current.focus()}
+      style={{ outline: "none" }}
+    >
     <table
       style={{
         width: "100%",
@@ -1438,14 +1482,24 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick })
           return (
             <tr
               key={r.ticker}
-              onClick={() => onTickerClick && onTickerClick(r.ticker)}
-              style={{ cursor: "pointer" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = ARIA.bgHover)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
+              data-ticker={r.ticker}
+              onClick={() => {
+                setSelectedTicker(r.ticker);
+                onTickerClick && onTickerClick(r.ticker);
+              }}
+              style={{
+                cursor: "pointer",
+                background:
+                  selectedTicker === r.ticker ? `${ARIA.cyan}26` : "transparent",
+              }}
+              onMouseEnter={(e) => {
+                if (selectedTicker !== r.ticker)
+                  e.currentTarget.style.background = ARIA.bgHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  selectedTicker === r.ticker ? `${ARIA.cyan}26` : "transparent";
+              }}
             >
               <td
                 style={{
@@ -1524,6 +1578,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick })
         })}
       </tbody>
     </table>
+    </div>
   );
 }
 
