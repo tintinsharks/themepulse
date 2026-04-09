@@ -4610,9 +4610,10 @@ function ChartScanRow({
   removeAnalyzed,
   stocks,
 }) {
+  // Default 320px to match Aria's #sw-column initial width.
   const [scanW, setScanW] = useState(() => {
     const saved = parseFloat(localStorage.getItem("themepulse-scan-width") || "");
-    return Number.isFinite(saved) && saved >= 220 && saved <= 900 ? saved : 340;
+    return Number.isFinite(saved) && saved >= 150 && saved <= 900 ? saved : 320;
   });
   const rowRef = React.useRef(null);
   useEffect(() => {
@@ -4626,7 +4627,7 @@ function ChartScanRow({
     function onMove(ev) {
       // Right column width = distance from right edge of row to mouse
       const w = rect.right - (ev.clientX || 0);
-      setScanW(Math.max(220, Math.min(900, w)));
+      setScanW(Math.max(150, Math.min(900, w)));
     }
     function onUp() {
       document.removeEventListener("mousemove", onMove);
@@ -4673,7 +4674,7 @@ function ChartScanRow({
         onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       />
-      <div style={{ width: scanW, flexShrink: 0, minWidth: 220 }}>
+      <div style={{ width: scanW, flexShrink: 0, minWidth: 150 }}>
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
       </div>
     </div>
