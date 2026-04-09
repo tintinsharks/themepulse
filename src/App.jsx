@@ -4427,6 +4427,10 @@ function Watchlist({ stockMap, onTickerClick }) {
         borderRadius: 14,
         marginBottom: 8,
         overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
       }}
     >
       {/* Header with view toggle */}
@@ -4488,7 +4492,8 @@ function Watchlist({ stockMap, onTickerClick }) {
       {view === "list" && (
         <div
           style={{
-            maxHeight: 320,
+            flex: 1,
+            minHeight: 0,
             overflowY: "auto",
             fontFamily: "monospace",
           }}
