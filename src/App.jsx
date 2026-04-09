@@ -3432,6 +3432,336 @@ const RANK_METRICS = [
   { key: "chgOpen", label: "Open%" },
 ];
 
+// Sortable + keyboard-navigable table for one watchlist/portfolio section.
+// Extracted from Watchlist so it can use hooks (sort + selection state).
+function WatchlistSectionTable({
+  rows,
+  accent,
+  list,
+  onAddInput,
+  onAddSubmit,
+  addInput,
+  count,
+  onTickerClick,
+  removeTicker,
+}) {
+  const ARIA = useAriaTheme();
+  const [sortKey, setSortKey] = useState("change");
+  const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
+  const [selectedTicker, setSelectedTicker] = useState(null);
+  const wrapRef = React.useRef(null);
+
+  const colorChg = (v) =>
+    v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const fmtChg = (v) =>
+    v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+
+  // Sort rows. "ticker" + "subtheme" sort as strings, everything else numeric.
+  const sortedRows = useMemo(() => {
+    const arr = rows.slice();
+    arr.sort((a, b) => {
+      let av = a[sortKey];
+      let bv = b[sortKey];
+      if (sortKey === "ticker" || sortKey === "subtheme") {
+        av = (av || "").toString();
+        bv = (bv || "").toString();
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      av = Number(av) || 0;
+      bv = Number(bv) || 0;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+    return arr;
+  }, [rows, sortKey, sortDir]);
+
+  const visibleTickers = sortedRows.map((r) => r.ticker);
+  useEffect(() => {
+    if (!visibleTickers.length) return;
+    if (!selectedTicker || !visibleTickers.includes(selectedTicker)) {
+      setSelectedTicker(visibleTickers[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleTickers.join(",")]);
+
+  const onKeyDown = useCallback(
+    (e) => {
+      if (!visibleTickers.length) return;
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const cur = selectedTicker ? visibleTickers.indexOf(selectedTicker) : -1;
+      let next = cur < 0 ? 0 : cur + (e.key === "ArrowDown" ? 1 : -1);
+      if (next < 0) next = 0;
+      if (next >= visibleTickers.length) next = visibleTickers.length - 1;
+      const t = visibleTickers[next];
+      setSelectedTicker(t);
+      onTickerClick && onTickerClick(t);
+      const row = wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`);
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+    },
+    [visibleTickers, selectedTicker, onTickerClick]
+  );
+
+  const toggleSort = (key) => {
+    setSortKey((k) => {
+      if (k === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return k;
+      }
+      // New column → default desc for numeric, asc for ticker/subtheme
+      setSortDir(key === "ticker" || key === "subtheme" ? "asc" : "desc");
+      return key;
+    });
+  };
+
+  const headers = [
+    { k: "ticker", label: "Ticker", align: "left" },
+    { k: "qmagScore", label: "BO" },
+    { k: "change", label: "Chg%" },
+    { k: "rvol", label: "RV" },
+    { k: "liveVol", label: "Vol" },
+    { k: "cr", label: "CR%" },
+    { k: "adr", label: "ADR" },
+    { k: "rs", label: "RS" },
+    { k: "subtheme", label: "Sub", align: "left" },
+    { k: null, label: "" },
+  ];
+
+  return (
+    <div style={{ padding: "6px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <span
+          style={{
+            color: accent,
+            fontSize: 9,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}
+        >
+          {list === "portfolio" ? "Portfolio" : "Watchlist"}
+        </span>
+        <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
+        <input
+          value={addInput}
+          onChange={(e) => onAddInput(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && onAddSubmit()}
+          placeholder="Add..."
+          style={{
+            marginLeft: "auto",
+            width: 50,
+            fontSize: 9,
+            padding: "1px 4px",
+            background: ARIA.bg,
+            border: `1px solid ${ARIA.border}`,
+            borderRadius: 3,
+            color: ARIA.textDim,
+            fontFamily: "monospace",
+            textTransform: "uppercase",
+            outline: "none",
+          }}
+        />
+        <button
+          onClick={onAddSubmit}
+          style={{
+            fontSize: 9,
+            padding: "1px 5px",
+            borderRadius: 3,
+            cursor: "pointer",
+            background: `${accent}26`,
+            border: `1px solid ${accent}`,
+            color: accent,
+          }}
+        >
+          +
+        </button>
+      </div>
+      {sortedRows.length === 0 ? (
+        <div style={{ color: ARIA.textMuted, fontSize: 8, padding: "2px 0" }}>Empty</div>
+      ) : (
+        <div
+          ref={wrapRef}
+          tabIndex={0}
+          onKeyDown={onKeyDown}
+          onMouseEnter={() => wrapRef.current && wrapRef.current.focus()}
+          style={{ outline: "none", overflowX: "auto" }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
+            <thead>
+              <tr>
+                {headers.map((h, i) => {
+                  const isSorted = h.k && sortKey === h.k;
+                  const arrow = isSorted ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+                  return (
+                    <th
+                      key={i}
+                      onClick={() => h.k && toggleSort(h.k)}
+                      style={{
+                        padding: "3px 5px",
+                        fontSize: 7,
+                        fontWeight: 700,
+                        color: isSorted ? ARIA.green : ARIA.textMuted,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.3,
+                        textAlign: h.align || "right",
+                        borderBottom: `1px solid ${ARIA.border}`,
+                        whiteSpace: "nowrap",
+                        cursor: h.k ? "pointer" : "default",
+                        userSelect: "none",
+                      }}
+                    >
+                      {h.label}
+                      {arrow}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRows.map((r) => {
+                const cell = {
+                  padding: "2px 5px",
+                  fontSize: 9,
+                  textAlign: "right",
+                  borderBottom: `1px solid ${ARIA.border}`,
+                  whiteSpace: "nowrap",
+                };
+                const fmtVol = (v) => {
+                  if (!v) return "—";
+                  if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+                  if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+                  return String(v);
+                };
+                const colorBo = (v) =>
+                  v == null || v === 0
+                    ? ARIA.textMuted
+                    : v >= 7
+                    ? ARIA.green
+                    : v >= 5
+                    ? ARIA.blue
+                    : ARIA.textDim;
+                const colorRvol = (v) =>
+                  v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
+                const colorCr = (v) =>
+                  v == null
+                    ? ARIA.textMuted
+                    : v >= 70
+                    ? ARIA.green
+                    : v >= 40
+                    ? ARIA.textDim
+                    : ARIA.red;
+                const isSel = selectedTicker === r.ticker;
+                return (
+                  <tr
+                    key={r.ticker}
+                    data-ticker={r.ticker}
+                    onClick={() => {
+                      setSelectedTicker(r.ticker);
+                      onTickerClick && onTickerClick(r.ticker);
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      background: isSel ? `${ARIA.cyan}26` : "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSel) e.currentTarget.style.background = ARIA.bgHover;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = isSel
+                        ? `${ARIA.cyan}26`
+                        : "transparent";
+                    }}
+                  >
+                    <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        {r.ticker}
+                        {r.is9m && (
+                          <span
+                            title="9M — today's volume ≥ 8.9M but avg < 8.9M"
+                            style={{
+                              fontSize: 6,
+                              fontWeight: 800,
+                              color: ARIA.yellow,
+                              border: `1px solid ${ARIA.yellow}`,
+                              background: `${ARIA.yellow}26`,
+                              padding: "0 2px",
+                              borderRadius: 2,
+                            }}
+                          >
+                            9M
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td style={{ ...cell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
+                      {r.qmagScore || "—"}
+                    </td>
+                    <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
+                    <td style={{ ...cell, color: colorRvol(r.rvol) }}>
+                      {r.rvol > 0 ? r.rvol.toFixed(1) + "x" : "—"}
+                    </td>
+                    <td style={{ ...cell, color: ARIA.textDim, fontSize: 8 }}>
+                      {fmtVol(r.liveVol)}
+                    </td>
+                    <td style={{ ...cell, color: colorCr(r.cr) }}>
+                      {r.cr != null ? r.cr + "%" : "—"}
+                    </td>
+                    <td style={{ ...cell, color: ARIA.cyan }}>
+                      {r.adr ? r.adr.toFixed(1) + "%" : "—"}
+                    </td>
+                    <td
+                      style={{
+                        ...cell,
+                        color:
+                          r.rs >= 80 ? ARIA.green : r.rs >= 60 ? ARIA.blue : ARIA.textMuted,
+                      }}
+                    >
+                      {r.rs || "—"}
+                    </td>
+                    <td
+                      style={{
+                        ...cell,
+                        textAlign: "left",
+                        color: ARIA.cyan,
+                        fontSize: 7,
+                        maxWidth: 80,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={r.subtheme}
+                    >
+                      {r.subtheme || "—"}
+                    </td>
+                    <td style={{ ...cell, padding: "2px 4px" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeTicker(list, r.ticker);
+                        }}
+                        title="Remove"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: ARIA.textMuted,
+                          cursor: "pointer",
+                          fontSize: 12,
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Watchlist({ stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
   const [view, setView] = useState(
@@ -3674,235 +4004,6 @@ function Watchlist({ stockMap, onTickerClick }) {
     v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const fmtChg = (v) =>
     v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
-
-  // ── List view: simple table for one section ──
-  const SectionTable = ({ rows, accent, list, onAddInput, onAddSubmit, addInput, count }) => (
-    <div style={{ padding: "6px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <span
-          style={{
-            color: accent,
-            fontSize: 9,
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-          }}
-        >
-          {list === "portfolio" ? "Portfolio" : "Watchlist"}
-        </span>
-        <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
-        <input
-          value={addInput}
-          onChange={(e) => onAddInput(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && onAddSubmit()}
-          placeholder="Add..."
-          style={{
-            marginLeft: "auto",
-            width: 50,
-            fontSize: 9,
-            padding: "1px 4px",
-            background: ARIA.bg,
-            border: `1px solid ${ARIA.border}`,
-            borderRadius: 3,
-            color: ARIA.textDim,
-            fontFamily: "monospace",
-            textTransform: "uppercase",
-            outline: "none",
-          }}
-        />
-        <button
-          onClick={onAddSubmit}
-          style={{
-            fontSize: 9,
-            padding: "1px 5px",
-            borderRadius: 3,
-            cursor: "pointer",
-            background: `${accent}26`,
-            border: `1px solid ${accent}`,
-            color: accent,
-          }}
-        >
-          +
-        </button>
-      </div>
-      {rows.length === 0 ? (
-        <div style={{ color: ARIA.textMuted, fontSize: 8, padding: "2px 0" }}>
-          Empty
-        </div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
-            <thead>
-              <tr>
-                {["Ticker", "BO", "Chg%", "RV", "Vol", "CR%", "ADR", "RS", "Sub", ""].map(
-                  (h, i) => (
-                    <th
-                      key={i}
-                      style={{
-                        padding: "3px 5px",
-                        fontSize: 7,
-                        fontWeight: 700,
-                        color: ARIA.textMuted,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.3,
-                        textAlign: i === 0 || i === 8 ? "left" : "right",
-                        borderBottom: `1px solid ${ARIA.border}`,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const cell = {
-                  padding: "2px 5px",
-                  fontSize: 9,
-                  textAlign: "right",
-                  borderBottom: `1px solid ${ARIA.border}`,
-                  whiteSpace: "nowrap",
-                };
-                const fmtVol = (v) => {
-                  if (!v) return "—";
-                  if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
-                  if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
-                  return String(v);
-                };
-                const colorBo = (v) =>
-                  v == null || v === 0
-                    ? ARIA.textMuted
-                    : v >= 7
-                    ? ARIA.green
-                    : v >= 5
-                    ? ARIA.blue
-                    : ARIA.textDim;
-                const colorRvol = (v) =>
-                  v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
-                const colorCr = (v) =>
-                  v == null
-                    ? ARIA.textMuted
-                    : v >= 70
-                    ? ARIA.green
-                    : v >= 40
-                    ? ARIA.textDim
-                    : ARIA.red;
-                return (
-                  <tr
-                    key={r.ticker}
-                    onClick={() => onTickerClick && onTickerClick(r.ticker)}
-                    style={{ cursor: "pointer" }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = ARIA.bgHover)
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
-                    }
-                  >
-                    <td
-                      style={{
-                        ...cell,
-                        textAlign: "left",
-                        fontWeight: 700,
-                        color: ARIA.text,
-                      }}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                        {r.ticker}
-                        {r.is9m && (
-                          <span
-                            title="9M — today's volume ≥ 8.9M but avg < 8.9M"
-                            style={{
-                              fontSize: 6,
-                              fontWeight: 800,
-                              color: ARIA.yellow,
-                              border: `1px solid ${ARIA.yellow}`,
-                              background: `${ARIA.yellow}26`,
-                              padding: "0 2px",
-                              borderRadius: 2,
-                            }}
-                          >
-                            9M
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td style={{ ...cell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
-                      {r.qmagScore || "—"}
-                    </td>
-                    <td style={{ ...cell, color: colorChg(r.change) }}>
-                      {fmtChg(r.change)}
-                    </td>
-                    <td style={{ ...cell, color: colorRvol(r.rvol) }}>
-                      {r.rvol > 0 ? r.rvol.toFixed(1) + "x" : "—"}
-                    </td>
-                    <td style={{ ...cell, color: ARIA.textDim, fontSize: 8 }}>
-                      {fmtVol(r.liveVol)}
-                    </td>
-                    <td style={{ ...cell, color: colorCr(r.cr) }}>
-                      {r.cr != null ? r.cr + "%" : "—"}
-                    </td>
-                    <td style={{ ...cell, color: ARIA.cyan }}>
-                      {r.adr ? r.adr.toFixed(1) + "%" : "—"}
-                    </td>
-                    <td
-                      style={{
-                        ...cell,
-                        color:
-                          r.rs >= 80
-                            ? ARIA.green
-                            : r.rs >= 60
-                            ? ARIA.blue
-                            : ARIA.textMuted,
-                      }}
-                    >
-                      {r.rs || "—"}
-                    </td>
-                    <td
-                      style={{
-                        ...cell,
-                        textAlign: "left",
-                        color: ARIA.cyan,
-                        fontSize: 7,
-                        maxWidth: 80,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                      title={r.subtheme}
-                    >
-                      {r.subtheme || "—"}
-                    </td>
-                    <td style={{ ...cell, padding: "2px 4px" }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTicker(list, r.ticker);
-                        }}
-                        title="Remove"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: ARIA.textMuted,
-                          cursor: "pointer",
-                          fontSize: 12,
-                          padding: 0,
-                          lineHeight: 1,
-                        }}
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
 
   // ── Themes view ──
   const renderThemes = () => {
@@ -4392,7 +4493,7 @@ function Watchlist({ stockMap, onTickerClick }) {
             fontFamily: "monospace",
           }}
         >
-          <SectionTable
+          <WatchlistSectionTable
             rows={portRows}
             accent={ARIA.yellow}
             list="portfolio"
@@ -4400,8 +4501,10 @@ function Watchlist({ stockMap, onTickerClick }) {
             addInput={pInput}
             onAddInput={setPInput}
             onAddSubmit={addPortfolio}
+            onTickerClick={onTickerClick}
+            removeTicker={removeTicker}
           />
-          <SectionTable
+          <WatchlistSectionTable
             rows={watchRows}
             accent={ARIA.green}
             list="watchlist"
@@ -4409,6 +4512,8 @@ function Watchlist({ stockMap, onTickerClick }) {
             addInput={wInput}
             onAddInput={setWInput}
             onAddSubmit={addWatchlist}
+            onTickerClick={onTickerClick}
+            removeTicker={removeTicker}
           />
         </div>
       )}
