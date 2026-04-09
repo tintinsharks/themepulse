@@ -4626,6 +4626,75 @@ function Watchlist({ stockMap, onTickerClick }) {
 
 // Resizable split between ChartPanelInline (left) and ScanWatch (right).
 // Width of the right column is persisted and dragged via a 4px col-resize handle.
+function PipelineLiveBar({ pipelineMeta }) {
+  const ARIA = useAriaTheme();
+  const spyTickers = useMemo(() => ["SPY"], []);
+  const { quotes } = useLiveQuotes(spyTickers, 30000);
+  const spy = quotes.get("SPY");
+
+  // Pipeline relative time
+  let pipelineText = "";
+  const lr = pipelineMeta?.last_run;
+  if (lr) {
+    const d = new Date(lr);
+    if (!isNaN(d)) {
+      const diffM = Math.round((Date.now() - d.getTime()) / 60000);
+      const ago =
+        diffM < 1
+          ? "just now"
+          : diffM < 60
+          ? `${diffM}m ago`
+          : diffM < 1440
+          ? `${Math.floor(diffM / 60)}h ago`
+          : `${Math.floor(diffM / 1440)}d ago`;
+      const dateStr = d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      pipelineText = `Pipeline: ${dateStr} (${ago})`;
+    }
+  }
+
+  const spyChg = spy?.changePercentage ?? spy?.changesPercentage ?? null;
+  const spyColor =
+    spyChg == null ? ARIA.textMuted : spyChg >= 0 ? ARIA.green : ARIA.red;
+
+  return (
+    <div
+      style={{
+        padding: "3px 10px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 8,
+        fontFamily: "monospace",
+      }}
+    >
+      {pipelineText && (
+        <span style={{ color: ARIA.green, fontWeight: 600 }}>{pipelineText}</span>
+      )}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+        <span
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: "50%",
+            background: spy ? ARIA.green : "#555",
+            display: "inline-block",
+          }}
+        />
+        <span style={{ color: spyColor }}>
+          Live: SPY{" "}
+          {spyChg != null
+            ? (spyChg >= 0 ? "+" : "") + Number(spyChg).toFixed(2) + "%"
+            : "—"}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function ChartScanRow({
   chartTicker,
   handleTickerClick,
@@ -4637,6 +4706,7 @@ function ChartScanRow({
   analyzingTicker,
   removeAnalyzed,
   stocks,
+  pipelineMeta,
 }) {
   // Default 320px to match Aria's #sw-column initial width.
   const [scanW, setScanW] = useState(() => {
@@ -4702,7 +4772,8 @@ function ChartScanRow({
         onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       />
-      <div style={{ width: scanW, flexShrink: 0, minWidth: 150 }}>
+      <div style={{ width: scanW, flexShrink: 0, minWidth: 150, display: "flex", flexDirection: "column" }}>
+        <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
       </div>
     </div>
@@ -4985,6 +5056,7 @@ function AppMain() {
           analyzingTicker={analyzingTicker}
           removeAnalyzed={removeAnalyzed}
           stocks={stocks}
+          pipelineMeta={data.pipeline?.pipeline_meta}
         />
 
         {/* Agent Picks + Watchlist moved into ChartPanelInline as right-pane
