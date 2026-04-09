@@ -872,12 +872,12 @@ function ETFScanTable({ onTickerClick }) {
         const q = quotes.get(e.ticker);
         const price = q?.price ?? null;
         if (!price) return null;
-        const chg = q?.changePercentage ?? q?.changesPercentage ?? 0;
+        const chg = q?.change ?? q?.changePercentage ?? 0;
         const vol = q?.volume ?? 0;
         const avgVol = q?.avgVolume ?? 0;
         const rvol = vol && avgVol > 0 ? Math.round((vol / avgVol) * 10) / 10 : null;
-        const dh = q?.dayHigh ?? q?.high;
-        const dl = q?.dayLow ?? q?.low;
+        const dh = q?.dayHigh ?? null;
+        const dl = q?.dayLow ?? null;
         const cr =
           dh && dl && price && dh !== dl
             ? Math.round(((price - dl) / (dh - dl)) * 100)
@@ -4955,7 +4955,7 @@ function PipelineLiveBar({ pipelineMeta }) {
     }
   }
 
-  const spyChg = spy?.changePercentage ?? spy?.changesPercentage ?? null;
+  const spyChg = spy?.change ?? spy?.changePercentage ?? null;
   const spyColor =
     spyChg == null ? ARIA.textMuted : spyChg >= 0 ? ARIA.green : ARIA.red;
 
