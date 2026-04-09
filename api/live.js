@@ -1107,9 +1107,13 @@ async function fetchFmpUniverse(tickers, apiKey) {
           price: q.price ?? null,
           change: q.changePercentage ?? null,
           volume: q.volume ?? null,
+          avgVolume: q.avgVolume ?? null,
           open: q.open ?? null,
           high: q.dayHigh ?? null,
           low: q.dayLow ?? null,
+          dayHigh: q.dayHigh ?? null,
+          dayLow: q.dayLow ?? null,
+          previousClose: q.previousClose ?? null,
         });
       });
     });
@@ -1351,6 +1355,11 @@ export default async function handler(req, res) {
               ? Math.round(((q.open - q.previousClose) / q.previousClose) * 10000) / 100
               : null,
             volume: q.volume ?? null,
+            avgVolume: q.avgVolume ?? null,
+            open: q.open ?? null,
+            dayHigh: q.dayHigh ?? null,
+            dayLow: q.dayLow ?? null,
+            previousClose: q.previousClose ?? null,
             market_cap: q.marketCap != null ? String(q.marketCap) : null,
           });
         }
