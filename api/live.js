@@ -1375,14 +1375,8 @@ export default async function handler(req, res) {
           .map(u => {
             const ext = yahooExt.get(u.ticker);
             return {
-              ticker: u.ticker,
+              ...u,
               price: ext ? ext.extPrice : u.price,
-              change: u.change,
-              volume: u.volume,
-              open: u.open,
-              high: u.high,
-              low: u.low,
-              orh: u.orh,
               ext_change: ext ? ext.extChange : null,
               ext_volume: null,
             };

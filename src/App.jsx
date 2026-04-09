@@ -874,7 +874,7 @@ function ETFScanTable({ onTickerClick }) {
         if (!price) return null;
         const chg = q?.change ?? q?.changePercentage ?? 0;
         const vol = q?.volume ?? 0;
-        const avgVol = q?.avgVolume ?? 0;
+        const avgVol = q?.avgVolume ?? e.avgVolume ?? 0;
         const rvol = vol && avgVol > 0 ? Math.round((vol / avgVol) * 10) / 10 : null;
         const dh = q?.dayHigh ?? q?.high ?? null;
         const dl = q?.dayLow ?? q?.low ?? null;
