@@ -842,8 +842,296 @@ const TAG_PREDICATES = {
   },
 };
 
+// ── ETF Scan Table — fetches etf_universe.json + live quotes ─────────────
+function ETFScanTable({ onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [etfMeta, setEtfMeta] = useState([]);
+  const [filter, setFilter] = useState("all"); // all | index | sector | lev
+  const [gainOnly, setGainOnly] = useState(true);
+  const [sortKey, setSortKey] = useState("change");
+  const [sortDir, setSortDir] = useState("desc");
+  const [selectedTicker, setSelectedTicker] = useState(null);
+  const wrapRef = React.useRef(null);
+
+  // Fetch static ETF universe once
+  useEffect(() => {
+    fetch("/etf_universe.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => Array.isArray(d) && setEtfMeta(d))
+      .catch(() => {});
+  }, []);
+
+  // Live quotes for all ETF tickers
+  const tickers = useMemo(() => etfMeta.map((e) => e.ticker), [etfMeta]);
+  const { quotes } = useLiveQuotes(tickers, 30000);
+
+  // Merge static meta + live quotes → rows
+  const rows = useMemo(() => {
+    return etfMeta
+      .map((e) => {
+        const q = quotes.get(e.ticker);
+        const price = q?.price ?? null;
+        if (!price) return null;
+        const chg = q?.changePercentage ?? q?.changesPercentage ?? 0;
+        const vol = q?.volume ?? 0;
+        const avgVol = q?.avgVolume ?? 0;
+        const rvol = vol && avgVol > 0 ? Math.round((vol / avgVol) * 10) / 10 : null;
+        const dh = q?.dayHigh ?? q?.high;
+        const dl = q?.dayLow ?? q?.low;
+        const cr =
+          dh && dl && price && dh !== dl
+            ? Math.round(((price - dl) / (dh - dl)) * 100)
+            : null;
+        const prev = q?.previousClose;
+        const adr =
+          dh && dl && prev && prev > 0
+            ? Math.round((Math.abs(dh - dl) / prev) * 1000) / 10
+            : null;
+        return {
+          ticker: e.ticker,
+          name: e.name,
+          category: e.category,
+          leverage: e.leverage,
+          subtheme: e.subtheme,
+          price,
+          change: Math.round(chg * 100) / 100,
+          volume: vol,
+          rvol,
+          cr,
+          adr,
+        };
+      })
+      .filter(Boolean);
+  }, [etfMeta, quotes]);
+
+  // Filter
+  const filtered = useMemo(() => {
+    let arr = rows;
+    if (filter === "index") arr = arr.filter((e) => e.category === "Index");
+    else if (filter === "sector")
+      arr = arr.filter((e) => e.category === "Sector" && e.leverage === "1x");
+    else if (filter === "lev") arr = arr.filter((e) => e.leverage !== "1x");
+    if (gainOnly) arr = arr.filter((e) => (e.change || 0) > 0);
+    // Sort
+    arr = arr.slice().sort((a, b) => {
+      let av = a[sortKey],
+        bv = b[sortKey];
+      if (sortKey === "ticker" || sortKey === "subtheme" || sortKey === "leverage") {
+        av = (av || "").toString();
+        bv = (bv || "").toString();
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      av = Number(av) || 0;
+      bv = Number(bv) || 0;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+    return arr;
+  }, [rows, filter, gainOnly, sortKey, sortDir]);
+
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir(key === "ticker" || key === "subtheme" ? "asc" : "desc");
+    }
+  };
+
+  // Keyboard nav
+  const visibleTickers = filtered.map((r) => r.ticker);
+  useEffect(() => {
+    if (!visibleTickers.length) return;
+    if (!selectedTicker || !visibleTickers.includes(selectedTicker))
+      setSelectedTicker(visibleTickers[0]);
+  }, [visibleTickers.join(",")]);
+  const onKeyDown = useCallback(
+    (e) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const cur = selectedTicker ? visibleTickers.indexOf(selectedTicker) : -1;
+      let next = cur < 0 ? 0 : cur + (e.key === "ArrowDown" ? 1 : -1);
+      next = Math.max(0, Math.min(visibleTickers.length - 1, next));
+      const t = visibleTickers[next];
+      setSelectedTicker(t);
+      onTickerClick && onTickerClick(t);
+      wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`)?.scrollIntoView({ block: "nearest" });
+    },
+    [visibleTickers, selectedTicker, onTickerClick]
+  );
+
+  const fBtn = (k, label) => {
+    const on = filter === k;
+    return (
+      <button
+        key={k}
+        onClick={() => setFilter(k)}
+        style={pillStyle(on, ARIA.green)}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  const headers = [
+    { k: "ticker", label: "ETF", align: "left" },
+    { k: "change", label: "Chg%" },
+    { k: "rvol", label: "RV" },
+    { k: "volume", label: "Vol" },
+    { k: "cr", label: "CR%" },
+    { k: "adr", label: "ADR" },
+    { k: "leverage", label: "Lev", align: "left" },
+    { k: "subtheme", label: "Theme", align: "left" },
+  ];
+
+  const colorChg = (v) =>
+    v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const fmtVol = (v) => {
+    if (!v) return "—";
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+    return String(v);
+  };
+  const colorRvol = (v) =>
+    v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
+  const colorCr = (v) =>
+    v == null ? ARIA.textMuted : v >= 85 ? ARIA.green : ARIA.textMuted;
+  const colorLev = (l) =>
+    l === "3x" || l === "-3x"
+      ? "#f59e0b"
+      : l === "2x" || l === "-2x"
+      ? ARIA.cyan
+      : ARIA.textMuted;
+
+  const cell = {
+    padding: "2px 5px",
+    fontSize: 9,
+    textAlign: "right",
+    borderBottom: `1px solid ${ARIA.border}`,
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <>
+      {/* Filter bar */}
+      <div
+        style={{
+          padding: "4px 12px",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 3,
+          alignItems: "center",
+          borderBottom: `1px solid ${ARIA.border}`,
+          fontFamily: "monospace",
+        }}
+      >
+        {fBtn("all", "All")}
+        {fBtn("index", "Index")}
+        {fBtn("sector", "Sector")}
+        {fBtn("lev", "2x/3x")}
+        <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
+        <button onClick={() => setGainOnly((g) => !g)} style={pillStyle(gainOnly, ARIA.green)}>
+          Chg&gt;0%
+        </button>
+        <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>
+          ({filtered.length})
+        </span>
+      </div>
+      {/* Table */}
+      <div
+        ref={wrapRef}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        onMouseEnter={() => wrapRef.current?.focus()}
+        style={{ outline: "none", flex: 1, overflowY: "auto", overflowX: "auto", fontFamily: "monospace" }}
+      >
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
+            <tr>
+              {headers.map((h) => {
+                const isSorted = sortKey === h.k;
+                const arrow = isSorted ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+                return (
+                  <th
+                    key={h.k}
+                    onClick={() => toggleSort(h.k)}
+                    style={{
+                      padding: "3px 5px",
+                      fontSize: 7,
+                      fontWeight: 700,
+                      color: isSorted ? ARIA.green : ARIA.textMuted,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.3,
+                      textAlign: h.align || "right",
+                      borderBottom: `1px solid ${ARIA.border}`,
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                      userSelect: "none",
+                      background: ARIA.bgCard,
+                    }}
+                  >
+                    {h.label}
+                    {arrow}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ padding: 12, textAlign: "center", color: ARIA.textMuted, fontSize: 9 }}>
+                  No ETFs match filters
+                </td>
+              </tr>
+            )}
+            {filtered.map((r) => {
+              const isSel = selectedTicker === r.ticker;
+              return (
+                <tr
+                  key={r.ticker}
+                  data-ticker={r.ticker}
+                  onClick={() => {
+                    setSelectedTicker(r.ticker);
+                    onTickerClick && onTickerClick(r.ticker);
+                  }}
+                  style={{ cursor: "pointer", background: isSel ? `${ARIA.cyan}26` : "transparent" }}
+                  onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = ARIA.bgHover; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : "transparent"; }}
+                >
+                  <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text, position: "sticky", left: 0, background: ARIA.bgCard, zIndex: 1 }}>
+                    {r.ticker}
+                  </td>
+                  <td style={{ ...cell, color: colorChg(r.change), fontWeight: 700 }}>
+                    {r.change != null ? (r.change > 0 ? "+" : "") + r.change.toFixed(2) + "%" : "—"}
+                  </td>
+                  <td style={{ ...cell, color: colorRvol(r.rvol) }}>
+                    {r.rvol != null ? r.rvol.toFixed(1) + "x" : "—"}
+                  </td>
+                  <td style={{ ...cell, color: ARIA.textDim, fontSize: 8 }}>{fmtVol(r.volume)}</td>
+                  <td style={{ ...cell, color: colorCr(r.cr) }}>
+                    {r.cr != null ? r.cr + "%" : "—"}
+                  </td>
+                  <td style={{ ...cell, color: ARIA.textMuted }}>
+                    {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
+                  </td>
+                  <td style={{ ...cell, textAlign: "left", color: colorLev(r.leverage), fontWeight: 700, fontSize: 8 }}>
+                    {r.leverage}
+                  </td>
+                  <td style={{ ...cell, textAlign: "left", color: ARIA.textMuted, fontSize: 7, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis" }} title={r.subtheme}>
+                    {r.subtheme || "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 function ScanWatch({ stocks, onTickerClick }) {
   const ARIA = useAriaTheme();
+  const [swView, setSwView] = useState("scan"); // "scan" | "etf"
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState(DEFAULT_SORT);
@@ -1098,6 +1386,10 @@ function ScanWatch({ stocks, onTickerClick }) {
         <span style={{ fontSize: 8, color: ARIA.textMuted }}>
           ({rows.length})
         </span>
+        <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
+          <button onClick={() => setSwView("scan")} style={pillStyle(swView === "scan", ARIA.green)}>Scan</button>
+          <button onClick={() => setSwView("etf")} style={pillStyle(swView === "etf", ARIA.green)}>ETF</button>
+        </div>
         <div
           style={{
             marginLeft: "auto",
@@ -1110,6 +1402,12 @@ function ScanWatch({ stocks, onTickerClick }) {
             : "Loading live quotes…"}
         </div>
       </div>
+
+      {/* ETF Scan view */}
+      {swView === "etf" && <ETFScanTable onTickerClick={onTickerClick} />}
+
+      {/* Scan view — all original filters + table */}
+      {swView === "scan" && <>
 
       {/* Preset row */}
       <div
@@ -1376,6 +1674,7 @@ function ScanWatch({ stocks, onTickerClick }) {
           onTickerClick={onTickerClick}
         />
       </div>
+      </>}
     </div>
   );
 }
