@@ -2416,16 +2416,26 @@ function saveCachedState(state) {
   } catch {}
 }
 
-// Module-level singleton so all components share the same in-memory state
-// + debounce timer (avoids race conditions where two components race to
-// POST overlapping snapshots).
+// Module-level singleton so all components share the same in-memory state.
+//
+// Race fix: a local mutation tick (`_localTick`) is bumped on every _setState.
+// Any in-flight server response (pull OR push) that started before the tick
+// was bumped is discarded — local edits win. This prevents the common race
+// where the user clicks +WL right after page load and the initial /api/userdata
+// GET returns a moment later with a stale state and clobbers the click.
 let _moduleState = null;
 let _moduleSubs = new Set();
 let _debounceTimer = null;
+let _localTick = 0;
+let _pullPromise = null;
 
 function _getState() {
   if (_moduleState === null) _moduleState = loadCachedState();
   return _moduleState;
+}
+
+function _notify() {
+  for (const fn of _moduleSubs) fn(_moduleState);
 }
 
 function _setState(updater) {
@@ -2440,10 +2450,9 @@ function _setState(updater) {
     })
     .slice(0, ANALYZED_MAX);
   _moduleState = { ...cur, ...next, updated_at: new Date().toISOString() };
+  _localTick++;
   saveCachedState(_moduleState);
-  // Notify subscribers
-  for (const fn of _moduleSubs) fn(_moduleState);
-  // Debounce server POST
+  _notify();
   if (_debounceTimer) clearTimeout(_debounceTimer);
   _debounceTimer = setTimeout(_pushToServer, SERVER_DEBOUNCE_MS);
 }
@@ -2451,6 +2460,7 @@ function _setState(updater) {
 async function _pushToServer() {
   _debounceTimer = null;
   const s = _getState();
+  const tickAtStart = _localTick;
   try {
     const r = await fetch("/api/userdata", {
       method: "POST",
@@ -2461,41 +2471,59 @@ async function _pushToServer() {
         portfolio: s.portfolio,
       }),
     });
-    if (r.ok) {
-      const d = await r.json();
-      if (d.ok) {
-        _moduleState = { ...emptyServerState(), ...d };
-        saveCachedState(_moduleState);
-        for (const fn of _moduleSubs) fn(_moduleState);
-      }
-    }
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.ok) return;
+    // Discard server echo if local state has been mutated again since we
+    // started this push (avoids losing rapid sequential clicks).
+    if (_localTick !== tickAtStart) return;
+    _moduleState = {
+      ...emptyServerState(),
+      analyzedPicks: d.analyzedPicks || [],
+      watchlist: d.watchlist || [],
+      portfolio: d.portfolio || [],
+      updated_at: d.updated_at || null,
+    };
+    saveCachedState(_moduleState);
+    _notify();
   } catch {
-    // Network error — stay in localStorage-only mode, will retry on next mutation
+    /* offline — keep optimistic local state */
   }
 }
 
-async function _pullFromServer() {
-  try {
-    const r = await fetch("/api/userdata", { cache: "no-store" });
-    if (!r.ok) return;
-    const d = await r.json();
-    if (d.ok) {
-      _moduleState = { ...emptyServerState(), ...d };
+function _pullFromServer() {
+  if (_pullPromise) return _pullPromise; // dedupe across mounts
+  const tickAtStart = _localTick;
+  _pullPromise = (async () => {
+    try {
+      const r = await fetch("/api/userdata", { cache: "no-store" });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (!d.ok) return;
+      // If user mutated state while we were fetching, discard server snapshot.
+      if (_localTick !== tickAtStart) return;
+      _moduleState = {
+        ...emptyServerState(),
+        analyzedPicks: d.analyzedPicks || [],
+        watchlist: d.watchlist || [],
+        portfolio: d.portfolio || [],
+        updated_at: d.updated_at || null,
+      };
       saveCachedState(_moduleState);
-      for (const fn of _moduleSubs) fn(_moduleState);
+      _notify();
+    } catch {
+      /* offline — keep cached state */
     }
-  } catch {
-    /* offline — keep cached state */
-  }
+  })();
+  return _pullPromise;
 }
 
 function useServerState() {
   const [state, setStateLocal] = useState(_getState);
   useEffect(() => {
     _moduleSubs.add(setStateLocal);
-    // Initial server pull (only fires once per page load due to module state)
+    // Pull once per page-load (module-scoped promise dedupes).
     _pullFromServer();
-    // Cross-tab sync
     const onStorage = () => {
       _moduleState = loadCachedState();
       setStateLocal(_moduleState);
