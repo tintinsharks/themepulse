@@ -77,6 +77,75 @@ const BIO_REIT_INDUSTRIES = new Set([
 const DELISTED = new Set(["EXAS", "TGNA", "EB", "ALEX", "HOLX"]);
 
 // Aria scan-watch defaults
+// Subtheme/theme → correlated ETFs. Used by the Watchlist Themes view to
+// surface tradable ETF proxies for each cluster of tickers. Keys are matched
+// case-insensitively as substrings of the subtheme name first, then the
+// parent theme name. Order = priority (most specific first).
+const SUBTHEME_ETFS = [
+  // ── AI / compute / semis ─────────────────────────────────────────────
+  { match: /quantum/i, etfs: ["QTUM", "DEFN"] },
+  { match: /semiconduct|chip/i, etfs: ["SMH", "SOXX", "SOXL"] },
+  { match: /ai infra|data center|hyperscale/i, etfs: ["DTCR", "SMH", "AIQ"] },
+  { match: /artificial intelligence|\bai\b|machine learning/i, etfs: ["AIQ", "BOTZ", "ROBO"] },
+  { match: /robotic|automation/i, etfs: ["ROBO", "BOTZ", "ARKQ"] },
+  // ── Software / cyber / cloud ─────────────────────────────────────────
+  { match: /cyber/i, etfs: ["HACK", "CIBR", "BUG"] },
+  { match: /cloud|saas|software/i, etfs: ["WCLD", "CLOU", "IGV", "SKYY"] },
+  { match: /fintech|payment/i, etfs: ["FINX", "ARKF", "IPAY"] },
+  { match: /blockchain|crypto|bitcoin/i, etfs: ["BITQ", "BLOK", "IBIT"] },
+  // ── Defense / space / aerospace ──────────────────────────────────────
+  { match: /space|satellite|launch/i, etfs: ["UFO", "ROKT", "ARKX"] },
+  { match: /defense|aerospace|military/i, etfs: ["ITA", "XAR", "PPA"] },
+  { match: /drone|uav/i, etfs: ["UAV", "ARKX"] },
+  // ── Energy / nuclear / uranium ───────────────────────────────────────
+  { match: /uranium|nuclear/i, etfs: ["URA", "URNM", "NLR"] },
+  { match: /solar/i, etfs: ["TAN", "RAYS"] },
+  { match: /clean.*energy|renewable/i, etfs: ["ICLN", "QCLN", "PBW"] },
+  { match: /oil|gas|energy.*equip|exploration/i, etfs: ["XLE", "XOP", "OIH"] },
+  { match: /lng|natural gas/i, etfs: ["UNG", "FCG"] },
+  // ── Metals / mining / materials ──────────────────────────────────────
+  { match: /lithium|battery/i, etfs: ["LIT", "BATT"] },
+  { match: /copper/i, etfs: ["COPX", "CPER"] },
+  { match: /gold|silver|precious/i, etfs: ["GDX", "GDXJ", "SIL"] },
+  { match: /rare earth|critical mineral/i, etfs: ["REMX", "MP"] },
+  { match: /steel|industrial metal/i, etfs: ["SLX", "PICK"] },
+  // ── Bio / health ─────────────────────────────────────────────────────
+  { match: /glp.?1|obesity|weight loss/i, etfs: ["OBES", "IBB"] },
+  { match: /gene|crispr|cell therapy/i, etfs: ["ARKG", "GNOM", "XBI"] },
+  { match: /biotech/i, etfs: ["XBI", "IBB", "LABU"] },
+  { match: /medical device|medtech/i, etfs: ["IHI", "XHE"] },
+  // ── Consumer / EV / mobility ─────────────────────────────────────────
+  { match: /\bev\b|electric vehicle|autonomous/i, etfs: ["DRIV", "IDRV", "KARS"] },
+  { match: /retail|consumer disc/i, etfs: ["XLY", "XRT"] },
+  { match: /travel|airline|leisure/i, etfs: ["JETS", "AWAY"] },
+  { match: /home build|construction/i, etfs: ["XHB", "ITB"] },
+  // ── Finance ──────────────────────────────────────────────────────────
+  { match: /bank|financial/i, etfs: ["XLF", "KRE", "KBE"] },
+  { match: /insurance/i, etfs: ["KIE", "IAK"] },
+  // ── Macro / sector fallbacks ─────────────────────────────────────────
+  { match: /utilit/i, etfs: ["XLU"] },
+  { match: /reit|real estate/i, etfs: ["XLRE", "VNQ"] },
+  { match: /industrial/i, etfs: ["XLI"] },
+  { match: /materials/i, etfs: ["XLB"] },
+  { match: /staples/i, etfs: ["XLP"] },
+  { match: /communic|media|entertain/i, etfs: ["XLC"] },
+  { match: /tech/i, etfs: ["XLK", "QQQ"] },
+  { match: /healthcare|health care/i, etfs: ["XLV", "IHI"] },
+  { match: /energy/i, etfs: ["XLE"] },
+];
+
+function etfsForTheme(subtheme, theme) {
+  const sub = (subtheme || "").trim();
+  const par = (theme || "").trim();
+  for (const { match, etfs } of SUBTHEME_ETFS) {
+    if (sub && match.test(sub)) return etfs;
+  }
+  for (const { match, etfs } of SUBTHEME_ETFS) {
+    if (par && match.test(par)) return etfs;
+  }
+  return [];
+}
+
 const DEFAULT_FILTERS = {
   noBio: true,
   greenOnly: true,    // Chg>0% on chgOpen
@@ -3811,6 +3880,60 @@ function Watchlist({ stockMap, onTickerClick }) {
                 ({g.count})
               </span>
             </div>
+            {/* ETF proxies — clickable, opens chart panel */}
+            {(() => {
+              const etfs = etfsForTheme(g.name, g.theme);
+              if (!etfs.length) return null;
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 3,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 7,
+                      color: ARIA.textMuted,
+                      letterSpacing: 0.4,
+                      alignSelf: "center",
+                      marginRight: 2,
+                    }}
+                  >
+                    ETF
+                  </span>
+                  {etfs.map((t) => (
+                    <span
+                      key={t}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof window !== "undefined") {
+                          window.dispatchEvent(
+                            new CustomEvent("tp-open-chart", { detail: t })
+                          );
+                        }
+                      }}
+                      title={`Open ${t} chart`}
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: ARIA.cyan,
+                        border: `1px solid ${ARIA.cyan}80`,
+                        background: `${ARIA.cyan}14`,
+                        padding: "0 4px",
+                        borderRadius: 2,
+                        cursor: "pointer",
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
             {/* Aggregate stats row */}
             <div
               style={{
@@ -4777,6 +4900,16 @@ function AppMain() {
     setChartTicker(ticker);
     localStorage.setItem("themepulse-chart-ticker", ticker);
   }, []);
+  // Listen for ETF pill clicks from the Themes view (or anywhere else
+  // that wants to load a chart without prop-drilling).
+  useEffect(() => {
+    const onOpen = (e) => {
+      const t = (e && e.detail && String(e.detail).toUpperCase()) || "";
+      if (t) handleTickerClick(t);
+    };
+    window.addEventListener("tp-open-chart", onOpen);
+    return () => window.removeEventListener("tp-open-chart", onOpen);
+  }, [handleTickerClick]);
 
   // stockMap depends on data.pipeline.stocks. Compute it BEFORE the early
   // returns so the hook count is stable across loading→loaded transitions.
