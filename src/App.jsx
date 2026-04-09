@@ -4568,6 +4568,90 @@ function TQQQPanel() {
 // AppMain
 // ──────────────────────────────────────────────────────────────────────────
 
+// Resizable split between ChartPanelInline (left) and ScanWatch (right).
+// Width of the right column is persisted and dragged via a 4px col-resize handle.
+function ChartScanRow({
+  chartTicker,
+  handleTickerClick,
+  stockMap,
+  picks,
+  analyzedPicks,
+  handleAnalyze,
+  isAnalyzing,
+  analyzingTicker,
+  removeAnalyzed,
+  stocks,
+}) {
+  const [scanW, setScanW] = useState(() => {
+    const saved = parseFloat(localStorage.getItem("themepulse-scan-width") || "");
+    return Number.isFinite(saved) && saved >= 220 && saved <= 900 ? saved : 340;
+  });
+  const rowRef = React.useRef(null);
+  useEffect(() => {
+    localStorage.setItem("themepulse-scan-width", String(scanW));
+  }, [scanW]);
+  const startDrag = useCallback((e) => {
+    e.preventDefault();
+    const row = rowRef.current;
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    function onMove(ev) {
+      // Right column width = distance from right edge of row to mouse
+      const w = rect.right - (ev.clientX || 0);
+      setScanW(Math.max(220, Math.min(900, w)));
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+  return (
+    <div
+      ref={rowRef}
+      style={{
+        display: "flex",
+        gap: 0,
+        alignItems: "stretch",
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <ChartPanelInline
+          ticker={chartTicker}
+          onTickerChange={handleTickerClick}
+          stockMap={stockMap}
+          rvolPicks={picks.rvolPicks}
+          pmPicks={picks.pmPicks}
+          ahPicks={picks.ahPicks}
+          analyzedPicks={analyzedPicks}
+          onAnalyze={handleAnalyze}
+          isAnalyzing={isAnalyzing}
+          analyzingTicker={analyzingTicker}
+          onAnalyzedRemove={removeAnalyzed}
+        />
+      </div>
+      <div
+        onMouseDown={startDrag}
+        title="Drag to resize"
+        style={{
+          width: 6,
+          cursor: "col-resize",
+          background: "transparent",
+          flexShrink: 0,
+          margin: "0 1px",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+      />
+      <div style={{ width: scanW, flexShrink: 0, minWidth: 220 }}>
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
+      </div>
+    </div>
+  );
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -4800,35 +4884,19 @@ function AppMain() {
         {/* Top: Market Breadth Bar (full width) */}
         <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
 
-        {/* Charts + Scan Watch row — chart on left (flex 1), Scan Watch column 320px on right */}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            alignItems: "stretch",
-            marginBottom: 8,
-          }}
-        >
-          <ChartPanelInline
-            ticker={chartTicker}
-            onTickerChange={handleTickerClick}
-            stockMap={stockMap}
-            rvolPicks={picks.rvolPicks}
-            pmPicks={picks.pmPicks}
-            ahPicks={picks.ahPicks}
-            analyzedPicks={analyzedPicks}
-            onAnalyze={handleAnalyze}
-            isAnalyzing={isAnalyzing}
-            analyzingTicker={analyzingTicker}
-            onAnalyzedRemove={removeAnalyzed}
-          />
-          <div style={{ width: 340, flexShrink: 0, minWidth: 280 }}>
-            <ScanWatch
-              stocks={stocks}
-              onTickerClick={handleTickerClick}
-            />
-          </div>
-        </div>
+        {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
+        <ChartScanRow
+          chartTicker={chartTicker}
+          handleTickerClick={handleTickerClick}
+          stockMap={stockMap}
+          picks={picks}
+          analyzedPicks={analyzedPicks}
+          handleAnalyze={handleAnalyze}
+          isAnalyzing={isAnalyzing}
+          analyzingTicker={analyzingTicker}
+          removeAnalyzed={removeAnalyzed}
+          stocks={stocks}
+        />
 
         {/* Agent Picks + Watchlist moved into ChartPanelInline as right-pane
             subtabs. See ChartPanelInline rightTab state. */}
