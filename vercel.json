@@ -32,10 +32,7 @@
     "api/ah-picks.js": {
       "maxDuration": 10
     },
-    "api/tqqq-analyze.js": {
-      "maxDuration": 60
-    },
-    "api/ohlc.js": {
+"api/ohlc.js": {
       "maxDuration": 15
     },
     "api/scan-scores.js": {
