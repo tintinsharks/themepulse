@@ -3511,9 +3511,14 @@ function Watchlist({ stockMap, onTickerClick }) {
         ticker,
         price,
         change,
+        chg: change, // alias for ScanWatchTable
         chgOpen,
         cr,
         rvol,
+        liveVol,
+        adr: s.adr_pct || 0,
+        qmagScore: s.qmag_score || 0,
+        is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
         rs: s.rs_rank || 0,
         accel: s.accel || 0,
         grade: s.grade || "",
@@ -3725,69 +3730,175 @@ function Watchlist({ stockMap, onTickerClick }) {
           Empty
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {rows.map((r) => (
-            <div
-              key={r.ticker}
-              style={{
-                display: "flex",
-                gap: 6,
-                alignItems: "center",
-                fontSize: 9,
-              }}
-            >
-              <span
-                onClick={() => onTickerClick && onTickerClick(r.ticker)}
-                style={{
-                  fontWeight: 700,
-                  color: ARIA.text,
-                  cursor: "pointer",
-                  minWidth: 48,
-                }}
-              >
-                {r.ticker}
-              </span>
-              <span style={{ color: ARIA.textDim, minWidth: 50 }}>
-                {r.price != null ? "$" + r.price.toFixed(2) : "—"}
-              </span>
-              <span
-                style={{
-                  color: colorChg(r.change),
-                  fontWeight: 700,
-                  minWidth: 56,
-                }}
-              >
-                {fmtChg(r.change)}
-              </span>
-              <span
-                style={{
-                  color: ARIA.cyan,
-                  fontSize: 7,
-                  flex: 1,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
+            <thead>
+              <tr>
+                {["Ticker", "BO", "Chg%", "RV", "Vol", "CR%", "ADR", "RS", "Sub", ""].map(
+                  (h, i) => (
+                    <th
+                      key={i}
+                      style={{
+                        padding: "3px 5px",
+                        fontSize: 7,
+                        fontWeight: 700,
+                        color: ARIA.textMuted,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.3,
+                        textAlign: i === 0 || i === 8 ? "left" : "right",
+                        borderBottom: `1px solid ${ARIA.border}`,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const cell = {
+                  padding: "2px 5px",
+                  fontSize: 9,
+                  textAlign: "right",
+                  borderBottom: `1px solid ${ARIA.border}`,
                   whiteSpace: "nowrap",
-                }}
-                title={r.subtheme}
-              >
-                {r.subtheme || "—"}
-              </span>
-              <button
-                onClick={() => removeTicker(list, r.ticker)}
-                title="Remove"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: ARIA.textMuted,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  padding: 0,
-                }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+                };
+                const fmtVol = (v) => {
+                  if (!v) return "—";
+                  if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+                  if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+                  return String(v);
+                };
+                const colorBo = (v) =>
+                  v == null || v === 0
+                    ? ARIA.textMuted
+                    : v >= 7
+                    ? ARIA.green
+                    : v >= 5
+                    ? ARIA.blue
+                    : ARIA.textDim;
+                const colorRvol = (v) =>
+                  v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
+                const colorCr = (v) =>
+                  v == null
+                    ? ARIA.textMuted
+                    : v >= 70
+                    ? ARIA.green
+                    : v >= 40
+                    ? ARIA.textDim
+                    : ARIA.red;
+                return (
+                  <tr
+                    key={r.ticker}
+                    onClick={() => onTickerClick && onTickerClick(r.ticker)}
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = ARIA.bgHover)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td
+                      style={{
+                        ...cell,
+                        textAlign: "left",
+                        fontWeight: 700,
+                        color: ARIA.text,
+                      }}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        {r.ticker}
+                        {r.is9m && (
+                          <span
+                            title="9M — today's volume ≥ 8.9M but avg < 8.9M"
+                            style={{
+                              fontSize: 6,
+                              fontWeight: 800,
+                              color: ARIA.yellow,
+                              border: `1px solid ${ARIA.yellow}`,
+                              background: `${ARIA.yellow}26`,
+                              padding: "0 2px",
+                              borderRadius: 2,
+                            }}
+                          >
+                            9M
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td style={{ ...cell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
+                      {r.qmagScore || "—"}
+                    </td>
+                    <td style={{ ...cell, color: colorChg(r.change) }}>
+                      {fmtChg(r.change)}
+                    </td>
+                    <td style={{ ...cell, color: colorRvol(r.rvol) }}>
+                      {r.rvol > 0 ? r.rvol.toFixed(1) + "x" : "—"}
+                    </td>
+                    <td style={{ ...cell, color: ARIA.textDim, fontSize: 8 }}>
+                      {fmtVol(r.liveVol)}
+                    </td>
+                    <td style={{ ...cell, color: colorCr(r.cr) }}>
+                      {r.cr != null ? r.cr + "%" : "—"}
+                    </td>
+                    <td style={{ ...cell, color: ARIA.cyan }}>
+                      {r.adr ? r.adr.toFixed(1) + "%" : "—"}
+                    </td>
+                    <td
+                      style={{
+                        ...cell,
+                        color:
+                          r.rs >= 80
+                            ? ARIA.green
+                            : r.rs >= 60
+                            ? ARIA.blue
+                            : ARIA.textMuted,
+                      }}
+                    >
+                      {r.rs || "—"}
+                    </td>
+                    <td
+                      style={{
+                        ...cell,
+                        textAlign: "left",
+                        color: ARIA.cyan,
+                        fontSize: 7,
+                        maxWidth: 80,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={r.subtheme}
+                    >
+                      {r.subtheme || "—"}
+                    </td>
+                    <td style={{ ...cell, padding: "2px 4px" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeTicker(list, r.ticker);
+                        }}
+                        title="Remove"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: ARIA.textMuted,
+                          cursor: "pointer",
+                          fontSize: 12,
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
