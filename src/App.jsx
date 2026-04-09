@@ -4938,28 +4938,6 @@ function AppMain() {
         >
           <span style={{ color: ARIA.textMuted, fontSize: 10 }}>
             {stocks.length.toLocaleString()} stocks · {data.pipeline?.date || ""}
-            {(() => {
-              const lr = data.pipeline?.pipeline_meta?.last_run;
-              if (!lr) return null;
-              const d = new Date(lr);
-              if (isNaN(d)) return null;
-              const now = Date.now();
-              const diffM = Math.round((now - d.getTime()) / 60000);
-              const ago =
-                diffM < 1
-                  ? "just now"
-                  : diffM < 60
-                  ? `${diffM}m ago`
-                  : diffM < 1440
-                  ? `${Math.floor(diffM / 60)}h ${diffM % 60}m ago`
-                  : `${Math.floor(diffM / 1440)}d ago`;
-              const rt = data.pipeline?.pipeline_meta?.run_type || "";
-              return (
-                <span style={{ marginLeft: 6, color: ARIA.green, fontSize: 9 }}>
-                  Pipeline: {ago}{rt ? ` (${rt})` : ""}
-                </span>
-              );
-            })()}
           </span>
           <button
             onClick={toggleTheme}
