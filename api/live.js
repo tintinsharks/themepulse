@@ -1370,34 +1370,39 @@ export default async function handler(req, res) {
         }
       });
 
-      // ── Backfill avgVolume for watchlist tickers only ──
-      // batch-quote never returns avgVolume. For the small watchlist set
-      // (manually added tickers not in pipeline), fetch from /stable/profile.
-      // Cached in-memory for 24h so 30s polls don't re-fetch.
-      const wlNeedAvgVol = watchlist.filter(w => w.avgVolume == null);
-      if (wlNeedAvgVol.length > 0) {
+      // ── Backfill avgVolume from /stable/profile ──
+      // batch-quote never returns avgVolume. Fetch from profile for entries
+      // missing it (watchlist + universe). Cached 24h so 30s polls don't
+      // re-fetch. Capped at 20 profile calls per request to stay within
+      // FMP rate limits — the cache fills over a few poll cycles.
+      const allEntries = [...watchlist, ...fmpResult.universe];
+      const needAvgVol = allEntries.filter(e => {
+        if (e.avgVolume != null) return false;
+        const cached = avgVolCache.get(e.ticker);
+        if (cached && cached.expiry > Date.now()) {
+          e.avgVolume = cached.value;
+          return false;
+        }
+        return true;
+      }).slice(0, 20);
+      if (needAvgVol.length > 0) {
         await Promise.allSettled(
-          wlNeedAvgVol.map(async (w) => {
-            const cached = avgVolCache.get(w.ticker);
-            if (cached && cached.expiry > Date.now()) {
-              w.avgVolume = cached.value;
-              return;
-            }
+          needAvgVol.map(async (e) => {
             try {
               const r = await fetch(
-                `${FMP_BASE}/profile?symbol=${w.ticker}&apikey=${fmpKey}`,
+                `${FMP_BASE}/profile?symbol=${e.ticker}&apikey=${fmpKey}`,
                 { signal: AbortSignal.timeout(5000) }
               );
               if (r.ok) {
                 const d = await r.json();
                 const av = (d && d[0] && d[0].averageVolume) || null;
-                w.avgVolume = av;
-                avgVolCache.set(w.ticker, { value: av, expiry: Date.now() + 86400000 });
+                e.avgVolume = av;
+                avgVolCache.set(e.ticker, { value: av, expiry: Date.now() + 86400000 });
               }
             } catch { /* ignore */ }
           })
         );
-        console.log(`watchlist avgVolume backfill: ${wlNeedAvgVol.filter(w => w.avgVolume != null).length}/${wlNeedAvgVol.length}`);
+        console.log(`avgVolume backfill: ${needAvgVol.filter(e => e.avgVolume != null).length}/${needAvgVol.length}`);
       }
 
       // Universe: filter to universe tickers only
