@@ -1127,41 +1127,6 @@ async function fetchFmpUniverse(tickers, apiKey) {
 
   console.log(`FMP universe: ${universe.length}/${tickers.length} quotes fetched`);
 
-  // ── Backfill avgVolume from /stable/profile for tickers missing it ──
-  // batch-quote never returns avgVolume, so we fetch profile for any
-  // ticker that needs it. Profile calls are cached in-memory for 24h
-  // to avoid hammering FMP on every poll.
-  const needAvgVol = universe.filter(u => u.avgVolume == null && u.ticker);
-  if (needAvgVol.length > 0) {
-    const PROFILE_CONCURRENCY = 10;
-    for (let i = 0; i < needAvgVol.length; i += PROFILE_CONCURRENCY) {
-      const batch = needAvgVol.slice(i, i + PROFILE_CONCURRENCY);
-      const results = await Promise.allSettled(
-        batch.map(async (u) => {
-          // Check in-memory cache first
-          const cached = avgVolCache.get(u.ticker);
-          if (cached && cached.expiry > Date.now()) {
-            u.avgVolume = cached.value;
-            return;
-          }
-          try {
-            const r = await fetch(
-              `${FMP_BASE}/profile?symbol=${u.ticker}&apikey=${apiKey}`,
-              { signal: AbortSignal.timeout(5000) }
-            );
-            if (r.ok) {
-              const d = await r.json();
-              const av = (d && d[0] && d[0].averageVolume) || null;
-              u.avgVolume = av;
-              avgVolCache.set(u.ticker, { value: av, expiry: Date.now() + 86400000 });
-            }
-          } catch { /* ignore */ }
-        })
-      );
-    }
-    console.log(`avgVolume backfill: ${needAvgVol.filter(u => u.avgVolume != null).length}/${needAvgVol.length} filled`);
-  }
-
   // ── Update ORH cache: capture dayHigh during 9:30–9:40 ET window ──
   const now = new Date();
   const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -1404,6 +1369,36 @@ export default async function handler(req, res) {
           });
         }
       });
+
+      // ── Backfill avgVolume for watchlist tickers only ──
+      // batch-quote never returns avgVolume. For the small watchlist set
+      // (manually added tickers not in pipeline), fetch from /stable/profile.
+      // Cached in-memory for 24h so 30s polls don't re-fetch.
+      const wlNeedAvgVol = watchlist.filter(w => w.avgVolume == null);
+      if (wlNeedAvgVol.length > 0) {
+        await Promise.allSettled(
+          wlNeedAvgVol.map(async (w) => {
+            const cached = avgVolCache.get(w.ticker);
+            if (cached && cached.expiry > Date.now()) {
+              w.avgVolume = cached.value;
+              return;
+            }
+            try {
+              const r = await fetch(
+                `${FMP_BASE}/profile?symbol=${w.ticker}&apikey=${fmpKey}`,
+                { signal: AbortSignal.timeout(5000) }
+              );
+              if (r.ok) {
+                const d = await r.json();
+                const av = (d && d[0] && d[0].averageVolume) || null;
+                w.avgVolume = av;
+                avgVolCache.set(w.ticker, { value: av, expiry: Date.now() + 86400000 });
+              }
+            } catch { /* ignore */ }
+          })
+        );
+        console.log(`watchlist avgVolume backfill: ${wlNeedAvgVol.filter(w => w.avgVolume != null).length}/${wlNeedAvgVol.length}`);
+      }
 
       // Universe: filter to universe tickers only
       // During extended hours, fetch actual trade prices from Yahoo Finance
