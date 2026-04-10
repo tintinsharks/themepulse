@@ -4991,7 +4991,7 @@ function TickerInfoBox({ ticker, stockMap }) {
         </span>
       </div>
       {open && (
-        <div style={{ display: "flex", height: 70, overflow: "hidden" }}>
+        <div style={{ display: "flex", height: 70 }}>
           {/* Left: News */}
           <div
             style={{
