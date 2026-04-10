@@ -4925,6 +4925,140 @@ function Watchlist({ stockMap, onTickerClick }) {
 
 // Resizable split between ChartPanelInline (left) and ScanWatch (right).
 // Width of the right column is persisted and dragged via a 4px col-resize handle.
+// ── Ticker Info: News + Description (Aria-faithful port) ────────────────
+function TickerInfoBox({ ticker, stockMap }) {
+  const ARIA = useAriaTheme();
+  const [open, setOpen] = useState(true);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!ticker) return;
+    setLoading(true);
+    fetch(`/api/live?news=${encodeURIComponent(ticker)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setData(d);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [ticker]);
+
+  const s = stockMap?.[ticker] || {};
+  const parts = [s.company || data?.description?.split(".")[0] || "", s.industry || "", s.sector || ""].filter(Boolean);
+  const news = data?.news || [];
+  const desc = data?.description || "";
+
+  return (
+    <div
+      style={{
+        background: ARIA.bgCard,
+        border: `1px solid ${ARIA.border}`,
+        borderRadius: 6,
+        overflow: "hidden",
+        marginBottom: 2,
+      }}
+    >
+      <div
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          padding: "3px 10px",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          cursor: "pointer",
+          borderBottom: open ? `1px solid ${ARIA.border}` : "none",
+        }}
+      >
+        <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.text }}>
+          {ticker || "—"}
+        </span>
+        <span
+          style={{
+            fontSize: 7,
+            color: ARIA.textMuted,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            flex: 1,
+            fontFamily: "monospace",
+          }}
+        >
+          {parts.join(" · ")}
+        </span>
+        <span style={{ fontSize: 8, color: ARIA.textMuted }}>
+          {open ? "▼" : "▶"}
+        </span>
+      </div>
+      {open && (
+        <div style={{ display: "flex", height: 70, overflow: "hidden" }}>
+          {/* Left: News */}
+          <div
+            style={{
+              flex: 1,
+              padding: "4px 8px",
+              overflowY: "auto",
+              fontSize: 7,
+              fontFamily: "monospace",
+              borderRight: `1px solid ${ARIA.border}`,
+            }}
+          >
+            {loading && (
+              <span style={{ color: ARIA.textMuted, fontSize: 7 }}>Loading...</span>
+            )}
+            {!loading && news.length === 0 && (
+              <span style={{ color: ARIA.textMuted, fontSize: 7 }}>No news</span>
+            )}
+            {!loading &&
+              news.slice(0, 8).map((n, i) => (
+                <div key={i} style={{ marginBottom: 5, lineHeight: 1.4 }}>
+                  <a
+                    href={n.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: ARIA.blue || ARIA.cyan,
+                      textDecoration: "none",
+                      fontSize: 7,
+                    }}
+                  >
+                    {n.headline || n.title || "—"}
+                  </a>
+                  <div style={{ fontSize: 6, color: ARIA.textMuted }}>
+                    {n.date || n.publishedDate || ""}
+                    {n.source ? ` — ${n.source}` : ""}
+                  </div>
+                </div>
+              ))}
+          </div>
+          {/* Right: Description */}
+          <div
+            style={{
+              flex: 1,
+              padding: "4px 8px",
+              overflowY: "auto",
+              fontSize: 7,
+              fontFamily: "monospace",
+              color: ARIA.textDim,
+              lineHeight: 1.4,
+            }}
+          >
+            {loading && (
+              <span style={{ color: ARIA.textMuted, fontSize: 7 }}>Loading...</span>
+            )}
+            {!loading && !desc && (
+              <span style={{ color: ARIA.textMuted, fontSize: 7 }}>
+                No description available
+              </span>
+            )}
+            {!loading && desc}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PipelineLiveBar({ pipelineMeta }) {
   const ARIA = useAriaTheme();
   const spyTickers = useMemo(() => ["SPY"], []);
@@ -5073,6 +5207,7 @@ function ChartScanRow({
       />
       <div style={{ width: scanW, flexShrink: 0, minWidth: 150, display: "flex", flexDirection: "column" }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
+        <TickerInfoBox ticker={chartTicker} stockMap={stockMap} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
       </div>
     </div>
