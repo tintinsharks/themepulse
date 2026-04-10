@@ -847,7 +847,7 @@ function ETFScanTable({ onTickerClick }) {
   const ARIA = useAriaTheme();
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
-  const [gainOnly, setGainOnly] = useState(true);
+  const [gainOnly, setGainOnly] = useState(false);
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc");
   const [selectedTicker, setSelectedTicker] = useState(null);
