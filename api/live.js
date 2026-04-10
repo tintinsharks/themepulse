@@ -1424,6 +1424,7 @@ export default async function handler(req, res) {
       extended_hours: extSession || false,
       watchlist,
       theme_universe: themeUniverse,
+      _v: 2,
       news: tickerData?.news || null,
       peers: tickerData?.peers || null,
       description: tickerData?.description || null,
