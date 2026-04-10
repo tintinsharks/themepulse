@@ -1240,7 +1240,7 @@ function ScanWatch({ stocks, onTickerClick }) {
       const low = q?.low ?? null;
       const chg = q?.change ?? s.change_pct ?? 0;
       const liveVol = q?.volume ?? null;
-      const avgVol = s.avg_volume_raw || 0;
+      const avgVol = s.avg_volume_raw || q?.avgVolume || 0;
       const rvol =
         liveVol && avgVol > 0
           ? Math.round((liveVol / avgVol) * 100) / 100
@@ -4182,7 +4182,7 @@ function Watchlist({ stockMap, onTickerClick }) {
       const high = q?.high ?? null;
       const low = q?.low ?? null;
       const liveVol = q?.volume ?? null;
-      const avgVol = s.avg_volume_raw || 0;
+      const avgVol = s.avg_volume_raw || q?.avgVolume || 0;
       const change = q?.change ?? s.change_pct ?? 0;
       const chgOpen =
         open != null && open > 0
