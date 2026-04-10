@@ -913,6 +913,11 @@ async function fetchHomepage(cookies) {
 // ── FMP Live Quotes (replaces Finviz for theme universe) ──
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
+// ── Average Volume cache (24h TTL, persists across warm invocations) ──
+// batch-quote never returns avgVolume — we backfill from /stable/profile
+// and cache to avoid repeated calls on every 30s poll.
+let avgVolCache = new Map(); // ticker -> { value: number, expiry: timestamp }
+
 // ── Opening Range High cache (server-side, persists across warm invocations) ──
 // Captures dayHigh from FMP batch-quote during 9:30–9:40 ET as the 5-min ORH
 let orhCache = new Map();  // ticker -> { high, date }
@@ -1121,6 +1126,41 @@ async function fetchFmpUniverse(tickers, apiKey) {
   }
 
   console.log(`FMP universe: ${universe.length}/${tickers.length} quotes fetched`);
+
+  // ── Backfill avgVolume from /stable/profile for tickers missing it ──
+  // batch-quote never returns avgVolume, so we fetch profile for any
+  // ticker that needs it. Profile calls are cached in-memory for 24h
+  // to avoid hammering FMP on every poll.
+  const needAvgVol = universe.filter(u => u.avgVolume == null && u.ticker);
+  if (needAvgVol.length > 0) {
+    const PROFILE_CONCURRENCY = 10;
+    for (let i = 0; i < needAvgVol.length; i += PROFILE_CONCURRENCY) {
+      const batch = needAvgVol.slice(i, i + PROFILE_CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map(async (u) => {
+          // Check in-memory cache first
+          const cached = avgVolCache.get(u.ticker);
+          if (cached && cached.expiry > Date.now()) {
+            u.avgVolume = cached.value;
+            return;
+          }
+          try {
+            const r = await fetch(
+              `${FMP_BASE}/profile?symbol=${u.ticker}&apikey=${apiKey}`,
+              { signal: AbortSignal.timeout(5000) }
+            );
+            if (r.ok) {
+              const d = await r.json();
+              const av = (d && d[0] && d[0].averageVolume) || null;
+              u.avgVolume = av;
+              avgVolCache.set(u.ticker, { value: av, expiry: Date.now() + 86400000 });
+            }
+          } catch { /* ignore */ }
+        })
+      );
+    }
+    console.log(`avgVolume backfill: ${needAvgVol.filter(u => u.avgVolume != null).length}/${needAvgVol.length} filled`);
+  }
 
   // ── Update ORH cache: capture dayHigh during 9:30–9:40 ET window ──
   const now = new Date();
