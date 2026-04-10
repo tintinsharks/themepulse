@@ -2714,7 +2714,6 @@ function AgentPicks({
                             {p.agents.subtheme.signal} ({p.agents.subtheme.confidence}%)
                           </div>
                           {p.agents.subtheme.reasoning &&
-<<<<<<< Updated upstream
                             Object.entries(p.agents.subtheme.reasoning).map(([rk, rv]) => {
                               const isNarr = rk === "narrative" && typeof rv === "string" && rv.length > 20;
                               if (isNarr) {
@@ -2763,21 +2762,6 @@ function AgentPicks({
                                 </div>
                               );
                             })}
-=======
-                            Object.entries(p.agents.subtheme.reasoning).map(([rk, rv]) => (
-                              <div
-                                key={rk}
-                                style={{
-                                  fontSize: 8,
-                                  color: ARIA.textDim,
-                                  lineHeight: 1.4,
-                                  wordBreak: "break-word",
-                                }}
-                              >
-                                • {rk}: {rv}
-                              </div>
-                            ))}
->>>>>>> Stashed changes
                         </div>
                       )}
                     </>
@@ -2854,7 +2838,6 @@ function saveCachedState(state) {
   } catch {}
 }
 
-<<<<<<< Updated upstream
 // Module-level singleton so all components share the same in-memory state.
 //
 // Race fix: a local mutation tick (`_localTick`) is bumped on every _setState.
@@ -2867,27 +2850,16 @@ let _moduleSubs = new Set();
 let _debounceTimer = null;
 let _localTick = 0;
 let _pullPromise = null;
-=======
-// Module-level singleton so all components share the same in-memory state
-// + debounce timer (avoids race conditions where two components race to
-// POST overlapping snapshots).
-let _moduleState = null;
-let _moduleSubs = new Set();
-let _debounceTimer = null;
->>>>>>> Stashed changes
 
 function _getState() {
   if (_moduleState === null) _moduleState = loadCachedState();
   return _moduleState;
 }
 
-<<<<<<< Updated upstream
 function _notify() {
   for (const fn of _moduleSubs) fn(_moduleState);
 }
 
-=======
->>>>>>> Stashed changes
 function _setState(updater) {
   const cur = _getState();
   const next = typeof updater === "function" ? updater(cur) : updater;
@@ -2900,16 +2872,9 @@ function _setState(updater) {
     })
     .slice(0, ANALYZED_MAX);
   _moduleState = { ...cur, ...next, updated_at: new Date().toISOString() };
-<<<<<<< Updated upstream
   _localTick++;
   saveCachedState(_moduleState);
   _notify();
-=======
-  saveCachedState(_moduleState);
-  // Notify subscribers
-  for (const fn of _moduleSubs) fn(_moduleState);
-  // Debounce server POST
->>>>>>> Stashed changes
   if (_debounceTimer) clearTimeout(_debounceTimer);
   _debounceTimer = setTimeout(_pushToServer, SERVER_DEBOUNCE_MS);
 }
@@ -2917,10 +2882,7 @@ function _setState(updater) {
 async function _pushToServer() {
   _debounceTimer = null;
   const s = _getState();
-<<<<<<< Updated upstream
   const tickAtStart = _localTick;
-=======
->>>>>>> Stashed changes
   try {
     const r = await fetch("/api/userdata", {
       method: "POST",
@@ -2931,7 +2893,6 @@ async function _pushToServer() {
         portfolio: s.portfolio,
       }),
     });
-<<<<<<< Updated upstream
     if (!r.ok) return;
     const d = await r.json();
     if (!d.ok) return;
@@ -2977,48 +2938,14 @@ function _pullFromServer() {
     }
   })();
   return _pullPromise;
-=======
-    if (r.ok) {
-      const d = await r.json();
-      if (d.ok) {
-        _moduleState = { ...emptyServerState(), ...d };
-        saveCachedState(_moduleState);
-        for (const fn of _moduleSubs) fn(_moduleState);
-      }
-    }
-  } catch {
-    // Network error — stay in localStorage-only mode, will retry on next mutation
-  }
-}
-
-async function _pullFromServer() {
-  try {
-    const r = await fetch("/api/userdata", { cache: "no-store" });
-    if (!r.ok) return;
-    const d = await r.json();
-    if (d.ok) {
-      _moduleState = { ...emptyServerState(), ...d };
-      saveCachedState(_moduleState);
-      for (const fn of _moduleSubs) fn(_moduleState);
-    }
-  } catch {
-    /* offline — keep cached state */
-  }
->>>>>>> Stashed changes
 }
 
 function useServerState() {
   const [state, setStateLocal] = useState(_getState);
   useEffect(() => {
     _moduleSubs.add(setStateLocal);
-<<<<<<< Updated upstream
     // Pull once per page-load (module-scoped promise dedupes).
     _pullFromServer();
-=======
-    // Initial server pull (only fires once per page load due to module state)
-    _pullFromServer();
-    // Cross-tab sync
->>>>>>> Stashed changes
     const onStorage = () => {
       _moduleState = loadCachedState();
       setStateLocal(_moduleState);
