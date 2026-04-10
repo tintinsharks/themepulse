@@ -1137,6 +1137,7 @@ function ScanWatch({ stocks, onTickerClick }) {
   const [sort, setSort] = useState(DEFAULT_SORT);
   const [activePreset, setActivePreset] = useState(null);
   const [activeTags, setActiveTags] = useState(() => new Set());
+  const [activeSubtheme, setActiveSubtheme] = useState(null);
 
   const updateFilter = useCallback((patch) => {
     setFilters((f) => ({ ...f, ...patch }));
@@ -1312,9 +1313,12 @@ function ScanWatch({ stocks, onTickerClick }) {
       }
       return 0;
     });
-    // No cap — show all candidates that pass the filters
-    return out;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags]);
+    // Subtheme drill-down filter
+    const filtered = activeSubtheme
+      ? out.filter((r) => r.subtheme === activeSubtheme)
+      : out;
+    return filtered;
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -1656,7 +1660,54 @@ function ScanWatch({ stocks, onTickerClick }) {
         })}
       </div>
 
-      {/* Results table — Aria default column order: Ticker | BO | Open%/Chg% | RV | Vol | CR% | ADR | Sub */}
+      {/* Active subtheme drill-down chip */}
+      {activeSubtheme && (
+        <div
+          style={{
+            padding: "3px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            borderBottom: `1px solid ${ARIA.border}`,
+            fontFamily: "monospace",
+          }}
+        >
+          <span style={{ fontSize: 7, color: ARIA.textMuted }}>SUBTHEME</span>
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              color: ARIA.cyan,
+              border: `1px solid ${ARIA.cyan}`,
+              background: `${ARIA.cyan}20`,
+              padding: "1px 6px",
+              borderRadius: 3,
+            }}
+          >
+            {activeSubtheme}
+          </span>
+          <button
+            onClick={() => setActiveSubtheme(null)}
+            style={{
+              fontSize: 10,
+              background: "transparent",
+              border: "none",
+              color: ARIA.textMuted,
+              cursor: "pointer",
+              padding: "0 2px",
+              lineHeight: 1,
+            }}
+            title="Clear subtheme filter"
+          >
+            ×
+          </button>
+          <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>
+            ({rows.length})
+          </span>
+        </div>
+      )}
+
+      {/* Results table */}
       <div
         style={{
           maxHeight: 480,
@@ -1672,6 +1723,7 @@ function ScanWatch({ stocks, onTickerClick }) {
           onSort2={setSecondarySort}
           chgMode={filters.chgMode}
           onTickerClick={onTickerClick}
+          onSubthemeClick={setActiveSubtheme}
         />
       </div>
       </>}
@@ -1680,7 +1732,7 @@ function ScanWatch({ stocks, onTickerClick }) {
 }
 
 // ── ScanWatchTable: Aria-faithful results table with click-to-sort headers ──
-function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick }) {
+function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, onSubthemeClick }) {
   const ARIA = useAriaTheme();
   // Keyboard nav: track selected ticker, allow ↑/↓ to move and load chart.
   // Persist selected by ticker (not index) so reorders/filter changes don't
@@ -1935,8 +1987,17 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick })
                   maxWidth: 90,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  cursor: r.subtheme && onSubthemeClick ? "pointer" : "default",
+                  textDecoration: r.subtheme && onSubthemeClick ? "underline" : "none",
+                  textDecorationColor: `${ARIA.cyan}60`,
                 }}
-                title={r.subtheme}
+                title={r.subtheme ? `Drill down: ${r.subtheme}` : ""}
+                onClick={(e) => {
+                  if (r.subtheme && onSubthemeClick) {
+                    e.stopPropagation();
+                    onSubthemeClick(r.subtheme);
+                  }
+                }}
               >
                 {r.subtheme || "—"}
               </td>
