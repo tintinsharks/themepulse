@@ -4135,6 +4135,16 @@ function Watchlist({ stockMap, onTickerClick }) {
   const [pInput, setPInput] = useState("");
   const [wInput, setWInput] = useState("");
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
+  const [chgPosFilter, setChgPosFilter] = useState(
+    () => localStorage.getItem("themepulse-pw-chgpos") === "true"
+  );
+  const toggleChgPos = useCallback(() => {
+    setChgPosFilter((prev) => {
+      const next = !prev;
+      localStorage.setItem("themepulse-pw-chgpos", String(next));
+      return next;
+    });
+  }, []);
 
   const setViewPersist = useCallback((v) => {
     setView(v);
@@ -4356,8 +4366,16 @@ function Watchlist({ stockMap, onTickerClick }) {
   );
 
   const sortedGroups = useMemo(() => {
-    return themeGroups.slice().sort((a, b) => themeAvg(b) - themeAvg(a));
-  }, [themeGroups, themeAvg]);
+    const groups = themeGroups.slice().sort((a, b) => themeAvg(b) - themeAvg(a));
+    if (!chgPosFilter) return groups;
+    // Filter each group's rows to only Chg>0%, drop empty groups
+    return groups
+      .map((g) => ({
+        ...g,
+        rows: g.rows.filter((r) => (r.change || 0) > 0),
+      }))
+      .filter((g) => g.rows.length > 0);
+  }, [themeGroups, themeAvg, chgPosFilter]);
 
   const colorChg = (v) =>
     v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
@@ -4857,8 +4875,12 @@ function Watchlist({ stockMap, onTickerClick }) {
             fontFamily: "monospace",
           }}
         >
+          <div style={{ padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase" }}>Filter</span>
+            <button onClick={toggleChgPos} style={pillStyle(chgPosFilter, ARIA.cyan || "#22d3ee")} title="Show only tickers with Chg% > 0">Chg&gt;0%</button>
+          </div>
           <WatchlistSectionTable
-            rows={portRows}
+            rows={chgPosFilter ? portRows.filter((r) => (r.change || 0) > 0) : portRows}
             accent={ARIA.yellow}
             list="portfolio"
             count={portfolio.length}
@@ -4869,7 +4891,7 @@ function Watchlist({ stockMap, onTickerClick }) {
             removeTicker={removeTicker}
           />
           <WatchlistSectionTable
-            rows={watchRows}
+            rows={chgPosFilter ? watchRows.filter((r) => (r.change || 0) > 0) : watchRows}
             accent={ARIA.green}
             list="watchlist"
             count={watchlist.length}
@@ -4913,6 +4935,14 @@ function Watchlist({ stockMap, onTickerClick }) {
                 {m.label}
               </button>
             ))}
+            <span style={{ width: 1, height: 12, background: ARIA.border, margin: "0 2px" }} />
+            <button
+              onClick={toggleChgPos}
+              style={pillStyle(chgPosFilter, ARIA.cyan || "#22d3ee")}
+              title="Show only tickers with Chg% > 0"
+            >
+              Chg&gt;0%
+            </button>
           </div>
           {/* Quick add bar (themes view doesn't show List sections) */}
           <div
