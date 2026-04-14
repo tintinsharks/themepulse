@@ -3418,9 +3418,13 @@ function ChartPanelInline({
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
-        const q = Array.isArray(d?.quarters) ? d.quarters : [];
-        // Finviz returns newest-first — reverse so bars read left-to-right old→new
-        setQuarters(q.slice().reverse());
+        // API field is `finvizQuarters`; FMP fallback matches the same shape
+        // (oldest-first already). Finviz path is newest-first → reverse only
+        // when the first item's year is larger than the last's.
+        const q = Array.isArray(d?.finvizQuarters) ? d.finvizQuarters : [];
+        const oriented =
+          q.length > 1 && q[0].year > q[q.length - 1].year ? q.slice().reverse() : q;
+        setQuarters(oriented);
       })
       .catch(() => {
         if (!cancelled) setQuarters([]);

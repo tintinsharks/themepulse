@@ -913,6 +913,69 @@ async function fetchHomepage(cookies) {
 // ── FMP Live Quotes (replaces Finviz for theme universe) ──
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
+// Fetch last 8 quarters of EPS + Revenue from FMP's income-statement endpoint.
+// Used as fallback for the chart panel quarterly bars when Finviz's FactSet
+// table scrape returns empty. FMP doesn't provide YoY% directly so we compute
+// it from Y-over-Y pairs in the same response.
+async function fetchQuartersFmp(ticker, fmpKey) {
+  if (!fmpKey || !ticker) return [];
+  try {
+    // 12 quarters gives us room to compute YoY for the most recent 8
+    const url = `${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=12&apikey=${fmpKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length === 0) return [];
+    // FMP returns newest-first. Reverse to oldest-first for bar rendering.
+    const asc = data.slice().reverse();
+    const byKey = new Map();
+    for (const q of asc) {
+      const period = q.period;
+      const year = parseInt(q.fiscalYear || q.calendarYear || (q.date || "").slice(0, 4));
+      if (period && year) byKey.set(`${period}-${year}`, q);
+    }
+    const out = [];
+    for (const q of asc.slice(-8)) {
+      const period = q.period;
+      const year = parseInt(q.fiscalYear || q.calendarYear || (q.date || "").slice(0, 4));
+      if (!period || !year) continue;
+      const prev = byKey.get(`${period}-${year - 1}`);
+      const revRaw = q.revenue != null ? q.revenue : null;
+      const revenueM = revRaw != null ? revRaw / 1_000_000 : null; // match Finviz shape (millions)
+      const eps = q.epsDiluted ?? q.eps ?? null;
+      const prevRevM = prev?.revenue != null ? prev.revenue / 1_000_000 : null;
+      const prevEps = prev?.epsDiluted ?? prev?.eps ?? null;
+      const revYoy =
+        prevRevM != null && prevRevM > 0 && revenueM != null
+          ? ((revenueM - prevRevM) / prevRevM) * 100
+          : null;
+      const epsYoy =
+        prevEps != null && prevEps !== 0 && eps != null
+          ? ((eps - prevEps) / Math.abs(prevEps)) * 100
+          : null;
+      out.push({
+        label: `${period}-${String(year).slice(2)}`,
+        period,
+        year,
+        revenue: revenueM,
+        revenue_yoy: revYoy != null ? Math.round(revYoy * 10) / 10 : null,
+        revenue_fmt:
+          revenueM != null
+            ? revenueM >= 1000
+              ? `${(revenueM / 1000).toFixed(1)}B`
+              : `${Math.round(revenueM)}M`
+            : null,
+        eps,
+        eps_yoy: epsYoy != null ? Math.round(epsYoy * 10) / 10 : null,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error(`FMP quarters fetch error for ${ticker}:`, err.message);
+    return [];
+  }
+}
+
 // ── Average Volume cache (24h TTL, persists across warm invocations) ──
 // batch-quote never returns avgVolume — we backfill from /stable/profile
 // and cache to avoid repeated calls on every 30s poll.
@@ -1442,6 +1505,13 @@ export default async function handler(req, res) {
     const newsTicker = (req.query.news || "").trim().toUpperCase();
     const tickerData = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
 
+    // FMP fallback for quarterly EPS + Revenue bars — Finviz's FactSet table
+    // scrape silently returns empty on many tickers right now.
+    let quartersFallback = [];
+    if (newsTicker && (!tickerData?.quarters || tickerData.quarters.length === 0)) {
+      quartersFallback = await fetchQuartersFmp(newsTicker, fmpKey);
+    }
+
     // Fetch homepage data (futures, earnings, major news) if requested
     const wantHomepage = req.query.homepage === "1";
     const homepage = wantHomepage ? await fetchHomepage(cookies) : null;
@@ -1468,7 +1538,12 @@ export default async function handler(req, res) {
       peers: tickerData?.peers || null,
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
-      finvizQuarters: tickerData?.quarters || null,
+      finvizQuarters:
+        tickerData?.quarters && tickerData.quarters.length > 0
+          ? tickerData.quarters
+          : quartersFallback.length > 0
+          ? quartersFallback
+          : null,
       analyst: tickerData?.analyst || null,
       homepage,
       momentum_burst: momentumBurst,
