@@ -583,10 +583,20 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
       const c = q?.change != null ? q.change : s.change_pct || 0;
       if (c > 0) adv++;
       else if (c < 0) dec++;
-      const offHi = s.off_52w_high;
-      if (offHi != null && offHi >= -2) nh++;
-      const offLo = s.above_52w_low;
-      if (offLo != null && offLo <= 2) nl++;
+      // Live H/L — uses FMP yearHigh/yearLow + current price. Falls back to
+      // the pipeline snapshot's off_52w_high / above_52w_low when a live
+      // quote hasn't arrived yet. Thresholds match the old logic (within 2%
+      // of 52W high / 52W low).
+      const price = q?.price ?? null;
+      const yHi = q?.yearHigh ?? null;
+      const yLo = q?.yearLow ?? null;
+      let nearHi = null, nearLo = null;
+      if (price && yHi && yHi > 0) nearHi = ((price - yHi) / yHi) * 100;
+      if (price && yLo && yLo > 0) nearLo = ((price - yLo) / yLo) * 100;
+      if (nearHi == null) nearHi = s.off_52w_high;
+      if (nearLo == null) nearLo = s.above_52w_low;
+      if (nearHi != null && nearHi >= -2) nh++;
+      if (nearLo != null && nearLo <= 2) nl++;
     });
     // Percentages are relative to advancers+decliners (ignore unchanged)
     // so A/D and H/L read naturally as "of those moving, X% were up".

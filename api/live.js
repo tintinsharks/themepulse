@@ -1201,6 +1201,9 @@ async function fetchFmpUniverse(tickers, apiKey) {
           dayHigh: q.dayHigh ?? null,
           dayLow: q.dayLow ?? null,
           previousClose: q.previousClose ?? null,
+          // 52-week range — consumed by live H/L breadth computation
+          yearHigh: q.yearHigh ?? null,
+          yearLow: q.yearLow ?? null,
         });
       });
     });
