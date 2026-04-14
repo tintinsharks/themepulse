@@ -149,6 +149,7 @@ function etfsForTheme(subtheme, theme) {
 const DEFAULT_FILTERS = {
   noBio: true,
   greenOnly: true,    // Chg>0% on chgOpen
+  hideOwned: false,   // Hide tickers already in portfolio or watchlist (the tinted rows)
   adrMin: 3,
   adrMax: 15,
   minDvolM: 20,        // dollar volume floor in millions
@@ -846,9 +847,16 @@ const TAG_PREDICATES = {
 function ETFScanTable({ onTickerClick }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
+  const [portfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist] = useLocalStorageList("themepulse-watchlist");
+  const ownedSet = useMemo(
+    () => new Set([...portfolio, ...watchlist]),
+    [portfolio, watchlist]
+  );
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
   const [gainOnly, setGainOnly] = useState(false);
+  const [hideOwned, setHideOwned] = useState(false);
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc");
   const [selectedTicker, setSelectedTicker] = useState(null);
@@ -913,6 +921,7 @@ function ETFScanTable({ onTickerClick }) {
       arr = arr.filter((e) => e.category === "Sector" && e.leverage === "1x");
     else if (filter === "lev") arr = arr.filter((e) => e.leverage !== "1x");
     if (gainOnly) arr = arr.filter((e) => (e.change || 0) > 0);
+    if (hideOwned) arr = arr.filter((e) => !ownedSet.has(e.ticker));
     // Sort
     arr = arr.slice().sort((a, b) => {
       let av = a[sortKey],
@@ -927,7 +936,7 @@ function ETFScanTable({ onTickerClick }) {
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, filter, gainOnly, sortKey, sortDir]);
+  }, [rows, filter, gainOnly, hideOwned, ownedSet, sortKey, sortDir]);
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1031,6 +1040,13 @@ function ETFScanTable({ onTickerClick }) {
         <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
         <button onClick={() => setGainOnly((g) => !g)} style={pillStyle(gainOnly, ARIA.green)}>
           Chg&gt;0%
+        </button>
+        <button
+          onClick={() => setHideOwned((h) => !h)}
+          style={pillStyle(hideOwned, ARIA.yellow)}
+          title="Hide tickers already in portfolio or watchlist"
+        >
+          Hide Owned
         </button>
         <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>
           ({filtered.length})
@@ -1137,6 +1153,14 @@ function ScanWatch({ stocks, onTickerClick }) {
   const [swView, setSwView] = useState("scan"); // "scan" | "etf"
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  // Owned-ticker set for the Hide Owned filter (reads the same cross-component
+  // store as useOwnedTint / the Watchlist panel)
+  const [portfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist] = useLocalStorageList("themepulse-watchlist");
+  const ownedSet = useMemo(
+    () => new Set([...portfolio, ...watchlist]),
+    [portfolio, watchlist]
+  );
   const [sort, setSort] = useState(DEFAULT_SORT);
   const [activePreset, setActivePreset] = useState(null);
   const [activeTags, setActiveTags] = useState(() => new Set());
@@ -1264,6 +1288,8 @@ function ScanWatch({ stocks, onTickerClick }) {
           filters.chgMode === "open" && chgOpen != null ? chgOpen : chg;
         if (gainKey <= 0) continue;
       }
+      // Hide Owned — drop any ticker already in portfolio or watchlist
+      if (filters.hideOwned && ownedSet.has(s.ticker)) continue;
       // Chg≥ slider
       if (filters.minChg > 0 && chg < filters.minChg) continue;
       // RV≥ slider
@@ -1321,7 +1347,7 @@ function ScanWatch({ stocks, onTickerClick }) {
       ? out.filter((r) => r.subtheme === activeSubtheme)
       : out;
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -1541,6 +1567,13 @@ function ScanWatch({ stocks, onTickerClick }) {
           style={pillStyle(filters.greenOnly, ARIA.green)}
         >
           Chg&gt;0%
+        </button>
+        <button
+          onClick={() => updateFilter({ hideOwned: !filters.hideOwned })}
+          style={pillStyle(filters.hideOwned, ARIA.yellow)}
+          title="Hide tickers already in portfolio or watchlist (the tinted rows)"
+        >
+          Hide Owned
         </button>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>Chg≥</span>
         <input
