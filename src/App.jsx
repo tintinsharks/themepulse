@@ -3349,6 +3349,16 @@ function ChartPanelInline({
   const adr = stockInfo.adr_pct ?? null;
   const erDate = stockInfo.earnings_display || "";
 
+  // Minervini / O'Neill fundamentals gate — simple floor criteria. Green
+  // light only when EPS + Sales growth and net margin all clear the bar
+  // (standard SEPA / CANSLIM thresholds). Hides for tickers missing data
+  // (ETFs, recent IPOs).
+  const mo =
+    epsYoy != null && salesYoy != null && margin != null &&
+    epsYoy >= 25 && salesYoy >= 20 && margin >= 5
+      ? { epsYoy, salesYoy, margin }
+      : null;
+
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
@@ -3477,6 +3487,14 @@ function ChartPanelInline({
           )}
           {grade && (
             <span style={badgeStyle(gradeColor)}>{grade}</span>
+          )}
+          {mo && (
+            <span
+              style={badgeStyle(ARIA.blue)}
+              title={`Minervini / O'Neill ✓ — EPS YoY ${mo.epsYoy.toFixed(0)}%, Sales YoY ${mo.salesYoy.toFixed(0)}%, Margin ${mo.margin.toFixed(1)}%`}
+            >
+              M/O
+            </span>
           )}
           {erDate && (
             <>
