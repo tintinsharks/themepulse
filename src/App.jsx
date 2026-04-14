@@ -149,7 +149,7 @@ function etfsForTheme(subtheme, theme) {
 const DEFAULT_FILTERS = {
   noBio: true,
   greenOnly: true,    // Chg>0% on chgOpen
-  hideOwned: false,   // Hide tickers already in portfolio or watchlist (the tinted rows)
+  ownedView: "all",   // "all" | "owned" | "hide" — filter by portfolio/watchlist membership
   adrMin: 3,
   adrMax: 15,
   minDvolM: 20,        // dollar volume floor in millions
@@ -856,7 +856,7 @@ function ETFScanTable({ onTickerClick }) {
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
   const [gainOnly, setGainOnly] = useState(false);
-  const [hideOwned, setHideOwned] = useState(false);
+  const [ownedView, setOwnedView] = useState("all"); // "all" | "owned" | "hide"
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc");
   const [selectedTicker, setSelectedTicker] = useState(null);
@@ -921,7 +921,8 @@ function ETFScanTable({ onTickerClick }) {
       arr = arr.filter((e) => e.category === "Sector" && e.leverage === "1x");
     else if (filter === "lev") arr = arr.filter((e) => e.leverage !== "1x");
     if (gainOnly) arr = arr.filter((e) => (e.change || 0) > 0);
-    if (hideOwned) arr = arr.filter((e) => !ownedSet.has(e.ticker));
+    if (ownedView === "hide") arr = arr.filter((e) => !ownedSet.has(e.ticker));
+    else if (ownedView === "owned") arr = arr.filter((e) => ownedSet.has(e.ticker));
     // Sort
     arr = arr.slice().sort((a, b) => {
       let av = a[sortKey],
@@ -936,7 +937,7 @@ function ETFScanTable({ onTickerClick }) {
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, filter, gainOnly, hideOwned, ownedSet, sortKey, sortDir]);
+  }, [rows, filter, gainOnly, ownedView, ownedSet, sortKey, sortDir]);
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1041,12 +1042,27 @@ function ETFScanTable({ onTickerClick }) {
         <button onClick={() => setGainOnly((g) => !g)} style={pillStyle(gainOnly, ARIA.green)}>
           Chg&gt;0%
         </button>
+        <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: 4 }}>Owned:</span>
         <button
-          onClick={() => setHideOwned((h) => !h)}
-          style={pillStyle(hideOwned, ARIA.yellow)}
+          onClick={() => setOwnedView("all")}
+          style={pillStyle(ownedView === "all", ARIA.textDim)}
+          title="Show every ticker"
+        >
+          All
+        </button>
+        <button
+          onClick={() => setOwnedView("owned")}
+          style={pillStyle(ownedView === "owned", ARIA.yellow)}
+          title="Show only tickers already in portfolio or watchlist"
+        >
+          Only
+        </button>
+        <button
+          onClick={() => setOwnedView("hide")}
+          style={pillStyle(ownedView === "hide", ARIA.yellow)}
           title="Hide tickers already in portfolio or watchlist"
         >
-          Hide Owned
+          Hide
         </button>
         <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>
           ({filtered.length})
@@ -1288,8 +1304,10 @@ function ScanWatch({ stocks, onTickerClick }) {
           filters.chgMode === "open" && chgOpen != null ? chgOpen : chg;
         if (gainKey <= 0) continue;
       }
-      // Hide Owned — drop any ticker already in portfolio or watchlist
-      if (filters.hideOwned && ownedSet.has(s.ticker)) continue;
+      // Owned-view gate: "all" shows everything, "owned" keeps only
+      // portfolio/watchlist tickers, "hide" drops them.
+      if (filters.ownedView === "hide" && ownedSet.has(s.ticker)) continue;
+      if (filters.ownedView === "owned" && !ownedSet.has(s.ticker)) continue;
       // Chg≥ slider
       if (filters.minChg > 0 && chg < filters.minChg) continue;
       // RV≥ slider
@@ -1568,12 +1586,27 @@ function ScanWatch({ stocks, onTickerClick }) {
         >
           Chg&gt;0%
         </button>
+        <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: 4 }}>Owned:</span>
         <button
-          onClick={() => updateFilter({ hideOwned: !filters.hideOwned })}
-          style={pillStyle(filters.hideOwned, ARIA.yellow)}
-          title="Hide tickers already in portfolio or watchlist (the tinted rows)"
+          onClick={() => updateFilter({ ownedView: "all" })}
+          style={pillStyle(filters.ownedView === "all", ARIA.textDim)}
+          title="Show every ticker"
         >
-          Hide Owned
+          All
+        </button>
+        <button
+          onClick={() => updateFilter({ ownedView: "owned" })}
+          style={pillStyle(filters.ownedView === "owned", ARIA.yellow)}
+          title="Show only tickers already in portfolio or watchlist"
+        >
+          Only
+        </button>
+        <button
+          onClick={() => updateFilter({ ownedView: "hide" })}
+          style={pillStyle(filters.ownedView === "hide", ARIA.yellow)}
+          title="Hide tickers already in portfolio or watchlist"
+        >
+          Hide
         </button>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>Chg≥</span>
         <input
