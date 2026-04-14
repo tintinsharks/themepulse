@@ -3248,6 +3248,136 @@ function CSStat({ label, v, clr, ARIA }) {
 //
 // Aria reference: dashboard.html lines 3725-3791
 
+// Mini bar chart — one series (EPS or Revenue) across N quarters. Pure CSS:
+// each quarter is a flex column with value on top, bar, YoY%, and quarter
+// label beneath. Scales proportionally; baseline drops below zero when any
+// value is negative (handles EPS loss quarters).
+function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, ARIA }) {
+  const values = quarters.map(accessor).filter((v) => v != null && Number.isFinite(v));
+  if (values.length === 0) return null;
+  const max = Math.max(...values, 0);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const barAreaH = 52;
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div
+        style={{
+          fontSize: 7,
+          color: ARIA.textMuted,
+          marginBottom: 4,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          fontWeight: 700,
+          fontFamily: "monospace",
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 3,
+          alignItems: "stretch",
+          fontFamily: "monospace",
+        }}
+      >
+        {quarters.map((q, i) => {
+          const v = accessor(q);
+          const yoy = yoyAccessor ? yoyAccessor(q) : null;
+          const yoyColor =
+            yoy == null ? ARIA.textMuted : yoy >= 0 ? ARIA.green : ARIA.red;
+          const hPos = v == null || v <= 0 ? 0 : (v / range) * barAreaH;
+          const hNeg = v == null || v >= 0 ? 0 : (Math.abs(v) / range) * barAreaH;
+          const zeroLine = (max / range) * barAreaH; // space above zero
+          return (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 8,
+                  color: ARIA.text,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
+              >
+                {v == null ? "—" : labelFmt(v)}
+              </div>
+              {/* Bar area: zero line at (max/range) of height; positive bars
+                  grow up from zero line, negative bars drop below it. */}
+              <div
+                style={{
+                  width: "70%",
+                  height: barAreaH,
+                  marginTop: 2,
+                  position: "relative",
+                }}
+              >
+                {hPos > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: barAreaH - zeroLine,
+                      left: 0,
+                      right: 0,
+                      height: hPos,
+                      background: color,
+                      borderRadius: "2px 2px 0 0",
+                    }}
+                  />
+                )}
+                {hNeg > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: zeroLine,
+                      left: 0,
+                      right: 0,
+                      height: hNeg,
+                      background: ARIA.red,
+                      borderRadius: "0 0 2px 2px",
+                      opacity: 0.8,
+                    }}
+                  />
+                )}
+              </div>
+              <div
+                style={{
+                  fontSize: 7,
+                  color: yoyColor,
+                  lineHeight: 1,
+                  marginTop: 2,
+                  fontWeight: 600,
+                }}
+              >
+                {yoy == null ? "" : (yoy >= 0 ? "+" : "") + yoy.toFixed(0) + "%"}
+              </div>
+              <div
+                style={{
+                  fontSize: 7,
+                  color: ARIA.textMuted,
+                  marginTop: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {q.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ChartPanelInline({
   ticker,
   onTickerChange,
@@ -3267,6 +3397,38 @@ function ChartPanelInline({
   const [tf, setTf] = useState("D"); // "D" or "W"
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
   const [tickerInput, setTickerInput] = useState("");
+  // Finviz quarterly EPS + Revenue bars (expanded below the CANSLIM stats row).
+  // Fetches the same /api/live?news=X payload TickerInfoBox uses — browser
+  // coalesces the duplicate request when both components mount together.
+  const [quarters, setQuarters] = useState([]);
+  const [showQuarters, setShowQuarters] = useState(
+    () => localStorage.getItem("themepulse-qbars-open") === "1"
+  );
+  const toggleQuarters = useCallback(() => {
+    setShowQuarters((prev) => {
+      const next = !prev;
+      localStorage.setItem("themepulse-qbars-open", next ? "1" : "0");
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (!ticker) return;
+    let cancelled = false;
+    fetch(`/api/live?news=${encodeURIComponent(ticker)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const q = Array.isArray(d?.quarters) ? d.quarters : [];
+        // Finviz returns newest-first — reverse so bars read left-to-right old→new
+        setQuarters(q.slice().reverse());
+      })
+      .catch(() => {
+        if (!cancelled) setQuarters([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
   const [rightTab, setRightTab] = useState(
     () => localStorage.getItem("themepulse-chart-righttab") || "chart"
@@ -3566,6 +3728,24 @@ function ChartPanelInline({
         >
           {inPF ? "✓PF" : "+PF"}
         </button>
+        <button
+          onClick={toggleQuarters}
+          title="Toggle quarterly EPS / Revenue bars (Finviz FactSet)"
+          style={{
+            fontSize: 8,
+            padding: "2px 6px",
+            borderRadius: 3,
+            border: `1px solid ${ARIA.blue}80`,
+            color: showQuarters ? ARIA.bg : ARIA.blue,
+            background: showQuarters ? ARIA.blue : "transparent",
+            cursor: "pointer",
+            fontFamily: "monospace",
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          Qtrs {showQuarters ? "▲" : "▼"}
+        </button>
         {/* Analyze button — runs the 4-agent analysis on the active ticker */}
         {onAnalyze && (
           <button
@@ -3700,6 +3880,53 @@ function ChartPanelInline({
           </>
         )}
       </div>
+
+      {/* Quarterly EPS + Revenue bars (Finviz FactSet). Collapsible — toggled
+          by the Qtrs pill in the title row. Bars are pure-CSS divs, labelled
+          with the raw value on top and YoY% beneath it. Baseline auto-adjusts
+          for negative EPS quarters. */}
+      {showQuarters && (
+        <div
+          style={{
+            padding: "8px 14px 10px",
+            display: "flex",
+            gap: 14,
+            borderBottom: `1px solid ${ARIA.border}`,
+            background: ARIA.glass || "transparent",
+          }}
+        >
+          {quarters.length === 0 ? (
+            <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
+              No quarterly data for {ticker}.
+            </span>
+          ) : (
+            <>
+              <MiniQBars
+                quarters={quarters}
+                accessor={(q) => q.eps}
+                yoyAccessor={(q) => q.eps_yoy}
+                color={ARIA.blue}
+                labelFmt={(v) => v.toFixed(2)}
+                title="EPS (Diluted)"
+                ARIA={ARIA}
+              />
+              <MiniQBars
+                quarters={quarters}
+                accessor={(q) => q.revenue}
+                yoyAccessor={(q) => q.revenue_yoy}
+                color={ARIA.purple}
+                labelFmt={(v) =>
+                  v >= 1000
+                    ? `${(v / 1000).toFixed(1)}B`
+                    : `${Math.round(v)}M`
+                }
+                title="Revenue"
+                ARIA={ARIA}
+              />
+            </>
+          )}
+        </div>
+      )}
 
       {/* Body: dual-pane chart split with draggable divider.
           splitFrac controls how much horizontal space the LEFT pane gets
