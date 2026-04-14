@@ -966,12 +966,17 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
         prevEps != null && prevEps !== 0 && eps != null
           ? ((eps - prevEps) / Math.abs(prevEps)) * 100
           : null;
+      const revenueYoyRounded = revYoy != null ? Math.round(revYoy * 10) / 10 : null;
       out.push({
         label: isAnnual ? String(year) : `${q.period}-${String(year).slice(2)}`,
         period: isAnnual ? "FY" : q.period,
         year,
+        // report_date is what the chart markers key off — filing date from FMP
+        report_date: q.date || null,
         revenue: revenueM,
-        revenue_yoy: revYoy != null ? Math.round(revYoy * 10) / 10 : null,
+        revenue_yoy: revenueYoyRounded,
+        // Alias so the legacy chart marker code (expects sales_yoy) works too
+        sales_yoy: revenueYoyRounded,
         revenue_fmt:
           revenueM != null
             ? revenueM >= 1000

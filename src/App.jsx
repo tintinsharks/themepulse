@@ -4123,7 +4123,7 @@ function ChartPanelInline({
           }}
         >
           <ErrorBoundary>
-            <LegacyLWChart ticker={ticker} tf={tf} />
+            <LegacyLWChart ticker={ticker} tf={tf} quarters={quarters} />
           </ErrorBoundary>
         </div>
 
