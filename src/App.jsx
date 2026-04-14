@@ -3488,14 +3488,6 @@ function ChartPanelInline({
           {grade && (
             <span style={badgeStyle(gradeColor)}>{grade}</span>
           )}
-          {mo && (
-            <span
-              style={badgeStyle(ARIA.blue)}
-              title={`Minervini / O'Neill ✓ — EPS YoY ${mo.epsYoy.toFixed(0)}%, Sales YoY ${mo.salesYoy.toFixed(0)}%, Margin ${mo.margin.toFixed(1)}%`}
-            >
-              M/O
-            </span>
-          )}
           {erDate && (
             <>
               <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>ER</span>
@@ -3633,6 +3625,14 @@ function ChartPanelInline({
           borderBottom: `1px solid ${ARIA.border}`,
         }}
       >
+        {mo && (
+          <span
+            style={badgeStyle(ARIA.blue)}
+            title={`Minervini / O'Neill ✓ — EPS YoY ${mo.epsYoy.toFixed(0)}%, Sales YoY ${mo.salesYoy.toFixed(0)}%, Margin ${mo.margin.toFixed(1)}%`}
+          >
+            M/O
+          </span>
+        )}
         <CSStat label="EPS" v={epsYoy} clr={csClr(epsYoy)} ARIA={ARIA} />
         <CSStat label="Prev" v={epsYoyPrev} clr={csClr(epsYoyPrev)} ARIA={ARIA} />
         <span style={{ color: ARIA.border }}>|</span>
