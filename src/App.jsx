@@ -3953,41 +3953,90 @@ function ChartPanelInline({
             background: ARIA.glass || "transparent",
           }}
         >
-          {/* Timeframe selector — right-aligned, mirrors the Finviz layout */}
+          {/* Header row: legend (left) + timeframe selector (right) */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "flex-end",
-              gap: 4,
+              gap: 8,
               marginBottom: 6,
               fontFamily: "monospace",
             }}
           >
-            <span
+            <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
                 fontSize: 7,
                 color: ARIA.textMuted,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                fontWeight: 700,
-                marginRight: 2,
+                flexWrap: "wrap",
               }}
             >
-              Timeframe
-            </span>
-            <button
-              onClick={() => setQbarsModePersist("annual")}
-              style={pillStyle(qbarsMode === "annual", ARIA.blue)}
+              <span
+                style={{
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  fontWeight: 700,
+                }}
+              >
+                YoY Tiers
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={{ color: ARIA.blue, fontWeight: 700 }}>EPS ≥ 25</span>
+                <span>/</span>
+                <span style={{ color: ARIA.blue, fontWeight: 700 }}>Sales ≥ 20</span>
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={{ color: "#f59e0b", fontWeight: 700 }}>≥ 40 super</span>
+              </span>
+              <span
+                title="Minervini Code 33 — 3 consecutive periods of accelerating EPS, Sales, and Margin"
+                style={{
+                  border: `1px solid ${ARIA.yellow}`,
+                  borderRadius: 3,
+                  padding: "0 4px",
+                  color: ARIA.yellow,
+                  fontWeight: 700,
+                  boxShadow: `0 0 4px ${ARIA.yellow}60`,
+                }}
+              >
+                33
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                marginLeft: "auto",
+              }}
             >
-              Annual
-            </button>
-            <button
-              onClick={() => setQbarsModePersist("quarter")}
-              style={pillStyle(qbarsMode === "quarter", ARIA.blue)}
-            >
-              Quarterly
-            </button>
+              <span
+                style={{
+                  fontSize: 7,
+                  color: ARIA.textMuted,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  fontWeight: 700,
+                  marginRight: 2,
+                }}
+              >
+                Timeframe
+              </span>
+              <button
+                onClick={() => setQbarsModePersist("annual")}
+                style={pillStyle(qbarsMode === "annual", ARIA.blue)}
+              >
+                Annual
+              </button>
+              <button
+                onClick={() => setQbarsModePersist("quarter")}
+                style={pillStyle(qbarsMode === "quarter", ARIA.blue)}
+              >
+                Quarterly
+              </button>
+            </div>
           </div>
           {(() => {
             const baseSeries = qbarsMode === "annual" ? annuals : quarters;
