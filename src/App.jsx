@@ -149,7 +149,7 @@ function etfsForTheme(subtheme, theme) {
 const DEFAULT_FILTERS = {
   noBio: true,
   greenOnly: true,    // Chg>0% on chgOpen
-  ownedView: "all",   // "all" | "owned" | "hide" — filter by portfolio/watchlist membership
+  ownedView: "hide",  // "all" | "owned" | "hide" — filter by portfolio/watchlist membership. Default 'hide' so the Scan Watch surfaces only new ideas.
   adrMin: 3,
   adrMax: 15,
   minDvolM: 20,        // dollar volume floor in millions
