@@ -3576,21 +3576,6 @@ function ChartPanelInline({
         <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
         {tfBtn("5m", "5m", intradayTf, setIntradayTf)}
         {tfBtn("30m", "30m", intradayTf, setIntradayTf)}
-        <a
-          href={`https://www.tradingview.com/chart/?symbol=${ticker}`}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            fontSize: 9,
-            color: ARIA.cyan,
-            textDecoration: "none",
-            padding: "2px 6px",
-            borderRadius: 3,
-            border: `1px solid ${ARIA.cyan}40`,
-          }}
-        >
-          TV ↗
-        </a>
         <input
           value={tickerInput}
           onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
