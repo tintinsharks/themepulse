@@ -841,6 +841,28 @@ const TAG_PREDICATES = {
     // 9M is computed at row time using LIVE volume — handled in the row build loop, not here
     test: () => true,
   },
+  "33": {
+    label: "33",
+    desc:
+      "Code 33 (2-quarter approx) — EPS YoY and Sales YoY both accelerated vs the prior quarter, with positive net margin. Minervini's strict 3-quarter Code 33 needs 3 quarters of history the pipeline doesn't ship yet.",
+    test: (s) => {
+      const eYoy = s.eps_yoy;
+      const eYoyPrev = s.eps_yoy_prev;
+      const sYoy = s.sales_yoy;
+      const sYoyPrev = s.sales_yoy_prev;
+      const margin = s.profit_margin;
+      return (
+        eYoy != null &&
+        eYoyPrev != null &&
+        sYoy != null &&
+        sYoyPrev != null &&
+        margin != null &&
+        eYoy > eYoyPrev &&
+        sYoy > sYoyPrev &&
+        margin > 0
+      );
+    },
+  },
 };
 
 // ── ETF Scan Table — fetches etf_universe.json + live quotes ─────────────
@@ -1528,7 +1550,7 @@ function ScanWatch({ stocks, onTickerClick }) {
       >
         {Object.entries(TAG_PREDICATES).map(([key, t]) => {
           const on = activeTags.has(key);
-          const accent = key === "9M" ? ARIA.yellow : ARIA.green;
+          const accent = key === "9M" || key === "33" ? ARIA.yellow : ARIA.green;
           return (
             <button
               key={key}
