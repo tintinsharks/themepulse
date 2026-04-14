@@ -3488,12 +3488,6 @@ function ChartPanelInline({
           {grade && (
             <span style={badgeStyle(gradeColor)}>{grade}</span>
           )}
-          {erDate && (
-            <>
-              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>ER</span>
-              <span style={{ color: ARIA.textDim }}>{erDate.replace(/~/g, " ").trim()}</span>
-            </>
-          )}
           {adr != null && (
             <>
               <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>ADR</span>
@@ -3616,6 +3610,12 @@ function ChartPanelInline({
             title={`Minervini / O'Neill ✓ — EPS YoY ${mo.epsYoy.toFixed(0)}%, Sales YoY ${mo.salesYoy.toFixed(0)}%, Margin ${mo.margin.toFixed(1)}%`}
           >
             M/O
+          </span>
+        )}
+        {erDate && (
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+            <span style={{ color: ARIA.textMuted }}>ER</span>
+            <span style={{ color: ARIA.textDim }}>{erDate.replace(/~/g, " ").trim()}</span>
           </span>
         )}
         <CSStat label="EPS" v={epsYoy} clr={csClr(epsYoy)} ARIA={ARIA} />
