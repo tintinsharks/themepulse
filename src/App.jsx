@@ -551,17 +551,36 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
   const indexTickers = useMemo(() => INDEX_LIST.map((i) => i.ticker), []);
   const { quotes } = useLiveQuotes(indexTickers, 30000);
 
-  // Breadth computed from the static pipeline snapshot.
-  // Note: this is "since previous close" — refreshes once per pipeline run.
+  // Live breadth universe — top 500 stocks from the pipeline by dollar
+  // volume. FMP batch-quote caps at 500 tickers per call; the browser
+  // coalesces the request with ScanWatch's poll since the URL matches.
+  const breadthTickers = useMemo(() => {
+    if (!stocks || !stocks.length) return [];
+    return stocks
+      .slice()
+      .sort((a, b) => (b.avg_dollar_vol_raw || 0) - (a.avg_dollar_vol_raw || 0))
+      .slice(0, 500)
+      .map((s) => s.ticker);
+  }, [stocks]);
+  const { quotes: breadthQuotes } = useLiveQuotes(breadthTickers, 30000);
+
+  // Breadth computed from LIVE quotes for the top-500 universe. Falls back
+  // to the pipeline snapshot's `change_pct` when a live quote isn't in yet.
+  // H/L is 52-week — still derived from the static snapshot since off_52w_high
+  // isn't computable from a live quote alone.
   const breadth = useMemo(() => {
     if (!stocks || !stocks.length) return null;
-    const n = stocks.length;
+    // Only count stocks that are in the live universe so A/D is a fair
+    // comparison against the same set for which we have fresh data.
+    const liveSet = new Set(breadthTickers);
+    const scope = liveSet.size > 0 ? stocks.filter((s) => liveSet.has(s.ticker)) : stocks;
     let adv = 0,
       dec = 0,
       nh = 0,
       nl = 0;
-    stocks.forEach((s) => {
-      const c = s.change_pct || 0;
+    scope.forEach((s) => {
+      const q = breadthQuotes.get(s.ticker);
+      const c = q?.change != null ? q.change : s.change_pct || 0;
       if (c > 0) adv++;
       else if (c < 0) dec++;
       const offHi = s.off_52w_high;
@@ -569,18 +588,22 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
       const offLo = s.above_52w_low;
       if (offLo != null && offLo <= 2) nl++;
     });
+    // Percentages are relative to advancers+decliners (ignore unchanged)
+    // so A/D and H/L read naturally as "of those moving, X% were up".
+    const adPool = adv + dec || 1;
+    const hlPool = nh + nl || 1;
     return {
-      n,
+      n: scope.length,
       advCount: adv,
       decCount: dec,
-      advPct: Math.round((adv / n) * 100),
-      decPct: Math.round((dec / n) * 100),
+      advPct: Math.round((adv / adPool) * 100),
+      decPct: Math.round((dec / adPool) * 100),
       nhCount: nh,
       nlCount: nl,
-      nhPct: Math.round((nh / n) * 100),
-      nlPct: Math.round((nl / n) * 100),
+      nhPct: Math.round((nh / hlPool) * 100),
+      nlPct: Math.round((nl / hlPool) * 100),
     };
-  }, [stocks]);
+  }, [stocks, breadthTickers, breadthQuotes]);
 
   const renderIndex = (idx) => {
     const q = quotes.get(idx.ticker);
@@ -685,7 +708,7 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
             alignItems: "center",
             marginLeft: "auto",
           }}
-          title="Breadth from pipeline snapshot (since previous close)"
+          title="Breadth of the top-500 (by $vol) universe, live — since previous close. A/D % is relative to advancers+decliners; H/L % to 52W highs+lows."
         >
           {miniBar(
             "A/D",
