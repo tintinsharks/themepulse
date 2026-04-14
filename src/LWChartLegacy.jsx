@@ -911,25 +911,14 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         };
 
-        if (lastSma50 && lastAtr && lastAtr > 0) {
-          // ATR ladder — axis labels only (no visible lines)
+        // Canonical price levels only — ATR ladder / risk-stop / LOD+PDL
+        // labels were removed to unclutter the right axis.
+        {
           const addAxisLabel = (price, color, title) => {
             if (price > 0 && isFinite(price)) {
               try { linesRef.current.push(seriesRef.current.createPriceLine({ price, color, lineWidth: 0, lineStyle: 2, lineVisible: false, axisLabelVisible: true, title })); } catch {}
             }
           };
-          addAxisLabel(lastSma50 + 10 * lastAtr, "#ff3232", "x10");
-          addAxisLabel(lastSma50 + 8 * lastAtr, "#32cd32", "x8");
-          addAxisLabel(lastSma50 + 7 * lastAtr, "#32cd32", "x7");
-          addAxisLabel(lastSma50 + 4 * lastAtr, "#32cd32", "MaxE");
-          addAxisLabel(lastLow + lastAtr * 0.6, "#9c27b0", "LoD+.6");
-          // Risk stops — axis labels only
-          addAxisLabel(lastClose - lastAtr * 0.5, "#ff5252", "0.5x");
-          addAxisLabel(lastClose - lastAtr, "#ff5252", "1.0x");
-          addAxisLabel(lastClose - lastAtr * 2.0, "#ff5252", "2.0x");
-          // Reference levels
-          addAxisLabel(lastLow, "#808080", "LOD");
-          addAxisLabel(prevLow, "#ffa500", "PDL");
           if (wk52High > 0) addAxisLabel(wk52High, "#ffa500", "52W");
           if (athHigh > 0 && Math.abs(athHigh - wk52High) > lastClose * 0.001) addAxisLabel(athHigh, "#ff8c00", "ATH");
         }
