@@ -412,6 +412,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const crpSeriesRef = useRef(null);
   const fourPctSeriesRef = useRef(null);
   const crErLineRef = useRef(null);
+  const mainErLineRef = useRef(null);
   const atrxContainerRef = useRef(null);
   const atrxChartRef = useRef(null);
   const atrxSeriesRefs = useRef({});
@@ -499,6 +500,24 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         upColor: "#2bb886", downColor: "#f87171", borderVisible: false,
         wickUpColor: "#2bb886", wickDownColor: "#f87171",
       });
+
+      // Earnings EPS/Sales YoY text line — invisible line on an overlay
+      // priceScale pinned to the bottom ~5% of the main pane. Text markers
+      // attached here render below the candle area at the earnings date.
+      mainErLineRef.current = chart.addLineSeries({
+        priceScaleId: "er-overlay",
+        color: "transparent",
+        lineWidth: 0,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      try {
+        chart.priceScale("er-overlay").applyOptions({
+          scaleMargins: { top: 0.93, bottom: 0 },
+          visible: false,
+        });
+      } catch {}
 
       // ── Price overlay MAs ──
       maRefs.current.ema10 = chart.addLineSeries({
@@ -1130,37 +1149,47 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             fourPctSeriesRef.current.setMarkers(fpMarkers);
           }
 
-          // Earnings markers (EPS | Sales YoY) at bottom of pane — daily only
-          if (crErLineRef.current) {
-            const erLineData = [];
-            const erMarkers = [];
-            if (quarters && quarters.length > 0 && tf !== "30m") {
-              const barDates = new Set(bars.map(b => b.date));
-              for (const q of quarters) {
-                if (!q.report_date) continue;
-                let matchDate = q.report_date;
-                if (!barDates.has(matchDate)) {
-                  const d = new Date(matchDate + "T00:00:00");
-                  for (let j = 1; j <= 5; j++) {
-                    d.setDate(d.getDate() + 1);
-                    const ds = d.toISOString().slice(0, 10);
-                    if (barDates.has(ds)) { matchDate = ds; break; }
-                  }
+          // Earnings markers (EPS | Sales YoY). Rendered on two hidden line
+          // series:
+          //   crErLineRef   — bottom of the CR% pane (legacy placement)
+          //   mainErLineRef — bottom of the main price pane (user request;
+          //                   aligned to the earnings candle, ~5% from the
+          //                   pane floor via the 'er-overlay' priceScale)
+          const erRows = [];
+          if (quarters && quarters.length > 0 && tf !== "30m") {
+            const barDates = new Set(bars.map(b => b.date));
+            for (const q of quarters) {
+              if (!q.report_date) continue;
+              let matchDate = q.report_date;
+              if (!barDates.has(matchDate)) {
+                const d = new Date(matchDate + "T00:00:00");
+                for (let j = 1; j <= 5; j++) {
+                  d.setDate(d.getDate() + 1);
+                  const ds = d.toISOString().slice(0, 10);
+                  if (barDates.has(ds)) { matchDate = ds; break; }
                 }
-                if (!barDates.has(matchDate)) continue;
-                const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
-                const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
-                if (!ePct && !sPct) continue;
-                const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
-                const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
-                erLineData.push({ time: matchDate, value: 5 });
-                erMarkers.push({ time: matchDate, position: "aboveBar", color: clr, shape: "square", size: 0, text: txt });
               }
-              erMarkers.sort((a, b) => a.time.localeCompare(b.time));
-              erLineData.sort((a, b) => a.time.localeCompare(b.time));
+              if (!barDates.has(matchDate)) continue;
+              const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "";
+              const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "";
+              if (!ePct && !sPct) continue;
+              const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
+              const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
+              erRows.push({ time: matchDate, txt, clr });
             }
-            crErLineRef.current.setData(erLineData);
-            crErLineRef.current.setMarkers(erMarkers);
+            erRows.sort((a, b) => a.time.localeCompare(b.time));
+          }
+          if (crErLineRef.current) {
+            crErLineRef.current.setData(erRows.map(r => ({ time: r.time, value: 5 })));
+            crErLineRef.current.setMarkers(
+              erRows.map(r => ({ time: r.time, position: "aboveBar", color: r.clr, shape: "square", size: 0, text: r.txt }))
+            );
+          }
+          if (mainErLineRef.current) {
+            mainErLineRef.current.setData(erRows.map(r => ({ time: r.time, value: 0 })));
+            mainErLineRef.current.setMarkers(
+              erRows.map(r => ({ time: r.time, position: "aboveBar", color: r.clr, shape: "square", size: 0, text: r.txt }))
+            );
           }
 
           // Reference lines (create once)
