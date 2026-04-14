@@ -913,35 +913,42 @@ async function fetchHomepage(cookies) {
 // ── FMP Live Quotes (replaces Finviz for theme universe) ──
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
-// Fetch last 8 quarters of EPS + Revenue from FMP's income-statement endpoint.
-// Used as fallback for the chart panel quarterly bars when Finviz's FactSet
-// table scrape returns empty. FMP doesn't provide YoY% directly so we compute
-// it from Y-over-Y pairs in the same response.
-async function fetchQuartersFmp(ticker, fmpKey) {
+// Fetch EPS + Revenue from FMP's income-statement endpoint. Used for the
+// chart panel bars (both quarterly and annual modes). FMP doesn't provide
+// YoY% directly so we compute it from year-over-year pairs.
+//   period: "quarter" (default) → 8 trailing quarters, key `${Qn}-${year}`
+//   period: "annual"            → 9 trailing years,    key `${year}`
+async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
   if (!fmpKey || !ticker) return [];
   try {
-    // 12 quarters gives us room to compute YoY for the most recent 8
-    const url = `${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=12&apikey=${fmpKey}`;
+    const isAnnual = period === "annual";
+    const limit = isAnnual ? 10 : 12;
+    const take = isAnnual ? 9 : 8;
+    const url = `${FMP_BASE}/income-statement?symbol=${ticker}&period=${period}&limit=${limit}&apikey=${fmpKey}`;
     const resp = await fetch(url);
     if (!resp.ok) return [];
     const data = await resp.json();
     if (!Array.isArray(data) || data.length === 0) return [];
-    // FMP returns newest-first. Reverse to oldest-first for bar rendering.
+    // FMP returns newest-first. Reverse for oldest → newest bar rendering.
     const asc = data.slice().reverse();
+    const keyFor = (q) => {
+      const year = parseInt(q.fiscalYear || q.calendarYear || (q.date || "").slice(0, 4));
+      if (!year) return null;
+      return isAnnual ? String(year) : `${q.period}-${year}`;
+    };
     const byKey = new Map();
     for (const q of asc) {
-      const period = q.period;
-      const year = parseInt(q.fiscalYear || q.calendarYear || (q.date || "").slice(0, 4));
-      if (period && year) byKey.set(`${period}-${year}`, q);
+      const k = keyFor(q);
+      if (k) byKey.set(k, q);
     }
     const out = [];
-    for (const q of asc.slice(-8)) {
-      const period = q.period;
+    for (const q of asc.slice(-take)) {
       const year = parseInt(q.fiscalYear || q.calendarYear || (q.date || "").slice(0, 4));
-      if (!period || !year) continue;
-      const prev = byKey.get(`${period}-${year - 1}`);
+      if (!year) continue;
+      const prevKey = isAnnual ? String(year - 1) : `${q.period}-${year - 1}`;
+      const prev = byKey.get(prevKey);
       const revRaw = q.revenue != null ? q.revenue : null;
-      const revenueM = revRaw != null ? revRaw / 1_000_000 : null; // match Finviz shape (millions)
+      const revenueM = revRaw != null ? revRaw / 1_000_000 : null;
       const eps = q.epsDiluted ?? q.eps ?? null;
       const prevRevM = prev?.revenue != null ? prev.revenue / 1_000_000 : null;
       const prevEps = prev?.epsDiluted ?? prev?.eps ?? null;
@@ -954,8 +961,8 @@ async function fetchQuartersFmp(ticker, fmpKey) {
           ? ((eps - prevEps) / Math.abs(prevEps)) * 100
           : null;
       out.push({
-        label: `${period}-${String(year).slice(2)}`,
-        period,
+        label: isAnnual ? String(year) : `${q.period}-${String(year).slice(2)}`,
+        period: isAnnual ? "FY" : q.period,
         year,
         revenue: revenueM,
         revenue_yoy: revYoy != null ? Math.round(revYoy * 10) / 10 : null,
@@ -971,7 +978,7 @@ async function fetchQuartersFmp(ticker, fmpKey) {
     }
     return out;
   } catch (err) {
-    console.error(`FMP quarters fetch error for ${ticker}:`, err.message);
+    console.error(`FMP ${period} fetch error for ${ticker}:`, err.message);
     return [];
   }
 }
@@ -1505,11 +1512,19 @@ export default async function handler(req, res) {
     const newsTicker = (req.query.news || "").trim().toUpperCase();
     const tickerData = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
 
-    // FMP fallback for quarterly EPS + Revenue bars — Finviz's FactSet table
-    // scrape silently returns empty on many tickers right now.
+    // FMP bar data — quarterly (fallback only when Finviz FactSet is empty,
+    // which is currently every ticker) and annual (always from FMP since the
+    // Finviz scrape path doesn't cover it).
     let quartersFallback = [];
-    if (newsTicker && (!tickerData?.quarters || tickerData.quarters.length === 0)) {
-      quartersFallback = await fetchQuartersFmp(newsTicker, fmpKey);
+    let annualFallback = [];
+    if (newsTicker && fmpKey) {
+      const needQuarters = !tickerData?.quarters || tickerData.quarters.length === 0;
+      const [qData, aData] = await Promise.all([
+        needQuarters ? fetchFinancialsFmp(newsTicker, fmpKey, "quarter") : Promise.resolve([]),
+        fetchFinancialsFmp(newsTicker, fmpKey, "annual"),
+      ]);
+      quartersFallback = qData;
+      annualFallback = aData;
     }
 
     // Fetch homepage data (futures, earnings, major news) if requested
@@ -1544,6 +1559,7 @@ export default async function handler(req, res) {
           : quartersFallback.length > 0
           ? quartersFallback
           : null,
+      finvizAnnual: annualFallback.length > 0 ? annualFallback : null,
       analyst: tickerData?.analyst || null,
       homepage,
       momentum_burst: momentumBurst,

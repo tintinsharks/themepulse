@@ -3397,12 +3397,19 @@ function ChartPanelInline({
   const [tf, setTf] = useState("D"); // "D" or "W"
   const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
   const [tickerInput, setTickerInput] = useState("");
-  // Finviz quarterly EPS + Revenue bars (expanded below the CANSLIM stats row).
-  // Fetches the same /api/live?news=X payload TickerInfoBox uses — browser
-  // coalesces the duplicate request when both components mount together.
+  // EPS + Revenue bars below the CANSLIM stats row. Fetches the same
+  // /api/live?news=X payload TickerInfoBox uses — browser coalesces the
+  // duplicate in-flight request when both components mount together.
+  //   quarters: quarterly bars (Finviz FactSet → FMP fallback)
+  //   annuals:  annual bars (FMP only)
+  //   qbarsMode: which series to display ("quarter" or "annual")
   const [quarters, setQuarters] = useState([]);
+  const [annuals, setAnnuals] = useState([]);
   const [showQuarters, setShowQuarters] = useState(
     () => localStorage.getItem("themepulse-qbars-open") === "1"
+  );
+  const [qbarsMode, setQbarsMode] = useState(
+    () => localStorage.getItem("themepulse-qbars-mode") || "quarter"
   );
   const toggleQuarters = useCallback(() => {
     setShowQuarters((prev) => {
@@ -3411,6 +3418,10 @@ function ChartPanelInline({
       return next;
     });
   }, []);
+  const setQbarsModePersist = useCallback((mode) => {
+    setQbarsMode(mode);
+    localStorage.setItem("themepulse-qbars-mode", mode);
+  }, []);
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
@@ -3418,16 +3429,20 @@ function ChartPanelInline({
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
-        // API field is `finvizQuarters`; FMP fallback matches the same shape
-        // (oldest-first already). Finviz path is newest-first → reverse only
-        // when the first item's year is larger than the last's.
-        const q = Array.isArray(d?.finvizQuarters) ? d.finvizQuarters : [];
-        const oriented =
-          q.length > 1 && q[0].year > q[q.length - 1].year ? q.slice().reverse() : q;
-        setQuarters(oriented);
+        const orient = (arr) => {
+          if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
+          // Ensure oldest → newest. Finviz scraper returns newest-first; FMP
+          // path is already ascending.
+          return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
+        };
+        setQuarters(orient(d?.finvizQuarters));
+        setAnnuals(orient(d?.finvizAnnual));
       })
       .catch(() => {
-        if (!cancelled) setQuarters([]);
+        if (!cancelled) {
+          setQuarters([]);
+          setAnnuals([]);
+        }
       });
     return () => {
       cancelled = true;
@@ -3885,50 +3900,91 @@ function ChartPanelInline({
         )}
       </div>
 
-      {/* Quarterly EPS + Revenue bars (Finviz FactSet). Collapsible — toggled
-          by the Qtrs pill in the title row. Bars are pure-CSS divs, labelled
-          with the raw value on top and YoY% beneath it. Baseline auto-adjusts
-          for negative EPS quarters. */}
+      {/* EPS + Revenue bars. Collapsible (Qtrs toggle in title row) with a
+          Timeframe selector so the same two-bar layout can render quarterly
+          or annual data. YoY% below each bar is always vs the same period
+          one year prior. */}
       {showQuarters && (
         <div
           style={{
-            padding: "8px 14px 10px",
-            display: "flex",
-            gap: 14,
+            padding: "6px 14px 10px",
             borderBottom: `1px solid ${ARIA.border}`,
             background: ARIA.glass || "transparent",
           }}
         >
-          {quarters.length === 0 ? (
-            <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
-              No quarterly data for {ticker}.
+          {/* Timeframe selector — right-aligned, mirrors the Finviz layout */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 4,
+              marginBottom: 6,
+              fontFamily: "monospace",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 7,
+                color: ARIA.textMuted,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                fontWeight: 700,
+                marginRight: 2,
+              }}
+            >
+              Timeframe
             </span>
-          ) : (
-            <>
-              <MiniQBars
-                quarters={quarters}
-                accessor={(q) => q.eps}
-                yoyAccessor={(q) => q.eps_yoy}
-                color={ARIA.blue}
-                labelFmt={(v) => v.toFixed(2)}
-                title="EPS (Diluted)"
-                ARIA={ARIA}
-              />
-              <MiniQBars
-                quarters={quarters}
-                accessor={(q) => q.revenue}
-                yoyAccessor={(q) => q.revenue_yoy}
-                color={ARIA.purple}
-                labelFmt={(v) =>
-                  v >= 1000
-                    ? `${(v / 1000).toFixed(1)}B`
-                    : `${Math.round(v)}M`
-                }
-                title="Revenue"
-                ARIA={ARIA}
-              />
-            </>
-          )}
+            <button
+              onClick={() => setQbarsModePersist("annual")}
+              style={pillStyle(qbarsMode === "annual", ARIA.blue)}
+            >
+              Annual
+            </button>
+            <button
+              onClick={() => setQbarsModePersist("quarter")}
+              style={pillStyle(qbarsMode === "quarter", ARIA.blue)}
+            >
+              Quarterly
+            </button>
+          </div>
+          {(() => {
+            const series = qbarsMode === "annual" ? annuals : quarters;
+            const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
+            if (series.length === 0) {
+              return (
+                <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
+                  No {modeLabel} data for {ticker}.
+                </span>
+              );
+            }
+            return (
+              <div style={{ display: "flex", gap: 14 }}>
+                <MiniQBars
+                  quarters={series}
+                  accessor={(q) => q.eps}
+                  yoyAccessor={(q) => q.eps_yoy}
+                  color={ARIA.blue}
+                  labelFmt={(v) => v.toFixed(2)}
+                  title="EPS (Diluted)"
+                  ARIA={ARIA}
+                />
+                <MiniQBars
+                  quarters={series}
+                  accessor={(q) => q.revenue}
+                  yoyAccessor={(q) => q.revenue_yoy}
+                  color={ARIA.purple}
+                  labelFmt={(v) =>
+                    v >= 1000
+                      ? `${(v / 1000).toFixed(1)}B`
+                      : `${Math.round(v)}M`
+                  }
+                  title="Revenue"
+                  ARIA={ARIA}
+                />
+              </div>
+            );
+          })()}
         </div>
       )}
 
