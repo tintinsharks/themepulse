@@ -845,6 +845,7 @@ const TAG_PREDICATES = {
 // ── ETF Scan Table — fetches etf_universe.json + live quotes ─────────────
 function ETFScanTable({ onTickerClick }) {
   const ARIA = useAriaTheme();
+  const ownedTint = useOwnedTint();
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
   const [gainOnly, setGainOnly] = useState(false);
@@ -1085,6 +1086,8 @@ function ETFScanTable({ onTickerClick }) {
             )}
             {filtered.map((r) => {
               const isSel = selectedTicker === r.ticker;
+              const ownedBg = ownedTint(r.ticker, ARIA);
+              const baseBg = isSel ? `${ARIA.cyan}26` : ownedBg;
               return (
                 <tr
                   key={r.ticker}
@@ -1093,9 +1096,9 @@ function ETFScanTable({ onTickerClick }) {
                     setSelectedTicker(r.ticker);
                     onTickerClick && onTickerClick(r.ticker);
                   }}
-                  style={{ cursor: "pointer", background: isSel ? `${ARIA.cyan}26` : "transparent" }}
+                  style={{ cursor: "pointer", background: baseBg }}
                   onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = ARIA.bgHover; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : "transparent"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = baseBg; }}
                 >
                   <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text, position: "sticky", left: 0, background: ARIA.bgCard, zIndex: 1 }}>
                     {r.ticker}
@@ -1734,6 +1737,7 @@ function ScanWatch({ stocks, onTickerClick }) {
 // ── ScanWatchTable: Aria-faithful results table with click-to-sort headers ──
 function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, onSubthemeClick }) {
   const ARIA = useAriaTheme();
+  const ownedTint = useOwnedTint();
   // Keyboard nav: track selected ticker, allow ↑/↓ to move and load chart.
   // Persist selected by ticker (not index) so reorders/filter changes don't
   // jump to a random row.
@@ -1898,6 +1902,9 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
         )}
         {rows.map((r) => {
           const chgVal = chgMode === "open" && r.chgOpen != null ? r.chgOpen : r.chg;
+          const isSel = selectedTicker === r.ticker;
+          const ownedBg = ownedTint(r.ticker, ARIA);
+          const baseBg = isSel ? `${ARIA.cyan}26` : ownedBg;
           return (
             <tr
               key={r.ticker}
@@ -1908,16 +1915,13 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
               }}
               style={{
                 cursor: "pointer",
-                background:
-                  selectedTicker === r.ticker ? `${ARIA.cyan}26` : "transparent",
+                background: baseBg,
               }}
               onMouseEnter={(e) => {
-                if (selectedTicker !== r.ticker)
-                  e.currentTarget.style.background = ARIA.bgHover;
+                if (!isSel) e.currentTarget.style.background = ARIA.bgHover;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background =
-                  selectedTicker === r.ticker ? `${ARIA.cyan}26` : "transparent";
+                e.currentTarget.style.background = baseBg;
               }}
             >
               <td
@@ -2038,6 +2042,7 @@ function AgentPicks({
   onTickerClick,
 }) {
   const ARIA = useAriaTheme();
+  const ownedTint = useOwnedTint();
   // ── State: tab, commentary collapse, expanded row ──────────────────────
   const [tab, setTab] = useState(() => {
     if (typeof window === "undefined") return "analyzed";
@@ -2455,13 +2460,22 @@ function AgentPicks({
               : p.source === "AH"
               ? ARIA.purple
               : null;
+          const ownedBg = ownedTint(p.ticker, ARIA);
+          // Owned tint wins over the #1-rank highlight so already-tracked
+          // picks stay visible at the top of the list.
+          const rowBg =
+            ownedBg !== "transparent"
+              ? ownedBg
+              : p.rank === 1
+              ? ARIA.bgHover
+              : "transparent";
           return (
             <div
               key={p.ticker}
               style={{
                 padding: "6px 10px",
                 borderBottom: `1px solid ${ARIA.border}`,
-                background: p.rank === 1 ? ARIA.bgHover : "transparent",
+                background: rowBg,
               }}
             >
               <div
@@ -3112,6 +3126,25 @@ function useLocalStorageList(key) {
     [field]
   );
   return [list, update];
+}
+
+// Subtle row tint for tickers already in portfolio (yellow) or watchlist
+// (green). Used across every ticker-listing table so owned positions are
+// visible at a glance without adding duplicates. ~12% alpha (`1f`) — PF wins
+// when a ticker is in both lists. Returns fn(ticker, ARIA) -> css background.
+function useOwnedTint() {
+  const [portfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist] = useLocalStorageList("themepulse-watchlist");
+  return useMemo(() => {
+    const pf = new Set(portfolio);
+    const wl = new Set(watchlist);
+    return (ticker, ARIA) => {
+      if (!ticker) return "transparent";
+      if (pf.has(ticker)) return `${ARIA.yellow}1f`;
+      if (wl.has(ticker)) return `${ARIA.green}1f`;
+      return "transparent";
+    };
+  }, [portfolio, watchlist]);
 }
 
 // Aria-style colored mini-badge (used in chart header for 9M / VOL / HI / Grade)
