@@ -3252,7 +3252,7 @@ function CSStat({ label, v, clr, ARIA }) {
 // each quarter is a flex column with value on top, bar, YoY%, and quarter
 // label beneath. Scales proportionally; baseline drops below zero when any
 // value is negative (handles EPS loss quarters).
-function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, ARIA }) {
+function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, ARIA, passYoy, hotYoy }) {
   const values = quarters.map(accessor).filter((v) => v != null && Number.isFinite(v));
   if (values.length === 0) return null;
   const max = Math.max(...values, 0);
@@ -3304,7 +3304,16 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
               <div
                 style={{
                   fontSize: 8,
-                  color: ARIA.text,
+                  // Match EPS badge color tiers so each bar's value flags at a
+                  // glance whether that period clears the growth threshold.
+                  color:
+                    yoy == null
+                      ? ARIA.text
+                      : hotYoy != null && yoy >= hotYoy
+                      ? "#f59e0b"
+                      : passYoy != null && yoy >= passYoy
+                      ? ARIA.blue
+                      : ARIA.text,
                   fontWeight: 700,
                   lineHeight: 1,
                 }}
@@ -3968,6 +3977,8 @@ function ChartPanelInline({
                   labelFmt={(v) => v.toFixed(2)}
                   title="EPS (Diluted)"
                   ARIA={ARIA}
+                  passYoy={25}
+                  hotYoy={40}
                 />
                 <MiniQBars
                   quarters={series}
@@ -3981,6 +3992,8 @@ function ChartPanelInline({
                   }
                   title="Revenue"
                   ARIA={ARIA}
+                  passYoy={20}
+                  hotYoy={40}
                 />
               </div>
             );
