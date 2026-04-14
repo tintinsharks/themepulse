@@ -5120,7 +5120,7 @@ function Watchlist({ stockMap, onTickerClick }) {
 // Resizable split between ChartPanelInline (left) and ScanWatch (right).
 // Width of the right column is persisted and dragged via a 4px col-resize handle.
 // ── Ticker Info: News + Description (Aria-faithful port) ────────────────
-function TickerInfoBox({ ticker, stockMap }) {
+function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
   const [open, setOpen] = useState(true);
   const [data, setData] = useState(null);
@@ -5142,6 +5142,7 @@ function TickerInfoBox({ ticker, stockMap }) {
   const parts = [s.company || data?.description?.split(".")[0] || "", s.industry || "", s.sector || ""].filter(Boolean);
   const news = data?.news || [];
   const desc = data?.description || "";
+  const peers = data?.peers || [];
 
   return (
     <div
@@ -5184,6 +5185,46 @@ function TickerInfoBox({ ticker, stockMap }) {
           {open ? "▼" : "▶"}
         </span>
       </div>
+      {open && peers.length > 0 && (
+        <div
+          style={{
+            padding: "3px 10px",
+            borderBottom: `1px solid ${ARIA.border}`,
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 6,
+            fontSize: 7,
+            fontFamily: "monospace",
+          }}
+        >
+          <span
+            style={{
+              color: ARIA.textMuted,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              fontWeight: 700,
+            }}
+          >
+            Peers:
+          </span>
+          {peers.map((p) => (
+            <span
+              key={p}
+              onClick={() => onTickerClick && onTickerClick(p)}
+              title={`Load ${p}`}
+              style={{
+                color: ARIA.cyan,
+                cursor: onTickerClick ? "pointer" : "default",
+                fontWeight: 600,
+              }}
+            >
+              {p}
+            </span>
+          ))}
+          <span style={{ color: ARIA.border, marginLeft: 2 }}>|</span>
+        </div>
+      )}
       {open && (
         <div style={{ display: "flex", height: 70 }}>
           {/* Left: News */}
@@ -5401,7 +5442,7 @@ function ChartScanRow({
       />
       <div style={{ width: scanW, flexShrink: 0, minWidth: 150, display: "flex", flexDirection: "column" }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
-        <TickerInfoBox ticker={chartTicker} stockMap={stockMap} />
+        <TickerInfoBox ticker={chartTicker} stockMap={stockMap} onTickerClick={handleTickerClick} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
       </div>
     </div>
