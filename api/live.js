@@ -952,6 +952,12 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
       const eps = q.epsDiluted ?? q.eps ?? null;
       const prevRevM = prev?.revenue != null ? prev.revenue / 1_000_000 : null;
       const prevEps = prev?.epsDiluted ?? prev?.eps ?? null;
+      // Net margin — required for Minervini's Code 33 gate (3 consecutive
+      // periods of accelerating margin expansion alongside EPS + Sales).
+      const netMargin =
+        q.netIncome != null && revRaw != null && revRaw > 0
+          ? Math.round((q.netIncome / revRaw) * 1000) / 10
+          : null;
       const revYoy =
         prevRevM != null && prevRevM > 0 && revenueM != null
           ? ((revenueM - prevRevM) / prevRevM) * 100
@@ -974,6 +980,7 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
             : null,
         eps,
         eps_yoy: epsYoy != null ? Math.round(epsYoy * 10) / 10 : null,
+        net_margin: netMargin,
       });
     }
     return out;

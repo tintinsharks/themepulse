@@ -3302,6 +3302,7 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
               }}
             >
               <div
+                title={q._code33 ? "Minervini Code 33 — 3 consecutive periods of accelerating EPS, Sales, and Margin" : undefined}
                 style={{
                   fontSize: 8,
                   // Match EPS badge color tiers so each bar's value flags at a
@@ -3316,6 +3317,15 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
                       : ARIA.text,
                   fontWeight: 700,
                   lineHeight: 1,
+                  // Code 33 border — gold outline on qualifying periods
+                  ...(q._code33
+                    ? {
+                        border: `1px solid ${ARIA.yellow}`,
+                        borderRadius: 3,
+                        padding: "1px 3px",
+                        boxShadow: `0 0 4px ${ARIA.yellow}60`,
+                      }
+                    : {}),
                 }}
               >
                 {v == null ? "—" : labelFmt(v)}
@@ -3958,8 +3968,23 @@ function ChartPanelInline({
             </button>
           </div>
           {(() => {
-            const series = qbarsMode === "annual" ? annuals : quarters;
+            const baseSeries = qbarsMode === "annual" ? annuals : quarters;
             const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
+            // Minervini Code 33: period N qualifies when EPS YoY, Sales YoY,
+            // and net margin have all accelerated for the last 3 periods
+            // (N > N-1 > N-2 for each metric). Marked with a gold border on
+            // the value label so qualifying periods stand out on both bars.
+            const series = baseSeries.map((p, i, arr) => {
+              if (i < 2) return { ...p, _code33: false };
+              const a = arr[i - 2], b = arr[i - 1], c = p;
+              const accel = (x, y, z) =>
+                x != null && y != null && z != null && z > y && y > x;
+              const c33 =
+                accel(a.eps_yoy, b.eps_yoy, c.eps_yoy) &&
+                accel(a.revenue_yoy, b.revenue_yoy, c.revenue_yoy) &&
+                accel(a.net_margin, b.net_margin, c.net_margin);
+              return { ...p, _code33: c33 };
+            });
             if (series.length === 0) {
               return (
                 <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
