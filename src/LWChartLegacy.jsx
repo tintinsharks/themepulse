@@ -1020,31 +1020,59 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
-        volMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
-        volSeriesRef.current.setMarkers(volMarkers);
+        // Minervini "Cheat" setup markers are gated behind a primary-trend
+        // check — stock must be up 30%+ over the last ~63 trading days (3
+        // months). Daily only; meaningless on weekly or intraday.
+        const isDaily = tf === "D";
+        const isPrimaryTrend = (i) => {
+          if (i < 63) return false;
+          const old = bars[i - 63]?.close;
+          const cur = bars[i]?.close;
+          return old && old > 0 && cur / old >= 1.30;
+        };
+        // Tight-close streak: last 3 closes within ~1% of each other.
+        const isTightClose3 = (i) => {
+          if (i < 2) return false;
+          const c0 = bars[i - 2]?.close;
+          const c1 = bars[i - 1]?.close;
+          const c2 = bars[i]?.close;
+          if (!c0 || !c1 || !c2) return false;
+          const mid = (c0 + c1 + c2) / 3;
+          const range = Math.max(c0, c1, c2) - Math.min(c0, c1, c2);
+          return mid > 0 && range / mid <= 0.01;
+        };
 
-        // ── 7x/10x ATRX dots on price series ──
+        // ── 7x/10x ATRX dots + tight-close T markers on price series ──
         const priceMarkers = [];
         for (let i = 1; i < bars.length; i++) {
-          if (sma50[i] == null || atr14[i] == null || atr14[i] === 0) continue;
-          const atrx = (bars[i].close - sma50[i]) / atr14[i];
-          if (atrx >= 10) {
-            priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
-          } else if (atrx >= 7) {
-            priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
-          } else if (atrx <= -10) {
-            priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
-          } else if (atrx <= -7) {
-            priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+          if (sma50[i] != null && atr14[i] != null && atr14[i] !== 0) {
+            const atrx = (bars[i].close - sma50[i]) / atr14[i];
+            if (atrx >= 10) {
+              priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+            } else if (atrx >= 7) {
+              priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+            } else if (atrx <= -10) {
+              priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ff0000", shape: "circle", size: 0.5, text: "" });
+            } else if (atrx <= -7) {
+              priceMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#ffd700", shape: "circle", size: 0.3, text: "" });
+            }
+          }
+          // Tight-close "T" — only in uptrending stocks, daily only
+          if (isDaily && isPrimaryTrend(i) && isTightClose3(i)) {
+            priceMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#fbbf24", shape: "square", size: 0, text: "T" });
           }
         }
         priceMarkers.sort((a, b) => typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time);
         seriesRef.current.setMarkers(priceMarkers);
 
-        // ── 50-day Volume MA line ──
+        // ── 50-day Volume MA line + silence markers ──
         if (volMaRef.current) {
           const maData = [];
           const dryUpMarkers = [];
+          // Silence markers (Minervini "Cheat" — volume fading in an uptrend).
+          // Gated by isPrimaryTrend + isDaily. Attached to volSeriesRef below
+          // as `belowBar` so they sit underneath the volume bars.
+          const silenceMarkers = [];
           for (let i = 0; i < bars.length; i++) {
             if (i < 49) continue;
             let sum = 0;
@@ -1052,7 +1080,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             const ma = sum / 50;
             maData.push({ time: btime(bars[i]), value: ma });
 
-            // Volume dry-up detection
+            // Existing volume dry-up thresholds (−45%/−60% vs 50d avg)
             const vol = bars[i].volume || 0;
             if (ma > 0) {
               const pctChange = ((vol - ma) / ma) * 100;
@@ -1068,13 +1096,53 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                 });
               }
             }
+
+            // Silence markers — only render on uptrending daily charts
+            if (isDaily && isPrimaryTrend(i)) {
+              // (1) Dry — vol ≤ 50% of 50d avg
+              if (ma > 0 && vol > 0 && vol <= 0.5 * ma) {
+                silenceMarkers.push({
+                  time: btime(bars[i]), position: "belowBar", color: "#f87171",
+                  shape: "circle", size: 0.3,
+                });
+              }
+              // (2) Quiet — lowest volume in last 20 bars (inclusive)
+              if (i >= 19 && vol > 0) {
+                let isMin = true;
+                for (let j = i - 19; j < i; j++) {
+                  if ((bars[j].volume || 0) <= vol) { isMin = false; break; }
+                }
+                if (isMin) {
+                  silenceMarkers.push({
+                    time: btime(bars[i]), position: "belowBar", color: "#f97316",
+                    shape: "circle", size: 0.4,
+                  });
+                }
+              }
+              // (3) VUD-3+ — 3+ consecutive days of vol[i] < vol[i-1]
+              if (i >= 3) {
+                let streak = 0;
+                for (let j = i; j > 0 && (bars[j].volume || 0) < (bars[j - 1].volume || 0); j--) streak++;
+                if (streak >= 3) {
+                  silenceMarkers.push({
+                    time: btime(bars[i]), position: "belowBar", color: "#22d3ee",
+                    shape: "circle", size: 0.3,
+                  });
+                }
+              }
+            }
           }
           volMaRef.current.setData(maData);
-          // Set markers on the MA line (shares vol price scale)
-          if (dryUpMarkers.length > 0) {
-            volMaRef.current.setMarkers(dryUpMarkers);
-          } else {
-            volMaRef.current.setMarkers([]);
+          // Dry-up circles on the MA line (legacy, above-line)
+          volMaRef.current.setMarkers(dryUpMarkers.length ? dryUpMarkers : []);
+          // Silence dots below the vol bars — merge with existing volMarkers
+          // (HVE/HVY/HVQ/Zanger) so they share one setMarkers call on the
+          // volume series.
+          if (silenceMarkers.length > 0) {
+            const combined = [...volMarkers, ...silenceMarkers].sort((a, b) =>
+              typeof a.time === "string" ? a.time.localeCompare(b.time) : a.time - b.time
+            );
+            volSeriesRef.current.setMarkers(combined);
           }
         }
 
