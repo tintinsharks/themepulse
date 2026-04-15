@@ -1070,7 +1070,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           const maData = [];
           // Silence markers (Minervini "Cheat" — volume fading in an uptrend).
           // Gated by isPrimaryTrend + isDaily. Attached to volSeriesRef below
-          // as `belowBar` so they sit underneath the volume bars.
+          // as `aboveBar` so they ride on top of each volume bar, keeping all
+          // Cheat markers on one consistent "above" rail across both panes.
           const silenceMarkers = [];
           for (let i = 0; i < bars.length; i++) {
             if (i < 49) continue;
@@ -1085,7 +1086,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
               // (1) Dry — vol ≤ 50% of 50d avg
               if (ma > 0 && vol > 0 && vol <= 0.5 * ma) {
                 silenceMarkers.push({
-                  time: btime(bars[i]), position: "belowBar", color: "#f87171",
+                  time: btime(bars[i]), position: "aboveBar", color: "#f87171",
                   shape: "circle", size: 0.3,
                 });
               }
@@ -1099,7 +1100,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                 }
                 if (isMin) {
                   silenceMarkers.push({
-                    time: btime(bars[i]), position: "belowBar", color: "#fbbf24",
+                    time: btime(bars[i]), position: "aboveBar", color: "#fbbf24",
                     shape: "arrowDown", size: 1,
                   });
                 }
@@ -1110,7 +1111,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                 for (let j = i; j > 0 && (bars[j].volume || 0) < (bars[j - 1].volume || 0); j--) streak++;
                 if (streak >= 3) {
                   silenceMarkers.push({
-                    time: btime(bars[i]), position: "belowBar", color: "#22d3ee",
+                    time: btime(bars[i]), position: "aboveBar", color: "#22d3ee",
                     shape: "circle", size: 0.3,
                   });
                 }
