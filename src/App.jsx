@@ -3637,6 +3637,8 @@ function ChartPanelInline({
     const r = stockInfo.roe ?? null;
     return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
   })();
+  const instOwn = stockInfo.inst_own_pct ?? null;
+  const instTrans = stockInfo.inst_trans_pct ?? null;
   const magna = stockInfo.magna ?? null;
   const adr = stockInfo.adr_pct ?? null;
   const erDate = stockInfo.earnings_display || "";
@@ -3969,6 +3971,30 @@ function ChartPanelInline({
           }
           ARIA={ARIA}
         />
+        {instTrans != null && (
+          <span
+            style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}
+            title={`Institutional sponsorship — QoQ change in holdings. Minervini's "increasing sponsorship" signal.${instOwn != null ? ` Current Inst Own: ${instOwn.toFixed(1)}%` : ""}`}
+          >
+            <span style={{ color: ARIA.textMuted }}>Inst</span>
+            <span
+              style={{
+                fontWeight: 700,
+                color:
+                  instTrans >= 1
+                    ? ARIA.green
+                    : instTrans > 0
+                    ? ARIA.blue
+                    : instTrans > -1
+                    ? ARIA.textDim
+                    : ARIA.red,
+              }}
+            >
+              {instTrans >= 0 ? "+" : ""}
+              {instTrans.toFixed(2)}%
+            </span>
+          </span>
+        )}
         {magna != null && (
           <>
             <span style={{ color: ARIA.border }}>|</span>
