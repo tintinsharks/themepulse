@@ -1068,7 +1068,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         // ── 50-day Volume MA line + silence markers ──
         if (volMaRef.current) {
           const maData = [];
-          const dryUpMarkers = [];
           // Silence markers (Minervini "Cheat" — volume fading in an uptrend).
           // Gated by isPrimaryTrend + isDaily. Attached to volSeriesRef below
           // as `belowBar` so they sit underneath the volume bars.
@@ -1079,23 +1078,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             for (let j = i - 49; j <= i; j++) sum += (bars[j].volume || 0);
             const ma = sum / 50;
             maData.push({ time: btime(bars[i]), value: ma });
-
-            // Existing volume dry-up thresholds (−45%/−60% vs 50d avg)
             const vol = bars[i].volume || 0;
-            if (ma > 0) {
-              const pctChange = ((vol - ma) / ma) * 100;
-              if (pctChange <= -60) {
-                dryUpMarkers.push({
-                  time: btime(bars[i]), position: "aboveBar", color: "#f97316",
-                  shape: "circle", size: 0.5,
-                });
-              } else if (pctChange <= -45) {
-                dryUpMarkers.push({
-                  time: btime(bars[i]), position: "aboveBar", color: "#fbbf24",
-                  shape: "circle", size: 0.5,
-                });
-              }
-            }
 
             // Silence markers — only render on uptrending daily charts
             if (isDaily && isPrimaryTrend(i)) {
@@ -1135,8 +1118,10 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             }
           }
           volMaRef.current.setData(maData);
-          // Dry-up circles on the MA line (legacy, above-line)
-          volMaRef.current.setMarkers(dryUpMarkers.length ? dryUpMarkers : []);
+          // Clear any legacy dry-up markers that may still be attached from a
+          // previous render — the new silence markers on volSeriesRef below
+          // supersede them.
+          volMaRef.current.setMarkers([]);
           // Silence dots below the vol bars — merge with existing volMarkers
           // (HVE/HVY/HVQ/Zanger) so they share one setMarkers call on the
           // volume series.
