@@ -1651,7 +1651,41 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       {/* Volume panel */}
       <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
         <div ref={volContainerRef} style={{ width: "100%", height: 120 }} />
-        <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, color: "#505060", zIndex: 5, pointerEvents: "none" }}>Vol</div>
+        <div
+          style={{
+            position: "absolute",
+            top: 2,
+            left: 4,
+            fontSize: 8,
+            color: "#505060",
+            zIndex: 5,
+            pointerEvents: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontFamily: "monospace",
+          }}
+        >
+          <span>Vol</span>
+          <span style={{ color: "#3a3a48" }}>|</span>
+          <span style={{ color: "#707080" }}>Cheat:</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f87171", display: "inline-block" }} />
+            <span>Dry</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f97316", display: "inline-block" }} />
+            <span>Quiet</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22d3ee", display: "inline-block" }} />
+            <span>VUD</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, background: "#fbbf24", display: "inline-block" }} />
+            <span>Tight</span>
+          </span>
+        </div>
       </div>
     </div>
   );
