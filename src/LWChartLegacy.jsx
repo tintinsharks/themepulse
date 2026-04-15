@@ -418,6 +418,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const atrxSeriesRefs = useRef({});
   const volChartRef = useRef(null);
   const volContainerRef = useRef(null);
+  const macdContainerRef = useRef(null);
+  const macdChartRef = useRef(null);
+  const macdLineRef = useRef(null);
+  const macdSignalRef = useRef(null);
+  const macdHistRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [libReady, setLibReady] = useState(!!window.LightweightCharts);
@@ -425,6 +430,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [showCRP, setShowCRP] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
   const [showATRX, setShowATRX] = useState(true);
+  const [showMACD, setShowMACD] = useState(
+    () => localStorage.getItem("themepulse-chart-macd") === "1"
+  );
   const [atrxStats, setAtrxStats] = useState(null);
   const [topPaneOpen, setTopPaneOpen] = useState(false);
   const [volStats, setVolStats] = useState(null);
@@ -473,6 +481,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; crpSeriesRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
       if (atrxChartRef.current) { try { atrxChartRef.current.remove(); } catch {} atrxChartRef.current = null; atrxSeriesRefs.current = {}; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
+      if (macdChartRef.current) { try { macdChartRef.current.remove(); } catch {} macdChartRef.current = null; macdLineRef.current = null; macdSignalRef.current = null; macdHistRef.current = null; }
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       if (el.parentNode) el.parentNode.removeChild(el);
       chartContainerRef.current = null;
@@ -557,6 +566,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         if (volChartRef.current && volContainerRef.current) {
           try { volChartRef.current.resize(volContainerRef.current.clientWidth || 400, 120); } catch {}
         }
+        if (macdChartRef.current && macdContainerRef.current) {
+          try { macdChartRef.current.resize(macdContainerRef.current.clientWidth || 400, 100); } catch {}
+        }
       });
       roRef.current.observe(chartContainerRef.current);
 
@@ -610,6 +622,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             if (crChartRef.current) try { crChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
             if (atrxChartRef.current) try { atrxChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
             if (volChartRef.current) try { volChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
+            if (macdChartRef.current) try { macdChartRef.current.timeScale().setVisibleLogicalRange(range); } catch {}
           }
         });
       }
@@ -687,6 +700,34 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           color: "#fbbf2480", lineWidth: 1,
           lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
         });
+      }
+
+      // ── MACD 6-20 pane (Fast MACD with Signal Arrows) ──
+      if (macdContainerRef.current) {
+        const macdChart = LW.createChart(macdContainerRef.current, {
+          width: macdContainerRef.current.clientWidth || 400, height: 100,
+          layout: { background: { type: "solid", color: "#0d0d14" }, textColor: "#505060", fontFamily: "monospace", fontSize: 8 },
+          grid: { vertLines: { visible: false }, horzLines: { color: "#1a1a2080" } },
+          crosshair: { mode: 0 },
+          rightPriceScale: { borderColor: "#2a2a38", scaleMargins: { top: 0.1, bottom: 0.1 } },
+          timeScale: { visible: false },
+          handleScroll: false, handleScale: false,
+        });
+        macdChartRef.current = macdChart;
+        macdHistRef.current = macdChart.addHistogramSeries({
+          priceLineVisible: false, lastValueVisible: false,
+        });
+        macdLineRef.current = macdChart.addLineSeries({
+          color: "#2962FF", lineWidth: 2,
+          lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        });
+        macdSignalRef.current = macdChart.addLineSeries({
+          color: "#FF6D00", lineWidth: 2,
+          lastValueVisible: false, crosshairMarkerVisible: false, priceLineVisible: false,
+        });
+        try {
+          macdLineRef.current.createPriceLine({ price: 0, color: "#ffffff30", lineWidth: 1, lineStyle: 0, axisLabelVisible: false });
+        } catch {}
       }
     } catch (e) {
       console.error("LW chart init error:", e);
@@ -1410,6 +1451,53 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
+        // ── MACD 6-20 (Fast MACD with Signal Arrows) ──
+        if (macdLineRef.current && macdSignalRef.current && macdHistRef.current) {
+          const ema6 = calcEMA(closes, 6);
+          const ema20 = calcEMA(closes, 20);
+          const macd = [];
+          for (let i = 0; i < bars.length; i++) {
+            macd.push(ema6[i] != null && ema20[i] != null ? ema6[i] - ema20[i] : null);
+          }
+          const macdDefined = macd.map(v => v == null ? 0 : v);
+          const macdHasVal = macd.map(v => v != null);
+          const signalRaw = calcEMA(macdDefined, 9);
+          const signal = signalRaw.map((v, i) => macdHasVal[i] ? v : null);
+
+          const macdLineData = [];
+          const signalLineData = [];
+          const histData = [];
+          const arrowMarkers = [];
+          for (let i = 0; i < bars.length; i++) {
+            const t = btime(bars[i]);
+            if (macd[i] != null) macdLineData.push({ time: t, value: macd[i] });
+            if (signal[i] != null) signalLineData.push({ time: t, value: signal[i] });
+            if (macd[i] != null && signal[i] != null) {
+              const h = macd[i] - signal[i];
+              const prevH = i > 0 && macd[i - 1] != null && signal[i - 1] != null ? macd[i - 1] - signal[i - 1] : null;
+              let color;
+              if (h >= 0) {
+                color = prevH != null && h >= prevH ? "#2bb886" : "#2bb88680";
+              } else {
+                color = prevH != null && h <= prevH ? "#f87171" : "#f8717180";
+              }
+              histData.push({ time: t, value: h, color });
+              // Crossover arrows
+              if (prevH != null) {
+                if (prevH <= 0 && h > 0) {
+                  arrowMarkers.push({ time: t, position: "belowBar", color: "#2bb886", shape: "arrowUp", size: 1 });
+                } else if (prevH >= 0 && h < 0) {
+                  arrowMarkers.push({ time: t, position: "aboveBar", color: "#f87171", shape: "arrowDown", size: 1 });
+                }
+              }
+            }
+          }
+          macdLineRef.current.setData(macdLineData);
+          macdSignalRef.current.setData(signalLineData);
+          macdHistRef.current.setData(histData);
+          macdHistRef.current.setMarkers(arrowMarkers);
+        }
+
         // Show last 3 months (63 daily bars, 13 weekly, 3 monthly) — maximized
         const totalBars = bars.length;
         const visBars = tf === "30m" ? totalBars : tf === "W" ? 13 : tf === "M" ? 3 : 63;
@@ -1417,6 +1505,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         const visRange = { from: fromBar, to: totalBars + (tf === "30m" ? 5 : tf === "D" ? 5 : tf === "W" ? 2 : 1) };
         chartRef.current.timeScale().setVisibleLogicalRange(visRange);
         if (atrxChartRef.current) try { atrxChartRef.current.timeScale().setVisibleLogicalRange(visRange); } catch {}
+        if (macdChartRef.current) try { macdChartRef.current.timeScale().setVisibleLogicalRange(visRange); } catch {}
 
         // ── Compute volume stats for data box ──
         const last = bars[bars.length - 1];
@@ -1503,6 +1592,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     if (fourPctSeriesRef.current) try { fourPctSeriesRef.current.applyOptions({ visible: show4Pct }); } catch {}
   }, [showCR, showCRP, show4Pct]);
 
+  // Persist MACD toggle
+  useEffect(() => {
+    localStorage.setItem("themepulse-chart-macd", showMACD ? "1" : "0");
+  }, [showMACD]);
+
   // Price lines now managed inside data fetch useEffect (with ATR ladder, risk stops, etc.)
 
   const fmtVol = (v) => {
@@ -1536,6 +1630,11 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           <span onClick={() => setShow4Pct(p => !p)}
             style={{ cursor: "pointer", userSelect: "none" }}>
             <span style={{ color: show4Pct ? "#22d3ee" : "#3a3a4a" }}>4%</span><span style={{ color: show4Pct ? "#f472b6" : "#3a3a4a" }}>Days</span>
+          </span>
+          <span onClick={() => setShowMACD(p => !p)}
+            title="Fast MACD (6,20,9) with signal-cross arrows"
+            style={{ cursor: "pointer", color: showMACD ? "#2962FF" : "#3a3a4a", fontWeight: 600, userSelect: "none" }}>
+            MACD
           </span>
         </div>
         {!topPaneOpen && <div style={{ height: 16 }} />}
@@ -1635,6 +1734,18 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       <div style={{ position: "absolute", bottom: 4, right: 8, fontSize: 8, color: "#2a2a38", zIndex: 5, pointerEvents: "none" }}>
         <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#2a2a38", textDecoration: "none", pointerEvents: "auto" }}>Powered by TradingView</a>
       </div>
+      </div>
+      {/* MACD 6-20 pane */}
+      <div style={{ position: "relative", flexShrink: 0, borderTop: showMACD ? "1px solid #2a2a38" : "none" }}>
+        <div ref={macdContainerRef} style={{ width: "100%", height: showMACD ? 100 : 0, overflow: "hidden", transition: "height 0.15s ease" }} />
+        {showMACD && (
+          <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 8, alignItems: "center", pointerEvents: "none", fontFamily: "monospace" }}>
+            <span style={{ color: "#787888", fontWeight: 600 }}>MACD 6-20</span>
+            <span style={{ color: "#2962FF", fontWeight: 600 }}>MACD</span>
+            <span style={{ color: "#FF6D00", fontWeight: 600 }}>Signal</span>
+            <span style={{ color: "#505060" }}>▲ cross up  ▼ cross down</span>
+          </div>
+        )}
       </div>
       {/* Volume panel */}
       <div style={{ position: "relative", flexShrink: 0, borderTop: "1px solid #2a2a38" }}>
