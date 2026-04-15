@@ -1106,7 +1106,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                   shape: "circle", size: 0.3,
                 });
               }
-              // (2) Quiet — lowest volume in last 20 bars (inclusive)
+              // (2) Quiet — lowest volume in last 20 bars (inclusive).
+              // Arrow-down shape so it's visually distinct from the Dry
+              // circle at a glance.
               if (i >= 19 && vol > 0) {
                 let isMin = true;
                 for (let j = i - 19; j < i; j++) {
@@ -1114,8 +1116,8 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                 }
                 if (isMin) {
                   silenceMarkers.push({
-                    time: btime(bars[i]), position: "belowBar", color: "#f97316",
-                    shape: "circle", size: 0.4,
+                    time: btime(bars[i]), position: "belowBar", color: "#fbbf24",
+                    shape: "arrowDown", size: 1,
                   });
                 }
               }
@@ -1674,7 +1676,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             <span>Dry</span>
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f97316", display: "inline-block" }} />
+            <span style={{ color: "#fbbf24", fontSize: 9, lineHeight: 1 }}>▼</span>
             <span>Quiet</span>
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
