@@ -3633,6 +3633,10 @@ function ChartPanelInline({
     const m = stockInfo.profit_margin ?? null;
     return m != null ? (m < 1 ? m * 100 : m) : null;
   })();
+  const roe = (() => {
+    const r = stockInfo.roe ?? null;
+    return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
+  })();
   const magna = stockInfo.magna ?? null;
   const adr = stockInfo.adr_pct ?? null;
   const erDate = stockInfo.earnings_display || "";
@@ -3944,6 +3948,22 @@ function ChartPanelInline({
               : margin >= 20
               ? ARIA.green
               : margin > 0
+              ? ARIA.textDim
+              : ARIA.red
+          }
+          ARIA={ARIA}
+        />
+        <CSStat
+          label="ROE"
+          v={roe}
+          clr={
+            roe == null
+              ? ARIA.textMuted
+              : roe >= 25
+              ? ARIA.green
+              : roe >= 17
+              ? ARIA.blue
+              : roe > 0
               ? ARIA.textDim
               : ARIA.red
           }
