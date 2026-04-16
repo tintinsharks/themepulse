@@ -3971,30 +3971,35 @@ function ChartPanelInline({
           }
           ARIA={ARIA}
         />
-        {instTrans != null && (
+        <span
+          title={
+            instTrans != null
+              ? `Institutional sponsorship — QoQ change in holdings (Minervini's "increasing sponsorship" signal).${instOwn != null ? ` Current Inst Own: ${instOwn.toFixed(1)}%` : ""}`
+              : "Institutional sponsorship data not available for this ticker (scraper covers top 500 by RS rank)"
+          }
+          style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}
+        >
+          <span style={{ color: ARIA.textMuted, fontSize: 8 }}>Inst</span>{" "}
           <span
-            style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}
-            title={`Institutional sponsorship — QoQ change in holdings. Minervini's "increasing sponsorship" signal.${instOwn != null ? ` Current Inst Own: ${instOwn.toFixed(1)}%` : ""}`}
+            style={{
+              fontWeight: 700,
+              color:
+                instTrans == null
+                  ? ARIA.textMuted
+                  : instTrans >= 1
+                  ? ARIA.green
+                  : instTrans > 0
+                  ? ARIA.blue
+                  : instTrans > -1
+                  ? ARIA.textDim
+                  : ARIA.red,
+            }}
           >
-            <span style={{ color: ARIA.textMuted }}>Inst</span>
-            <span
-              style={{
-                fontWeight: 700,
-                color:
-                  instTrans >= 1
-                    ? ARIA.green
-                    : instTrans > 0
-                    ? ARIA.blue
-                    : instTrans > -1
-                    ? ARIA.textDim
-                    : ARIA.red,
-              }}
-            >
-              {instTrans >= 0 ? "+" : ""}
-              {instTrans.toFixed(2)}%
-            </span>
+            {instTrans == null
+              ? "—"
+              : `${instTrans >= 0 ? "+" : ""}${instTrans.toFixed(2)}%`}
           </span>
-        )}
+        </span>
         {magna != null && (
           <>
             <span style={{ color: ARIA.border }}>|</span>
