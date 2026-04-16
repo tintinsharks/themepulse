@@ -4147,16 +4147,15 @@ function ChartPanelInline({
                 </span>
               );
             }
-            // Institutional sponsorship 2-bar: prior quarter vs current.
-            // Derives prior Q from inst_own - inst_trans. Real history
-            // will replace this once 09f accumulates a few weekly snapshots.
-            const instSeries =
-              instOwn != null && instTrans != null
-                ? [
-                    { label: "Prev Q", inst: instOwn - instTrans, delta: null },
-                    { label: "Current", inst: instOwn, delta: instTrans },
-                  ]
-                : null;
+            // Fintel institutional data (13F-HR aggregation) — richer than
+            // the 2-bar Finviz placeholder. Shows holder count, net flows,
+            // and top 10 holders with QoQ change.
+            const instHolderCount = stockInfo.inst_holder_count;
+            const instCurrentQ = stockInfo.inst_current_quarter;
+            const instNewHolders = stockInfo.inst_new_holders;
+            const instLateHolders = stockInfo.inst_late_holders;
+            const instNetChangePct = stockInfo.inst_net_change_pct;
+            const instTopHolders = stockInfo.inst_top_holders;
             return (
               <div style={{ display: "flex", gap: 14 }}>
                 <MiniQBars
@@ -4185,18 +4184,134 @@ function ChartPanelInline({
                   passYoy={20}
                   hotYoy={40}
                 />
-                {instSeries && (
-                  <MiniQBars
-                    quarters={instSeries}
-                    accessor={(q) => q.inst}
-                    yoyAccessor={(q) => q.delta}
-                    color={ARIA.green}
-                    labelFmt={(v) => `${v.toFixed(0)}%`}
-                    title="Inst Own"
-                    ARIA={ARIA}
-                    passYoy={1}
-                    hotYoy={5}
-                  />
+                {instHolderCount != null && (
+                  <div
+                    style={{
+                      flex: 1.4,
+                      display: "flex",
+                      flexDirection: "column",
+                      minWidth: 0,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 7,
+                        color: ARIA.textMuted,
+                        marginBottom: 4,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Institutional ({instCurrentQ})
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 2 }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: ARIA.text }}>
+                        {instHolderCount.toLocaleString()}
+                      </span>
+                      <span style={{ fontSize: 8, color: ARIA.textMuted }}>funds</span>
+                    </div>
+                    {instNetChangePct != null && (
+                      <div style={{ fontSize: 8, marginBottom: 3 }}>
+                        <span style={{ color: ARIA.textMuted }}>Net flow </span>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color:
+                              instNetChangePct >= 1
+                                ? ARIA.green
+                                : instNetChangePct > 0
+                                ? ARIA.blue
+                                : instNetChangePct > -1
+                                ? ARIA.textDim
+                                : ARIA.red,
+                          }}
+                        >
+                          {instNetChangePct >= 0 ? "+" : ""}
+                          {instNetChangePct.toFixed(2)}%
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 8, marginBottom: 4 }}>
+                      {instNewHolders != null && (
+                        <span>
+                          <span style={{ color: ARIA.green, fontWeight: 700 }}>
+                            +{instNewHolders}
+                          </span>
+                          <span style={{ color: ARIA.textMuted }}> new</span>
+                        </span>
+                      )}
+                      {instLateHolders != null && (
+                        <span>
+                          <span style={{ color: ARIA.textMuted }}> | </span>
+                          <span style={{ color: ARIA.red, fontWeight: 700 }}>
+                            −{instLateHolders}
+                          </span>
+                          <span style={{ color: ARIA.textMuted }}> late</span>
+                        </span>
+                      )}
+                    </div>
+                    {instTopHolders && instTopHolders.length > 0 && (
+                      <div style={{ borderTop: `1px solid ${ARIA.border}`, paddingTop: 3 }}>
+                        <div
+                          style={{
+                            fontSize: 6,
+                            color: ARIA.textMuted,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                            marginBottom: 2,
+                          }}
+                        >
+                          Top holders
+                        </div>
+                        {instTopHolders.slice(0, 5).map((h, i) => {
+                          const chg = h.chg_pct;
+                          const chgClr =
+                            chg == null
+                              ? ARIA.textMuted
+                              : chg > 5
+                              ? ARIA.green
+                              : chg > 0
+                              ? ARIA.blue
+                              : chg > -5
+                              ? ARIA.textDim
+                              : ARIA.red;
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                fontSize: 8,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                lineHeight: 1.3,
+                              }}
+                              title={`${h.name} — ${h.shares.toLocaleString()} shares ($${(h.value / 1000).toFixed(0)}K)`}
+                            >
+                              <span
+                                style={{
+                                  color: ARIA.textDim,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  flex: 1,
+                                  minWidth: 0,
+                                }}
+                              >
+                                {h.name.replace(/,?\s*(LLC|LP|Inc\.?|Corp|Plc|Llp|L\.?P\.?)$/i, "")}
+                              </span>
+                              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>
+                                {h.pct != null ? `${h.pct.toFixed(1)}%` : ""}
+                              </span>
+                              <span style={{ color: chgClr, marginLeft: 4, minWidth: 36, textAlign: "right" }}>
+                                {chg != null ? (chg >= 0 ? "+" : "") + chg.toFixed(1) + "%" : ""}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             );
