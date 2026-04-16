@@ -4147,6 +4147,16 @@ function ChartPanelInline({
                 </span>
               );
             }
+            // Institutional sponsorship 2-bar: prior quarter vs current.
+            // Derives prior Q from inst_own - inst_trans. Real history
+            // will replace this once 09f accumulates a few weekly snapshots.
+            const instSeries =
+              instOwn != null && instTrans != null
+                ? [
+                    { label: "Prev Q", inst: instOwn - instTrans, delta: null },
+                    { label: "Current", inst: instOwn, delta: instTrans },
+                  ]
+                : null;
             return (
               <div style={{ display: "flex", gap: 14 }}>
                 <MiniQBars
@@ -4175,6 +4185,19 @@ function ChartPanelInline({
                   passYoy={20}
                   hotYoy={40}
                 />
+                {instSeries && (
+                  <MiniQBars
+                    quarters={instSeries}
+                    accessor={(q) => q.inst}
+                    yoyAccessor={(q) => q.delta}
+                    color={ARIA.green}
+                    labelFmt={(v) => `${v.toFixed(0)}%`}
+                    title="Inst Own"
+                    ARIA={ARIA}
+                    passYoy={1}
+                    hotYoy={5}
+                  />
+                )}
               </div>
             );
           })()}
