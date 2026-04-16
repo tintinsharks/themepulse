@@ -4155,7 +4155,7 @@ function ChartPanelInline({
             const instNewHolders = stockInfo.inst_new_holders;
             const instLateHolders = stockInfo.inst_late_holders;
             const instNetChangePct = stockInfo.inst_net_change_pct;
-            const instTopHolders = stockInfo.inst_top_holders;
+            const instTop10Conc = stockInfo.inst_top10_concentration;
             return (
               <div style={{ display: "flex", gap: 14 }}>
                 <MiniQBars
@@ -4252,63 +4252,32 @@ function ChartPanelInline({
                         </span>
                       )}
                     </div>
-                    {instTopHolders && instTopHolders.length > 0 && (
-                      <div style={{ borderTop: `1px solid ${ARIA.border}`, paddingTop: 3 }}>
-                        <div
+                    {instTop10Conc != null && (
+                      <div
+                        style={{
+                          borderTop: `1px solid ${ARIA.border}`,
+                          paddingTop: 3,
+                          fontSize: 9,
+                        }}
+                        title="Share of all institutional holdings controlled by the top 10 holders. Higher = more concentrated = heavier influence from a few big funds."
+                      >
+                        <span style={{ color: ARIA.textMuted, fontSize: 8 }}>Top 10</span>{" "}
+                        <span
                           style={{
-                            fontSize: 6,
-                            color: ARIA.textMuted,
-                            textTransform: "uppercase",
-                            letterSpacing: 0.4,
-                            marginBottom: 2,
+                            fontWeight: 700,
+                            color:
+                              instTop10Conc >= 70
+                                ? ARIA.yellow
+                                : instTop10Conc >= 50
+                                ? ARIA.blue
+                                : ARIA.textDim,
                           }}
                         >
-                          Top holders
-                        </div>
-                        {instTopHolders.slice(0, 5).map((h, i) => {
-                          const chg = h.chg_pct;
-                          const chgClr =
-                            chg == null
-                              ? ARIA.textMuted
-                              : chg > 5
-                              ? ARIA.green
-                              : chg > 0
-                              ? ARIA.blue
-                              : chg > -5
-                              ? ARIA.textDim
-                              : ARIA.red;
-                          return (
-                            <div
-                              key={i}
-                              style={{
-                                fontSize: 8,
-                                display: "flex",
-                                justifyContent: "space-between",
-                                lineHeight: 1.3,
-                              }}
-                              title={`${h.name} — ${h.shares.toLocaleString()} shares ($${(h.value / 1000).toFixed(0)}K)`}
-                            >
-                              <span
-                                style={{
-                                  color: ARIA.textDim,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                  flex: 1,
-                                  minWidth: 0,
-                                }}
-                              >
-                                {h.name.replace(/,?\s*(LLC|LP|Inc\.?|Corp|Plc|Llp|L\.?P\.?)$/i, "")}
-                              </span>
-                              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>
-                                {h.pct != null ? `${h.pct.toFixed(1)}%` : ""}
-                              </span>
-                              <span style={{ color: chgClr, marginLeft: 4, minWidth: 36, textAlign: "right" }}>
-                                {chg != null ? (chg >= 0 ? "+" : "") + chg.toFixed(1) + "%" : ""}
-                              </span>
-                            </div>
-                          );
-                        })}
+                          {instTop10Conc.toFixed(1)}%
+                        </span>
+                        <span style={{ color: ARIA.textMuted, fontSize: 8 }}>
+                          {" of inst holdings"}
+                        </span>
                       </div>
                     )}
                   </div>
