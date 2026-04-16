@@ -4233,25 +4233,76 @@ function ChartPanelInline({
                         </span>
                       </div>
                     )}
-                    <div style={{ fontSize: 8, marginBottom: 4 }}>
-                      {instNewHolders != null && (
-                        <span>
-                          <span style={{ color: ARIA.green, fontWeight: 700 }}>
-                            +{instNewHolders}
-                          </span>
-                          <span style={{ color: ARIA.textMuted }}> new</span>
-                        </span>
-                      )}
-                      {instLateHolders != null && (
-                        <span>
-                          <span style={{ color: ARIA.textMuted }}> | </span>
-                          <span style={{ color: ARIA.red, fontWeight: 700 }}>
-                            −{instLateHolders}
-                          </span>
-                          <span style={{ color: ARIA.textMuted }}> late</span>
-                        </span>
-                      )}
-                    </div>
+                    {/* 3-bar holder-count trend: prior Q (derived), current Q,
+                        next Q (early filers — partial since deadline pending). */}
+                    {instCurrentQ && (() => {
+                      const parseQ = (s) => {
+                        const m = s && s.match(/(\d{4})-Q([1-4])/);
+                        return m ? [+m[1], +m[2]] : null;
+                      };
+                      const shiftQ = ([y, q], delta) => {
+                        let qi = q - 1 + delta;
+                        const yd = Math.floor(qi / 4);
+                        const qn = ((qi % 4) + 4) % 4;
+                        return `${y + yd}-Q${qn + 1}`;
+                      };
+                      const cur = parseQ(instCurrentQ);
+                      if (!cur) return null;
+                      const priorLabel = shiftQ(cur, -1);
+                      const nextLabel = shiftQ(cur, 1);
+                      const priorCount =
+                        (instHolderCount || 0) + (instLateHolders || 0);
+                      const currentCount = instHolderCount || 0;
+                      const nextCount = instNewHolders || 0;
+                      const max = Math.max(priorCount, currentCount, nextCount, 1);
+                      const delta = currentCount - priorCount;
+                      const deltaColor =
+                        delta > 0 ? ARIA.green : delta < 0 ? ARIA.red : ARIA.textMuted;
+                      const barH = 32;
+                      const bar = (count, label, color, opacity, tip) => (
+                        <div
+                          style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}
+                          title={tip}
+                        >
+                          <div style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, lineHeight: 1 }}>
+                            {count.toLocaleString()}
+                          </div>
+                          <div style={{ width: "65%", height: barH, display: "flex", alignItems: "flex-end", marginTop: 2 }}>
+                            <div
+                              style={{
+                                width: "100%",
+                                height: (count / max) * barH,
+                                background: color,
+                                opacity,
+                                borderRadius: "2px 2px 0 0",
+                              }}
+                            />
+                          </div>
+                          <div style={{ fontSize: 7, color: ARIA.textMuted, marginTop: 2, whiteSpace: "nowrap" }}>
+                            {label}
+                          </div>
+                        </div>
+                      );
+                      return (
+                        <div style={{ marginBottom: 4 }}>
+                          <div style={{ display: "flex", gap: 3, alignItems: "stretch" }}>
+                            {bar(priorCount, priorLabel, ARIA.textMuted, 0.7,
+                                 `Prior quarter (${priorLabel}) — approx ${priorCount.toLocaleString()} holders (current + ${instLateHolders || 0} who didn't refile)`)}
+                            {bar(currentCount, instCurrentQ, ARIA.green, 0.9,
+                                 `Current quarter (${instCurrentQ}) — ${currentCount.toLocaleString()} holders with completed 13F filings`)}
+                            {bar(nextCount, nextLabel + "*", ARIA.blue, 0.55,
+                                 `Next quarter (${nextLabel}) early filers — ${nextCount.toLocaleString()} institutions have already filed ahead of the deadline`)}
+                          </div>
+                          <div style={{ fontSize: 7, color: ARIA.textMuted, textAlign: "center", marginTop: 2 }}>
+                            QoQ{" "}
+                            <span style={{ color: deltaColor, fontWeight: 700 }}>
+                              {delta >= 0 ? "+" : ""}{delta.toLocaleString()}
+                            </span>
+                            {"  *partial"}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {instTop10Conc != null && (
                       <div
                         style={{
