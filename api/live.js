@@ -924,11 +924,25 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
     const isAnnual = period === "annual";
     const limit = isAnnual ? 10 : 12;
     const take = isAnnual ? 9 : 8;
-    const url = `${FMP_BASE}/income-statement?symbol=${ticker}&period=${period}&limit=${limit}&apikey=${fmpKey}`;
-    const resp = await fetch(url);
-    if (!resp.ok) return [];
-    const data = await resp.json();
+    const incomeUrl = `${FMP_BASE}/income-statement?symbol=${ticker}&period=${period}&limit=${limit}&apikey=${fmpKey}`;
+    const cashUrl = `${FMP_BASE}/cash-flow-statement?symbol=${ticker}&period=${period}&limit=${limit}&apikey=${fmpKey}`;
+    // Cash flow is a "nice to have" — if it 404s or rate-limits we still
+    // want EPS/Revenue bars to render.
+    const [incResp, cfResp] = await Promise.all([
+      fetch(incomeUrl),
+      fetch(cashUrl).catch(() => null),
+    ]);
+    if (!incResp.ok) return [];
+    const data = await incResp.json();
     if (!Array.isArray(data) || data.length === 0) return [];
+    const cfData = cfResp && cfResp.ok ? await cfResp.json().catch(() => []) : [];
+    // Key cash-flow rows by filing date so we can join onto income rows.
+    const cfByDate = new Map();
+    if (Array.isArray(cfData)) {
+      for (const cf of cfData) {
+        if (cf && cf.date) cfByDate.set(cf.date, cf);
+      }
+    }
     // FMP returns newest-first. Reverse for oldest → newest bar rendering.
     const asc = data.slice().reverse();
     const keyFor = (q) => {
@@ -950,8 +964,34 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
       const revRaw = q.revenue != null ? q.revenue : null;
       const revenueM = revRaw != null ? revRaw / 1_000_000 : null;
       const eps = q.epsDiluted ?? q.eps ?? null;
-      const prevRevM = prev?.revenue != null ? prev.revenue / 1_000_000 : null;
       const prevEps = prev?.epsDiluted ?? prev?.eps ?? null;
+      const prevRevM = prev?.revenue != null ? prev.revenue / 1_000_000 : null;
+      // Cash flow per share — CANSLIM calls for cash-flow EPS ≥ 1.2× reported
+      // EPS. Compute from operatingCashFlow / weightedAverageShsOutDil.
+      const cf = cfByDate.get(q.date);
+      const shares = q.weightedAverageShsOutDil || q.weightedAverageShsOut || null;
+      const ocfPs =
+        cf?.operatingCashFlow != null && shares && shares > 0
+          ? cf.operatingCashFlow / shares
+          : null;
+      const fcfPs =
+        cf?.freeCashFlow != null && shares && shares > 0
+          ? cf.freeCashFlow / shares
+          : null;
+      const cfVsEpsPct =
+        ocfPs != null && eps != null && eps > 0
+          ? (ocfPs / eps - 1) * 100
+          : null;
+      const prevCf = prev ? cfByDate.get(prev.date) : null;
+      const prevShares = prev?.weightedAverageShsOutDil || prev?.weightedAverageShsOut || null;
+      const prevOcfPs =
+        prevCf?.operatingCashFlow != null && prevShares && prevShares > 0
+          ? prevCf.operatingCashFlow / prevShares
+          : null;
+      const ocfYoy =
+        prevOcfPs != null && prevOcfPs !== 0 && ocfPs != null
+          ? ((ocfPs - prevOcfPs) / Math.abs(prevOcfPs)) * 100
+          : null;
       // Net margin — required for Minervini's Code 33 gate (3 consecutive
       // periods of accelerating margin expansion alongside EPS + Sales).
       const netMargin =
@@ -986,6 +1026,10 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
         eps,
         eps_yoy: epsYoy != null ? Math.round(epsYoy * 10) / 10 : null,
         net_margin: netMargin,
+        ocf_ps: ocfPs != null ? Math.round(ocfPs * 100) / 100 : null,
+        fcf_ps: fcfPs != null ? Math.round(fcfPs * 100) / 100 : null,
+        ocf_yoy: ocfYoy != null ? Math.round(ocfYoy * 10) / 10 : null,
+        cf_vs_eps_pct: cfVsEpsPct != null ? Math.round(cfVsEpsPct * 10) / 10 : null,
       });
     }
     return out;

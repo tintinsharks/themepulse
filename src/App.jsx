@@ -3352,7 +3352,7 @@ const fmtRank = (v) => v.toFixed(0);
 // Same flex:1.4 slot, same monospace style, driven entirely by the active
 // ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
 // pair fetch for the 12mo RS proxy.
-function CanslimScorecard({ ticker, stockInfo, ARIA }) {
+function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, ARIA }) {
   const [rsRank, setRsRank] = React.useState(null);
   React.useEffect(() => {
     if (!ticker) {
@@ -3394,6 +3394,8 @@ function CanslimScorecard({ ticker, stockInfo, ARIA }) {
     return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
   })();
   const instTrans = stockInfo?.inst_trans_pct ?? null;
+  const instFunds = stockInfo?.inst_holder_count ?? null;
+  const instNetFlow = stockInfo?.inst_net_change_pct ?? null;
 
   const criteria = [
     { key: "C", label: "Qtr EPS", raw: epsYoy, fmt: fmtPct, grade: gradeBand(epsYoy, [100, 50, 25, 10, 0]) },
@@ -3404,13 +3406,13 @@ function CanslimScorecard({ ticker, stockInfo, ARIA }) {
     { key: "R", label: "ROE", raw: roe, fmt: fmtPct, grade: gradeBand(roe, [30, 17, 12, 8, 0]) },
     { key: "I", label: "Inst ΔQ", raw: instTrans, fmt: fmtPp, grade: gradeBand(instTrans, [2, 1, 0.3, 0, -1]) },
     { key: "L", label: "RS 12mo", raw: rsRank, fmt: fmtRank, grade: gradeBand(rsRank, [95, 90, 80, 60, 40]) },
+    { key: "$", label: "CF vs EPS", raw: cfVsEpsPct, fmt: fmtPp, grade: gradeBand(cfVsEpsPct, [50, 30, 20, 0, -20]) },
   ];
   const composite = avgLetter(criteria.map((c) => c.grade));
   const compColor = gradeColor(composite, ARIA);
 
   const naCriteria = [
     "N: new hi/product · pipeline",
-    "Cash flow vs EPS · pipeline",
     "Industry rank · pipeline",
   ];
 
@@ -3429,17 +3431,18 @@ function CanslimScorecard({ ticker, stockInfo, ARIA }) {
         style={{
           fontSize: 7,
           color: ARIA.textMuted,
-          marginBottom: 4,
+          marginBottom: 2,
           textTransform: "uppercase",
           letterSpacing: 0.5,
           fontWeight: 700,
           display: "flex",
           alignItems: "baseline",
           gap: 6,
+          lineHeight: 1,
         }}
       >
         <span>CANSLIM</span>
-        <span style={{ fontSize: 16, fontWeight: 700, color: compColor, letterSpacing: 0 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: compColor, letterSpacing: 0, lineHeight: 1 }}>
           {composite}
         </span>
         <span style={{ color: ARIA.textMuted }}>composite</span>
@@ -3480,6 +3483,53 @@ function CanslimScorecard({ ticker, stockInfo, ARIA }) {
             </React.Fragment>
           );
         })}
+        {(instFunds != null || instNetFlow != null) && (
+          <React.Fragment>
+            <span style={{ color: ARIA.textMuted }}>·</span>
+            <span
+              style={{
+                gridColumn: "2 / span 3",
+                fontSize: 8,
+                display: "flex",
+                gap: 8,
+                alignItems: "baseline",
+                borderTop: `1px solid ${ARIA.border}`,
+                paddingTop: 3,
+                marginTop: 2,
+              }}
+              title="Institutional fund count (13F filings) and net flow % vs prior quarter"
+            >
+              <span>
+                <span style={{ color: ARIA.textMuted }}>Funds </span>
+                <span style={{ color: ARIA.text, fontWeight: 700 }}>
+                  {instFunds != null ? instFunds.toLocaleString() : "—"}
+                </span>
+              </span>
+              <span>
+                <span style={{ color: ARIA.textMuted }}>Net flow </span>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color:
+                      instNetFlow == null
+                        ? ARIA.textMuted
+                        : instNetFlow >= 1
+                        ? ARIA.green
+                        : instNetFlow > 0
+                        ? ARIA.blue
+                        : instNetFlow > -1
+                        ? ARIA.textDim
+                        : ARIA.red,
+                  }}
+                >
+                  {instNetFlow == null
+                    ? "—"
+                    : (instNetFlow >= 0 ? "+" : "") + instNetFlow.toFixed(2) + "%"}
+                </span>
+              </span>
+            </span>
+          </React.Fragment>
+        )}
         {naCriteria.map((l) => (
           <React.Fragment key={l}>
             <span style={{ color: ARIA.textMuted }}>·</span>
@@ -4349,34 +4399,6 @@ function ChartPanelInline({
                 </span>
               );
             }
-            // Funds series — 3 synthetic "quarters" (prior / current / next
-            // early filers) rendered in the same MiniQBars format. Net
-            // change % surfaces as the YoY% under the current bar.
-            const instHolderCount = stockInfo.inst_holder_count;
-            const instCurrentQ = stockInfo.inst_current_quarter;
-            const instNewHolders = stockInfo.inst_new_holders;
-            const instLateHolders = stockInfo.inst_late_holders;
-            const instNetChangePct = stockInfo.inst_net_change_pct;
-            const fundsSeries = (() => {
-              if (instHolderCount == null || !instCurrentQ) return null;
-              const m = instCurrentQ.match(/(\d{4})-Q([1-4])/);
-              if (!m) return null;
-              const y = +m[1], q = +m[2];
-              const shift = (dq) => {
-                const qi = q - 1 + dq;
-                const yd = Math.floor(qi / 4);
-                const qn = ((qi % 4) + 4) % 4;
-                return `${(y + yd) % 100 < 10 ? "0" : ""}${(y + yd) % 100}-Q${qn + 1}`;
-              };
-              const priorCount = (instHolderCount || 0) + (instLateHolders || 0);
-              const currentCount = instHolderCount || 0;
-              const nextCount = instNewHolders || 0;
-              return [
-                { label: shift(-1), count: priorCount, yoy: null },
-                { label: shift(0), count: currentCount, yoy: instNetChangePct },
-                { label: shift(1) + "*", count: nextCount, yoy: null },
-              ];
-            })();
             return (
               <div style={{ display: "flex", gap: 14 }}>
                 <div
@@ -4435,25 +4457,22 @@ function ChartPanelInline({
                     passYoy={20}
                     hotYoy={40}
                   />
-                  {fundsSeries && (
-                    <MiniQBars
-                      quarters={fundsSeries}
-                      accessor={(q) => q.count}
-                      yoyAccessor={(q) => q.yoy}
-                      color={ARIA.green}
-                      labelFmt={(v) =>
-                        v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
-                      }
-                      title="Funds (inst)"
-                      ARIA={ARIA}
-                      passYoy={1}
-                      hotYoy={3}
-                    />
-                  )}
+                  <MiniQBars
+                    quarters={series}
+                    accessor={(q) => q.ocf_ps}
+                    yoyAccessor={(q) => q.ocf_yoy}
+                    color={ARIA.yellow}
+                    labelFmt={(v) => v.toFixed(2)}
+                    title="Op Cash Flow/sh"
+                    ARIA={ARIA}
+                    passYoy={25}
+                    hotYoy={40}
+                  />
                 </div>
                 <CanslimScorecard
                   ticker={ticker}
                   stockInfo={stockInfo}
+                  cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null}
                   ARIA={ARIA}
                 />
               </div>
