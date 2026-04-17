@@ -3303,6 +3303,252 @@ function CSStat({ label, v, clr, ARIA }) {
 //
 // Aria reference: dashboard.html lines 3725-3791
 
+// ── CANSLIM scorecard helpers ──
+// gradeBand maps a numeric value to a letter using descending thresholds
+// [A+, A, B, C, D]. Anything below D → F; null/NaN → "—".
+const CANSLIM_LETTERS = ["A+", "A", "B", "C", "D", "F"];
+function gradeBand(v, t) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  if (v >= t[0]) return "A+";
+  if (v >= t[1]) return "A";
+  if (v >= t[2]) return "B";
+  if (v >= t[3]) return "C";
+  if (v >= t[4]) return "D";
+  return "F";
+}
+function avgLetter(grades) {
+  const ord = { "A+": 5, A: 4, B: 3, C: 2, D: 1, F: 0 };
+  const nums = grades.map((g) => ord[g]).filter((n) => n != null);
+  if (nums.length === 0) return "—";
+  const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+  const idx = Math.max(0, Math.min(5, 5 - Math.round(avg)));
+  return CANSLIM_LETTERS[idx];
+}
+function gradeColor(letter, ARIA) {
+  if (letter === "A+" || letter === "A") return ARIA.green;
+  if (letter === "B") return ARIA.blue;
+  if (letter === "C") return ARIA.yellow;
+  if (letter === "D") return "#f59e0b";
+  if (letter === "F") return ARIA.red;
+  return ARIA.textMuted;
+}
+// 12mo return proxy for IBD RS rating. Returns 0–99 or null.
+// Proprietary IBD formula is unavailable — directional proxy Nitin can
+// sanity-check against IBD's published RS later.
+function computeRSRank(tResp, sResp) {
+  const tBars = tResp?.ohlc, sBars = sResp?.ohlc;
+  if (!Array.isArray(tBars) || !Array.isArray(sBars)) return null;
+  if (tBars.length < 200 || sBars.length < 200) return null;
+  const tRet = tBars[tBars.length - 1].close / tBars[0].close - 1;
+  const sRet = sBars[sBars.length - 1].close / sBars[0].close - 1;
+  const diffPct = (tRet - sRet) * 100;
+  return Math.max(0, Math.min(99, Math.round(50 + 0.5 * diffPct)));
+}
+const fmtPct = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+const fmtPp = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "pp";
+const fmtRank = (v) => v.toFixed(0);
+
+// CANSLIM scorecard — replaces the old Institutional QoQ third column.
+// Same flex:1.4 slot, same monospace style, driven entirely by the active
+// ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
+// pair fetch for the 12mo RS proxy.
+function CanslimScorecard({ ticker, stockInfo, ARIA }) {
+  const [rsRank, setRsRank] = React.useState(null);
+  React.useEffect(() => {
+    if (!ticker) {
+      setRsRank(null);
+      return;
+    }
+    let cancelled = false;
+    setRsRank(null);
+    Promise.all([
+      fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`).then((r) =>
+        r.ok ? r.json() : null
+      ),
+      fetch(`/api/ohlc?ticker=SPY`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([t, s]) => {
+        if (cancelled) return;
+        setRsRank(computeRSRank(t, s));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ticker]);
+
+  // Derive inputs from stockInfo (same normalization ChartPanelInline uses
+  // above in its CANSLIM stats row for roe/margin fraction → percent).
+  const epsYoy = stockInfo?.eps_yoy ?? null;
+  const epsYoyPrev = stockInfo?.eps_yoy_prev ?? null;
+  const accel =
+    epsYoy != null && epsYoyPrev != null ? epsYoy - epsYoyPrev : null;
+  const eps5y = stockInfo?.eps_past_5y ?? null;
+  const salesYoy = stockInfo?.sales_yoy ?? null;
+  const margin = (() => {
+    const m = stockInfo?.profit_margin ?? null;
+    return m != null ? (m < 1 ? m * 100 : m) : null;
+  })();
+  const roe = (() => {
+    const r = stockInfo?.roe ?? null;
+    return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
+  })();
+  const instTrans = stockInfo?.inst_trans_pct ?? null;
+  const instFunds = stockInfo?.inst_holder_count ?? null;
+  const instNetFlow = stockInfo?.inst_net_change_pct ?? null;
+
+  const criteria = [
+    { key: "C", label: "Qtr EPS", raw: epsYoy, fmt: fmtPct, grade: gradeBand(epsYoy, [100, 50, 25, 10, 0]) },
+    { key: "Δ", label: "Accel", raw: accel, fmt: fmtPp, grade: gradeBand(accel, [30, 10, 0, -10, -25]) },
+    { key: "A", label: "5Y EPS", raw: eps5y, fmt: fmtPct, grade: gradeBand(eps5y, [40, 25, 15, 10, 0]) },
+    { key: "S", label: "Sales", raw: salesYoy, fmt: fmtPct, grade: gradeBand(salesYoy, [40, 25, 15, 10, 0]) },
+    { key: "M", label: "Margin", raw: margin, fmt: fmtPct, grade: gradeBand(margin, [25, 18, 12, 7, 2]) },
+    { key: "R", label: "ROE", raw: roe, fmt: fmtPct, grade: gradeBand(roe, [30, 17, 12, 8, 0]) },
+    { key: "I", label: "Inst ΔQ", raw: instTrans, fmt: fmtPp, grade: gradeBand(instTrans, [2, 1, 0.3, 0, -1]) },
+    { key: "L", label: "RS 12mo", raw: rsRank, fmt: fmtRank, grade: gradeBand(rsRank, [95, 90, 80, 60, 40]) },
+  ];
+  const composite = avgLetter(criteria.map((c) => c.grade));
+  const compColor = gradeColor(composite, ARIA);
+
+  const naCriteria = [
+    "N: new hi/product · pipeline",
+    "Cash flow vs EPS · pipeline",
+    "Industry rank · pipeline",
+  ];
+
+  return (
+    <div
+      style={{
+        flex: 1.4,
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+        fontFamily: "monospace",
+      }}
+      title="CANSLIM scorecard — O'Neil/IBD's 7 gradeable criteria for growth stock winners. Each row is a letter grade from A+ (exceptional) to F (fails). Composite is unweighted average."
+    >
+      <div
+        style={{
+          fontSize: 7,
+          color: ARIA.textMuted,
+          marginBottom: 4,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 6,
+        }}
+      >
+        <span>CANSLIM</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: compColor, letterSpacing: 0 }}>
+          {composite}
+        </span>
+        <span style={{ color: ARIA.textMuted }}>composite</span>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "12px 1fr auto 22px",
+          columnGap: 6,
+          rowGap: 2,
+          fontSize: 9,
+          alignItems: "center",
+        }}
+      >
+        {criteria.map((c) => {
+          const clr = gradeColor(c.grade, ARIA);
+          return (
+            <React.Fragment key={c.key}>
+              <span style={{ color: ARIA.textMuted, fontWeight: 700 }}>{c.key}</span>
+              <span style={{ color: ARIA.textDim }}>{c.label}</span>
+              <span style={{ color: ARIA.text, textAlign: "right" }}>
+                {c.raw == null || !Number.isFinite(c.raw) ? "—" : c.fmt(c.raw)}
+              </span>
+              <span
+                style={{
+                  padding: "0 4px",
+                  borderRadius: 2,
+                  fontSize: 8,
+                  fontWeight: 700,
+                  background: c.grade === "—" ? "transparent" : clr + "22",
+                  color: clr,
+                  border: c.grade === "—" ? `1px solid ${ARIA.border}` : `1px solid ${clr}55`,
+                  textAlign: "center",
+                }}
+              >
+                {c.grade}
+              </span>
+            </React.Fragment>
+          );
+        })}
+        {(instFunds != null || instNetFlow != null) && (
+          <React.Fragment>
+            <span style={{ color: ARIA.textMuted }}>·</span>
+            <span
+              style={{
+                gridColumn: "2 / span 3",
+                fontSize: 8,
+                display: "flex",
+                gap: 8,
+                alignItems: "baseline",
+                borderTop: `1px solid ${ARIA.border}`,
+                paddingTop: 3,
+                marginTop: 2,
+              }}
+              title="Institutional fund count (13F filings) and net flow % vs prior quarter"
+            >
+              <span>
+                <span style={{ color: ARIA.textMuted }}>Funds </span>
+                <span style={{ color: ARIA.text, fontWeight: 700 }}>
+                  {instFunds != null ? instFunds.toLocaleString() : "—"}
+                </span>
+              </span>
+              <span>
+                <span style={{ color: ARIA.textMuted }}>Net flow </span>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color:
+                      instNetFlow == null
+                        ? ARIA.textMuted
+                        : instNetFlow >= 1
+                        ? ARIA.green
+                        : instNetFlow > 0
+                        ? ARIA.blue
+                        : instNetFlow > -1
+                        ? ARIA.textDim
+                        : ARIA.red,
+                  }}
+                >
+                  {instNetFlow == null
+                    ? "—"
+                    : (instNetFlow >= 0 ? "+" : "") + instNetFlow.toFixed(2) + "%"}
+                </span>
+              </span>
+            </span>
+          </React.Fragment>
+        )}
+        {naCriteria.map((l) => (
+          <React.Fragment key={l}>
+            <span style={{ color: ARIA.textMuted }}>·</span>
+            <span
+              style={{
+                color: ARIA.textMuted,
+                gridColumn: "2 / span 3",
+                fontStyle: "italic",
+                fontSize: 8,
+              }}
+            >
+              {l}
+            </span>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Mini bar chart — one series (EPS or Revenue) across N quarters. Pure CSS:
 // each quarter is a flex column with value on top, bar, YoY%, and quarter
 // label beneath. Scales proportionally; baseline drops below zero when any
@@ -4147,15 +4393,6 @@ function ChartPanelInline({
                 </span>
               );
             }
-            // Fintel institutional data (13F-HR aggregation) — richer than
-            // the 2-bar Finviz placeholder. Shows holder count, net flows,
-            // and top 10 holders with QoQ change.
-            const instHolderCount = stockInfo.inst_holder_count;
-            const instCurrentQ = stockInfo.inst_current_quarter;
-            const instNewHolders = stockInfo.inst_new_holders;
-            const instLateHolders = stockInfo.inst_late_holders;
-            const instNetChangePct = stockInfo.inst_net_change_pct;
-            const instTop10Conc = stockInfo.inst_top10_concentration;
             return (
               <div style={{ display: "flex", gap: 14 }}>
                 <MiniQBars
@@ -4184,155 +4421,11 @@ function ChartPanelInline({
                   passYoy={20}
                   hotYoy={40}
                 />
-                {instHolderCount != null && (
-                  <div
-                    style={{
-                      flex: 1.4,
-                      display: "flex",
-                      flexDirection: "column",
-                      minWidth: 0,
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 7,
-                        color: ARIA.textMuted,
-                        marginBottom: 4,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Institutional ({instCurrentQ})
-                    </div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 2 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: ARIA.text }}>
-                        {instHolderCount.toLocaleString()}
-                      </span>
-                      <span style={{ fontSize: 8, color: ARIA.textMuted }}>funds</span>
-                    </div>
-                    {instNetChangePct != null && (
-                      <div style={{ fontSize: 8, marginBottom: 3 }}>
-                        <span style={{ color: ARIA.textMuted }}>Net flow </span>
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            color:
-                              instNetChangePct >= 1
-                                ? ARIA.green
-                                : instNetChangePct > 0
-                                ? ARIA.blue
-                                : instNetChangePct > -1
-                                ? ARIA.textDim
-                                : ARIA.red,
-                          }}
-                        >
-                          {instNetChangePct >= 0 ? "+" : ""}
-                          {instNetChangePct.toFixed(2)}%
-                        </span>
-                      </div>
-                    )}
-                    {/* 3-bar holder-count trend: prior Q (derived), current Q,
-                        next Q (early filers — partial since deadline pending). */}
-                    {instCurrentQ && (() => {
-                      const parseQ = (s) => {
-                        const m = s && s.match(/(\d{4})-Q([1-4])/);
-                        return m ? [+m[1], +m[2]] : null;
-                      };
-                      const shiftQ = ([y, q], delta) => {
-                        let qi = q - 1 + delta;
-                        const yd = Math.floor(qi / 4);
-                        const qn = ((qi % 4) + 4) % 4;
-                        return `${y + yd}-Q${qn + 1}`;
-                      };
-                      const cur = parseQ(instCurrentQ);
-                      if (!cur) return null;
-                      const priorLabel = shiftQ(cur, -1);
-                      const nextLabel = shiftQ(cur, 1);
-                      const priorCount =
-                        (instHolderCount || 0) + (instLateHolders || 0);
-                      const currentCount = instHolderCount || 0;
-                      const nextCount = instNewHolders || 0;
-                      const max = Math.max(priorCount, currentCount, nextCount, 1);
-                      const delta = currentCount - priorCount;
-                      const deltaColor =
-                        delta > 0 ? ARIA.green : delta < 0 ? ARIA.red : ARIA.textMuted;
-                      const barH = 32;
-                      const bar = (count, label, color, opacity, tip) => (
-                        <div
-                          style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}
-                          title={tip}
-                        >
-                          <div style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, lineHeight: 1 }}>
-                            {count.toLocaleString()}
-                          </div>
-                          <div style={{ width: "65%", height: barH, display: "flex", alignItems: "flex-end", marginTop: 2 }}>
-                            <div
-                              style={{
-                                width: "100%",
-                                height: (count / max) * barH,
-                                background: color,
-                                opacity,
-                                borderRadius: "2px 2px 0 0",
-                              }}
-                            />
-                          </div>
-                          <div style={{ fontSize: 7, color: ARIA.textMuted, marginTop: 2, whiteSpace: "nowrap" }}>
-                            {label}
-                          </div>
-                        </div>
-                      );
-                      return (
-                        <div style={{ marginBottom: 4 }}>
-                          <div style={{ display: "flex", gap: 3, alignItems: "stretch" }}>
-                            {bar(priorCount, priorLabel, ARIA.textMuted, 0.7,
-                                 `Prior quarter (${priorLabel}) — approx ${priorCount.toLocaleString()} holders (current + ${instLateHolders || 0} who didn't refile)`)}
-                            {bar(currentCount, instCurrentQ, ARIA.green, 0.9,
-                                 `Current quarter (${instCurrentQ}) — ${currentCount.toLocaleString()} holders with completed 13F filings`)}
-                            {bar(nextCount, nextLabel + "*", ARIA.blue, 0.55,
-                                 `Next quarter (${nextLabel}) early filers — ${nextCount.toLocaleString()} institutions have already filed ahead of the deadline`)}
-                          </div>
-                          <div style={{ fontSize: 7, color: ARIA.textMuted, textAlign: "center", marginTop: 2 }}>
-                            QoQ{" "}
-                            <span style={{ color: deltaColor, fontWeight: 700 }}>
-                              {delta >= 0 ? "+" : ""}{delta.toLocaleString()}
-                            </span>
-                            {"  *partial"}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {instTop10Conc != null && (
-                      <div
-                        style={{
-                          borderTop: `1px solid ${ARIA.border}`,
-                          paddingTop: 3,
-                          fontSize: 9,
-                        }}
-                        title="Share of all institutional holdings controlled by the top 10 holders. Higher = more concentrated = heavier influence from a few big funds."
-                      >
-                        <span style={{ color: ARIA.textMuted, fontSize: 8 }}>Top 10</span>{" "}
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            color:
-                              instTop10Conc >= 70
-                                ? ARIA.yellow
-                                : instTop10Conc >= 50
-                                ? ARIA.blue
-                                : ARIA.textDim,
-                          }}
-                        >
-                          {instTop10Conc.toFixed(1)}%
-                        </span>
-                        <span style={{ color: ARIA.textMuted, fontSize: 8 }}>
-                          {" of inst holdings"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <CanslimScorecard
+                  ticker={ticker}
+                  stockInfo={stockInfo}
+                  ARIA={ARIA}
+                />
               </div>
             );
           })()}
