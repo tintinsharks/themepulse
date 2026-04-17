@@ -3419,7 +3419,7 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, ARIA }) {
   return (
     <div
       style={{
-        flex: 1.4,
+        flex: 0.7,
         display: "flex",
         flexDirection: "column",
         minWidth: 0,
