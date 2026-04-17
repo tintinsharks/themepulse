@@ -3394,8 +3394,6 @@ function CanslimScorecard({ ticker, stockInfo, ARIA }) {
     return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
   })();
   const instTrans = stockInfo?.inst_trans_pct ?? null;
-  const instFunds = stockInfo?.inst_holder_count ?? null;
-  const instNetFlow = stockInfo?.inst_net_change_pct ?? null;
 
   const criteria = [
     { key: "C", label: "Qtr EPS", raw: epsYoy, fmt: fmtPct, grade: gradeBand(epsYoy, [100, 50, 25, 10, 0]) },
@@ -3482,53 +3480,6 @@ function CanslimScorecard({ ticker, stockInfo, ARIA }) {
             </React.Fragment>
           );
         })}
-        {(instFunds != null || instNetFlow != null) && (
-          <React.Fragment>
-            <span style={{ color: ARIA.textMuted }}>·</span>
-            <span
-              style={{
-                gridColumn: "2 / span 3",
-                fontSize: 8,
-                display: "flex",
-                gap: 8,
-                alignItems: "baseline",
-                borderTop: `1px solid ${ARIA.border}`,
-                paddingTop: 3,
-                marginTop: 2,
-              }}
-              title="Institutional fund count (13F filings) and net flow % vs prior quarter"
-            >
-              <span>
-                <span style={{ color: ARIA.textMuted }}>Funds </span>
-                <span style={{ color: ARIA.text, fontWeight: 700 }}>
-                  {instFunds != null ? instFunds.toLocaleString() : "—"}
-                </span>
-              </span>
-              <span>
-                <span style={{ color: ARIA.textMuted }}>Net flow </span>
-                <span
-                  style={{
-                    fontWeight: 700,
-                    color:
-                      instNetFlow == null
-                        ? ARIA.textMuted
-                        : instNetFlow >= 1
-                        ? ARIA.green
-                        : instNetFlow > 0
-                        ? ARIA.blue
-                        : instNetFlow > -1
-                        ? ARIA.textDim
-                        : ARIA.red,
-                  }}
-                >
-                  {instNetFlow == null
-                    ? "—"
-                    : (instNetFlow >= 0 ? "+" : "") + instNetFlow.toFixed(2) + "%"}
-                </span>
-              </span>
-            </span>
-          </React.Fragment>
-        )}
         {naCriteria.map((l) => (
           <React.Fragment key={l}>
             <span style={{ color: ARIA.textMuted }}>·</span>
@@ -4376,7 +4327,12 @@ function ChartPanelInline({
             // (N > N-1 > N-2 for each metric). Marked with a gold border on
             // the value label so qualifying periods stand out on both bars.
             const series = baseSeries.map((p, i, arr) => {
-              if (i < 2) return { ...p, _code33: false };
+              const prevMargin = i > 0 ? arr[i - 1].net_margin : null;
+              const marginDelta =
+                p.net_margin != null && prevMargin != null
+                  ? p.net_margin - prevMargin
+                  : null;
+              if (i < 2) return { ...p, _code33: false, _marginDelta: marginDelta };
               const a = arr[i - 2], b = arr[i - 1], c = p;
               const accel = (x, y, z) =>
                 x != null && y != null && z != null && z > y && y > x;
@@ -4384,7 +4340,7 @@ function ChartPanelInline({
                 accel(a.eps_yoy, b.eps_yoy, c.eps_yoy) &&
                 accel(a.revenue_yoy, b.revenue_yoy, c.revenue_yoy) &&
                 accel(a.net_margin, b.net_margin, c.net_margin);
-              return { ...p, _code33: c33 };
+              return { ...p, _code33: c33, _marginDelta: marginDelta };
             });
             if (series.length === 0) {
               return (
@@ -4393,34 +4349,108 @@ function ChartPanelInline({
                 </span>
               );
             }
+            // Funds series — 3 synthetic "quarters" (prior / current / next
+            // early filers) rendered in the same MiniQBars format. Net
+            // change % surfaces as the YoY% under the current bar.
+            const instHolderCount = stockInfo.inst_holder_count;
+            const instCurrentQ = stockInfo.inst_current_quarter;
+            const instNewHolders = stockInfo.inst_new_holders;
+            const instLateHolders = stockInfo.inst_late_holders;
+            const instNetChangePct = stockInfo.inst_net_change_pct;
+            const fundsSeries = (() => {
+              if (instHolderCount == null || !instCurrentQ) return null;
+              const m = instCurrentQ.match(/(\d{4})-Q([1-4])/);
+              if (!m) return null;
+              const y = +m[1], q = +m[2];
+              const shift = (dq) => {
+                const qi = q - 1 + dq;
+                const yd = Math.floor(qi / 4);
+                const qn = ((qi % 4) + 4) % 4;
+                return `${(y + yd) % 100 < 10 ? "0" : ""}${(y + yd) % 100}-Q${qn + 1}`;
+              };
+              const priorCount = (instHolderCount || 0) + (instLateHolders || 0);
+              const currentCount = instHolderCount || 0;
+              const nextCount = instNewHolders || 0;
+              return [
+                { label: shift(-1), count: priorCount, yoy: null },
+                { label: shift(0), count: currentCount, yoy: instNetChangePct },
+                { label: shift(1) + "*", count: nextCount, yoy: null },
+              ];
+            })();
             return (
               <div style={{ display: "flex", gap: 14 }}>
-                <MiniQBars
-                  quarters={series}
-                  accessor={(q) => q.eps}
-                  yoyAccessor={(q) => q.eps_yoy}
-                  color={ARIA.blue}
-                  labelFmt={(v) => v.toFixed(2)}
-                  title="EPS (Diluted)"
-                  ARIA={ARIA}
-                  passYoy={25}
-                  hotYoy={40}
-                />
-                <MiniQBars
-                  quarters={series}
-                  accessor={(q) => q.revenue}
-                  yoyAccessor={(q) => q.revenue_yoy}
-                  color={ARIA.purple}
-                  labelFmt={(v) =>
-                    v >= 1000
-                      ? `${(v / 1000).toFixed(1)}B`
-                      : `${Math.round(v)}M`
-                  }
-                  title="Revenue"
-                  ARIA={ARIA}
-                  passYoy={20}
-                  hotYoy={40}
-                />
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    minWidth: 0,
+                  }}
+                >
+                  <MiniQBars
+                    quarters={series}
+                    accessor={(q) => q.eps}
+                    yoyAccessor={(q) => q.eps_yoy}
+                    color={ARIA.blue}
+                    labelFmt={(v) => v.toFixed(2)}
+                    title="EPS (Diluted)"
+                    ARIA={ARIA}
+                    passYoy={25}
+                    hotYoy={40}
+                  />
+                  <MiniQBars
+                    quarters={series}
+                    accessor={(q) => q.net_margin}
+                    yoyAccessor={(q) => q._marginDelta}
+                    color={ARIA.cyan}
+                    labelFmt={(v) => v.toFixed(1) + "%"}
+                    title="Net Margin"
+                    ARIA={ARIA}
+                    passYoy={2}
+                    hotYoy={5}
+                  />
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    minWidth: 0,
+                  }}
+                >
+                  <MiniQBars
+                    quarters={series}
+                    accessor={(q) => q.revenue}
+                    yoyAccessor={(q) => q.revenue_yoy}
+                    color={ARIA.purple}
+                    labelFmt={(v) =>
+                      v >= 1000
+                        ? `${(v / 1000).toFixed(1)}B`
+                        : `${Math.round(v)}M`
+                    }
+                    title="Revenue"
+                    ARIA={ARIA}
+                    passYoy={20}
+                    hotYoy={40}
+                  />
+                  {fundsSeries && (
+                    <MiniQBars
+                      quarters={fundsSeries}
+                      accessor={(q) => q.count}
+                      yoyAccessor={(q) => q.yoy}
+                      color={ARIA.green}
+                      labelFmt={(v) =>
+                        v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
+                      }
+                      title="Funds (inst)"
+                      ARIA={ARIA}
+                      passYoy={1}
+                      hotYoy={3}
+                    />
+                  )}
+                </div>
                 <CanslimScorecard
                   ticker={ticker}
                   stockInfo={stockInfo}
