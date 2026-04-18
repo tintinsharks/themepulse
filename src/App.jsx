@@ -3729,6 +3729,10 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
                   color: ARIA.textMuted,
                   marginTop: 1,
                   whiteSpace: "nowrap",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  fontWeight: 700,
+                  fontFamily: "monospace",
                 }}
               >
                 {q.label}
