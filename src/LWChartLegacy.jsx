@@ -413,7 +413,10 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const fourPctSeriesRef = useRef(null);
   const crErLineRef = useRef(null);
   const mainErLineRef = useRef(null);
-  const mainErQLineRef = useRef(null);
+  // Quarter-label HTML overlay (sits on top of the chart, positioned by
+  // timeToCoordinate so each label aligns with its earnings date).
+  const [qLabels, setQLabels] = useState([]); // [{ time, text }]
+  const qLabelRefs = useRef({});
   const atrxContainerRef = useRef(null);
   const atrxChartRef = useRef(null);
   const atrxSeriesRefs = useRef({});
@@ -480,7 +483,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
       if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; crpSeriesRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
-      mainErQLineRef.current = null;
       if (atrxChartRef.current) { try { atrxChartRef.current.remove(); } catch {} atrxChartRef.current = null; atrxSeriesRefs.current = {}; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (macdChartRef.current) { try { macdChartRef.current.remove(); } catch {} macdChartRef.current = null; macdLineRef.current = null; macdSignalRef.current = null; macdHistRef.current = null; }
@@ -530,23 +532,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         });
       } catch {}
 
-      // Quarter label text line — sits just below the EPS|Sales marker
-      // strip so each earnings date shows the quarter tag (e.g. Q4-26) in
-      // the same muted style as the MiniQBars chart titles.
-      mainErQLineRef.current = chart.addLineSeries({
-        priceScaleId: "er-quarter-overlay",
-        color: "transparent",
-        lineWidth: 0,
-        lastValueVisible: false,
-        priceLineVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      try {
-        chart.priceScale("er-quarter-overlay").applyOptions({
-          scaleMargins: { top: 0.97, bottom: 0 },
-          visible: false,
-        });
-      } catch {}
 
       // ── Price overlay MAs ──
       maRefs.current.ema10 = chart.addLineSeries({
@@ -1308,13 +1293,9 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
               erRows.map(r => ({ time: r.time, position: "aboveBar", color: r.clr, shape: "square", size: 0, text: r.txt }))
             );
           }
-          if (mainErQLineRef.current) {
-            const qRows = erRows.filter(r => r.qLabel);
-            mainErQLineRef.current.setData(qRows.map(r => ({ time: r.time, value: 0 })));
-            mainErQLineRef.current.setMarkers(
-              qRows.map(r => ({ time: r.time, position: "aboveBar", color: "#787888", shape: "square", size: 0, text: r.qLabel }))
-            );
-          }
+          // Quarter labels rendered via HTML overlay (not LW markers) so we
+          // can use a custom font size. Only pass rows that have a qLabel.
+          setQLabels(erRows.filter(r => r.qLabel).map(r => ({ time: r.time, text: r.qLabel })));
 
           // Reference lines (create once)
           if (!crSeriesRef.current._refLinesAdded) {
@@ -1626,6 +1607,35 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
 
   // Price lines now managed inside data fetch useEffect (with ATR ladder, risk stops, etc.)
 
+  // Position quarter-label overlays imperatively on visible range change.
+  // Re-runs when qLabels updates (ticker/tf change) or the chart resizes.
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || qLabels.length === 0) return;
+    const ts = chart.timeScale();
+    const updatePositions = () => {
+      for (const { time } of qLabels) {
+        const el = qLabelRefs.current[time];
+        if (!el) continue;
+        const x = ts.timeToCoordinate(time);
+        if (x == null) {
+          el.style.display = "none";
+        } else {
+          el.style.display = "";
+          el.style.left = `${x}px`;
+        }
+      }
+    };
+    updatePositions();
+    try { ts.subscribeVisibleLogicalRangeChange(updatePositions); } catch {}
+    const ro = new ResizeObserver(updatePositions);
+    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    return () => {
+      try { ts.unsubscribeVisibleLogicalRangeChange(updatePositions); } catch {}
+      ro.disconnect();
+    };
+  }, [qLabels]);
+
   const fmtVol = (v) => {
     if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
     if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
@@ -1705,6 +1715,33 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       </div>
       {/* Main chart */}
       <div ref={wrapperRef} style={{ flex: 1, minHeight: 0, position: "relative" }}>
+      {/* Quarter-label HTML overlay — sits just above the chart bottom axis.
+          Rendered in HTML so we can use fontSize smaller than LW's marker size. */}
+      {qLabels.length > 0 && (
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 22, height: 8, pointerEvents: "none", zIndex: 4, overflow: "hidden" }}>
+          {qLabels.map(q => (
+            <span
+              key={q.time}
+              ref={el => { if (el) qLabelRefs.current[q.time] = el; }}
+              style={{
+                position: "absolute",
+                bottom: 0,
+                transform: "translateX(-50%)",
+                fontSize: 6,
+                color: "#787888",
+                fontFamily: "monospace",
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+                lineHeight: 1,
+              }}
+            >
+              {q.text}
+            </span>
+          ))}
+        </div>
+      )}
       {loading && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#fbbf24", zIndex: 5, pointerEvents: "none" }}>Loading {ticker}...</div>}
       {error && <div style={{ position: "absolute", top: 8, left: 8, fontSize: 10, color: "#f87171", zIndex: 5, pointerEvents: "none" }}>⚠ {error}</div>}
       {!libReady && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 11, color: "#505060", zIndex: 5 }}>Loading chart library...</div>}
