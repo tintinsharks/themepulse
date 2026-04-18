@@ -3352,7 +3352,7 @@ const fmtRank = (v) => v.toFixed(0);
 // Same flex:1.4 slot, same monospace style, driven entirely by the active
 // ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
 // pair fetch for the 12mo RS proxy.
-function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, stockMap, ARIA }) {
+function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, eps5yCagr, stockMap, ARIA }) {
   const [rsRank, setRsRank] = React.useState(null);
   React.useEffect(() => {
     if (!ticker) {
@@ -3383,7 +3383,9 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, stockMap, ARIA }) {
   const epsYoyPrev = stockInfo?.eps_yoy_prev ?? null;
   const accel =
     epsYoy != null && epsYoyPrev != null ? epsYoy - epsYoyPrev : null;
-  const eps5y = stockInfo?.eps_past_5y ?? null;
+  // Prefer computed 5Y CAGR from annuals (always populated when we have
+  // FMP annual data). Fall back to Finviz-shipped eps_past_5y otherwise.
+  const eps5y = eps5yCagr != null ? eps5yCagr : stockInfo?.eps_past_5y ?? null;
   const salesYoy = stockInfo?.sales_yoy ?? null;
   const margin = (() => {
     const m = stockInfo?.profit_margin ?? null;
@@ -4497,6 +4499,16 @@ function ChartPanelInline({
                   ticker={ticker}
                   stockInfo={stockInfo}
                   cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null}
+                  eps5yCagr={(() => {
+                    // 5Y EPS CAGR from FMP annual series. Needs 5+ years;
+                    // both endpoints must be positive (CAGR undefined across
+                    // sign flips, e.g. prior loss to current profit).
+                    if (!annuals || annuals.length < 5) return null;
+                    const a = annuals.slice(-5);
+                    const first = a[0]?.eps, last = a[a.length - 1]?.eps;
+                    if (first == null || last == null || first <= 0 || last <= 0) return null;
+                    return (Math.pow(last / first, 1 / (a.length - 1)) - 1) * 100;
+                  })()}
                   stockMap={stockMap}
                   ARIA={ARIA}
                 />
