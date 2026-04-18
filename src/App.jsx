@@ -3352,7 +3352,7 @@ const fmtRank = (v) => v.toFixed(0);
 // Same flex:1.4 slot, same monospace style, driven entirely by the active
 // ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
 // pair fetch for the 12mo RS proxy.
-function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, ARIA }) {
+function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, stockMap, ARIA }) {
   const [rsRank, setRsRank] = React.useState(null);
   React.useEffect(() => {
     if (!ticker) {
@@ -3397,6 +3397,28 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, ARIA }) {
   const instFunds = stockInfo?.inst_holder_count ?? null;
   const instNetFlow = stockInfo?.inst_net_change_pct ?? null;
 
+  // N (new high / product) — distance from 52w high. pct_from_high is
+  // negative (0 = at high, -50 = half off). Flip sign so the scorecard
+  // displays a familiar positive magnitude for "how far from breakout".
+  const pctFromHigh = stockInfo?.pct_from_high ?? null;
+  const distFromHigh = pctFromHigh != null ? Math.abs(pctFromHigh) : null;
+
+  // Industry rank — percentile of the ticker's rs_rank within its industry
+  // group. O'Neil wants top 10 of 27 industries; we approximate by mapping
+  // within-industry percentile to a letter grade. Memoized so large stockMaps
+  // don't recompute on every rerender.
+  const industryPct = React.useMemo(() => {
+    const industry = stockInfo?.industry;
+    const myRs = stockInfo?.rs_rank;
+    if (!industry || myRs == null || !stockMap) return null;
+    const peers = Object.values(stockMap).filter(
+      (s) => s && s.industry === industry && s.rs_rank != null
+    );
+    if (peers.length < 3) return null; // too few peers to rank meaningfully
+    const better = peers.filter((s) => s.rs_rank > myRs).length;
+    return Math.round((1 - better / peers.length) * 100);
+  }, [stockInfo?.industry, stockInfo?.rs_rank, stockMap]);
+
   const criteria = [
     { key: "C", label: "Qtr EPS", raw: epsYoy, fmt: fmtPct, grade: gradeBand(epsYoy, [100, 50, 25, 10, 0]) },
     { key: "Δ", label: "Accel", raw: accel, fmt: fmtPp, grade: gradeBand(accel, [30, 10, 0, -10, -25]) },
@@ -3407,14 +3429,16 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, ARIA }) {
     { key: "I", label: "Inst ΔQ", raw: instTrans, fmt: fmtPp, grade: gradeBand(instTrans, [2, 1, 0.3, 0, -1]) },
     { key: "L", label: "RS 12mo", raw: rsRank, fmt: fmtRank, grade: gradeBand(rsRank, [95, 90, 80, 60, 40]) },
     { key: "$", label: "CF vs EPS", raw: cfVsEpsPct, fmt: fmtPp, grade: gradeBand(cfVsEpsPct, [50, 30, 20, 0, -20]) },
+    // N grades the price portion of O'Neil's "new high / new product". Lower
+    // distance from 52w high = better. We negate distFromHigh for gradeBand
+    // (which grades descending) so "closer to high" → higher grade.
+    { key: "N", label: "From 52w hi", raw: distFromHigh != null ? -distFromHigh : null, fmt: (v) => (v).toFixed(1) + "%", grade: gradeBand(distFromHigh != null ? -distFromHigh : null, [-3, -10, -20, -35, -50]) },
+    { key: "#", label: "Ind rank", raw: industryPct, fmt: (v) => "P" + v.toFixed(0), grade: gradeBand(industryPct, [95, 85, 70, 50, 30]) },
   ];
   const composite = avgLetter(criteria.map((c) => c.grade));
   const compColor = gradeColor(composite, ARIA);
 
-  const naCriteria = [
-    "N: new hi/product · pipeline",
-    "Industry rank · pipeline",
-  ];
+  const naCriteria = [];
 
   return (
     <div
@@ -4473,6 +4497,7 @@ function ChartPanelInline({
                   ticker={ticker}
                   stockInfo={stockInfo}
                   cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null}
+                  stockMap={stockMap}
                   ARIA={ARIA}
                 />
               </div>
