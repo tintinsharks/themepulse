@@ -58,6 +58,29 @@ export function getQuad(wrs, mrs) {
   return "WEAK";
 }
 
+/** Scroll a row into view WITHOUT scrolling the page. Walks up to the
+ * first scrollable ancestor (overflow auto/scroll with actual overflow)
+ * and adjusts its scrollTop only. Native scrollIntoView bubbles to the
+ * document, which yanks the whole page when multiple scrollers nest. */
+export function scrollRowIntoScroller(row) {
+  if (!row) return;
+  let scroller = row.parentElement;
+  while (scroller && scroller !== document.body) {
+    const s = getComputedStyle(scroller);
+    const canScroll = /(auto|scroll)/.test(s.overflowY) && scroller.scrollHeight > scroller.clientHeight;
+    if (canScroll) break;
+    scroller = scroller.parentElement;
+  }
+  if (!scroller || scroller === document.body) return;
+  const rowRect = row.getBoundingClientRect();
+  const contRect = scroller.getBoundingClientRect();
+  if (rowRect.top < contRect.top) {
+    scroller.scrollTop += rowRect.top - contRect.top;
+  } else if (rowRect.bottom > contRect.bottom) {
+    scroller.scrollTop += rowRect.bottom - contRect.bottom;
+  }
+}
+
 /** Quadrant color palette */
 export const QC = {
   STRONG: { bg: "#064e3b", text: "#4aad8c", tag: "#059669" },

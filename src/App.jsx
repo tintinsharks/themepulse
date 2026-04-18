@@ -16,6 +16,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
+import { scrollRowIntoScroller } from "./utils.js";
 import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
@@ -1019,7 +1020,7 @@ function ETFScanTable({ onTickerClick }) {
       const t = visibleTickers[next];
       setSelectedTicker(t);
       onTickerClick && onTickerClick(t);
-      wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`)?.scrollIntoView({ block: "nearest" });
+      scrollRowIntoScroller(wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`));
     },
     [visibleTickers, selectedTicker, onTickerClick]
   );
@@ -1887,11 +1888,8 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
       const t = visibleTickers[next];
       setSelectedTicker(t);
       onTickerClick && onTickerClick(t);
-      // Scroll selected row into view
-      const row = wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`);
-      if (row && row.scrollIntoView) {
-        row.scrollIntoView({ block: "nearest" });
-      }
+      // Scroll selected row into the table's own scroller only — never the page
+      scrollRowIntoScroller(wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`));
     },
     [visibleTickers, selectedTicker, onTickerClick]
   );
@@ -4785,8 +4783,7 @@ function WatchlistSectionTable({
       const t = visibleTickers[next];
       setSelectedTicker(t);
       onTickerClick && onTickerClick(t);
-      const row = wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`);
-      if (row && row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+      scrollRowIntoScroller(wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`));
     },
     [visibleTickers, selectedTicker, onTickerClick]
   );
