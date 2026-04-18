@@ -875,6 +875,16 @@ const TAG_PREDICATES = {
     // 9M is computed at row time using LIVE volume — handled in the row build loop, not here
     test: () => true,
   },
+  MAG: {
+    label: "MAG",
+    desc:
+      "MAGNA — Nitin's Episodic Pivot qualifier. MAGNA score ≥ 60 + EPS YoY ≥ 25% + Sales YoY ≥ 25% + gap ≥ 4%. Composite of Massive accel (M), Gap up (G), Acceleration in sales (A).",
+    test: (s) =>
+      (s.magna || 0) >= 60 &&
+      (s.eps_yoy || 0) >= 25 &&
+      (s.sales_yoy || 0) >= 25 &&
+      (s.change_pct || 0) >= 4,
+  },
   "33": {
     label: "33",
     desc:
