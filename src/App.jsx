@@ -3352,7 +3352,7 @@ const fmtRank = (v) => v.toFixed(0);
 // Same flex:1.4 slot, same monospace style, driven entirely by the active
 // ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
 // pair fetch for the 12mo RS proxy.
-function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, eps5yCagr, stockMap, ARIA }) {
+function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, ARIA }) {
   const [rsRank, setRsRank] = React.useState(null);
   React.useEffect(() => {
     if (!ticker) {
@@ -3383,9 +3383,25 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, eps5yCagr, stockMap, 
   const epsYoyPrev = stockInfo?.eps_yoy_prev ?? null;
   const accel =
     epsYoy != null && epsYoyPrev != null ? epsYoy - epsYoyPrev : null;
-  // Prefer computed 5Y CAGR from annuals (always populated when we have
-  // FMP annual data). Fall back to Finviz-shipped eps_past_5y otherwise.
-  const eps5y = eps5yCagr != null ? eps5yCagr : stockInfo?.eps_past_5y ?? null;
+  // EPS CAGR from FMP annual series. Try 5 years first; if we don't have
+  // 5 years or the window has a sign flip, fall back to 3 years (O'Neil's
+  // actual CANSLIM minimum). Label adapts to the window actually used.
+  // Finviz eps_past_5y is the last-resort fallback.
+  const { epsCagr: eps5y, epsCagrYears } = React.useMemo(() => {
+    const tryWindow = (n) => {
+      if (!Array.isArray(annuals) || annuals.length < n) return null;
+      const a = annuals.slice(-n);
+      const first = a[0]?.eps, last = a[a.length - 1]?.eps;
+      if (first == null || last == null || first <= 0 || last <= 0) return null;
+      return (Math.pow(last / first, 1 / (a.length - 1)) - 1) * 100;
+    };
+    for (const n of [5, 4, 3]) {
+      const v = tryWindow(n);
+      if (v != null) return { epsCagr: v, epsCagrYears: n };
+    }
+    const fallback = stockInfo?.eps_past_5y ?? null;
+    return { epsCagr: fallback, epsCagrYears: fallback != null ? 5 : null };
+  }, [annuals, stockInfo?.eps_past_5y]);
   const salesYoy = stockInfo?.sales_yoy ?? null;
   const margin = (() => {
     const m = stockInfo?.profit_margin ?? null;
@@ -3424,7 +3440,7 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, eps5yCagr, stockMap, 
   const criteria = [
     { key: "C", label: "Qtr EPS", raw: epsYoy, fmt: fmtPct, grade: gradeBand(epsYoy, [100, 50, 25, 10, 0]) },
     { key: "Δ", label: "Accel", raw: accel, fmt: fmtPp, grade: gradeBand(accel, [30, 10, 0, -10, -25]) },
-    { key: "A", label: "5Y EPS", raw: eps5y, fmt: fmtPct, grade: gradeBand(eps5y, [40, 25, 15, 10, 0]) },
+    { key: "A", label: epsCagrYears ? `${epsCagrYears}Y EPS` : "5Y EPS", raw: eps5y, fmt: fmtPct, grade: gradeBand(eps5y, [40, 25, 15, 10, 0]) },
     { key: "S", label: "Sales", raw: salesYoy, fmt: fmtPct, grade: gradeBand(salesYoy, [40, 25, 15, 10, 0]) },
     { key: "M", label: "Margin", raw: margin, fmt: fmtPct, grade: gradeBand(margin, [25, 18, 12, 7, 2]) },
     { key: "R", label: "ROE", raw: roe, fmt: fmtPct, grade: gradeBand(roe, [30, 17, 12, 8, 0]) },
@@ -4499,16 +4515,7 @@ function ChartPanelInline({
                   ticker={ticker}
                   stockInfo={stockInfo}
                   cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null}
-                  eps5yCagr={(() => {
-                    // 5Y EPS CAGR from FMP annual series. Needs 5+ years;
-                    // both endpoints must be positive (CAGR undefined across
-                    // sign flips, e.g. prior loss to current profit).
-                    if (!annuals || annuals.length < 5) return null;
-                    const a = annuals.slice(-5);
-                    const first = a[0]?.eps, last = a[a.length - 1]?.eps;
-                    if (first == null || last == null || first <= 0 || last <= 0) return null;
-                    return (Math.pow(last / first, 1 / (a.length - 1)) - 1) * 100;
-                  })()}
+                  annuals={annuals}
                   stockMap={stockMap}
                   ARIA={ARIA}
                 />
