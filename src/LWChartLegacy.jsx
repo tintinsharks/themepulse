@@ -413,6 +413,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const fourPctSeriesRef = useRef(null);
   const crErLineRef = useRef(null);
   const mainErLineRef = useRef(null);
+  const mainErQLineRef = useRef(null);
   const atrxContainerRef = useRef(null);
   const atrxChartRef = useRef(null);
   const atrxSeriesRefs = useRef({});
@@ -479,6 +480,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
     return () => {
       if (chartRef.current) { try { chartRef.current.remove(); } catch {} chartRef.current = null; seriesRef.current = null; linesRef.current = []; }
       if (crChartRef.current) { try { crChartRef.current.remove(); } catch {} crChartRef.current = null; crSeriesRef.current = null; crMaRef.current = null; crpSeriesRef.current = null; fourPctSeriesRef.current = null; crErLineRef.current = null; }
+      mainErQLineRef.current = null;
       if (atrxChartRef.current) { try { atrxChartRef.current.remove(); } catch {} atrxChartRef.current = null; atrxSeriesRefs.current = {}; }
       if (volChartRef.current) { try { volChartRef.current.remove(); } catch {} volChartRef.current = null; volSeriesRef.current = null; volMaRef.current = null; }
       if (macdChartRef.current) { try { macdChartRef.current.remove(); } catch {} macdChartRef.current = null; macdLineRef.current = null; macdSignalRef.current = null; macdHistRef.current = null; }
@@ -524,6 +526,24 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
       try {
         chart.priceScale("er-overlay").applyOptions({
           scaleMargins: { top: 0.93, bottom: 0 },
+          visible: false,
+        });
+      } catch {}
+
+      // Quarter label text line — sits just below the EPS|Sales marker
+      // strip so each earnings date shows the quarter tag (e.g. Q4-26) in
+      // the same muted style as the MiniQBars chart titles.
+      mainErQLineRef.current = chart.addLineSeries({
+        priceScaleId: "er-quarter-overlay",
+        color: "transparent",
+        lineWidth: 0,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      try {
+        chart.priceScale("er-quarter-overlay").applyOptions({
+          scaleMargins: { top: 0.97, bottom: 0 },
           visible: false,
         });
       } catch {}
@@ -1272,7 +1292,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
               if (!ePct && !sPct) continue;
               const txt = ePct && sPct ? `${ePct} | ${sPct}` : ePct || sPct;
               const clr = q.eps_yoy > 0 ? "#2bb886" : q.eps_yoy < 0 ? "#f87171" : "#9090a0";
-              erRows.push({ time: matchDate, txt, clr });
+              erRows.push({ time: matchDate, txt, clr, qLabel: q.label || "" });
             }
             erRows.sort((a, b) => a.time.localeCompare(b.time));
           }
@@ -1286,6 +1306,13 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             mainErLineRef.current.setData(erRows.map(r => ({ time: r.time, value: 0 })));
             mainErLineRef.current.setMarkers(
               erRows.map(r => ({ time: r.time, position: "aboveBar", color: r.clr, shape: "square", size: 0, text: r.txt }))
+            );
+          }
+          if (mainErQLineRef.current) {
+            const qRows = erRows.filter(r => r.qLabel);
+            mainErQLineRef.current.setData(qRows.map(r => ({ time: r.time, value: 0 })));
+            mainErQLineRef.current.setMarkers(
+              qRows.map(r => ({ time: r.time, position: "aboveBar", color: "#787888", shape: "square", size: 0, text: r.qLabel }))
             );
           }
 
