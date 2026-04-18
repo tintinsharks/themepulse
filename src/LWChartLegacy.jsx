@@ -1727,7 +1727,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
                 position: "absolute",
                 bottom: 0,
                 transform: "translateX(-50%)",
-                fontSize: 6,
+                fontSize: 9,
                 color: "#787888",
                 fontFamily: "monospace",
                 textTransform: "uppercase",
