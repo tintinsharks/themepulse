@@ -3925,8 +3925,10 @@ function ChartPanelInline({
     v == null ? ARIA.textMuted : v > 25 ? ARIA.green : v > 0 ? ARIA.textDim : ARIA.red;
   const epsYoy = stockInfo.eps_yoy ?? null;
   const epsYoyPrev = stockInfo.eps_yoy_prev ?? null;
+  const epsSurprise = stockInfo.last_eps_surprise_pct ?? null;
   const salesYoy = stockInfo.sales_yoy ?? null;
   const salesYoyPrev = stockInfo.sales_yoy_prev ?? null;
+  const salesSurprise = stockInfo.last_revenue_surprise_pct ?? null;
   const epsThisY = stockInfo.eps_this_y ?? null;
   const eps5y = stockInfo.eps_past_5y ?? null;
   const sales5y = stockInfo.sales_past_5y ?? null;
@@ -4234,9 +4236,11 @@ function ChartPanelInline({
         )}
         <CSStat label="EPS" v={epsYoy} clr={csClr(epsYoy)} ARIA={ARIA} />
         <CSStat label="Prev" v={epsYoyPrev} clr={csClr(epsYoyPrev)} ARIA={ARIA} />
+        <CSStat label="Surp" v={epsSurprise} clr={csClr(epsSurprise)} ARIA={ARIA} />
         <span style={{ color: ARIA.border }}>|</span>
         <CSStat label="Sales" v={salesYoy} clr={csClr(salesYoy)} ARIA={ARIA} />
         <CSStat label="Prev" v={salesYoyPrev} clr={csClr(salesYoyPrev)} ARIA={ARIA} />
+        <CSStat label="Surp" v={salesSurprise} clr={csClr(salesSurprise)} ARIA={ARIA} />
         <span style={{ color: ARIA.border }}>|</span>
         <CSStat label="EPS Y" v={epsThisY} clr={csClr(epsThisY)} ARIA={ARIA} />
         <CSStat label="5Y" v={eps5y} clr={csClr(eps5y)} ARIA={ARIA} />
