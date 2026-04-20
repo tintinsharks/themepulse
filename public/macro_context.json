@@ -1,15 +1,15 @@
 {
   "date": "2026-04-20",
-  "generated": "2026-04-20 16:09",
-  "vix": 19.29,
+  "generated": "2026-04-20 16:26",
+  "vix": null,
   "vixChg": null,
   "tenYearYield": null,
   "yieldBps": null,
   "dxy": null,
   "dxyChg": null,
   "putCallRatio": null,
-  "regime": "MIXED",
-  "regimeReason": "Leaning bullish but mixed: moderate vol",
+  "regime": "CAUTION",
+  "regimeReason": "Caution warranted: ",
   "t2108": null,
   "ratio5d": null
 }
