@@ -1,10 +1,10 @@
 {
   "date": "2026-04-20",
-  "generated": "2026-04-21 03:46",
+  "generated": "2026-04-21 05:05",
   "total_stocks": 3456,
   "current": {
     "date": "2026-04-20",
-    "up_4pct": 102,
+    "up_4pct": 109,
     "down_4pct": 38,
     "up_25q": 468,
     "down_25q": 265,
@@ -12,7 +12,7 @@
     "down_25m": 11,
     "up_50m": 72,
     "down_50m": 0,
-    "up_13_34d": 639,
+    "up_13_34d": 640,
     "down_13_34d": 193,
     "t2108": 78.2,
     "total_stocks": 3456,
@@ -253,7 +253,7 @@
   "history": [
     {
       "date": "2026-04-20",
-      "up_4pct": 102,
+      "up_4pct": 109,
       "down_4pct": 38,
       "up_25q": 468,
       "down_25q": 265,
@@ -261,32 +261,32 @@
       "down_25m": 11,
       "up_50m": 72,
       "down_50m": 0,
-      "up_13_34d": 639,
+      "up_13_34d": 640,
       "down_13_34d": 193,
       "t2108": 78.2,
       "total_stocks": 3456,
-      "ratio_5d": 2.68,
-      "ratio_10d": 2.68
+      "ratio_5d": 2.87,
+      "ratio_10d": 2.87
     }
   ],
   "theme_breadth": [
     {
       "theme": "AI INFRASTRUCTURE",
-      "up_4pct": 15,
+      "up_4pct": 17,
       "down_4pct": 2,
-      "net": 13
+      "net": 15
     },
     {
       "theme": "INDUSTRIAL",
-      "up_4pct": 14,
+      "up_4pct": 16,
       "down_4pct": 5,
-      "net": 9
+      "net": 11
     },
     {
       "theme": "SOFTWARE",
-      "up_4pct": 10,
+      "up_4pct": 12,
       "down_4pct": 2,
-      "net": 8
+      "net": 10
     },
     {
       "theme": "SEMICONDUCTORS",
@@ -295,15 +295,15 @@
       "net": 7
     },
     {
+      "theme": "E-COMMERCE",
+      "up_4pct": 6,
+      "down_4pct": 0,
+      "net": 6
+    },
+    {
       "theme": "CONSUMER",
       "up_4pct": 8,
       "down_4pct": 3,
-      "net": 5
-    },
-    {
-      "theme": "E-COMMERCE",
-      "up_4pct": 5,
-      "down_4pct": 0,
       "net": 5
     },
     {
@@ -361,6 +361,12 @@
       "net": 2
     },
     {
+      "theme": "CLOUD",
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
+    },
+    {
       "theme": "CYBER",
       "up_4pct": 1,
       "down_4pct": 0,
@@ -385,6 +391,12 @@
       "net": 0
     },
     {
+      "theme": "OTHER",
+      "up_4pct": 4,
+      "down_4pct": 4,
+      "net": 0
+    },
+    {
       "theme": "SPACE",
       "up_4pct": 1,
       "down_4pct": 1,
@@ -394,12 +406,6 @@
       "theme": "FIBER OPTICS",
       "up_4pct": 0,
       "down_4pct": 1,
-      "net": -1
-    },
-    {
-      "theme": "OTHER",
-      "up_4pct": 3,
-      "down_4pct": 4,
       "net": -1
     }
   ],
