@@ -3837,16 +3837,29 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
     <div
       style={{
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        gap: 8,
-        padding: "4px 6px",
-        fontSize: 10,
+        gap: 2,
+        padding: "2px 0 0",
         fontFamily: "monospace",
-        color: ARIA.textDim,
+        lineHeight: 1,
       }}
       title={`20-day rolling avg dollar volume. ${series.length} trading days. Start ${entry.start}. Range ${fmtM(min)} → ${fmtM(max)}.`}
     >
-      <span style={{ color: ARIA.textMuted, fontSize: 8 }}>20D$V</span>
+      <div
+        style={{
+          display: "flex",
+          gap: 6,
+          alignItems: "baseline",
+          fontSize: 10,
+        }}
+      >
+        <span style={{ color: ARIA.text, fontWeight: 700 }}>{fmtM(last)}</span>
+        <span style={{ color, fontWeight: 700 }}>
+          {pctChg >= 0 ? "+" : ""}
+          {pctChg.toFixed(1)}%
+        </span>
+      </div>
       <svg width={width} height={height} style={{ display: "block" }}>
         {/* baseline */}
         <line
@@ -3868,13 +3881,6 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
         {/* last-point dot */}
         <circle cx={x(series.length - 1)} cy={y(last)} r={1.8} fill={color} />
       </svg>
-      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-        <span style={{ color: ARIA.textDim }}>{fmtM(last)}</span>
-        <span style={{ color, fontSize: 9 }}>
-          {pctChg >= 0 ? "+" : ""}
-          {pctChg.toFixed(1)}%
-        </span>
-      </div>
     </div>
   );
 }
