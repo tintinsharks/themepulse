@@ -432,6 +432,29 @@ function useDashboardData() {
   return data;
 }
 
+// Lazy-loads /dollar_vol_history.json (built by pipeline 09e_dvol_history.py).
+// Shape: { as_of, window_days, tickers: { TICKER: { start, adv_m: [...] } } }.
+// Fetched once per session; cached at the module level so re-mounts don't refetch.
+let _dvolHistoryCache = null;
+let _dvolHistoryPromise = null;
+function useDvolHistory() {
+  const [history, setHistory] = useState(_dvolHistoryCache);
+  useEffect(() => {
+    if (_dvolHistoryCache) return;
+    if (!_dvolHistoryPromise) {
+      _dvolHistoryPromise = fetch("/dollar_vol_history.json", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+        .then((d) => {
+          _dvolHistoryCache = d || { tickers: {} };
+          return _dvolHistoryCache;
+        });
+    }
+    _dvolHistoryPromise.then((d) => setHistory(d));
+  }, []);
+  return history;
+}
+
 // Polls the three picks endpoints (Phase 4). Falls back to static JSON files
 // in /public/ if the live endpoints return empty/error — useful for local dev
 // before the Vercel KV env vars are set up.
@@ -3753,6 +3776,87 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
   );
 }
 
+// Compact inline line chart showing the trailing 20d-rolling dollar-volume
+// average for a ticker. Data comes from /dollar_vol_history.json (pipeline
+// step 09e_dvol_history.py). Renders as pure SVG — no chart library.
+function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
+  if (!history || !ticker) return null;
+  const entry = history.tickers && history.tickers[ticker];
+  if (!entry || !Array.isArray(entry.adv_m) || entry.adv_m.length < 5) return null;
+
+  const series = entry.adv_m;
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = max - min || 1;
+
+  // Padding for y-axis label
+  const padLeft = 4;
+  const padRight = 4;
+  const padTop = 6;
+  const padBottom = 10;
+  const innerW = width - padLeft - padRight;
+  const innerH = height - padTop - padBottom;
+
+  const x = (i) => padLeft + (i / (series.length - 1)) * innerW;
+  const y = (v) => padTop + innerH - ((v - min) / range) * innerH;
+
+  const pathD = series
+    .map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+    .join(" ");
+
+  const first = series[0];
+  const last = series[series.length - 1];
+  const pctChg = first > 0 ? ((last - first) / first) * 100 : 0;
+  const color = pctChg >= 0 ? ARIA.green : ARIA.red;
+  const fmtM = (v) =>
+    v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "4px 6px",
+        fontSize: 10,
+        fontFamily: "monospace",
+        color: ARIA.textDim,
+      }}
+      title={`20-day rolling avg dollar volume. ${series.length} trading days. Start ${entry.start}. Range ${fmtM(min)} → ${fmtM(max)}.`}
+    >
+      <span style={{ color: ARIA.textMuted, fontSize: 8 }}>20D$V</span>
+      <svg width={width} height={height} style={{ display: "block" }}>
+        {/* baseline */}
+        <line
+          x1={padLeft}
+          x2={width - padRight}
+          y1={padTop + innerH}
+          y2={padTop + innerH}
+          stroke={ARIA.border}
+          strokeWidth={0.5}
+        />
+        {/* area fill */}
+        <path
+          d={`${pathD} L${x(series.length - 1).toFixed(1)},${(padTop + innerH).toFixed(1)} L${padLeft},${(padTop + innerH).toFixed(1)} Z`}
+          fill={color}
+          fillOpacity={0.12}
+        />
+        {/* line */}
+        <path d={pathD} fill="none" stroke={color} strokeWidth={1.25} />
+        {/* last-point dot */}
+        <circle cx={x(series.length - 1)} cy={y(last)} r={1.8} fill={color} />
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+        <span style={{ color: ARIA.textDim }}>{fmtM(last)}</span>
+        <span style={{ color, fontSize: 9 }}>
+          {pctChg >= 0 ? "+" : ""}
+          {pctChg.toFixed(1)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ChartPanelInline({
   ticker,
   onTickerChange,
@@ -3919,6 +4023,9 @@ function ChartPanelInline({
   const grade = stockInfo.grade || "";
   const gradeColor =
     grade && grade[0] === "A" ? ARIA.green : grade && grade[0] === "B" ? ARIA.blue : ARIA.textMuted;
+
+  // 20-day dollar-volume history (sparkline source)
+  const dvolHistory = useDvolHistory();
 
   // CANSLIM stats from stockMap
   const csClr = (v) =>
@@ -4329,6 +4436,10 @@ function ChartPanelInline({
           </>
         )}
       </div>
+
+      {/* 20-day rolling dollar volume sparkline — accumulation / drying-up
+          signal read from /dollar_vol_history.json */}
+      <DvolSparkline ticker={ticker} history={dvolHistory} ARIA={ARIA} />
 
       {/* EPS + Revenue bars. Collapsible (Qtrs toggle in title row) with a
           Timeframe selector so the same two-bar layout can render quarterly
