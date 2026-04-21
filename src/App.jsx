@@ -3384,6 +3384,7 @@ const fmtRank = (v) => v.toFixed(0);
 // ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
 // pair fetch for the 12mo RS proxy.
 function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, ARIA }) {
+  const dvolHistory = useDvolHistory();
   const [rsRank, setRsRank] = React.useState(null);
   React.useEffect(() => {
     if (!ticker) {
@@ -3603,6 +3604,27 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
             </span>
           </React.Fragment>
         )}
+        {/* 20-day rolling dollar-volume sparkline — accumulation / drying-up
+            signal sitting as a row within the CANSLIM scorecard grid. Spans
+            all four columns so the label + chart + value read as one unit. */}
+        <span
+          style={{
+            gridColumn: "1 / -1",
+            borderTop: `1px solid ${ARIA.border}`,
+            paddingTop: 3,
+            marginTop: 2,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <DvolSparkline
+            ticker={ticker}
+            history={dvolHistory}
+            ARIA={ARIA}
+            width={220}
+            height={40}
+          />
+        </span>
         {naCriteria.map((l) => (
           <React.Fragment key={l}>
             <span style={{ color: ARIA.textMuted }}>·</span>
@@ -4024,9 +4046,6 @@ function ChartPanelInline({
   const gradeColor =
     grade && grade[0] === "A" ? ARIA.green : grade && grade[0] === "B" ? ARIA.blue : ARIA.textMuted;
 
-  // 20-day dollar-volume history (sparkline source)
-  const dvolHistory = useDvolHistory();
-
   // CANSLIM stats from stockMap
   const csClr = (v) =>
     v == null ? ARIA.textMuted : v > 25 ? ARIA.green : v > 0 ? ARIA.textDim : ARIA.red;
@@ -4324,6 +4343,7 @@ function ChartPanelInline({
           gap: 10,
           fontSize: 9,
           fontFamily: "monospace",
+          borderBottom: `1px solid ${ARIA.border}`,
         }}
       >
         {mo && (
@@ -4436,21 +4456,6 @@ function ChartPanelInline({
         )}
       </div>
 
-      {/* 20-day rolling dollar volume sparkline — accumulation / drying-up
-          signal read from /dollar_vol_history.json. Shares the same padding
-          as the CANSLIM stats row so they visually form one "table" block. */}
-      <div
-        style={{
-          padding: "0 14px 4px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "monospace",
-          borderBottom: `1px solid ${ARIA.border}`,
-        }}
-      >
-        <DvolSparkline ticker={ticker} history={dvolHistory} ARIA={ARIA} />
-      </div>
 
       {/* EPS + Revenue bars. Collapsible (Qtrs toggle in title row) with a
           Timeframe selector so the same two-bar layout can render quarterly
