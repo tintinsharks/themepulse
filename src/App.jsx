@@ -3840,16 +3840,14 @@ function DvolSparkline({ ticker, history, stockInfo, ARIA, width = 320, height =
     v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
 
   // Accumulation classification — translate the 90d slope into a one-word
-  // verdict a momentum trader can act on. Thresholds calibrated from the
-  // actual cross-sectional distribution so ACCUM only fires on the top ~10%
-  // of the universe (20d ADV has roughly doubled) and DRYING on the bottom
-  // ~10%. Previous +30% / -30% bands flagged a third of the universe as
-  // ACCUM — useless signal.
+  // verdict a momentum trader can act on. Thresholds calibrated against the
+  // empirical cross-sectional distribution so ACCUM only fires on the top
+  // ~5% (20d ADV roughly tripled) and DRYING on the bottom ~5%.
   const { tag, tagColor } = (() => {
-    if (pctChg >= 100) return { tag: "ACCUM", tagColor: ARIA.green };
-    if (pctChg >= 30) return { tag: "BUILDING", tagColor: ARIA.blue };
-    if (pctChg >= -20) return { tag: "STEADY", tagColor: ARIA.textMuted };
-    if (pctChg >= -40) return { tag: "SOFT", tagColor: ARIA.textDim };
+    if (pctChg >= 200) return { tag: "ACCUM", tagColor: ARIA.green };
+    if (pctChg >= 50) return { tag: "BUILDING", tagColor: ARIA.blue };
+    if (pctChg >= -25) return { tag: "STEADY", tagColor: ARIA.textMuted };
+    if (pctChg >= -50) return { tag: "SOFT", tagColor: ARIA.textDim };
     return { tag: "DRYING", tagColor: ARIA.red };
   })();
 
@@ -3877,7 +3875,7 @@ function DvolSparkline({ ticker, history, stockInfo, ARIA, width = 320, height =
         fontFamily: "monospace",
         lineHeight: 1,
       }}
-      title={`20-day rolling avg dollar volume over the trailing ${series.length} days (from ${entry.start}). Range ${fmtM(min)} → ${fmtM(max)}. 90d slope ${pctChg >= 0 ? "+" : ""}${pctChg.toFixed(1)}% = ${tag}. Calibrated to universe: ACCUM ≥+100% (top 10%), BUILDING +30 to +100%, STEADY -20 to +30% (middle 45%), SOFT -40 to -20%, DRYING ≤-40% (bottom 10%).${relVol != null ? ` Today's rel-volume ${relVol.toFixed(2)}× (breakout sponsorship: ≥2× institutional, <1× weak).` : ""}`}
+      title={`20-day rolling avg dollar volume over the trailing ${series.length} days (from ${entry.start}). Range ${fmtM(min)} → ${fmtM(max)}. 90d slope ${pctChg >= 0 ? "+" : ""}${pctChg.toFixed(1)}% = ${tag}. Calibrated to universe: ACCUM ≥+200% (top 5%, ADV tripled), BUILDING +50 to +200%, STEADY -25 to +50% (normal), SOFT -50 to -25%, DRYING ≤-50% (bottom 5%).${relVol != null ? ` Today's rel-volume ${relVol.toFixed(2)}× (breakout sponsorship: ≥2× institutional, <1× weak).` : ""}`}
     >
       <div
         style={{
