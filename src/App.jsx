@@ -3620,6 +3620,7 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
           <DvolSparkline
             ticker={ticker}
             history={dvolHistory}
+            stockInfo={stockInfo}
             ARIA={ARIA}
             width={220}
             height={40}
@@ -3801,7 +3802,12 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
 // Compact inline line chart showing the trailing 20d-rolling dollar-volume
 // average for a ticker. Data comes from /dollar_vol_history.json (pipeline
 // step 09e_dvol_history.py). Renders as pure SVG — no chart library.
-function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
+//
+// `stockInfo` is optional — when present, the top row also surfaces a
+// classification tag (ACCUM / BUILDING / STEADY / SOFT / DRYING) derived
+// from the 90d ADV slope, and the current session's relative volume as
+// a breakout-sponsorship gauge (rel_volume from the dashboard).
+function DvolSparkline({ ticker, history, stockInfo, ARIA, width = 320, height = 52 }) {
   if (!history || !ticker) return null;
   const entry = history.tickers && history.tickers[ticker];
   if (!entry || !Array.isArray(entry.adv_m) || entry.adv_m.length < 5) return null;
@@ -3833,6 +3839,29 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
   const fmtM = (v) =>
     v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
 
+  // Accumulation classification — translate the 90d slope into a one-word
+  // verdict a momentum trader can act on.
+  const { tag, tagColor } = (() => {
+    if (pctChg >= 30) return { tag: "ACCUM", tagColor: ARIA.green };
+    if (pctChg >= 10) return { tag: "BUILDING", tagColor: ARIA.blue };
+    if (pctChg >= -10) return { tag: "STEADY", tagColor: ARIA.textMuted };
+    if (pctChg >= -30) return { tag: "SOFT", tagColor: ARIA.textDim };
+    return { tag: "DRYING", tagColor: ARIA.red };
+  })();
+
+  // Current-session relative volume — breakout sponsorship gauge. Lives on
+  // stockInfo.rel_volume (session vol / 20d avg vol). >2× = institutional;
+  // <1× = no sponsorship. Only renders when stockInfo is provided.
+  const relVol = stockInfo?.rel_volume ?? null;
+  const relVolColor =
+    relVol == null
+      ? ARIA.textMuted
+      : relVol >= 2
+      ? ARIA.green
+      : relVol >= 1
+      ? ARIA.blue
+      : ARIA.textDim;
+
   return (
     <div
       style={{
@@ -3844,7 +3873,7 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
         fontFamily: "monospace",
         lineHeight: 1,
       }}
-      title={`20-day rolling avg dollar volume. ${series.length} trading days. Start ${entry.start}. Range ${fmtM(min)} → ${fmtM(max)}.`}
+      title={`20-day rolling avg dollar volume over the trailing ${series.length} days (from ${entry.start}). Range ${fmtM(min)} → ${fmtM(max)}. 90d slope +${pctChg.toFixed(1)}% = ${tag}. ACCUM ≥+30%, BUILDING +10–30%, STEADY ±10%, SOFT -10 to -30%, DRYING ≤-30%.${relVol != null ? ` Today's rel-volume ${relVol.toFixed(2)}× (breakout sponsorship: ≥2× institutional, <1× weak).` : ""}`}
     >
       <div
         style={{
@@ -3859,6 +3888,37 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
           {pctChg >= 0 ? "+" : ""}
           {pctChg.toFixed(1)}%
         </span>
+        <span
+          style={{
+            padding: "0 4px",
+            borderRadius: 2,
+            fontSize: 8,
+            fontWeight: 700,
+            background: tagColor + "22",
+            color: tagColor,
+            border: `1px solid ${tagColor}55`,
+            letterSpacing: 0.5,
+          }}
+        >
+          {tag}
+        </span>
+        {relVol != null && (
+          <span
+            style={{
+              fontSize: 9,
+              color: ARIA.textMuted,
+              display: "inline-flex",
+              alignItems: "baseline",
+              gap: 2,
+            }}
+          >
+            <span>•</span>
+            <span>Today</span>
+            <span style={{ color: relVolColor, fontWeight: 700 }}>
+              {relVol.toFixed(2)}×
+            </span>
+          </span>
+        )}
       </div>
       <svg width={width} height={height} style={{ display: "block" }}>
         {/* baseline */}
