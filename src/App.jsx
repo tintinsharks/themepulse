@@ -4324,7 +4324,6 @@ function ChartPanelInline({
           gap: 10,
           fontSize: 9,
           fontFamily: "monospace",
-          borderBottom: `1px solid ${ARIA.border}`,
         }}
       >
         {mo && (
@@ -4438,8 +4437,20 @@ function ChartPanelInline({
       </div>
 
       {/* 20-day rolling dollar volume sparkline — accumulation / drying-up
-          signal read from /dollar_vol_history.json */}
-      <DvolSparkline ticker={ticker} history={dvolHistory} ARIA={ARIA} />
+          signal read from /dollar_vol_history.json. Shares the same padding
+          as the CANSLIM stats row so they visually form one "table" block. */}
+      <div
+        style={{
+          padding: "0 14px 4px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "monospace",
+          borderBottom: `1px solid ${ARIA.border}`,
+        }}
+      >
+        <DvolSparkline ticker={ticker} history={dvolHistory} ARIA={ARIA} />
+      </div>
 
       {/* EPS + Revenue bars. Collapsible (Qtrs toggle in title row) with a
           Timeframe selector so the same two-bar layout can render quarterly
