@@ -275,6 +275,37 @@ const PRESETS = {
       return chg >= 4 && rv > 1.1 && mc >= 300e6 && dv >= 50e6;
     },
   },
+  stealth: {
+    label: "Stealth",
+    desc:
+      "Stealth accumulation: 20d dollar-volume is climbing much faster than price over the last 90 days. stealth_score ≥ 50 (ADV growth − price growth). Institutions stepping in before the price move — pre-breakout watchlist.",
+    color: "#a78bfa",
+    test: (s) => {
+      const ss = s.stealth_score;
+      if (ss == null) return false;
+      const dv = s.avg_dollar_vol_raw || 0;
+      const mc = s.market_cap_raw || 0;
+      // Enforce tradeable liquidity + avoid tiny names where ADV ratios
+      // swing wildly on single catalyst days.
+      return ss >= 50 && dv >= 20e6 && mc >= 300e6;
+    },
+  },
+  accum_stack: {
+    label: "ACCUM Stack",
+    desc:
+      "ACCUM (20d ADV up ≥ 100% over 90d) crossed with at least one of: insider cluster buying, 3+ consecutive EPS beats, or RS rank ≥ 95. Highest-conviction accumulation setups.",
+    color: "#22c55e",
+    test: (s) => {
+      const advUp = (s.adv_pct_90d || 0) >= 100;
+      if (!advUp) return false;
+      const insiderCluster = !!s.insider_cluster_buy;
+      const beatStreak = (s.positive_surprise_streak || 0) >= 3;
+      const topRS = (s.rs_rank || 0) >= 95;
+      const dv = s.avg_dollar_vol_raw || 0;
+      const mc = s.market_cap_raw || 0;
+      return (insiderCluster || beatStreak || topRS) && dv >= 20e6 && mc >= 300e6;
+    },
+  },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
