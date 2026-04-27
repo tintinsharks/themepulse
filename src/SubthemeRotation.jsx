@@ -460,9 +460,9 @@ const computeLiveAggregates = (tickers) => {
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function SubthemeRotation({ data, history, onTickerClick }) {
   const [viewMode, setViewMode] = useState("flat"); // "flat" | "grouped"
-  const [timeframe, setTimeframe] = useState("daily"); // "daily" | "live"
+  const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
-  const [sortBy, setSortBy] = useState("rs");
+  const [sortBy, setSortBy] = useState("setup");
   const [sortDir, setSortDir] = useState("desc");
   const onSort = (key) => {
     setSortBy((prev) => {
@@ -472,7 +472,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
     });
   };
   const [showLowN, setShowLowN] = useState(false);
-  const [topN, setTopN] = useState(30);             // limit flat view rows
+  const [topN, setTopN] = useState(168);             // limit flat view rows
 
   // ─── Pull all subthemes from dashboard_data.json ─────────────────────────
   const allSubthemes = useMemo(() => {
