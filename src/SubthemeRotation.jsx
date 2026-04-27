@@ -826,7 +826,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
   const arrow = (key) => sortBy === key ? (sortDir === "desc" ? " ▼" : " ▲") : "";
 
   return (
-    <div style={{ background: "#0d0d1a", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
+    <div style={{ background: "#0d0d1a", border: "1px solid #222230", borderRadius: 6, overflowX: "auto", minWidth: 0 }}>
       {/* Header row */}
       <div style={{
         display: "grid",
