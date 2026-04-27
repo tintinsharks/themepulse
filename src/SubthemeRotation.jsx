@@ -833,14 +833,15 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         gridTemplateColumns: gridCols,
         gap: 8, padding: "6px 10px", background: "#1a1a2e",
         fontSize: 10, color: "#9090a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5,
+        alignItems: "center",
       }}>
         <span>Subtheme</span>
         <span style={{ textAlign: "center", cursor: onSort ? "pointer" : "default", color: sortBy === "rs" || sortBy === "live_strength" ? "#00c853" : "#9090a0" }}
               onClick={() => onSort?.(isLive ? "live_strength" : "rs")}>
-          {isLive ? "Live Strength (0-100)" : "RS Rank (0-100)"}{arrow(isLive ? "live_strength" : "rs")}
+          {isLive ? "Strength" : "RS"}{arrow(isLive ? "live_strength" : "rs")}
         </span>
         <span style={hdrStyle(isLive ? "live_pct" : "d1")} onClick={() => onSort?.(isLive ? "live_pct" : "d1")}>
-          {isLive ? "Today %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
+          {isLive ? "Day %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
         </span>
         <span style={hdrStyle(isLive ? "live_breadth" : "d4")} onClick={() => onSort?.(isLive ? "live_breadth" : "d4")}>
           {isLive ? "Breadth" : "4W Δ"}{arrow(isLive ? "live_breadth" : "d4")}
