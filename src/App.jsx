@@ -3456,8 +3456,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
             tickers: [],
             rs_sum: 0,
             chg_sum: 0,
-            rvol_sum: 0,
-            rvol_count: 0,
+            rvol_max: null,
             m1_sum: 0,
             m3_sum: 0,
             above50_count: 0,
@@ -3472,7 +3471,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
         d.tickers.push({ ticker: s.ticker, rs: s.rs_rank || 0 });
         d.rs_sum += s.rs_rank || 0;
         d.chg_sum += q?.change ?? s.change_pct ?? 0;
-        if (rvol !== null) { d.rvol_sum += rvol; d.rvol_count++; }
+        if (rvol !== null && (d.rvol_max === null || rvol > d.rvol_max)) d.rvol_max = rvol;
         d.m1_sum += s.return_1m || 0;
         d.m3_sum += s.return_3m || 0;
         if (s.above_50ma) d.above50_count++;
@@ -3489,7 +3488,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
         count: n,
         avg_rs: n ? Math.round(d.rs_sum / n) : 0,
         avg_chg: n ? +(d.chg_sum / n).toFixed(2) : 0,
-        avg_rvol: d.rvol_count > 0 ? +(d.rvol_sum / d.rvol_count).toFixed(2) : null,
+        avg_rvol: d.rvol_max !== null ? +d.rvol_max.toFixed(2) : null,
         avg_1m: n ? +(d.m1_sum / n).toFixed(2) : 0,
         avg_3m: n ? +(d.m3_sum / n).toFixed(2) : 0,
         pct_above50: n ? Math.round((d.above50_count / n) * 100) : 0,
@@ -3511,7 +3510,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
   const COLS = [
     { key: "avg_rs",      label: "RS",    w: 26, align: "right" },
     { key: "avg_chg",     label: "DAY",   w: 40, align: "right", live: true },
-    { key: "avg_rvol",    label: "RVol",  w: 38, align: "right", live: true },
+    { key: "avg_rvol",    label: "MaxRV", w: 38, align: "right", live: true },
     { key: "avg_1m",      label: "1M",   w: 40, align: "right" },
     { key: "avg_3m",      label: "3M",   w: 40, align: "right" },
     { key: "count",       label: "#",    w: 16, align: "right" },
