@@ -3358,8 +3358,17 @@ function CSStat({ label, v, clr, ARIA }) {
 // ──────────────────────────────────────────────────────────────────────────
 function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
   const ARIA = useAriaTheme();
-  const [metric, setMetric] = useState("rs");
+  const [sortKey, setSortKey] = useState("avg_rs");
+  const [sortDir, setSortDir] = useState("desc");
   const [search, setSearch] = useState("");
+
+  const handleSort = useCallback((key) => {
+    setSortKey((prev) => {
+      if (prev === key) { setSortDir((d) => d === "desc" ? "asc" : "desc"); return key; }
+      setSortDir("desc");
+      return key;
+    });
+  }, []);
 
   // Theme abbreviations for compact badge display
   const ABBREV = {
@@ -3488,12 +3497,15 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
     return m;
   }, [themeHealth]);
 
-  const METRICS = [
-    { key: "rs", label: "RS" },
-    { key: "today", label: "TODAY" },
-    { key: "1w", label: "1W" },
-    { key: "1m", label: "1M" },
-    { key: "3m", label: "3M" },
+  // Column definitions — key matches subthemeData field names
+  const COLS = [
+    { key: "avg_rs",  label: "RS",    w: 28,  align: "right" },
+    { key: "avg_chg", label: "DAY",   w: 36,  align: "right" },
+    { key: "avg_1w",  label: "1W",    w: 34,  align: "right" },
+    { key: "avg_1m",  label: "1M",    w: 34,  align: "right" },
+    { key: "avg_3m",  label: "3M",    w: 34,  align: "right" },
+    { key: "pct_above50", label: ">50", w: 28, align: "right" },
+    { key: "count",   label: "#",     w: 20,  align: "right" },
   ];
 
   const sorted = useMemo(() => {
@@ -3504,244 +3516,177 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
             d.theme.toLowerCase().includes(search.toLowerCase())
         )
       : subthemeData;
-
     return [...filtered].sort((a, b) => {
-      if (metric === "rs") return b.avg_rs - a.avg_rs;
-      if (metric === "today") return b.avg_chg - a.avg_chg;
-      if (metric === "1w") return b.avg_1w - a.avg_1w;
-      if (metric === "1m") return b.avg_1m - a.avg_1m;
-      if (metric === "3m") return b.avg_3m - a.avg_3m;
-      return 0;
+      if (sortKey === "subtheme_name") {
+        const cmp = a.subtheme.localeCompare(b.subtheme);
+        return sortDir === "desc" ? -cmp : cmp;
+      }
+      const va = a[sortKey] ?? 0;
+      const vb = b[sortKey] ?? 0;
+      return sortDir === "desc" ? vb - va : va - vb;
     });
-  }, [subthemeData, metric, search]);
+  }, [subthemeData, sortKey, sortDir, search]);
 
-  const fmt = (v) => {
-    if (v === undefined || v === null) return "—";
-    const s = (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
-    return s;
+  const fmt = (v) => (v === undefined || v === null) ? "—" : (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+  const fmtColor = (v) => v > 0 ? "#4ade80" : v < 0 ? "#f87171" : ARIA.textMuted;
+
+  const cellVal = (d, key) => {
+    if (key === "avg_rs") return d.avg_rs;
+    if (key === "count") return d.count;
+    if (key === "pct_above50") return d.pct_above50 + "%";
+    return fmt(d[key]);
   };
-  const fmtColor = (v) =>
-    v > 0 ? "#4ade80" : v < 0 ? "#f87171" : ARIA.textMuted;
+  const cellColor = (d, key) => {
+    if (key === "avg_rs") return d.avg_rs >= 90 ? "#4ade80" : d.avg_rs >= 70 ? "#a3e635" : d.avg_rs >= 50 ? ARIA.text : ARIA.textMuted;
+    if (key === "count") return ARIA.textMuted;
+    if (key === "pct_above50") return d.pct_above50 >= 70 ? "#4ade80" : d.pct_above50 >= 40 ? ARIA.textMuted : "#f87171";
+    return fmtColor(d[key]);
+  };
 
-  const metricVal = (d) => {
-    if (metric === "rs") return d.avg_rs;
-    if (metric === "today") return d.avg_chg;
-    if (metric === "1w") return d.avg_1w;
-    if (metric === "1m") return d.avg_1m;
-    if (metric === "3m") return d.avg_3m;
-    return 0;
+  const SortHdr = ({ col }) => {
+    const active = sortKey === col.key;
+    const arrow = active ? (sortDir === "desc" ? " ▼" : " ▲") : "";
+    return (
+      <span
+        onClick={() => handleSort(col.key)}
+        style={{
+          width: col.w,
+          flexShrink: 0,
+          fontSize: 8,
+          fontFamily: "monospace",
+          fontWeight: 700,
+          color: active ? ARIA.green : ARIA.textMuted,
+          textAlign: col.align,
+          cursor: "pointer",
+          userSelect: "none",
+          paddingRight: col.align === "right" ? 0 : undefined,
+        }}
+      >
+        {col.label}{arrow}
+      </span>
+    );
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflow: "hidden",
-      }}
-    >
-      {/* Controls row */}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      {/* Search bar */}
       <div
         style={{
-          padding: "6px 8px 4px",
+          padding: "5px 8px",
           flexShrink: 0,
           borderBottom: `1px solid ${ARIA.border}`,
           display: "flex",
           gap: 6,
           alignItems: "center",
-          flexWrap: "wrap",
         }}
       >
-        {/* Metric tabs */}
-        <div style={{ display: "flex", gap: 0 }}>
-          {METRICS.map((m, i, arr) => {
-            const on = metric === m.key;
-            return (
-              <button
-                key={m.key}
-                onClick={() => setMetric(m.key)}
-                style={{
-                  fontSize: 9,
-                  padding: "2px 8px",
-                  borderRadius:
-                    i === 0
-                      ? "3px 0 0 3px"
-                      : i === arr.length - 1
-                      ? "0 3px 3px 0"
-                      : "0",
-                  cursor: "pointer",
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  border: `1px solid ${on ? ARIA.green : ARIA.border}`,
-                  borderLeft: i === 0 ? undefined : "none",
-                  color: on ? ARIA.green : ARIA.textMuted,
-                  background: on ? ARIA.glowGreen : "transparent",
-                }}
-              >
-                {m.label}
-              </button>
-            );
-          })}
-        </div>
-        {/* Search */}
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="filter..."
+          placeholder="filter theme / subtheme..."
           style={{
-            fontSize: 9,
-            padding: "2px 6px",
-            background: ARIA.bgCard,
-            border: `1px solid ${ARIA.border}`,
-            borderRadius: 3,
-            color: ARIA.text,
-            fontFamily: "monospace",
-            width: 80,
-            outline: "none",
+            fontSize: 9, padding: "2px 6px", background: ARIA.bgCard,
+            border: `1px solid ${ARIA.border}`, borderRadius: 3,
+            color: ARIA.text, fontFamily: "monospace", flex: 1, outline: "none",
           }}
         />
-        <span style={{ fontSize: 9, color: ARIA.textMuted, marginLeft: "auto" }}>
-          {sorted.length} subthemes
+        <span style={{ fontSize: 9, color: ARIA.textMuted, flexShrink: 0 }}>
+          {sorted.length}
         </span>
       </div>
 
-      {/* List */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "2px 0" }}>
+      {/* Sticky column header */}
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "3px 8px",
+          borderBottom: `1px solid ${ARIA.border}`,
+          background: ARIA.bgCard,
+          flexShrink: 0,
+        }}
+      >
+        {/* Theme badge placeholder */}
+        <span style={{ width: 34, flexShrink: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
+          THEME
+        </span>
+        {/* Subtheme name — flex */}
+        <span
+          onClick={() => handleSort("subtheme_name")}
+          style={{ flex: 1, minWidth: 0, fontSize: 8, color: sortKey === "subtheme_name" ? ARIA.green : ARIA.textMuted, fontFamily: "monospace", cursor: "pointer", userSelect: "none" }}
+        >
+          SUBTHEME{sortKey === "subtheme_name" ? (sortDir === "desc" ? " ▼" : " ▲") : ""}
+        </span>
+        {COLS.map((col) => <SortHdr key={col.key} col={col} />)}
+        {/* Leaders header */}
+        <span style={{ width: 80, flexShrink: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", textAlign: "right" }}>
+          LEADERS
+        </span>
+      </div>
+
+      {/* Rows */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
         {sorted.map((d) => {
           const thColor = TCOLORS[d.theme] || ARIA.textMuted;
           const abbrev = ABBREV[d.theme] || d.theme.slice(0, 4).toUpperCase();
-          const val = metricVal(d);
-          const isRs = metric === "rs";
-          const thHealth = themeHealthMap[d.theme];
-
           return (
             <div
               key={`${d.theme}|||${d.subtheme}`}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "3px 8px",
-                borderBottom: `1px solid ${ARIA.border}20`,
-                minHeight: 24,
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "2px 8px",
+                borderBottom: `1px solid ${ARIA.border}18`,
+                minHeight: 22,
               }}
             >
               {/* Theme badge */}
               <span
                 style={{
-                  fontSize: 7,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  color: thColor,
-                  background: thColor + "22",
-                  border: `1px solid ${thColor}44`,
-                  borderRadius: 2,
-                  padding: "1px 4px",
-                  flexShrink: 0,
-                  minWidth: 32,
-                  textAlign: "center",
+                  width: 34, flexShrink: 0,
+                  fontSize: 7, fontFamily: "monospace", fontWeight: 700,
+                  color: thColor, background: thColor + "22",
+                  border: `1px solid ${thColor}44`, borderRadius: 2,
+                  padding: "1px 2px", textAlign: "center",
                 }}
               >
                 {abbrev}
               </span>
-
               {/* Subtheme name */}
               <span
                 style={{
-                  fontSize: 9,
-                  color: ARIA.text,
-                  fontFamily: "monospace",
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  flex: 1, minWidth: 0, fontSize: 9, color: ARIA.text,
+                  fontFamily: "monospace", overflow: "hidden",
+                  textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}
               >
                 {d.subtheme}
               </span>
-
-              {/* Count */}
-              <span
-                style={{
-                  fontSize: 8,
-                  color: ARIA.textMuted,
-                  fontFamily: "monospace",
-                  flexShrink: 0,
-                }}
-              >
-                {d.count}
-              </span>
-
-              {/* Primary metric value */}
-              <span
-                style={{
-                  fontSize: 9,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  color: isRs
-                    ? d.avg_rs >= 90
-                      ? "#4ade80"
-                      : d.avg_rs >= 70
-                      ? "#a3e635"
-                      : d.avg_rs >= 50
-                      ? ARIA.text
-                      : ARIA.textMuted
-                    : fmtColor(val),
-                  flexShrink: 0,
-                  minWidth: 34,
-                  textAlign: "right",
-                }}
-              >
-                {isRs ? d.avg_rs : fmt(val)}
-              </span>
-
-              {/* Above 50MA pill */}
-              {!isRs && (
+              {/* Numeric columns */}
+              {COLS.map((col) => (
                 <span
+                  key={col.key}
                   style={{
-                    fontSize: 7,
-                    color:
-                      d.pct_above50 >= 70
-                        ? "#4ade80"
-                        : d.pct_above50 >= 40
-                        ? ARIA.textMuted
-                        : "#f87171",
-                    fontFamily: "monospace",
-                    flexShrink: 0,
-                    minWidth: 22,
-                    textAlign: "right",
+                    width: col.w, flexShrink: 0,
+                    fontSize: 9, fontFamily: "monospace",
+                    fontWeight: sortKey === col.key ? 700 : 400,
+                    color: cellColor(d, col.key),
+                    textAlign: col.align,
+                    background: sortKey === col.key ? ARIA.green + "10" : "transparent",
                   }}
                 >
-                  {d.pct_above50}%
+                  {cellVal(d, col.key)}
                 </span>
-              )}
-
+              ))}
               {/* Top tickers */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 3,
-                  flexShrink: 0,
-                  minWidth: 90,
-                  justifyContent: "flex-end",
-                }}
-              >
+              <div style={{ width: 80, flexShrink: 0, display: "flex", gap: 2, justifyContent: "flex-end" }}>
                 {d.topTickers.map((t) => (
                   <button
                     key={t}
                     onClick={() => onTickerClick && onTickerClick(t)}
                     style={{
-                      fontSize: 7,
-                      padding: "1px 4px",
-                      background: "transparent",
-                      border: `1px solid ${ARIA.border}`,
-                      borderRadius: 2,
-                      color: ARIA.cyan || "#22d3ee",
-                      fontFamily: "monospace",
-                      cursor: "pointer",
-                      fontWeight: 700,
+                      fontSize: 7, padding: "1px 3px", background: "transparent",
+                      border: `1px solid ${ARIA.border}`, borderRadius: 2,
+                      color: ARIA.cyan || "#22d3ee", fontFamily: "monospace",
+                      cursor: "pointer", fontWeight: 700,
                     }}
                   >
                     {t}
@@ -3752,15 +3697,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
           );
         })}
         {sorted.length === 0 && (
-          <div
-            style={{
-              padding: 20,
-              textAlign: "center",
-              color: ARIA.textMuted,
-              fontSize: 11,
-              fontFamily: "monospace",
-            }}
-          >
+          <div style={{ padding: 20, textAlign: "center", color: ARIA.textMuted, fontSize: 11, fontFamily: "monospace" }}>
             no subthemes
           </div>
         )}
