@@ -3363,6 +3363,14 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
   const [search, setSearch] = useState("");
   const [expandedKey, setExpandedKey] = useState(null);
 
+  // Live quotes for the currently expanded subtheme only
+  const expandedTickers = useMemo(() => {
+    if (!expandedKey) return [];
+    const d = subthemeData.find((d) => `${d.theme}|||${d.subtheme}` === expandedKey);
+    return d ? d.stocks.map((s) => s.ticker) : [];
+  }, [expandedKey, subthemeData]);
+  const { quotes: liveQuotes } = useLiveQuotes(expandedTickers, 30000);
+
   const handleSort = useCallback((key) => {
     setSortKey((prev) => {
       if (prev === key) { setSortDir((d) => d === "desc" ? "asc" : "desc"); return key; }
@@ -3497,8 +3505,8 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
 
   // Column definitions — keep narrow so subtheme name has room
   const COLS = [
-    { key: "avg_rs",      label: "RS",   w: 26, align: "right" },
-    { key: "avg_chg",     label: "DAY",  w: 40, align: "right" },
+    { key: "avg_rs",      label: "RS",    w: 26, align: "right" },
+    { key: "avg_chg",     label: "DAY",   w: 40, align: "right", live: true },
     { key: "avg_1w",      label: "1W",   w: 40, align: "right" },
     { key: "avg_1m",      label: "1M",   w: 40, align: "right" },
     { key: "avg_3m",      label: "3M",   w: 40, align: "right" },
@@ -3559,7 +3567,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
           paddingRight: col.align === "right" ? 0 : undefined,
         }}
       >
-        {col.label}{arrow}
+        {col.label}{col.live && liveQuotes.size > 0 ? "·" : ""}{arrow}
       </span>
     );
   };
@@ -3669,9 +3677,10 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
                   {d.stocks.map(({ ticker }) => {
                     const s = stockMap[ticker];
                     if (!s) return null;
+                    const q = liveQuotes.get(ticker);
                     const stockVals = {
                       avg_rs:  s.rs_rank ?? 0,
-                      avg_chg: s.change_pct ?? 0,
+                      avg_chg: q?.change ?? s.change_pct ?? 0,
                       avg_1w:  s.return_1w ?? 0,
                       avg_1m:  s.return_1m ?? 0,
                       avg_3m:  s.return_3m ?? 0,
