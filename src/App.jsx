@@ -3606,9 +3606,6 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
           overflow: "hidden",
         }}
       >
-        <span style={{ width: 34, flexShrink: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
-          THEME
-        </span>
         <span
           onClick={() => handleSort("subtheme_name")}
           style={{ flex: 1, minWidth: 0, fontSize: 8, color: sortKey === "subtheme_name" ? ARIA.green : ARIA.textMuted, fontFamily: "monospace", cursor: "pointer", userSelect: "none", overflow: "hidden", whiteSpace: "nowrap" }}
@@ -3634,18 +3631,6 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
                 overflow: "hidden",
               }}
             >
-              {/* Theme badge */}
-              <span
-                style={{
-                  width: 34, flexShrink: 0,
-                  fontSize: 7, fontFamily: "monospace", fontWeight: 700,
-                  color: thColor, background: thColor + "22",
-                  border: `1px solid ${thColor}44`, borderRadius: 2,
-                  padding: "1px 2px", textAlign: "center",
-                }}
-              >
-                {abbrev}
-              </span>
               {/* Subtheme name */}
               <span
                 style={{
