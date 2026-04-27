@@ -3500,10 +3500,10 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
   // Column definitions — keep narrow so subtheme name has room
   const COLS = [
     { key: "avg_rs",      label: "RS",   w: 26, align: "right" },
-    { key: "avg_chg",     label: "DAY",  w: 30, align: "right" },
-    { key: "avg_1w",      label: "1W",   w: 28, align: "right" },
-    { key: "avg_1m",      label: "1M",   w: 28, align: "right" },
-    { key: "avg_3m",      label: "3M",   w: 28, align: "right" },
+    { key: "avg_chg",     label: "DAY",  w: 40, align: "right" },
+    { key: "avg_1w",      label: "1W",   w: 40, align: "right" },
+    { key: "avg_1m",      label: "1M",   w: 40, align: "right" },
+    { key: "avg_3m",      label: "3M",   w: 40, align: "right" },
     { key: "count",       label: "#",    w: 16, align: "right" },
   ];
 
