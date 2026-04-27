@@ -404,10 +404,15 @@ const computeLiveAggregates = (tickers) => {
   const livePcts = tickers.map((t) => t.live_pct ?? t.chg ?? null).filter((v) => v != null && !isNaN(v));
   const rvols = tickers.map((t) => t.rvol ?? null).filter((v) => v != null && !isNaN(v));
 
+  // Aggregate RVol is available even without live pct data (pipeline field)
+  const rvolAggEarly = rvols.length > 0
+    ? rvols.reduce((a, b) => a + b, 0) / rvols.length
+    : null;
+
   if (livePcts.length < 2) {
     return { live_pct_med: null, live_breadth: null, live_rvol_med: null,
              live_rvol_breadth: null, live_dispersion: null, live_strength_score: null,
-             vol_regime: null };
+             vol_regime: null, rvol_agg: rvolAggEarly };
   }
 
   const sorted = [...livePcts].sort((a, b) => a - b);
@@ -426,6 +431,13 @@ const computeLiveAggregates = (tickers) => {
     : null;
   const volRegime = classifyVolumeRegime(rvolMed, rvolBreadth);
 
+  // Aggregate RVol: mean of individual rvols, normalized by N.
+  // This is equivalent to sum(vol)/sum(avg_vol) when all avg_vols are equal,
+  // and degrades gracefully when only some tickers have rvol data.
+  const rvolAgg = rvols.length > 0
+    ? rvols.reduce((a, b) => a + b, 0) / rvols.length
+    : null;
+
   // Composite strength: combines move size, breadth, and volume confirmation
   const moveScore = Math.max(0, Math.min(100, 50 + med * 10));   // ±5% move = ±50 pts
   const breadthScore = breadth;                                    // already 0-100
@@ -441,6 +453,7 @@ const computeLiveAggregates = (tickers) => {
     live_dispersion: dispersion,
     live_strength_score: strength,
     vol_regime: volRegime,
+    rvol_agg: rvolAgg,
   };
 };
 
@@ -551,6 +564,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
       live_strength:(a, b) => (b.live_strength_score ?? 0) - (a.live_strength_score ?? 0),
       live_pct:     (a, b) => (b.live_pct_med ?? -999) - (a.live_pct_med ?? -999),
       live_breadth: (a, b) => (b.live_breadth ?? 0) - (a.live_breadth ?? 0),
+      rvol_agg:     (a, b) => (b.rvol_agg ?? 0) - (a.rvol_agg ?? 0),
       streak:       (a, b) => (b.persistence?.streak ?? 0) - (a.persistence?.streak ?? 0),
       vol_breadth:  (a, b) => (b.live_rvol_breadth ?? 0) - (a.live_rvol_breadth ?? 0),
       n:            (a, b) => (b.n ?? 0) - (a.n ?? 0),
@@ -843,8 +857,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         <span style={hdrStyle(isLive ? "live_pct" : "d1")} onClick={() => onSort?.(isLive ? "live_pct" : "d1")}>
           {isLive ? "Day %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
         </span>
-        <span style={hdrStyle(isLive ? "live_breadth" : "d4")} onClick={() => onSort?.(isLive ? "live_breadth" : "d4")}>
-          {isLive ? "Breadth" : "4W Δ"}{arrow(isLive ? "live_breadth" : "d4")}
+        <span style={hdrStyle("rvol_agg")} onClick={() => onSort?.("rvol_agg")}>
+          RVol{arrow("rvol_agg")}
         </span>
         <span style={{ textAlign: "center" }}>Disp</span>
         <span style={hdrStyle("n")} onClick={() => onSort?.("n")}>N{arrow("n")}</span>
@@ -994,20 +1008,14 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           </span>
         )}
 
-        {/* Col 5: 5D/4W delta (daily) OR live breadth (live) */}
-        {isLive ? (
-          <span style={{
-            textAlign: "center",
-            color: row.live_breadth >= 70 ? "#00c853" : row.live_breadth >= 50 ? "#fbbf24" : "#e53935",
-            fontFamily: "monospace", fontWeight: 600,
-          }}>
-            {row.live_breadth != null ? `${row.live_breadth.toFixed(0)}%` : "—"}
-          </span>
-        ) : (
-          <span title={row.d4_label || "4W Δ"} style={{ textAlign: "center", color: deltaColor(row.d4), fontFamily: "monospace", fontWeight: 600 }}>
-            {row.d4 > 0 ? "+" : ""}{row.d4?.toFixed(0)}
-          </span>
-        )}
+        {/* RVol — aggregate relative volume, normalized by N */}
+        <span style={{
+          textAlign: "center", fontFamily: "monospace", fontWeight: 600,
+          color: row.rvol_agg >= 2 ? "#00c853" : row.rvol_agg >= 1.5 ? "#7cb342" : row.rvol_agg >= 1 ? "#fbbf24" : "#9090a0",
+        }}
+          title={`Avg RVol across ${row.n} stocks`}>
+          {row.rvol_agg != null ? `${row.rvol_agg.toFixed(1)}x` : "—"}
+        </span>
 
         {/* Dispersion marker */}
         <span style={{ textAlign: "center", color: disp.color, fontWeight: 700, fontSize: 14 }}
