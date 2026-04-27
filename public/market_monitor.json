@@ -1,11 +1,11 @@
 {
   "date": "2026-04-24",
-  "generated": "2026-04-27 04:16",
-  "total_stocks": 3452,
+  "generated": "2026-04-27 15:35",
+  "total_stocks": 3450,
   "current": {
     "date": "2026-04-24",
     "up_4pct": 124,
-    "down_4pct": 71,
+    "down_4pct": 70,
     "up_25q": 436,
     "down_25q": 321,
     "up_25m": 298,
@@ -14,8 +14,8 @@
     "down_50m": 2,
     "up_13_34d": 678,
     "down_13_34d": 256,
-    "t2108": 71.1,
-    "total_stocks": 3452,
+    "t2108": 71.2,
+    "total_stocks": 3450,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -254,7 +254,7 @@
     {
       "date": "2026-04-24",
       "up_4pct": 124,
-      "down_4pct": 71,
+      "down_4pct": 70,
       "up_25q": 436,
       "down_25q": 321,
       "up_25m": 298,
@@ -263,10 +263,10 @@
       "down_50m": 2,
       "up_13_34d": 678,
       "down_13_34d": 256,
-      "t2108": 71.1,
-      "total_stocks": 3452,
-      "ratio_5d": 1.75,
-      "ratio_10d": 1.75
+      "t2108": 71.2,
+      "total_stocks": 3450,
+      "ratio_5d": 1.77,
+      "ratio_10d": 1.77
     }
   ],
   "theme_breadth": [
@@ -423,8 +423,8 @@
     {
       "theme": "FINTECH",
       "up_4pct": 7,
-      "down_4pct": 16,
-      "net": -9
+      "down_4pct": 15,
+      "net": -8
     }
   ],
   "theme_breadth_history": {
@@ -600,11 +600,11 @@
   "indices": {
     "SPY": {
       "name": "S&P 500",
-      "price": 713.94,
-      "ema10": 701.73,
-      "ema21": 689.37,
-      "sma50": 676.07,
-      "sma200": 665.52,
+      "price": 712.91,
+      "ema10": 703.77,
+      "ema21": 691.51,
+      "sma50": 676.74,
+      "sma200": 665.98,
       "above_ema10": true,
       "above_ema21": true,
       "above_sma50": true,
@@ -612,11 +612,11 @@
     },
     "QQQ": {
       "name": "NASDAQ 100",
-      "price": 663.88,
-      "ema10": 642.24,
-      "ema21": 625.88,
-      "sma50": 606.02,
-      "sma200": 600.09,
+      "price": 661.87,
+      "ema10": 645.81,
+      "ema21": 629.15,
+      "sma50": 607.26,
+      "sma200": 600.63,
       "above_ema10": true,
       "above_ema21": true,
       "above_sma50": true,
@@ -624,11 +624,11 @@
     },
     "IWM": {
       "name": "Russell 2000",
-      "price": 276.65,
-      "ema10": 271.99,
-      "ema21": 265.81,
-      "sma50": 258.22,
-      "sma200": 245.77,
+      "price": 276.44,
+      "ema10": 272.8,
+      "ema21": 266.77,
+      "sma50": 258.57,
+      "sma200": 246.04,
       "above_ema10": true,
       "above_ema21": true,
       "above_sma50": true,
@@ -636,11 +636,11 @@
     },
     "DIA": {
       "name": "Dow Jones",
-      "price": 492.21,
-      "ema10": 488.71,
-      "ema21": 482.58,
-      "sma50": 478.24,
-      "sma200": 468.13,
+      "price": 490.71,
+      "ema10": 489.07,
+      "ema21": 483.32,
+      "sma50": 478.2,
+      "sma200": 468.37,
       "above_ema10": true,
       "above_ema21": true,
       "above_sma50": true,
