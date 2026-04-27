@@ -3504,7 +3504,6 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
     { key: "avg_1w",      label: "1W",   w: 28, align: "right" },
     { key: "avg_1m",      label: "1M",   w: 28, align: "right" },
     { key: "avg_3m",      label: "3M",   w: 28, align: "right" },
-    { key: "pct_above50", label: ">50",  w: 24, align: "right" },
     { key: "count",       label: "#",    w: 16, align: "right" },
   ];
 
