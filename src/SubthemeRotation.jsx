@@ -449,7 +449,15 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
   const [viewMode, setViewMode] = useState("flat"); // "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("daily"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
-  const [sortBy, setSortBy] = useState("rs");       // rs | d1 | d4 | breadth | live
+  const [sortBy, setSortBy] = useState("rs");
+  const [sortDir, setSortDir] = useState("desc");
+  const onSort = (key) => {
+    setSortBy((prev) => {
+      if (prev === key) { setSortDir((d) => d === "desc" ? "asc" : "desc"); return key; }
+      setSortDir("desc");
+      return key;
+    });
+  };
   const [showLowN, setShowLowN] = useState(false);
   const [topN, setTopN] = useState(30);             // limit flat view rows
 
@@ -537,15 +545,15 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
     }
 
     const sorters = {
-      rs: (a, b) => (b.rs ?? 0) - (a.rs ?? 0),
-      d1: (a, b) => (b.d1 ?? 0) - (a.d1 ?? 0),
-      d4: (a, b) => (b.d4 ?? 0) - (a.d4 ?? 0),
-      breadth: (a, b) => (b.breadth ?? 0) - (a.breadth ?? 0),
-      live_strength: (a, b) => (b.live_strength_score ?? 0) - (a.live_strength_score ?? 0),
-      live_pct: (a, b) => (b.live_pct_med ?? -999) - (a.live_pct_med ?? -999),
+      rs:           (a, b) => (b.rs ?? 0) - (a.rs ?? 0),
+      d1:           (a, b) => (b.d1 ?? 0) - (a.d1 ?? 0),
+      d4:           (a, b) => (b.d4 ?? 0) - (a.d4 ?? 0),
+      live_strength:(a, b) => (b.live_strength_score ?? 0) - (a.live_strength_score ?? 0),
+      live_pct:     (a, b) => (b.live_pct_med ?? -999) - (a.live_pct_med ?? -999),
       live_breadth: (a, b) => (b.live_breadth ?? 0) - (a.live_breadth ?? 0),
-      streak: (a, b) => (b.persistence?.streak ?? 0) - (a.persistence?.streak ?? 0),
-      vol_breadth: (a, b) => (b.live_rvol_breadth ?? 0) - (a.live_rvol_breadth ?? 0),
+      streak:       (a, b) => (b.persistence?.streak ?? 0) - (a.persistence?.streak ?? 0),
+      vol_breadth:  (a, b) => (b.live_rvol_breadth ?? 0) - (a.live_rvol_breadth ?? 0),
+      n:            (a, b) => (b.n ?? 0) - (a.n ?? 0),
       setup: (a, b) => {
         const aScore = (timeframe === "live" ? a.live_setup : a.daily_setup)?.score ?? 0;
         const bScore = (timeframe === "live" ? b.live_setup : b.daily_setup)?.score ?? 0;
@@ -553,11 +561,11 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
       },
     };
 
-    // Default sort in live mode = live strength
     const effectiveSort = timeframe === "live" && sortBy === "rs" ? "live_strength" : sortBy;
-    rows = [...rows].sort(sorters[effectiveSort] || sorters.rs);
+    const sorter = sorters[effectiveSort] || sorters.rs;
+    rows = [...rows].sort(sortDir === "asc" ? (a, b) => sorter(b, a) : sorter);
     return rows;
-  }, [enrichedSubthemes, showLowN, filterParent, sortBy, timeframe]);
+  }, [enrichedSubthemes, showLowN, filterParent, sortBy, sortDir, timeframe]);
 
   // ─── Breadth regime read across visible set ──────────────────────────────
   const regime = useMemo(() => {
@@ -752,6 +760,9 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
           rows={displayRows}
           onTickerClick={onTickerClick}
           timeframe={timeframe}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSort={onSort}
         />
       )}
 
@@ -793,7 +804,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
 }
 
 // ─── Sub-component: the actual table of rows ────────────────────────────────
-function SubthemeTable({ rows, onTickerClick, timeframe = "daily" }) {
+function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort }) {
   if (!rows.length) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#5a5a6a", fontSize: 12 }}>
@@ -804,8 +815,15 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily" }) {
 
   const isLive = timeframe === "live";
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 55px 60px 60px 30px 60px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 60px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 55px 60px 60px 30px 50px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 50px";
+
+  const hdrStyle = (key) => ({
+    textAlign: "center", cursor: onSort ? "pointer" : "default", userSelect: "none",
+    color: sortBy === key ? "#00c853" : "#9090a0",
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 2,
+  });
+  const arrow = (key) => sortBy === key ? (sortDir === "desc" ? " ▼" : " ▲") : "";
 
   return (
     <div style={{ background: "#0d0d1a", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
@@ -817,15 +835,21 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily" }) {
         fontSize: 10, color: "#9090a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5,
       }}>
         <span>Subtheme</span>
-        <span style={{ textAlign: "center" }}>
-          {isLive ? "Live Strength (0-100)" : "RS Rank (0-100)"}
+        <span style={{ textAlign: "center", cursor: onSort ? "pointer" : "default", color: sortBy === "rs" || sortBy === "live_strength" ? "#00c853" : "#9090a0" }}
+              onClick={() => onSort?.(isLive ? "live_strength" : "rs")}>
+          {isLive ? "Live Strength (0-100)" : "RS Rank (0-100)"}{arrow(isLive ? "live_strength" : "rs")}
         </span>
-        <span style={{ textAlign: "center" }}>{isLive ? "Score" : "Now"}</span>
-        <span style={{ textAlign: "center" }}>{isLive ? "Today %" : "1W Δ"}</span>
-        <span style={{ textAlign: "center" }}>{isLive ? "Breadth" : "4W Δ"}</span>
+        <span style={hdrStyle("setup")} onClick={() => onSort?.("setup")}>
+          {isLive ? "Score" : "Now"}{arrow("setup")}
+        </span>
+        <span style={hdrStyle(isLive ? "live_pct" : "d1")} onClick={() => onSort?.(isLive ? "live_pct" : "d1")}>
+          {isLive ? "Today %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
+        </span>
+        <span style={hdrStyle(isLive ? "live_breadth" : "d4")} onClick={() => onSort?.(isLive ? "live_breadth" : "d4")}>
+          {isLive ? "Breadth" : "4W Δ"}{arrow(isLive ? "live_breadth" : "d4")}
+        </span>
         <span style={{ textAlign: "center" }}>Disp</span>
-        <span style={{ textAlign: "center" }}>{isLive ? "Vol Br" : "Breadth"}</span>
-        <span style={{ textAlign: "center" }}>N</span>
+        <span style={hdrStyle("n")} onClick={() => onSort?.("n")}>N{arrow("n")}</span>
       </div>
 
       {rows.map((r, i) => (
@@ -858,8 +882,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
   const tier = setupData ? setupTier(setupData.score) : null;
 
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 55px 60px 60px 30px 60px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 60px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 55px 60px 60px 30px 50px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 50px";
 
   return (
     <>
@@ -993,28 +1017,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
               title={`σ=${dispValue?.toFixed(1) ?? "n/a"}`}>
           {disp.mark}
         </span>
-
-        {/* Col 7: breadth (daily) OR rvol breadth (live) */}
-        {isLive ? (
-          <span title={`${row.live_rvol_breadth?.toFixed(0) ?? 0}% of names at ≥1.5x RVol; median ${row.live_rvol_med?.toFixed(2)}x`}
-            style={{
-              textAlign: "center",
-              color: row.live_rvol_breadth >= 50 ? "#00c853" : row.live_rvol_breadth >= 30 ? "#fbbf24" : "#9090a0",
-              fontFamily: "monospace", fontWeight: 600,
-            }}>
-            {row.live_rvol_breadth != null
-              ? `${row.live_rvol_breadth.toFixed(0)}%`
-              : (row.live_rvol_med != null ? `${row.live_rvol_med.toFixed(2)}x` : "—")}
-          </span>
-        ) : (
-          <span style={{
-            textAlign: "center",
-            color: row.breadth >= 70 ? "#00c853" : row.breadth >= 50 ? "#fbbf24" : "#e53935",
-            fontFamily: "monospace", fontWeight: 600,
-          }}>
-            {row.breadth != null ? `${row.breadth.toFixed(0)}%` : "—"}
-          </span>
-        )}
 
         {/* N */}
         <span style={{ textAlign: "center", color: "#7a7a8a", fontFamily: "monospace", fontSize: 11 }}>
