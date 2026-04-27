@@ -1,6 +1,6 @@
 {
   "date": "2026-04-24",
-  "generated": "2026-04-27 02:26",
+  "generated": "2026-04-27 03:34",
   "total_stocks": 3452,
   "current": {
     "date": "2026-04-24",
@@ -278,9 +278,9 @@
     },
     {
       "theme": "SEMICONDUCTORS",
-      "up_4pct": 22,
+      "up_4pct": 23,
       "down_4pct": 0,
-      "net": 22
+      "net": 23
     },
     {
       "theme": "INDUSTRIAL",
@@ -325,6 +325,12 @@
       "net": 5
     },
     {
+      "theme": "PHOTONICS",
+      "up_4pct": 5,
+      "down_4pct": 0,
+      "net": 5
+    },
+    {
       "theme": "RESHORING",
       "up_4pct": 5,
       "down_4pct": 1,
@@ -337,7 +343,7 @@
       "net": 3
     },
     {
-      "theme": "FIBER OPTICS",
+      "theme": "POWER GRID",
       "up_4pct": 3,
       "down_4pct": 0,
       "net": 3
@@ -355,6 +361,12 @@
       "net": 2
     },
     {
+      "theme": "ROBOTICS",
+      "up_4pct": 4,
+      "down_4pct": 2,
+      "net": 2
+    },
+    {
       "theme": "DIGITAL ENTERTAINMENT",
       "up_4pct": 4,
       "down_4pct": 3,
@@ -367,9 +379,9 @@
       "net": 1
     },
     {
-      "theme": "ROBOTICS",
-      "up_4pct": 3,
-      "down_4pct": 2,
+      "theme": "SOCIAL MEDIA",
+      "up_4pct": 1,
+      "down_4pct": 0,
       "net": 1
     },
     {
@@ -383,6 +395,12 @@
       "up_4pct": 3,
       "down_4pct": 3,
       "net": 0
+    },
+    {
+      "theme": "AUTONOMOUS SYSTEMS",
+      "up_4pct": 2,
+      "down_4pct": 3,
+      "net": -1
     },
     {
       "theme": "CLOUD",
@@ -410,7 +428,7 @@
     }
   ],
   "theme_breadth_history": {
-    "FIBER OPTICS": [
+    "PHOTONICS": [
       {
         "date": "2026-04-24",
         "breadth": 100.0
@@ -434,7 +452,19 @@
         "breadth": 80.0
       }
     ],
+    "POWER GRID": [
+      {
+        "date": "2026-04-24",
+        "breadth": 75.0
+      }
+    ],
     "TRANSPORT & LOGISTICS": [
+      {
+        "date": "2026-04-24",
+        "breadth": 65.0
+      }
+    ],
+    "SPACE": [
       {
         "date": "2026-04-24",
         "breadth": 65.0
@@ -461,13 +491,7 @@
     "ROBOTICS": [
       {
         "date": "2026-04-24",
-        "breadth": 76.0
-      }
-    ],
-    "SPACE": [
-      {
-        "date": "2026-04-24",
-        "breadth": 60.0
+        "breadth": 77.0
       }
     ],
     "TELECOM": [
@@ -540,6 +564,18 @@
       {
         "date": "2026-04-24",
         "breadth": 61.0
+      }
+    ],
+    "AUTONOMOUS SYSTEMS": [
+      {
+        "date": "2026-04-24",
+        "breadth": 40.0
+      }
+    ],
+    "SOCIAL MEDIA": [
+      {
+        "date": "2026-04-24",
+        "breadth": 70.0
       }
     ],
     "GLP-1 / OBESITY": [
