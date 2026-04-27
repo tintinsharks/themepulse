@@ -3363,13 +3363,12 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
   const [search, setSearch] = useState("");
   const [expandedKey, setExpandedKey] = useState(null);
 
-  // Live quotes for the currently expanded subtheme only
-  const expandedTickers = useMemo(() => {
-    if (!expandedKey) return [];
-    const d = subthemeData.find((d) => `${d.theme}|||${d.subtheme}` === expandedKey);
-    return d ? d.stocks.map((s) => s.ticker) : [];
-  }, [expandedKey, subthemeData]);
-  const { quotes: liveQuotes } = useLiveQuotes(expandedTickers, 30000);
+  // Live quotes for all themed tickers — feeds both aggregate rows and expanded rows
+  const allThemedTickers = useMemo(
+    () => Object.values(stockMap || {}).filter((s) => s.themes?.length).map((s) => s.ticker),
+    [stockMap]
+  );
+  const { quotes: liveQuotes } = useLiveQuotes(allThemedTickers, 30000);
 
   const handleSort = useCallback((key) => {
     setSortKey((prev) => {
@@ -3467,7 +3466,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
         const d = map[key];
         d.tickers.push({ ticker: s.ticker, rs: s.rs_rank || 0 });
         d.rs_sum += s.rs_rank || 0;
-        d.chg_sum += s.change_pct || 0;
+        d.chg_sum += liveQuotes.get(s.ticker)?.change ?? s.change_pct ?? 0;
         d.w1_sum += s.return_1w || 0;
         d.m1_sum += s.return_1m || 0;
         d.m3_sum += s.return_3m || 0;
@@ -3492,7 +3491,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
         stocks: stocksSorted,
       };
     });
-  }, [stockMap]);
+  }, [stockMap, liveQuotes]);
 
   // Build theme-level health map from themeHealth array
   const themeHealthMap = useMemo(() => {
