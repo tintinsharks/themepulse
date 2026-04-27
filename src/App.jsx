@@ -5309,7 +5309,7 @@ function ChartPanelInline({
               </div>
             )}
             {rightTab === "subflow" && (
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", zoom: 0.82 }}>
                 <ErrorBoundary>
                   <SubthemeRotationAutoRefresh
                     dataUrl="/dashboard_data.json"
