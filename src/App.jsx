@@ -3663,50 +3663,57 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
                 ))}
               </div>
 
-              {/* Expanded stock list */}
+              {/* Expanded stock list — columns mirror the subtheme header */}
               {isOpen && (
                 <div style={{ background: ARIA.bgCard, borderTop: `1px solid ${ARIA.border}30` }}>
                   {d.stocks.map(({ ticker }) => {
                     const s = stockMap[ticker];
                     if (!s) return null;
-                    const chg = s.change_pct ?? 0;
-                    const w1 = s.return_1w ?? 0;
-                    const grade = s.grade || "";
+                    const stockVals = {
+                      avg_rs:  s.rs_rank ?? 0,
+                      avg_chg: s.change_pct ?? 0,
+                      avg_1w:  s.return_1w ?? 0,
+                      avg_1m:  s.return_1m ?? 0,
+                      avg_3m:  s.return_3m ?? 0,
+                      count:   null,
+                    };
                     return (
                       <div
                         key={ticker}
                         onClick={() => onTickerClick && onTickerClick(ticker)}
                         style={{
                           display: "flex", alignItems: "center", gap: 3,
-                          padding: "2px 8px 2px 22px",
+                          padding: "2px 8px",
                           cursor: "pointer",
                           borderBottom: `1px solid ${ARIA.border}10`,
+                          overflow: "hidden",
                         }}
                       >
-                        {/* Grade */}
-                        <span style={{ width: 18, flexShrink: 0, fontSize: 8, fontFamily: "monospace", color: ARIA.textMuted, textAlign: "center" }}>
-                          {grade}
-                        </span>
-                        {/* Ticker */}
-                        <span style={{ width: 44, flexShrink: 0, fontSize: 9, fontFamily: "monospace", fontWeight: 700, color: ARIA.cyan || "#22d3ee" }}>
+                        {/* Arrow indent + ticker + company — same flex space as subtheme name */}
+                        <span style={{ width: 10, flexShrink: 0 }} />
+                        <span style={{ width: 38, flexShrink: 0, fontSize: 9, fontFamily: "monospace", fontWeight: 700, color: ARIA.cyan || "#22d3ee" }}>
                           {ticker}
                         </span>
-                        {/* Company */}
                         <span style={{ flex: 1, minWidth: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {s.company || ""}
                         </span>
-                        {/* RS */}
-                        <span style={{ width: 26, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color: s.rs_rank >= 90 ? "#4ade80" : s.rs_rank >= 70 ? "#a3e635" : ARIA.textMuted }}>
-                          {s.rs_rank || "—"}
-                        </span>
-                        {/* Day chg */}
-                        <span style={{ width: 40, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color: chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : ARIA.textMuted }}>
-                          {chg >= 0 ? "+" : ""}{chg.toFixed(1)}%
-                        </span>
-                        {/* 1W */}
-                        <span style={{ width: 40, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color: w1 > 0 ? "#4ade80" : w1 < 0 ? "#f87171" : ARIA.textMuted }}>
-                          {w1 >= 0 ? "+" : ""}{w1.toFixed(1)}%
-                        </span>
+                        {/* Numeric columns matching COLS widths exactly */}
+                        {COLS.map((col) => {
+                          if (col.key === "count") {
+                            return <span key={col.key} style={{ width: col.w, flexShrink: 0 }} />;
+                          }
+                          const v = stockVals[col.key];
+                          const isRs = col.key === "avg_rs";
+                          const color = isRs
+                            ? v >= 90 ? "#4ade80" : v >= 70 ? "#a3e635" : v >= 50 ? ARIA.text : ARIA.textMuted
+                            : v > 0 ? "#4ade80" : v < 0 ? "#f87171" : ARIA.textMuted;
+                          const label = isRs ? (v || "—") : ((v >= 0 ? "+" : "") + v.toFixed(1) + "%");
+                          return (
+                            <span key={col.key} style={{ width: col.w, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color, fontWeight: sortKey === col.key ? 700 : 400 }}>
+                              {label}
+                            </span>
+                          );
+                        })}
                       </div>
                     );
                   })}
