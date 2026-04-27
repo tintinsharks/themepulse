@@ -815,8 +815,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 
   const isLive = timeframe === "live";
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 55px 60px 60px 30px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px 30px 50px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 30px 50px";
 
   const hdrStyle = (key) => ({
     textAlign: "center", cursor: onSort ? "pointer" : "default", userSelect: "none",
@@ -838,9 +838,6 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         <span style={{ textAlign: "center", cursor: onSort ? "pointer" : "default", color: sortBy === "rs" || sortBy === "live_strength" ? "#00c853" : "#9090a0" }}
               onClick={() => onSort?.(isLive ? "live_strength" : "rs")}>
           {isLive ? "Live Strength (0-100)" : "RS Rank (0-100)"}{arrow(isLive ? "live_strength" : "rs")}
-        </span>
-        <span style={hdrStyle("setup")} onClick={() => onSort?.("setup")}>
-          {isLive ? "Score" : "Now"}{arrow("setup")}
         </span>
         <span style={hdrStyle(isLive ? "live_pct" : "d1")} onClick={() => onSort?.(isLive ? "live_pct" : "d1")}>
           {isLive ? "Today %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
@@ -882,8 +879,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
   const tier = setupData ? setupTier(setupData.score) : null;
 
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 55px 60px 60px 30px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px 30px 50px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 30px 50px";
 
   return (
     <>
@@ -963,7 +960,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           )}
         </div>
 
-        {/* Bar */}
+        {/* Bar + number overlaid */}
         <div style={{ position: "relative", height: 16, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
           <div style={{
             width: `${Math.max(0, Math.min(100, barValue))}%`,
@@ -972,15 +969,14 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           }} />
           <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#2a2a40" }} />
           <div style={{ position: "absolute", left: "80%", top: 0, bottom: 0, width: 1, background: "#3a3a50" }} />
+          <span style={{
+            position: "absolute", right: 4, top: 0, bottom: 0,
+            display: "flex", alignItems: "center",
+            color: "#fff", fontFamily: "monospace", fontWeight: 700, fontSize: 10,
+          }}>
+            {barValue.toFixed(0)}
+          </span>
         </div>
-
-        {/* Numeric value (RS or live strength) */}
-        <span style={{
-          textAlign: "center", color: "#fff", fontFamily: "monospace", fontWeight: 700,
-          background: `${barColor}40`, padding: "2px 0", borderRadius: 3,
-        }}>
-          {barValue.toFixed(0)}
-        </span>
 
         {/* Col 4: 1D/1W delta (daily) OR today % (live) */}
         {isLive ? (
