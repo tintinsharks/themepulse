@@ -3497,15 +3497,15 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
     return m;
   }, [themeHealth]);
 
-  // Column definitions — key matches subthemeData field names
+  // Column definitions — keep narrow so subtheme name has room
   const COLS = [
-    { key: "avg_rs",  label: "RS",    w: 28,  align: "right" },
-    { key: "avg_chg", label: "DAY",   w: 36,  align: "right" },
-    { key: "avg_1w",  label: "1W",    w: 34,  align: "right" },
-    { key: "avg_1m",  label: "1M",    w: 34,  align: "right" },
-    { key: "avg_3m",  label: "3M",    w: 34,  align: "right" },
-    { key: "pct_above50", label: ">50", w: 28, align: "right" },
-    { key: "count",   label: "#",     w: 20,  align: "right" },
+    { key: "avg_rs",      label: "RS",   w: 26, align: "right" },
+    { key: "avg_chg",     label: "DAY",  w: 30, align: "right" },
+    { key: "avg_1w",      label: "1W",   w: 28, align: "right" },
+    { key: "avg_1m",      label: "1M",   w: 28, align: "right" },
+    { key: "avg_3m",      label: "3M",   w: 28, align: "right" },
+    { key: "pct_above50", label: ">50",  w: 24, align: "right" },
+    { key: "count",       label: "#",    w: 16, align: "right" },
   ];
 
   const sorted = useMemo(() => {
@@ -3598,29 +3598,24 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
       {/* Sticky column header */}
       <div
         style={{
-          display: "flex", alignItems: "center", gap: 5,
+          display: "flex", alignItems: "center", gap: 3,
           padding: "3px 8px",
           borderBottom: `1px solid ${ARIA.border}`,
           background: ARIA.bgCard,
           flexShrink: 0,
+          overflow: "hidden",
         }}
       >
-        {/* Theme badge placeholder */}
         <span style={{ width: 34, flexShrink: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
           THEME
         </span>
-        {/* Subtheme name — flex */}
         <span
           onClick={() => handleSort("subtheme_name")}
-          style={{ flex: 1, minWidth: 0, fontSize: 8, color: sortKey === "subtheme_name" ? ARIA.green : ARIA.textMuted, fontFamily: "monospace", cursor: "pointer", userSelect: "none" }}
+          style={{ flex: 1, minWidth: 0, fontSize: 8, color: sortKey === "subtheme_name" ? ARIA.green : ARIA.textMuted, fontFamily: "monospace", cursor: "pointer", userSelect: "none", overflow: "hidden", whiteSpace: "nowrap" }}
         >
           SUBTHEME{sortKey === "subtheme_name" ? (sortDir === "desc" ? " ▼" : " ▲") : ""}
         </span>
         {COLS.map((col) => <SortHdr key={col.key} col={col} />)}
-        {/* Leaders header */}
-        <span style={{ width: 80, flexShrink: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", textAlign: "right" }}>
-          LEADERS
-        </span>
       </div>
 
       {/* Rows */}
@@ -3632,10 +3627,11 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
             <div
               key={`${d.theme}|||${d.subtheme}`}
               style={{
-                display: "flex", alignItems: "center", gap: 5,
+                display: "flex", alignItems: "center", gap: 3,
                 padding: "2px 8px",
                 borderBottom: `1px solid ${ARIA.border}18`,
                 minHeight: 22,
+                overflow: "hidden",
               }}
             >
               {/* Theme badge */}
@@ -3676,23 +3672,6 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
                   {cellVal(d, col.key)}
                 </span>
               ))}
-              {/* Top tickers */}
-              <div style={{ width: 80, flexShrink: 0, display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                {d.topTickers.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => onTickerClick && onTickerClick(t)}
-                    style={{
-                      fontSize: 7, padding: "1px 3px", background: "transparent",
-                      border: `1px solid ${ARIA.border}`, borderRadius: 2,
-                      color: ARIA.cyan || "#22d3ee", fontFamily: "monospace",
-                      cursor: "pointer", fontWeight: 700,
-                    }}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
             </div>
           );
         })}
