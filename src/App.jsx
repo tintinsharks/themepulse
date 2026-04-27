@@ -21,6 +21,7 @@ import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
 } from "./LWChartLegacy.jsx";
+import SubthemeRotation, { SubthemeRotationAutoRefresh } from "./SubthemeRotation";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Theme system: Aria light/dark palettes via React context
@@ -5225,6 +5226,7 @@ function ChartPanelInline({
               { key: "picks", label: "AGENT PICKS" },
               { key: "watchlist", label: "WATCHLIST" },
               { key: "themes", label: "THEMES" },
+              { key: "subflow", label: "SUBFLOW" },
             ].map((t, i, arr) => {
               const on = rightTab === t.key;
               const isFirst = i === 0;
@@ -5301,6 +5303,17 @@ function ChartPanelInline({
                   <SubthemePerformance
                     stockMap={stockMap}
                     themeHealth={themeHealth}
+                    onTickerClick={onTickerChange}
+                  />
+                </ErrorBoundary>
+              </div>
+            )}
+            {rightTab === "subflow" && (
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column" }}>
+                <ErrorBoundary>
+                  <SubthemeRotationAutoRefresh
+                    dataUrl="/dashboard_data.json"
+                    historyUrl="/subtheme_history.json"
                     onTickerClick={onTickerChange}
                   />
                 </ErrorBoundary>
