@@ -3354,6 +3354,422 @@ function CSStat({ label, v, clr, ARIA }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// SubthemePerformance — THEMES tab inside ChartPanelInline right pane
+// ──────────────────────────────────────────────────────────────────────────
+function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [metric, setMetric] = useState("rs");
+  const [search, setSearch] = useState("");
+
+  // Theme abbreviations for compact badge display
+  const ABBREV = {
+    "AI INFRASTRUCTURE": "AI",
+    "SEMICONDUCTORS": "SEMI",
+    "PHOTONICS": "PHO",
+    "AUTONOMOUS SYSTEMS": "AUTO",
+    "ROBOTICS": "ROBO",
+    "CYBERSECURITY": "CYBER",
+    "CLOUD": "CLD",
+    "FINTECH": "FIN",
+    "BIOTECH": "BIO",
+    "HEALTHCARE": "HLTH",
+    "DEFENSE": "DEF",
+    "SPACE": "SPC",
+    "ENERGY": "NRG",
+    "POWER GRID": "PWR",
+    "CONSUMER": "CON",
+    "INDUSTRIALS": "IND",
+    "TELECOM": "TEL",
+    "MEDIA": "MED",
+    "SOCIAL MEDIA": "SOC",
+    "REAL ESTATE": "RE",
+    "MATERIALS": "MAT",
+    "TRANSPORTATION": "TRN",
+    "GAMING": "GAME",
+    "RETAIL": "RTL",
+    "COMMODITIES": "CMDTY",
+    "FINANCIAL": "FIN",
+    "SOFTWARE": "SWF",
+  };
+
+  // Theme colors for badges
+  const TCOLORS = {
+    "AI INFRASTRUCTURE": "#a78bfa",
+    "SEMICONDUCTORS": "#60a5fa",
+    "PHOTONICS": "#34d399",
+    "AUTONOMOUS SYSTEMS": "#f59e0b",
+    "ROBOTICS": "#f59e0b",
+    "CYBERSECURITY": "#f87171",
+    "CLOUD": "#38bdf8",
+    "FINTECH": "#4ade80",
+    "BIOTECH": "#e879f9",
+    "HEALTHCARE": "#e879f9",
+    "DEFENSE": "#94a3b8",
+    "SPACE": "#818cf8",
+    "ENERGY": "#fb923c",
+    "POWER GRID": "#fbbf24",
+    "CONSUMER": "#a3e635",
+    "INDUSTRIALS": "#6b7280",
+    "TELECOM": "#22d3ee",
+    "MEDIA": "#f472b6",
+    "SOCIAL MEDIA": "#f472b6",
+    "REAL ESTATE": "#a16207",
+    "MATERIALS": "#84cc16",
+    "TRANSPORTATION": "#6b7280",
+    "GAMING": "#c084fc",
+    "RETAIL": "#86efac",
+    "COMMODITIES": "#d97706",
+    "FINANCIAL": "#4ade80",
+    "SOFTWARE": "#60a5fa",
+  };
+
+  // Build subtheme stats from stockMap
+  const subthemeData = useMemo(() => {
+    const map = {};
+    const stocks = Object.values(stockMap || {});
+    stocks.forEach((s) => {
+      if (!s.themes) return;
+      s.themes.forEach(({ theme, subtheme }) => {
+        if (!theme || !subtheme) return;
+        const key = `${theme}|||${subtheme}`;
+        if (!map[key]) {
+          map[key] = {
+            theme,
+            subtheme,
+            tickers: [],
+            rs_sum: 0,
+            chg_sum: 0,
+            w1_sum: 0,
+            m1_sum: 0,
+            m3_sum: 0,
+            above50_count: 0,
+            count: 0,
+          };
+        }
+        const d = map[key];
+        d.tickers.push({ ticker: s.ticker, rs: s.rs_rank || 0 });
+        d.rs_sum += s.rs_rank || 0;
+        d.chg_sum += s.change_pct || 0;
+        d.w1_sum += s.return_1w || 0;
+        d.m1_sum += s.return_1m || 0;
+        d.m3_sum += s.return_3m || 0;
+        if (s.above_50ma) d.above50_count++;
+        d.count++;
+      });
+    });
+
+    return Object.values(map).map((d) => {
+      const n = d.count;
+      const topTickers = [...d.tickers]
+        .sort((a, b) => b.rs - a.rs)
+        .slice(0, 3)
+        .map((t) => t.ticker);
+      return {
+        theme: d.theme,
+        subtheme: d.subtheme,
+        count: n,
+        avg_rs: n ? Math.round(d.rs_sum / n) : 0,
+        avg_chg: n ? +(d.chg_sum / n).toFixed(2) : 0,
+        avg_1w: n ? +(d.w1_sum / n).toFixed(2) : 0,
+        avg_1m: n ? +(d.m1_sum / n).toFixed(2) : 0,
+        avg_3m: n ? +(d.m3_sum / n).toFixed(2) : 0,
+        pct_above50: n ? Math.round((d.above50_count / n) * 100) : 0,
+        topTickers,
+      };
+    });
+  }, [stockMap]);
+
+  // Build theme-level health map from themeHealth array
+  const themeHealthMap = useMemo(() => {
+    const m = {};
+    (themeHealth || []).forEach((th) => {
+      m[th.theme] = th;
+    });
+    return m;
+  }, [themeHealth]);
+
+  const METRICS = [
+    { key: "rs", label: "RS" },
+    { key: "today", label: "TODAY" },
+    { key: "1w", label: "1W" },
+    { key: "1m", label: "1M" },
+    { key: "3m", label: "3M" },
+  ];
+
+  const sorted = useMemo(() => {
+    const filtered = search
+      ? subthemeData.filter(
+          (d) =>
+            d.subtheme.toLowerCase().includes(search.toLowerCase()) ||
+            d.theme.toLowerCase().includes(search.toLowerCase())
+        )
+      : subthemeData;
+
+    return [...filtered].sort((a, b) => {
+      if (metric === "rs") return b.avg_rs - a.avg_rs;
+      if (metric === "today") return b.avg_chg - a.avg_chg;
+      if (metric === "1w") return b.avg_1w - a.avg_1w;
+      if (metric === "1m") return b.avg_1m - a.avg_1m;
+      if (metric === "3m") return b.avg_3m - a.avg_3m;
+      return 0;
+    });
+  }, [subthemeData, metric, search]);
+
+  const fmt = (v) => {
+    if (v === undefined || v === null) return "—";
+    const s = (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+    return s;
+  };
+  const fmtColor = (v) =>
+    v > 0 ? "#4ade80" : v < 0 ? "#f87171" : ARIA.textMuted;
+
+  const metricVal = (d) => {
+    if (metric === "rs") return d.avg_rs;
+    if (metric === "today") return d.avg_chg;
+    if (metric === "1w") return d.avg_1w;
+    if (metric === "1m") return d.avg_1m;
+    if (metric === "3m") return d.avg_3m;
+    return 0;
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
+      {/* Controls row */}
+      <div
+        style={{
+          padding: "6px 8px 4px",
+          flexShrink: 0,
+          borderBottom: `1px solid ${ARIA.border}`,
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Metric tabs */}
+        <div style={{ display: "flex", gap: 0 }}>
+          {METRICS.map((m, i, arr) => {
+            const on = metric === m.key;
+            return (
+              <button
+                key={m.key}
+                onClick={() => setMetric(m.key)}
+                style={{
+                  fontSize: 9,
+                  padding: "2px 8px",
+                  borderRadius:
+                    i === 0
+                      ? "3px 0 0 3px"
+                      : i === arr.length - 1
+                      ? "0 3px 3px 0"
+                      : "0",
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  border: `1px solid ${on ? ARIA.green : ARIA.border}`,
+                  borderLeft: i === 0 ? undefined : "none",
+                  color: on ? ARIA.green : ARIA.textMuted,
+                  background: on ? ARIA.glowGreen : "transparent",
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Search */}
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="filter..."
+          style={{
+            fontSize: 9,
+            padding: "2px 6px",
+            background: ARIA.bgCard,
+            border: `1px solid ${ARIA.border}`,
+            borderRadius: 3,
+            color: ARIA.text,
+            fontFamily: "monospace",
+            width: 80,
+            outline: "none",
+          }}
+        />
+        <span style={{ fontSize: 9, color: ARIA.textMuted, marginLeft: "auto" }}>
+          {sorted.length} subthemes
+        </span>
+      </div>
+
+      {/* List */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "2px 0" }}>
+        {sorted.map((d) => {
+          const thColor = TCOLORS[d.theme] || ARIA.textMuted;
+          const abbrev = ABBREV[d.theme] || d.theme.slice(0, 4).toUpperCase();
+          const val = metricVal(d);
+          const isRs = metric === "rs";
+          const thHealth = themeHealthMap[d.theme];
+
+          return (
+            <div
+              key={`${d.theme}|||${d.subtheme}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "3px 8px",
+                borderBottom: `1px solid ${ARIA.border}20`,
+                minHeight: 24,
+              }}
+            >
+              {/* Theme badge */}
+              <span
+                style={{
+                  fontSize: 7,
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  color: thColor,
+                  background: thColor + "22",
+                  border: `1px solid ${thColor}44`,
+                  borderRadius: 2,
+                  padding: "1px 4px",
+                  flexShrink: 0,
+                  minWidth: 32,
+                  textAlign: "center",
+                }}
+              >
+                {abbrev}
+              </span>
+
+              {/* Subtheme name */}
+              <span
+                style={{
+                  fontSize: 9,
+                  color: ARIA.text,
+                  fontFamily: "monospace",
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {d.subtheme}
+              </span>
+
+              {/* Count */}
+              <span
+                style={{
+                  fontSize: 8,
+                  color: ARIA.textMuted,
+                  fontFamily: "monospace",
+                  flexShrink: 0,
+                }}
+              >
+                {d.count}
+              </span>
+
+              {/* Primary metric value */}
+              <span
+                style={{
+                  fontSize: 9,
+                  fontFamily: "monospace",
+                  fontWeight: 700,
+                  color: isRs
+                    ? d.avg_rs >= 90
+                      ? "#4ade80"
+                      : d.avg_rs >= 70
+                      ? "#a3e635"
+                      : d.avg_rs >= 50
+                      ? ARIA.text
+                      : ARIA.textMuted
+                    : fmtColor(val),
+                  flexShrink: 0,
+                  minWidth: 34,
+                  textAlign: "right",
+                }}
+              >
+                {isRs ? d.avg_rs : fmt(val)}
+              </span>
+
+              {/* Above 50MA pill */}
+              {!isRs && (
+                <span
+                  style={{
+                    fontSize: 7,
+                    color:
+                      d.pct_above50 >= 70
+                        ? "#4ade80"
+                        : d.pct_above50 >= 40
+                        ? ARIA.textMuted
+                        : "#f87171",
+                    fontFamily: "monospace",
+                    flexShrink: 0,
+                    minWidth: 22,
+                    textAlign: "right",
+                  }}
+                >
+                  {d.pct_above50}%
+                </span>
+              )}
+
+              {/* Top tickers */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 3,
+                  flexShrink: 0,
+                  minWidth: 90,
+                  justifyContent: "flex-end",
+                }}
+              >
+                {d.topTickers.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => onTickerClick && onTickerClick(t)}
+                    style={{
+                      fontSize: 7,
+                      padding: "1px 4px",
+                      background: "transparent",
+                      border: `1px solid ${ARIA.border}`,
+                      borderRadius: 2,
+                      color: ARIA.cyan || "#22d3ee",
+                      fontFamily: "monospace",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {sorted.length === 0 && (
+          <div
+            style={{
+              padding: 20,
+              textAlign: "center",
+              color: ARIA.textMuted,
+              fontSize: 11,
+              fontFamily: "monospace",
+            }}
+          >
+            no subthemes
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // ChartPanelInline — Aria-faithful inline chart panel
 // ──────────────────────────────────────────────────────────────────────────
 //
@@ -3951,6 +4367,7 @@ function ChartPanelInline({
   onTickerChange,
   height = 580,
   stockMap,
+  themeHealth,
   // Agent picks data — when present, the right pane gets a Chart/Picks subtab
   rvolPicks,
   pmPicks,
@@ -4824,6 +5241,7 @@ function ChartPanelInline({
               { key: "chart", label: "CHART" },
               { key: "picks", label: "AGENT PICKS" },
               { key: "watchlist", label: "WATCHLIST" },
+              { key: "themes", label: "THEMES" },
             ].map((t, i, arr) => {
               const on = rightTab === t.key;
               const isFirst = i === 0;
@@ -4889,6 +5307,17 @@ function ChartPanelInline({
                 <ErrorBoundary>
                   <Watchlist
                     stockMap={stockMap}
+                    onTickerClick={onTickerChange}
+                  />
+                </ErrorBoundary>
+              </div>
+            )}
+            {rightTab === "themes" && (
+              <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                <ErrorBoundary>
+                  <SubthemePerformance
+                    stockMap={stockMap}
+                    themeHealth={themeHealth}
                     onTickerClick={onTickerChange}
                   />
                 </ErrorBoundary>
@@ -6450,6 +6879,7 @@ function ChartScanRow({
           ticker={chartTicker}
           onTickerChange={handleTickerClick}
           stockMap={stockMap}
+          themeHealth={data.pipeline?.theme_health || []}
           rvolPicks={picks.rvolPicks}
           pmPicks={picks.pmPicks}
           ahPicks={picks.ahPicks}
