@@ -1,6 +1,6 @@
 {
   "date": "2026-04-24",
-  "generated": "2026-04-27 03:34",
+  "generated": "2026-04-27 04:16",
   "total_stocks": 3452,
   "current": {
     "date": "2026-04-24",
@@ -271,16 +271,16 @@
   ],
   "theme_breadth": [
     {
+      "theme": "SEMICONDUCTORS",
+      "up_4pct": 28,
+      "down_4pct": 0,
+      "net": 28
+    },
+    {
       "theme": "AI INFRASTRUCTURE",
       "up_4pct": 31,
       "down_4pct": 4,
       "net": 27
-    },
-    {
-      "theme": "SEMICONDUCTORS",
-      "up_4pct": 23,
-      "down_4pct": 0,
-      "net": 23
     },
     {
       "theme": "INDUSTRIAL",
@@ -361,12 +361,6 @@
       "net": 2
     },
     {
-      "theme": "ROBOTICS",
-      "up_4pct": 4,
-      "down_4pct": 2,
-      "net": 2
-    },
-    {
       "theme": "DIGITAL ENTERTAINMENT",
       "up_4pct": 4,
       "down_4pct": 3,
@@ -374,6 +368,12 @@
     },
     {
       "theme": "EV",
+      "up_4pct": 3,
+      "down_4pct": 2,
+      "net": 1
+    },
+    {
+      "theme": "ROBOTICS",
       "up_4pct": 3,
       "down_4pct": 2,
       "net": 1
