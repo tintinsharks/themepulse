@@ -832,7 +832,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         display: "grid",
         gridTemplateColumns: gridCols,
         gap: 8, padding: "6px 10px", background: "#1a1a2e",
-        fontSize: 10, color: "#9090a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5,
+        fontSize: 8, color: "#9090a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5,
         alignItems: "center",
       }}>
         <span>Subtheme</span>
