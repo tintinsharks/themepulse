@@ -3361,6 +3361,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
   const [sortKey, setSortKey] = useState("avg_rs");
   const [sortDir, setSortDir] = useState("desc");
   const [search, setSearch] = useState("");
+  const [expandedKey, setExpandedKey] = useState(null);
 
   const handleSort = useCallback((key) => {
     setSortKey((prev) => {
@@ -3469,10 +3470,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
 
     return Object.values(map).map((d) => {
       const n = d.count;
-      const topTickers = [...d.tickers]
-        .sort((a, b) => b.rs - a.rs)
-        .slice(0, 3)
-        .map((t) => t.ticker);
+      const stocksSorted = [...d.tickers].sort((a, b) => b.rs - a.rs);
       return {
         theme: d.theme,
         subtheme: d.subtheme,
@@ -3483,7 +3481,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
         avg_1m: n ? +(d.m1_sum / n).toFixed(2) : 0,
         avg_3m: n ? +(d.m3_sum / n).toFixed(2) : 0,
         pct_above50: n ? Math.round((d.above50_count / n) * 100) : 0,
-        topTickers,
+        stocks: stocksSorted,
       };
     });
   }, [stockMap]);
@@ -3617,45 +3615,103 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
       {/* Rows */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {sorted.map((d) => {
-          const thColor = TCOLORS[d.theme] || ARIA.textMuted;
-          const abbrev = ABBREV[d.theme] || d.theme.slice(0, 4).toUpperCase();
+          const key = `${d.theme}|||${d.subtheme}`;
+          const isOpen = expandedKey === key;
           return (
-            <div
-              key={`${d.theme}|||${d.subtheme}`}
-              style={{
-                display: "flex", alignItems: "center", gap: 3,
-                padding: "2px 8px",
-                borderBottom: `1px solid ${ARIA.border}18`,
-                minHeight: 22,
-                overflow: "hidden",
-              }}
-            >
-              {/* Subtheme name */}
-              <span
+            <div key={key} style={{ borderBottom: `1px solid ${ARIA.border}18` }}>
+              {/* Subtheme row */}
+              <div
+                onClick={() => setExpandedKey(isOpen ? null : key)}
                 style={{
-                  flex: 1, minWidth: 0, fontSize: 9, color: ARIA.text,
-                  fontFamily: "monospace", overflow: "hidden",
-                  textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  display: "flex", alignItems: "center", gap: 3,
+                  padding: "2px 8px",
+                  minHeight: 22,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  background: isOpen ? ARIA.green + "08" : "transparent",
                 }}
               >
-                {d.subtheme}
-              </span>
-              {/* Numeric columns */}
-              {COLS.map((col) => (
+                <span style={{ width: 10, flexShrink: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
+                  {isOpen ? "▼" : "▶"}
+                </span>
                 <span
-                  key={col.key}
                   style={{
-                    width: col.w, flexShrink: 0,
-                    fontSize: 9, fontFamily: "monospace",
-                    fontWeight: sortKey === col.key ? 700 : 400,
-                    color: cellColor(d, col.key),
-                    textAlign: col.align,
-                    background: sortKey === col.key ? ARIA.green + "10" : "transparent",
+                    flex: 1, minWidth: 0, fontSize: 9,
+                    color: isOpen ? ARIA.green : ARIA.text,
+                    fontFamily: "monospace", overflow: "hidden",
+                    textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    fontWeight: isOpen ? 700 : 400,
                   }}
                 >
-                  {cellVal(d, col.key)}
+                  {d.subtheme}
                 </span>
-              ))}
+                {COLS.map((col) => (
+                  <span
+                    key={col.key}
+                    onClick={(e) => { e.stopPropagation(); handleSort(col.key); }}
+                    style={{
+                      width: col.w, flexShrink: 0,
+                      fontSize: 9, fontFamily: "monospace",
+                      fontWeight: sortKey === col.key ? 700 : 400,
+                      color: cellColor(d, col.key),
+                      textAlign: col.align,
+                      background: sortKey === col.key ? ARIA.green + "10" : "transparent",
+                    }}
+                  >
+                    {cellVal(d, col.key)}
+                  </span>
+                ))}
+              </div>
+
+              {/* Expanded stock list */}
+              {isOpen && (
+                <div style={{ background: ARIA.bgCard, borderTop: `1px solid ${ARIA.border}30` }}>
+                  {d.stocks.map(({ ticker }) => {
+                    const s = stockMap[ticker];
+                    if (!s) return null;
+                    const chg = s.change_pct ?? 0;
+                    const w1 = s.return_1w ?? 0;
+                    const grade = s.grade || "";
+                    return (
+                      <div
+                        key={ticker}
+                        onClick={() => onTickerClick && onTickerClick(ticker)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 3,
+                          padding: "2px 8px 2px 22px",
+                          cursor: "pointer",
+                          borderBottom: `1px solid ${ARIA.border}10`,
+                        }}
+                      >
+                        {/* Grade */}
+                        <span style={{ width: 18, flexShrink: 0, fontSize: 8, fontFamily: "monospace", color: ARIA.textMuted, textAlign: "center" }}>
+                          {grade}
+                        </span>
+                        {/* Ticker */}
+                        <span style={{ width: 44, flexShrink: 0, fontSize: 9, fontFamily: "monospace", fontWeight: 700, color: ARIA.cyan || "#22d3ee" }}>
+                          {ticker}
+                        </span>
+                        {/* Company */}
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {s.company || ""}
+                        </span>
+                        {/* RS */}
+                        <span style={{ width: 26, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color: s.rs_rank >= 90 ? "#4ade80" : s.rs_rank >= 70 ? "#a3e635" : ARIA.textMuted }}>
+                          {s.rs_rank || "—"}
+                        </span>
+                        {/* Day chg */}
+                        <span style={{ width: 40, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color: chg > 0 ? "#4ade80" : chg < 0 ? "#f87171" : ARIA.textMuted }}>
+                          {chg >= 0 ? "+" : ""}{chg.toFixed(1)}%
+                        </span>
+                        {/* 1W */}
+                        <span style={{ width: 40, flexShrink: 0, fontSize: 9, fontFamily: "monospace", textAlign: "right", color: w1 > 0 ? "#4ade80" : w1 < 0 ? "#f87171" : ARIA.textMuted }}>
+                          {w1 >= 0 ? "+" : ""}{w1.toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
