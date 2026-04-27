@@ -6829,6 +6829,7 @@ function ChartScanRow({
   chartTicker,
   handleTickerClick,
   stockMap,
+  themeHealth,
   picks,
   analyzedPicks,
   handleAnalyze,
@@ -6879,7 +6880,7 @@ function ChartScanRow({
           ticker={chartTicker}
           onTickerChange={handleTickerClick}
           stockMap={stockMap}
-          themeHealth={data.pipeline?.theme_health || []}
+          themeHealth={themeHealth}
           rvolPicks={picks.rvolPicks}
           pmPicks={picks.pmPicks}
           ahPicks={picks.ahPicks}
@@ -7159,6 +7160,7 @@ function AppMain() {
           chartTicker={chartTicker}
           handleTickerClick={handleTickerClick}
           stockMap={stockMap}
+          themeHealth={data.pipeline?.theme_health || []}
           picks={picks}
           analyzedPicks={analyzedPicks}
           handleAnalyze={handleAnalyze}
