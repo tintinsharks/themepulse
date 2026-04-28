@@ -1381,7 +1381,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
         {/* Bar + number overlaid. In live mode, a cyan tick shows daily RS
             so you can compare today's strength to the underlying RS rank. */}
         <div style={{ position: "relative", height: 16, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}
-             title={isLive && row.rs != null ? `Live strength ${barValue.toFixed(0)} · daily RS ${row.rs.toFixed(0)} (cyan tick)` : undefined}>
+             title={isLive && row.rs != null ? `Live strength ${barValue.toFixed(0)} · daily RS ${row.rs.toFixed(0)} (white tick)` : undefined}>
           <div style={{
             width: `${Math.max(0, Math.min(100, barValue))}%`,
             height: "100%", background: barColor,
@@ -1394,8 +1394,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
               position: "absolute",
               left: `calc(${Math.max(0, Math.min(100, row.rs))}% - 1px)`,
               top: 1, bottom: 1, width: 2,
-              background: "#22d3ee",
-              boxShadow: "0 0 3px rgba(34, 211, 238, 0.8)",
+              background: "#ffffff",
+              boxShadow: "0 0 3px rgba(255, 255, 255, 0.8)",
               pointerEvents: "none",
             }} />
           )}
@@ -1406,7 +1406,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           }}>
             {barValue.toFixed(0)}
             {isLive && row.rs != null && (
-              <span style={{ color: "#22d3ee", fontSize: 9, fontWeight: 600, opacity: 0.85 }}>
+              <span style={{ color: "#ffffff", fontSize: 9, fontWeight: 600, opacity: 0.85 }}>
                 /{row.rs.toFixed(0)}
               </span>
             )}
