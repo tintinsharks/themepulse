@@ -875,15 +875,27 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 
   const toR = () => 8;
 
-  // Color by today's % — how is this theme behaving right now?
+  // Color by today's % percentile rank across all visible subthemes.
+  // Percentile-based so the full green→red range always renders regardless
+  // of whether the market is up 3% or down 3%.
+  const chgValues = rows
+    .map((r) => isLive ? r.live_pct_med : r.d1)
+    .filter((v) => v != null)
+    .sort((a, b) => a - b);
+  const chgPct = (r) => {
+    const v = isLive ? r.live_pct_med : r.d1;
+    if (v == null || chgValues.length === 0) return null;
+    const rank = chgValues.filter((x) => x <= v).length;
+    return rank / chgValues.length; // 0 = worst, 1 = best
+  };
   const bubbleFill = (r) => {
-    const chg = isLive ? (r.live_pct_med ?? null) : (r.d1 ?? null);
-    if (chg == null) return "#5a5a7a";
-    if (chg >= 3)  return "#00e676";
-    if (chg >= 1)  return "#69f0ae";
-    if (chg >= 0)  return "#a5d6a7";
-    if (chg >= -1) return "#ef9a9a";
-    if (chg >= -3) return "#e53935";
+    const p = chgPct(r);
+    if (p == null) return "#5a5a7a";
+    if (p >= 0.85) return "#00e676";
+    if (p >= 0.65) return "#69f0ae";
+    if (p >= 0.45) return "#a8c8a8";
+    if (p >= 0.35) return "#c8a8a8";
+    if (p >= 0.15) return "#e53935";
     return "#b71c1c";
   };
 
@@ -1025,7 +1037,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                 {" · "}Vel <strong style={{ color: vel >= 0 ? "#69f0ae" : "#ef9a9a" }}>{vel > 0 ? "+" : ""}{vel.toFixed(0)}</strong>
                 <br />
                 {isLive && hovered.live_pct_med != null && (
-                  <>Today <strong style={{ color: hovered.live_pct_med >= 0 ? "#69f0ae" : "#ef9a9a" }}>
+                  <>Today <strong style={{ color: bubbleFill(hovered) }}>
                     {hovered.live_pct_med > 0 ? "+" : ""}{hovered.live_pct_med.toFixed(2)}%
                   </strong>{" · "}</>
                 )}
@@ -1116,7 +1128,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
       {/* Legend */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
         <span>● size = N stocks</span>
-        <span><span style={{ color: "#00e676" }}>●</span> green = up today · <span style={{ color: "#e53935" }}>●</span> red = down today</span>
+        <span><span style={{ color: "#00e676" }}>●</span> green = leading today (relative) · <span style={{ color: "#e53935" }}>●</span> red = lagging today</span>
         <span style={{ color: "#9a9ab8" }}>labels = top 20 by setup score</span>
       </div>
     </div>
