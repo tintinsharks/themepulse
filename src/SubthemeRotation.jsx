@@ -983,8 +983,8 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                 )}
                 <circle cx={cx} cy={cy} r={isHov ? radius+2 : radius}
                         fill={bubbleFill(r)} fillOpacity={isHov || isSel ? 0.95 : 0.80}
-                        stroke={isHov || isSel ? "#fff" : strokeCol(r)}
-                        strokeWidth={isHov || isSel ? 2 : 1.5} />
+                        stroke={isHov || isSel ? "#fff" : "none"}
+                        strokeWidth={2} />
                 {showLabel && (
                   <text x={cx} y={cy - radius - 4}
                         fill={isHov ? "#fff" : score >= labelThreshold + 5 ? "#e0e0f0" : "#aaaacc"}
@@ -1114,7 +1114,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
         <span>● size = N stocks</span>
         <span><span style={{ color: "#00e676" }}>●</span> bright green = high RVol · <span style={{ color: "#ffd54f" }}>●</span> amber = normal vol</span>
-        <span>⭕ glow = EXPLOSIVE regime · border = setup tier</span>
+        <span>⭕ glow = EXPLOSIVE regime</span>
         <span style={{ color: "#9a9ab8" }}>labels = top 20 by setup score</span>
       </div>
     </div>
