@@ -838,7 +838,11 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
 function ScatterPlot({ rows, timeframe, onTickerClick }) {
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [highlightParent, setHighlightParent] = useState(null);
+  const [hoverParent, setHoverParent] = useState(null);
+  const [filterParent, setFilterParent] = useState(null);
+  // For muting bubbles in the scatter — only on hover, not when filtering
+  // (when filtering, the rows array is already reduced so muting is unnecessary)
+  const highlightParent = filterParent ? null : hoverParent;
   const isLive = timeframe === "live";
 
   const W = 820, H = 520;
@@ -870,10 +874,13 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 
   const toR = () => 8;
 
+  // When a parent is locked via click, the scatter only shows that parent's subthemes.
+  const displayRows = filterParent ? rows.filter((r) => r.parent === filterParent) : rows;
+
   // Color by today's % percentile rank across all visible subthemes.
   // Percentile-based so the full green→red range always renders regardless
   // of whether the market is up 3% or down 3%.
-  const chgValues = rows
+  const chgValues = displayRows
     .map((r) => isLive ? r.live_pct_med : r.d1)
     .filter((v) => v != null)
     .sort((a, b) => a - b);
@@ -905,11 +912,13 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
   const setupScore = (r) => (isLive ? r.live_setup : r.daily_setup)?.score ?? 0;
 
   // Top 30 by setup score are fully visible; rest are faint grey dots.
-  // When a parent is highlighted, all its subthemes become visible (overrides top 30).
+  // When a parent is hover-highlighted, all its subthemes become visible (overrides top 30).
+  // When filtered, every bubble in displayRows is fully visible.
   const TOP_VISIBLE = 30;
-  const sortedByScore = [...rows].sort((a, b) => setupScore(b) - setupScore(a));
+  const sortedByScore = [...displayRows].sort((a, b) => setupScore(b) - setupScore(a));
   const visibleSet = new Set(sortedByScore.slice(0, TOP_VISIBLE).map((r) => `${r.parent}|${r.name}`));
   const isVisible = (r) => {
+    if (filterParent) return true;
     if (highlightParent) return r.parent === highlightParent;
     return visibleSet.has(`${r.parent}|${r.name}`);
   };
@@ -935,7 +944,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
   const handleBubble = (r) => setSelected((prev) => prev?.name === r.name ? null : r);
 
   // Draw faint bubbles first, then visible ones on top
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = [...displayRows].sort((a, b) => {
     const aVis = isVisible(a) ? 1 : 0;
     const bVis = isVisible(b) ? 1 : 0;
     if (aVis !== bVis) return aVis - bVis;
@@ -1092,31 +1101,33 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
         }}>
           Parent themes · {parentStats.length}
         </div>
-        {highlightParent && (
-          <div onClick={() => setHighlightParent(null)}
+        {filterParent && (
+          <div onClick={() => setFilterParent(null)}
             style={{
               fontSize: 10, color: "#6a9eff", padding: "4px 6px", marginBottom: 4,
               cursor: "pointer", borderRadius: 3, background: "#15152a",
             }}>
-            ✕ clear filter
+            ✕ showing only {filterParent}
           </div>
         )}
         {parentStats.map((p) => {
-          const isHi = highlightParent === p.name;
+          const isFiltered = filterParent === p.name;
+          const isHi = !filterParent && hoverParent === p.name;
+          const isActive = isFiltered || isHi;
           const setupColor = p.avgSetup >= 70 ? "#00c853" : p.avgSetup >= 50 ? "#7cb342" : p.avgSetup >= 30 ? "#fbbf24" : "#9090a0";
           return (
             <div key={p.name}
-              onMouseEnter={() => setHighlightParent(p.name)}
-              onMouseLeave={() => setHighlightParent((cur) => cur === p.name ? null : cur)}
-              onClick={() => setHighlightParent(isHi ? null : p.name)}
+              onMouseEnter={() => setHoverParent(p.name)}
+              onMouseLeave={() => setHoverParent((cur) => cur === p.name ? null : cur)}
+              onClick={() => { setFilterParent(isFiltered ? null : p.name); setHoverParent(null); }}
               style={{
                 padding: "5px 6px", marginBottom: 2, borderRadius: 3, cursor: "pointer",
-                background: isHi ? "#1c2238" : "transparent",
-                border: `1px solid ${isHi ? "#3a4a7a" : "transparent"}`,
+                background: isFiltered ? "#1f2c4a" : isHi ? "#1c2238" : "transparent",
+                border: `1px solid ${isFiltered ? "#5a7eef" : isHi ? "#3a4a7a" : "transparent"}`,
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4,
               }}>
               <span style={{
-                color: isHi ? "#fff" : "#c0c0d8", fontSize: 10, fontWeight: isHi ? 700 : 500,
+                color: isActive ? "#fff" : "#c0c0d8", fontSize: 10, fontWeight: isActive ? 700 : 500,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
               }}>
                 {p.name}
