@@ -501,9 +501,6 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
           d1: compute1WDelta(sub),
           d4: compute4WDelta(sub),
           dispersion,
-          vcs_med: sub.vcs_med ?? null,
-          vcs_high_count: sub.vcs_high_count ?? 0,
-          dvol_accel_count: sub.dvol_accel_count ?? 0,
           // Live intraday aggregates (includes vol_regime)
           ...live,
           tickers,
@@ -568,7 +565,6 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
       live_pct:     (a, b) => (b.live_pct_med ?? -999) - (a.live_pct_med ?? -999),
       live_breadth: (a, b) => (b.live_breadth ?? 0) - (a.live_breadth ?? 0),
       rvol_agg:     (a, b) => (b.rvol_agg ?? 0) - (a.rvol_agg ?? 0),
-      vcs_med:      (a, b) => (b.vcs_med ?? 0) - (a.vcs_med ?? 0),
       streak:       (a, b) => (b.persistence?.streak ?? 0) - (a.persistence?.streak ?? 0),
       vol_breadth:  (a, b) => (b.live_rvol_breadth ?? 0) - (a.live_rvol_breadth ?? 0),
       n:            (a, b) => (b.n ?? 0) - (a.n ?? 0),
@@ -722,7 +718,6 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
               <option value="live_pct">Sort: Today %</option>
               <option value="live_breadth">Sort: Live Breadth</option>
               <option value="vol_breadth">Sort: Vol Breadth</option>
-              <option value="vcs_med">Sort: VCS (Setup)</option>
               <option value="streak">Sort: Persistence</option>
               <option value="rs">Sort: Daily RS</option>
             </>
@@ -733,7 +728,6 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
               <option value="d1">Sort: 1D/1W Δ</option>
               <option value="d4">Sort: 5D/4W Δ</option>
               <option value="breadth">Sort: Breadth</option>
-              <option value="vcs_med">Sort: VCS (Setup)</option>
               <option value="streak">Sort: Persistence</option>
             </>
           )}
@@ -1050,7 +1044,6 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                 )}
                 Vol% <strong>{hovered.live_rvol_breadth != null ? `${hovered.live_rvol_breadth.toFixed(0)}%` : "—"}</strong> at ≥1.5x
                 {" · "}N={hovered.n}
-                {hovered.vcs_med != null && <><br />VCS <strong>{hovered.vcs_med}</strong> · {hovered.vcs_high_count ?? 0} tight</>}
                 {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
                   <><br />{volRegimeStyle(hovered.vol_regime).icon} {hovered.vol_regime}</>
                 )}
@@ -1087,11 +1080,6 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
               {r.rvol_agg != null && (
                 <span style={{ color: bubbleFill(r), fontFamily: "monospace", fontSize: 10 }}>
                   RVol {r.rvol_agg.toFixed(1)}x
-                </span>
-              )}
-              {r.vcs_med != null && (
-                <span style={{ color: "#9a9ab8", fontFamily: "monospace", fontSize: 10 }}>
-                  VCS {r.vcs_med}
                 </span>
               )}
               <button onClick={() => setSelected(null)}
@@ -1154,8 +1142,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 
   const isLive = timeframe === "live";
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px 30px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px 30px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px";
 
   const hdrStyle = (key) => ({
     textAlign: "center", cursor: onSort ? "pointer" : "default", userSelect: "none",
@@ -1184,9 +1172,6 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         </span>
         <span style={hdrStyle("vol_breadth")} onClick={() => onSort?.("vol_breadth")}>
           Vol%{arrow("vol_breadth")}
-        </span>
-        <span style={hdrStyle("vcs_med")} onClick={() => onSort?.("vcs_med")}>
-          VCS{arrow("vcs_med")}
         </span>
         <span style={{ textAlign: "center" }}>Disp</span>
         <span style={hdrStyle("n")} onClick={() => onSort?.("n")}>N{arrow("n")}</span>
@@ -1222,8 +1207,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
   const tier = setupData ? setupTier(setupData.score) : null;
 
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px 30px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px 30px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px";
 
   return (
     <>
@@ -1345,15 +1330,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           {row.live_rvol_breadth != null ? `${row.live_rvol_breadth.toFixed(0)}%` : "—"}
         </span>
 
-        {/* VCS — median Volatility Contraction Score across constituents */}
-        <span style={{
-          textAlign: "center", fontFamily: "monospace", fontWeight: 600,
-          color: row.vcs_med >= 70 ? "#00c853" : row.vcs_med >= 50 ? "#7cb342" : row.vcs_med >= 30 ? "#fbbf24" : "#9090a0",
-        }}
-          title={`Median VCS ${row.vcs_med ?? "n/a"} · ${row.vcs_high_count ?? 0} stocks ≥70 · ${row.dvol_accel_count ?? 0} with $vol accel`}>
-          {row.vcs_med != null ? row.vcs_med : "—"}
-        </span>
-
         {/* Dispersion marker */}
         <span style={{ textAlign: "center", color: disp.color, fontWeight: 700, fontSize: 14 }}
               title={`σ=${dispValue?.toFixed(1) ?? "n/a"}`}>
@@ -1395,13 +1371,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
                 · {volStyle.icon} {volStyle.label}
                 {row.live_rvol_med != null && ` · ${row.live_rvol_med.toFixed(2)}x med RVol`}
                 {row.live_rvol_breadth != null && ` · ${row.live_rvol_breadth.toFixed(0)}% at ≥1.5x`}
-              </span>
-            )}
-            {row.vcs_med != null && (
-              <span style={{ color: row.vcs_med >= 70 ? "#00c853" : row.vcs_med >= 50 ? "#7cb342" : "#fbbf24" }}>
-                · VCS med {row.vcs_med}
-                {row.vcs_high_count > 0 && ` · ${row.vcs_high_count} tight`}
-                {row.dvol_accel_count > 0 && ` · ${row.dvol_accel_count} $accel`}
               </span>
             )}
           </div>
