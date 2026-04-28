@@ -398,16 +398,34 @@ const persistenceBadge = (persist) => {
  *   live_dispersion: std-dev of live_pct values (synchronized vs single-name)
  *   live_strength_score: composite 0-100 score for ranking
  */
-const computeLiveAggregates = (tickers) => {
+const computeLiveAggregates = (tickers, liveQuotes = null) => {
   if (!tickers || tickers.length === 0) {
     return { live_pct_med: null, live_breadth: null, live_rvol_med: null,
              live_rvol_breadth: null, live_dispersion: null, live_strength_score: null,
              vol_regime: null };
   }
 
-  // Pull live values, handle missing data
-  const livePcts = tickers.map((t) => t.live_pct ?? t.chg ?? null).filter((v) => v != null && !isNaN(v));
-  const rvols = tickers.map((t) => t.rvol ?? null).filter((v) => v != null && !isNaN(v));
+  // Per-ticker resolver — prefer fresh quote from /api/live, fall back to pipeline snapshot
+  const resolvePct = (t) => {
+    const tk = typeof t === "string" ? t : t?.ticker;
+    const live = tk && liveQuotes ? liveQuotes[tk] : null;
+    if (live?.change != null && !isNaN(live.change)) return live.change;
+    const v = t.live_pct ?? t.chg ?? null;
+    return v != null && !isNaN(v) ? v : null;
+  };
+  const resolveRvol = (t) => {
+    const tk = typeof t === "string" ? t : t?.ticker;
+    const live = tk && liveQuotes ? liveQuotes[tk] : null;
+    if (live?.volume && live?.avgVolume && live.avgVolume > 0) {
+      const r = live.volume / live.avgVolume;
+      if (!isNaN(r)) return r;
+    }
+    const v = t.rvol ?? null;
+    return v != null && !isNaN(v) ? v : null;
+  };
+
+  const livePcts = tickers.map(resolvePct).filter((v) => v != null);
+  const rvols = tickers.map(resolveRvol).filter((v) => v != null);
 
   // Aggregate RVol is available even without live pct data (pipeline field)
   const rvolAggEarly = rvols.length > 0
@@ -463,7 +481,7 @@ const computeLiveAggregates = (tickers) => {
 };
 
 // ─── Main component ─────────────────────────────────────────────────────────
-export default function SubthemeRotation({ data, history, onTickerClick }) {
+export default function SubthemeRotation({ data, history, liveQuotes = null, onTickerClick }) {
   const [viewMode, setViewMode] = useState("flat"); // "scatter" | "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
@@ -487,7 +505,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
       (theme.subthemes || []).forEach((sub) => {
         const tickers = sub.tickers || [];
         const dispersion = computeDispersion(tickers);
-        const live = computeLiveAggregates(tickers);
+        const live = computeLiveAggregates(tickers, liveQuotes);
         const rs = sub.weekly_rs ?? sub.rs ?? null;
         out.push({
           name: sub.name,
@@ -513,7 +531,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
       });
     });
     return out;
-  }, [data]);
+  }, [data, liveQuotes]);
 
   // ─── Build persistence map from history (memoized) ───────────────────────
   const persistenceMap = useMemo(() => {
@@ -1539,13 +1557,19 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
 export function SubthemeRotationAutoRefresh({
   dataUrl = "/dashboard_data.json",
   historyUrl = "/subtheme_history.json",
+  liveUrl = "/api/live",
   marketHoursMs = 5 * 60 * 1000,
   offHoursMs = 30 * 60 * 1000,
+  liveQuoteMs = 30 * 1000,                  // poll fresh quotes every 30s
+  liveQuoteChunkSize = 300,                 // tickers per chunk request
+  liveQuoteMaxChunks = 6,                   // ≤ 1800 tickers covered per refresh
   onTickerClick,
 }) {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState(null);
   const [loadedAt, setLoadedAt] = useState(null);
+  const [liveQuotes, setLiveQuotes] = useState({});  // ticker → { change, volume, avgVolume }
+  const [quotesAt, setQuotesAt] = useState(null);
 
   const isMarketHours = () => {
     const now = new Date();
@@ -1609,6 +1633,72 @@ export function SubthemeRotationAutoRefresh({
     };
   }, [dataUrl, marketHoursMs, offHoursMs]);
 
+  // ── Build the unique-ticker universe from data ──
+  const tickerUniverse = useMemo(() => {
+    if (!data?.themes) return [];
+    const set = new Set();
+    data.themes.forEach((th) => (th.subthemes || []).forEach((sub) => {
+      (sub.tickers || []).forEach((t) => {
+        const tk = typeof t === "string" ? t : t?.ticker;
+        if (tk) set.add(tk);
+      });
+    }));
+    return [...set];
+  }, [data]);
+
+  // ── Poll /api/live for fresh quotes during market hours ──
+  // Pipeline-baked live_pct goes stale between intraday runs (e.g. 10:30 AM →
+  // 6 PM ET gap), so we overlay real-time quotes from FMP via /api/live.
+  useEffect(() => {
+    if (!tickerUniverse.length) return;
+    let stopped = false;
+    let timer = null;
+
+    const fetchChunk = async (chunk) => {
+      const url = `${liveUrl}?tickers=${chunk.join(",")}&t=${Date.now()}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`live ${r.status}`);
+      const j = await r.json();
+      // /api/live returns { watchlist: [...], universe: [...] }
+      return [...(j.watchlist || []), ...(j.universe || [])];
+    };
+
+    const load = async () => {
+      if (!isMarketHours()) {
+        // Off-hours: don't bother polling, but still re-check periodically
+        if (!stopped) timer = setTimeout(load, liveQuoteMs * 4);
+        return;
+      }
+      try {
+        const chunks = [];
+        for (let i = 0; i < tickerUniverse.length && chunks.length < liveQuoteMaxChunks; i += liveQuoteChunkSize) {
+          chunks.push(tickerUniverse.slice(i, i + liveQuoteChunkSize));
+        }
+        const results = await Promise.all(chunks.map(fetchChunk));
+        if (stopped) return;
+        const next = {};
+        results.flat().forEach((q) => {
+          if (q?.ticker) {
+            next[q.ticker] = {
+              change: q.change,
+              volume: q.volume,
+              avgVolume: q.avgVolume,
+              price: q.price,
+            };
+          }
+        });
+        setLiveQuotes(next);
+        setQuotesAt(new Date());
+      } catch (e) {
+        console.warn("live quote refresh failed:", e?.message);
+      }
+      if (!stopped) timer = setTimeout(load, liveQuoteMs);
+    };
+
+    load();
+    return () => { stopped = true; if (timer) clearTimeout(timer); };
+  }, [tickerUniverse, liveUrl, liveQuoteMs, liveQuoteChunkSize, liveQuoteMaxChunks]);
+
   if (!data) {
     return (
       <div style={{ padding: 24, color: "#5a5a6a", fontSize: 12, fontFamily: "system-ui" }}>
@@ -1623,14 +1713,31 @@ export function SubthemeRotationAutoRefresh({
     ? `${history.days.length}d memory`
     : "no memory file";
 
+  // Quote freshness indicator
+  const quoteAgeSec = quotesAt ? Math.round((Date.now() - quotesAt.getTime()) / 1000) : null;
+  const quotesFresh = quoteAgeSec != null && quoteAgeSec < 90;
+  const quoteStatus = quotesAt
+    ? `quotes ${quoteAgeSec}s old (${Object.keys(liveQuotes).length} tickers)`
+    : isMarketHours() ? "fetching live quotes…" : "live quotes paused";
+
   return (
     <>
-      <SubthemeRotation data={data} history={history} onTickerClick={onTickerClick} />
+      <SubthemeRotation
+        data={data}
+        history={history}
+        liveQuotes={liveQuotes}
+        onTickerClick={onTickerClick}
+      />
       {loadedAt && (
         <div style={{ padding: "0 16px 12px", color: "#5a5a6a", fontSize: 10, fontFamily: "system-ui",
-                       display: "flex", justifyContent: "space-between" }}>
-          <span>Last refreshed: {loadedAt.toLocaleTimeString()} · Next refresh in {refreshIntervalMin} min · {historyStatus}</span>
-          <span style={{ color: isMarketHours() ? "#00c853" : "#5a5a6a" }}>{marketStatus}</span>
+                       display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <span>File refreshed: {loadedAt.toLocaleTimeString()} · Next in {refreshIntervalMin} min · {historyStatus}</span>
+          <span style={{ display: "flex", gap: 12 }}>
+            <span style={{ color: quotesFresh ? "#00c853" : isMarketHours() ? "#fb8c00" : "#5a5a6a" }}>
+              {quotesFresh ? "● LIVE" : isMarketHours() ? "◌" : "○"} {quoteStatus}
+            </span>
+            <span style={{ color: isMarketHours() ? "#00c853" : "#5a5a6a" }}>{marketStatus}</span>
+          </span>
         </div>
       )}
     </>
