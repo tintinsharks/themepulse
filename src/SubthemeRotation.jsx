@@ -501,6 +501,9 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
           d1: compute1WDelta(sub),
           d4: compute4WDelta(sub),
           dispersion,
+          vcs_med: sub.vcs_med ?? null,
+          vcs_high_count: sub.vcs_high_count ?? 0,
+          dvol_accel_count: sub.dvol_accel_count ?? 0,
           // Live intraday aggregates (includes vol_regime)
           ...live,
           tickers,
