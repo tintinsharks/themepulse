@@ -1378,8 +1378,10 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           )}
         </div>
 
-        {/* Bar + number overlaid */}
-        <div style={{ position: "relative", height: 16, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}>
+        {/* Bar + number overlaid. In live mode, a cyan tick shows daily RS
+            so you can compare today's strength to the underlying RS rank. */}
+        <div style={{ position: "relative", height: 16, background: "#1a1a2e", borderRadius: 2, overflow: "hidden" }}
+             title={isLive && row.rs != null ? `Live strength ${barValue.toFixed(0)} · daily RS ${row.rs.toFixed(0)} (cyan tick)` : undefined}>
           <div style={{
             width: `${Math.max(0, Math.min(100, barValue))}%`,
             height: "100%", background: barColor,
@@ -1387,12 +1389,27 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           }} />
           <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#2a2a40" }} />
           <div style={{ position: "absolute", left: "80%", top: 0, bottom: 0, width: 1, background: "#3a3a50" }} />
+          {isLive && row.rs != null && (
+            <div style={{
+              position: "absolute",
+              left: `calc(${Math.max(0, Math.min(100, row.rs))}% - 1px)`,
+              top: 1, bottom: 1, width: 2,
+              background: "#22d3ee",
+              boxShadow: "0 0 3px rgba(34, 211, 238, 0.8)",
+              pointerEvents: "none",
+            }} />
+          )}
           <span style={{
             position: "absolute", right: 4, top: 0, bottom: 0,
-            display: "flex", alignItems: "center",
+            display: "flex", alignItems: "center", gap: 4,
             color: "#fff", fontFamily: "monospace", fontWeight: 700, fontSize: 10,
           }}>
             {barValue.toFixed(0)}
+            {isLive && row.rs != null && (
+              <span style={{ color: "#22d3ee", fontSize: 9, fontWeight: 600, opacity: 0.85 }}>
+                /{row.rs.toFixed(0)}
+              </span>
+            )}
           </span>
         </div>
 
