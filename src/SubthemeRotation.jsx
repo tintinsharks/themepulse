@@ -875,20 +875,16 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 
   const toR = () => 8;
 
-  // Color by vol_regime when available (live), else fall back to rvol_agg
-  // Using regime keeps color consistent with the EXPLOSIVE dot signal
+  // Color by today's % — how is this theme behaving right now?
   const bubbleFill = (r) => {
-    if (r.vol_regime === "EXPLOSIVE") return "#ff9100";
-    if (r.vol_regime === "ROTATING")  return "#00e676";
-    if (r.vol_regime === "DRIFTING")  return "#ffd54f";
-    if (r.vol_regime === "QUIET")     return "#7a7a9a";
-    // daily mode fallback — no vol_regime
-    const rv = r.rvol_agg;
-    if (rv == null) return "#5a5a7a";
-    if (rv >= 2.0) return "#00e676";
-    if (rv >= 1.5) return "#69f0ae";
-    if (rv >= 1.0) return "#ffd54f";
-    return "#7a7a9a";
+    const chg = isLive ? (r.live_pct_med ?? null) : (r.d1 ?? null);
+    if (chg == null) return "#5a5a7a";
+    if (chg >= 3)  return "#00e676";
+    if (chg >= 1)  return "#69f0ae";
+    if (chg >= 0)  return "#a5d6a7";
+    if (chg >= -1) return "#ef9a9a";
+    if (chg >= -3) return "#e53935";
+    return "#b71c1c";
   };
 
   // Border = setup tier
@@ -1028,7 +1024,12 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                 RS <strong>{hovered.rs?.toFixed(0) ?? "—"}</strong>
                 {" · "}Vel <strong style={{ color: vel >= 0 ? "#69f0ae" : "#ef9a9a" }}>{vel > 0 ? "+" : ""}{vel.toFixed(0)}</strong>
                 <br />
-                RVol <strong style={{ color: bubbleFill(hovered) }}>{hovered.rvol_agg?.toFixed(1) ?? "—"}x</strong>
+                {isLive && hovered.live_pct_med != null && (
+                  <>Today <strong style={{ color: hovered.live_pct_med >= 0 ? "#69f0ae" : "#ef9a9a" }}>
+                    {hovered.live_pct_med > 0 ? "+" : ""}{hovered.live_pct_med.toFixed(2)}%
+                  </strong>{" · "}</>
+                )}
+                RVol <strong>{hovered.rvol_agg?.toFixed(1) ?? "—"}x</strong>
                 {" · "}N={hovered.n}
                 {hovered.vcs_med != null && <><br />VCS <strong>{hovered.vcs_med}</strong> · {hovered.vcs_high_count ?? 0} tight</>}
                 {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
@@ -1115,7 +1116,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
       {/* Legend */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
         <span>● size = N stocks</span>
-        <span><span style={{ color: "#ff9100" }}>●</span> orange = EXPLOSIVE · <span style={{ color: "#00e676" }}>●</span> green = ROTATING · <span style={{ color: "#ffd54f" }}>●</span> amber = DRIFTING · <span style={{ color: "#7a7a9a" }}>●</span> grey = QUIET</span>
+        <span><span style={{ color: "#00e676" }}>●</span> green = up today · <span style={{ color: "#e53935" }}>●</span> red = down today</span>
         <span style={{ color: "#9a9ab8" }}>labels = top 20 by setup score</span>
       </div>
     </div>
