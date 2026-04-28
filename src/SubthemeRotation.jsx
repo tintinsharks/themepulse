@@ -878,8 +878,8 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
   // Color by vol_regime when available (live), else fall back to rvol_agg
   // Using regime keeps color consistent with the EXPLOSIVE dot signal
   const bubbleFill = (r) => {
-    if (r.vol_regime === "EXPLOSIVE") return "#00e676";
-    if (r.vol_regime === "ROTATING")  return "#69f0ae";
+    if (r.vol_regime === "EXPLOSIVE") return "#ff9100";
+    if (r.vol_regime === "ROTATING")  return "#00e676";
     if (r.vol_regime === "DRIFTING")  return "#ffd54f";
     if (r.vol_regime === "QUIET")     return "#7a7a9a";
     // daily mode fallback — no vol_regime
@@ -1115,8 +1115,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
       {/* Legend */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
         <span>● size = N stocks</span>
-        <span><span style={{ color: "#00e676" }}>●</span> bright green = high RVol · <span style={{ color: "#ffd54f" }}>●</span> amber = normal vol</span>
-        <span>⭕ glow = EXPLOSIVE regime</span>
+        <span><span style={{ color: "#ff9100" }}>●</span> orange = EXPLOSIVE · <span style={{ color: "#00e676" }}>●</span> green = ROTATING · <span style={{ color: "#ffd54f" }}>●</span> amber = DRIFTING · <span style={{ color: "#7a7a9a" }}>●</span> grey = QUIET</span>
         <span style={{ color: "#9a9ab8" }}>labels = top 20 by setup score</span>
       </div>
     </div>
