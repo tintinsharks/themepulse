@@ -30,17 +30,20 @@ const deltaArrow = (d) => {
 };
 
 const deltaColor = (d) => {
-  if (d >= 5) return "#00c853";
-  if (d >= 2) return "#7cb342";
-  if (d <= -5) return "#e53935";
-  if (d <= -2) return "#fb8c00";
-  return "#9090a0";
+  // Only color truly actionable moves. Everything in the noise band stays neutral grey.
+  if (d >= 8) return "#00c853";
+  if (d >= 4) return "#7cb342";
+  if (d <= -8) return "#e53935";
+  if (d <= -4) return "#c47000";
+  return "#7a7a8a";
 };
 
 const dispMarker = (d) => {
-  if (d == null || isNaN(d)) return { mark: "—", color: "#5a5a6a" };
-  if (d <= 15) return { mark: "◆", color: "#00c853" };
-  if (d <= 30) return { mark: "◇", color: "#9e9e9e" };
+  // Tight dispersion is calm but not actionable on its own → neutral.
+  // Only high dispersion (single-name carry) deserves a warning color.
+  if (d == null || isNaN(d)) return { mark: "—", color: "#4a4a5a" };
+  if (d <= 15) return { mark: "◆", color: "#7a7a8a" };
+  if (d <= 30) return { mark: "◇", color: "#5a5a6a" };
   return { mark: "✦", color: "#fb8c00" };
 };
 
@@ -229,11 +232,13 @@ const computeLiveSetupScore = (s) => {
  */
 const setupTier = (score) => {
   if (score == null) return null;
+  // Only the actionable tiers (S/A/B) get color. C/D fade to neutral so they
+  // stop competing for attention with real setups.
   if (score >= 80) return { tier: "S", color: "#00c853", bg: "#0d2a1a", label: "TAKE" };
   if (score >= 65) return { tier: "A", color: "#7cb342", bg: "#16240e", label: "STRONG" };
   if (score >= 50) return { tier: "B", color: "#fbbf24", bg: "#241f08", label: "WAIT" };
-  if (score >= 35) return { tier: "C", color: "#fb8c00", bg: "#241608", label: "WATCH" };
-  return { tier: "D", color: "#e53935", bg: "#1a0d0d", label: "AVOID" };
+  if (score >= 35) return { tier: "C", color: "#7a7a8a", bg: "#15151f", label: "WATCH" };
+  return { tier: "D", color: "#5a5a6a", bg: "#10101a", label: "AVOID" };
 };
 
 // ─── Volume regime classification ───────────────────────────────────────────
@@ -1334,7 +1339,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
               background: quadColor(row.quad), color: "#0d0d1a", minWidth: 14, textAlign: "center",
             }}>{row.quad}</span>
           )}
-          <span style={{ color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ color: "#c8c8d8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {row.name}
           </span>
           <span style={{
@@ -1409,7 +1414,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
         {/* Vol% — % of constituents with RVol ≥1.5x (unusual volume breadth) */}
         <span style={{
           textAlign: "center", fontFamily: "monospace", fontWeight: 600,
-          color: row.live_rvol_breadth >= 40 ? "#00c853" : row.live_rvol_breadth >= 25 ? "#7cb342" : row.live_rvol_breadth >= 15 ? "#fbbf24" : "#9090a0",
+          color: row.live_rvol_breadth >= 40 ? "#00c853" : row.live_rvol_breadth >= 25 ? "#7cb342" : "#7a7a8a",
         }}
           title={`${row.live_rvol_breadth?.toFixed(0) ?? "—"}% of stocks with RVol ≥1.5x`}>
           {row.live_rvol_breadth != null ? `${row.live_rvol_breadth.toFixed(0)}%` : "—"}
