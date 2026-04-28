@@ -464,10 +464,10 @@ const computeLiveAggregates = (tickers) => {
 
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function SubthemeRotation({ data, history, onTickerClick }) {
-  const [viewMode, setViewMode] = useState("scatter"); // "scatter" | "flat" | "grouped"
+  const [viewMode, setViewMode] = useState("flat"); // "scatter" | "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
-  const [sortBy, setSortBy] = useState("setup");
+  const [sortBy, setSortBy] = useState("rs");
   const [sortDir, setSortDir] = useState("desc");
   const onSort = (key) => {
     setSortBy((prev) => {
