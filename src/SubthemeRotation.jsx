@@ -459,7 +459,7 @@ const computeLiveAggregates = (tickers) => {
 
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function SubthemeRotation({ data, history, onTickerClick }) {
-  const [viewMode, setViewMode] = useState("flat"); // "flat" | "grouped"
+  const [viewMode, setViewMode] = useState("scatter"); // "scatter" | "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
   const [sortBy, setSortBy] = useState("setup");
@@ -609,7 +609,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
 
   // ─── Display rows (apply topN cap) ───────────────────────────────────────
   const displayRows = useMemo(() => {
-    if (viewMode !== "flat") return visible;
+    if (viewMode === "grouped") return visible;
     return visible.slice(0, topN);
   }, [visible, viewMode, topN]);
 
@@ -670,23 +670,25 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
         </div>
 
         <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-          {["flat", "grouped"].map((mode) => (
+          {[
+            { id: "scatter", label: "◉ Scatter" },
+            { id: "flat",    label: "≡ Table" },
+            { id: "grouped", label: "⊞ Grouped" },
+          ].map((mode) => (
             <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
+              key={mode.id}
+              onClick={() => setViewMode(mode.id)}
               style={{
                 padding: "4px 10px",
                 fontSize: 11,
-                background: viewMode === mode ? "#2a2a40" : "#141420",
-                color: viewMode === mode ? "#fff" : "#9090a0",
+                background: viewMode === mode.id ? "#2a2a40" : "#141420",
+                color: viewMode === mode.id ? "#fff" : "#9090a0",
                 border: "1px solid #222230",
                 borderRadius: 4,
                 cursor: "pointer",
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
               }}
             >
-              {mode === "flat" ? "All Ranked" : "By Parent"}
+              {mode.label}
             </button>
           ))}
         </div>
@@ -743,7 +745,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
           Show N&lt;{MIN_N}
         </label>
 
-        {viewMode === "flat" && (
+        {(viewMode === "flat" || viewMode === "scatter") && (
           <select
             value={topN}
             onChange={(e) => setTopN(Number(e.target.value))}
@@ -770,6 +772,15 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
           IN: {regime.inCount} · OUT: {regime.outCount} · (Δ&gt;±5 1W)
         </span>
       </div>
+
+      {/* ─── Scatter view ──────────────────────────────────────────────── */}
+      {viewMode === "scatter" && (
+        <ScatterPlot
+          rows={displayRows}
+          timeframe={timeframe}
+          onTickerClick={onTickerClick}
+        />
+      )}
 
       {/* ─── Flat view ─────────────────────────────────────────────────── */}
       {viewMode === "flat" && (
@@ -815,6 +826,255 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
         <span><span style={{ color: "#00c853" }}>◆</span> tight (≤15) · <span style={{ color: "#9e9e9e" }}>◇</span> mid · <span style={{ color: "#fb8c00" }}>✦</span> wide (&gt;30)</span>
         <span>1W Δ = weekly RS − monthly RS · 4W Δ = monthly RS − 50</span>
         <span style={{ color: "#00c853", fontWeight: 700 }}>🎯 Best setup: top RS + ▲ + ◆</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Scatter: RS vs VCS bubble chart ────────────────────────────────────────
+function ScatterPlot({ rows, timeframe, onTickerClick }) {
+  const [hovered, setHovered] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const isLive = timeframe === "live";
+
+  const W = 800, H = 500;
+  const PAD = { top: 28, right: 24, bottom: 46, left: 48 };
+  const PW = W - PAD.left - PAD.right;
+  const PH = H - PAD.top - PAD.bottom;
+
+  const xVal = (r) => isLive ? (r.live_strength_score ?? r.rs ?? 0) : (r.rs ?? 0);
+  const yVal = (r) => r.vcs_med ?? null;
+
+  const toX = (v) => PAD.left + (v / 100) * PW;
+  const toY = (v) => PAD.top + PH - (v / 100) * PH;
+  const toR = (n) => Math.max(5, Math.min(20, Math.sqrt(n ?? 1) * 2.4));
+
+  const bubbleFill = (r) => {
+    const chg = isLive ? (r.live_pct_med ?? 0) : ((r.d1 ?? 0) / 5);
+    if (chg >= 4)  return "#00c853";
+    if (chg >= 2)  return "#43a047";
+    if (chg >= 0)  return "#7cb342";
+    if (chg >= -2) return "#ef9a9a";
+    if (chg >= -4) return "#e53935";
+    return "#b71c1c";
+  };
+
+  const strokeCol = (r) => {
+    const s = isLive ? r.live_setup : r.daily_setup;
+    if (!s) return "#3a3a50";
+    const t = setupTier(s.score);
+    return t ? t.color + "bb" : "#3a3a50";
+  };
+
+  // Rows that have VCS data; nulls shown faintly at y=4
+  const hasVcs = rows.filter((r) => r.vcs_med != null);
+  const noVcs  = rows.filter((r) => r.vcs_med == null);
+  const noVcsPct = rows.length > 0 ? Math.round((noVcs.length / rows.length) * 100) : 0;
+
+  const handleBubble = (r) => setSelected((prev) => prev?.name === r.name ? null : r);
+
+  return (
+    <div style={{ background: "#0d0d1a", border: "1px solid #222230", borderRadius: 6, overflow: "hidden" }}>
+      <div style={{ position: "relative" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+          {/* Quadrant zones */}
+          <rect x={PAD.left}          y={PAD.top}          width={PW/2} height={PH/2} fill="#0d1a10" opacity={0.5} />
+          <rect x={PAD.left + PW/2}   y={PAD.top}          width={PW/2} height={PH/2} fill="#0d2010" opacity={0.7} />
+          <rect x={PAD.left}          y={PAD.top + PH/2}   width={PW/2} height={PH/2} fill="#0d0d1a" opacity={0.3} />
+          <rect x={PAD.left + PW/2}   y={PAD.top + PH/2}   width={PW/2} height={PH/2} fill="#1a0d0d" opacity={0.5} />
+
+          {/* Grid lines */}
+          {[25, 50, 75].map((v) => (
+            <g key={v}>
+              <line x1={toX(v)} y1={PAD.top} x2={toX(v)} y2={PAD.top + PH}
+                    stroke={v === 50 ? "#2a2a44" : "#1e1e30"} strokeWidth={v === 50 ? 1.5 : 1} strokeDasharray={v === 50 ? "5,4" : "3,5"} />
+              <line x1={PAD.left} y1={toY(v)} x2={PAD.left + PW} y2={toY(v)}
+                    stroke={v === 50 ? "#2a2a44" : "#1e1e30"} strokeWidth={v === 50 ? 1.5 : 1} strokeDasharray={v === 50 ? "5,4" : "3,5"} />
+            </g>
+          ))}
+
+          {/* Quadrant labels */}
+          <text x={toX(25)} y={PAD.top + 14} fill="#1e3a1e" fontSize={9} textAnchor="middle" fontWeight={700} letterSpacing={1}>BASING</text>
+          <text x={toX(75)} y={PAD.top + 14} fill="#1e4a1e" fontSize={9} textAnchor="middle" fontWeight={700} letterSpacing={1}>READY ★</text>
+          <text x={toX(25)} y={PAD.top + PH - 6} fill="#1e1e2a" fontSize={9} textAnchor="middle" fontWeight={700} letterSpacing={1}>AVOID</text>
+          <text x={toX(75)} y={PAD.top + PH - 6} fill="#3a1e1e" fontSize={9} textAnchor="middle" fontWeight={700} letterSpacing={1}>EXTENDED</text>
+
+          {/* Axis ticks */}
+          {[0, 25, 50, 75, 100].map((v) => (
+            <g key={v}>
+              <line x1={toX(v)} y1={PAD.top + PH} x2={toX(v)} y2={PAD.top + PH + 5} stroke="#3a3a50" strokeWidth={1} />
+              <text x={toX(v)} y={PAD.top + PH + 16} fill="#5a5a6a" fontSize={8} textAnchor="middle">{v}</text>
+              <line x1={PAD.left - 5} y1={toY(v)} x2={PAD.left} y2={toY(v)} stroke="#3a3a50" strokeWidth={1} />
+              <text x={PAD.left - 7} y={toY(v) + 3} fill="#5a5a6a" fontSize={8} textAnchor="end">{v}</text>
+            </g>
+          ))}
+
+          {/* Axis labels */}
+          <text x={PAD.left + PW / 2} y={H - 6} fill="#7a7a8a" fontSize={9} textAnchor="middle">
+            {isLive ? "Live Strength →" : "RS Percentile →"}
+          </text>
+          <text x={12} y={PAD.top + PH / 2} fill="#7a7a8a" fontSize={9} textAnchor="middle"
+                transform={`rotate(-90,12,${PAD.top + PH / 2})`}>
+            ↑ VCS Setup Quality
+          </text>
+
+          {/* No-VCS rows — faint marks at bottom */}
+          {noVcs.map((r) => (
+            <circle key={`${r.parent}-${r.name}-nv`}
+              cx={toX(xVal(r))} cy={PAD.top + PH + 3}
+              r={3} fill="#3a3a50" opacity={0.4} />
+          ))}
+
+          {/* Main bubbles */}
+          {hasVcs.map((r) => {
+            const cx = toX(xVal(r));
+            const cy = toY(yVal(r));
+            const radius = toR(r.n);
+            const isHov = hovered?.name === r.name;
+            const isSel = selected?.name === r.name;
+            return (
+              <g key={`${r.parent}-${r.name}`} style={{ cursor: "pointer" }}
+                 onMouseEnter={() => setHovered(r)}
+                 onMouseLeave={() => setHovered(null)}
+                 onClick={() => handleBubble(r)}>
+                {/* EXPLOSIVE glow ring */}
+                {r.vol_regime === "EXPLOSIVE" && (
+                  <circle cx={cx} cy={cy} r={radius + 6} fill="none" stroke="#00c853" strokeWidth={1.5} opacity={0.25} />
+                )}
+                {/* Selection ring */}
+                {isSel && (
+                  <circle cx={cx} cy={cy} r={radius + 4} fill="none" stroke="#fff" strokeWidth={1.5} opacity={0.6} />
+                )}
+                <circle cx={cx} cy={cy} r={isHov ? radius + 2 : radius}
+                        fill={bubbleFill(r)} fillOpacity={isHov || isSel ? 0.9 : 0.65}
+                        stroke={isHov || isSel ? "#fff" : strokeCol(r)}
+                        strokeWidth={isHov || isSel ? 1.5 : 1} />
+                {/* Label for larger or hovered bubbles */}
+                {(radius >= 11 || isHov) && (
+                  <text x={cx} y={cy - radius - 3} fill={isHov ? "#fff" : "#b0b0c0"}
+                        fontSize={isHov ? 9 : 7.5} textAnchor="middle" style={{ pointerEvents: "none" }}>
+                    {r.name.length > 18 ? r.name.slice(0, 16) + "…" : r.name}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Hover tooltip — floated top-right */}
+        {hovered && (
+          <div style={{
+            position: "absolute", top: 10, right: 10,
+            background: "#1a1a2e", border: "1px solid #333355",
+            borderRadius: 6, padding: "8px 12px", fontSize: 11,
+            minWidth: 190, pointerEvents: "none", zIndex: 10,
+          }}>
+            <div style={{ fontWeight: 700, color: "#fff", marginBottom: 4 }}>{hovered.name}</div>
+            <div style={{ color: "#7a7a8a", fontSize: 9, marginBottom: 6 }}>{hovered.parent}</div>
+            <div style={{ color: "#c0c0d0", lineHeight: 1.8 }}>
+              {isLive ? "Strength" : "RS"} {(isLive ? hovered.live_strength_score : hovered.rs)?.toFixed(0) ?? "—"}
+              {" · "}VCS {hovered.vcs_med ?? "—"}
+              <br />
+              N={hovered.n} · {isLive
+                ? `${hovered.live_pct_med != null ? (hovered.live_pct_med > 0 ? "+" : "") + hovered.live_pct_med.toFixed(2) + "%" : "—"} today`
+                : `1W ${hovered.d1 != null ? (hovered.d1 > 0 ? "+" : "") + hovered.d1.toFixed(0) : "—"}`}
+              {hovered.rvol_agg != null && <><br />RVol {hovered.rvol_agg.toFixed(1)}x</>}
+              {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
+                <><br />{volRegimeStyle(hovered.vol_regime).icon} {hovered.vol_regime}</>
+              )}
+              {hovered.vcs_high_count > 0 && (
+                <><br />{hovered.vcs_high_count} tight · {hovered.dvol_accel_count ?? 0} $accel</>
+              )}
+              {hovered.persistence?.streak >= 2 && (
+                <><br />↻ {hovered.persistence.streak}d streak</>
+              )}
+            </div>
+            <div style={{ marginTop: 6, color: "#5a5a6a", fontSize: 9 }}>click to expand</div>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded panel for selected bubble */}
+      {selected && (() => {
+        const r = selected;
+        const setup = isLive ? r.live_setup : r.daily_setup;
+        const tier = setup ? setupTier(setup.score) : null;
+        return (
+          <div style={{ padding: "10px 16px 14px", background: "#0a0a14", borderTop: "1px solid #1a1a2e", fontSize: 11 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+              {tier && (
+                <span style={{
+                  fontSize: 11, fontWeight: 800, padding: "2px 7px", borderRadius: 3,
+                  background: tier.bg, color: tier.color, border: `1px solid ${tier.color}60`,
+                  fontFamily: "monospace",
+                }}>
+                  {tier.tier}·{setup.score}
+                </span>
+              )}
+              <span style={{ fontWeight: 700, color: "#fff", fontSize: 13 }}>{r.name}</span>
+              <span style={{ color: "#5a9eff", fontSize: 11 }}>{r.parent}</span>
+              <span style={{ color: "#7a7a8a", fontSize: 10 }}>N={r.n}</span>
+              {r.vcs_med != null && (
+                <span style={{ color: r.vcs_med >= 70 ? "#00c853" : r.vcs_med >= 50 ? "#7cb342" : "#fbbf24", fontFamily: "monospace", fontSize: 10 }}>
+                  VCS {r.vcs_med}{r.vcs_high_count > 0 ? ` · ${r.vcs_high_count} tight` : ""}{r.dvol_accel_count > 0 ? ` · ${r.dvol_accel_count} $accel` : ""}
+                </span>
+              )}
+              {r.rvol_agg != null && (
+                <span style={{
+                  color: r.rvol_agg >= 2 ? "#00c853" : r.rvol_agg >= 1.5 ? "#7cb342" : "#fbbf24",
+                  fontFamily: "monospace", fontSize: 10,
+                }}>
+                  RVol {r.rvol_agg.toFixed(1)}x
+                </span>
+              )}
+              {r.persistence?.streak >= 2 && (
+                <span style={{ color: "#9e9e9e", fontSize: 10 }}>↻ {r.persistence.streak}d streak</span>
+              )}
+              <button onClick={() => setSelected(null)}
+                style={{ marginLeft: "auto", background: "none", border: "none", color: "#5a5a6a", cursor: "pointer", fontSize: 12 }}>✕</button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {[...(r.tickers || [])]
+                .sort((a, b) => isLive
+                  ? ((b.live_pct ?? b.chg ?? -999) - (a.live_pct ?? a.chg ?? -999))
+                  : ((b.rs ?? 0) - (a.rs ?? 0)))
+                .map((t) => {
+                  const ticker = typeof t === "string" ? t : t.ticker;
+                  const pct = isLive ? (t.live_pct ?? t.chg) : null;
+                  const rs = t.rs ?? null;
+                  return (
+                    <span key={ticker}
+                      onClick={(e) => { e.stopPropagation(); onTickerClick?.(ticker); }}
+                      style={{
+                        padding: "3px 8px", borderRadius: 3, cursor: "pointer",
+                        background: "#141420", border: "1px solid #222230",
+                        color: "#e0e0e8", fontSize: 11, fontFamily: "monospace",
+                        display: "flex", alignItems: "center", gap: 4,
+                      }}>
+                      {ticker}
+                      {pct != null && (
+                        <span style={{ color: pct >= 0 ? "#7cb342" : "#e57373", fontSize: 9 }}>
+                          {pct > 0 ? "+" : ""}{pct.toFixed(1)}%
+                        </span>
+                      )}
+                      {!isLive && rs != null && (
+                        <span style={{ color: rsBarColor(rs), fontSize: 9 }}>{rs.toFixed(0)}</span>
+                      )}
+                    </span>
+                  );
+                })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Legend */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, padding: "6px 12px 8px", fontSize: 9, color: "#5a5a6a", borderTop: "1px solid #1a1a2e" }}>
+        <span>● size = N stocks</span>
+        <span><span style={{ color: "#00c853" }}>●</span> green / <span style={{ color: "#e53935" }}>●</span> red = today %</span>
+        <span>⭕ glow = EXPLOSIVE vol</span>
+        <span>border = setup tier</span>
+        {noVcsPct > 0 && <span style={{ color: "#4a4a5a" }}>· marks below axis = {noVcsPct}% without VCS yet</span>}
       </div>
     </div>
   );
