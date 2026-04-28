@@ -907,16 +907,23 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
     return t ? t.color : "#3a3a55";
   };
 
-  // Label only top 20 by setup score — reduces clutter dramatically
   const setupScore = (r) => (isLive ? r.live_setup : r.daily_setup)?.score ?? 0;
-  const labelThreshold = [...rows].sort((a, b) => setupScore(b) - setupScore(a))[19]
-    ? setupScore([...rows].sort((a, b) => setupScore(b) - setupScore(a))[19])
-    : 0;
+
+  // Top 30 by setup score are fully visible; rest are faint grey dots
+  const TOP_VISIBLE = 30;
+  const sortedByScore = [...rows].sort((a, b) => setupScore(b) - setupScore(a));
+  const visibleSet = new Set(sortedByScore.slice(0, TOP_VISIBLE).map((r) => `${r.parent}|${r.name}`));
+  const isVisible = (r) => visibleSet.has(`${r.parent}|${r.name}`);
 
   const handleBubble = (r) => setSelected((prev) => prev?.name === r.name ? null : r);
 
-  // Sort: draw lower-score bubbles first so top setups render on top
-  const sorted = [...rows].sort((a, b) => setupScore(a) - setupScore(b));
+  // Draw faint bubbles first, then visible ones on top
+  const sorted = [...rows].sort((a, b) => {
+    const aVis = isVisible(a) ? 1 : 0;
+    const bVis = isVisible(b) ? 1 : 0;
+    if (aVis !== bVis) return aVis - bVis;
+    return setupScore(a) - setupScore(b);
+  });
 
   return (
     <div style={{ background: "#111122", border: "1px solid #2a2a40", borderRadius: 6, overflow: "hidden" }}>
@@ -981,8 +988,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
             const radius = toR(r.n);
             const isHov = hovered?.name === r.name;
             const isSel = selected?.name === r.name;
-            const score = setupScore(r);
-            const showLabel = score >= labelThreshold || isHov;
+            const vis = isVisible(r) || isHov;
             return (
               <g key={`${r.parent}-${r.name}`} style={{ cursor: "pointer" }}
                  onMouseEnter={() => setHovered(r)}
@@ -992,12 +998,13 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                   <circle cx={cx} cy={cy} r={radius+5} fill="none" stroke="#fff" strokeWidth={2} opacity={0.8} />
                 )}
                 <circle cx={cx} cy={cy} r={isHov ? radius+2 : radius}
-                        fill={bubbleFill(r)} fillOpacity={isHov || isSel ? 0.95 : 0.80}
+                        fill={vis ? bubbleFill(r) : "#2a2a3a"}
+                        fillOpacity={isHov ? 0.95 : vis ? 0.85 : 0.4}
                         stroke={isHov || isSel ? "#fff" : "none"}
                         strokeWidth={2} />
-                {showLabel && (
+                {vis && (
                   <text x={cx} y={cy - radius - 4}
-                        fill={isHov ? "#fff" : score >= labelThreshold + 5 ? "#e0e0f0" : "#aaaacc"}
+                        fill={isHov ? "#fff" : "#c0c0d8"}
                         fontSize={isHov ? 10 : 8} fontWeight={isHov ? 700 : 600}
                         textAnchor="middle" style={{ pointerEvents: "none" }}>
                     {r.name.length > 16 ? r.name.slice(0, 14) + "…" : r.name}
@@ -1129,7 +1136,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
         <span>● size = N stocks</span>
         <span><span style={{ color: "#00e676" }}>●</span> green = leading today (relative) · <span style={{ color: "#e53935" }}>●</span> red = lagging today</span>
-        <span style={{ color: "#9a9ab8" }}>labels = top 20 by setup score</span>
+        <span style={{ color: "#9a9ab8" }}>top 30 by setup score colored · rest faded · hover any to inspect</span>
       </div>
     </div>
   );
