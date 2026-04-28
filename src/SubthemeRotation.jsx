@@ -1233,8 +1233,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 
   const isLive = timeframe === "live";
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px";
 
   const hdrStyle = (key) => ({
     textAlign: "center", cursor: onSort ? "pointer" : "default", userSelect: "none",
@@ -1264,7 +1264,6 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         <span style={hdrStyle("vol_breadth")} onClick={() => onSort?.("vol_breadth")}>
           Vol%{arrow("vol_breadth")}
         </span>
-        <span style={{ textAlign: "center" }}>Disp</span>
       </div>
 
       {rows.map((r, i) => (
@@ -1287,8 +1286,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
   // Choose displayed values per timeframe
   const barValue = isLive ? (row.live_strength_score ?? 0) : (row.rs ?? 0);
   const barColor = rsBarColor(barValue);
-  const dispValue = isLive ? row.live_dispersion : row.dispersion;
-  const disp = dispMarker(isLive ? (dispValue != null ? dispValue * 5 : null) : dispValue);
   const persistBadge = persistenceBadge(row.persistence);
   const volStyle = isLive ? volRegimeStyle(row.vol_regime) : null;
 
@@ -1297,8 +1294,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
   const tier = setupData ? setupTier(setupData.score) : null;
 
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px";
 
   return (
     <>
@@ -1435,12 +1432,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
         }}
           title={`${row.live_rvol_breadth?.toFixed(0) ?? "—"}% of stocks with RVol ≥1.5x`}>
           {row.live_rvol_breadth != null ? `${row.live_rvol_breadth.toFixed(0)}%` : "—"}
-        </span>
-
-        {/* Dispersion marker */}
-        <span style={{ textAlign: "center", color: disp.color, fontWeight: 700, fontSize: 14 }}
-              title={`σ=${dispValue?.toFixed(1) ?? "n/a"}`}>
-          {disp.mark}
         </span>
 
       </div>
