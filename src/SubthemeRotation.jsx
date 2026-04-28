@@ -838,6 +838,7 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
 function ScatterPlot({ rows, timeframe, onTickerClick }) {
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [highlightParent, setHighlightParent] = useState(null);
   const isLive = timeframe === "live";
 
   const W = 820, H = 520;
@@ -903,11 +904,33 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 
   const setupScore = (r) => (isLive ? r.live_setup : r.daily_setup)?.score ?? 0;
 
-  // Top 30 by setup score are fully visible; rest are faint grey dots
+  // Top 30 by setup score are fully visible; rest are faint grey dots.
+  // When a parent is highlighted, all its subthemes become visible (overrides top 30).
   const TOP_VISIBLE = 30;
   const sortedByScore = [...rows].sort((a, b) => setupScore(b) - setupScore(a));
   const visibleSet = new Set(sortedByScore.slice(0, TOP_VISIBLE).map((r) => `${r.parent}|${r.name}`));
-  const isVisible = (r) => visibleSet.has(`${r.parent}|${r.name}`);
+  const isVisible = (r) => {
+    if (highlightParent) return r.parent === highlightParent;
+    return visibleSet.has(`${r.parent}|${r.name}`);
+  };
+  const isMuted = (r) => highlightParent != null && r.parent !== highlightParent;
+
+  // Parent legend: aggregate subthemes by parent, sorted by count desc
+  const parentStats = (() => {
+    const map = new Map();
+    rows.forEach((r) => {
+      if (!r.parent) return;
+      const cur = map.get(r.parent) || { name: r.parent, n: 0, avgSetup: 0, leading: 0 };
+      cur.n += 1;
+      cur.avgSetup += setupScore(r);
+      // "Leading" = RS >= 50 AND velocity >= 0
+      if ((r.rs ?? 0) >= 50 && rawVel(r) >= 0) cur.leading += 1;
+      map.set(r.parent, cur);
+    });
+    return [...map.values()]
+      .map((p) => ({ ...p, avgSetup: p.n ? Math.round(p.avgSetup / p.n) : 0 }))
+      .sort((a, b) => b.avgSetup - a.avgSetup || b.n - a.n);
+  })();
 
   const handleBubble = (r) => setSelected((prev) => prev?.name === r.name ? null : r);
 
@@ -921,7 +944,8 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 
   return (
     <div style={{ background: "#111122", border: "1px solid #2a2a40", borderRadius: 6, overflow: "hidden" }}>
-      <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+      <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
           {/* Plot background */}
           <rect x={PAD.left} y={PAD.top} width={PW} height={PH} fill="#0c0c1c" />
@@ -993,10 +1017,10 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                 )}
                 <circle cx={cx} cy={cy} r={isHov ? radius+2 : radius}
                         fill={vis ? bubbleFill(r) : "#2a2a3a"}
-                        fillOpacity={isHov ? 0.95 : vis ? 0.85 : 0.4}
+                        fillOpacity={isMuted(r) ? 0.15 : isHov ? 0.95 : vis ? 0.85 : 0.4}
                         stroke={isHov || isSel ? "#fff" : "none"}
                         strokeWidth={2} />
-                {vis && (
+                {vis && !isMuted(r) && (
                   <text x={cx} y={cy - radius - 4}
                         fill={isHov ? "#fff" : "#c0c0d8"}
                         fontSize={isHov ? 10 : 8} fontWeight={isHov ? 700 : 600}
@@ -1055,6 +1079,57 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
             </div>
           );
         })()}
+      </div>
+
+      {/* Parent theme legend — hover to highlight all subthemes in that parent */}
+      <div style={{
+        width: 180, background: "#0c0c1c", borderLeft: "1px solid #1e1e34",
+        padding: "10px 8px", overflowY: "auto", maxHeight: 520,
+      }}>
+        <div style={{
+          fontSize: 9, color: "#7a7a9a", fontWeight: 700, textTransform: "uppercase",
+          letterSpacing: 0.5, padding: "0 4px 8px", borderBottom: "1px solid #1e1e34", marginBottom: 6,
+        }}>
+          Parent themes · {parentStats.length}
+        </div>
+        {highlightParent && (
+          <div onClick={() => setHighlightParent(null)}
+            style={{
+              fontSize: 10, color: "#6a9eff", padding: "4px 6px", marginBottom: 4,
+              cursor: "pointer", borderRadius: 3, background: "#15152a",
+            }}>
+            ✕ clear filter
+          </div>
+        )}
+        {parentStats.map((p) => {
+          const isHi = highlightParent === p.name;
+          const setupColor = p.avgSetup >= 70 ? "#00c853" : p.avgSetup >= 50 ? "#7cb342" : p.avgSetup >= 30 ? "#fbbf24" : "#9090a0";
+          return (
+            <div key={p.name}
+              onMouseEnter={() => setHighlightParent(p.name)}
+              onMouseLeave={() => setHighlightParent((cur) => cur === p.name ? null : cur)}
+              onClick={() => setHighlightParent(isHi ? null : p.name)}
+              style={{
+                padding: "5px 6px", marginBottom: 2, borderRadius: 3, cursor: "pointer",
+                background: isHi ? "#1c2238" : "transparent",
+                border: `1px solid ${isHi ? "#3a4a7a" : "transparent"}`,
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4,
+              }}>
+              <span style={{
+                color: isHi ? "#fff" : "#c0c0d8", fontSize: 10, fontWeight: isHi ? 700 : 500,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+              }}>
+                {p.name}
+              </span>
+              <span style={{ display: "flex", gap: 4, fontSize: 9, fontFamily: "monospace", flexShrink: 0 }}>
+                <span style={{ color: setupColor, fontWeight: 700 }} title={`avg setup ${p.avgSetup}`}>{p.avgSetup}</span>
+                <span style={{ color: "#5a5a7a" }}>·</span>
+                <span style={{ color: "#7a7a9a" }} title={`${p.n} subthemes`}>{p.n}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
       </div>
 
       {/* Expanded constituent panel */}
