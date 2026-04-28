@@ -873,7 +873,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
     py: PAD.top + PH - (((v + VEL_RANGE) / (2 * VEL_RANGE)) * PH),
   }));
 
-  const toR = (n) => Math.max(5, Math.min(18, Math.sqrt(n ?? 1) * 2.2));
+  const toR = () => 8;
 
   // Color by RVol — green = institutional volume, amber = normal, grey = no data
   const bubbleFill = (r) => {
