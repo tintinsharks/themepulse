@@ -980,9 +980,6 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                  onMouseEnter={() => setHovered(r)}
                  onMouseLeave={() => setHovered(null)}
                  onClick={() => handleBubble(r)}>
-                {r.vol_regime === "EXPLOSIVE" && (
-                  <circle cx={cx+radius-2} cy={cy-radius+2} r={3} fill="#00e676" opacity={0.9} />
-                )}
                 {isSel && (
                   <circle cx={cx} cy={cy} r={radius+5} fill="none" stroke="#fff" strokeWidth={2} opacity={0.8} />
                 )}
