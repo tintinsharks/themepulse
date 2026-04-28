@@ -834,127 +834,163 @@ export default function SubthemeRotation({ data, history, onTickerClick }) {
   );
 }
 
-// ─── Scatter: RS vs VCS bubble chart ────────────────────────────────────────
+// ─── Scatter: RS vs RS-Velocity bubble chart ────────────────────────────────
+// X = RS percentile (where is this theme ranked right now?)
+// Y = RS velocity = weekly_rs - monthly_rs (is it accelerating or decelerating?)
+// Y=0 dividing line: above = momentum building, below = fading
+// Color = RVol (volume confirmation) — green = high, amber = normal
+// Size = N (breadth of theme confirmation)
+// Quadrants: LEADING (strong+accel) · ROTATING IN (weak+accel) · FADING (strong+decel) · LAGGING
 function ScatterPlot({ rows, timeframe, onTickerClick }) {
   const [hovered, setHovered] = useState(null);
   const [selected, setSelected] = useState(null);
   const isLive = timeframe === "live";
 
-  const W = 800, H = 500;
-  const PAD = { top: 32, right: 28, bottom: 50, left: 52 };
+  const W = 820, H = 520;
+  const PAD = { top: 36, right: 32, bottom: 52, left: 58 };
   const PW = W - PAD.left - PAD.right;
   const PH = H - PAD.top - PAD.bottom;
 
+  // X: RS percentile (0-100)
   const xVal = (r) => isLive ? (r.live_strength_score ?? r.rs ?? 0) : (r.rs ?? 0);
 
-  // Y: use VCS if available, else fall back to RVol scaled 0-100 (3x rvol = ~100)
-  const hasAnyVcs = rows.some((r) => r.vcs_med != null);
+  // Y: RS velocity = weekly_rs - monthly_rs, clamped to [-60, 60], mapped to [0,100]
+  const rawVel = (r) => (r.weekly_rs ?? r.rs ?? 50) - (r.monthly_rs ?? r.rs ?? 50);
+  const VEL_RANGE = 60; // ±60 covers ~99% of cases
   const yVal = (r) => {
-    if (hasAnyVcs) return r.vcs_med ?? 0;
-    return Math.min(100, (r.rvol_agg ?? 0) * 33);
+    const v = rawVel(r);
+    return Math.max(0, Math.min(100, ((v + VEL_RANGE) / (2 * VEL_RANGE)) * 100));
   };
-  const yLabel = hasAnyVcs ? "↑ VCS Setup Quality" : "↑ Avg RVol (proxy)";
+  const yZero = PAD.top + PH - (((0 + VEL_RANGE) / (2 * VEL_RANGE)) * PH); // pixel y for velocity=0
 
+  // Map to SVG coords
   const toX = (v) => PAD.left + (v / 100) * PW;
   const toY = (v) => PAD.top + PH - (v / 100) * PH;
-  const toR = (n) => Math.max(6, Math.min(22, Math.sqrt(n ?? 1) * 2.6));
 
+  // Y-axis tick labels in real velocity units
+  const yTicks = [-50, -25, 0, 25, 50].map((v) => ({
+    v, label: v === 0 ? "0" : (v > 0 ? `+${v}` : `${v}`),
+    py: PAD.top + PH - (((v + VEL_RANGE) / (2 * VEL_RANGE)) * PH),
+  }));
+
+  const toR = (n) => Math.max(5, Math.min(18, Math.sqrt(n ?? 1) * 2.2));
+
+  // Color by RVol — green = institutional volume, amber = normal, grey = no data
   const bubbleFill = (r) => {
-    const chg = isLive ? (r.live_pct_med ?? 0) : ((r.d1 ?? 0) / 5);
-    if (chg >= 4)  return "#00e676";
-    if (chg >= 2)  return "#69f0ae";
-    if (chg >= 0)  return "#a5d6a7";
-    if (chg >= -2) return "#ef9a9a";
-    if (chg >= -4) return "#e53935";
-    return "#b71c1c";
+    const rv = r.rvol_agg;
+    if (rv == null) return "#5a5a7a";
+    if (rv >= 2.5) return "#00e676";
+    if (rv >= 1.8) return "#69f0ae";
+    if (rv >= 1.2) return "#ffd54f";
+    if (rv >= 0.8) return "#ffb74d";
+    return "#7a7a9a";
   };
 
+  // Border = setup tier
   const strokeCol = (r) => {
     const s = isLive ? r.live_setup : r.daily_setup;
-    if (!s) return "#555570";
+    if (!s) return "#3a3a55";
     const t = setupTier(s.score);
-    return t ? t.color : "#555570";
+    return t ? t.color : "#3a3a55";
   };
 
+  // Label only top 20 by setup score — reduces clutter dramatically
+  const setupScore = (r) => (isLive ? r.live_setup : r.daily_setup)?.score ?? 0;
+  const labelThreshold = [...rows].sort((a, b) => setupScore(b) - setupScore(a))[19]
+    ? setupScore([...rows].sort((a, b) => setupScore(b) - setupScore(a))[19])
+    : 0;
+
   const handleBubble = (r) => setSelected((prev) => prev?.name === r.name ? null : r);
+
+  // Sort: draw lower-score bubbles first so top setups render on top
+  const sorted = [...rows].sort((a, b) => setupScore(a) - setupScore(b));
 
   return (
     <div style={{ background: "#111122", border: "1px solid #2a2a40", borderRadius: 6, overflow: "hidden" }}>
       <div style={{ position: "relative" }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
           {/* Plot background */}
-          <rect x={PAD.left} y={PAD.top} width={PW} height={PH} fill="#0d0d1e" />
+          <rect x={PAD.left} y={PAD.top} width={PW} height={PH} fill="#0c0c1c" />
 
-          {/* Quadrant zones — visible tint */}
-          <rect x={PAD.left}        y={PAD.top}        width={PW/2} height={PH/2} fill="#112211" opacity={0.8} />
-          <rect x={PAD.left+PW/2}   y={PAD.top}        width={PW/2} height={PH/2} fill="#0a2a10" opacity={0.9} />
-          <rect x={PAD.left}        y={PAD.top+PH/2}   width={PW/2} height={PH/2} fill="#111111" opacity={0.6} />
-          <rect x={PAD.left+PW/2}   y={PAD.top+PH/2}   width={PW/2} height={PH/2} fill="#220e0e" opacity={0.7} />
+          {/* Quadrant zones — split at RS=50 (x) and velocity=0 (y) */}
+          <rect x={PAD.left}       y={PAD.top}       width={PW/2} height={yZero - PAD.top}  fill="#0d1f10" opacity={0.85} />
+          <rect x={PAD.left+PW/2}  y={PAD.top}       width={PW/2} height={yZero - PAD.top}  fill="#0a2810" opacity={0.9}  />
+          <rect x={PAD.left}       y={yZero}          width={PW/2} height={PAD.top+PH-yZero} fill="#111111" opacity={0.5}  />
+          <rect x={PAD.left+PW/2}  y={yZero}          width={PW/2} height={PAD.top+PH-yZero} fill="#200d0d" opacity={0.75} />
 
-          {/* Grid lines */}
+          {/* X grid lines */}
           {[25, 50, 75].map((v) => (
-            <g key={v}>
-              <line x1={toX(v)} y1={PAD.top} x2={toX(v)} y2={PAD.top+PH}
-                    stroke={v===50 ? "#3a3a5a" : "#252538"} strokeWidth={v===50 ? 1.5 : 1} strokeDasharray={v===50 ? "6,4" : "3,5"} />
-              <line x1={PAD.left} y1={toY(v)} x2={PAD.left+PW} y2={toY(v)}
-                    stroke={v===50 ? "#3a3a5a" : "#252538"} strokeWidth={v===50 ? 1.5 : 1} strokeDasharray={v===50 ? "6,4" : "3,5"} />
-            </g>
+            <line key={v} x1={toX(v)} y1={PAD.top} x2={toX(v)} y2={PAD.top+PH}
+                  stroke={v===50 ? "#3a3a5e" : "#1e1e34"} strokeWidth={v===50 ? 1.5 : 1} strokeDasharray={v===50 ? "6,4" : "3,6"} />
           ))}
 
-          {/* Quadrant labels — clearly visible */}
-          <text x={toX(25)} y={PAD.top+16} fill="#2a6a2a" fontSize={10} textAnchor="middle" fontWeight={800} letterSpacing={0.8}>BASING</text>
-          <text x={toX(75)} y={PAD.top+16} fill="#2a8a2a" fontSize={10} textAnchor="middle" fontWeight={800} letterSpacing={0.8}>READY ★</text>
-          <text x={toX(25)} y={PAD.top+PH-8} fill="#333355" fontSize={10} textAnchor="middle" fontWeight={800} letterSpacing={0.8}>AVOID</text>
-          <text x={toX(75)} y={PAD.top+PH-8} fill="#5a2222" fontSize={10} textAnchor="middle" fontWeight={800} letterSpacing={0.8}>EXTENDED</text>
+          {/* Y grid lines at velocity ticks */}
+          {yTicks.map(({ v, py }) => (
+            <line key={v} x1={PAD.left} y1={py} x2={PAD.left+PW} y2={py}
+                  stroke={v===0 ? "#4a4a6e" : "#1e1e34"} strokeWidth={v===0 ? 2 : 1} strokeDasharray={v===0 ? "none" : "3,6"} />
+          ))}
 
-          {/* Axis ticks + labels */}
+          {/* Quadrant labels */}
+          <text x={toX(25)} y={PAD.top+18} fill="#236023" fontSize={11} textAnchor="middle" fontWeight={800} letterSpacing={1}>ROTATING IN ↗</text>
+          <text x={toX(75)} y={PAD.top+18} fill="#237a23" fontSize={11} textAnchor="middle" fontWeight={800} letterSpacing={1}>LEADING ★</text>
+          <text x={toX(25)} y={PAD.top+PH-10} fill="#2a2a50" fontSize={11} textAnchor="middle" fontWeight={800} letterSpacing={1}>LAGGING</text>
+          <text x={toX(75)} y={PAD.top+PH-10} fill="#5a2020" fontSize={11} textAnchor="middle" fontWeight={800} letterSpacing={1}>FADING ↘</text>
+
+          {/* X-axis ticks */}
           {[0, 25, 50, 75, 100].map((v) => (
             <g key={v}>
               <line x1={toX(v)} y1={PAD.top+PH} x2={toX(v)} y2={PAD.top+PH+5} stroke="#4a4a60" strokeWidth={1} />
-              <text x={toX(v)} y={PAD.top+PH+17} fill="#7a7a9a" fontSize={9} textAnchor="middle">{v}</text>
-              <line x1={PAD.left-5} y1={toY(v)} x2={PAD.left} y2={toY(v)} stroke="#4a4a60" strokeWidth={1} />
-              <text x={PAD.left-8} y={toY(v)+3} fill="#7a7a9a" fontSize={9} textAnchor="end">{v}</text>
+              <text x={toX(v)} y={PAD.top+PH+17} fill="#8a8aaa" fontSize={9} textAnchor="middle">{v}</text>
+            </g>
+          ))}
+
+          {/* Y-axis ticks */}
+          {yTicks.map(({ label, py }) => (
+            <g key={label}>
+              <line x1={PAD.left-5} y1={py} x2={PAD.left} y2={py} stroke="#4a4a60" strokeWidth={1} />
+              <text x={PAD.left-8} y={py+3} fill="#8a8aaa" fontSize={9} textAnchor="end">{label}</text>
             </g>
           ))}
 
           {/* Axis labels */}
-          <text x={PAD.left+PW/2} y={H-6} fill="#9a9ab0" fontSize={10} textAnchor="middle" fontWeight={600}>
+          <text x={PAD.left+PW/2} y={H-8} fill="#9a9ab8" fontSize={10} textAnchor="middle" fontWeight={600}>
             {isLive ? "Live Strength →" : "RS Percentile →"}
           </text>
-          <text x={14} y={PAD.top+PH/2} fill="#9a9ab0" fontSize={10} textAnchor="middle" fontWeight={600}
-                transform={`rotate(-90,14,${PAD.top+PH/2})`}>
-            {yLabel}
+          <text x={16} y={PAD.top+PH/2} fill="#9a9ab8" fontSize={10} textAnchor="middle" fontWeight={600}
+                transform={`rotate(-90,16,${PAD.top+PH/2})`}>
+            ↑ RS Velocity (wk − mo)
           </text>
 
-          {/* Bubbles */}
-          {rows.map((r) => {
+          {/* Bubbles — lower score drawn first, top setups on top */}
+          {sorted.map((r) => {
             const cx = toX(xVal(r));
             const cy = toY(yVal(r));
             const radius = toR(r.n);
             const isHov = hovered?.name === r.name;
             const isSel = selected?.name === r.name;
-            const fill = bubbleFill(r);
-            const stroke = strokeCol(r);
+            const score = setupScore(r);
+            const showLabel = score >= labelThreshold || isHov;
             return (
               <g key={`${r.parent}-${r.name}`} style={{ cursor: "pointer" }}
                  onMouseEnter={() => setHovered(r)}
                  onMouseLeave={() => setHovered(null)}
                  onClick={() => handleBubble(r)}>
                 {r.vol_regime === "EXPLOSIVE" && (
-                  <circle cx={cx} cy={cy} r={radius+7} fill="none" stroke="#00e676" strokeWidth={2} opacity={0.4} />
+                  <circle cx={cx} cy={cy} r={radius+7} fill="none" stroke="#00e676" strokeWidth={2} opacity={0.5} />
                 )}
                 {isSel && (
-                  <circle cx={cx} cy={cy} r={radius+5} fill="none" stroke="#ffffff" strokeWidth={2} opacity={0.7} />
+                  <circle cx={cx} cy={cy} r={radius+5} fill="none" stroke="#fff" strokeWidth={2} opacity={0.8} />
                 )}
                 <circle cx={cx} cy={cy} r={isHov ? radius+2 : radius}
-                        fill={fill} fillOpacity={isHov || isSel ? 0.95 : 0.78}
-                        stroke={isHov || isSel ? "#ffffff" : stroke}
+                        fill={bubbleFill(r)} fillOpacity={isHov || isSel ? 0.95 : 0.80}
+                        stroke={isHov || isSel ? "#fff" : strokeCol(r)}
                         strokeWidth={isHov || isSel ? 2 : 1.5} />
-                {(radius >= 12 || isHov) && (
-                  <text x={cx} y={cy - radius - 4} fill={isHov ? "#ffffff" : "#ccccdd"}
-                        fontSize={isHov ? 10 : 8} fontWeight={isHov ? 700 : 500}
+                {showLabel && (
+                  <text x={cx} y={cy - radius - 4}
+                        fill={isHov ? "#fff" : score >= labelThreshold + 5 ? "#e0e0f0" : "#aaaacc"}
+                        fontSize={isHov ? 10 : 8} fontWeight={isHov ? 700 : 600}
                         textAnchor="middle" style={{ pointerEvents: "none" }}>
-                    {r.name.length > 18 ? r.name.slice(0, 16) + "…" : r.name}
+                    {r.name.length > 16 ? r.name.slice(0, 14) + "…" : r.name}
                   </text>
                 )}
               </g>
@@ -963,80 +999,81 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
         </svg>
 
         {/* Hover tooltip */}
-        {hovered && (
-          <div style={{
-            position: "absolute", top: 10, right: 10,
-            background: "#1e1e35", border: "1px solid #3a3a5a",
-            borderRadius: 6, padding: "8px 12px", fontSize: 11,
-            minWidth: 190, pointerEvents: "none", zIndex: 10,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
-          }}>
-            <div style={{ fontWeight: 700, color: "#ffffff", marginBottom: 3, fontSize: 12 }}>{hovered.name}</div>
-            <div style={{ color: "#6a9eff", fontSize: 10, marginBottom: 6 }}>{hovered.parent}</div>
-            <div style={{ color: "#c8c8e0", lineHeight: 1.9 }}>
-              {isLive ? "Strength" : "RS"}{" "}
-              <strong>{(isLive ? hovered.live_strength_score : hovered.rs)?.toFixed(0) ?? "—"}</strong>
-              {" · "}VCS <strong>{hovered.vcs_med ?? "—"}</strong>
-              <br />
-              N={hovered.n} · {isLive
-                ? (hovered.live_pct_med != null
-                    ? `${hovered.live_pct_med > 0 ? "+" : ""}${hovered.live_pct_med.toFixed(2)}% today`
-                    : "—")
-                : `1W ${hovered.d1 != null ? (hovered.d1 > 0 ? "+" : "") + hovered.d1.toFixed(0) : "—"}`}
-              {hovered.rvol_agg != null && <><br />RVol <strong>{hovered.rvol_agg.toFixed(1)}x</strong></>}
-              {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
-                <><br />{volRegimeStyle(hovered.vol_regime).icon} {hovered.vol_regime}</>
-              )}
-              {(hovered.vcs_high_count > 0 || hovered.dvol_accel_count > 0) && (
-                <><br />{hovered.vcs_high_count ?? 0} tight · {hovered.dvol_accel_count ?? 0} $accel</>
-              )}
-              {hovered.persistence?.streak >= 2 && (
-                <><br />↻ {hovered.persistence.streak}d streak</>
-              )}
+        {hovered && (() => {
+          const vel = rawVel(hovered);
+          const setup = isLive ? hovered.live_setup : hovered.daily_setup;
+          const tier = setup ? setupTier(setup.score) : null;
+          return (
+            <div style={{
+              position: "absolute", top: 10, right: 10,
+              background: "#1c1c30", border: "1px solid #3a3a5a",
+              borderRadius: 6, padding: "10px 14px", fontSize: 11,
+              minWidth: 200, pointerEvents: "none", zIndex: 10,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.7)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                {tier && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 3,
+                    background: tier.bg, color: tier.color, border: `1px solid ${tier.color}60`,
+                    fontFamily: "monospace",
+                  }}>{tier.tier}·{setup.score}</span>
+                )}
+                <span style={{ fontWeight: 700, color: "#fff", fontSize: 12 }}>{hovered.name}</span>
+              </div>
+              <div style={{ color: "#6a9eff", fontSize: 10, marginBottom: 8 }}>{hovered.parent}</div>
+              <div style={{ color: "#c8c8e0", lineHeight: 2, fontSize: 11 }}>
+                RS <strong>{hovered.rs?.toFixed(0) ?? "—"}</strong>
+                {" · "}Vel <strong style={{ color: vel >= 0 ? "#69f0ae" : "#ef9a9a" }}>{vel > 0 ? "+" : ""}{vel.toFixed(0)}</strong>
+                <br />
+                RVol <strong style={{ color: bubbleFill(hovered) }}>{hovered.rvol_agg?.toFixed(1) ?? "—"}x</strong>
+                {" · "}N={hovered.n}
+                {hovered.vcs_med != null && <><br />VCS <strong>{hovered.vcs_med}</strong> · {hovered.vcs_high_count ?? 0} tight</>}
+                {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
+                  <><br />{volRegimeStyle(hovered.vol_regime).icon} {hovered.vol_regime}</>
+                )}
+                {hovered.persistence?.streak >= 2 && (
+                  <><br />↻ {hovered.persistence.streak}d streak</>
+                )}
+              </div>
+              <div style={{ marginTop: 8, color: "#5a5a7a", fontSize: 9 }}>click to expand constituents</div>
             </div>
-            <div style={{ marginTop: 6, color: "#6a6a8a", fontSize: 9 }}>click to expand constituents</div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
-      {/* Expanded panel for selected bubble */}
+      {/* Expanded constituent panel */}
       {selected && (() => {
         const r = selected;
         const setup = isLive ? r.live_setup : r.daily_setup;
         const tier = setup ? setupTier(setup.score) : null;
+        const vel = rawVel(r);
         return (
           <div style={{ padding: "10px 16px 14px", background: "#0a0a14", borderTop: "1px solid #1a1a2e", fontSize: 11 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
               {tier && (
                 <span style={{
                   fontSize: 11, fontWeight: 800, padding: "2px 7px", borderRadius: 3,
-                  background: tier.bg, color: tier.color, border: `1px solid ${tier.color}60`,
-                  fontFamily: "monospace",
-                }}>
-                  {tier.tier}·{setup.score}
-                </span>
+                  background: tier.bg, color: tier.color, border: `1px solid ${tier.color}60`, fontFamily: "monospace",
+                }}>{tier.tier}·{setup.score}</span>
               )}
               <span style={{ fontWeight: 700, color: "#fff", fontSize: 13 }}>{r.name}</span>
               <span style={{ color: "#5a9eff", fontSize: 11 }}>{r.parent}</span>
-              <span style={{ color: "#7a7a8a", fontSize: 10 }}>N={r.n}</span>
-              {r.vcs_med != null && (
-                <span style={{ color: r.vcs_med >= 70 ? "#00c853" : r.vcs_med >= 50 ? "#7cb342" : "#fbbf24", fontFamily: "monospace", fontSize: 10 }}>
-                  VCS {r.vcs_med}{r.vcs_high_count > 0 ? ` · ${r.vcs_high_count} tight` : ""}{r.dvol_accel_count > 0 ? ` · ${r.dvol_accel_count} $accel` : ""}
-                </span>
-              )}
+              <span style={{ color: vel >= 0 ? "#69f0ae" : "#ef9a9a", fontFamily: "monospace", fontSize: 10 }}>
+                vel {vel > 0 ? "+" : ""}{vel.toFixed(0)}
+              </span>
               {r.rvol_agg != null && (
-                <span style={{
-                  color: r.rvol_agg >= 2 ? "#00c853" : r.rvol_agg >= 1.5 ? "#7cb342" : "#fbbf24",
-                  fontFamily: "monospace", fontSize: 10,
-                }}>
+                <span style={{ color: bubbleFill(r), fontFamily: "monospace", fontSize: 10 }}>
                   RVol {r.rvol_agg.toFixed(1)}x
                 </span>
               )}
-              {r.persistence?.streak >= 2 && (
-                <span style={{ color: "#9e9e9e", fontSize: 10 }}>↻ {r.persistence.streak}d streak</span>
+              {r.vcs_med != null && (
+                <span style={{ color: "#9a9ab8", fontFamily: "monospace", fontSize: 10 }}>
+                  VCS {r.vcs_med}
+                </span>
               )}
               <button onClick={() => setSelected(null)}
-                style={{ marginLeft: "auto", background: "none", border: "none", color: "#5a5a6a", cursor: "pointer", fontSize: 12 }}>✕</button>
+                style={{ marginLeft: "auto", background: "none", border: "none", color: "#5a5a6a", cursor: "pointer", fontSize: 13 }}>✕</button>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {[...(r.tickers || [])]
@@ -1074,12 +1111,11 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
       })()}
 
       {/* Legend */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: "6px 14px 10px", fontSize: 10, color: "#7a7a9a", borderTop: "1px solid #2a2a40" }}>
         <span>● size = N stocks</span>
-        <span><span style={{ color: "#00e676" }}>●</span> green = up · <span style={{ color: "#e53935" }}>●</span> red = down (today %)</span>
-        <span>⭕ glow = EXPLOSIVE vol</span>
-        <span>border color = setup tier</span>
-        {!hasAnyVcs && <span style={{ color: "#9a6a2a" }}>⚠ VCS pending next pipeline run — Y axis shows RVol proxy</span>}
+        <span><span style={{ color: "#00e676" }}>●</span> bright green = high RVol · <span style={{ color: "#ffd54f" }}>●</span> amber = normal vol</span>
+        <span>⭕ glow = EXPLOSIVE regime · border = setup tier</span>
+        <span style={{ color: "#9a9ab8" }}>labels = top 20 by setup score</span>
       </div>
     </div>
   );
