@@ -1048,7 +1048,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                     {hovered.live_pct_med > 0 ? "+" : ""}{hovered.live_pct_med.toFixed(2)}%
                   </strong>{" · "}</>
                 )}
-                RVol <strong>{hovered.rvol_agg?.toFixed(1) ?? "—"}x</strong>
+                Vol% <strong>{hovered.live_rvol_breadth != null ? `${hovered.live_rvol_breadth.toFixed(0)}%` : "—"}</strong> at ≥1.5x
                 {" · "}N={hovered.n}
                 {hovered.vcs_med != null && <><br />VCS <strong>{hovered.vcs_med}</strong> · {hovered.vcs_high_count ?? 0} tight</>}
                 {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
@@ -1182,8 +1182,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         <span style={hdrStyle(isLive ? "live_pct" : "d1")} onClick={() => onSort?.(isLive ? "live_pct" : "d1")}>
           {isLive ? "Day %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
         </span>
-        <span style={hdrStyle("rvol_agg")} onClick={() => onSort?.("rvol_agg")}>
-          RVol{arrow("rvol_agg")}
+        <span style={hdrStyle("vol_breadth")} onClick={() => onSort?.("vol_breadth")}>
+          Vol%{arrow("vol_breadth")}
         </span>
         <span style={hdrStyle("vcs_med")} onClick={() => onSort?.("vcs_med")}>
           VCS{arrow("vcs_med")}
@@ -1336,13 +1336,13 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           </span>
         )}
 
-        {/* RVol — aggregate relative volume, normalized by N */}
+        {/* Vol% — % of constituents with RVol ≥1.5x (unusual volume breadth) */}
         <span style={{
           textAlign: "center", fontFamily: "monospace", fontWeight: 600,
-          color: row.rvol_agg >= 2 ? "#00c853" : row.rvol_agg >= 1.5 ? "#7cb342" : row.rvol_agg >= 1 ? "#fbbf24" : "#9090a0",
+          color: row.live_rvol_breadth >= 40 ? "#00c853" : row.live_rvol_breadth >= 25 ? "#7cb342" : row.live_rvol_breadth >= 15 ? "#fbbf24" : "#9090a0",
         }}
-          title={`Avg RVol across ${row.n} stocks`}>
-          {row.rvol_agg != null ? `${row.rvol_agg.toFixed(1)}x` : "—"}
+          title={`${row.live_rvol_breadth?.toFixed(0) ?? "—"}% of stocks with RVol ≥1.5x`}>
+          {row.live_rvol_breadth != null ? `${row.live_rvol_breadth.toFixed(0)}%` : "—"}
         </span>
 
         {/* VCS — median Volatility Contraction Score across constituents */}
