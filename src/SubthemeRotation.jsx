@@ -1228,8 +1228,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 
   const isLive = timeframe === "live";
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px 30px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px";
 
   const hdrStyle = (key) => ({
     textAlign: "center", cursor: onSort ? "pointer" : "default", userSelect: "none",
@@ -1260,7 +1260,6 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
           Vol%{arrow("vol_breadth")}
         </span>
         <span style={{ textAlign: "center" }}>Disp</span>
-        <span style={hdrStyle("n")} onClick={() => onSort?.("n")}>N{arrow("n")}</span>
       </div>
 
       {rows.map((r, i) => (
@@ -1293,8 +1292,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
   const tier = setupData ? setupTier(setupData.score) : null;
 
   const gridCols = isLive
-    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px 30px"
-    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px 30px";
+    ? "minmax(160px, 1.5fr) 2fr 60px 60px 50px"
+    : "minmax(160px, 1.5fr) 2fr 50px 50px 50px";
 
   return (
     <>
@@ -1422,10 +1421,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           {disp.mark}
         </span>
 
-        {/* N */}
-        <span style={{ textAlign: "center", color: "#7a7a8a", fontFamily: "monospace", fontSize: 11 }}>
-          {row.n}
-        </span>
       </div>
 
       {/* Expanded constituent panel */}
