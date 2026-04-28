@@ -875,14 +875,19 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 
   const toR = () => 8;
 
-  // Color by RVol — green = institutional volume, amber = normal, grey = no data
+  // Color by vol_regime when available (live), else fall back to rvol_agg
+  // Using regime keeps color consistent with the EXPLOSIVE dot signal
   const bubbleFill = (r) => {
+    if (r.vol_regime === "EXPLOSIVE") return "#00e676";
+    if (r.vol_regime === "ROTATING")  return "#69f0ae";
+    if (r.vol_regime === "DRIFTING")  return "#ffd54f";
+    if (r.vol_regime === "QUIET")     return "#7a7a9a";
+    // daily mode fallback — no vol_regime
     const rv = r.rvol_agg;
     if (rv == null) return "#5a5a7a";
-    if (rv >= 2.5) return "#00e676";
-    if (rv >= 1.8) return "#69f0ae";
-    if (rv >= 1.2) return "#ffd54f";
-    if (rv >= 0.8) return "#ffb74d";
+    if (rv >= 2.0) return "#00e676";
+    if (rv >= 1.5) return "#69f0ae";
+    if (rv >= 1.0) return "#ffd54f";
     return "#7a7a9a";
   };
 
