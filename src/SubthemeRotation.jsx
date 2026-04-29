@@ -355,10 +355,23 @@ const buildPersistenceMap = (history, todaysSubthemes) => {
       else break;
     }
 
+    // New-leader detection: today is in LEADING quadrant (rs ≥ 50 AND velocity ≥ 0)
+    // but yesterday was not. Velocity = weekly_rs - monthly_rs.
+    const inLeading = (entry) => {
+      if (!entry || entry.rs == null) return false;
+      const rsOk = entry.rs >= 50;
+      const wk = entry.weekly_rs ?? entry.rs;
+      const mo = entry.monthly_rs ?? entry.rs;
+      const velOk = (wk - mo) >= 0;
+      return rsOk && velOk;
+    };
+    const newLeader = !!(todayEntry && ydayEntry && inLeading(todayEntry) && !inLeading(ydayEntry));
+
     out[key] = {
       days_in_top: daysInTop,
       streak,
       debut,
+      new_leader: newLeader,
       rs_1d_change: rs1dChange,
       rs_5d_change: rs5dChange,
       first_seen: firstSeen,
@@ -539,6 +552,13 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
     return buildPersistenceMap(history, allSubthemes);
   }, [history, allSubthemes]);
 
+  // SPY's live move — used to compute each theme's relative strength today.
+  // Falls back to null when SPY isn't in liveQuotes yet.
+  const spyPct = useMemo(() => {
+    const q = liveQuotes?.SPY;
+    return q?.change != null && !isNaN(q.change) ? q.change : null;
+  }, [liveQuotes]);
+
   // ─── Attach persistence + true deltas + setup score to each subtheme ────
   const enrichedSubthemes = useMemo(() => {
     return allSubthemes.map((s) => {
@@ -553,13 +573,15 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
         d1_label: trueD1 != null ? "1D Δ" : "1W Δ",
         d4: trueD5 != null ? trueD5 : s.d4,
         d4_label: trueD5 != null ? "5D Δ" : "4W Δ",
+        live_pct_rel_spy: (spyPct != null && s.live_pct_med != null)
+          ? s.live_pct_med - spyPct : null,
       };
       // Compute setup scores AFTER enrichment (need persistence + true deltas)
       enriched.daily_setup = computeDailySetupScore(enriched);
       enriched.live_setup = computeLiveSetupScore(enriched);
       return enriched;
     });
-  }, [allSubthemes, persistenceMap]);
+  }, [allSubthemes, persistenceMap, spyPct]);
 
   // ─── Parent theme list for filter ────────────────────────────────────────
   const parentThemes = useMemo(() => {
@@ -586,6 +608,15 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
       d4:           (a, b) => (b.d4 ?? 0) - (a.d4 ?? 0),
       live_strength:(a, b) => (b.live_strength_score ?? 0) - (a.live_strength_score ?? 0),
       live_pct:     (a, b) => (b.live_pct_med ?? -999) - (a.live_pct_med ?? -999),
+      rel_spy:      (a, b) => (b.live_pct_rel_spy ?? -999) - (a.live_pct_rel_spy ?? -999),
+      new_leader:   (a, b) => {
+        const aN = a.persistence?.new_leader ? 1 : 0;
+        const bN = b.persistence?.new_leader ? 1 : 0;
+        if (aN !== bN) return bN - aN;
+        // Within new-leader group, sort by today % then setup
+        return ((b.live_pct_med ?? -999) - (a.live_pct_med ?? -999))
+            || ((b.live_setup?.score ?? 0) - (a.live_setup?.score ?? 0));
+      },
       live_breadth: (a, b) => (b.live_breadth ?? 0) - (a.live_breadth ?? 0),
       rvol_agg:     (a, b) => (b.rvol_agg ?? 0) - (a.rvol_agg ?? 0),
       streak:       (a, b) => (b.persistence?.streak ?? 0) - (a.persistence?.streak ?? 0),
@@ -737,8 +768,10 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
           {timeframe === "live" ? (
             <>
               <option value="setup">Sort: Setup Score ⭐</option>
+              <option value="new_leader">Sort: New Leaders ★</option>
               <option value="rs">Sort: Live Strength</option>
               <option value="live_pct">Sort: Today %</option>
+              <option value="rel_spy">Sort: vs SPY</option>
               <option value="live_breadth">Sort: Live Breadth</option>
               <option value="vol_breadth">Sort: Vol Breadth</option>
               <option value="streak">Sort: Persistence</option>
@@ -1364,6 +1397,20 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
             {deltaArrow(isLive ? (row.live_pct_med ?? 0) * 2 : row.d1)}
           </span>
 
+          {/* New leader — crossed into LEADING quadrant today vs yesterday */}
+          {row.persistence?.new_leader && (
+            <span title="Crossed into LEADING quadrant today (rs ≥ 50, accelerating). Was not leading yesterday."
+              style={{
+                fontSize: 9, fontWeight: 800,
+                padding: "1px 5px", borderRadius: 2,
+                background: "#0a3a1f", color: "#00e676",
+                border: "1px solid #00e67660",
+                fontFamily: "monospace", flexShrink: 0, letterSpacing: 0.5,
+              }}>
+              ★NEW
+            </span>
+          )}
+
           {/* Persistence badge — shows leadership memory */}
           {persistBadge && (
             <span title={persistBadge.title} style={{
@@ -1428,14 +1475,30 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
           </span>
         </div>
 
-        {/* Col 4: 1D/1W delta (daily) OR today % (live) */}
+        {/* Col 4: 1D/1W delta (daily) OR today % (live, with SPY-relative below) */}
         {isLive ? (
           <span style={{
-            textAlign: "center",
-            color: deltaColor((row.live_pct_med ?? 0) * 2),
-            fontFamily: "monospace", fontWeight: 600,
-          }}>
-            {row.live_pct_med != null ? `${row.live_pct_med > 0 ? "+" : ""}${row.live_pct_med.toFixed(2)}%` : "—"}
+            display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1,
+          }}
+            title={row.live_pct_rel_spy != null
+              ? `Today ${row.live_pct_med?.toFixed(2)}% absolute · ${row.live_pct_rel_spy > 0 ? "+" : ""}${row.live_pct_rel_spy.toFixed(2)}% relative to SPY`
+              : "Today % (median across constituents)"}>
+            <span style={{
+              color: deltaColor((row.live_pct_med ?? 0) * 2),
+              fontFamily: "monospace", fontWeight: 600,
+            }}>
+              {row.live_pct_med != null ? `${row.live_pct_med > 0 ? "+" : ""}${row.live_pct_med.toFixed(2)}%` : "—"}
+            </span>
+            {row.live_pct_rel_spy != null && Math.abs(row.live_pct_rel_spy) >= 0.1 && (
+              <span style={{
+                color: row.live_pct_rel_spy >= 0.5 ? "#7cb342"
+                     : row.live_pct_rel_spy <= -0.5 ? "#c47000"
+                     : "#6a6a80",
+                fontSize: 8, fontFamily: "monospace", fontWeight: 500,
+              }}>
+                {row.live_pct_rel_spy > 0 ? "+" : ""}{row.live_pct_rel_spy.toFixed(1)} vs SPY
+              </span>
+            )}
           </span>
         ) : (
           <span title={row.d1_label || "1W Δ"} style={{ textAlign: "center", color: deltaColor(row.d1), fontFamily: "monospace", fontWeight: 600 }}>
@@ -1634,9 +1697,10 @@ export function SubthemeRotationAutoRefresh({
   }, [dataUrl, marketHoursMs, offHoursMs]);
 
   // ── Build the unique-ticker universe from data ──
+  // SPY is always included so we can compute theme-vs-SPY relative move.
   const tickerUniverse = useMemo(() => {
     if (!data?.themes) return [];
-    const set = new Set();
+    const set = new Set(["SPY"]);
     data.themes.forEach((th) => (th.subthemes || []).forEach((sub) => {
       (sub.tickers || []).forEach((t) => {
         const tk = typeof t === "string" ? t : t?.ticker;
