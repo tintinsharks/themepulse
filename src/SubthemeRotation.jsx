@@ -871,6 +871,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
           onSort={onSort}
           portfolioSet={portfolioSet}
           watchlistSet={watchlistSet}
+          liveQuotes={liveQuotes}
         />
       )}
 
@@ -904,7 +905,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
                   {g.subs.length} subthemes · top RS {g.maxRS?.toFixed(0)}
                 </span>
               </div>
-              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} portfolioSet={portfolioSet} watchlistSet={watchlistSet} />
+              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} portfolioSet={portfolioSet} watchlistSet={watchlistSet} liveQuotes={liveQuotes} />
             </div>
           ))}
         </div>
@@ -1315,7 +1316,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 }
 
 // ─── Sub-component: the actual table of rows ────────────────────────────────
-function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false, portfolioSet = null, watchlistSet = null }) {
+function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false, portfolioSet = null, watchlistSet = null, liveQuotes = null }) {
   if (!rows.length) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#5a5a6a", fontSize: 12 }}>
@@ -1368,6 +1369,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
           showTickers={showTickers}
           portfolioSet={portfolioSet}
           watchlistSet={watchlistSet}
+          liveQuotes={liveQuotes}
         />
       ))}
     </div>
@@ -1375,7 +1377,23 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 }
 
 // ─── Single subtheme row ────────────────────────────────────────────────────
-function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false, portfolioSet = null, watchlistSet = null }) {
+function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false, portfolioSet = null, watchlistSet = null, liveQuotes = null }) {
+  // Resolve RVol the same way the watchlist does: prefer live FMP volume / avgVolume,
+  // fall back to the pipeline-cached t.rvol when the ticker isn't in liveQuotes.
+  const liveRvol = (t) => {
+    const tk = typeof t === "string" ? t : t?.ticker;
+    const lq = tk && liveQuotes ? liveQuotes[tk.toUpperCase()] || liveQuotes[tk] : null;
+    if (lq?.volume && lq?.avgVolume && lq.avgVolume > 0) {
+      return Math.round((lq.volume / lq.avgVolume) * 10) / 10;
+    }
+    return typeof t === "object" ? (t.rvol ?? null) : null;
+  };
+  const livePctOf = (t) => {
+    const tk = typeof t === "string" ? t : t?.ticker;
+    const lq = tk && liveQuotes ? liveQuotes[tk.toUpperCase()] || liveQuotes[tk] : null;
+    if (lq?.change != null && !isNaN(lq.change)) return lq.change;
+    return typeof t === "object" ? (t.live_pct ?? t.chg ?? null) : null;
+  };
   const [expanded, setExpanded] = useState(false);
   const isLive = timeframe === "live";
 
@@ -1420,8 +1438,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
               {(row.tickers || []).slice(0, 12).map((t) => {
                 const tk = typeof t === "string" ? t : t?.ticker;
                 if (!tk) return null;
-                const rvol = typeof t === "object" ? t.rvol : null;
-                const pct = typeof t === "object" ? (t.live_pct ?? t.chg ?? null) : null;
+                const rvol = liveRvol(t);
+                const pct = livePctOf(t);
                 // Only color (green/amber) when the ticker is UP today; otherwise grey.
                 // Volume conviction without an upward move isn't actionable here.
                 const isUp = pct != null && pct > 0;
@@ -1633,8 +1651,8 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                 : ((b.rs ?? 0) - (a.rs ?? 0)))
               .slice(0, 20)
               .map((t) => {
-                const livePct = t.live_pct ?? t.chg ?? null;
-                const rvol = t.rvol ?? null;
+                const livePct = livePctOf(t);
+                const rvol = liveRvol(t);
                 const pctStr = livePct != null
                   ? `${livePct > 0 ? "+" : ""}${livePct.toFixed(1)}%`
                   : "—";
