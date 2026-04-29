@@ -497,7 +497,7 @@ const computeLiveAggregates = (tickers, liveQuotes = null) => {
 export default function SubthemeRotation({ data, history, liveQuotes = null, portfolio = [], watchlist = [], onTickerClick }) {
   const portfolioSet = useMemo(() => new Set((portfolio || []).map((t) => String(t).toUpperCase())), [portfolio]);
   const watchlistSet = useMemo(() => new Set((watchlist || []).map((t) => String(t).toUpperCase())), [watchlist]);
-  const [viewMode, setViewMode] = useState("flat"); // "scatter" | "flat" | "grouped"
+  const [viewMode, setViewMode] = useState("grouped"); // "scatter" | "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
   const [sortBy, setSortBy] = useState("rs");
@@ -511,7 +511,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
   };
   const [showLowN, setShowLowN] = useState(false);
   const [topN, setTopN] = useState(168);             // limit flat view rows
-  const [showTickers, setShowTickers] = useState(false); // grouped view: name vs ticker chips
+  const [showTickers, setShowTickers] = useState(true); // grouped view: name vs ticker chips
 
   // ─── Pull all subthemes from dashboard_data.json ─────────────────────────
   const allSubthemes = useMemo(() => {
