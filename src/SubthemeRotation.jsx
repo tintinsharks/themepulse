@@ -437,8 +437,23 @@ const computeLiveAggregates = (tickers, liveQuotes = null) => {
     return v != null && !isNaN(v) ? v : null;
   };
 
+  // Closing range %: where in today's high-low range is the current price?
+  // Only computable from /api/live (needs dayHigh / dayLow / price).
+  // 100 = closing at day's high, 0 = closing at day's low.
+  const resolveCrp = (t) => {
+    const tk = typeof t === "string" ? t : t?.ticker;
+    const live = tk && liveQuotes ? liveQuotes[tk] : null;
+    if (!live) return null;
+    const { price, dayHigh, dayLow } = live;
+    if (price == null || dayHigh == null || dayLow == null) return null;
+    const range = dayHigh - dayLow;
+    if (range <= 0) return null;
+    return Math.max(0, Math.min(100, ((price - dayLow) / range) * 100));
+  };
+
   const livePcts = tickers.map(resolvePct).filter((v) => v != null);
   const rvols = tickers.map(resolveRvol).filter((v) => v != null);
+  const crps = tickers.map(resolveCrp).filter((v) => v != null);
 
   // Aggregate RVol is available even without live pct data (pipeline field)
   const rvolAggEarly = rvols.length > 0
@@ -447,7 +462,7 @@ const computeLiveAggregates = (tickers, liveQuotes = null) => {
 
   if (livePcts.length < 2) {
     return { live_pct_med: null, live_breadth: null, live_rvol_med: null,
-             live_rvol_breadth: null, live_dispersion: null, live_strength_score: null,
+             live_rvol_breadth: null, live_crp_med: null, live_dispersion: null, live_strength_score: null,
              vol_regime: null, rvol_agg: rvolAggEarly };
   }
 
@@ -480,12 +495,18 @@ const computeLiveAggregates = (tickers, liveQuotes = null) => {
   const volScore = rvolMed != null ? Math.min(100, rvolMed * 50) : 50; // 1.0x rvol = 50
   const strength = moveScore * 0.5 + breadthScore * 0.3 + volScore * 0.2;
 
+  // Closing range median across constituents (when live quotes are present)
+  const crpMed = crps.length > 0
+    ? [...crps].sort((a, b) => a - b)[Math.floor(crps.length / 2)]
+    : null;
+
   return {
     live_pct_med: med,
     live_pct_mean: mean,
     live_breadth: breadth,
     live_rvol_med: rvolMed,
     live_rvol_breadth: rvolBreadth,
+    live_crp_med: crpMed,
     live_dispersion: dispersion,
     live_strength_score: strength,
     vol_regime: volRegime,
@@ -624,6 +645,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
       rvol_agg:     (a, b) => (b.rvol_agg ?? 0) - (a.rvol_agg ?? 0),
       streak:       (a, b) => (b.persistence?.streak ?? 0) - (a.persistence?.streak ?? 0),
       vol_breadth:  (a, b) => (b.live_rvol_breadth ?? 0) - (a.live_rvol_breadth ?? 0),
+      crp_med:      (a, b) => (b.live_crp_med ?? -1) - (a.live_crp_med ?? -1),
       n:            (a, b) => (b.n ?? 0) - (a.n ?? 0),
       setup: (a, b) => {
         const aScore = (timeframe === "live" ? a.live_setup : a.daily_setup)?.score ?? 0;
@@ -779,6 +801,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
               <option value="live_pct">Sort: Today %</option>
               <option value="rel_spy">Sort: vs SPY</option>
               <option value="live_breadth">Sort: Live Breadth</option>
+              <option value="crp_med">Sort: Closing Range %</option>
               <option value="vol_breadth">Sort: Vol Breadth</option>
               <option value="streak">Sort: Persistence</option>
               <option value="rs">Sort: Daily RS</option>
@@ -1142,7 +1165,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
                     {hovered.live_pct_med > 0 ? "+" : ""}{hovered.live_pct_med.toFixed(2)}%
                   </strong>{" · "}</>
                 )}
-                Vol% <strong>{hovered.live_rvol_breadth != null ? `${hovered.live_rvol_breadth.toFixed(0)}%` : "—"}</strong> at ≥1.5x
+                CRP <strong>{hovered.live_crp_med != null ? `${hovered.live_crp_med.toFixed(0)}%` : "—"}</strong> of range
                 {" · "}N={hovered.n}
                 {hovered.vol_regime && hovered.vol_regime !== "QUIET" && (
                   <><br />{volRegimeStyle(hovered.vol_regime).icon} {hovered.vol_regime}</>
@@ -1323,8 +1346,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
         <span style={hdrStyle(isLive ? "live_pct" : "d1")} onClick={() => onSort?.(isLive ? "live_pct" : "d1")}>
           {isLive ? "Day %" : "1W Δ"}{arrow(isLive ? "live_pct" : "d1")}
         </span>
-        <span style={hdrStyle("vol_breadth")} onClick={() => onSort?.("vol_breadth")}>
-          Vol%{arrow("vol_breadth")}
+        <span style={hdrStyle("crp_med")} onClick={() => onSort?.("crp_med")}>
+          CRP%{arrow("crp_med")}
         </span>
       </div>
 
@@ -1548,13 +1571,17 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
           </span>
         )}
 
-        {/* Vol% — % of constituents with RVol ≥1.5x (unusual volume breadth) */}
+        {/* CRP% — median closing range position across constituents.
+            100 = closing at day's high (strong), 0 = at day's low (weak) */}
         <span style={{
           textAlign: "center", fontFamily: "monospace", fontWeight: 600,
-          color: row.live_rvol_breadth >= 40 ? "#00c853" : row.live_rvol_breadth >= 25 ? "#7cb342" : "#7a7a8a",
+          color: row.live_crp_med >= 75 ? "#00c853"
+               : row.live_crp_med >= 50 ? "#7cb342"
+               : row.live_crp_med <= 25 ? "#e53935"
+               : "#7a7a8a",
         }}
-          title={`${row.live_rvol_breadth?.toFixed(0) ?? "—"}% of stocks with RVol ≥1.5x`}>
-          {row.live_rvol_breadth != null ? `${row.live_rvol_breadth.toFixed(0)}%` : "—"}
+          title={`Median closing range: ${row.live_crp_med?.toFixed(0) ?? "—"}% of today's high-low range. 100 = closing near highs.`}>
+          {row.live_crp_med != null ? `${row.live_crp_med.toFixed(0)}%` : "—"}
         </span>
 
       </div>
