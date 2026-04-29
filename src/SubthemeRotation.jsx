@@ -1414,14 +1414,16 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                 const inPort = portfolioSet?.has(tk.toUpperCase()) ?? false;
                 const inWatch = !inPort && (watchlistSet?.has(tk.toUpperCase()) ?? false);
                 const bg = inPort ? "#3a2a08" : inWatch ? "#0d2218" : "#141420";
-                const bd = inPort ? "#a07a1f" : inWatch ? "#2c5e3e" : "#222230";
+                const bd = inPort ? "#ffd700" : inWatch ? "#2c5e3e" : "#222230";
+                const bw = inPort ? 2 : 1;
                 return (
                   <span key={tk}
                     onClick={(e) => { e.stopPropagation(); onTickerClick?.(tk); }}
                     style={{
                       fontFamily: "monospace", fontSize: 10, fontWeight: 600,
-                      padding: "1px 4px", borderRadius: 2, cursor: "pointer",
-                      background: bg, border: `1px solid ${bd}`, color,
+                      padding: inPort ? "0 3px" : "1px 4px", borderRadius: 2, cursor: "pointer",
+                      background: bg, border: `${bw}px solid ${bd}`, color,
+                      boxShadow: inPort ? "0 0 4px rgba(255, 215, 0, 0.4)" : undefined,
                     }}
                     title={
                       `${tk}` +
