@@ -494,7 +494,9 @@ const computeLiveAggregates = (tickers, liveQuotes = null) => {
 };
 
 // ─── Main component ─────────────────────────────────────────────────────────
-export default function SubthemeRotation({ data, history, liveQuotes = null, onTickerClick }) {
+export default function SubthemeRotation({ data, history, liveQuotes = null, portfolio = [], watchlist = [], onTickerClick }) {
+  const portfolioSet = useMemo(() => new Set((portfolio || []).map((t) => String(t).toUpperCase())), [portfolio]);
+  const watchlistSet = useMemo(() => new Set((watchlist || []).map((t) => String(t).toUpperCase())), [watchlist]);
   const [viewMode, setViewMode] = useState("flat"); // "scatter" | "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
@@ -845,6 +847,8 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
           sortBy={sortBy}
           sortDir={sortDir}
           onSort={onSort}
+          portfolioSet={portfolioSet}
+          watchlistSet={watchlistSet}
         />
       )}
 
@@ -878,7 +882,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
                   {g.subs.length} subthemes · top RS {g.maxRS?.toFixed(0)}
                 </span>
               </div>
-              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} />
+              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} portfolioSet={portfolioSet} watchlistSet={watchlistSet} />
             </div>
           ))}
         </div>
@@ -1289,7 +1293,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 }
 
 // ─── Sub-component: the actual table of rows ────────────────────────────────
-function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false }) {
+function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false, portfolioSet = null, watchlistSet = null }) {
   if (!rows.length) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#5a5a6a", fontSize: 12 }}>
@@ -1340,6 +1344,8 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
           onTickerClick={onTickerClick}
           timeframe={timeframe}
           showTickers={showTickers}
+          portfolioSet={portfolioSet}
+          watchlistSet={watchlistSet}
         />
       ))}
     </div>
@@ -1347,7 +1353,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 }
 
 // ─── Single subtheme row ────────────────────────────────────────────────────
-function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false }) {
+function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false, portfolioSet = null, watchlistSet = null }) {
   const [expanded, setExpanded] = useState(false);
   const isLive = timeframe === "live";
 
@@ -1402,16 +1408,21 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                             : rvol >= 2                ? "#00c853"
                             : rvol >= 1.5              ? "#fbbf24"
                             :                            "#7a7a8a";
+                const inPort = portfolioSet?.has(tk.toUpperCase()) ?? false;
+                const inWatch = !inPort && (watchlistSet?.has(tk.toUpperCase()) ?? false);
+                const bg = inPort ? "#3a2a08" : inWatch ? "#0d2218" : "#141420";
+                const bd = inPort ? "#a07a1f" : inWatch ? "#2c5e3e" : "#222230";
                 return (
                   <span key={tk}
                     onClick={(e) => { e.stopPropagation(); onTickerClick?.(tk); }}
                     style={{
                       fontFamily: "monospace", fontSize: 10, fontWeight: 600,
                       padding: "1px 4px", borderRadius: 2, cursor: "pointer",
-                      background: "#141420", border: "1px solid #222230", color,
+                      background: bg, border: `1px solid ${bd}`, color,
                     }}
                     title={
                       `${tk}` +
+                      (inPort ? " · in portfolio" : inWatch ? " · in watchlist" : "") +
                       (pct != null ? ` · ${pct > 0 ? "+" : ""}${pct.toFixed(2)}%` : "") +
                       (rvol != null ? ` · RVol ${rvol.toFixed(2)}x` : "")
                     }>
@@ -1664,6 +1675,8 @@ export function SubthemeRotationAutoRefresh({
   liveQuoteMs = 30 * 1000,                  // poll fresh quotes every 30s
   liveQuoteChunkSize = 300,                 // tickers per chunk request
   liveQuoteMaxChunks = 6,                   // ≤ 1800 tickers covered per refresh
+  portfolio = [],
+  watchlist = [],
   onTickerClick,
 }) {
   const [data, setData] = useState(null);
@@ -1828,6 +1841,8 @@ export function SubthemeRotationAutoRefresh({
         data={data}
         history={history}
         liveQuotes={liveQuotes}
+        portfolio={portfolio}
+        watchlist={watchlist}
         onTickerClick={onTickerClick}
       />
       {loadedAt && (

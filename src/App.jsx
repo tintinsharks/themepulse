@@ -5314,6 +5314,8 @@ function ChartPanelInline({
                   <SubthemeRotationAutoRefresh
                     dataUrl="/dashboard_data.json"
                     historyUrl="/subtheme_history.json"
+                    portfolio={portfolio}
+                    watchlist={watchlist}
                     onTickerClick={onTickerChange}
                   />
                 </ErrorBoundary>
