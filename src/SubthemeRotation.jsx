@@ -1701,8 +1701,8 @@ export function SubthemeRotationAutoRefresh({
   marketHoursMs = 5 * 60 * 1000,
   offHoursMs = 30 * 60 * 1000,
   liveQuoteMs = 30 * 1000,                  // poll fresh quotes every 30s
-  liveQuoteChunkSize = 300,                 // tickers per chunk request
-  liveQuoteMaxChunks = 6,                   // ≤ 1800 tickers covered per refresh
+  liveQuoteChunkSize = 400,                 // tickers per chunk request
+  liveQuoteMaxChunks = null,                // null = no cap (cover full universe)
   portfolio = [],
   watchlist = [],
   onTickerClick,
@@ -1814,7 +1814,8 @@ export function SubthemeRotationAutoRefresh({
       }
       try {
         const chunks = [];
-        for (let i = 0; i < tickerUniverse.length && chunks.length < liveQuoteMaxChunks; i += liveQuoteChunkSize) {
+        for (let i = 0; i < tickerUniverse.length; i += liveQuoteChunkSize) {
+          if (liveQuoteMaxChunks != null && chunks.length >= liveQuoteMaxChunks) break;
           chunks.push(tickerUniverse.slice(i, i + liveQuoteChunkSize));
         }
         const results = await Promise.all(chunks.map(fetchChunk));
