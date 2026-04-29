@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "description": "Curated theme/subtheme commentary — manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
+  "updated": "2026-04-29",
+  "notes": [
+    {
+      "id": "viav-form-2026-q1",
+      "date": "2026-04-29",
+      "type": "earnings_thesis",
+      "headline": "VIAV + FORM beats → bullish capex read for HBM / advanced packaging / optical ramps",
+      "primary_tickers": ["VIAV", "FORM"],
+      "derivative_tickers": [
+        "ONTO", "CAMT", "KEYS", "COHR", "FN", "LITE",
+        "TOWA"
+      ],
+      "themes_implicated": [
+        "Wafer Inspection / Process Control",
+        "Test & Measurement",
+        "Optical Components",
+        "High-Speed Pluggable",
+        "HBM / Memory"
+      ],
+      "lead_lag": {
+        "leading": ["VIAV", "FORM", "ONTO", "CAMT", "KEYS"],
+        "lagging": ["COHR", "FN", "LITE"],
+        "horizon": "1-2 quarters",
+        "rationale": "Capex on test/inspection equipment leads device-maker production ramps by 1-2Q. Test margin expansion (FORM 49% gross) implies capacity-constrained pricing power — i.e., real ramp incoming."
+      },
+      "key_numbers": {
+        "VIAV": {
+          "rev": "$406.8M vs $393M (beat)",
+          "yoy": "+42.8%",
+          "eps": "$0.27 vs $0.20-$0.24",
+          "guidance": "$427M-$437M (acceleration)"
+        },
+        "FORM": {
+          "rev": "$226M (+32% YoY)",
+          "eps": "$0.56 vs $0.45",
+          "gross_margin": "49%",
+          "guidance": "$0.61 EPS, ~$240M rev",
+          "callouts": ["Record HBM demand", "Foundry & Logic networking strong"]
+        }
+      },
+      "caveats": [
+        "TOWA is 6315.T (Tokyo) — not in FMP live feed, won't surface in SUBFLOW.",
+        "Test/inspection thesis assumes ramp follows; tariff or memory-pricing reversal could break the chain."
+      ],
+      "source": "Discord / personal note"
+    }
+  ]
+}
