@@ -1435,7 +1435,10 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
           {showTickers ? (
             <span style={{ display: "flex", flexWrap: "wrap", gap: 3, minWidth: 0, overflow: "hidden" }}
                   title={row.name}>
-              {(row.tickers || []).slice(0, 12).map((t) => {
+              {[...(row.tickers || [])]
+                .sort((a, b) => (liveRvol(b) ?? -1) - (liveRvol(a) ?? -1))
+                .slice(0, 12)
+                .map((t) => {
                 const tk = typeof t === "string" ? t : t?.ticker;
                 if (!tk) return null;
                 const rvol = liveRvol(t);
