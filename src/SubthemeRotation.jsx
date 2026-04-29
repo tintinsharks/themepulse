@@ -1629,7 +1629,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
             )}
             <span>
               {isLive
-                ? `Constituents · sorted by today % · σ=${row.live_dispersion?.toFixed(2) ?? "n/a"}% · ${row.a_grades || 0} A-grades`
+                ? `Constituents · sorted by RVol · σ=${row.live_dispersion?.toFixed(2) ?? "n/a"}% · ${row.a_grades || 0} A-grades`
                 : `Constituents · sorted by RS · σ=${row.dispersion?.toFixed(1) ?? "n/a"} · ${row.a_grades || 0} A-grades`}
             </span>
             {row.persistence && (
@@ -1650,7 +1650,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {[...(row.tickers || [])]
               .sort((a, b) => isLive
-                ? ((b.live_pct ?? b.chg ?? -999) - (a.live_pct ?? a.chg ?? -999))
+                ? ((liveRvol(b) ?? -1) - (liveRvol(a) ?? -1))
                 : ((b.rs ?? 0) - (a.rs ?? 0)))
               .slice(0, 20)
               .map((t) => {
