@@ -1380,24 +1380,6 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
       >
         {/* Subtheme name + setup tier + arrow + persistence + vol regime */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-          {/* Setup Score tier badge — most prominent indicator */}
-          {tier && (
-            <span title={
-              setupData
-                ? `Setup Score ${setupData.score} (Tier ${tier.tier} — ${tier.label})  ·  Strength ${setupData.strength}  ·  Direction ${setupData.direction}  ·  Conviction ${setupData.conviction}`
-                : ""
-            } style={{
-              fontSize: 10, fontWeight: 800, padding: "2px 5px", borderRadius: 3,
-              background: tier.bg, color: tier.color,
-              border: `1px solid ${tier.color}60`,
-              fontFamily: "monospace",
-              flexShrink: 0,
-              minWidth: 32, textAlign: "center",
-              letterSpacing: 0.3,
-            }}>
-              {tier.tier}·{setupData.score}
-            </span>
-          )}
           {row.quad && (
             <span style={{
               fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 2,
