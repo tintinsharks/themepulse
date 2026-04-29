@@ -46,6 +46,61 @@
         "Test/inspection thesis assumes ramp follows; tariff or memory-pricing reversal could break the chain."
       ],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "hyperscaler-capex-2026-q1",
+      "date": "2026-04-29",
+      "type": "earnings_thesis",
+      "headline": "MSFT/META/AMZN Q1 capex print: upstream semi supply chain stays bullish through 2026",
+      "primary_tickers": ["META", "MSFT", "AMZN"],
+      "derivative_tickers": [
+        "TSM", "ASML", "AMAT", "LRCX", "KLAC",
+        "VIAV", "FORM", "ONTO", "CAMT", "KEYS",
+        "AVGO", "NVDA", "MRVL",
+        "COHR", "FN", "LITE", "AAOI", "CRDO"
+      ],
+      "themes_implicated": [
+        "Wafer Inspection / Process Control",
+        "Test & Measurement",
+        "AI Infrastructure",
+        "Custom Silicon / ASIC",
+        "Optical Components",
+        "High-Speed Pluggable",
+        "HBM / Memory",
+        "Foundry"
+      ],
+      "key_numbers": {
+        "META": {
+          "fy2026_capex": "$115B-$135B",
+          "fy2026_capex_revised": "$125B-$145B (raised on Q1 ER)",
+          "drivers": [
+            "Higher component prices / price hikes",
+            "Aggressive AI infrastructure spend",
+            "Custom model training"
+          ]
+        },
+        "MSFT": {
+          "q1_capex_actual": "$31.9B vs $35.29B est",
+          "miss_reason": "Supply chain bottlenecks, NOT demand pullback",
+          "read_through": "Bullish — capex constrained by upstream supply, demand intact"
+        },
+        "AMZN": {
+          "fy2026_capex_jassy_guide": "~$200B (early-year)",
+          "q1_confirmation": "pending"
+        }
+      },
+      "lead_lag": {
+        "leading": ["META", "MSFT", "AMZN"],
+        "lagging": ["TSM", "ASML", "AMAT", "LRCX", "KLAC", "VIAV", "FORM"],
+        "horizon": "next 2-4 quarters",
+        "rationale": "Hyperscaler capex commitments funnel directly into semi capex (foundry → equipment → test/inspection). MSFT capex 'miss' is on the supply side, which means equipment/test names absorb the unmet demand. Reinforces the VIAV/FORM/ONTO/CAMT thesis from earlier today."
+      },
+      "caveats": [
+        "Capex guides can be revised down if AI ROI doesn't materialize — watch for hyperscaler deceleration in Q2/Q3 prints.",
+        "AMZN AWS margin compression risk if capex pace doesn't translate to revenue — different bull case than META/MSFT."
+      ],
+      "linked_notes": ["viav-form-2026-q1"],
+      "source": "Discord / personal note"
     }
   ]
 }
