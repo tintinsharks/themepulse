@@ -670,22 +670,25 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
   }, [visible, viewMode, topN]);
 
   // ─── Group by parent for "grouped" view ──────────────────────────────────
+  // In live mode: sort each group's subthemes by Live Strength desc; group order
+  // by top-strength-in-group. In daily mode: by RS desc.
   const grouped = useMemo(() => {
     if (viewMode !== "grouped") return [];
+    const strengthOf = (s) =>
+      timeframe === "live" ? (s.live_strength_score ?? s.rs ?? 0) : (s.rs ?? 0);
     const groups = new Map();
     visible.forEach((s) => {
       if (!groups.has(s.parent)) groups.set(s.parent, []);
       groups.get(s.parent).push(s);
     });
-    // Sort each group's subthemes by RS desc, then groups by their max RS
     const arr = Array.from(groups.entries()).map(([parent, subs]) => {
-      const sorted = [...subs].sort((a, b) => (b.rs ?? 0) - (a.rs ?? 0));
-      const maxRS = sorted[0]?.rs ?? 0;
+      const sorted = [...subs].sort((a, b) => strengthOf(b) - strengthOf(a));
+      const maxRS = strengthOf(sorted[0] ?? {});
       return { parent, subs: sorted, maxRS, color: subs[0]?.parent_color };
     });
     arr.sort((a, b) => b.maxRS - a.maxRS);
     return arr;
-  }, [visible, viewMode]);
+  }, [visible, viewMode, timeframe]);
 
   return (
     <div style={{ padding: 16, color: "#e0e0e8", fontFamily: "system-ui, -apple-system, sans-serif" }}>
