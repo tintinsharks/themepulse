@@ -820,18 +820,6 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
         )}
       </div>
 
-      {/* ─── Regime banner ─────────────────────────────────────────────── */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "8px 12px", background: "#141420", border: `1px solid ${regime.color}40`,
-        borderRadius: 6, marginBottom: 12, fontSize: 12,
-      }}>
-        <span style={{ color: regime.color, fontWeight: 700 }}>{regime.label}</span>
-        <span style={{ color: "#9090a0" }}>
-          IN: {regime.inCount} · OUT: {regime.outCount} · (Δ&gt;±5 1W)
-        </span>
-      </div>
-
       {/* ─── Scatter view ──────────────────────────────────────────────── */}
       {viewMode === "scatter" && (
         <ScatterPlot
