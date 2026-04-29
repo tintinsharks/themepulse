@@ -1393,10 +1393,15 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                 const tk = typeof t === "string" ? t : t?.ticker;
                 if (!tk) return null;
                 const rvol = typeof t === "object" ? t.rvol : null;
-                const color = rvol == null ? "#7a7a8a"
-                            : rvol >= 2   ? "#00c853"   // unusual volume
-                            : rvol >= 1.5 ? "#fbbf24"   // elevated
-                            : "#7a7a8a";                // normal / quiet
+                const pct = typeof t === "object" ? (t.live_pct ?? t.chg ?? null) : null;
+                // Only color (green/amber) when the ticker is UP today; otherwise grey.
+                // Volume conviction without an upward move isn't actionable here.
+                const isUp = pct != null && pct > 0;
+                const color = !isUp                    ? "#7a7a8a"
+                            : rvol == null             ? "#7a7a8a"
+                            : rvol >= 2                ? "#00c853"
+                            : rvol >= 1.5              ? "#fbbf24"
+                            :                            "#7a7a8a";
                 return (
                   <span key={tk}
                     onClick={(e) => { e.stopPropagation(); onTickerClick?.(tk); }}
@@ -1405,7 +1410,11 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                       padding: "1px 4px", borderRadius: 2, cursor: "pointer",
                       background: "#141420", border: "1px solid #222230", color,
                     }}
-                    title={rvol != null ? `${tk} · RVol ${rvol.toFixed(2)}x` : tk}>
+                    title={
+                      `${tk}` +
+                      (pct != null ? ` · ${pct > 0 ? "+" : ""}${pct.toFixed(2)}%` : "") +
+                      (rvol != null ? ` · RVol ${rvol.toFixed(2)}x` : "")
+                    }>
                     {tk}
                   </span>
                 );
