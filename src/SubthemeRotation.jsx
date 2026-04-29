@@ -1410,13 +1410,11 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
               {(row.tickers || []).slice(0, 12).map((t) => {
                 const tk = typeof t === "string" ? t : t?.ticker;
                 if (!tk) return null;
-                const pct = isLive ? (typeof t === "object" ? (t.live_pct ?? t.chg) : null) : null;
-                const color = pct == null ? "#c8c8d8"
-                            : pct >= 2 ? "#00c853"
-                            : pct >= 0.5 ? "#7cb342"
-                            : pct <= -2 ? "#e53935"
-                            : pct <= -0.5 ? "#c47000"
-                            : "#9090a0";
+                const rvol = typeof t === "object" ? t.rvol : null;
+                const color = rvol == null ? "#7a7a8a"
+                            : rvol >= 2   ? "#00c853"   // unusual volume
+                            : rvol >= 1.5 ? "#fbbf24"   // elevated
+                            : "#7a7a8a";                // normal / quiet
                 return (
                   <span key={tk}
                     onClick={(e) => { e.stopPropagation(); onTickerClick?.(tk); }}
@@ -1425,7 +1423,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                       padding: "1px 4px", borderRadius: 2, cursor: "pointer",
                       background: "#141420", border: "1px solid #222230", color,
                     }}
-                    title={pct != null ? `${tk} ${pct > 0 ? "+" : ""}${pct.toFixed(2)}%` : tk}>
+                    title={rvol != null ? `${tk} · RVol ${rvol.toFixed(2)}x` : tk}>
                     {tk}
                   </span>
                 );
