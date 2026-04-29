@@ -692,23 +692,31 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
   }, [visible, viewMode, topN]);
 
   // ─── Group by parent for "grouped" view ──────────────────────────────────
-  // In live mode: sort each group's subthemes by Live Strength desc; group order
-  // by top-strength-in-group. In daily mode: by RS desc.
+  // `visible` is already sorted by the user-selected sortBy/sortDir, so we
+  // preserve that order within each parent group. Parent groups themselves
+  // are ordered by the position of their first (best-ranked) subtheme so
+  // the active sort key drives both axes.
   const grouped = useMemo(() => {
     if (viewMode !== "grouped") return [];
-    const strengthOf = (s) =>
-      timeframe === "live" ? (s.live_strength_score ?? s.rs ?? 0) : (s.rs ?? 0);
     const groups = new Map();
-    visible.forEach((s) => {
-      if (!groups.has(s.parent)) groups.set(s.parent, []);
+    const firstIdx = new Map();
+    visible.forEach((s, i) => {
+      if (!groups.has(s.parent)) {
+        groups.set(s.parent, []);
+        firstIdx.set(s.parent, i);
+      }
       groups.get(s.parent).push(s);
     });
-    const arr = Array.from(groups.entries()).map(([parent, subs]) => {
-      const sorted = [...subs].sort((a, b) => strengthOf(b) - strengthOf(a));
-      const maxRS = strengthOf(sorted[0] ?? {});
-      return { parent, subs: sorted, maxRS, color: subs[0]?.parent_color };
-    });
-    arr.sort((a, b) => b.maxRS - a.maxRS);
+    const strengthOf = (s) =>
+      timeframe === "live" ? (s.live_strength_score ?? s.rs ?? 0) : (s.rs ?? 0);
+    const arr = Array.from(groups.entries()).map(([parent, subs]) => ({
+      parent,
+      subs,
+      maxRS: strengthOf(subs[0] ?? {}),
+      color: subs[0]?.parent_color,
+      _firstIdx: firstIdx.get(parent),
+    }));
+    arr.sort((a, b) => a._firstIdx - b._firstIdx);
     return arr;
   }, [visible, viewMode, timeframe]);
 
