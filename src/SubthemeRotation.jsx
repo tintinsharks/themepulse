@@ -1634,17 +1634,21 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
               .slice(0, 20)
               .map((t) => {
                 const livePct = t.live_pct ?? t.chg ?? null;
-                const displayMetric = isLive
-                  ? (livePct != null ? `${livePct > 0 ? "+" : ""}${livePct.toFixed(1)}%` : "—")
-                  : (t.rs?.toFixed(0) ?? "—");
+                const rvol = t.rvol ?? null;
+                const pctStr = livePct != null
+                  ? `${livePct > 0 ? "+" : ""}${livePct.toFixed(1)}%`
+                  : "—";
+                const rvolStr = rvol != null ? `${rvol.toFixed(2)}x` : "—";
                 const cellColor = isLive
                   ? (livePct >= 3 ? "#00c853" : livePct >= 1 ? "#7cb342" : livePct <= -3 ? "#e53935" : livePct <= -1 ? "#fb8c00" : "#9090a0")
                   : (t.rs >= 70 ? "#00c853" : t.rs >= 40 ? "#e0e0e8" : "#fb8c00");
                 const bgColor = isLive
                   ? (livePct >= 3 ? "#0d2a1a" : livePct <= -3 ? "#1a0d0d" : "#141420")
                   : (t.rs >= 70 ? "#0d2a1a" : t.rs >= 40 ? "#141420" : "#1a0d0d");
-                // Add rvol indicator on chip
-                const rvolSuffix = isLive && t.rvol >= RVOL_UNUSUAL ? "⚡" : "";
+                const rvolColor = rvol == null ? "#5a5a6a"
+                                : rvol >= 2   ? "#00c853"
+                                : rvol >= 1.5 ? "#fbbf24"
+                                :               "#7a7a8a";
                 return (
                   <button
                     key={t.ticker}
@@ -1652,7 +1656,7 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                       e.stopPropagation();
                       onTickerClick?.(t.ticker);
                     }}
-                    title={isLive && t.rvol ? `RVol ${t.rvol.toFixed(2)}x` : undefined}
+                    title={`${t.ticker} · ${pctStr} · RVol ${rvolStr}`}
                     style={{
                       padding: "3px 8px", borderRadius: 3, border: "1px solid #222230",
                       background: bgColor, color: cellColor,
@@ -1660,16 +1664,18 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
                       cursor: "pointer", display: "flex", gap: 6, alignItems: "center",
                     }}
                   >
-                    <span>{t.ticker}{rvolSuffix}</span>
-                    <span style={{ color: "#7a7a8a", fontSize: 10 }}>
-                      {displayMetric}
-                    </span>
-                    {t.grade && (
-                      <span style={{
-                        fontSize: 9, padding: "0 3px", borderRadius: 2,
-                        background: t.grade.startsWith("A") ? "#00c85340" : "#22223040",
-                        color: t.grade.startsWith("A") ? "#00c853" : "#9090a0",
-                      }}>{t.grade}</span>
+                    <span>{t.ticker}</span>
+                    {isLive && (
+                      <>
+                        <span style={{ color: cellColor, fontSize: 10 }}>{pctStr}</span>
+                        <span style={{ color: "#3a3a4a", fontSize: 10 }}>|</span>
+                        <span style={{ color: rvolColor, fontSize: 10 }}>{rvolStr}</span>
+                      </>
+                    )}
+                    {!isLive && (
+                      <span style={{ color: "#7a7a8a", fontSize: 10 }}>
+                        {t.rs?.toFixed(0) ?? "—"}
+                      </span>
                     )}
                   </button>
                 );
