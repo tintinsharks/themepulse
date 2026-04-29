@@ -509,6 +509,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
   };
   const [showLowN, setShowLowN] = useState(false);
   const [topN, setTopN] = useState(168);             // limit flat view rows
+  const [showTickers, setShowTickers] = useState(false); // grouped view: name vs ticker chips
 
   // ─── Pull all subthemes from dashboard_data.json ─────────────────────────
   const allSubthemes = useMemo(() => {
@@ -850,6 +851,21 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
       {/* ─── Grouped view ──────────────────────────────────────────────── */}
       {viewMode === "grouped" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -10 }}>
+            <button
+              onClick={() => setShowTickers((v) => !v)}
+              style={{
+                padding: "4px 10px", fontSize: 11,
+                background: showTickers ? "#1c2238" : "#141420",
+                color: showTickers ? "#fff" : "#9090a0",
+                border: `1px solid ${showTickers ? "#3a4a7a" : "#222230"}`,
+                borderRadius: 4, cursor: "pointer",
+              }}
+              title="Toggle first column between subtheme names and individual ticker chips"
+            >
+              {showTickers ? "▣ Tickers" : "▢ Tickers"}
+            </button>
+          </div>
           {grouped.map((g) => (
             <div key={g.parent}>
               <div style={{
@@ -862,7 +878,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, onT
                   {g.subs.length} subthemes · top RS {g.maxRS?.toFixed(0)}
                 </span>
               </div>
-              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} />
+              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} />
             </div>
           ))}
         </div>
@@ -1273,7 +1289,7 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 }
 
 // ─── Sub-component: the actual table of rows ────────────────────────────────
-function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort }) {
+function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false }) {
   if (!rows.length) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#5a5a6a", fontSize: 12 }}>
@@ -1323,6 +1339,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
           row={r}
           onTickerClick={onTickerClick}
           timeframe={timeframe}
+          showTickers={showTickers}
         />
       ))}
     </div>
@@ -1330,7 +1347,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 }
 
 // ─── Single subtheme row ────────────────────────────────────────────────────
-function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
+function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false }) {
   const [expanded, setExpanded] = useState(false);
   const isLive = timeframe === "live";
 
@@ -1387,9 +1404,41 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily" }) {
               background: quadColor(row.quad), color: "#0d0d1a", minWidth: 14, textAlign: "center",
             }}>{row.quad}</span>
           )}
-          <span style={{ color: "#c8c8d8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {row.name}
-          </span>
+          {showTickers ? (
+            <span style={{ display: "flex", flexWrap: "wrap", gap: 3, minWidth: 0, overflow: "hidden" }}
+                  title={row.name}>
+              {(row.tickers || []).slice(0, 12).map((t) => {
+                const tk = typeof t === "string" ? t : t?.ticker;
+                if (!tk) return null;
+                const pct = isLive ? (typeof t === "object" ? (t.live_pct ?? t.chg) : null) : null;
+                const color = pct == null ? "#c8c8d8"
+                            : pct >= 2 ? "#00c853"
+                            : pct >= 0.5 ? "#7cb342"
+                            : pct <= -2 ? "#e53935"
+                            : pct <= -0.5 ? "#c47000"
+                            : "#9090a0";
+                return (
+                  <span key={tk}
+                    onClick={(e) => { e.stopPropagation(); onTickerClick?.(tk); }}
+                    style={{
+                      fontFamily: "monospace", fontSize: 10, fontWeight: 600,
+                      padding: "1px 4px", borderRadius: 2, cursor: "pointer",
+                      background: "#141420", border: "1px solid #222230", color,
+                    }}
+                    title={pct != null ? `${tk} ${pct > 0 ? "+" : ""}${pct.toFixed(2)}%` : tk}>
+                    {tk}
+                  </span>
+                );
+              })}
+              {(row.tickers || []).length > 12 && (
+                <span style={{ fontSize: 9, color: "#5a5a6a" }}>+{row.tickers.length - 12}</span>
+              )}
+            </span>
+          ) : (
+            <span style={{ color: "#c8c8d8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {row.name}
+            </span>
+          )}
           <span style={{
             color: deltaColor(isLive ? (row.live_pct_med ?? 0) * 2 : row.d1),
             fontWeight: 700, fontFamily: "monospace",
