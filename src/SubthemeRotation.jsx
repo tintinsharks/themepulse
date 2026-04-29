@@ -1819,6 +1819,8 @@ export function SubthemeRotationAutoRefresh({
               volume: q.volume,
               avgVolume: q.avgVolume,
               price: q.price,
+              dayHigh: q.dayHigh,
+              dayLow: q.dayLow,
             };
           }
         });
