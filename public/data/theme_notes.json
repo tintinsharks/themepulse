@@ -101,6 +101,54 @@
       ],
       "linked_notes": ["viav-form-2026-q1"],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "amzn-memory-skyrocketed-2026-q1",
+      "date": "2026-04-29",
+      "type": "earnings_thesis",
+      "headline": "AMZN Jassy: memory/storage costs skyrocketed, capacity insufficient — accelerates custom silicon shift",
+      "primary_tickers": ["AMZN"],
+      "derivative_tickers": [
+        "MU", "WDC", "SNDK",
+        "AVGO", "MRVL",
+        "TSM",
+        "FORM", "ONTO", "CAMT",
+        "COHR", "FN", "LITE", "CRDO"
+      ],
+      "themes_implicated": [
+        "HBM / Memory",
+        "Storage",
+        "Custom Silicon / ASIC",
+        "Wafer Inspection / Process Control",
+        "Test & Measurement",
+        "Optical Components",
+        "High-Speed Pluggable",
+        "AI Infrastructure"
+      ],
+      "key_quotes": [
+        {
+          "speaker": "Andy Jassy (AMZN CEO)",
+          "quote": "Memory and storage costs have skyrocketed, with memory under the most pressure. There isn't enough capacity for current demand."
+        }
+      ],
+      "implications": [
+        "Memory pricing: confirmed supply-constrained — bullish MU / SNDK / WDC.",
+        "Custom silicon acceleration: hyperscalers pushing toward in-house ASIC over off-the-shelf — bullish AVGO (Trainium/Google TPU) and MRVL (custom).",
+        "Cost-efficient infrastructure focus: optical interconnect ROI matters more — 1.6T pluggables / co-packaged optics still in the chain.",
+        "Confirms the upstream-semi-supply-chain thesis from META/MSFT prints — capacity, not demand, is the constraint."
+      ],
+      "lead_lag": {
+        "leading": ["AMZN", "META", "MSFT"],
+        "lagging": ["MU", "SNDK", "AVGO", "MRVL", "FORM", "ONTO", "CAMT"],
+        "horizon": "next 2-4 quarters",
+        "rationale": "Memory capacity tightness + custom-silicon shift is a multi-quarter call. HBM probe-card demand (FORM) and inspection (ONTO/CAMT) tighten further as memory fab utilization climbs."
+      },
+      "caveats": [
+        "If memory pricing peaks and rolls (cycle behavior), MU/SNDK could top before equipment names — watch DRAM contract pricing trends.",
+        "Custom silicon shift hurts NVDA share-of-wallet at the margin, even if the overall pie grows."
+      ],
+      "linked_notes": ["viav-form-2026-q1", "hyperscaler-capex-2026-q1"],
+      "source": "Discord / personal note"
     }
   ]
 }
