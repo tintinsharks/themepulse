@@ -6641,6 +6641,68 @@ function Watchlist({ stockMap, onTickerClick }) {
 
 // Resizable split between ChartPanelInline (left) and ScanWatch (right).
 // Width of the right column is persisted and dragged via a 4px col-resize handle.
+// ── Peers row inside TickerInfoBox: ticker | chg% | openChg% | RVol ────
+function PeersRow({ peers, onTickerClick, ARIA }) {
+  const { quotes } = useLiveQuotes(peers, 30000);
+  const fmtPct = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+  const fmtRvol = (v) => v == null ? "—" : `${v.toFixed(1)}x`;
+  const colorPct = (v) => v == null ? ARIA.textMuted
+                       : v >= 2 ? ARIA.green
+                       : v >= 0.5 ? "#7cb342"
+                       : v <= -2 ? ARIA.red
+                       : v <= -0.5 ? "#c47000"
+                       : ARIA.textMuted;
+  const colorRvol = (v) => v == null ? ARIA.textMuted
+                         : v >= 2 ? ARIA.green
+                         : v >= 1.5 ? "#fbbf24"
+                         : ARIA.textMuted;
+  return (
+    <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "3px 10px", fontFamily: "monospace" }}>
+      <div style={{
+        fontSize: 7, color: ARIA.textMuted, textTransform: "uppercase",
+        letterSpacing: 0.5, fontWeight: 700, marginBottom: 3,
+      }}>
+        Peers
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 12, rowGap: 2 }}>
+        {peers.map((p) => {
+          const q = quotes.get(p) || {};
+          const chg = q.change ?? null;
+          const openChg = (q.open != null && q.previousClose != null && q.previousClose > 0)
+            ? ((q.open - q.previousClose) / q.previousClose) * 100
+            : null;
+          const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
+            ? Math.round((q.volume / q.avgVolume) * 10) / 10
+            : null;
+          return (
+            <React.Fragment key={p}>
+              <span
+                onClick={() => onTickerClick && onTickerClick(p)}
+                title={`Load ${p}`}
+                style={{
+                  color: ARIA.cyan,
+                  cursor: onTickerClick ? "pointer" : "default",
+                  fontWeight: 700,
+                  fontSize: 8,
+                }}
+              >
+                {p}
+              </span>
+              <span style={{ display: "flex", justifyContent: "flex-end", gap: 6, fontSize: 7 }}>
+                <span style={{ color: colorPct(chg), minWidth: 36, textAlign: "right" }}>{fmtPct(chg)}</span>
+                <span style={{ color: ARIA.border }}>|</span>
+                <span style={{ color: colorPct(openChg), minWidth: 36, textAlign: "right" }} title="Open vs prior close">{fmtPct(openChg)}</span>
+                <span style={{ color: ARIA.border }}>|</span>
+                <span style={{ color: colorRvol(rvol), minWidth: 28, textAlign: "right" }}>{fmtRvol(rvol)}</span>
+              </span>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Ticker Info: News + Description (Aria-faithful port) ────────────────
 function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
@@ -6786,43 +6848,7 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
         </div>
       )}
       {open && peers.length > 0 && (
-        <div
-          style={{
-            padding: "3px 10px",
-            borderTop: `1px solid ${ARIA.border}`,
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 6,
-            fontSize: 7,
-            fontFamily: "monospace",
-          }}
-        >
-          <span
-            style={{
-              color: ARIA.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              fontWeight: 700,
-            }}
-          >
-            Peers:
-          </span>
-          {peers.map((p) => (
-            <span
-              key={p}
-              onClick={() => onTickerClick && onTickerClick(p)}
-              title={`Load ${p}`}
-              style={{
-                color: ARIA.cyan,
-                cursor: onTickerClick ? "pointer" : "default",
-                fontWeight: 600,
-              }}
-            >
-              {p}
-            </span>
-          ))}
-        </div>
+        <PeersRow peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} />
       )}
     </div>
   );
