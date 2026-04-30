@@ -253,6 +253,63 @@
         "hyperscaler-power-compute-constrained-2026-q1"
       ],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "samsung-2027-prebooked-2026-q1",
+      "date": "2026-04-29",
+      "type": "supply_demand_thesis",
+      "headline": "Samsung: 2027 memory demand already pre-booked, supply-demand gap widening vs 2026",
+      "primary_tickers": ["005930.KS"],
+      "primary_label": "Samsung Electronics (Korea)",
+      "derivative_tickers": [
+        "MU", "SNDK", "STX", "WDC",
+        "EWY",
+        "FORM", "ONTO", "CAMT",
+        "AMAT", "LRCX", "KLAC", "ASML",
+        "AVGO", "MRVL"
+      ],
+      "themes_implicated": [
+        "HBM / Memory",
+        "Storage",
+        "Wafer Inspection / Process Control",
+        "Test & Measurement",
+        "Foundry",
+        "Korea Equity"
+      ],
+      "key_quotes": [
+        {
+          "speaker": "Samsung",
+          "quote": "2027 demand is already being booked in advance by customers. Based on demand received so far alone, the 2027 supply-demand gap is expected to widen further versus 2026."
+        }
+      ],
+      "implications": [
+        "Memory thesis horizon extends through 2027 — not a one-year cycle peak. Pricing power has multi-year visibility.",
+        "Confirms AMZN Jassy's 'memory under most pressure' comment from same day — supplier (Samsung) and buyer (AMZN) saying the same thing.",
+        "Bullish read for MU / SNDK / WDC / STX on multi-year basis. Korean equity (EWY) gets a structural bid since Samsung + Hynix dominate HBM.",
+        "Equipment/test/inspection (FORM/ONTO/CAMT/AMAT/LRCX/KLAC/ASML) absorb the capex required to close that widening gap — multi-year order book visibility.",
+        "Custom-silicon names (AVGO/MRVL) benefit indirectly — hyperscalers will design around tight memory by routing more compute to ASIC + co-packaged optical."
+      ],
+      "lead_lag": {
+        "leading": ["005930.KS", "MU", "SNDK"],
+        "lagging": ["FORM", "ONTO", "CAMT", "AMAT", "LRCX", "KLAC", "ASML"],
+        "horizon": "2026-2027 (multi-year)",
+        "rationale": "Pre-booked demand is a forward indicator the equipment/test names will see Q4-26 → Q3-27 order ramps."
+      },
+      "trade_setup": [
+        "Memory cycle thesis is now a 'sell-the-rip-on-the-cycle-top' setup, not a 'fade-the-overshoot' setup. Hold leaders longer than typical.",
+        "Watch HBM-specific subtheme in SUBFLOW (FORM, MU, SNDK) for signs of momentum acceleration vs the broader semi names."
+      ],
+      "caveats": [
+        "Pre-booking can be unwound if buyers detect oversupply incoming or AI ROI disappoints. Watch for hyperscaler capex revisions in 2H 2026.",
+        "Samsung itself has a foundry catch-up problem — the read is best for HBM/memory specifically, less for foundry leadership.",
+        "$DRAM ticker likely refers to commentary tag, not a tradeable security — verify before treating as actionable."
+      ],
+      "linked_notes": [
+        "amzn-memory-skyrocketed-2026-q1",
+        "hyperscaler-capex-2026-q1",
+        "viav-form-2026-q1"
+      ],
+      "source": "Discord / personal note"
     }
   ]
 }
