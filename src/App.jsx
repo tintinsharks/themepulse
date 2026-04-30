@@ -6642,8 +6642,8 @@ function Watchlist({ stockMap, onTickerClick }) {
 // Resizable split between ChartPanelInline (left) and ScanWatch (right).
 // Width of the right column is persisted and dragged via a 4px col-resize handle.
 // ── Peers row inside TickerInfoBox: peer chips (col 1) + selected
-//    ticker's live stats chg | openChg | RVol (col 2) ────
-function PeersRow({ ticker, peers, onTickerClick, ARIA }) {
+//    ticker's live stats chg | openChg | RVol | ADR% | ER countdown (col 2) ────
+function PeersRow({ ticker, peers, onTickerClick, ARIA, stockMap }) {
   const tickerList = useMemo(() => ticker ? [ticker] : [], [ticker]);
   const { quotes } = useLiveQuotes(tickerList, 30000);
   const q = quotes.get(ticker) || {};
@@ -6654,8 +6654,19 @@ function PeersRow({ ticker, peers, onTickerClick, ARIA }) {
   const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
     ? Math.round((q.volume / q.avgVolume) * 10) / 10
     : null;
+  const s = stockMap?.[ticker] || {};
+  const adr = s.adr_pct ?? null;
+  const erDays = s.earnings_days ?? null;       // signed (neg = past)
+  const erTiming = s.er_timing || "";            // "BMO" / "AMC"
   const fmtPct = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
   const fmtRvol = (v) => v == null ? "—" : `${v.toFixed(1)}x`;
+  const fmtAdr = (v) => v == null ? "—" : `${v.toFixed(1)}%`;
+  const fmtEr = (d) => {
+    if (d == null) return "—";
+    if (d === 0) return "TODAY";
+    if (d > 0) return `${d}d`;
+    return `${-d}d ago`;
+  };
   const colorPct = (v) => v == null ? ARIA.textMuted
                        : v >= 2 ? ARIA.green
                        : v >= 0.5 ? "#7cb342"
@@ -6666,6 +6677,15 @@ function PeersRow({ ticker, peers, onTickerClick, ARIA }) {
                          : v >= 2 ? ARIA.green
                          : v >= 1.5 ? "#fbbf24"
                          : ARIA.textMuted;
+  const colorAdr = (v) => v == null ? ARIA.textMuted
+                        : v >= 5 ? ARIA.green
+                        : v >= 3 ? "#7cb342"
+                        : ARIA.textMuted;
+  const colorEr = (d) => d == null ? ARIA.textMuted
+                       : d === 0 ? ARIA.red
+                       : d > 0 && d <= 7 ? "#fbbf24"
+                       : d > 0 ? ARIA.textDim
+                       : ARIA.textMuted;
   return (
     <div style={{
       borderTop: `1px solid ${ARIA.border}`,
@@ -6707,6 +6727,12 @@ function PeersRow({ ticker, peers, onTickerClick, ARIA }) {
         <span style={{ color: colorPct(openChg) }} title="Gap: open vs prior close">{fmtPct(openChg)}</span>
         <span style={{ color: ARIA.border }}>|</span>
         <span style={{ color: colorRvol(rvol) }} title="Relative volume">{fmtRvol(rvol)}</span>
+        <span style={{ color: ARIA.border }}>|</span>
+        <span style={{ color: colorAdr(adr) }} title="Average Daily Range %">ADR {fmtAdr(adr)}</span>
+        <span style={{ color: ARIA.border }}>|</span>
+        <span style={{ color: colorEr(erDays) }} title={erDays != null ? `Next earnings ${erDays >= 0 ? "in " : ""}${fmtEr(erDays)}${erTiming ? ` (${erTiming})` : ""}` : "No earnings date"}>
+          ER {fmtEr(erDays)}{erTiming ? ` ${erTiming}` : ""}
+        </span>
       </div>
     </div>
   );
@@ -6857,7 +6883,7 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
         </div>
       )}
       {open && peers.length > 0 && (
-        <PeersRow ticker={ticker} peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} />
+        <PeersRow ticker={ticker} peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} stockMap={stockMap} />
       )}
     </div>
   );
