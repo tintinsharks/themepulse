@@ -149,6 +149,62 @@
       ],
       "linked_notes": ["viav-form-2026-q1", "hyperscaler-capex-2026-q1"],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "hyperscaler-power-compute-constrained-2026-q1",
+      "date": "2026-04-29",
+      "type": "sector_rotation",
+      "headline": "All four hyperscalers (MSFT/META/GOOGL/AMZN) said the same thing: 'power and compute constrained'",
+      "primary_tickers": ["MSFT", "META", "GOOGL", "AMZN"],
+      "derivative_tickers": [
+        "VST", "CEG", "TLN", "NRG",
+        "GEV", "ETN", "PWR", "PRIM", "MYRG",
+        "GE", "MIR", "BWXT", "OKLO", "SMR", "NNE",
+        "NVDA", "AVGO", "TSM", "ASML"
+      ],
+      "themes_implicated": [
+        "Independent Power Producers (IPP)",
+        "Nuclear / SMR",
+        "Electrical Grid / Transmission",
+        "Power Equipment",
+        "Datacenter Infrastructure",
+        "AI Infrastructure",
+        "Custom Silicon / ASIC",
+        "Foundry"
+      ],
+      "key_quotes": [
+        { "speaker": "MSFT",  "quote": "We are power and compute constrained" },
+        { "speaker": "META",  "quote": "We are power and compute constrained" },
+        { "speaker": "GOOGL", "quote": "We are power and compute constrained" },
+        { "speaker": "AMZN",  "quote": "We are power and compute constrained" }
+      ],
+      "implications": [
+        "Power side: every IPP / nuclear / grid / electrical-equipment name has multi-year visibility. Datacenter demand is hitting the grid faster than utilities can build.",
+        "Compute side: confirms the upstream semi thesis — bottleneck is supply, not demand. Capex flows into foundry/equipment/test, not Q-on-Q AI revenue.",
+        "Stack ranking matters: companies that solve BOTH constraints (e.g., Coreweave-style power+compute combos, hyperscalers with PPA pipelines like MSFT/CEG) win. Pure-compute plays without power answer get capped.",
+        "Power becomes the new capex line item. When all four say it in unison, that's when allocators start reweighting from semis toward power."
+      ],
+      "lead_lag": {
+        "leading": ["MSFT", "META", "GOOGL", "AMZN"],
+        "lagging_power": ["VST", "CEG", "TLN", "NRG", "GEV", "ETN", "PWR", "GE", "OKLO", "SMR"],
+        "lagging_compute": ["TSM", "ASML", "AMAT", "LRCX", "KLAC", "NVDA", "AVGO"],
+        "horizon": "2-8 quarters (power side longer than compute)",
+        "rationale": "Power buildout is a 2-5 year cycle (permitting, transmission, generation). Hyperscalers acknowledging the constraint = signed PPAs and grid-equipment orders ramping. Compute side already in motion — confirms Q1 capex prints."
+      },
+      "trade_setup": [
+        "Watch SUBFLOW for IPP / nuclear / grid subthemes rotating into LEADING quadrant — that's the institutional money pivot.",
+        "Power-equipment names (GEV, ETN, PWR) often pre-front the IPPs — leading edge of the chain."
+      ],
+      "caveats": [
+        "Power names already had a strong run — entry timing matters more than thesis confirmation.",
+        "Permitting / regulatory risk on nuclear/SMR is real; don't size them like compute names."
+      ],
+      "linked_notes": [
+        "viav-form-2026-q1",
+        "hyperscaler-capex-2026-q1",
+        "amzn-memory-skyrocketed-2026-q1"
+      ],
+      "source": "Discord / personal note"
     }
   ]
 }
