@@ -4293,27 +4293,6 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
       }}
       title={`20-day rolling avg dollar volume over the trailing ${series.length} days (from ${entry.start}). Range ${fmtM(min)} → ${fmtM(max)}. 90d slope ${pctChg >= 0 ? "+" : ""}${pctChg.toFixed(1)}% = ${tag}. Calibrated to universe: ACCUM ≥+200% (top 5%, ADV tripled), BUILDING +50 to +200%, STEADY -25 to +50% (normal), SOFT -50 to -25%, DRYING ≤-50% (bottom 5%).`}
     >
-      <svg width={width} height={height} style={{ display: "block" }}>
-        {/* baseline */}
-        <line
-          x1={padLeft}
-          x2={width - padRight}
-          y1={padTop + innerH}
-          y2={padTop + innerH}
-          stroke={ARIA.border}
-          strokeWidth={0.5}
-        />
-        {/* area fill */}
-        <path
-          d={`${pathD} L${x(series.length - 1).toFixed(1)},${(padTop + innerH).toFixed(1)} L${padLeft},${(padTop + innerH).toFixed(1)} Z`}
-          fill={color}
-          fillOpacity={0.12}
-        />
-        {/* line */}
-        <path d={pathD} fill="none" stroke={color} strokeWidth={1.25} />
-        {/* last-point dot */}
-        <circle cx={x(series.length - 1)} cy={y(last)} r={1.8} fill={color} />
-      </svg>
       <div
         style={{
           display: "flex",
@@ -4342,6 +4321,27 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
           {tag}
         </span>
       </div>
+      <svg width={width} height={height} style={{ display: "block" }}>
+        {/* baseline */}
+        <line
+          x1={padLeft}
+          x2={width - padRight}
+          y1={padTop + innerH}
+          y2={padTop + innerH}
+          stroke={ARIA.border}
+          strokeWidth={0.5}
+        />
+        {/* area fill */}
+        <path
+          d={`${pathD} L${x(series.length - 1).toFixed(1)},${(padTop + innerH).toFixed(1)} L${padLeft},${(padTop + innerH).toFixed(1)} Z`}
+          fill={color}
+          fillOpacity={0.12}
+        />
+        {/* line */}
+        <path d={pathD} fill="none" stroke={color} strokeWidth={1.25} />
+        {/* last-point dot */}
+        <circle cx={x(series.length - 1)} cy={y(last)} r={1.8} fill={color} />
+      </svg>
     </div>
   );
 }
