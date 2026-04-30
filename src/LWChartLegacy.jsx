@@ -1677,8 +1677,19 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         {!topPaneOpen && <div style={{ height: 16 }} />}
       </div>
       {/* ATRX Pro pane */}
-      <div style={{ position: "relative", flexShrink: 0, borderBottom: showATRX ? "1px solid #2a2a38" : "none" }}>
+      <div style={{ position: "relative", flexShrink: 0, borderBottom: showATRX ? "1px solid #2a2a38" : "1px solid #1a1a22" }}>
         <div ref={atrxContainerRef} style={{ width: "100%", height: showATRX ? 110 : 0, overflow: "hidden", transition: "height 0.15s ease" }} />
+        {!showATRX && (
+          <div onClick={() => setShowATRX(true)}
+            title="Expand ATRx pane"
+            style={{
+              height: 14, display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 6, fontSize: 9, color: "#505060", cursor: "pointer", userSelect: "none",
+              background: "#0d0d14",
+            }}>
+            <span>▸ ATRx · 20D · 50S · 10W</span>
+          </div>
+        )}
         {showATRX && <>
           <div style={{ position: "absolute", top: 2, left: 4, fontSize: 8, zIndex: 5, display: "flex", gap: 8, alignItems: "center", pointerEvents: "none" }}>
             <span style={{ color: "#2962FF", fontWeight: 600 }}>50SMA</span>
@@ -1686,7 +1697,16 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             <span style={{ color: "#AB47BC", fontWeight: 600 }}>10WEMA</span>
             <span style={{ color: "#505060" }}>ATRx</span>
           </div>
-          {atrxStats && <div style={{ position: "absolute", top: 2, right: 4, zIndex: 5, pointerEvents: "none",
+          <span onClick={() => setShowATRX(false)}
+            title="Collapse ATRx pane"
+            style={{
+              position: "absolute", top: 1, right: 4, zIndex: 6,
+              fontSize: 11, color: "#5a5a6a", cursor: "pointer", userSelect: "none",
+              padding: "0 4px", lineHeight: 1,
+            }}>
+            ▾
+          </span>
+          {atrxStats && <div style={{ position: "absolute", top: 2, right: 18, zIndex: 5, pointerEvents: "none",
             fontSize: 9, fontFamily: "monospace", display: "flex", gap: 8, alignItems: "center" }}>
             {[
               { label: "20D", val: atrxStats.d20, raw: atrxStats.rawD20, color: "#00BCD4" },
