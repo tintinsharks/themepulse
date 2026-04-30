@@ -433,7 +433,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
   const [showCR, setShowCR] = useState(false);
   const [showCRP, setShowCRP] = useState(true);
   const [show4Pct, setShow4Pct] = useState(true);
-  const [showATRX, setShowATRX] = useState(true);
+  const [showATRX, setShowATRX] = useState(false);
   const [showMACD, setShowMACD] = useState(
     () => localStorage.getItem("themepulse-chart-macd") === "1"
   );
