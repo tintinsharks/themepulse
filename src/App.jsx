@@ -1286,8 +1286,19 @@ function ETFScanTable({ onTickerClick }) {
 }
 
 function ScanWatch({ stocks, onTickerClick, chartTicker }) {
+  const ARIA = useAriaTheme();
+  const [swView, setSwView] = useState("scan"); // "scan" | "etf"
+  // ── State: filters + sort + tags + preset ──────────────────────────────
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  // Owned-ticker set for the Hide Owned filter (reads the same cross-component
+  // store as useOwnedTint / the Watchlist panel). Setters are used by the
+  // +WL / +PF toolbar buttons.
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const ownedSet = useMemo(
+    () => new Set([...portfolio, ...watchlist]),
+    [portfolio, watchlist]
+  );
   const inPF = chartTicker && portfolio.includes(chartTicker);
   const inWL = chartTicker && watchlist.includes(chartTicker);
   const togglePF = () => {
@@ -1298,18 +1309,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker }) {
     if (!chartTicker) return;
     setWatchlist((cur) => inWL ? cur.filter((t) => t !== chartTicker) : [...cur, chartTicker]);
   };
-  const ARIA = useAriaTheme();
-  const [swView, setSwView] = useState("scan"); // "scan" | "etf"
-  // ── State: filters + sort + tags + preset ──────────────────────────────
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  // Owned-ticker set for the Hide Owned filter (reads the same cross-component
-  // store as useOwnedTint / the Watchlist panel)
-  const [portfolio] = useLocalStorageList("themepulse-portfolio");
-  const [watchlist] = useLocalStorageList("themepulse-watchlist");
-  const ownedSet = useMemo(
-    () => new Set([...portfolio, ...watchlist]),
-    [portfolio, watchlist]
-  );
   const [sort, setSort] = useState(DEFAULT_SORT);
   const [activePreset, setActivePreset] = useState(null);
   const [activeTags, setActiveTags] = useState(() => new Set());
