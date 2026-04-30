@@ -6902,7 +6902,14 @@ function ChartScanRow({
         onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       />
-      <div style={{ width: scanW, flexShrink: 0, minWidth: 150, display: "flex", flexDirection: "column" }}>
+      <div style={{
+        width: scanW, flexShrink: 0, minWidth: 150,
+        display: "flex", flexDirection: "column",
+        // Pin to viewport so the watchlist/scan stays visible when the
+        // left chart panel scrolls past the fold
+        position: "sticky", top: 0, alignSelf: "flex-start",
+        maxHeight: "100vh", overflowY: "auto",
+      }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <TickerInfoBox ticker={chartTicker} stockMap={stockMap} onTickerClick={handleTickerClick} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
