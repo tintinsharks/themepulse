@@ -6707,46 +6707,6 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
           {open ? "▼" : "▶"}
         </span>
       </div>
-      {open && peers.length > 0 && (
-        <div
-          style={{
-            padding: "3px 10px",
-            borderBottom: `1px solid ${ARIA.border}`,
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 6,
-            fontSize: 7,
-            fontFamily: "monospace",
-          }}
-        >
-          <span
-            style={{
-              color: ARIA.textMuted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              fontWeight: 700,
-            }}
-          >
-            Peers:
-          </span>
-          {peers.map((p) => (
-            <span
-              key={p}
-              onClick={() => onTickerClick && onTickerClick(p)}
-              title={`Load ${p}`}
-              style={{
-                color: ARIA.cyan,
-                cursor: onTickerClick ? "pointer" : "default",
-                fontWeight: 600,
-              }}
-            >
-              {p}
-            </span>
-          ))}
-          <span style={{ color: ARIA.border, marginLeft: 2 }}>|</span>
-        </div>
-      )}
       {open && (
         <div style={{ display: "flex", height: 70 }}>
           {/* Left: News */}
@@ -6810,6 +6770,45 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
             )}
             {!loading && desc}
           </div>
+        </div>
+      )}
+      {open && peers.length > 0 && (
+        <div
+          style={{
+            padding: "3px 10px",
+            borderTop: `1px solid ${ARIA.border}`,
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 6,
+            fontSize: 7,
+            fontFamily: "monospace",
+          }}
+        >
+          <span
+            style={{
+              color: ARIA.textMuted,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              fontWeight: 700,
+            }}
+          >
+            Peers:
+          </span>
+          {peers.map((p) => (
+            <span
+              key={p}
+              onClick={() => onTickerClick && onTickerClick(p)}
+              title={`Load ${p}`}
+              style={{
+                color: ARIA.cyan,
+                cursor: onTickerClick ? "pointer" : "default",
+                fontWeight: 600,
+              }}
+            >
+              {p}
+            </span>
+          ))}
         </div>
       )}
     </div>
