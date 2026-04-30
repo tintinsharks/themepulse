@@ -5065,17 +5065,6 @@ function ChartPanelInline({
                 >
                   <MiniQBars
                     quarters={series}
-                    accessor={(q) => q.eps}
-                    yoyAccessor={(q) => q.eps_yoy}
-                    color={ARIA.blue}
-                    labelFmt={(v) => v.toFixed(2)}
-                    title="EPS (Diluted)"
-                    ARIA={ARIA}
-                    passYoy={25}
-                    hotYoy={40}
-                  />
-                  <MiniQBars
-                    quarters={series}
                     accessor={(q) => q.net_margin}
                     yoyAccessor={(q) => q._marginDelta}
                     color={ARIA.cyan}
@@ -5084,6 +5073,17 @@ function ChartPanelInline({
                     ARIA={ARIA}
                     passYoy={2}
                     hotYoy={5}
+                  />
+                  <MiniQBars
+                    quarters={series}
+                    accessor={(q) => q.eps}
+                    yoyAccessor={(q) => q.eps_yoy}
+                    color={ARIA.blue}
+                    labelFmt={(v) => v.toFixed(2)}
+                    title="EPS (Diluted)"
+                    ARIA={ARIA}
+                    passYoy={25}
+                    hotYoy={40}
                   />
                 </div>
                 <div
@@ -5097,6 +5097,17 @@ function ChartPanelInline({
                 >
                   <MiniQBars
                     quarters={series}
+                    accessor={(q) => q.ocf_ps}
+                    yoyAccessor={(q) => q.ocf_yoy}
+                    color={ARIA.yellow}
+                    labelFmt={(v) => v.toFixed(2)}
+                    title="Op Cash Flow/sh"
+                    ARIA={ARIA}
+                    passYoy={25}
+                    hotYoy={40}
+                  />
+                  <MiniQBars
+                    quarters={series}
                     accessor={(q) => q.revenue}
                     yoyAccessor={(q) => q.revenue_yoy}
                     color={ARIA.purple}
@@ -5108,17 +5119,6 @@ function ChartPanelInline({
                     title="Revenue"
                     ARIA={ARIA}
                     passYoy={20}
-                    hotYoy={40}
-                  />
-                  <MiniQBars
-                    quarters={series}
-                    accessor={(q) => q.ocf_ps}
-                    yoyAccessor={(q) => q.ocf_yoy}
-                    color={ARIA.yellow}
-                    labelFmt={(v) => v.toFixed(2)}
-                    title="Op Cash Flow/sh"
-                    ARIA={ARIA}
-                    passYoy={25}
                     hotYoy={40}
                   />
                 </div>
