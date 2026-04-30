@@ -6664,7 +6664,20 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
   const parts = [s.company || data?.description?.split(".")[0] || "", s.industry || "", s.sector || ""].filter(Boolean);
   const news = data?.news || [];
   const desc = data?.description || "";
-  const peers = data?.peers || [];
+  // Peers: prefer Finviz scrape from /api/live (when cookies work and the
+  // regex matches the current layout). Fall back to ticker's industry
+  // siblings from stockMap, sorted by RS desc, top 8.
+  const peers = useMemo(() => {
+    const fromApi = data?.peers || [];
+    if (fromApi.length > 0) return fromApi;
+    if (!s?.industry || !stockMap) return [];
+    const siblings = Object.values(stockMap)
+      .filter((x) => x?.industry === s.industry && x.ticker && x.ticker !== ticker)
+      .sort((a, b) => (b.rs ?? 0) - (a.rs ?? 0))
+      .slice(0, 8)
+      .map((x) => x.ticker);
+    return siblings;
+  }, [data, s, stockMap, ticker]);
 
   return (
     <div
