@@ -3934,26 +3934,6 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
     >
       <div
         style={{
-          fontSize: 7,
-          color: ARIA.textMuted,
-          marginBottom: 2,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-          fontWeight: 700,
-          display: "flex",
-          alignItems: "baseline",
-          gap: 6,
-          lineHeight: 1,
-        }}
-      >
-        <span>CANSLIM</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: compColor, letterSpacing: 0, lineHeight: 1 }}>
-          {composite}
-        </span>
-        <span style={{ color: ARIA.textMuted }}>composite</span>
-      </div>
-      <div
-        style={{
           display: "grid",
           gridTemplateColumns: "12px 1fr auto 22px",
           columnGap: 6,
@@ -4071,6 +4051,32 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
             </span>
           </React.Fragment>
         ))}
+        {/* Composite header at the bottom — caption-style read of the
+            scorecard's overall grade after the sparkline. */}
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            fontSize: 7,
+            color: ARIA.textMuted,
+            marginTop: 4,
+            paddingTop: 3,
+            borderTop: `1px solid ${ARIA.border}`,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "center",
+            gap: 6,
+            lineHeight: 1,
+          }}
+        >
+          <span>CANSLIM</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: compColor, letterSpacing: 0, lineHeight: 1 }}>
+            {composite}
+          </span>
+          <span style={{ color: ARIA.textMuted }}>composite</span>
+        </div>
       </div>
     </div>
   );
