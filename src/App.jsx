@@ -5210,6 +5210,8 @@ function ChartPanelInline({
             position: "relative",
           }}
         >
+          {/* Ticker info box (news + description) — sits above the tab bar */}
+          <TickerInfoBox ticker={ticker} stockMap={stockMap} onTickerClick={onTickerChange} />
           {/* Subtab bar */}
           <div
             style={{
@@ -6911,7 +6913,6 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
-        <TickerInfoBox ticker={chartTicker} stockMap={stockMap} onTickerClick={handleTickerClick} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
       </div>
     </div>
