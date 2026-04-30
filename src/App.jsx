@@ -1897,11 +1897,10 @@ function ScanWatch({ stocks, onTickerClick }) {
         </div>
       )}
 
-      {/* Results table */}
+      {/* Results table — let the parent right-rail container manage scrolling
+          so Pipeline header + Ticker info + scan results all scroll as one. */}
       <div
         style={{
-          maxHeight: 480,
-          overflowY: "auto",
           overflowX: "auto",
           fontFamily: "monospace",
         }}
