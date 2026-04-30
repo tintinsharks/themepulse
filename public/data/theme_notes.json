@@ -310,6 +310,70 @@
         "viav-form-2026-q1"
       ],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "amzn-aws-once-in-a-lifetime-2026-q1",
+      "date": "2026-04-29",
+      "type": "structural_thesis",
+      "headline": "Jassy: AWS + Trainium + Graviton = 'once-in-a-lifetime opportunity'",
+      "primary_tickers": ["AMZN"],
+      "derivative_tickers": [
+        "AVGO", "MRVL",
+        "TSM",
+        "ARM",
+        "GOOGL", "MSFT",
+        "NVDA",
+        "MU", "SNDK"
+      ],
+      "themes_implicated": [
+        "Custom Silicon / ASIC",
+        "Cloud Platforms",
+        "Hyperscalers",
+        "AI Infrastructure",
+        "Foundry"
+      ],
+      "key_quotes": [
+        {
+          "speaker": "Andy Jassy (AMZN CEO)",
+          "quote": "The combination of our industry-leading price performance, Trainium custom silicon, market-leading Graviton CPUs, and core AWS is a once-in-a-lifetime opportunity"
+        },
+        {
+          "speaker": "Andy Jassy (AMZN CEO)",
+          "quote": "Amazon and its shareholders will be very well off in the future"
+        }
+      ],
+      "implications": [
+        "Jassy is publicly framing AWS as a multi-year, multi-decade compounder — not just a cyclical AI beneficiary. CEOs don't drop 'once-in-a-lifetime' language casually.",
+        "Custom-silicon thesis hardens: AWS using Trainium (training) + Graviton (general-purpose CPU) means more workload migrates off Intel/AMD/NVDA — bullish AVGO (Trainium silicon partner) and MRVL.",
+        "Same vertical-integration premium as GOOGL but on a different axis: AMZN's edge is silicon-to-cloud cost stack, GOOGL's edge is silicon-to-consumer monetization.",
+        "Hyperscalers are differentiating by *which layers they own deepest*: GOOGL = ad surface, AMZN = silicon cost stack, MSFT = enterprise software, META = ad-supported consumer apps. Single-thesis takes are obsolete.",
+        "Reinforces the upstream supply-chain bull case: every hyperscaler going deeper into custom silicon = more foundry/test/inspection demand."
+      ],
+      "stack_advantage": {
+        "silicon": "Trainium (training ASIC), Inferentia (inference ASIC), Graviton (Arm-based CPU)",
+        "cloud":   "AWS (still #1 by share)",
+        "models":  "Bedrock + Anthropic partnership + Olympus internal models",
+        "consumer":"Prime/Retail/Alexa (weaker AI hook than GOOGL)",
+        "ads":     "Sponsored Products (growing, smaller than GOOGL/META)",
+        "moat_vs_GOOGL": "GOOGL captures via consumer ad surface; AMZN captures via cloud unit economics. Both vertically integrated, different P&L mechanics."
+      },
+      "trade_setup": [
+        "AMZN itself: Jassy's tone shift suggests management priced for re-rating like GOOGL got. Watch for the AWS revenue line accelerating in Q2/Q3.",
+        "AVGO is the second-derivative play — they fab Trainium chips alongside GOOGL TPU and META MTIA. The custom-silicon TAM keeps expanding.",
+        "MRVL benefits from custom-silicon TAM but smaller share than AVGO."
+      ],
+      "caveats": [
+        "Tone-driven re-rating can fade if Q2 AWS growth disappoints. The thesis needs revenue confirmation, not just CEO framing.",
+        "AWS retail-vs-cloud margin disclosure is messy — be cautious extrapolating margin trends.",
+        "'Once-in-a-lifetime' language is a tone signal, not a fundamental signal. Treat as confidence indicator, not buy trigger."
+      ],
+      "linked_notes": [
+        "amzn-memory-skyrocketed-2026-q1",
+        "hyperscaler-capex-2026-q1",
+        "hyperscaler-power-compute-constrained-2026-q1",
+        "googl-vertical-ai-stack-2026-q1"
+      ],
+      "source": "Discord / personal note"
     }
   ]
 }
