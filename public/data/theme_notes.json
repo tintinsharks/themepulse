@@ -205,6 +205,54 @@
         "amzn-memory-skyrocketed-2026-q1"
       ],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "googl-vertical-ai-stack-2026-q1",
+      "date": "2026-04-29",
+      "type": "structural_thesis",
+      "headline": "GOOGL +7% — market rewarding the most vertically-integrated AI story in mega-cap",
+      "primary_tickers": ["GOOGL"],
+      "derivative_tickers": ["MSFT", "META", "AMZN", "AAPL", "NVDA"],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Hyperscalers",
+        "Custom Silicon / ASIC",
+        "Cloud Platforms",
+        "Generative AI Models",
+        "Digital Advertising"
+      ],
+      "stack_layers_owned": {
+        "chips":      "TPU (Trillium / Axion)",
+        "cloud":      "GCP",
+        "models":     "Gemini",
+        "consumer":   "Search, YouTube, Android, Chrome, Maps",
+        "ads_engine": "Google Ads (the cash engine still funding everything)",
+        "enterprise": "Workspace, Vertex AI, BigQuery"
+      },
+      "implications": [
+        "Vertical integration premium: GOOGL monetizes inference at every layer (TPU economics → GCP margin → Gemini API → Search/YouTube ad surface). Few mega-caps own this many layers.",
+        "Margin compression risk for single-layer AI names: pure-play model labs and infra-only names get squeezed as integrated players capture spread across layers.",
+        "Re-rating dynamic: market is now pricing the full-stack flywheel rather than discounting GOOGL on Search-cannibalization fears.",
+        "Implication for SUBFLOW: 'AI Infrastructure' is too coarse — the vertically-integrated mega-cap subset deserves its own signal vs single-layer AI names."
+      ],
+      "comparison_table": {
+        "GOOGL": "Chips ✓ · Cloud ✓ · Models ✓ · Consumer ✓ · Ads ✓ · Enterprise ✓",
+        "MSFT":  "Chips ~ (Maia) · Cloud ✓ · Models ✓ (OpenAI partner) · Consumer ~ · Ads ~ · Enterprise ✓",
+        "META":  "Chips ~ (MTIA) · Cloud ✗ · Models ✓ (Llama) · Consumer ✓ · Ads ✓ · Enterprise ✗",
+        "AMZN":  "Chips ✓ (Trainium) · Cloud ✓ · Models ~ (Bedrock) · Consumer ~ · Ads ~ · Enterprise ~",
+        "AAPL":  "Chips ✓ · Cloud ✗ · Models ~ (on-device) · Consumer ✓ · Ads ✗ · Enterprise ✗",
+        "NVDA":  "Chips ✓ · Cloud ✗ · Models ✗ · Consumer ✗ · Ads ✗ · Enterprise ✗"
+      },
+      "caveats": [
+        "Search ad cannibalization by AI overviews is still the bear case — Q1 print needs to show ad revenue intact for the re-rating to stick.",
+        "Antitrust overhang remains; vertical integration is a regulatory target.",
+        "Vertical-integration premium can compress fast if a single layer underperforms (e.g., TPU misses a node, Gemini falls behind)."
+      ],
+      "linked_notes": [
+        "hyperscaler-capex-2026-q1",
+        "hyperscaler-power-compute-constrained-2026-q1"
+      ],
+      "source": "Discord / personal note"
     }
   ]
 }
