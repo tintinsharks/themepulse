@@ -1285,7 +1285,19 @@ function ETFScanTable({ onTickerClick }) {
   );
 }
 
-function ScanWatch({ stocks, onTickerClick }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker }) {
+  const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const inPF = chartTicker && portfolio.includes(chartTicker);
+  const inWL = chartTicker && watchlist.includes(chartTicker);
+  const togglePF = () => {
+    if (!chartTicker) return;
+    setPortfolio((cur) => inPF ? cur.filter((t) => t !== chartTicker) : [...cur, chartTicker]);
+  };
+  const toggleWL = () => {
+    if (!chartTicker) return;
+    setWatchlist((cur) => inWL ? cur.filter((t) => t !== chartTicker) : [...cur, chartTicker]);
+  };
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf"
   // ── State: filters + sort + tags + preset ──────────────────────────────
@@ -1784,6 +1796,49 @@ function ScanWatch({ stocks, onTickerClick }) {
         />
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>M</span>
       </div>
+
+      {/* +WL / +PF row — acts on the currently-charted ticker */}
+      {chartTicker && (
+        <div style={{
+          padding: "3px 12px",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          borderBottom: `1px solid ${ARIA.border}`,
+          fontFamily: "monospace",
+        }}>
+          <span style={{ fontSize: 7, color: ARIA.textMuted, textTransform: "uppercase" }}>
+            {chartTicker}
+          </span>
+          <button
+            onClick={toggleWL}
+            title={inWL ? `Remove ${chartTicker} from watchlist` : `Add ${chartTicker} to watchlist`}
+            style={{
+              padding: "2px 8px", fontSize: 9, fontWeight: 700, fontFamily: "monospace",
+              cursor: "pointer", borderRadius: 3,
+              background: inWL ? "#0d2218" : "transparent",
+              border: `1px solid ${inWL ? "#2c5e3e" : ARIA.border}`,
+              color: inWL ? "#7cb342" : ARIA.textMuted,
+            }}
+          >
+            {inWL ? `✓ WL` : `+ WL`}
+          </button>
+          <button
+            onClick={togglePF}
+            title={inPF ? `Remove ${chartTicker} from portfolio` : `Add ${chartTicker} to portfolio`}
+            style={{
+              padding: "2px 8px", fontSize: 9, fontWeight: 700, fontFamily: "monospace",
+              cursor: "pointer", borderRadius: 3,
+              background: inPF ? "#3a2a08" : "transparent",
+              border: `1px solid ${inPF ? "#a07a1f" : ARIA.border}`,
+              color: inPF ? "#ffd700" : ARIA.textMuted,
+              boxShadow: inPF ? "0 0 4px rgba(255, 215, 0, 0.3)" : undefined,
+            }}
+          >
+            {inPF ? `✓ PF` : `+ PF`}
+          </button>
+        </div>
+      )}
 
       {/* Sort row */}
       <div
@@ -6919,7 +6974,7 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
       </div>
     </div>
   );
