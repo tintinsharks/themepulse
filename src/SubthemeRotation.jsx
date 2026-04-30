@@ -917,11 +917,12 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
         border: "1px solid #222230", borderRadius: 6, fontSize: 10,
         color: "#7a7a8a", display: "flex", flexWrap: "wrap", gap: 16,
       }}>
-        <span><span style={{ color: "#00c853" }}>▲▲</span> ≥+10 · <span style={{ color: "#00c853" }}>▲</span> ≥+5 · <span style={{ color: "#7cb342" }}>△</span> ≥+2</span>
-        <span>Bar = RS rank · Color = strength tier</span>
-        <span><span style={{ color: "#00c853" }}>◆</span> tight (≤15) · <span style={{ color: "#9e9e9e" }}>◇</span> mid · <span style={{ color: "#fb8c00" }}>✦</span> wide (&gt;30)</span>
-        <span>1W Δ = weekly RS − monthly RS · 4W Δ = monthly RS − 50</span>
-        <span style={{ color: "#00c853", fontWeight: 700 }}>🎯 Best setup: top RS + ▲ + ◆</span>
+        <span>Bar = live strength · <span style={{ color: "#fff" }}>|</span> tick = daily RS</span>
+        <span>Day % colored when ≥4% · <span style={{ color: "#7cb342" }}>+0.4 vs SPY</span> = relative move</span>
+        <span>CRP% = closing range · <span style={{ color: "#00c853" }}>≥75</span> near highs · <span style={{ color: "#e53935" }}>≤25</span> near lows</span>
+        <span>Chips: <span style={{ color: "#00c853" }}>RVol≥2</span> · <span style={{ color: "#fbbf24" }}>RVol≥1.5</span> · grey otherwise · only colored when up &gt;0%</span>
+        <span><span style={{ color: "#ffd700" }}>◼</span> gold border = portfolio · <span style={{ color: "#7cb342" }}>◼</span> green border = watchlist</span>
+        <span style={{ color: "#00e676", fontWeight: 700 }}>★NEW = crossed into LEADING quadrant today</span>
       </div>
     </div>
   );
