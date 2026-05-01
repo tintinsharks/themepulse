@@ -208,6 +208,7 @@
   .layer-vertical  { border-color: #b86afc; background: linear-gradient(180deg, #1c0d2a 0%, #11111e 100%); }
   .layer-silicon   { border-color: #00c853; background: linear-gradient(180deg, #0d2a1a 0%, #11111e 100%); }
   .layer-memory    { border-color: #fbbf24; background: linear-gradient(180deg, #2a1f08 0%, #11111e 100%); }
+  .layer-connectivity { border-color: #ec4899; background: linear-gradient(180deg, #2a0a1f 0%, #11111e 100%); }
   .layer-photonics { border-color: #22d3ee; background: linear-gradient(180deg, #0a2630 0%, #11111e 100%); }
   .layer-power     { border-color: #f97316; background: linear-gradient(180deg, #2a1505 0%, #11111e 100%); }
   .layer-dccooling { border-color: #38bdf8; background: linear-gradient(180deg, #0a1d2e 0%, #11111e 100%); }
@@ -429,11 +430,50 @@
     </div>
     <div class="arrow-down">↓</div>
 
+    <!-- AI CONNECTIVITY / INTERCONNECT BENCH (NEW LAYER) -->
+    <div class="layer layer-connectivity">
+      <div class="layer-title">
+        <span class="layer-name" style="color:#ec4899;">5 · AI Connectivity — Interconnect Bench</span>
+        <span class="layer-tag">"Get bits between chips" — distinct from chips themselves</span>
+      </div>
+      <div class="layer-role">Names whose role is moving bits between AI chips and clusters. Sits between Custom Silicon (compute) and Photonics (deeper supply chain). Captures value from EVERY GPU/ASIC scale-out — independent of which silicon vendor wins.</div>
+      <div class="cycle-bar">
+        <span class="cycle-label p-mid">⏱ MID</span>
+        <div class="cycle-track"><div class="cycle-fill p-mid"></div></div>
+        <span style="color:#7a7a8a;">800G live · 1.6T qualifying · CPO 2027-28 · CXL/PCIe Gen6 ramping</span>
+      </div>
+      <div class="row">
+        <div class="cell">
+          <div class="cell-name">Electrical interconnect (in-rack / chip-to-chip)</div>
+          <div class="ticker-row">
+            <span class="ticker t-strong">ALAB</span>
+            <span class="ticker t-strong">CRDO</span>
+            <span class="ticker t-watch">MRVL</span>
+            <span class="ticker t-watch">AVGO</span>
+          </div>
+          <div class="cell-note">ALAB = PCIe/CXL retimers solving GPU comms · CRDO = SerDes + AECs (Active Electrical Cables) · MRVL = optical DSPs + custom SerDes · AVGO = switch silicon + custom interconnect</div>
+          <div class="bottleneck">★ EVERY GPU/ASIC NEEDS ONE — captures TAM regardless of which compute vendor wins</div>
+        </div>
+        <div class="cell">
+          <div class="cell-name">Optical interconnect (rack-to-rack / row-to-row)</div>
+          <div class="ticker-row">
+            <span class="ticker t-watch">AAOI</span>
+            <span class="ticker t-watch">MXL</span>
+            <span class="ticker t-watch">CIEN</span>
+          </div>
+          <div class="cell-note">AAOI = 800G/1.6T pluggable specialist · MXL = optical DSP pivot from broadband · CIEN = coherent line systems (long-haul)</div>
+          <div class="bottleneck">★ 800G→1.6T CYCLE NOW · CPO TRANSITION 2027-28 = re-rating event for survivors</div>
+        </div>
+      </div>
+      <div class="kill-mode"><strong>Thesis killer:</strong> co-packaged optics (CPO) compresses pluggable TAM faster than expected. AAOI most exposed; MRVL/CRDO have CPO roadmaps that absorb the transition. ALAB is insulated (PCIe/CXL is electrical-only and CPO-orthogonal).</div>
+    </div>
+    <div class="arrow-down">↓</div>
+
     <!-- PHOTONICS -->
     <div class="layer layer-photonics">
       <div class="layer-title">
-        <span class="layer-name" style="color:#22d3ee;">5 · Photonics — Optical Interconnect</span>
-        <span class="layer-tag">7-step chain, low fungibility</span>
+        <span class="layer-name" style="color:#22d3ee;">6 · Photonics — Substrates → Test → Assembly → CPO</span>
+        <span class="layer-tag">7-step chain, low fungibility · feeds Layer 5</span>
       </div>
       <div class="layer-role">Bottlenecks live in TEST + ASSEMBLY, not raw materials. CPO transition shifts value to advanced packaging + fiber attach.</div>
       <div class="cycle-bar">
@@ -502,7 +542,7 @@
     <!-- DATACENTER + COOLING (NEW LAYER) -->
     <div class="layer layer-dccooling">
       <div class="layer-title">
-        <span class="layer-name" style="color:#38bdf8;">6 · Datacenter + Cooling — The Physical Envelope</span>
+        <span class="layer-name" style="color:#38bdf8;">7 · Datacenter + Cooling — The Physical Envelope</span>
         <span class="layer-tag">Where everything lives</span>
       </div>
       <div class="layer-role">Datacenters are the literal site for compute + memory + photonics + power. Cooling is co-equal with power as a density constraint at AI rack densities (50-150kW/rack). Site permitting + thermal design is increasingly the rate-limit, not silicon supply.</div>
@@ -566,7 +606,7 @@
     <!-- POWER -->
     <div class="layer layer-power">
       <div class="layer-title">
-        <span class="layer-name" style="color:#f97316;">7 · Power — Generation + Grid</span>
+        <span class="layer-name" style="color:#f97316;">8 · Power — Generation + Grid</span>
         <span class="layer-tag">2-5 year cycle · permitting bound</span>
       </div>
       <div class="layer-role">All four hyperscalers said "power constrained" in unison. Grid buildout is a multi-year cycle, IPP/nuclear/grid-construction bench has multi-year visibility.</div>
@@ -616,7 +656,7 @@
     <!-- RAW MATERIALS -->
     <div class="layer layer-raw">
       <div class="layer-title">
-        <span class="layer-name" style="color:#9090a0;">8 · Raw Materials + Semicap Equipment</span>
+        <span class="layer-name" style="color:#9090a0;">9 · Raw Materials + Semicap Equipment</span>
         <span class="layer-tag">Less levered than memory/photonics earnings imply</span>
       </div>
       <div class="layer-role">SNDK CapEx only 4% of revenue → memory profits accrue to producers, NOT equipment. Raw indium upstream is byproduct-coupled to zinc.</div>
@@ -664,6 +704,10 @@
       <div class="rail-text">HBM probe-card test (FORM) and HBM advanced-packaging are the gates. Supply pre-booked through 2027.</div>
     </div>
     <div class="rail-card">
+      <div class="rail-title">★ Connectivity advantage</div>
+      <div class="rail-text">ALAB/CRDO/MRVL/AAOI/MXL get paid on EVERY GPU/ASIC scale-out — agnostic to which compute vendor wins. PCIe/CXL (ALAB) is CPO-orthogonal so insulated from optical transition risk.</div>
+    </div>
+    <div class="rail-card">
       <div class="rail-title">★ Photonics bottleneck</div>
       <div class="rail-text">TEST + ALIGNMENT + HERMETIC PACKAGING — not raw materials. AEHR/CAMT/ONTO/FN capture margin during demand surges.</div>
     </div>
@@ -688,6 +732,7 @@
       <div class="rail-text">
         <strong>Compute</strong>: AVGO (custom silicon TAM)<br>
         <strong>Memory</strong>: MU + SNDK<br>
+        <strong>Connectivity</strong>: ALAB + CRDO + MRVL<br>
         <strong>Photonics</strong>: COHR + FN + AEHR<br>
         <strong>SiPh foundry alpha</strong>: TSEM + POET<br>
         <strong>DC + Cooling</strong>: DLR + EQIX + VRT + EME<br>
@@ -697,9 +742,10 @@
     <div class="rail-card opp">
       <div class="rail-title">★ Cleanest pair trades</div>
       <div class="rail-text">
+        Long ALAB/CRDO vs short AAOI (CPO transition; ALAB orthogonal)<br>
         Long FN/AEHR vs short AAOI (CPO transition)<br>
         Long MU/SNDK vs short STX/WDC (active-tier flash)<br>
-        Long ONTO/CAMT/AEHR vs the broader semicap basket (WFE caveat)
+        Long ONTO/CAMT/AEHR vs broader semicap basket (WFE caveat)
       </div>
     </div>
   </div>
