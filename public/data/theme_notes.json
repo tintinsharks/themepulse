@@ -552,6 +552,182 @@
         "viav-form-2026-q1"
       ],
       "source": "SNDK Q3 FY2026 earnings call read-through analysis"
+    },
+    {
+      "id": "photonics-supply-chain-2026-04-30",
+      "date": "2026-04-30",
+      "type": "supply_chain_thesis",
+      "headline": "Photonics start-to-finish: bottlenecks are NOT raw materials — they're conversion, assembly, and test (low-fungibility, high-yield-curve steps)",
+      "primary_tickers": [
+        "AXTI", "COHR", "FN", "LITE", "AAOI", "CIEN", "CRDO",
+        "MTSI", "POET", "TSEM",
+        "AEHR", "COHU", "CAMT", "ONTO", "KEYS", "MKSI",
+        "GLW", "JBL"
+      ],
+      "themes_implicated": [
+        "Optical Components",
+        "High-Speed Pluggable",
+        "Co-Packaged Optics",
+        "Test & Packaging",
+        "Wafer Inspection / Process Control",
+        "Foundry",
+        "AI Infrastructure"
+      ],
+      "supply_chain_steps": [
+        {
+          "step": 0,
+          "name": "Mining / smelting / refining (indium)",
+          "bottleneck": "BYPRODUCT COUPLING — indium recovered from zinc residues, not primary mining; many zinc producers lack indium circuits. China refines ~68% of global primary indium. Geopolitical/policy choke point at refining stage.",
+          "tickers": [
+            { "ticker": "TECK", "role": "Zinc producer (indium-bearing residues)", "exposure": "indirect upstream" }
+          ],
+          "key_caveat": "Geological abundance high; industrial recovery + purification is the limit. Optical-grade purity adds another tier."
+        },
+        {
+          "step": 1,
+          "name": "InP substrate (crystal growth + wafering)",
+          "bottleneck": "WAFER-SIZE GAP vs Si CMOS. Historical 2-4 inch; transition to 6-inch is a multi-year qualification across the entire downstream stack (epi susceptors, lithography chucks, dicing). Brittleness + warp/TTV control. ",
+          "tickers": [
+            { "ticker": "AXTI", "role": "InP/GaAs/Ge compound-semi substrates", "exposure": "DIRECT pure-play, smallest pure-play exposure" },
+            { "ticker": "COHR", "role": "6-inch InP scalable wafer fab announced (laser sources for AI transceivers)", "exposure": "vertically integrated lever" }
+          ],
+          "key_caveat": "Sumitomo Electric (5802.T) is the dominant InP substrate maker — not US-listed."
+        },
+        {
+          "step": 2,
+          "name": "Epitaxial growth (MOCVD / MBE)",
+          "bottleneck": "ATOMIC-SCALE PROCESS IP — proprietary recipes, specialized tooling, hazardous precursor chemistries. Low fungibility; concentrated among captive fabs + a few specialty epi houses.",
+          "tickers": [
+            { "ticker": "COHR", "role": "Captive epitaxy for laser/SOA stacks", "exposure": "vertically integrated" },
+            { "ticker": "LITE", "role": "Captive epi + InP PIC manufacturing", "exposure": "vertically integrated" }
+          ],
+          "key_caveat": "IQE plc (IQE.L) is the dominant external epi house but London-listed."
+        },
+        {
+          "step": 3,
+          "name": "Wafer fabrication (photonics front+back end)",
+          "bottleneck": "PROCESS COMPLEXITY — InP PIC flow can involve 243+ steps. Sidewall roughness, etch-depth precision, gold metallization (NOT shareable with Si CMOS lines). Defect density drives yield = cost-per-good-die.",
+          "tickers": [
+            { "ticker": "LITE", "role": "InP PIC fab (Lumentum)", "exposure": "DIRECT" },
+            { "ticker": "COHR", "role": "InP PIC fab + telecom photonics", "exposure": "DIRECT" },
+            { "ticker": "POET", "role": "Silicon-photonics interposer (alternative architecture)", "exposure": "DIRECT alternative" },
+            { "ticker": "TSEM", "role": "Foundry-as-a-service for silicon photonics", "exposure": "alt architecture foundry" }
+          ],
+          "key_caveat": "InP fab yields historically lag silicon CMOS — disclosed indirectly via gross margin trends."
+        },
+        {
+          "step": 4,
+          "name": "Dicing, test, yield",
+          "bottleneck": "TEST THROUGHPUT — optical test slower than CMOS electrical probing (fiber alignment + power measurement). InP brittleness raises edge-defect risk. Test capacity gates shipments during demand surges.",
+          "tickers": [
+            { "ticker": "AEHR", "role": "Optical burn-in test systems (FOX-NP for photonic ICs)", "exposure": "DIRECT pure-play on photonics test" },
+            { "ticker": "COHU", "role": "Compound-semi test + handlers", "exposure": "DIRECT" },
+            { "ticker": "CAMT", "role": "Inspection/metrology incl. compound-semi", "exposure": "DIRECT" },
+            { "ticker": "ONTO", "role": "Wafer/PIC metrology + advanced-packaging inspection", "exposure": "DIRECT" },
+            { "ticker": "KEYS", "role": "Optical/RF test instrumentation", "exposure": "DIRECT broadest" },
+            { "ticker": "MKSI", "role": "Plasma etch chemistry, vacuum, photonics process control", "exposure": "DIRECT process tools" }
+          ],
+          "key_caveat": "AEHR is the most levered to AI-photonics test specifically (FOX-NP for VCSEL/PIC burn-in)."
+        },
+        {
+          "step": 5,
+          "name": "Component assembly + hermetic packaging",
+          "bottleneck": "PRECISION ALIGNMENT — single-mode fiber requires <1 µm tolerance with active alignment under live optical monitoring. Hermetic sealing (laser welding, He leak test) is throughput-limited. Hermetic package/Kovar/feedthrough supply gates final shipment AFTER most cost is incurred.",
+          "tickers": [
+            { "ticker": "FN", "role": "Fabrinet — contract manufacturer for optical assembly + hermetic packaging at scale", "exposure": "DIRECT — captures per-unit assembly fee for most major OEMs (COHR/LITE/CIEN/NVDA optical engines)" },
+            { "ticker": "JBL", "role": "Jabil — high-volume electronics + optical module assembly", "exposure": "DIRECT volume play" }
+          ],
+          "key_caveat": "Hermetic ceramic/Kovar housing supply is a hidden choke point — niche specialty suppliers, not publicly tracked."
+        },
+        {
+          "step": 6,
+          "name": "Transceiver module (optics + high-speed electronics)",
+          "bottleneck": "SYSTEM TEST + DSP integration — coherent test time + multi-temperature calibration. Module test capacity gates shipments even when die supply exists.",
+          "tickers": [
+            { "ticker": "COHR", "role": "Pluggable transceiver maker", "exposure": "DIRECT" },
+            { "ticker": "LITE", "role": "Pluggable transceiver maker", "exposure": "DIRECT" },
+            { "ticker": "AAOI", "role": "High-speed pluggable specialist", "exposure": "DIRECT pure-play" },
+            { "ticker": "CIEN", "role": "Coherent modules + line systems", "exposure": "DIRECT" },
+            { "ticker": "CRDO", "role": "SerDes/AECs (electronic side of high-speed interconnect)", "exposure": "DIRECT electronic"  }
+          ],
+          "key_caveat": "Coherent (COHR) is the broadest single bet — substrates + epi + PIC + module all in-house."
+        },
+        {
+          "step": "6A",
+          "name": "Co-Packaged Optics (CPO)",
+          "bottleneck": "RELOCATION OF BOTTLENECKS — optical engines move into the same package as switch ASIC/GPU. Yield coupling: an optical fail scraps an expensive electronic package. Test access constrained, fiber attach must survive reflow profiles. Bottleneck migrates from module final test → wafer-level/package-level test + fiber attach.",
+          "tickers": [
+            { "ticker": "MTSI", "role": "Compound-semi components for CPO", "exposure": "DIRECT" },
+            { "ticker": "POET", "role": "Silicon-photonics interposer designed for CPO", "exposure": "DIRECT pure-play" },
+            { "ticker": "TSEM", "role": "Silicon photonics foundry for CPO partners", "exposure": "DIRECT foundry" },
+            { "ticker": "AVGO", "role": "Switch ASIC + co-packaged optics (Tomahawk 5/6 + CPO variants)", "exposure": "INTEGRATED demand pull" },
+            { "ticker": "NVDA", "role": "Spectrum-X/NVLink CPO roadmap (silicon photonics inside switches)", "exposure": "INTEGRATED demand pull" }
+          ],
+          "key_caveat": "CPO doesn't shrink the supply chain — it shifts where the value/risk concentrates (advanced packaging, test, fiber attach)."
+        },
+        {
+          "step": 7,
+          "name": "Fiber + connector deployment",
+          "bottleneck": "FIBER PURITY + CONNECTOR PRECISION — preforms with ppb impurity levels, draw control. Single-mode fiber MFD ~9 µm with attenuation targets ≤0.4 dB/km. Connectorization, ferrule polishing, cleaning regimes scale with rack/row fiber count.",
+          "tickers": [
+            { "ticker": "GLW", "role": "Corning — dominant single-mode fiber maker + bare fiber + connectors", "exposure": "DIRECT volume + price leverage" },
+            { "ticker": "COMM", "role": "CommScope — connectivity + cabling", "exposure": "DIRECT" }
+          ],
+          "key_caveat": "AI rack architecture (GPU-scale fabrics) raises fiber count per rack — shifts value to bulk fiber/jumper supply."
+        }
+      ],
+      "value_capture_map": {
+        "highest_margin_choke_points": [
+          "Test capacity (AEHR / COHU / CAMT / ONTO / KEYS) — gates shipments, hard to scale fast",
+          "Hermetic packaging + alignment (FN as the scale player) — late-stage gate, high inventory cost if blocked",
+          "InP substrates at 6-inch (COHR / AXTI) — first-mover wins multi-year qualification cycle",
+          "Vertically integrated photonics (COHR) — captures end-to-end value from substrate to module"
+        ],
+        "highest_demand_pull": [
+          "AVGO + NVDA force CPO TAM into existence by integrating optics into their packages",
+          "Hyperscalers (per linked notes) commit multi-year contracts ⇒ supply gets pre-booked"
+        ],
+        "structural_winners": [
+          "FN (Fabrinet) — every transceiver assembled at scale passes through them; pricing power as bottleneck",
+          "COHR — only US-listed name with substrate + epi + PIC + module all in-house",
+          "AEHR — only pure-play optical burn-in test maker; AI photonics ramp = direct revenue",
+          "GLW — fiber demand scales with rack fiber count; AI cluster builds raise per-rack fiber count materially"
+        ],
+        "structural_risks": [
+          "AAOI / pluggable specialists — CPO long-term threatens pluggable TAM",
+          "Pure-play silicon photonics (POET) — execution risk if heterogeneous integration timeline slips",
+          "Indium price-spike risk → all InP-dependent margins compress in unison"
+        ]
+      },
+      "lead_lag": {
+        "leading": ["AVGO", "NVDA", "MSFT", "META", "GOOGL", "AMZN"],
+        "lagging": ["FN", "COHR", "LITE", "AEHR", "CAMT", "ONTO", "KEYS", "GLW", "AAOI", "CRDO", "MTSI", "AXTI"],
+        "horizon": "2026-2028 multi-year",
+        "rationale": "Hyperscaler/integrator capex commitments (per linked notes) flow downstream through multi-year photonics ramps. Substrate scaling alone is a 2-4 year cycle. Photonics suppliers benefit on a 1-4Q lag from each capex commitment milestone."
+      },
+      "trade_setup": [
+        "Pure-play test bench: AEHR + ONTO + CAMT — gate function for AI photonics ramp; LRCX/AMAT may not capture this since it's test/inspection not deposition.",
+        "Vertically integrated photonics: COHR — substrates + epi + PIC + module + 6-inch InP fab announced. Best single-name expression.",
+        "Fabrinet (FN) — the assembly bottleneck owner. Scales with whoever wins downstream module share.",
+        "GLW — fiber + connector volumes scale with rack fiber count, less cyclical than module ASPs.",
+        "Pair: long FN/COHR/AEHR vs short pluggable-only specialists (AAOI) on CPO transition risk."
+      ],
+      "caveats": [
+        "Foreign tickers (5802.T Sumitomo Electric, IQE.L IQE plc) are the dominant external substrate/epi suppliers — not in FMP live feed.",
+        "Hermetic packaging suppliers are mostly private/niche — opportunity but not directly tradeable.",
+        "InP yield trajectory rarely disclosed; infer from gross margin trends in COHR/LITE quarterlies.",
+        "CPO economics depend on advanced-packaging cost curves at TSMC/Intel — supply chain risk if packaging capacity slips.",
+        "Indium price/supply shock would compress margins across all InP names simultaneously; consider as systemic risk, not idiosyncratic."
+      ],
+      "linked_notes": [
+        "viav-form-2026-q1",
+        "hyperscaler-capex-2026-q1",
+        "hyperscaler-power-compute-constrained-2026-q1",
+        "googl-vertical-ai-stack-2026-q1",
+        "amzn-aws-once-in-a-lifetime-2026-q1",
+        "sndk-q3-fy2026-2026-04-30"
+      ],
+      "source": "Photonics start-to-finish supply chain analysis (USGS indium yearbook, Sumitomo CS ManTech, Infinera CS ManTech 2025, Coherent corporate, Eindhoven UoT InP PIC process docs, Corning fiber manufacturing, ITU-T G.652)"
     }
   ]
 }
