@@ -728,6 +728,100 @@
         "sndk-q3-fy2026-2026-04-30"
       ],
       "source": "Photonics start-to-finish supply chain analysis (USGS indium yearbook, Sumitomo CS ManTech, Infinera CS ManTech 2025, Coherent corporate, Eindhoven UoT InP PIC process docs, Corning fiber manufacturing, ITU-T G.652)"
+    },
+    {
+      "id": "sive-apple-silicon-photonics-2026-04-30",
+      "date": "2026-04-30",
+      "type": "speculative_thesis",
+      "headline": "SIVE (Sivers Semiconductors) likely Apple silicon-photonics supplier — undiscovered alpha on a foreign-listed name",
+      "primary_tickers": ["SIVE-B.ST"],
+      "primary_label": "Sivers Semiconductors (Stockholm)",
+      "derivative_tickers": [
+        "AAPL",
+        "JBL",
+        "AYAR_PRIVATE",
+        "COHR", "LITE", "AAOI",
+        "MTSI", "POET", "TSEM"
+      ],
+      "themes_implicated": [
+        "Optical Components",
+        "Co-Packaged Optics",
+        "Photonics",
+        "AI Infrastructure",
+        "Consumer Wearables Photonics"
+      ],
+      "thesis": "SIVE has disclosed an RFQ from a 'US Fortune 100' customer for 50M units/year of laser arrays at 135-wavelength architecture. The volume + spec triangulates almost uniquely to Apple Watch / next-gen wearables. Markets haven't priced this because (a) SIVE is Stockholm-listed, off most US screens, (b) the customer hasn't been confirmed publicly, and (c) ramp is H2 2027 / H1 2028.",
+      "evidence_chain": [
+        {
+          "data_point": "RFQ volume",
+          "value": "50 million units/year",
+          "implication": "Only a handful of companies in the world produce consumer products at that scale. Apple Watch alone sold ~53.9M in 2022, runs 38-50M annually."
+        },
+        {
+          "data_point": "Customer category",
+          "value": "'US Fortune 100' (per SIVE disclosure)",
+          "implication": "Narrows the suspect list dramatically — most US Fortune 100 names don't manufacture wearables at all, let alone 50M/yr."
+        },
+        {
+          "data_point": "Comparable manufacturer scale",
+          "value": "Samsung wearables ~10-15M/yr",
+          "implication": "Samsung is the next-largest wearable maker and runs at ~25-30% of the RFQ volume. Apple is the only credible buyer at 50M/yr."
+        },
+        {
+          "data_point": "Architecture spec",
+          "value": "135-wavelength laser architecture (per SIVE/Carnegie research disclosure)",
+          "implication": "Aligns with Apple application specifications for next-gen biosensing (continuous glucose monitoring, blood pressure, advanced heart sensors). Multi-wavelength enables spectroscopic measurement across multiple analytes simultaneously."
+        },
+        {
+          "data_point": "Timeline",
+          "value": "Ramp guidance points to H2 2027 / H1 2028",
+          "implication": "Matches Apple's typical 18-24 month silicon-to-product cycle — early 2027 RFQ → late 2027 design lock → 2028 launch."
+        }
+      ],
+      "alternative_explanations": [
+        {
+          "candidate": "Ayar Labs (private)",
+          "fit": "Possible — Ayar does silicon-photonics for compute interconnect, but volume profile (50M consumer units/yr) doesn't match Ayar's datacenter focus. Lower probability."
+        },
+        {
+          "candidate": "Jabil (JBL)",
+          "fit": "Possible — JBL is a contract manufacturer that consumes photonics components for various downstream customers. But JBL itself wouldn't issue an RFQ for consumer-wearable volumes; the end customer would. JBL might be an integration partner for the Apple → SIVE pipeline."
+        },
+        {
+          "candidate": "Other US Fortune 100 wearable",
+          "fit": "Low — Fitbit (Google), Garmin, etc. are well below the 50M/yr volume threshold."
+        }
+      ],
+      "implications": [
+        "If thesis is correct: SIVE re-rates significantly when ramp is publicly confirmed (likely 2026-2027 product event or supplier disclosure during AAPL keynote).",
+        "Apple's silicon-photonics adoption in consumer wearables is a structural validation of the broader CPO/silicon-photonics thesis — moves the story from 'AI datacenter only' to 'consumer scale economics.'",
+        "Mass-market photonic IC volume drives down per-unit costs across the supply chain, indirectly benefiting datacenter photonics suppliers (COHR, LITE, AAOI) on shared learning curves.",
+        "TSEM (Tower Semi) and POET could see demand pull from Sivers' wafer needs if Sivers chose them as foundry partners."
+      ],
+      "trade_setup": [
+        "Direct: long SIVE-B.ST on Stockholm (Avanza/Nordnet via IBKR for US investors). Foreign-listing premium for early access.",
+        "Indirect: long the silicon-photonics foundry bench (TSEM, POET) as 'who fabs Sivers' wafers' speculation — second-derivative.",
+        "Hedge: AAPL itself as a partial hedge — if the SIVE thesis fails (different supplier picked), AAPL likely still ships the wearable, so direct exposure is offset."
+      ],
+      "caveats": [
+        "FOREIGN LISTING: SIVE-B.ST trades in Stockholm, won't surface in SUBFLOW or any US live-feed. Liquidity is thin; spreads can be wide.",
+        "SPECULATIVE: customer identity has not been publicly confirmed by either Apple or Sivers. Pattern-match could be wrong.",
+        "Timing risk: H2 2027 / H1 2028 is 18-24 months out. Capital tied up; opportunity cost matters.",
+        "Apple supplier risk: even with an RFQ, Apple is famous for second-sourcing or switching suppliers late in development. RFQ ≠ design win.",
+        "If proven wrong (different Fortune 100 customer, e.g., Ayar/Jabil), thesis still has photonics-volume-validation value but stock-specific catalyst weakens."
+      ],
+      "monitoring_signals": [
+        "Sivers public disclosures around customer identity, capacity expansion, design wins.",
+        "AAPL component-supplier news (typically leaks via Bloomberg/Nikkei 6-12 months pre-launch).",
+        "Apple Watch teardown coverage (iFixit / Wccftech) post-launch — reveals optical sensor architecture.",
+        "Carnegie/Pareto research updates on Sivers (Swedish broker coverage)."
+      ],
+      "linked_notes": [
+        "photonics-supply-chain-2026-04-30",
+        "viav-form-2026-q1",
+        "googl-vertical-ai-stack-2026-q1"
+      ],
+      "source": "Speculative pattern-match thesis (SIVE corporate disclosures + Carnegie research + Apple Watch volume data + supplier triangulation)"
     }
   ]
 }
