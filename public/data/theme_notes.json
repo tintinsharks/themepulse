@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary — manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-04-29",
+  "updated": "2026-04-30",
   "notes": [
     {
       "id": "viav-form-2026-q1",
@@ -374,6 +374,184 @@
         "googl-vertical-ai-stack-2026-q1"
       ],
       "source": "Discord / personal note"
+    },
+    {
+      "id": "sndk-q3-fy2026-2026-04-30",
+      "date": "2026-04-30",
+      "type": "earnings_thesis",
+      "headline": "SNDK Q3 FY26: 78% GM, $11B financial guarantees, $42B contractual revenue — NAND moves from spot commodity to strategic-input contracted market",
+      "primary_tickers": ["SNDK"],
+      "derivative_tickers": [
+        "MU", "WDC", "STX",
+        "285A.T", "005930.KS", "000660.KS",
+        "AMZN", "MSFT", "GOOGL", "META", "ORCL",
+        "NVDA", "AVGO", "AMD", "ANET", "MRVL",
+        "PSTG", "NTAP", "DELL", "HPE",
+        "SMCI", "0992.HK", "2382.TW", "6669.TW", "2317.TW",
+        "AAPL", "HPQ", "1810.HK",
+        "8299.TW", "SIMO",
+        "LRCX", "AMAT", "8035.T", "KLAC", "ASML",
+        "2408.TW"
+      ],
+      "themes_implicated": [
+        "HBM / Memory",
+        "Memory",
+        "Storage",
+        "Enterprise SSD",
+        "AI Infrastructure",
+        "Hyperscalers",
+        "Custom Silicon / ASIC",
+        "Wafer Fab Equipment",
+        "Networking",
+        "AI Servers / ODM",
+        "Storage Systems",
+        "Merchant Controllers",
+        "Foundry"
+      ],
+      "key_numbers": {
+        "SNDK": {
+          "q3_revenue": "$5.95B (+97% QoQ, +251% YoY)",
+          "bit_shipments": "flat YoY, down high-10s sequentially — pure price/mix",
+          "q3_gross_margin": "78.4% non-GAAP (up from 51.1% Q2)",
+          "fq4_guide_gross_margin": "79–81% non-GAAP",
+          "data_center_revenue": "$1.467B (+233% QoQ)",
+          "edge_revenue": "$3.663B (+118% QoQ)",
+          "capex": "$240M gross / $83M net (4% of revenue — lean)",
+          "contracts": {
+            "signed_partnerships": 5,
+            "minimum_contractual_revenue": "$42B (across 3 Q3 contracts)",
+            "financial_guarantees": "$11B+",
+            "prepayments_q3": "$0.4B"
+          },
+          "demand_view_cy26_data_center_growth": "raised to mid-70% (from 60%, 40%, 20% in prior quarters)"
+        }
+      },
+      "key_quotes": [
+        {
+          "speaker": "David Goeckeler (SNDK CEO)",
+          "quote": "We have customers that are literally putting up billions of dollars of collateral and through various financial instruments that will survive for the life of these contracts."
+        },
+        {
+          "speaker": "David Goeckeler (SNDK CEO)",
+          "quote": "Within weeks [of signing an agreement], we're having a conversation about how we increase the amount of product we can get to them over that timeframe."
+        },
+        {
+          "speaker": "SNDK management",
+          "quote": "NAND is the only economically viable solution to deliver the capacity, performance, and efficiency required to keep models accessible for real-time inference at scale."
+        },
+        {
+          "speaker": "SNDK management",
+          "quote": "[CapEx is] not like other markets. We need to add some clean room space because each node has more steps and more steps has more tools. So there is some additional CapEx. But it's not like other markets."
+        }
+      ],
+      "read_throughs": [
+        {
+          "id": 1,
+          "title": "NAND producer economics structurally upgraded",
+          "tickers": ["MU", "005930.KS", "000660.KS", "285A.T", "SNDK"],
+          "direction": "POSITIVE high",
+          "rationale": "Multi-year commitments, financial guarantees, and 78%+ GM mean industry no longer operates as a spot/quarterly reset market in AI demand pools. Earnings-revision risk to upside; strongest for Sandisk and Kioxia."
+        },
+        {
+          "id": 2,
+          "title": "Kioxia strategic value reinforced",
+          "tickers": ["285A.T", "SNDK", "WDC"],
+          "direction": "POSITIVE high (KIOX/SNDK), neutral-negative (WDC)",
+          "rationale": "JV extension through Dec 2034 + multi-year contracts make the JV a strategically contracted asset. BiCS8 + QLC Stargate ramp validates roadmap. WDC may see relative rotation away as flash captures investor focus over HDD."
+        },
+        {
+          "id": 3,
+          "title": "Hyperscalers face AI storage cost inflation",
+          "tickers": ["AMZN", "MSFT", "GOOGL", "META", "ORCL"],
+          "direction": "NEGATIVE medium-high (capex/FCF), MIXED strategic",
+          "rationale": "Buyers paying $11B in collateral + $0.4B prepayments to lock supply. Storage joins GPUs/power/networking as strategic procurement. FCF conversion compressed; supply-secured names get execution edge."
+        },
+        {
+          "id": 4,
+          "title": "AI accelerator/networking demand validated",
+          "tickers": ["NVDA", "AVGO", "AMD", "ANET", "MRVL"],
+          "direction": "POSITIVE medium",
+          "rationale": "Customers don't sign multi-year guaranteed NAND contracts unless they're deploying at scale. SNDK's order book is derivative confirmation of accelerator/networking buildout durability. Mid-70% data center growth raise (vs 20% three quarters ago) is the headline."
+        },
+        {
+          "id": 5,
+          "title": "Enterprise SSD/all-flash demand up, but margin risk for system vendors",
+          "tickers": ["PSTG", "NTAP", "DELL", "HPE"],
+          "direction": "POSITIVE demand / NEGATIVE GM",
+          "rationale": "AI workloads (KV cache, RAG, context retention) push to low-latency flash → larger TAM. But NAND captures most value (78% GM); system vendors with fixed contracts face pass-through pressure. PSTG best positioned (flash-native, premium pricing)."
+        },
+        {
+          "id": 6,
+          "title": "AI server OEM/ODM rack content tailwind",
+          "tickers": ["DELL", "SMCI", "HPE", "0992.HK", "2382.TW", "6669.TW", "2317.TW"],
+          "direction": "POSITIVE medium revenue / MIXED-NEG GM",
+          "rationale": "AI racks become storage-heavier. Higher BOM content + ASPs. Vendors with secured NAND supply gain strategic value; those without face procurement inefficiency."
+        },
+        {
+          "id": 7,
+          "title": "PC/smartphone OEMs face NAND cost pressure",
+          "tickers": ["AAPL", "005930.KS", "0992.HK", "HPQ", "DELL", "1810.HK"],
+          "direction": "NEGATIVE GM medium / POSITIVE mix low-medium",
+          "rationale": "NAND cost inflation hits BOM. Apple + premium phones can pass through; price-sensitive PC vendors can't. On-device AI supports higher capacity/ASP but margin accrues to memory suppliers, not OEMs."
+        },
+        {
+          "id": 8,
+          "title": "Merchant SSD controller/module value capture at risk",
+          "tickers": ["8299.TW", "SIMO", "MRVL"],
+          "direction": "NEGATIVE medium (Phison/SIMO), MIXED (MRVL)",
+          "rationale": "Vertically integrated NAND suppliers building own controllers/firmware (HBF roadmap). High-end AI enterprise SSD value pool consolidates with media owners. MRVL more diversified via custom silicon — partial offset."
+        },
+        {
+          "id": 9,
+          "title": "WFE upside more limited than memory earnings imply",
+          "tickers": ["LRCX", "AMAT", "8035.T", "KLAC", "ASML"],
+          "direction": "NEGATIVE low-medium (vs bull NAND CapEx)",
+          "rationale": "SNDK CapEx only 4% of revenue, supply growth via node transitions not greenfield. 'Not like other markets.' LRCX/TEL most directly NAND-exposed. Memory earnings expand without commensurate NAND tool boom — profits accrue to producers, not equipment."
+        },
+        {
+          "id": 10,
+          "title": "HDD active-tier AI inference selectively negative",
+          "tickers": ["STX", "WDC"],
+          "direction": "NEGATIVE medium (active tier) / NEUTRAL-POS (cold/archive)",
+          "rationale": "'NAND is the only economically viable solution' for KV cache, RAG, real-time inference. HDDs lose the active tier; remain in archive/cold storage. Caps HDD pricing power in highest-value AI use cases."
+        },
+        {
+          "id": 11,
+          "title": "Taiwan DRAM and broader memory benefit",
+          "tickers": ["2408.TW", "MU", "005930.KS", "000660.KS"],
+          "direction": "POSITIVE high (Nanya), POSITIVE medium (broader)",
+          "rationale": "$1B SNDK→Nanya investment for preferential DRAM access. Enterprise SSDs need DRAM beyond HBM. Memory cycle broadens from HBM-only to multi-product (HBM + DRAM + NAND in lockstep)."
+        }
+      ],
+      "lead_lag": {
+        "leading": ["SNDK", "MU", "005930.KS", "000660.KS", "285A.T"],
+        "lagging_winners": ["NVDA", "AVGO", "AMD", "ANET", "MRVL", "PSTG", "DELL", "SMCI", "2408.TW"],
+        "lagging_losers": ["AAPL", "HPQ", "1810.HK", "8299.TW", "SIMO", "LRCX", "AMAT", "STX", "WDC", "AMZN", "MSFT", "GOOGL", "META"],
+        "horizon": "2026-2027 multi-year (matches Samsung 2027 pre-booked thesis)",
+        "rationale": "Customer financial guarantees lock supply through 2027. Confirms supplier-side what hyperscaler-side capex commitments and Samsung's pre-booking already signaled. NAND tightness is contractually durable, not cyclical."
+      },
+      "trade_setup": [
+        "Long the integrated NAND owners — SNDK on pullbacks, MU as the US scaled play, Korean memory pair (Samsung + Hynix) for multi-product memory exposure.",
+        "PSTG is the cleanest enterprise-SSD beneficiary among storage systems (less commodity exposure, premium pricing).",
+        "Watch for relative weakness in merchant-SSD controllers (Phison, SIMO) and HDD names (STX, WDC) — possible pair-trade short candidates against long-NAND.",
+        "WFE is NOT the next leg up — fade any thesis that says 'memory earnings = greenfield tool orders.' 4% capex/revenue is the tell."
+      ],
+      "caveats": [
+        "78% GM is unsustainable if NAND tightness reverses; spot pricing reversal would compress margins fast even with contracts in place.",
+        "Customer concentration: $11B in guarantees implies 3-5 hyperscale customers — bilateral risk if any reduces capex.",
+        "Apple/premium OEM pricing power may surprise to the upside if AI-on-device tier supports storage upgrade revenue.",
+        "Foreign tickers (285A.T Kioxia, 005930.KS Samsung, 000660.KS Hynix, 2408.TW Nanya, 0992.HK Lenovo, 2382.TW Quanta, 6669.TW Wiwynn, 2317.TW Foxconn, 8035.T Tokyo Electron, 8299.TW Phison, 1810.HK Xiaomi) won't surface in SUBFLOW live polling — track via ADRs or local platforms."
+      ],
+      "linked_notes": [
+        "samsung-2027-prebooked-2026-q1",
+        "amzn-memory-skyrocketed-2026-q1",
+        "hyperscaler-capex-2026-q1",
+        "hyperscaler-power-compute-constrained-2026-q1",
+        "amzn-aws-once-in-a-lifetime-2026-q1",
+        "googl-vertical-ai-stack-2026-q1",
+        "viav-form-2026-q1"
+      ],
+      "source": "SNDK Q3 FY2026 earnings call read-through analysis"
     }
   ]
 }
