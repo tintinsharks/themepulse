@@ -1313,6 +1313,65 @@ const renderDailyChart = (ohlc) => {
   // Volume coloring: match main chart — pocket pivots, highest up vol, down bars
   const allBars = ohlc;
   const sliceStart = allBars.length - bars.length;
+  // VCP Tightness Score: 0=super tight, 100=loose
+  // Measures closing spread + swing spread over 5 bars, normalized by ADR(20),
+  // ranked against 50-bar historical baseline
+  const vcpScores = new Array(bars.length).fill(null);
+  const TIGHT_LB = 5, ADR_LB = 20, HIST_LB = 50;
+  for (let i = 0; i < bars.length; i++) {
+    const gi = sliceStart + i;
+    if (gi < Math.max(TIGHT_LB, ADR_LB) - 1) continue;
+    // ADR% over 20 bars
+    let adrSum = 0, adrCount = 0;
+    for (let j = gi - ADR_LB + 1; j <= gi; j++) {
+      if (j < 0) continue;
+      const mid = (allBars[j].high + allBars[j].low) / 2;
+      if (mid > 0) { adrSum += (allBars[j].high - allBars[j].low) / mid * 100; adrCount++; }
+    }
+    if (adrCount === 0) continue;
+    const adr = adrSum / adrCount;
+    if (adr <= 0) continue;
+    // Closing spread and swing spread over 5 bars
+    let hiC = -Infinity, loC = Infinity, hiH = -Infinity, loL = Infinity;
+    for (let j = gi - TIGHT_LB + 1; j <= gi; j++) {
+      if (j < 0) continue;
+      hiC = Math.max(hiC, allBars[j].close); loC = Math.min(loC, allBars[j].close);
+      hiH = Math.max(hiH, allBars[j].high); loL = Math.min(loL, allBars[j].low);
+    }
+    const midC = (hiC + loC) / 2, midHL = (hiH + loL) / 2;
+    if (midC <= 0 || midHL <= 0) continue;
+    const closeSpread = (hiC - loC) / midC * 100 / adr;
+    const swingSpread = (hiH - loL) / midHL * 100 / adr;
+    const rawScore = (closeSpread + swingSpread) / 2;
+    // Normalize against 50-bar historical baseline
+    let histMin = rawScore, histMax = rawScore;
+    for (let h = gi - HIST_LB + 1; h <= gi; h++) {
+      if (h < Math.max(TIGHT_LB, ADR_LB) - 1 || h < 0) continue;
+      let hAdrSum = 0, hAdrN = 0;
+      for (let j = h - ADR_LB + 1; j <= h; j++) {
+        if (j < 0) continue;
+        const mid = (allBars[j].high + allBars[j].low) / 2;
+        if (mid > 0) { hAdrSum += (allBars[j].high - allBars[j].low) / mid * 100; hAdrN++; }
+      }
+      if (hAdrN === 0) continue;
+      const hAdr = hAdrSum / hAdrN;
+      if (hAdr <= 0) continue;
+      let hHiC = -Infinity, hLoC = Infinity, hHiH = -Infinity, hLoL = Infinity;
+      for (let j = h - TIGHT_LB + 1; j <= h; j++) {
+        if (j < 0) continue;
+        hHiC = Math.max(hHiC, allBars[j].close); hLoC = Math.min(hLoC, allBars[j].close);
+        hHiH = Math.max(hHiH, allBars[j].high); hLoL = Math.min(hLoL, allBars[j].low);
+      }
+      const hMidC = (hHiC + hLoC) / 2, hMidHL = (hHiH + hLoL) / 2;
+      if (hMidC <= 0 || hMidHL <= 0) continue;
+      const hRaw = ((hHiC - hLoC) / hMidC * 100 / hAdr + (hHiH - hLoL) / hMidHL * 100 / hAdr) / 2;
+      histMin = Math.min(histMin, hRaw);
+      histMax = Math.max(histMax, hRaw);
+    }
+    const range = histMax - histMin;
+    vcpScores[i] = range > 0 ? Math.max(0, Math.min(100, (rawScore - histMin) / range * 100)) : 50;
+  }
+
   let candleSvg = "", volSvg = "";
   bars.forEach((b, i) => {
     const gi = sliceStart + i;
@@ -1369,6 +1428,14 @@ const renderDailyChart = (ohlc) => {
         if (y2 <= vy + vh) volSvg += `<line x1="${x}" y1="${y1}" x2="${x + bw}" y2="${y2}" stroke="#f8717180" stroke-width="0.8"/>`;
       }
     }
+    // VCP tight: yellow "T" on bar
+    const vScore = vcpScores[i];
+    if (vScore != null && vScore <= 25) {
+      const tColor = vScore <= 10 ? "#a3e635" : "#fbbf24";
+      const tx = x + bw / 2;
+      const ty = vy + vh / 2 + 3;
+      volSvg += `<text x="${tx}" y="${ty}" text-anchor="middle" font-size="${Math.min(bw + 1, 7)}" font-weight="900" font-family="monospace" fill="${tColor}" opacity="0.9">T</text>`;
+    }
   });
 
   // Separator line between price and volume
@@ -1394,6 +1461,7 @@ const renderDailyChart = (ohlc) => {
         <span><i style="background:#0d9488"></i>PP 5d</span>
         <span><i style="background:repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px);border:1px solid #fbbf2480"></i>+4% BO</span>
         <span><i style="background:repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px);border:1px solid #f8717180"></i>−4% BD</span>
+        <span><i style="background:#1a1a24;color:#fbbf24;font-size:7px;font-weight:900;text-align:center;line-height:8px;font-family:monospace">T</i>Tight</span>
       </div>
     </div>
   `;
