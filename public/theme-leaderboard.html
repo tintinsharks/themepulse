@@ -1361,6 +1361,13 @@ const renderDailyChart = (ohlc) => {
         const y2 = y1 - slope;
         if (y2 >= vy) volSvg += `<line x1="${x}" y1="${y1}" x2="${x + bw}" y2="${y2}" stroke="#fbbf24" stroke-width="0.8" opacity="0.8"/>`;
       }
+    } else if (chgPct <= -4 && vol > prevVol && vol > 100000) {
+      const slope = bw * 0.4;
+      for (let dy = 3; dy < vh - 1; dy += 5) {
+        const y1 = vy + dy;
+        const y2 = y1 + slope;
+        if (y2 <= vy + vh) volSvg += `<line x1="${x}" y1="${y1}" x2="${x + bw}" y2="${y2}" stroke="#f8717180" stroke-width="0.8"/>`;
+      }
     }
   });
 
@@ -1386,6 +1393,7 @@ const renderDailyChart = (ohlc) => {
         <span><i style="background:#2563eb"></i>PP 10d</span>
         <span><i style="background:#0d9488"></i>PP 5d</span>
         <span><i style="background:repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px);border:1px solid #fbbf2480"></i>+4% BO</span>
+        <span><i style="background:repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px);border:1px solid #f8717180"></i>−4% BD</span>
       </div>
     </div>
   `;
