@@ -317,6 +317,9 @@
   .layer.l-photonics  { --layer-bg: linear-gradient(135deg, #0a3640 0%, #0a2630 100%); --layer-border: #1a8aa4; --layer-icon-bg: #103e4f; --layer-icon-border: #2cb5d4; --layer-fg: #22d3ee; }
   .layer.l-dccooling  { --layer-bg: linear-gradient(135deg, #0a2840 0%, #0a1d2e 100%); --layer-border: #2879b8; --layer-icon-bg: #103758; --layer-icon-border: #4aaae4; --layer-fg: #38bdf8; }
   .layer.l-power      { --layer-bg: linear-gradient(135deg, #3a1f08 0%, #2a1505 100%); --layer-border: #c45f1c; --layer-icon-bg: #4a2810; --layer-icon-border: #f97316; --layer-fg: #f97316; }
+  .layer.l-grid       { --layer-bg: linear-gradient(135deg, #2a2808 0%, #1f1d05 100%); --layer-border: #a09020; --layer-icon-bg: #3a3510; --layer-icon-border: #d4b43a; --layer-fg: #eab308; }
+  .layer.l-nuclear    { --layer-bg: linear-gradient(135deg, #1a2a3a 0%, #101e2a 100%); --layer-border: #3a7ab0; --layer-icon-bg: #1e3550; --layer-icon-border: #5a9ad4; --layer-fg: #60a5fa; }
+  .layer.l-altenergy  { --layer-bg: linear-gradient(135deg, #0a3020 0%, #0a2018 100%); --layer-border: #1a7a4a; --layer-icon-bg: #103a28; --layer-icon-border: #2ab56e; --layer-fg: #34d399; }
   .layer.l-raw        { --layer-bg: linear-gradient(135deg, #1f1f2a 0%, #15151e 100%); --layer-border: #4a4a5e; --layer-icon-bg: #25252e; --layer-icon-border: #6b7280; --layer-fg: #9ca3af; }
   /* Footer */
   .footer {
@@ -487,23 +490,80 @@
     <div class="tickers" id="row-cloud"></div>
   </div>
 
-  <!-- ENERGY (POWER LAYER) -->
+  <!-- POWER GENERATION (IPPs) -->
   <div class="layer l-power">
     <div class="layer-label">
       <div class="layer-icon">⚡</div>
       <div>
-        <div class="layer-name">Energy<br>(Power Layer)</div>
+        <div class="layer-name">Power Generation<br>(IPPs)</div>
         <div class="layer-phase">⏱ EARLY</div>
       </div>
       <div class="layer-tooltip">
-        <strong>Multi-year cycle.</strong> All four hyperscalers said "power constrained" in unison. Grid buildout is a 2-5 year cycle. IPP/nuclear/grid-construction bench has multi-year visibility.
+        <strong>Multi-year cycle.</strong> All four hyperscalers said "power constrained" in unison. IPPs with baseload capacity (gas + nuclear fleet) have multi-year contracted visibility. NEE is the renewables anchor.
         <span class="label bottleneck">★ bottleneck</span>
-        Permitting + interconnect queue is multi-year structural. Grid-equipment + construction front-runs IPPs.
+        Permitting + interconnect queue is multi-year structural. Behind-the-meter PPAs command premium.
         <span class="label kill">⚠ thesis killer</span>
         AI ROI questioned + hyperscaler capex pulled back → power demand assumptions cut.
       </div>
     </div>
-    <div class="tickers" id="row-energy"></div>
+    <div class="tickers" id="row-power"></div>
+  </div>
+
+  <!-- GRID EQUIPMENT + EPC -->
+  <div class="layer l-grid">
+    <div class="layer-label">
+      <div class="layer-icon">🔌</div>
+      <div>
+        <div class="layer-name">Grid Equipment<br>+ EPC</div>
+        <div class="layer-phase">⏱ EARLY</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Grid buildout is a 2-5 year cycle.</strong> Grid-equipment + electrical construction front-runs IPPs. GEV turbines, ETN power management, PWR/MYRG/PRIM electrical contracting — all have multi-year backlog visibility.
+        <span class="label bottleneck">★ bottleneck</span>
+        Transformer lead times 2-4 years. Skilled-labor shortage in electrical contracting.
+        <span class="label kill">⚠ thesis killer</span>
+        Utility capex deferrals or regulatory slowdowns on grid interconnection.
+      </div>
+    </div>
+    <div class="tickers" id="row-grid"></div>
+  </div>
+
+  <!-- NUCLEAR / SMR -->
+  <div class="layer l-nuclear">
+    <div class="layer-label">
+      <div class="layer-icon">☢</div>
+      <div>
+        <div class="layer-name">Nuclear<br>/ SMR</div>
+        <div class="layer-phase">⏱ EARLY</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Longest-duration power thesis.</strong> SMRs (OKLO, SMR, NNE) are pre-revenue with 2028-2030 timelines. BWXT is the incumbent nuclear components supplier. Behind-the-meter nuclear for hyperscaler campuses is the catalyst.
+        <span class="label bottleneck">★ bottleneck</span>
+        NRC licensing timeline. HALEU fuel supply concentration.
+        <span class="label kill">⚠ thesis killer</span>
+        NRC delays or cost overruns that push first-unit economics past 2030.
+      </div>
+    </div>
+    <div class="tickers" id="row-nuclear"></div>
+  </div>
+
+  <!-- ALT ENERGY (STORAGE / FUEL CELL) -->
+  <div class="layer l-altenergy">
+    <div class="layer-label">
+      <div class="layer-icon">🔋</div>
+      <div>
+        <div class="layer-name">Energy Storage<br>+ Fuel Cell</div>
+        <div class="layer-phase">⏱ EARLY</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Grid-scale storage + distributed generation.</strong> BE solid-oxide fuel cells for on-site power, EOSE iron-air batteries for long-duration storage. Both are early-commercialization with improving unit economics.
+        <span class="label bottleneck">★ bottleneck</span>
+        Manufacturing scale-up and cost-per-kWh competitiveness vs gas peakers.
+        <span class="label kill">⚠ thesis killer</span>
+        IRA incentive rollback or natural gas prices staying low enough to undercut storage economics.
+      </div>
+    </div>
+    <div class="tickers" id="row-altenergy"></div>
   </div>
 
   <!-- SEMICAP / RAW -->
@@ -570,12 +630,19 @@ const ROWS = {
     ['ORCL','watch'], ['NBIS','watch'], ['IREN','watch'], ['CRWV','watch'],
     ['APLD','watch']
   ],
-  energy: [
-    ['VST','strong'], ['CEG','strong'], ['NEE','watch'], ['TLN','watch'],
-    ['NRG','watch'], ['GEV','strong'], ['ETN','strong'], ['PWR','watch'],
-    ['MYRG','watch'], ['PRIM','watch'], ['OKLO','watch'], ['SMR','watch'],
-    ['NNE','watch'], ['BWXT','watch'], ['BE','watch'], ['EOSE','watch'],
-    ['EQT','watch']
+  power: [
+    ['VST','strong'], ['CEG','strong'], ['TLN','watch'], ['NRG','watch'],
+    ['NEE','watch'], ['EQT','watch']
+  ],
+  grid: [
+    ['GEV','strong'], ['ETN','strong'], ['PWR','watch'], ['MYRG','watch'],
+    ['PRIM','watch']
+  ],
+  nuclear: [
+    ['OKLO','watch'], ['SMR','watch'], ['NNE','watch'], ['BWXT','watch']
+  ],
+  altenergy: [
+    ['BE','watch'], ['EOSE','watch']
   ],
   semicap: [
     ['AMAT','watch'], ['LRCX','watch'], ['ASML','watch'], ['KLAC','watch'],
@@ -639,7 +706,10 @@ const layerNameFromKey = {
   dc: "DC + Cooling",
   photonics: "Photonics",
   cloud: "Neoclouds + Hyperscalers",
-  energy: "Energy / Power",
+  power: "Power Generation (IPPs)",
+  grid: "Grid Equipment + EPC",
+  nuclear: "Nuclear / SMR",
+  altenergy: "Energy Storage + Fuel Cell",
   semicap: "Semicap + Materials",
 };
 const layerHeat = (rowKey) => {
