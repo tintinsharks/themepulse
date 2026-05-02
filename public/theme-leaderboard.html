@@ -362,7 +362,17 @@
     font-weight: 800;
     margin-bottom: 6px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    display: flex; align-items: center; gap: 6px;
   }
+  .er-pctile {
+    font-size: 8px; font-weight: 700;
+    padding: 1px 5px; border-radius: 3px;
+    letter-spacing: 0; text-transform: none;
+  }
+  .er-pctile.p-top { background: rgba(13,145,99,0.25); color: #4ae8a0; }
+  .er-pctile.p-high { background: rgba(34,211,238,0.2); color: #22d3ee; }
+  .er-pctile.p-mid { background: rgba(144,144,160,0.2); color: #b0b0c0; }
+  .er-pctile.p-low { background: rgba(200,80,80,0.2); color: #e06060; }
   .er-qbars-row {
     display: flex; gap: 4px;
     align-items: stretch;
@@ -820,6 +830,8 @@ const PIPELINE_RS = {};                  // ticker → RS rank (pipeline)
 const PIPELINE_ER = {};                  // ticker → { earnings_days, er_timing, avg_er_move, earnings_display, qmag_grade, sector }
 const NARRATIVES = [];                   // loaded narratives.json content
 let SORT_KEY = "score";                  // active sort key
+let UNIVERSE_REV_SORTED = [];            // sorted revenue_estimated values for percentile calc
+let UNIVERSE_EPS_SORTED = [];            // sorted eps_estimated values for percentile calc
 
 const loadPipelineData = async () => {
   try {
@@ -842,6 +854,8 @@ const loadPipelineData = async () => {
           sector: s.sector,
           industry: s.industry,
           company: s.company,
+          revenue_estimated: s.revenue_estimated,
+          eps_estimated: s.eps_estimated,
         };
       }
     });
@@ -851,6 +865,14 @@ const loadPipelineData = async () => {
       if (!tk) return;
       ER_RESULTS[tk] = m;
     });
+    // Build sorted arrays for percentile ranking
+    const revVals = [], epsVals = [];
+    (d.stocks || d.universe || []).forEach((s) => {
+      if (s.revenue_estimated > 0) revVals.push(s.revenue_estimated);
+      if (s.eps_estimated != null && Number.isFinite(s.eps_estimated)) epsVals.push(s.eps_estimated);
+    });
+    UNIVERSE_REV_SORTED = revVals.sort((a, b) => a - b);
+    UNIVERSE_EPS_SORTED = epsVals.sort((a, b) => a - b);
   } catch (e) { /* ignore */ }
 };
 
@@ -1195,6 +1217,20 @@ const renderHistoryRow = (h) => `
   </div>
 `;
 
+const pctileRank = (sortedArr, val) => {
+  if (!sortedArr.length || val == null) return null;
+  let lo = 0, hi = sortedArr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sortedArr[mid] < val) lo = mid + 1; else hi = mid;
+  }
+  return Math.round((lo / sortedArr.length) * 100);
+};
+const ordinal = (n) => {
+  const s = ["th","st","nd","rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
 const renderDetailPanel = async (ticker) => {
   const root = document.getElementById("er-detail");
   if (!root) return;
@@ -1264,7 +1300,7 @@ const renderDetailPanel = async (ticker) => {
       (_first.year === _last.year && parseInt((_first.period || "Q0").slice(1)) > parseInt((_last.period || "Q0").slice(1)))
     );
     const series = _newestFirst ? [...fvQuarters].reverse() : [...fvQuarters];
-    const renderQBars = (label, accessor, yoyAccessor, color, fmt) => {
+    const renderQBars = (label, accessor, yoyAccessor, color, fmt, pctile) => {
       const values = series.map(accessor).filter((v) => v != null && Number.isFinite(v));
       if (!values.length) return "";
       const max = Math.max(...values, 0);
@@ -1273,9 +1309,12 @@ const renderDetailPanel = async (ticker) => {
       const baseline = max / range;          // fraction of bar area above zero
       const barAreaH = 64;                    // CSS er-qbar-track height
       const lastIdx = series.length - 1;
+      const pctBadge = pctile != null
+        ? `<span class="er-pctile ${pctile >= 90 ? "p-top" : pctile >= 70 ? "p-high" : pctile >= 40 ? "p-mid" : "p-low"}">${ordinal(pctile)} %ile</span>`
+        : "";
       return `
         <div class="er-qbars">
-          <div class="er-qbars-title">${label}</div>
+          <div class="er-qbars-title">${label}${pctBadge}</div>
           <div class="er-qbars-row">
             ${series.map((q, i) => {
               const v = accessor(q);
@@ -1311,6 +1350,8 @@ const renderDetailPanel = async (ticker) => {
       `;
     };
 
+    const epsPctile = pctileRank(UNIVERSE_EPS_SORTED, pipeEr.eps_estimated);
+    const revPctile = pctileRank(UNIVERSE_REV_SORTED, pipeEr.revenue_estimated);
     const blocks = [
       renderQBars(
         "Net Margin",
@@ -1331,14 +1372,16 @@ const renderDetailPanel = async (ticker) => {
         (q) => q.eps,
         (q) => q.eps_yoy,
         "eps",
-        (v) => v.toFixed(2)
+        (v) => v.toFixed(2),
+        epsPctile
       ),
       renderQBars(
         "Revenue",
         (q) => q.revenue,
         (q) => q.revenue_yoy,
         "rev",
-        (v) => v >= 1000 ? (v / 1000).toFixed(1) + "B" : Math.round(v) + "M"
+        (v) => v >= 1000 ? (v / 1000).toFixed(1) + "B" : Math.round(v) + "M",
+        revPctile
       ),
     ];
 
