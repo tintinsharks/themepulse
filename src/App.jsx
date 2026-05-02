@@ -148,55 +148,6 @@ function etfsForTheme(subtheme, theme) {
   return [];
 }
 
-// ─── AI Data Centre Value Chain map ────────────────────────────────────────
-// Tags each ticker with its primary layer in the AI infra stack so the scan
-// watch table can show a tiny color-coded badge ("CPU", "Mem", "Net", etc.)
-// next to the symbol. Click → opens /ai-infrastructure.html for full context.
-// Source of truth: matches public/ai-infrastructure.html ROWS.
-// When a ticker spans layers, classify by PRIMARY revenue / strategic role.
-const AI_LAYER_META = {
-  compute:  { label: "CPU", color: "#6dde8e", bg: "rgba(0,200,83,0.12)",  border: "#2c5e3e" },
-  connect:  { label: "Net", color: "#ec4899", bg: "rgba(236,72,153,0.12)", border: "#7c3a64" },
-  memory:   { label: "Mem", color: "#fbbf24", bg: "rgba(251,191,36,0.12)", border: "#6e5e1c" },
-  dc:       { label: "DC",  color: "#38bdf8", bg: "rgba(56,189,248,0.12)", border: "#2e6e8e" },
-  photonics:{ label: "Opt", color: "#22d3ee", bg: "rgba(34,211,238,0.12)", border: "#1a6e84" },
-  cloud:    { label: "Cld", color: "#b86afc", bg: "rgba(184,106,252,0.12)",border: "#5a3e8e" },
-  energy:   { label: "Pwr", color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "#7e3e1c" },
-  semicap:  { label: "Eq",  color: "#9ca3af", bg: "rgba(156,163,175,0.12)",border: "#4a4a5e" },
-};
-const AI_LAYER_MAP = {
-  // Compute Silicon
-  NVDA:"compute",AMD:"compute",AVGO:"compute",INTC:"compute",MRVL:"compute",
-  ARM:"compute",TSM:"compute",
-  // AI Connectivity (interconnect bench — chip + box level)
-  ANET:"connect",ALAB:"connect",CRDO:"connect",CSCO:"connect",AAOI:"connect",
-  CIEN:"connect",MXL:"connect",JBL:"connect",
-  // Memory + Storage
-  MU:"memory",SNDK:"memory",FORM:"memory",AMKR:"memory",SIMO:"memory",
-  WDC:"memory",STX:"memory",
-  // Datacenter + Cooling
-  DLR:"dc",EQIX:"dc",VRT:"dc",EME:"dc",SMCI:"dc",DELL:"dc",HPE:"dc",
-  ETN:"dc",MOD:"dc",NVT:"dc",CARR:"dc",JCI:"dc",FIX:"dc",IESC:"dc",FLR:"dc",
-  AAON:"dc",LII:"dc",TT:"dc",WSO:"dc",ACM:"dc",
-  // Photonics (substrates/test/CPO/fiber)
-  COHR:"photonics",FN:"photonics",AEHR:"photonics",ONTO:"photonics",
-  CAMT:"photonics",LITE:"photonics",KEYS:"photonics",VIAV:"photonics",
-  AXTI:"photonics",MTSI:"photonics",POET:"photonics",TSEM:"photonics",
-  GLW:"photonics",NOK:"photonics",COMM:"photonics",
-  // Cloud + Hyperscalers + Neoclouds
-  MSFT:"cloud",GOOGL:"cloud",GOOG:"cloud",AMZN:"cloud",META:"cloud",
-  ORCL:"cloud",NBIS:"cloud",IREN:"cloud",CRWV:"cloud",APLD:"cloud",
-  CORZ:"cloud",HUT:"cloud",WULF:"cloud",
-  // Energy / Power
-  VST:"energy",CEG:"energy",NEE:"energy",TLN:"energy",NRG:"energy",
-  GEV:"energy",PWR:"energy",MYRG:"energy",PRIM:"energy",DY:"energy",AGX:"energy",
-  OKLO:"energy",SMR:"energy",NNE:"energy",BWXT:"energy",BE:"energy",
-  EOSE:"energy",EQT:"energy",MIR:"energy",HUBB:"energy",POWL:"energy",
-  // Semicap + Materials
-  AMAT:"semicap",LRCX:"semicap",ASML:"semicap",KLAC:"semicap",MKSI:"semicap",
-  ENTG:"semicap",NVMI:"semicap",ACMR:"semicap",
-};
-
 const DEFAULT_FILTERS = {
   noBio: true,
   greenOnly: true,    // Chg>0% on chgOpen
@@ -2224,33 +2175,6 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
               >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                   {r.ticker}
-                  {(() => {
-                    const layerKey = AI_LAYER_MAP[r.ticker];
-                    if (!layerKey) return null;
-                    const m = AI_LAYER_META[layerKey];
-                    return (
-                      <span
-                        title={`${r.ticker} sits in the AI ${m.label} layer — click to open the value-chain map`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open("/ai-infrastructure.html", "_blank");
-                        }}
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 800,
-                          color: m.color,
-                          border: `1px solid ${m.border}`,
-                          background: m.bg,
-                          padding: "0 3px",
-                          borderRadius: 2,
-                          cursor: "pointer",
-                          letterSpacing: 0.3,
-                        }}
-                      >
-                        {m.label}
-                      </span>
-                    );
-                  })()}
                   {r.is9m && (
                     <span
                       title="9M — today's volume ≥ 8.9M shares but avg < 8.9M (unusual institutional activity)"
