@@ -445,6 +445,192 @@ const THEMES = {
     ]
   },
 
+  software: {
+    title: ["SOFTWARE", "+ AI APPS"],
+    accent: "#a78bfa",
+    accentBg: "#1c0d2a",
+    tagline: "AI Apps · Data Platforms · Enterprise · DevOps · Collab · Vertical SaaS",
+    layers: [
+      {
+        name: "AI Agents<br>+ Apps", icon: "🧠", color: "c3",
+        tooltip: "AI-native applications. PLTR is the headline name (defense + commercial AI). NOW/CRM are the enterprise integrators. AI/BBAI/SOUN are pure-plays with high speculation.",
+        tickers: [
+          ["PLTR","strong"],["NOW","strong"],["CRM","strong"],["AI","alpha"],
+          ["BBAI","alpha"],["SOUN","alpha"],["PATH","watch"],["IOT","watch"],
+          ["DOCS","watch"],
+        ]
+      },
+      {
+        name: "Data Platforms<br>+ Analytics", icon: "📊", color: "c2",
+        tooltip: "Data infra for AI workloads. SNOW + MDB lead. DDOG = observability for AI workloads. DBX/ESTC for storage + search. CFLT for streaming.",
+        tickers: [
+          ["SNOW","strong"],["MDB","strong"],["DDOG","strong"],["DBX","watch"],
+          ["ESTC","watch"],["CFLT","watch"],["TDC","watch"],
+        ]
+      },
+      {
+        name: "Enterprise<br>SaaS", icon: "🏢", color: "c1",
+        tooltip: "Enterprise software incumbents adding AI features. INTU/CRM/NOW have AI distribution. ADBE for creative AI. WDAY for HR + finance. VEEV vertical pharma.",
+        tickers: [
+          ["INTU","strong"],["ADBE","watch"],["WDAY","watch"],["VEEV","watch"],
+          ["HUBS","watch"],["SAP","watch"],["IBM","watch"],["YOU","alpha"],
+        ]
+      },
+      {
+        name: "DevOps<br>+ Observability", icon: "⚙", color: "c6",
+        tooltip: "Developer tools + monitoring. DDOG dominant in observability. GTLB + TEAM in code/CI. FROG/PD smaller but growing.",
+        tickers: [
+          ["DDOG","strong"],["GTLB","watch"],["TEAM","watch"],["FROG","watch"],
+          ["PD","watch"],["SWI","watch"],["ESTC","watch"],
+        ]
+      },
+      {
+        name: "Collaboration<br>+ Productivity", icon: "💬", color: "c4",
+        tooltip: "Workflow + comms. ASAN/MNDY in PM. ZM in video. TEAM + DOCU in collab. Less momentum than AI apps but defensive cash flow.",
+        tickers: [
+          ["ASAN","watch"],["MNDY","watch"],["ZM","watch"],["DOCU","watch"],
+          ["BOX","watch"],["SMAR","watch"],["RNG","watch"],
+        ]
+      },
+      {
+        name: "Vertical<br>SaaS", icon: "🎯", color: "c5",
+        tooltip: "Industry-specific SaaS. TYL govt, GWRE insurance, MANH supply chain, PCOR construction. Lower momentum, durable revenue.",
+        tickers: [
+          ["TYL","watch"],["GWRE","watch"],["MANH","watch"],["PCOR","watch"],
+          ["OLO","watch"],["AZPN","watch"],["CCC","watch"],["VERX","watch"],
+        ]
+      },
+      {
+        name: "CDN<br>+ Edge Cloud", icon: "🌐", color: "c7",
+        tooltip: "Edge compute + content delivery. NET (Cloudflare) leader — also doubles as cyber/zero-trust. FSLY niche serverless edge. AKAM legacy CDN+sec. Capacity benefits from AI inference shifting to edge.",
+        tickers: [
+          ["NET","strong"],["FSLY","alpha"],["AKAM","watch"],["LLNW","alpha"],
+        ]
+      },
+      {
+        name: "AI Infra<br>Beneficiaries (overlap)", icon: "🔗", color: "c8",
+        tooltip: "Software names that double as AI infra plays — meaningful overlap with AI Connectivity / Compute drawers. Listed here for monetization-side rotation reads.",
+        tickers: [
+          ["PLTR","strong"],["NOW","strong"],["CRM","strong"],
+          ["MSFT","strong"],["GOOGL","strong"],["AMZN","strong"],
+        ]
+      },
+    ]
+  },
+
+  cyber: {
+    title: ["CYBER", "SECURITY"],
+    accent: "#ef4444",
+    accentBg: "#2a0d0d",
+    tagline: "Endpoint · Identity · Cloud Sec · Network · Threat Ops · Zero Trust",
+    layers: [
+      {
+        name: "Platform<br>Consolidators", icon: "🛡", color: "c1",
+        tooltip: "Multi-domain cyber platforms aiming to consolidate point solutions. PANW/CRWD/FTNT lead. Major bull case = displacing 5-10 single-feature vendors per customer.",
+        tickers: [
+          ["PANW","strong"],["CRWD","strong"],["FTNT","strong"],["ZS","strong"],
+        ]
+      },
+      {
+        name: "Endpoint<br>+ XDR", icon: "💻", color: "c4",
+        tooltip: "Endpoint detection & response. CRWD dominant. S (SentinelOne) competitor. GEN consumer. FTNT also plays here through unified platform.",
+        tickers: [
+          ["CRWD","strong"],["S","watch"],["FTNT","strong"],["GEN","watch"],
+          ["PANW","watch"],
+        ]
+      },
+      {
+        name: "Identity<br>+ Access", icon: "🔑", color: "c3",
+        tooltip: "Identity & access management. OKTA largest pure-play but execution-challenged. CYBR for privileged access. SAIL/OSPN smaller.",
+        tickers: [
+          ["OKTA","watch"],["CYBR","watch"],["SAIL","watch"],["OSPN","watch"],
+        ]
+      },
+      {
+        name: "Cloud<br>+ Network Sec", icon: "☁", color: "c2",
+        tooltip: "Cloud security + network protection. ZS leader in cloud. NET (Cloudflare) at edge + CDN. AKAM legacy CDN+sec.",
+        tickers: [
+          ["ZS","strong"],["NET","strong"],["AKAM","watch"],["CHKP","watch"],
+          ["RDWR","watch"],["RBRK","alpha"],
+        ]
+      },
+      {
+        name: "Threat<br>Operations", icon: "🎯", color: "c5",
+        tooltip: "Vulnerability management + threat detection. TENB/QLYS/RPD in vulnerability scanning. VRNS in data security. S in XDR.",
+        tickers: [
+          ["TENB","watch"],["QLYS","watch"],["RPD","watch"],["VRNS","watch"],
+          ["SUMO","watch"],
+        ]
+      },
+      {
+        name: "Defense<br>Cyber", icon: "🛡", color: "c6",
+        tooltip: "Government + defense cyber contractors. BAH/CACI/SAIC/LDOS. Mostly services, less momentum but sticky federal contracts. Overlaps Defense drawer.",
+        tickers: [
+          ["BAH","watch"],["CACI","watch"],["SAIC","watch"],["LDOS","watch"],
+        ]
+      },
+    ]
+  },
+
+  fintech: {
+    title: ["FINTECH", "+ CRYPTO"],
+    accent: "#fbbf24",
+    accentBg: "#2a1f08",
+    tagline: "Crypto · Miners · Neobanks · Payments · BTC ETFs · Asset Mgmt",
+    layers: [
+      {
+        name: "Crypto Infra<br>+ Exchanges", icon: "₿", color: "c4",
+        tooltip: "Crypto exchanges + treasury plays. COIN = US gateway. MSTR = leveraged BTC proxy via balance-sheet strategy. HOOD = retail brokerage with crypto. GLXY for institutional.",
+        tickers: [
+          ["COIN","strong"],["MSTR","strong"],["HOOD","strong"],["GLXY","watch"],
+        ]
+      },
+      {
+        name: "Crypto<br>Miners", icon: "⛏", color: "c5",
+        tooltip: "BTC miners. Some pivoting to AI hosting (CIFR/IREN/WULF/HUT/CORZ overlap with Neoclouds). MARA/RIOT/CLSK pure-play. Highly speculative, BTC-correlated.",
+        tickers: [
+          ["MARA","alpha"],["RIOT","alpha"],["CLSK","alpha"],["CIFR","alpha"],
+          ["IREN","alpha"],["WULF","alpha"],["HUT","alpha"],["CORZ","alpha"],
+          ["BTDR","alpha"],["BITF","alpha"],
+        ]
+      },
+      {
+        name: "Bitcoin<br>ETFs", icon: "📊", color: "c8",
+        tooltip: "Spot Bitcoin ETFs (low risk vs miners). IBIT (BlackRock) + FBTC (Fidelity) lead. Passive BTC exposure without exchange risk.",
+        tickers: [
+          ["IBIT","strong"],["FBTC","strong"],["BITB","watch"],["BITO","watch"],
+          ["BITW","watch"],["GBTC","watch"],["BRRR","watch"],
+        ]
+      },
+      {
+        name: "Neobanks<br>+ Digital Banks", icon: "🏦", color: "c1",
+        tooltip: "Digital-first banks/lenders. SOFI = consumer banking. NU = LatAm. ALLY = traditional digital. HOOD overlaps crypto. KSPI emerging market.",
+        tickers: [
+          ["SOFI","strong"],["NU","strong"],["ALLY","watch"],["HOOD","strong"],
+          ["LC","watch"],["DAVE","watch"],["KSPI","alpha"],
+        ]
+      },
+      {
+        name: "Payments", icon: "💳", color: "c2",
+        tooltip: "Payment networks + processors. V/MA = the rails (defensive, slow). PYPL/SQ checkout. AFRM/FOUR/TOST verticals. NVEI cross-border.",
+        tickers: [
+          ["V","strong"],["MA","strong"],["PYPL","watch"],["SQ","watch"],
+          ["AFRM","watch"],["FOUR","watch"],["TOST","watch"],["NVEI","watch"],
+          ["PAGS","watch"],["DLO","watch"],
+        ]
+      },
+      {
+        name: "Asset Mgmt<br>+ Trading", icon: "📈", color: "c6",
+        tooltip: "Asset managers + trading platforms. SCHW retail giant. BLK/KKR private markets. IBKR/FUTU/TIGR online brokers. Less momentum than crypto/neobanks.",
+        tickers: [
+          ["SCHW","watch"],["BLK","watch"],["KKR","watch"],["BX","watch"],
+          ["IBKR","strong"],["FUTU","watch"],["TIGR","watch"],["RJF","watch"],
+          ["MS","watch"],["GS","watch"],
+        ]
+      },
+    ]
+  },
+
   space: {
     title: ["SPACE", "ECOSYSTEM"],
     accent: "#6a9eff",

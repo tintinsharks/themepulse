@@ -7371,6 +7371,11 @@ const THEME_TO_DRAWER = {
   "ROBOTICS":          "robotics",
   "EV":                "ev",
   "QUANTUM":           "quantum",
+  "SOFTWARE":          "software",
+  "CLOUD":             "software",
+  "SOCIAL MEDIA":      "software",
+  "CYBER":             "cyber",
+  "FINTECH":           "fintech",
 };
 const DRAWER_COLORS = {
   ai:       { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
@@ -7379,6 +7384,9 @@ const DRAWER_COLORS = {
   ev:       { bg: "rgba(109,222,142,0.12)", border: "#2c5e3e", color: "#6dde8e" },
   quantum:  { bg: "rgba(184,106,252,0.12)", border: "#5a3e8e", color: "#b86afc" },
   space:    { bg: "rgba(106,158,255,0.12)", border: "#3a5a8a", color: "#6a9eff" },
+  software: { bg: "rgba(167,139,250,0.12)", border: "#5a3e8e", color: "#a78bfa" },
+  cyber:    { bg: "rgba(239,68,68,0.12)",   border: "#7e2828", color: "#ef4444" },
+  fintech:  { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -7389,6 +7397,9 @@ const DRAWER_COLORS = {
 // ESC or click outside to close.
 const VALUE_CHAIN_THEMES = [
   { id: "ai",       label: "⛓ AI INFRA",  src: "/ai-infrastructure.html",          gradient: "linear-gradient(135deg, #ec4899 0%, #6cd5e8 100%)", title: "AI INFRASTRUCTURE — Data Centre Value Chain" },
+  { id: "software", label: "💻 SOFTWARE", src: "/theme-chain.html?id=software",    gradient: "linear-gradient(135deg, #a78bfa 0%, #6cd5e8 100%)", title: "SOFTWARE + AI APPS Value Chain" },
+  { id: "cyber",    label: "🛡 CYBER",    src: "/theme-chain.html?id=cyber",       gradient: "linear-gradient(135deg, #ef4444 0%, #fbbf24 100%)", title: "CYBER SECURITY Value Chain" },
+  { id: "fintech",  label: "₿ FINTECH",   src: "/theme-chain.html?id=fintech",     gradient: "linear-gradient(135deg, #fbbf24 0%, #6dde8e 100%)", title: "FINTECH + CRYPTO Value Chain" },
   { id: "defense",  label: "✈ DEFENSE",   src: "/theme-chain.html?id=defense",     gradient: "linear-gradient(135deg, #fbbf24 0%, #f97316 100%)", title: "DEFENSE Value Chain" },
   { id: "robotics", label: "🤖 ROBOTICS", src: "/theme-chain.html?id=robotics",    gradient: "linear-gradient(135deg, #22d3ee 0%, #6dde8e 100%)", title: "ROBOTICS + AUTONOMOUS Value Chain" },
   { id: "ev",       label: "🚗 EV",       src: "/theme-chain.html?id=ev",          gradient: "linear-gradient(135deg, #6dde8e 0%, #fbbf24 100%)", title: "EV + BATTERY Value Chain" },
@@ -7415,7 +7426,8 @@ function AIInfraDrawer() {
   const active = VALUE_CHAIN_THEMES.find((t) => t.id === openId);
   return (
     <>
-      {/* Stacked left-edge handles — one per theme */}
+      {/* Stacked left-edge handles — one per theme. Sized so all 9 fit
+          comfortably on a typical 900-1080px viewport. */}
       <div style={{
         position: "fixed",
         left: 0,
@@ -7424,7 +7436,7 @@ function AIInfraDrawer() {
         zIndex: 998,
         display: "flex",
         flexDirection: "column",
-        gap: 4,
+        gap: 2,
         opacity: open ? 0 : 1,
         pointerEvents: open ? "none" : "auto",
         transition: "opacity 0.2s",
@@ -7435,21 +7447,21 @@ function AIInfraDrawer() {
             onClick={() => setOpenId(t.id)}
             title={`Open ${t.title}`}
             style={{
-              padding: "10px 5px",
+              padding: "5px 3px",
               background: t.gradient,
               color: "#0a0a14",
               border: "none",
-              borderRadius: "0 6px 6px 0",
+              borderRadius: "0 5px 5px 0",
               cursor: "pointer",
               fontFamily: "monospace",
-              fontSize: 8,
+              fontSize: 7,
               fontWeight: 800,
-              letterSpacing: 1.5,
+              letterSpacing: 1.2,
               writingMode: "vertical-rl",
               textOrientation: "mixed",
-              boxShadow: "2px 4px 12px rgba(0,0,0,0.4)",
+              boxShadow: "2px 3px 8px rgba(0,0,0,0.35)",
               opacity: 0.92,
-              minHeight: 90,
+              minHeight: 60,
             }}
           >
             {t.label}
