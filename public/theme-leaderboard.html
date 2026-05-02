@@ -1296,7 +1296,6 @@ const renderDailyChart = (ohlc) => {
   const sma50 = calcSMA(fullC, 50).slice(-120);
   const ema200 = calcEMA(fullC, 200).slice(-120);
   const volMA = calcSMA(fullV, 50).slice(-120);
-  const volMA20 = calcSMA(fullV, 20).slice(-120);
 
   const maPath = (vals, color, width, dash) => {
     const pts = [];
@@ -1340,22 +1339,22 @@ const renderDailyChart = (ohlc) => {
       for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
         if (allBars[j].close < allBars[j].open) downVols.push(allBars[j].volume || 0);
       }
-      const prevClose = gi > 0 ? allBars[gi - 1].close : b.open;
-      const chgPct = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
-      const volAvg20 = volMA20[i] || 0;
-      const rVol = volAvg20 > 0 ? vol / volAvg20 : 0;
       if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
         vColor = "#2563eb";
       } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
         vColor = "#0d9488";
-      } else if (chgPct > 0 && rVol >= 2) {
-        vColor = "#fbbf24";
       } else {
         vColor = "#ffffffcc";
       }
     }
     const vh = Math.max(0.5, (vol / vMax) * volH);
-    volSvg += `<rect x="${x}" y="${volTop + volH - vh}" width="${bw}" height="${vh}" fill="${vColor}" opacity="0.7" rx="0.3"/>`;
+    const vy = volTop + volH - vh;
+    volSvg += `<rect x="${x}" y="${vy}" width="${bw}" height="${vh}" fill="${vColor}" opacity="0.7" rx="0.3"/>`;
+    if (vol >= 9_000_000) {
+      for (let dy = 3; dy < vh; dy += 5) {
+        volSvg += `<line x1="${x}" y1="${vy + dy}" x2="${x + bw}" y2="${vy + dy}" stroke="#fbbf24" stroke-width="0.8" opacity="0.7"/>`;
+      }
+    }
   });
 
   // Separator line between price and volume
@@ -1379,7 +1378,7 @@ const renderDailyChart = (ohlc) => {
       <div class="er-vol-legend">
         <span><i style="background:#2563eb"></i>PP 10d</span>
         <span><i style="background:#0d9488"></i>PP 5d</span>
-        <span><i style="background:#fbbf24"></i>RVol 2x+</span>
+        <span><i style="background:repeating-linear-gradient(0deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px);border:1px solid #fbbf2480"></i>9M+</span>
       </div>
     </div>
   `;
