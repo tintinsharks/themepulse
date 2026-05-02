@@ -123,6 +123,17 @@
     padding: 4px 0;
   }
   .er-day-header.today { color: #fbbf24; }
+  .er-day-count {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    color: #9090a0;
+    font-size: 9px;
+    font-weight: 700;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
   .er-section {
     background: rgba(15, 15, 24, 0.55);
     border: 1px solid #1c1c2c;
@@ -143,6 +154,8 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
   }
+  /* Section now has more vertical room since BMO/AMC sections were merged */
+  .er-section + .er-section { margin-top: 6px; }
   .er-tile {
     display: flex; flex-direction: column; align-items: center;
     gap: 3px;
@@ -153,7 +166,21 @@
     cursor: pointer;
     transition: transform 0.15s, border-color 0.15s, background 0.15s;
     min-width: 0;
+    position: relative;
   }
+  .er-tile.drawer { border-color: #2c5e3e; }
+  .er-tile .tile-badge {
+    position: absolute;
+    top: 3px; right: 3px;
+    font-size: 7px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 3px;
+    letter-spacing: 0.4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-tile .tile-badge.bmo { background: rgba(251,191,36,0.18); color: #fbbf24; border: 1px solid #a07a1f; }
+  .er-tile .tile-badge.amc { background: rgba(108,213,232,0.18); color: #6cd5e8; border: 1px solid #3a8a9e; }
   .er-tile:hover, .er-tile.selected {
     transform: translateY(-1px);
     border-color: #fbbf24;
@@ -1033,10 +1060,17 @@ const themeLabel = { ai: "AI Infra", software: "Software", cyber: "Cyber", finte
 
 const renderTile = (er) => {
   const sel = er.ticker === ER_SELECTED_TICKER ? "selected" : "";
+  // Timing badge — only shown if we have it from pipeline (best-effort).
+  // FMP doesn't provide it on the /stable/earnings-calendar endpoint.
+  const tm = (er.pipe_timing || "").toUpperCase();
+  const badge = tm === "BMO" || tm === "AMC" ? `<span class="tile-badge ${tm.toLowerCase()}">${tm}</span>` : "";
+  // Drawer membership accent — show small dot for tickers in our drawers
+  const dotted = (er.themes && er.themes.length > 0) ? "drawer" : "";
   return `
-    <div class="er-tile ${sel}" data-ticker="${er.ticker}" data-themes="${er.themes.join(",")}">
+    <div class="er-tile ${sel} ${dotted}" data-ticker="${er.ticker}" data-themes="${er.themes.join(",")}">
       <div class="logo"><img src="${earningsLogo(er.ticker)}" alt="${er.ticker}" onerror="this.parentElement.classList.add('fallback'); this.parentElement.innerHTML='${er.ticker}';"/></div>
       <div class="sym">${er.ticker}</div>
+      ${badge}
     </div>
   `;
 };
@@ -1224,48 +1258,51 @@ const renderEarningsCalendar = async () => {
     ? placedEvents.filter((e) => TICKER_THEMES[e.ticker])
     : placedEvents;
 
-  // Bucket by day-of-week + BMO/AMC
-  const grid = [0, 1, 2, 3, 4].map(() => ({ bmo: [], amc: [] }));
+  // FMP /stable/earnings-calendar returns no BMO/AMC timing field — it's always
+  // empty. Pipeline er_timing is sometimes stale. Rather than show wrong
+  // BMO/AMC labels, consolidate each day into one section. Drawer-universe
+  // tickers (with pipeline er_timing) get a small badge per tile when known.
+  const grid = [0, 1, 2, 3, 4].map(() => []);
   scopedEvents.forEach((e) => {
     const erDate = new Date(`${e.date}T00:00:00Z`);
     const dayOffset = Math.floor((erDate - monday) / 86400000);
     if (dayOffset < 0 || dayOffset > 4) return;
-    // FMP uses lowercase "bmo"/"amc"; default to amc when ambiguous
-    const bucket = e.timing === "bmo" ? "bmo" : "amc";
-    grid[dayOffset][bucket].push({
+    grid[dayOffset].push({
       ...e,
       themes: Array.from(TICKER_THEMES[e.ticker] || []),
+      // Pipeline timing (may be stale) — used only for the per-tile badge
+      pipe_timing: PIPELINE_ER[e.ticker]?.er_timing || null,
     });
   });
 
-  // Sort each cell alphabetically (or by drawer presence first)
+  // Drawer tickers first within each day, then alphabetic
   for (let i = 0; i < 5; i++) {
-    for (const slot of ["bmo", "amc"]) {
-      grid[i][slot].sort((a, b) => {
-        const ad = TICKER_THEMES[a.ticker] ? 0 : 1;
-        const bd = TICKER_THEMES[b.ticker] ? 0 : 1;
-        if (ad !== bd) return ad - bd;     // drawer tickers first
-        return a.ticker.localeCompare(b.ticker);
-      });
-    }
+    grid[i].sort((a, b) => {
+      const ad = TICKER_THEMES[a.ticker] ? 0 : 1;
+      const bd = TICKER_THEMES[b.ticker] ? 0 : 1;
+      if (ad !== bd) return ad - bd;
+      return a.ticker.localeCompare(b.ticker);
+    });
   }
 
-  const TILE_LIMIT = 9;
+  const TILE_LIMIT = 12;     // 4 cols x 3 rows visible per day
   let calendarHtml = "";
   for (let i = 0; i < 5; i++) {
     const day = new Date(monday); day.setUTCDate(monday.getUTCDate() + i);
     const isToday = day.getTime() === todayMidnight.getTime();
-    const renderSection = (cls, list) => {
-      if (!list.length) return `<div class="er-section ${cls}"><div class="er-section-header">${cls === "bmo" ? "☀ Before Open" : "🌙 After Close"}</div><div class="er-empty">— no earnings —</div></div>`;
+    const list = grid[i];
+    let body = "";
+    if (!list.length) {
+      body = `<div class="er-empty">— no earnings —</div>`;
+    } else {
       const visible = list.slice(0, TILE_LIMIT);
       const extra = list.length - visible.length;
-      return `<div class="er-section ${cls}"><div class="er-section-header">${cls === "bmo" ? "☀ Before Open" : "🌙 After Close"}</div><div class="er-tile-grid">${visible.map(renderTile).join("")}${extra > 0 ? `<div class="er-overflow">+${extra}</div>` : ""}</div></div>`;
-    };
+      body = `<div class="er-tile-grid">${visible.map(renderTile).join("")}${extra > 0 ? `<div class="er-overflow">+${extra} more</div>` : ""}</div>`;
+    }
     calendarHtml += `
       <div class="er-day-col">
-        <div class="er-day-header ${isToday ? "today" : ""}">${formatDayHeader(day)}</div>
-        ${renderSection("bmo", grid[i].bmo)}
-        ${renderSection("amc", grid[i].amc)}
+        <div class="er-day-header ${isToday ? "today" : ""}">${formatDayHeader(day)}<span class="er-day-count">${list.length}</span></div>
+        <div class="er-section">${body}</div>
       </div>
     `;
   }
