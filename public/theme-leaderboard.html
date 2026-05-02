@@ -1430,11 +1430,10 @@ const renderDailyChart = (ohlc) => {
     }
     // VCP tight: yellow "T" on bar
     const vScore = vcpScores[i];
-    if (vScore != null && vScore <= 25) {
-      const tColor = vScore <= 10 ? "#a3e635" : "#fbbf24";
+    if (vScore != null && vScore <= 10) {
       const tx = x + bw / 2;
       const ty = vy + vh / 2 + 3;
-      volSvg += `<text x="${tx}" y="${ty}" text-anchor="middle" font-size="${Math.min(bw + 1, 7)}" font-weight="900" font-family="monospace" fill="${tColor}" opacity="0.9">T</text>`;
+      volSvg += `<text x="${tx}" y="${ty}" text-anchor="middle" font-size="${Math.min(bw + 1, 7)}" font-weight="900" font-family="monospace" fill="#fbbf24" opacity="0.9">T</text>`;
     }
   });
 
