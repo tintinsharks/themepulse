@@ -492,7 +492,7 @@ document.getElementById("title").innerHTML =
 document.getElementById("tagline").textContent = theme.tagline;
 
 const TILE_REFS = {};
-const LAYER_REFS = [];   // [{ aggsEl, layerEl, tickers }]
+const LAYER_REFS = [];   // [{ aggsEl, layerEl, container, tiles[{tile,ticker}], tickers }]
 const LIVE_QUOTES = {};
 
 const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
@@ -513,7 +513,8 @@ const buildLayers = () => {
       ${layer.tooltip ? `<div class="layer-tooltip">${layer.tooltip}</div>` : ""}
     `;
     const aggsEl = labelEl.querySelector(".layer-aggs");
-    LAYER_REFS.push({ aggsEl, layerEl, tickers: layer.tickers.map((t) => t[0]) });
+    const layerRef = { aggsEl, layerEl, container: null, tiles: [], tickers: layer.tickers.map((t) => t[0]) };
+    LAYER_REFS.push(layerRef);
     const tickersEl = document.createElement("div");
     tickersEl.className = "tickers";
     layer.tickers.forEach(([ticker, tier]) => {
@@ -536,7 +537,9 @@ const buildLayers = () => {
       tickersEl.appendChild(tile);
       if (!TILE_REFS[ticker]) TILE_REFS[ticker] = [];
       TILE_REFS[ticker].push(live);
+      layerRef.tiles.push({ tile, ticker });
     });
+    layerRef.container = tickersEl;
     layerEl.appendChild(labelEl);
     layerEl.appendChild(tickersEl);
     root.appendChild(layerEl);
@@ -607,6 +610,17 @@ const updateLayerAggs = () => {
     if (chgMed != null && breadth != null) {
       if (chgMed >= 1.5 && breadth >= 60) ref.layerEl.classList.add("firing");
       else if (chgMed <= -1.5 && breadth <= 40) ref.layerEl.classList.add("cooling");
+    }
+    // Re-order tiles within this row by chg% desc (highest left → lowest right)
+    if (ref.tiles && ref.container && dataCount > 0) {
+      const sorted = [...ref.tiles].sort((a, b) => {
+        const ca = LIVE_QUOTES[a.ticker]?.chg;
+        const cb = LIVE_QUOTES[b.ticker]?.chg;
+        const av = (ca == null || isNaN(ca)) ? -Infinity : ca;
+        const bv = (cb == null || isNaN(cb)) ? -Infinity : cb;
+        return bv - av;
+      });
+      sorted.forEach(({ tile }) => ref.container.appendChild(tile));
     }
   });
 };

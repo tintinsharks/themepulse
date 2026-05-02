@@ -528,9 +528,9 @@ const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${t
 
 // Track tile DOM nodes per ticker so the live updater can target them.
 const TILE_REFS = {};   // ticker → array of <div class="live"> nodes
-// Per-layer DOM refs: layer key → { aggsEl, layerEl }, populated during render.
+// Per-layer DOM refs: layer key → { aggsEl, layerEl, container, tiles[{tile,ticker}] }
 const LAYER_REFS = {};
-// Latest live quote map (ticker → quote) so layer aggs can recompute.
+// Latest live quote map (ticker → quote) so layer aggs + sort can recompute.
 const LIVE_QUOTES = {};
 
 const render = () => {
@@ -545,7 +545,7 @@ const render = () => {
       aggsEl.className = "layer-aggs";
       aggsEl.innerHTML = '<span class="agg flat">—</span>';
       phaseEl.parentElement.appendChild(aggsEl);
-      LAYER_REFS[rowKey] = { aggsEl, layerEl, tickers: items.map((it) => it[0]) };
+      LAYER_REFS[rowKey] = { aggsEl, layerEl, container, tiles: [], tickers: items.map((it) => it[0]) };
     }
     items.forEach(([ticker, tier]) => {
       const tile = document.createElement('div');
@@ -577,6 +577,8 @@ const render = () => {
       // Store all of them under that ticker so live updates hit every copy.
       if (!TILE_REFS[ticker]) TILE_REFS[ticker] = [];
       TILE_REFS[ticker].push(live);
+      // Track the tile + ticker in the layer's tile list (for re-sorting).
+      LAYER_REFS[rowKey].tiles.push({ tile, ticker });
     });
   }
 };
@@ -666,6 +668,17 @@ const updateLayerAggs = () => {
     if (chgMed != null && breadth != null) {
       if (chgMed >= 1.5 && breadth >= 60) ref.layerEl.classList.add("firing");
       else if (chgMed <= -1.5 && breadth <= 40) ref.layerEl.classList.add("cooling");
+    }
+    // Re-order the tiles within this row by chg% desc (highest left → lowest right)
+    if (ref.tiles && ref.container && dataCount > 0) {
+      const sorted = [...ref.tiles].sort((a, b) => {
+        const ca = LIVE_QUOTES[a.ticker]?.chg;
+        const cb = LIVE_QUOTES[b.ticker]?.chg;
+        const av = (ca == null || isNaN(ca)) ? -Infinity : ca;
+        const bv = (cb == null || isNaN(cb)) ? -Infinity : cb;
+        return bv - av;
+      });
+      sorted.forEach(({ tile }) => ref.container.appendChild(tile));
     }
   }
 };
