@@ -444,15 +444,17 @@
       </div>
       <div class="row">
         <div class="cell">
-          <div class="cell-name">Electrical interconnect (in-rack / chip-to-chip)</div>
+          <div class="cell-name">Electrical interconnect (chip + box level)</div>
           <div class="ticker-row">
             <span class="ticker t-strong">ALAB</span>
             <span class="ticker t-strong">CRDO</span>
             <span class="ticker t-watch">MRVL</span>
             <span class="ticker t-watch">AVGO</span>
+            <span class="ticker t-strong">ANET</span>
+            <span class="ticker t-watch">CSCO</span>
           </div>
-          <div class="cell-note">ALAB = PCIe/CXL retimers solving GPU comms · CRDO = SerDes + AECs (Active Electrical Cables) · MRVL = optical DSPs + custom SerDes · AVGO = switch silicon + custom interconnect</div>
-          <div class="bottleneck">★ EVERY GPU/ASIC NEEDS ONE — captures TAM regardless of which compute vendor wins</div>
+          <div class="cell-note">Chip-level: ALAB (PCIe/CXL retimers) · CRDO (SerDes + AECs) · MRVL (optical DSPs) · AVGO (switch silicon)<br>Box-level: ANET (Tomahawk-based DC switches — the integrator) · CSCO (enterprise/legacy DC)</div>
+          <div class="bottleneck">★ EVERY GPU/ASIC NEEDS ONE — captures TAM regardless of which compute vendor wins · ANET sits where chip silicon becomes a deployable switch</div>
         </div>
         <div class="cell">
           <div class="cell-name">Optical interconnect (rack-to-rack / row-to-row)</div>
@@ -623,6 +625,7 @@
             <span class="ticker t-strong">CEG</span>
             <span class="ticker t-watch">TLN</span>
             <span class="ticker t-watch">NRG</span>
+            <span class="ticker t-watch">NEE</span>
           </div>
           <div class="ticker-row">
             <span class="ticker t-watch">OKLO</span>
@@ -630,8 +633,9 @@
             <span class="ticker t-watch">NNE</span>
             <span class="ticker t-watch">BWXT</span>
             <span class="ticker t-watch">BE</span>
+            <span class="ticker t-watch">EQT</span>
           </div>
-          <div class="cell-note">BE (Bloom Energy) = on-site fuel cells for AI DCs — bypasses grid interconnect queue entirely</div>
+          <div class="cell-note">NEE = scaled renewable utility w/ DC PPAs · BE (Bloom Energy) = on-site fuel cells, bypasses grid interconnect queue · EQT = natural gas for gas-fired DC backup</div>
           <div class="bottleneck">★ PERMITTING + INTERCONNECT QUEUE — multi-year structural choke</div>
         </div>
         <div class="cell">
@@ -645,8 +649,9 @@
             <span class="ticker t-watch">DY</span>
             <span class="ticker t-watch">AGX</span>
             <span class="ticker t-watch">EME</span>
+            <span class="ticker t-watch">EOSE</span>
           </div>
-          <div class="cell-note">Grid construction = "the plumbing" — second-derivative of IPP capex. MIR for nuclear instrumentation.</div>
+          <div class="cell-note">Grid construction = "the plumbing" — second-derivative of IPP capex. MIR for nuclear instrumentation. EOSE = grid-scale battery storage for DC load smoothing.</div>
         </div>
       </div>
       <div class="kill-mode"><strong>Thesis killer:</strong> AI ROI questioned + hyperscaler capex pulled back → power demand assumptions cut. IPPs trading at PPA-secured premium revert to utility multiples. Nuclear/SMR (OKLO/SMR/NNE) most exposed since they're priced on optionality.</div>
@@ -732,11 +737,11 @@
       <div class="rail-text">
         <strong>Compute</strong>: AVGO (custom silicon TAM)<br>
         <strong>Memory</strong>: MU + SNDK<br>
-        <strong>Connectivity</strong>: ALAB + CRDO + MRVL<br>
+        <strong>Connectivity</strong>: ALAB + CRDO + MRVL + <span style="color:#ec4899;">ANET</span><br>
         <strong>Photonics</strong>: COHR + FN + AEHR<br>
         <strong>SiPh foundry alpha</strong>: TSEM + POET<br>
         <strong>DC + Cooling</strong>: DLR + EQIX + VRT + EME<br>
-        <strong>Power</strong>: VST + CEG + GEV + MYRG
+        <strong>Power</strong>: VST + CEG + GEV + MYRG + <span style="color:#f97316;">NEE</span>
       </div>
     </div>
     <div class="rail-card opp">
