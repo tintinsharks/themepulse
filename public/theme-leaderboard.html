@@ -215,6 +215,9 @@
     cursor: pointer;
   }
   .er-overflow:hover { color: #c0c0d8; border-color: #303048; }
+  .er-tile.er-hidden { display: none; }
+  .er-tile-grid.expanded .er-tile.er-hidden { display: flex; }
+  .er-tile-grid.expanded .er-overflow { display: none; }
   .er-empty {
     font-size: 9px; color: #5a5a6a;
     text-align: center;
@@ -1476,8 +1479,9 @@ const renderEarningsCalendar = async () => {
       body = `<div class="er-empty">— no earnings —</div>`;
     } else {
       const visible = list.slice(0, TILE_LIMIT);
-      const extra = list.length - visible.length;
-      body = `<div class="er-tile-grid">${visible.map(renderTile).join("")}${extra > 0 ? `<div class="er-overflow">+${extra} more</div>` : ""}</div>`;
+      const hidden = list.slice(TILE_LIMIT);
+      const hiddenHtml = hidden.map((s) => renderTile(s).replace('class="er-tile', 'class="er-tile er-hidden')).join("");
+      body = `<div class="er-tile-grid">${visible.map(renderTile).join("")}${hidden.length > 0 ? `${hiddenHtml}<div class="er-overflow" data-count="${hidden.length}">+${hidden.length} more</div>` : ""}</div>`;
     }
     calendarHtml += `
       <div class="er-day-col">
@@ -1496,13 +1500,21 @@ const renderEarningsCalendar = async () => {
     }
   }
 
-  // Wire tile clicks
+  // Wire tile clicks (including hidden tiles that become visible on expand)
   root.querySelectorAll(".er-tile").forEach((tile) => {
     tile.addEventListener("click", (e) => {
       e.stopPropagation();
       ER_SELECTED_TICKER = tile.dataset.ticker;
       root.querySelectorAll(".er-tile").forEach((t) => t.classList.toggle("selected", t === tile));
       renderDetailPanel(ER_SELECTED_TICKER);
+    });
+  });
+
+  // Wire "+N more" expand buttons
+  root.querySelectorAll(".er-overflow").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      btn.closest(".er-tile-grid").classList.add("expanded");
     });
   });
 
