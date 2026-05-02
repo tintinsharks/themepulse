@@ -1242,19 +1242,6 @@ const renderDetailPanel = async (ticker) => {
   const next = fmp?.next || null;
   const fvQuarters = (finviz?.quarters || []).slice(0, 8);
 
-  // Pre-earnings setup card (always shown)
-  const move = pipeEr.avg_er_move != null ? `±${pipeEr.avg_er_move.toFixed(1)}%` : "—";
-  const grade = pipeEr.qmag_grade || "—";
-  const setup = `
-    <div class="er-result-block">
-      <div class="er-block-title">Pre-Earnings Setup</div>
-      <div class="row"><span class="label">Move</span><span class="val">Avg implied/realized</span><span class="delta" style="color:#fbbf24">${move}</span></div>
-      <div class="row"><span class="label">Grade</span><span class="val">QM Composite</span><span class="delta">${grade}</span></div>
-      <div class="row"><span class="label">Date</span><span class="val">${pipeEr.earnings_display || (next?.date || "—")}</span><span class="delta" style="color:#9090a0">${pipeEr.er_timing || (next?.timing || "")}</span></div>
-      ${next?.eps_estimate != null ? `<div class="row"><span class="label">EPS*</span><span class="val">Consensus estimate</span><span class="delta" style="color:#fbbf24">${fmtEps(next.eps_estimate)}</span></div>` : ""}
-      ${next?.revenue_estimate != null ? `<div class="row"><span class="label">REV</span><span class="val">Consensus estimate</span><span class="delta" style="color:#fbbf24">${fmtMoney(next.revenue_estimate)}</span></div>` : ""}
-    </div>
-  `;
 
   // Finviz quarter history — bar-chart visualization matching App.jsx MiniQBars.
   // 4 metrics shown as 2x2 grid: Net Margin, OCF/sh, EPS, Revenue.
@@ -1362,7 +1349,7 @@ const renderDetailPanel = async (ticker) => {
     }
   }
 
-  body.innerHTML = setup + historyBlock;
+  body.innerHTML = historyBlock;
 };
 
 const renderEarningsCalendar = async () => {
