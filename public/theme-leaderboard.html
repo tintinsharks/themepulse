@@ -1296,6 +1296,7 @@ const renderDailyChart = (ohlc) => {
   const sma50 = calcSMA(fullC, 50).slice(-120);
   const ema200 = calcEMA(fullC, 200).slice(-120);
   const volMA = calcSMA(fullV, 50).slice(-120);
+  const volMA20 = calcSMA(fullV, 20).slice(-120);
 
   const maPath = (vals, color, width, dash) => {
     const pts = [];
@@ -1429,6 +1430,11 @@ const renderDailyChart = (ohlc) => {
       }
     }
     // VCP tight: yellow "T" on bar
+    // Volume dry-up: vol < 0.5x 20-day avg — teal dot above bar
+    const vAvg20 = volMA20[i] || 0;
+    if (vAvg20 > 0 && vol < vAvg20 * 0.5 && vol > 0) {
+      volSvg += `<circle cx="${x + bw / 2}" cy="${vy - 3}" r="1.5" fill="#2dd4bf" opacity="0.9"/>`;
+    }
     const vScore = vcpScores[i];
     if (vScore != null && vScore <= 10) {
       const tx = x + bw / 2;
@@ -1461,6 +1467,7 @@ const renderDailyChart = (ohlc) => {
         <span><i style="background:repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px);border:1px solid #fbbf2480"></i>+4% BO</span>
         <span><i style="background:repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px);border:1px solid #f8717180"></i>−4% BD</span>
         <span><i style="background:#1a1a24;color:#fbbf24;font-size:7px;font-weight:900;text-align:center;line-height:8px;font-family:monospace">T</i>Tight</span>
+        <span><i style="background:radial-gradient(circle,#2dd4bf 3px,transparent 3px);"></i>Dry-Up</span>
       </div>
     </div>
   `;
