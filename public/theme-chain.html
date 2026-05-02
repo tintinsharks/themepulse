@@ -819,14 +819,19 @@ const updateLayerAggs = () => {
       if (chgMed >= 1.5 && breadth >= 60) ref.layerEl.classList.add("firing");
       else if (chgMed <= -1.5 && breadth <= 40) ref.layerEl.classList.add("cooling");
     }
-    // Re-order tiles within this row by chg% desc (highest left → lowest right)
+    // Re-order tiles within this row by composite strength score:
+    //   chg% × RVol × (CR%/100)
+    // Magnitude × conviction × intraday close-strength.
     if (ref.tiles && ref.container && dataCount > 0) {
+      const score = (q) => {
+        if (!q) return -Infinity;
+        const c = q.chg ?? 0;
+        const r = q.rvol ?? 1;
+        const cr = q.cr ?? 50;
+        return c * r * (cr / 100);
+      };
       const sorted = [...ref.tiles].sort((a, b) => {
-        const ca = LIVE_QUOTES[a.ticker]?.chg;
-        const cb = LIVE_QUOTES[b.ticker]?.chg;
-        const av = (ca == null || isNaN(ca)) ? -Infinity : ca;
-        const bv = (cb == null || isNaN(cb)) ? -Infinity : cb;
-        return bv - av;
+        return score(LIVE_QUOTES[b.ticker]) - score(LIVE_QUOTES[a.ticker]);
       });
       sorted.forEach(({ tile }) => ref.container.appendChild(tile));
     }
@@ -859,7 +864,10 @@ const updateLive = async () => {
       const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
         ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
       const rv = fmtRvol(rvol);
-      LIVE_QUOTES[tk] = { chg: q.change, rvol };
+      const cr = (q.price != null && q.dayHigh != null && q.dayLow != null && q.dayHigh > q.dayLow)
+        ? Math.max(0, Math.min(100, ((q.price - q.dayLow) / (q.dayHigh - q.dayLow)) * 100))
+        : null;
+      LIVE_QUOTES[tk] = { chg: q.change, rvol, cr };
       tiles.forEach((live) => {
         live.innerHTML =
           `<span class="chg ${chg.cls}">${chg.txt}</span>` +

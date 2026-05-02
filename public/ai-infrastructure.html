@@ -689,14 +689,21 @@ const updateLayerAggs = () => {
       if (chgMed >= 1.5 && breadth >= 60) ref.layerEl.classList.add("firing");
       else if (chgMed <= -1.5 && breadth <= 40) ref.layerEl.classList.add("cooling");
     }
-    // Re-order the tiles within this row by chg% desc (highest left → lowest right)
+    // Re-order tiles within this row by composite strength score:
+    //   chg% × RVol × (CR%/100)
+    // Captures magnitude (chg) + conviction (RVol) + intraday close strength (CR).
+    // A name up 5% on 3x RVol closing at 95% of range scores 14.3 (strong leader)
+    // vs the same +5% on 0.8x RVol at 30% of range = 1.2 (weak melt-up).
     if (ref.tiles && ref.container && dataCount > 0) {
+      const score = (q) => {
+        if (!q) return -Infinity;
+        const c = q.chg ?? 0;
+        const r = q.rvol ?? 1;
+        const cr = q.cr ?? 50;       // neutral if unknown
+        return c * r * (cr / 100);
+      };
       const sorted = [...ref.tiles].sort((a, b) => {
-        const ca = LIVE_QUOTES[a.ticker]?.chg;
-        const cb = LIVE_QUOTES[b.ticker]?.chg;
-        const av = (ca == null || isNaN(ca)) ? -Infinity : ca;
-        const bv = (cb == null || isNaN(cb)) ? -Infinity : cb;
-        return bv - av;
+        return score(LIVE_QUOTES[b.ticker]) - score(LIVE_QUOTES[a.ticker]);
       });
       sorted.forEach(({ tile }) => ref.container.appendChild(tile));
     }
@@ -730,8 +737,13 @@ const updateLive = async () => {
       const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
         ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
       const rv = fmtRvol(rvol);
+      // Closing range %: where in today's high-low range the price sits.
+      // 100 = closing at high (strong), 0 = closing at low (weak).
+      const cr = (q.price != null && q.dayHigh != null && q.dayLow != null && q.dayHigh > q.dayLow)
+        ? Math.max(0, Math.min(100, ((q.price - q.dayLow) / (q.dayHigh - q.dayLow)) * 100))
+        : null;
       // Cache the resolved values for layer-aggregate computation
-      LIVE_QUOTES[tk] = { chg: q.change, rvol };
+      LIVE_QUOTES[tk] = { chg: q.change, rvol, cr };
       tiles.forEach((live) => {
         live.innerHTML =
           `<span class="chg ${chg.cls}">${chg.txt}</span>` +
