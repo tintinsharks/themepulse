@@ -583,13 +583,9 @@ const setStatus = (state, text) => {
 };
 
 const updateLive = async () => {
-  if (!isMarketHours()) {
-    setStatus("off", "live data paused (off-hours)");
-    return;
-  }
-  setStatus("warm", "fetching…");
+  const market = isMarketHours();
+  setStatus("warm", market ? "fetching live…" : "loading last close…");
   try {
-    // Chunk if needed — single 80-ticker request is well within FMP limits
     const url = `/api/live?universe=${ALL_TICKERS.join(",")}&t=${Date.now()}`;
     const r = await fetch(url);
     if (!r.ok) throw new Error(`live ${r.status}`);
@@ -613,20 +609,26 @@ const updateLive = async () => {
       updated += 1;
     });
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setStatus("live", `LIVE · ${updated}/${ALL_TICKERS.length} tickers · ${ts}`);
+    if (market) {
+      setStatus("live", `LIVE · ${updated}/${ALL_TICKERS.length} tickers · ${ts}`);
+    } else {
+      setStatus("off", `MARKET CLOSED · last close · ${updated}/${ALL_TICKERS.length} tickers`);
+    }
   } catch (e) {
     setStatus("warm", `error · ${(e && e.message) || "fetch failed"}`);
   }
 };
 
-// Self-rescheduling loop so the cadence dynamically adjusts when the
-// market opens/closes mid-session.
+// Self-rescheduling loop:
+//   · Market hours → poll every 30s
+//   · Off-hours    → fetch once on load, then STOP (close prices/RVol
+//                    from the latest session don't change)
 const scheduleNext = () => {
-  const delay = isMarketHours() ? 30_000 : 5 * 60_000;
+  if (!isMarketHours()) return;            // off-hours = single shot, no loop
   setTimeout(async () => {
     await updateLive();
     scheduleNext();
-  }, delay);
+  }, 30_000);
 };
 updateLive().then(scheduleNext);
 
