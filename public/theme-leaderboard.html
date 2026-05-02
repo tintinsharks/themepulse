@@ -991,6 +991,28 @@ SUBTHEMES.forEach((sub) => {
 // Week navigation state — offset of weeks from current trading week
 let ER_WEEK_OFFSET = 0;
 let ER_SELECTED_TICKER = null;
+let ER_SCOPE = "drawer";   // "drawer" (only drawer-universe) | "all" (everything reporting that week)
+// Cache of FMP-sourced week-level events keyed by "from_to" string
+const ER_WEEK_CACHE = {};
+const fetchErWeek = async (from, to) => {
+  const key = `${from}_${to}`;
+  if (ER_WEEK_CACHE[key]) return ER_WEEK_CACHE[key];
+  try {
+    const r = await fetch(`/api/earnings-week?from=${from}&to=${to}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    ER_WEEK_CACHE[key] = d;
+    return d;
+  } catch {
+    return null;
+  }
+};
+const isoDate = (d) => {
+  const yr = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dy = String(d.getUTCDate()).padStart(2, "0");
+  return `${yr}-${mo}-${dy}`;
+};
 
 const startOfTradingWeek = (offset = 0) => {
   // Returns Monday 00:00 UTC of the trading week containing today + offset*7 days.
@@ -1125,45 +1147,115 @@ const renderDetailPanel = async (ticker) => {
   body.innerHTML = setup + historyBlock;
 };
 
-const renderEarningsCalendar = () => {
+const renderEarningsCalendar = async () => {
   const root = document.getElementById("earnings-calendar");
   if (!root) return;
 
-  // Build the calendar shell
   const monday = startOfTradingWeek(ER_WEEK_OFFSET);
+  const friday = new Date(monday.getTime() + 4 * 86400000);
+  const sunday = new Date(monday.getTime() + 6 * 86400000);
   const todayMidnight = new Date();
   todayMidnight.setUTCHours(0, 0, 0, 0);
 
-  // Bucket tickers by day-of-week + BMO/AMC
-  const grid = [0, 1, 2, 3, 4].map(() => ({ bmo: [], amc: [] }));
-  const overflow = [];
-  Object.keys(TICKER_THEMES).forEach((tk) => {
-    const er = PIPELINE_ER[tk];
-    if (!er || er.earnings_days == null || isNaN(er.earnings_days)) return;
-    // Compute the date for this ER
-    const erDate = new Date(todayMidnight);
-    erDate.setUTCDate(erDate.getUTCDate() + er.earnings_days);
-    erDate.setUTCHours(0, 0, 0, 0);
-    const dayOffset = Math.floor((erDate - monday) / 86400000);
-    if (dayOffset < 0 || dayOffset > 4) {
-      overflow.push({ ticker: tk, ...er, dayOffset });
-      return;
-    }
-    const bucket = (er.er_timing || "").toUpperCase() === "BMO" ? "bmo" : "amc";
-    grid[dayOffset][bucket].push({
-      ticker: tk,
-      ...er,
-      themes: Array.from(TICKER_THEMES[tk] || []),
+  const fromIso = isoDate(monday);
+  const toIso = isoDate(sunday);
+  const weekLabel = `Week of ${formatDayHeader(monday)} → ${formatDayHeader(friday)}`;
+
+  // Show loading shell first
+  root.innerHTML = `
+    <div class="er-shell">
+      <div class="er-nav">
+        <button id="er-prev">← Prev Week</button>
+        <button id="er-today">Today</button>
+        <button id="er-next">Next Week →</button>
+        <span class="er-toggle controls" style="margin-left:8px;">
+          <button data-scope="drawer" class="${ER_SCOPE === "drawer" ? "active" : ""}">📦 Drawer Only</button>
+          <button data-scope="all" class="${ER_SCOPE === "all" ? "active" : ""}">🌐 All Universe</button>
+        </span>
+        <span class="week-label">${weekLabel}</span>
+      </div>
+      <div><div class="er-week-grid"><div class="er-empty" style="grid-column:1/-1; padding:32px;">Loading earnings calendar from FMP…</div></div></div>
+      <div id="er-detail" class="er-detail empty"><div>📅 Click a ticker on the left<br>to see earnings detail</div></div>
+    </div>
+  `;
+
+  // Wire navigation BEFORE the await so user can click while loading
+  document.getElementById("er-prev").addEventListener("click", () => { ER_WEEK_OFFSET--; renderEarningsCalendar(); });
+  document.getElementById("er-next").addEventListener("click", () => { ER_WEEK_OFFSET++; renderEarningsCalendar(); });
+  document.getElementById("er-today").addEventListener("click", () => { ER_WEEK_OFFSET = 0; renderEarningsCalendar(); });
+  root.querySelectorAll(".er-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      ER_SCOPE = btn.dataset.scope;
+      renderEarningsCalendar();
     });
   });
 
-  const weekLabel = `Week of ${formatDayHeader(monday)} → ${formatDayHeader(new Date(monday.getTime() + 4 * 86400000))}`;
-  const TILE_LIMIT = 9;     // 3x3 visible per section, more shown as +N
+  // Fetch FMP-sourced authoritative calendar for the week
+  const wk = await fetchErWeek(fromIso, toIso);
+  const events = (wk && Array.isArray(wk.events)) ? wk.events : [];
+
+  // If FMP fetch failed, fall back to pipeline data so we don't render empty
+  let usingFallback = false;
+  let placedEvents = events;
+  if (!events.length) {
+    usingFallback = true;
+    // Reconstruct events from PIPELINE_ER for tickers in scope
+    const universeTickers = ER_SCOPE === "drawer"
+      ? Object.keys(TICKER_THEMES)
+      : Object.keys(PIPELINE_ER);
+    placedEvents = universeTickers.map((tk) => {
+      const er = PIPELINE_ER[tk];
+      if (!er || er.earnings_days == null) return null;
+      const erDate = new Date(todayMidnight);
+      erDate.setUTCDate(erDate.getUTCDate() + er.earnings_days);
+      const isoForDate = isoDate(erDate);
+      return {
+        ticker: tk,
+        date: isoForDate,
+        timing: (er.er_timing || "").toLowerCase(),
+        eps_estimate: null,
+        revenue_estimate: null,
+      };
+    }).filter(Boolean);
+  }
+
+  // Apply scope filter
+  const scopedEvents = ER_SCOPE === "drawer"
+    ? placedEvents.filter((e) => TICKER_THEMES[e.ticker])
+    : placedEvents;
+
+  // Bucket by day-of-week + BMO/AMC
+  const grid = [0, 1, 2, 3, 4].map(() => ({ bmo: [], amc: [] }));
+  scopedEvents.forEach((e) => {
+    const erDate = new Date(`${e.date}T00:00:00Z`);
+    const dayOffset = Math.floor((erDate - monday) / 86400000);
+    if (dayOffset < 0 || dayOffset > 4) return;
+    // FMP uses lowercase "bmo"/"amc"; default to amc when ambiguous
+    const bucket = e.timing === "bmo" ? "bmo" : "amc";
+    grid[dayOffset][bucket].push({
+      ...e,
+      themes: Array.from(TICKER_THEMES[e.ticker] || []),
+    });
+  });
+
+  // Sort each cell alphabetically (or by drawer presence first)
+  for (let i = 0; i < 5; i++) {
+    for (const slot of ["bmo", "amc"]) {
+      grid[i][slot].sort((a, b) => {
+        const ad = TICKER_THEMES[a.ticker] ? 0 : 1;
+        const bd = TICKER_THEMES[b.ticker] ? 0 : 1;
+        if (ad !== bd) return ad - bd;     // drawer tickers first
+        return a.ticker.localeCompare(b.ticker);
+      });
+    }
+  }
+
+  const TILE_LIMIT = 9;
   let calendarHtml = "";
   for (let i = 0; i < 5; i++) {
     const day = new Date(monday); day.setUTCDate(monday.getUTCDate() + i);
     const isToday = day.getTime() === todayMidnight.getTime();
-    const renderSection = (cls, label, list) => {
+    const renderSection = (cls, list) => {
       if (!list.length) return `<div class="er-section ${cls}"><div class="er-section-header">${cls === "bmo" ? "☀ Before Open" : "🌙 After Close"}</div><div class="er-empty">— no earnings —</div></div>`;
       const visible = list.slice(0, TILE_LIMIT);
       const extra = list.length - visible.length;
@@ -1172,44 +1264,31 @@ const renderEarningsCalendar = () => {
     calendarHtml += `
       <div class="er-day-col">
         <div class="er-day-header ${isToday ? "today" : ""}">${formatDayHeader(day)}</div>
-        ${renderSection("bmo", "Before Open", grid[i].bmo)}
-        ${renderSection("amc", "After Close", grid[i].amc)}
+        ${renderSection("bmo", grid[i].bmo)}
+        ${renderSection("amc", grid[i].amc)}
       </div>
     `;
   }
 
-  root.innerHTML = `
-    <div class="er-shell">
-      <div class="er-nav">
-        <button id="er-prev">← Prev Week</button>
-        <button id="er-today">Today</button>
-        <button id="er-next">Next Week →</button>
-        <span class="week-label">${weekLabel}</span>
-      </div>
-      <div>
-        <div class="er-week-grid">${calendarHtml}</div>
-      </div>
-      <div id="er-detail" class="er-detail empty"><div>📅 Click a ticker on the left<br>to see earnings detail</div></div>
-    </div>
-  `;
+  // Re-render with calendar grid (preserve nav buttons)
+  root.querySelector(".er-week-grid").outerHTML = `<div class="er-week-grid">${calendarHtml}</div>`;
+  if (usingFallback) {
+    const grid2 = root.querySelector(".er-week-grid");
+    if (grid2) {
+      grid2.insertAdjacentHTML("beforebegin", `<div style="font-size:9px; color:#fbbf24; padding:4px 0;">⚠ Using pipeline data (FMP earnings-calendar unavailable). Timing may be stale.</div>`);
+    }
+  }
 
-  // Wire navigation
-  document.getElementById("er-prev").addEventListener("click", () => { ER_WEEK_OFFSET--; renderEarningsCalendar(); });
-  document.getElementById("er-next").addEventListener("click", () => { ER_WEEK_OFFSET++; renderEarningsCalendar(); });
-  document.getElementById("er-today").addEventListener("click", () => { ER_WEEK_OFFSET = 0; renderEarningsCalendar(); });
-
-  // Wire tile clicks → populate detail panel
+  // Wire tile clicks
   root.querySelectorAll(".er-tile").forEach((tile) => {
     tile.addEventListener("click", (e) => {
       e.stopPropagation();
       ER_SELECTED_TICKER = tile.dataset.ticker;
-      // Highlight selected tile
       root.querySelectorAll(".er-tile").forEach((t) => t.classList.toggle("selected", t === tile));
       renderDetailPanel(ER_SELECTED_TICKER);
     });
   });
 
-  // Restore selected state if user navigated weeks
   if (ER_SELECTED_TICKER) renderDetailPanel(ER_SELECTED_TICKER);
 };
 
