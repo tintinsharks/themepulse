@@ -169,7 +169,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const data = { ticker, next, history, _debug_histCal: Array.isArray(histCal) ? histCal.slice(0, 3) : histCal, _debug_reportDateMap: reportDateMap };
+  const data = { ticker, next, history, _debug_calendar: Array.isArray(calendar) ? calendar.slice(0, 5) : calendar, _debug_calFields: Array.isArray(calendar) && calendar[0] ? Object.keys(calendar[0]) : [], _debug_calLen: Array.isArray(calendar) ? calendar.length : 0 };
   _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
   return res.status(200).json(data);
 }
