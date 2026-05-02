@@ -7346,10 +7346,10 @@ function AIInfraDrawer() {
   const active = VALUE_CHAIN_THEMES.find((t) => t.id === openId);
   return (
     <>
-      {/* Stacked right-edge handles — one per theme */}
+      {/* Stacked left-edge handles — one per theme */}
       <div style={{
         position: "fixed",
-        right: 0,
+        left: 0,
         top: "50%",
         transform: "translateY(-50%)",
         zIndex: 998,
@@ -7370,7 +7370,7 @@ function AIInfraDrawer() {
               background: t.gradient,
               color: "#0a0a14",
               border: "none",
-              borderRadius: "6px 0 0 6px",
+              borderRadius: "0 6px 6px 0",
               cursor: "pointer",
               fontFamily: "monospace",
               fontSize: 8,
@@ -7378,7 +7378,7 @@ function AIInfraDrawer() {
               letterSpacing: 1.5,
               writingMode: "vertical-rl",
               textOrientation: "mixed",
-              boxShadow: "-2px 4px 12px rgba(0,0,0,0.4)",
+              boxShadow: "2px 4px 12px rgba(0,0,0,0.4)",
               opacity: 0.92,
               minHeight: 90,
             }}
@@ -7402,12 +7402,12 @@ function AIInfraDrawer() {
       <div
         style={{
           position: "fixed",
-          top: 0, right: 0, bottom: 0,
+          top: 0, left: 0, bottom: 0,
           width: "min(1320px, 92vw)",
           zIndex: 1000,
           background: "#0a0a14",
-          boxShadow: "-12px 0 40px rgba(0,0,0,0.6)",
-          transform: open ? "translateX(0)" : "translateX(100%)",
+          boxShadow: "12px 0 40px rgba(0,0,0,0.6)",
+          transform: open ? "translateX(0)" : "translateX(-100%)",
           transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           display: "flex",
           flexDirection: "column",
