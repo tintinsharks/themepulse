@@ -380,6 +380,15 @@
   }
   .er-daily-chart .er-block-title { margin-bottom: 6px; }
   .er-chart-svg { width: 100%; display: block; }
+  .er-vol-legend {
+    display: flex; gap: 10px; justify-content: flex-end;
+    padding: 3px 4px 0; font-size: 8px; color: #7a7a8a;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-vol-legend i {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    vertical-align: middle; margin-right: 3px;
+  }
   .er-qbars-row {
     display: flex; gap: 4px;
     align-items: stretch;
@@ -1360,6 +1369,13 @@ const renderDailyChart = (ohlc) => {
         ${volSvg}
         ${volMaPath()}
       </svg>
+      <div class="er-vol-legend">
+        <span><i style="background:#2563eb"></i>PP 10d</span>
+        <span><i style="background:#0d9488"></i>PP 5d</span>
+        <span><i style="background:#ffffffcc"></i>Up</span>
+        <span><i style="background:#6b7280"></i>Down</span>
+        <span><i style="background:#fbbf24"></i>Vol MA</span>
+      </div>
     </div>
   `;
 };
