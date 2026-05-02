@@ -1502,8 +1502,10 @@ export default async function handler(req, res) {
       // ── Backfill avgVolume from /stable/profile ──
       // batch-quote never returns avgVolume. Fetch from profile for entries
       // missing it (watchlist + universe). Cached 24h so 30s polls don't
-      // re-fetch. Capped at 20 profile calls per request to stay within
-      // FMP rate limits — the cache fills over a few poll cycles.
+      // re-fetch. Capped at 100 profile calls per request — well under FMP's
+      // 700/min limit, lets the value-chain drawers (~80 tickers each) fully
+      // populate avgVolume on the first poll instead of trickling over
+      // multiple cycles.
       const allEntries = [...watchlist, ...fmpResult.universe];
       const needAvgVol = allEntries.filter(e => {
         if (e.avgVolume != null) return false;
@@ -1513,7 +1515,7 @@ export default async function handler(req, res) {
           return false;
         }
         return true;
-      }).slice(0, 20);
+      }).slice(0, 100);
       if (needAvgVol.length > 0) {
         await Promise.allSettled(
           needAvgVol.map(async (e) => {
