@@ -561,6 +561,23 @@ const TILE_REFS = {};   // ticker → array of <div class="live"> nodes
 const LAYER_REFS = {};
 // Latest live quote map (ticker → quote) so layer aggs + sort can recompute.
 const LIVE_QUOTES = {};
+// Pipeline-computed avg volume per ticker (loaded once from dashboard_data.json).
+// Used as primary fallback when /api/live's avgVolume is null — same approach
+// the scan watch table uses, which is why it has RVol for every ticker.
+const PIPELINE_AVGVOL = {};
+const loadPipelineAvgVol = async () => {
+  try {
+    const r = await fetch("/dashboard_data.json", { cache: "force-cache" });
+    if (!r.ok) return;
+    const d = await r.json();
+    const stocks = d.stocks || d.universe || [];
+    stocks.forEach((s) => {
+      if (s.ticker && s.avg_volume_raw && s.avg_volume_raw > 0) {
+        PIPELINE_AVGVOL[s.ticker.toUpperCase()] = s.avg_volume_raw;
+      }
+    });
+  } catch (e) { /* ignore */ }
+};
 
 const render = () => {
   for (const [rowKey, items] of Object.entries(ROWS)) {
@@ -768,8 +785,12 @@ const updateLive = async () => {
       const tiles = TILE_REFS[tk];
       if (!tiles || !tiles.length) return;
       const chg = fmtChg(q.change);
-      const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
-        ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
+      // Prefer pipeline-computed avg volume (always populated for every
+      // ticker in the universe) over /api/live's avgVolume (which can be
+      // null on cold Lambda or for some FMP-uncovered tickers).
+      const avgV = PIPELINE_AVGVOL[tk] || q.avgVolume;
+      const rvol = (q.volume && avgV && avgV > 0)
+        ? Math.round((q.volume / avgV) * 10) / 10 : null;
       const rv = fmtRvol(rvol);
       // Closing range %: where in today's high-low range the price sits.
       // 100 = closing at high (strong), 0 = closing at low (weak).
@@ -810,7 +831,9 @@ const scheduleNext = () => {
     scheduleNext();
   }, 30_000);
 };
-updateLive().then(scheduleNext);
+// Load pipeline avg-volume map first so the very first poll computes RVol
+// for every ticker (no waiting for cache warm-up).
+loadPipelineAvgVol().then(updateLive).then(scheduleNext);
 
 </script>
 

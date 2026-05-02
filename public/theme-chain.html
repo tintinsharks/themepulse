@@ -711,6 +711,22 @@ document.getElementById("tagline").textContent = theme.tagline;
 const TILE_REFS = {};
 const LAYER_REFS = [];   // [{ aggsEl, layerEl, container, tiles[{tile,ticker}], tickers }]
 const LIVE_QUOTES = {};
+// Pipeline-computed avg volume per ticker (from dashboard_data.json) —
+// primary source for RVol so every ticker has it (matches scan watch).
+const PIPELINE_AVGVOL = {};
+const loadPipelineAvgVol = async () => {
+  try {
+    const r = await fetch("/dashboard_data.json", { cache: "force-cache" });
+    if (!r.ok) return;
+    const d = await r.json();
+    const stocks = d.stocks || d.universe || [];
+    stocks.forEach((s) => {
+      if (s.ticker && s.avg_volume_raw && s.avg_volume_raw > 0) {
+        PIPELINE_AVGVOL[s.ticker.toUpperCase()] = s.avg_volume_raw;
+      }
+    });
+  } catch (e) { /* ignore */ }
+};
 
 const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
 
@@ -893,8 +909,10 @@ const updateLive = async () => {
       const tiles = TILE_REFS[tk];
       if (!tiles || !tiles.length) return;
       const chg = fmtChg(q.change);
-      const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
-        ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
+      // Prefer pipeline-computed avgVolume over /api/live's
+      const avgV = PIPELINE_AVGVOL[tk] || q.avgVolume;
+      const rvol = (q.volume && avgV && avgV > 0)
+        ? Math.round((q.volume / avgV) * 10) / 10 : null;
       const rv = fmtRvol(rvol);
       const cr = (q.price != null && q.dayHigh != null && q.dayLow != null && q.dayHigh > q.dayLow)
         ? Math.max(0, Math.min(100, ((q.price - q.dayLow) / (q.dayHigh - q.dayLow)) * 100))
@@ -923,7 +941,7 @@ const scheduleNext = () => {
   if (!isMarketHours()) return;
   setTimeout(async () => { await updateLive(); scheduleNext(); }, 30_000);
 };
-updateLive().then(scheduleNext);
+loadPipelineAvgVol().then(updateLive).then(scheduleNext);
 </script>
 
 </body>
