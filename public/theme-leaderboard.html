@@ -1247,9 +1247,15 @@ const renderDetailPanel = async (ticker) => {
   // 4 metrics shown as 2x2 grid: Net Margin, OCF/sh, EPS, Revenue.
   let historyBlock = "";
   if (fvQuarters.length > 0) {
-    // Order chronologically (oldest left → newest right) — Finviz returns
-    // newest-first, so reverse.
-    const series = [...fvQuarters].reverse();
+    // Order chronologically (oldest left → newest right).
+    // Finviz scraper returns newest-first → reverse. FMP fallback returns
+    // oldest-first already → keep as-is. Mirror App.jsx's orient() logic.
+    const _first = fvQuarters[0], _last = fvQuarters[fvQuarters.length - 1];
+    const _newestFirst = _first && _last && (
+      _first.year > _last.year ||
+      (_first.year === _last.year && parseInt((_first.period || "Q0").slice(1)) > parseInt((_last.period || "Q0").slice(1)))
+    );
+    const series = _newestFirst ? [...fvQuarters].reverse() : [...fvQuarters];
     const renderQBars = (label, accessor, yoyAccessor, color, fmt) => {
       const values = series.map(accessor).filter((v) => v != null && Number.isFinite(v));
       if (!values.length) return "";
