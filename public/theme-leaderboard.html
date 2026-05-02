@@ -1339,8 +1339,9 @@ const renderDailyChart = (ohlc) => {
       for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
         if (allBars[j].close < allBars[j].open) downVols.push(allBars[j].volume || 0);
       }
-      const chgPct = b.open > 0 ? (b.close - b.open) / b.open * 100 : 0;
-      const volSma = volMA[i];
+      const prevClose = gi > 0 ? allBars[gi - 1].close : b.open;
+      const chgPct = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
+      const volSma = volMA[i] || 0;
       const rVol = volSma > 0 ? vol / volSma : 0;
       if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
         vColor = "#2563eb";
