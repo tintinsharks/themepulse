@@ -52,7 +52,8 @@
       "stance": "bull",
       "affected_layers": [
         { "theme_id": "ai", "layer_name": "Photonics" },
-        { "theme_id": "ai", "layer_name": "AI Connectivity" }
+        { "theme_id": "ai", "layer_name": "AI Connectivity" },
+        { "theme_id": "ai", "layer_name": "Networking + Components" }
       ],
       "tickers": ["LITE", "AAOI", "COHR", "FN", "AEHR", "ONTO", "CAMT", "CRDO", "MTSI", "POET", "TSEM", "LWLG"],
       "mentions": [

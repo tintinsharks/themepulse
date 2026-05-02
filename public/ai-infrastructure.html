@@ -313,6 +313,7 @@
   .layer.l-silicon    { --layer-bg: linear-gradient(135deg, #14401e 0%, #0d2a18 100%); --layer-border: #2a8a4f; --layer-icon-bg: #1c4f2c; --layer-icon-border: #3eb56e; --layer-fg: #6dde8e; }
   .layer.l-memory     { --layer-bg: linear-gradient(135deg, #3a2a08 0%, #2a1f08 100%); --layer-border: #a07a1f; --layer-icon-bg: #4a3812; --layer-icon-border: #d4a23a; --layer-fg: #fbbf24; }
   .layer.l-connect    { --layer-bg: linear-gradient(135deg, #3a1230 0%, #2a0a1f 100%); --layer-border: #c83a8e; --layer-icon-bg: #4a1838; --layer-icon-border: #ec4899; --layer-fg: #ec4899; }
+  .layer.l-network    { --layer-bg: linear-gradient(135deg, #3a1838 0%, #2a0d28 100%); --layer-border: #b04a8e; --layer-icon-bg: #4a1c3a; --layer-icon-border: #f472b6; --layer-fg: #f472b6; }
   .layer.l-photonics  { --layer-bg: linear-gradient(135deg, #0a3640 0%, #0a2630 100%); --layer-border: #1a8aa4; --layer-icon-bg: #103e4f; --layer-icon-border: #2cb5d4; --layer-fg: #22d3ee; }
   .layer.l-dccooling  { --layer-bg: linear-gradient(135deg, #0a2840 0%, #0a1d2e 100%); --layer-border: #2879b8; --layer-icon-bg: #103758; --layer-icon-border: #4aaae4; --layer-fg: #38bdf8; }
   .layer.l-power      { --layer-bg: linear-gradient(135deg, #3a1f08 0%, #2a1505 100%); --layer-border: #c45f1c; --layer-icon-bg: #4a2810; --layer-icon-border: #f97316; --layer-fg: #f97316; }
@@ -372,7 +373,7 @@
     <div class="tickers" id="row-silicon"></div>
   </div>
 
-  <!-- AI CONNECTIVITY -->
+  <!-- AI CONNECTIVITY (chip-to-chip electrical/optical) -->
   <div class="layer l-connect">
     <div class="layer-label">
       <div class="layer-icon">⇆</div>
@@ -381,14 +382,33 @@
         <div class="layer-phase">⏱ MID</div>
       </div>
       <div class="layer-tooltip">
-        <strong>Get bits between chips.</strong> Names whose role is moving bits between AI chips/clusters — agnostic to which compute vendor wins. ANET integrates the chip-level pieces into deployable switches.
+        <strong>Chip-to-chip interconnect IC bench.</strong> Pure-play silicon vendors moving bits between AI chips: ALAB (PCIe/CXL), CRDO (SerDes/AECs), MRVL (optical DSPs), AAOI/MXL (optical components).
         <span class="label bottleneck">★ bottleneck</span>
-        Every GPU/ASIC needs interconnect — captures TAM regardless of which compute vendor wins.
+        Every GPU/ASIC needs an interconnect IC — captures TAM regardless of which compute vendor wins.
         <span class="label kill">⚠ thesis killer</span>
-        CPO compresses pluggable TAM faster than expected. ALAB insulated (PCIe/CXL is electrical-only and CPO-orthogonal).
+        CPO compresses pluggable TAM faster than expected. ALAB insulated (PCIe/CXL is electrical-only, CPO-orthogonal).
       </div>
     </div>
     <div class="tickers" id="row-connect"></div>
+  </div>
+
+  <!-- NETWORKING (box-to-box, switches, ODMs, connectors) -->
+  <div class="layer l-network">
+    <div class="layer-label">
+      <div class="layer-icon">🔌</div>
+      <div>
+        <div class="layer-name">Networking<br>+ Components</div>
+        <div class="layer-phase">⏱ MID</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Box-level networking + physical supply chain.</strong> Switches (ANET, CSCO), coherent line systems (CIEN), ODMs/contract manufacturers (CLS, JBL), high-density connectors + passives (APH, TEL). The physical chassis around the interconnect ICs.
+        <span class="label bottleneck">★ bottleneck</span>
+        APH/TEL high-density backplane connectors have multi-quarter lead times. CLS/JBL ODM capacity is hyperscaler-allocated.
+        <span class="label kill">⚠ thesis killer</span>
+        Hyperscalers in-house networking builds (cuts ANET/CSCO share) OR connector commoditization compresses APH/TEL margins.
+      </div>
+    </div>
+    <div class="tickers" id="row-network"></div>
   </div>
 
   <!-- MEMORY & STORAGE -->
@@ -522,9 +542,12 @@ const ROWS = {
     ['MRVL','strong'], ['ARM','watch'], ['ALAB','strong'], ['TSM','strong']
   ],
   connect: [
-    ['ANET','strong'], ['ALAB','strong'], ['CRDO','strong'], ['MRVL','strong'],
-    ['CSCO','watch'], ['AAOI','watch'], ['CIEN','watch'], ['MXL','watch'],
-    ['JBL','watch']
+    ['ALAB','strong'], ['CRDO','strong'], ['MRVL','strong'],
+    ['AAOI','watch'], ['MXL','watch'], ['AVGO','strong']
+  ],
+  network: [
+    ['ANET','strong'], ['CSCO','watch'], ['CIEN','watch'],
+    ['APH','strong'], ['TEL','watch'], ['CLS','strong'], ['JBL','watch']
   ],
   memory: [
     ['MU','strong'], ['SNDK','strong'], ['FORM','watch'], ['AMKR','watch'],
@@ -611,6 +634,7 @@ const heatFor = (narrative) => {
 const layerNameFromKey = {
   silicon: "Compute Silicon",
   connect: "AI Connectivity",
+  network: "Networking + Components",
   memory: "Memory + Storage",
   dc: "DC + Cooling",
   photonics: "Photonics",
