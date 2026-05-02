@@ -1313,6 +1313,7 @@ const renderDailyChart = (ohlc) => {
   // Volume coloring: match main chart — pocket pivots, highest up vol, down bars
   const allBars = ohlc;
   const sliceStart = allBars.length - bars.length;
+  const avgDailyVol = bars.reduce((s, b) => s + (b.volume || 0), 0) / bars.length;
   let candleSvg = "", volSvg = "";
   bars.forEach((b, i) => {
     const gi = sliceStart + i;
@@ -1350,7 +1351,7 @@ const renderDailyChart = (ohlc) => {
     const vh = Math.max(0.5, (vol / vMax) * volH);
     const vy = volTop + volH - vh;
     volSvg += `<rect x="${x}" y="${vy}" width="${bw}" height="${vh}" fill="${vColor}" opacity="0.7" rx="0.3"/>`;
-    if (vol >= 9_000_000) {
+    if (vol >= 9_000_000 && avgDailyVol < 9_000_000) {
       for (let dy = 3; dy < vh; dy += 5) {
         volSvg += `<line x1="${x}" y1="${vy + dy}" x2="${x + bw}" y2="${vy + dy}" stroke="#fbbf24" stroke-width="0.8" opacity="0.7"/>`;
       }
