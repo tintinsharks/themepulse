@@ -822,6 +822,108 @@
         "googl-vertical-ai-stack-2026-q1"
       ],
       "source": "Speculative pattern-match thesis (SIVE corporate disclosures + Carnegie research + Apple Watch volume data + supplier triangulation)"
+    },
+    {
+      "id": "ai-infra-state-of-play-2026-05-02",
+      "date": "2026-05-02",
+      "type": "thesis_update",
+      "headline": "AI infra state of play: Energy = primary conviction · copper-to-optics = highest-conviction networking · Memory = secular not cyclical",
+      "primary_tickers": [
+        "BE", "GEV", "VRT", "IREN",
+        "LITE", "AAOI", "COHR", "FN", "AEHR",
+        "MU", "SNDK"
+      ],
+      "derivative_tickers": [
+        "VST", "CEG", "TLN", "NEE", "OKLO", "SMR", "NNE", "BWXT",
+        "ETN", "EME", "PWR", "MYRG", "PRIM",
+        "DLR", "EQIX", "MOD", "NVT", "CARR",
+        "MTSI", "POET", "TSEM", "CRDO", "MRVL", "ALAB",
+        "FORM", "AMKR", "ONTO", "CAMT", "KEYS",
+        "WDC", "STX",
+        "AVGO", "NVDA", "AMD"
+      ],
+      "themes_implicated": [
+        "Independent Power Producers (IPP)",
+        "Nuclear / SMR",
+        "Datacenter Power",
+        "Datacenter Cooling",
+        "Optical Components",
+        "Co-Packaged Optics",
+        "High-Speed Pluggable",
+        "EML Lasers",
+        "Silicon Photonics",
+        "HBM / Memory",
+        "NAND / Storage",
+        "AI Infrastructure"
+      ],
+      "subtheses": [
+        {
+          "id": "energy-primary-conviction",
+          "title": "AI Energy is the primary conviction play",
+          "argument": "Power is THE defining constraint of the AI buildout, not compute. Hyperscalers acknowledged 'power-and-compute constrained' in unison; compute side has visible relief paths (CoWoS expansion, foundry capex, custom silicon). Power side is structurally bounded by permitting + interconnect + grid construction cycles measured in YEARS not quarters. Allocations rotating beyond accelerators/networking into the energy stack.",
+          "primary_tickers": ["BE", "GEV", "VRT", "IREN"],
+          "trade_setup": [
+            "BE — on-site fuel cells bypass interconnect queue; relief-valve trade with shorter timeline than IPP/nuclear",
+            "GEV — grid equipment (transformers, switchgear) front-runs IPP capex",
+            "VRT — datacenter cooling + power conditioning; structural beneficiary of high-density AI racks",
+            "IREN — 'power-secured site' compute play (neocloud overlap with energy thesis — they own the substations)"
+          ],
+          "links_to": ["hyperscaler-power-compute-constrained-2026-q1"],
+          "extension_note": "Reframes the prior 'EARLY cycle phase' read on Power as structurally MORE important than compute — not just earlier in the cycle but a bigger pool of capital."
+        },
+        {
+          "id": "copper-to-optics-transition",
+          "title": "Copper-to-optics is the highest-conviction networking theme",
+          "argument": "At 800G+ lane rates, copper interconnect loss + retiming complexity hits a wall. Silicon photonics, EML (externally modulated laser) lasers, and co-packaged optics are the only path forward. Most investors can't name the names — that's where the alpha is. Multi-year transition because every hyperscaler design needs to qualify the new optical engines.",
+          "primary_tickers": ["LITE", "AAOI", "COHR", "FN", "AEHR"],
+          "speculative_picks": [
+            "SIVE-B.ST (Sivers Semiconductors) — Stockholm-listed silicon-photonics alpha, see sive-apple-silicon-photonics note",
+            "IQE.L (IQE plc) — London-listed dominant external epi house for compound semis; not US-tradeable but strategically critical"
+          ],
+          "us_tradeable_substitutes": [
+            "POET (silicon photonics interposer)",
+            "TSEM (silicon photonics foundry — Tower Semi)",
+            "MTSI (compound semis for CPO)"
+          ],
+          "links_to": ["photonics-supply-chain-2026-04-30", "viav-form-2026-q1", "sive-apple-silicon-photonics-2026-04-30"],
+          "extension_note": "Sharpens the prior photonics thesis: the COPPER → OPTICS transition itself is the alpha, not just the test/inspection bottleneck. EML lasers + silicon photonics are the secular shift."
+        },
+        {
+          "id": "memory-secular-not-cyclical",
+          "title": "AI Memory is no longer cyclical — it's secular",
+          "argument": "Samsung disclosed 2027 demand pre-booked. SNDK Q3 print: 78% GM, $11B in customer financial guarantees. Today's signal: supply constrained through 2028 (extending Samsung's 2027 read by another year). Demand accelerating faster than any model projected. The historical NAND/DRAM cycle (peak → reversion → trough → recovery) is broken because AI inference creates a permanent floor on demand that doesn't unwind on a price reset.",
+          "primary_tickers": ["MU", "SNDK"],
+          "derivative_winners": ["FORM", "AMKR", "ONTO", "CAMT", "KEYS", "LRCX", "AMAT"],
+          "losers_relative": ["WDC", "STX"],
+          "links_to": ["samsung-2027-prebooked-2026-q1", "sndk-q3-fy2026-2026-04-30", "amzn-memory-skyrocketed-2026-q1"],
+          "extension_note": "Updates the horizon from 'multi-year' to 'through 2028.' The structural reframing matters for valuation — secular memory deserves a tech-platform multiple, not a cyclical commodity multiple. MU/SNDK should re-rate higher when the market accepts this."
+        }
+      ],
+      "trade_setup_summary": [
+        "REWEIGHT: shift conviction from compute-side (NVDA/AVGO/etc) toward energy-side (BE/GEV/VRT/IREN). Compute has relief paths; power is structurally bounded.",
+        "ADD: photonics secular winners (LITE/AAOI/COHR/FN/AEHR) on copper→optics transition. Sub-bench: POET/TSEM/MTSI as architectural alpha.",
+        "EXTEND HOLD: memory cohort (MU/SNDK) into 2027-2028. Don't trim on cycle-peak fears — the cycle is broken.",
+        "WATCH: SIVE (foreign) for silicon photonics confirmation; signs of widespread CPO adoption in 2026 H2."
+      ],
+      "caveats": [
+        "Energy thesis kill: AI ROI miss → hyperscaler capex pulled back → power demand assumptions cut. Watch META/MSFT capex guides.",
+        "Copper-to-optics kill: CPO timeline slips by 12+ months (qualification or yield issues). AAOI most exposed if pluggable TAM compresses faster than expected.",
+        "Memory secular kill: hyperscaler concentration risk — $11B in SNDK guarantees from 3-5 customers. Bilateral risk.",
+        "All three theses share a common kill: AI infrastructure capex revision down."
+      ],
+      "linked_notes": [
+        "hyperscaler-capex-2026-q1",
+        "hyperscaler-power-compute-constrained-2026-q1",
+        "samsung-2027-prebooked-2026-q1",
+        "sndk-q3-fy2026-2026-04-30",
+        "photonics-supply-chain-2026-04-30",
+        "viav-form-2026-q1",
+        "amzn-memory-skyrocketed-2026-q1",
+        "amzn-aws-once-in-a-lifetime-2026-q1",
+        "googl-vertical-ai-stack-2026-q1",
+        "sive-apple-silicon-photonics-2026-04-30"
+      ],
+      "source": "Discord / personal note — thesis state-of-play update"
     }
   ]
 }
