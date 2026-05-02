@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "description": "Mention-velocity tracker for collated trader opinions. Each narrative groups multiple mentions by canonical narrative_key. Heat score = distinct days with ≥1 mention / 7. Badge fires at heat ≥ 0.4 (3+ days of last 7).",
+  "updated": "2026-05-02",
+  "narratives": [
+    {
+      "narrative_key": "power-bottleneck-ai",
+      "current_thesis": "Power, not compute, is the primary AI buildout constraint. Energy capex now competing with accelerators for AI allocation share.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Energy / Power" },
+        { "theme_id": "ai", "layer_name": "DC + Cooling" }
+      ],
+      "tickers": ["BE", "GEV", "VRT", "IREN", "VST", "CEG", "ETN", "OKLO", "SMR", "NNE", "BWXT"],
+      "mentions": [
+        { "received_at": "2026-04-29T18:00:00Z", "gist": "All four hyperscalers (MSFT/META/GOOGL/AMZN) said 'power and compute constrained' in unison" },
+        { "received_at": "2026-04-29T18:30:00Z", "gist": "Hyperscaler capex commitments funnel to power buildout — multi-year cycle" },
+        { "received_at": "2026-05-02T12:00:00Z", "gist": "AI Energy is becoming the primary conviction play. Power is the defining constraint of the AI buildout — not compute. Energy could dominate AI allocations above and beyond accelerators or networking. BE GEV VRT IREN" }
+      ]
+    },
+    {
+      "narrative_key": "memory-tight-2027",
+      "current_thesis": "AI memory cycle is structural through 2027-2028, not cyclical. NAND/HBM supply pre-booked with multi-year contracts, customer prepayments, financial guarantees.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Memory + Storage" }
+      ],
+      "tickers": ["MU", "SNDK", "FORM", "AMKR"],
+      "mentions": [
+        { "received_at": "2026-04-29T16:00:00Z", "gist": "AMZN Jassy: memory and storage costs have skyrocketed, with memory under the most pressure. Not enough capacity for current demand." },
+        { "received_at": "2026-04-30T14:00:00Z", "gist": "Samsung: 2027 demand already pre-booked. Supply-demand gap widens vs 2026." },
+        { "received_at": "2026-04-30T16:30:00Z", "gist": "SNDK Q3 FY26: 78% GM, $11B in customer financial guarantees, $42B contractual revenue. NAND moves from spot commodity to strategic input." },
+        { "received_at": "2026-05-02T12:05:00Z", "gist": "AI Memory is printing historic numbers. MU and SNDK not cyclical anymore. Supply constrained through 2028. Demand accelerating faster than any model projected." }
+      ]
+    },
+    {
+      "narrative_key": "copper-to-optics",
+      "current_thesis": "Copper-to-optics transition (silicon photonics, EML lasers, co-packaged optics) is the highest-conviction networking thesis. Test/inspection + assembly bottlenecks where margin sits.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Photonics" },
+        { "theme_id": "ai", "layer_name": "AI Connectivity" }
+      ],
+      "tickers": ["LITE", "AAOI", "COHR", "FN", "AEHR", "ONTO", "CAMT", "CRDO", "MTSI", "POET", "TSEM", "LWLG"],
+      "mentions": [
+        { "received_at": "2026-04-30T15:00:00Z", "gist": "Photonics supply chain analysis: bottlenecks live in TEST + ASSEMBLY, not raw materials. CPO transition shifts value to advanced packaging + fiber attach." },
+        { "received_at": "2026-04-30T15:30:00Z", "gist": "SIVE-B Apple silicon-photonics speculative thesis: 50M units/yr RFQ + 135-wavelength architecture triangulates to Apple Watch wearables." },
+        { "received_at": "2026-05-02T12:10:00Z", "gist": "The copper-to-optics transition is the highest conviction networking theme right now. Silicon photonics, EML lasers, co-packaged optics — the infrastructure layer most investors can't name is where the returns are. LITE AAOI SIVE IQE" }
+      ]
+    },
+    {
+      "narrative_key": "test-inspection-bullish",
+      "current_thesis": "Wafer test/inspection is the leading indicator + margin choke point for memory + photonics + advanced packaging ramps. Earnings prints from VIAV/FORM/SNDK validate.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Photonics" },
+        { "theme_id": "ai", "layer_name": "Semicap + Materials" }
+      ],
+      "tickers": ["VIAV", "FORM", "ONTO", "CAMT", "AEHR", "KEYS", "TER", "AMKR"],
+      "mentions": [
+        { "received_at": "2026-04-29T14:00:00Z", "gist": "VIAV + FORM Q1 beats. FORM 49% gross margin = pricing power. Bullish read for downstream optical + memory ramps." },
+        { "received_at": "2026-04-30T16:30:00Z", "gist": "SNDK Q3 read-through: WFE upside more limited than memory earnings imply. Test/inspection > deposition." }
+      ]
+    },
+    {
+      "narrative_key": "hyperscaler-capex-strong",
+      "current_thesis": "Hyperscaler capex prints stay strong. META raised guide mid-year. MSFT 'miss' was supply-side bottleneck, not demand. AMZN ~$200B Jassy guide.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Neoclouds + Hyperscalers" },
+        { "theme_id": "ai", "layer_name": "Compute Silicon" }
+      ],
+      "tickers": ["META", "MSFT", "AMZN", "GOOGL", "NVDA", "AVGO", "TSM"],
+      "mentions": [
+        { "received_at": "2026-04-29T17:00:00Z", "gist": "META FY26 capex raised to $125-145B (from $115-135B). MSFT capex 'miss' = supply constrained, not demand. AMZN ~$200B Jassy guide." }
+      ]
+    },
+    {
+      "narrative_key": "aws-custom-silicon",
+      "current_thesis": "Jassy's 'once-in-a-lifetime' framing for AWS + Trainium + Graviton signals multi-year compounder, not cyclical play. Custom silicon ASIC TAM expansion benefits AVGO/MRVL.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Compute Silicon" }
+      ],
+      "tickers": ["AMZN", "AVGO", "MRVL", "ARM"],
+      "mentions": [
+        { "received_at": "2026-04-29T19:00:00Z", "gist": "Jassy: AWS + Trainium + Graviton + core AWS = once-in-a-lifetime opportunity. Amazon and shareholders will be very well off." }
+      ]
+    },
+    {
+      "narrative_key": "googl-vertical-monetization",
+      "current_thesis": "GOOGL re-rating on full-stack AI monetization (TPU + GCP + Gemini + Search/YouTube ad surface). Vertical-integration premium emerging vs single-layer AI names.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Neoclouds + Hyperscalers" }
+      ],
+      "tickers": ["GOOGL", "AVGO"],
+      "mentions": [
+        { "received_at": "2026-04-29T15:30:00Z", "gist": "GOOGL +7% — market rewarding the most vertically-integrated AI story in mega-cap. TPU + GCP + Gemini + Search/YouTube + Ads + Workspace." }
+      ]
+    }
+  ]
+}

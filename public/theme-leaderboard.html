@@ -34,6 +34,66 @@
     border: 1px solid #1f1f2e;
     font-size: 9px; color: #7a7a8a; margin-left: 8px;
   }
+  .controls {
+    display: inline-flex; gap: 4px; margin-left: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1f1f2e;
+    border-radius: 12px;
+    padding: 2px;
+    vertical-align: middle;
+  }
+  .controls button {
+    background: transparent; border: none;
+    color: #7a7a8a;
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 3px 8px; border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .controls button:hover { color: #c0c0d8; }
+  .controls button.active {
+    background: linear-gradient(135deg, #fbbf24 0%, #ec4899 100%);
+    color: #0a0a14;
+  }
+  .narrative-pulse {
+    margin: 12px 0 16px;
+    padding: 12px 14px;
+    background: rgba(20, 20, 32, 0.7);
+    border: 1px solid #2a2a40;
+    border-radius: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .narrative-pulse-title {
+    font-size: 9px; font-weight: 800;
+    color: #fbbf24;
+    text-transform: uppercase; letter-spacing: 1px;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .narrative-chip {
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 14px;
+    background: rgba(251,191,36,0.10);
+    border: 1px solid #6e5e1c;
+    color: #fbbf24;
+    cursor: help;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .narrative-chip .heat {
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(251,191,36,0.18);
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+  .narrative-chip.scorch { background: rgba(251,191,36,0.18); border-color: #a07a1f; }
   .live-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #5a5a6a; }
   .live-status.live .dot { background: #6dde8e; box-shadow: 0 0 6px #6dde8e; }
   .live-status.live { color: #6dde8e; }
@@ -45,6 +105,20 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+  .layer-pulse-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(251,191,36,0.15);
+    border: 1px solid #a07a1f;
+    color: #fbbf24;
+    font-size: 9px;
+    font-weight: 700;
+    margin-left: 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
   }
   .row {
     display: grid;
@@ -153,8 +227,17 @@
   <div class="subtitle">
     Every Subtheme Across All Drawers · Ranked By Composite Strength
     <span id="live-status" class="live-status off"><span class="dot"></span><span id="live-status-text">loading…</span></span>
+    <span class="controls" id="sort-controls">
+      <button data-sort="score" class="active">S Score</button>
+      <button data-sort="chg">% Chg</button>
+      <button data-sort="rvol">RVol</button>
+      <button data-sort="breadth">Breadth</button>
+      <button data-sort="rs">RS</button>
+    </span>
   </div>
 </div>
+
+<div id="narrative-pulse" class="narrative-pulse" style="display:none;"></div>
 
 <div class="container" id="leaderboard"></div>
 
@@ -241,17 +324,56 @@ const SUBTHEMES = [
 const ALL_TICKERS = Array.from(new Set(SUBTHEMES.flatMap((s) => s.tickers)));
 
 const PIPELINE_AVGVOL = {};
-const loadPipelineAvgVol = async () => {
+const PIPELINE_RS = {};                  // ticker → RS rank (pipeline)
+const NARRATIVES = [];                   // loaded narratives.json content
+let SORT_KEY = "score";                  // active sort key
+
+const loadPipelineData = async () => {
   try {
     const r = await fetch("/dashboard_data.json", { cache: "force-cache" });
     if (!r.ok) return;
     const d = await r.json();
     (d.stocks || d.universe || []).forEach((s) => {
-      if (s.ticker && s.avg_volume_raw && s.avg_volume_raw > 0) {
-        PIPELINE_AVGVOL[s.ticker.toUpperCase()] = s.avg_volume_raw;
-      }
+      const tk = s.ticker?.toUpperCase();
+      if (!tk) return;
+      if (s.avg_volume_raw && s.avg_volume_raw > 0) PIPELINE_AVGVOL[tk] = s.avg_volume_raw;
+      if (s.rs != null && !isNaN(s.rs)) PIPELINE_RS[tk] = s.rs;
     });
   } catch (e) { /* ignore */ }
+};
+const loadNarratives = async () => {
+  try {
+    const r = await fetch("/data/narratives.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    NARRATIVES.length = 0;
+    (d.narratives || []).forEach((n) => NARRATIVES.push(n));
+  } catch (e) { /* ignore */ }
+};
+// Heat = days_with_mention_7d / 7 — robust to forwards (1 day-event per UTC date)
+const heatFor = (narrative) => {
+  const days = new Set();
+  const cutoff = Date.now() - 7 * 86400 * 1000;
+  (narrative.mentions || []).forEach((m) => {
+    const t = new Date(m.received_at).getTime();
+    if (isNaN(t) || t < cutoff) return;
+    days.add(new Date(m.received_at).toISOString().slice(0, 10));
+  });
+  return days.size / 7;
+};
+// Get top heat score for a layer (theme_id, layer_name match)
+const layerHeat = (themeId, layerName) => {
+  let best = 0;
+  let bestNarr = null;
+  for (const n of NARRATIVES) {
+    const matches = (n.affected_layers || []).some(
+      (l) => l.theme_id === themeId && l.layer_name === layerName
+    );
+    if (!matches) continue;
+    const h = heatFor(n);
+    if (h > best) { best = h; bestNarr = n; }
+  }
+  return { heat: best, narrative: bestNarr };
 };
 
 const LIVE_QUOTES = {};
@@ -327,7 +449,7 @@ const chgCls = (v) => v == null ? "flat" : v > 0.5 ? "up" : v < -0.5 ? "down" : 
 const rvCls  = (v) => v == null ? "norm" : v >= 2 ? "hot" : v >= 1.5 ? "heat" : "norm";
 
 const computeLayer = (sub) => {
-  const chgs = [], rvols = [], scores = [];
+  const chgs = [], rvols = [], scores = [], rss = [];
   let upCount = 0, n = 0;
   const tickerScores = [];
   for (const tk of sub.tickers) {
@@ -336,6 +458,7 @@ const computeLayer = (sub) => {
     n += 1;
     if (q.chg != null) { chgs.push(q.chg); if (q.chg > 0) upCount += 1; }
     if (q.rvol != null) rvols.push(q.rvol);
+    if (PIPELINE_RS[tk] != null) rss.push(PIPELINE_RS[tk]);
     const c = q.chg ?? 0, r = q.rvol ?? 1, cr = q.cr ?? 50;
     const s = c * r * (cr / 100);
     scores.push(s);
@@ -346,19 +469,47 @@ const computeLayer = (sub) => {
     rvolMed: rvols.length ? median(rvols) : null,
     breadth: n > 0 ? (upCount / n) * 100 : null,
     scoreMed: scores.length ? median(scores) : null,
+    rsMed: rss.length ? median(rss) : null,
     n,
     topTickers: tickerScores.sort((a, b) => b.score - a.score).slice(0, 5),
   };
 };
 
+const SORT_FNS = {
+  score:   (a, b) => (b.scoreMed ?? -Infinity) - (a.scoreMed ?? -Infinity),
+  chg:     (a, b) => (b.chgMed   ?? -Infinity) - (a.chgMed   ?? -Infinity),
+  rvol:    (a, b) => (b.rvolMed  ?? -Infinity) - (a.rvolMed  ?? -Infinity),
+  breadth: (a, b) => (b.breadth  ?? -Infinity) - (a.breadth  ?? -Infinity),
+  rs:      (a, b) => (b.rsMed    ?? -Infinity) - (a.rsMed    ?? -Infinity),
+};
+
+const renderNarrativePulse = () => {
+  const el = document.getElementById("narrative-pulse");
+  if (!el) return;
+  const hot = NARRATIVES
+    .map((n) => ({ n, heat: heatFor(n) }))
+    .filter((x) => x.heat >= 0.4)
+    .sort((a, b) => b.heat - a.heat);
+  if (hot.length === 0) { el.style.display = "none"; return; }
+  el.style.display = "flex";
+  el.innerHTML = `<div class="narrative-pulse-title">📣 Narrative Pulse · ${hot.length} active narrative${hot.length === 1 ? "" : "s"} (≥3 of last 7 days)</div>` +
+    hot.map(({ n, heat }) => {
+      const days = Math.round(heat * 7);
+      const cls = heat >= 0.7 ? "scorch" : "";
+      return `<span class="narrative-chip ${cls}" title="${n.current_thesis}">📣 ${n.narrative_key} <span class="heat">${days}/7d</span></span>`;
+    }).join("");
+};
+
 const renderLeaderboard = () => {
+  renderNarrativePulse();
   const root = document.getElementById("leaderboard");
-  const enriched = SUBTHEMES.map((sub) => ({ ...sub, ...computeLayer(sub) }));
-  const sorted = enriched.sort((a, b) => {
-    const sa = a.scoreMed == null ? -Infinity : a.scoreMed;
-    const sb = b.scoreMed == null ? -Infinity : b.scoreMed;
-    return sb - sa;
+  const enriched = SUBTHEMES.map((sub) => {
+    const computed = computeLayer(sub);
+    const { heat, narrative } = layerHeat(sub.themeId, sub.layer);
+    return { ...sub, ...computed, heat, narrative };
   });
+  const cmp = SORT_FNS[SORT_KEY] || SORT_FNS.score;
+  const sorted = enriched.sort(cmp);
   root.innerHTML = "";
   sorted.forEach((sub, idx) => {
     const row = document.createElement("div");
@@ -371,6 +522,10 @@ const renderLeaderboard = () => {
     const rvT  = `<span class="rv ${rvCls(sub.rvolMed)}">${fmtRv(sub.rvolMed)}</span>`;
     const brT  = sub.breadth == null ? "<span class='br mid'>—</span>"
       : `<span class="br ${sub.breadth >= 60 ? "hi" : sub.breadth <= 40 ? "lo" : "mid"}">${sub.breadth.toFixed(0)}%↑</span>`;
+    const rsT  = sub.rsMed == null ? "" : `<span class="sep">·</span><span class="agg ${sub.rsMed >= 70 ? "up" : sub.rsMed <= 40 ? "down" : "flat"}">RS ${sub.rsMed.toFixed(0)}</span>`;
+    const pulseBadge = sub.heat >= 0.4
+      ? `<span class="layer-pulse-badge" title="${sub.narrative?.current_thesis ?? ""}">📣 ${Math.round(sub.heat * 7)}/7d</span>`
+      : "";
     const tickerChips = sub.topTickers.map((t) => {
       const pctCls = t.chg != null && t.chg < 0 ? "down" : "";
       const pctTxt = t.chg == null ? "" : `<span class="pct ${pctCls}">${t.chg >= 0 ? "+" : ""}${t.chg.toFixed(1)}%</span>`;
@@ -380,10 +535,10 @@ const renderLeaderboard = () => {
       <div class="rank">${idx + 1}</div>
       <div class="label">
         <div class="theme-name">${sub.theme}</div>
-        <div class="layer-name">${sub.layer}</div>
+        <div class="layer-name">${sub.layer}${pulseBadge}</div>
       </div>
       <div class="metrics">
-        ${chgT}<span class="sep">·</span>${rvT}<span class="sep">·</span>${brT}
+        ${chgT}<span class="sep">·</span>${rvT}<span class="sep">·</span>${brT}${rsT}
       </div>
       <div class="score ${sCls}">S ${sTxt}</div>
       <div class="top-tickers">${tickerChips}</div>
@@ -392,12 +547,24 @@ const renderLeaderboard = () => {
   });
 };
 
+// ─── SORT BUTTONS ─────────────────────────────────────────────────────────
+document.querySelectorAll("#sort-controls button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    SORT_KEY = btn.dataset.sort;
+    document.querySelectorAll("#sort-controls button").forEach((b) =>
+      b.classList.toggle("active", b === btn));
+    renderLeaderboard();
+  });
+});
+
 // ─── BOOT ─────────────────────────────────────────────────────────────────
 const scheduleNext = () => {
   if (!isMarketHours()) return;
   setTimeout(async () => { await updateQuotes(); scheduleNext(); }, 30_000);
 };
-loadPipelineAvgVol().then(updateQuotes).then(scheduleNext);
+Promise.all([loadPipelineData(), loadNarratives()])
+  .then(updateQuotes)
+  .then(scheduleNext);
 </script>
 
 </body>

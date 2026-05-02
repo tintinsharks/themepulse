@@ -175,6 +175,13 @@
   .layer-aggs .score.warm   { background: rgba(120,120,140,0.10); color: #9090a0; border: 1px solid #3a3a4a; }
   .layer-aggs .score.weak   { background: rgba(239,154,154,0.10); color: #ef9a9a; border: 1px solid #6e2828; }
   .layer-aggs .score.ice    { background: rgba(239,68,68,0.18); color: #ef4444; border: 1px solid #7e2828; }
+  .layer-aggs .pulse {
+    padding: 1px 5px; border-radius: 3px;
+    background: rgba(251,191,36,0.15);
+    border: 1px solid #a07a1f;
+    color: #fbbf24;
+    font-weight: 700;
+  }
   .layer.firing { box-shadow: inset 4px 0 0 #6dde8e; }
   .layer.cooling { box-shadow: inset 4px 0 0 #ef9a9a; }
   .live-status {
@@ -727,6 +734,41 @@ const loadPipelineAvgVol = async () => {
     });
   } catch (e) { /* ignore */ }
 };
+// Narrative pulse loader (mention velocity per narrative_key)
+const NARRATIVES = [];
+const loadNarratives = async () => {
+  try {
+    const r = await fetch("/data/narratives.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    NARRATIVES.length = 0;
+    (d.narratives || []).forEach((n) => NARRATIVES.push(n));
+  } catch (e) { /* ignore */ }
+};
+const heatFor = (narrative) => {
+  const days = new Set();
+  const cutoff = Date.now() - 7 * 86400 * 1000;
+  (narrative.mentions || []).forEach((m) => {
+    const t = new Date(m.received_at).getTime();
+    if (isNaN(t) || t < cutoff) return;
+    days.add(new Date(m.received_at).toISOString().slice(0, 10));
+  });
+  return days.size / 7;
+};
+// Match by theme_id (from URL ?id=) and the layer's plain-text name
+const layerNameClean = (htmlName) => htmlName.replace(/<br\s*\/?>/g, " ").replace(/\s+/g, " ").trim();
+const layerHeat = (layerName) => {
+  let best = 0, bestNarr = null;
+  for (const n of NARRATIVES) {
+    const matches = (n.affected_layers || []).some(
+      (l) => l.theme_id === themeId && l.layer_name === layerName
+    );
+    if (!matches) continue;
+    const h = heatFor(n);
+    if (h > best) { best = h; bestNarr = n; }
+  }
+  return { heat: best, narrative: bestNarr };
+};
 
 const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
 
@@ -746,7 +788,11 @@ const buildLayers = () => {
       ${layer.tooltip ? `<div class="layer-tooltip">${layer.tooltip}</div>` : ""}
     `;
     const aggsEl = labelEl.querySelector(".layer-aggs");
-    const layerRef = { aggsEl, layerEl, container: null, tiles: [], tickers: layer.tickers.map((t) => t[0]) };
+    const layerRef = {
+      aggsEl, layerEl, container: null, tiles: [],
+      tickers: layer.tickers.map((t) => t[0]),
+      layerName: layerNameClean(layer.name),     // for narrative-heat matching
+    };
     LAYER_REFS.push(layerRef);
     // Click-to-flip: toggle .flipped on the label so context overlays the front face
     labelEl.addEventListener("click", () => labelEl.classList.toggle("flipped"));
@@ -857,7 +903,15 @@ const updateLayerAggs = () => {
       scores.push(c * r * (cr / 100));
     }
     const scoreMed = scores.length ? median(scores) : null;
-    ref.aggsEl.innerHTML = layerAggsHtml(chgMed, rvolMed, breadth, hotCount, scoreMed);
+    // Narrative pulse — append 📣 badge if a high-heat narrative covers this layer
+    const { heat, narrative } = layerHeat(ref.layerName);
+    let html = layerAggsHtml(chgMed, rvolMed, breadth, hotCount, scoreMed);
+    if (heat >= 0.4) {
+      const days = Math.round(heat * 7);
+      const title = narrative?.current_thesis ?? "";
+      html += `<span class="sep">·</span><span class="pulse" title="${title.replace(/"/g, "&quot;")}">📣 ${days}/7d</span>`;
+    }
+    ref.aggsEl.innerHTML = html;
     // Heat indicator driven by composite score (captures conviction +
     // close-strength, not just direction + breadth):
     //   firing  if median score ≥ +4
@@ -941,7 +995,9 @@ const scheduleNext = () => {
   if (!isMarketHours()) return;
   setTimeout(async () => { await updateLive(); scheduleNext(); }, 30_000);
 };
-loadPipelineAvgVol().then(updateLive).then(scheduleNext);
+Promise.all([loadPipelineAvgVol(), loadNarratives()])
+  .then(updateLive)
+  .then(scheduleNext);
 </script>
 
 </body>

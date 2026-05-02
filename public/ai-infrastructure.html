@@ -165,6 +165,14 @@
     font-weight: 800;
     letter-spacing: 0.3px;
   }
+  .layer-aggs .pulse {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(251,191,36,0.15);
+    border: 1px solid #a07a1f;
+    color: #fbbf24;
+    font-weight: 700;
+  }
   .layer-aggs .score.scorch { background: rgba(251,191,36,0.18); color: #fbbf24; border: 1px solid #a07a1f; }
   .layer-aggs .score.hot    { background: rgba(109,222,142,0.15); color: #6dde8e; border: 1px solid #2c5e3e; }
   .layer-aggs .score.warm   { background: rgba(120,120,140,0.10); color: #9090a0; border: 1px solid #3a3a4a; }
@@ -578,6 +586,52 @@ const loadPipelineAvgVol = async () => {
     });
   } catch (e) { /* ignore */ }
 };
+// Narrative pulse — load mention-velocity data and compute heat per layer
+const NARRATIVES = [];
+const loadNarratives = async () => {
+  try {
+    const r = await fetch("/data/narratives.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const d = await r.json();
+    NARRATIVES.length = 0;
+    (d.narratives || []).forEach((n) => NARRATIVES.push(n));
+  } catch (e) { /* ignore */ }
+};
+const heatFor = (narrative) => {
+  const days = new Set();
+  const cutoff = Date.now() - 7 * 86400 * 1000;
+  (narrative.mentions || []).forEach((m) => {
+    const t = new Date(m.received_at).getTime();
+    if (isNaN(t) || t < cutoff) return;
+    days.add(new Date(m.received_at).toISOString().slice(0, 10));
+  });
+  return days.size / 7;
+};
+// Layer name lookup (the "name" field in <div class="layer-name"> uses <br>; strip)
+const layerNameFromKey = {
+  silicon: "Compute Silicon",
+  connect: "AI Connectivity",
+  memory: "Memory + Storage",
+  dc: "DC + Cooling",
+  photonics: "Photonics",
+  cloud: "Neoclouds + Hyperscalers",
+  energy: "Energy / Power",
+  semicap: "Semicap + Materials",
+};
+const layerHeat = (rowKey) => {
+  const layerName = layerNameFromKey[rowKey];
+  if (!layerName) return { heat: 0, narrative: null };
+  let best = 0, bestNarr = null;
+  for (const n of NARRATIVES) {
+    const matches = (n.affected_layers || []).some(
+      (l) => l.theme_id === "ai" && l.layer_name === layerName
+    );
+    if (!matches) continue;
+    const h = heatFor(n);
+    if (h > best) { best = h; bestNarr = n; }
+  }
+  return { heat: best, narrative: bestNarr };
+};
 
 const render = () => {
   for (const [rowKey, items] of Object.entries(ROWS)) {
@@ -730,7 +784,15 @@ const updateLayerAggs = () => {
       scores.push(c * r * (cr / 100));
     }
     const scoreMed = scores.length ? median(scores) : null;
-    ref.aggsEl.innerHTML = layerAggsHtml(chgMed, rvolMed, breadth, hotCount, scoreMed, dataCount);
+    // Narrative pulse — append 📣 badge if a high-heat narrative covers this layer
+    const { heat, narrative } = layerHeat(layerKey);
+    let html = layerAggsHtml(chgMed, rvolMed, breadth, hotCount, scoreMed, dataCount);
+    if (heat >= 0.4) {
+      const days = Math.round(heat * 7);
+      const title = narrative?.current_thesis ?? "";
+      html += `<span class="sep">·</span><span class="pulse" title="${title.replace(/"/g, "&quot;")}">📣 ${days}/7d</span>`;
+    }
+    ref.aggsEl.innerHTML = html;
     // Heat indicator now driven by composite score (captures conviction +
     // close-strength, not just direction + breadth):
     //   firing  if median score ≥ +4
@@ -831,9 +893,11 @@ const scheduleNext = () => {
     scheduleNext();
   }, 30_000);
 };
-// Load pipeline avg-volume map first so the very first poll computes RVol
-// for every ticker (no waiting for cache warm-up).
-loadPipelineAvgVol().then(updateLive).then(scheduleNext);
+// Load pipeline avg-volume + narratives first so the very first poll has
+// all data ready (RVol coverage and narrative pulse badges).
+Promise.all([loadPipelineAvgVol(), loadNarratives()])
+  .then(updateLive)
+  .then(scheduleNext);
 
 </script>
 
