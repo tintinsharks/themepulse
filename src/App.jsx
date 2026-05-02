@@ -6791,31 +6791,67 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
         style={{
           padding: "3px 10px",
           display: "flex",
-          alignItems: "center",
-          gap: 6,
+          flexDirection: "column",
+          gap: 2,
           cursor: "pointer",
           borderBottom: open ? `1px solid ${ARIA.border}` : "none",
         }}
       >
-        <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.text }}>
-          {ticker || "—"}
-        </span>
-        <span
-          style={{
-            fontSize: 7,
-            color: ARIA.textMuted,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: 1,
-            fontFamily: "monospace",
-          }}
-        >
-          {parts.join(" · ")}
-        </span>
-        <span style={{ fontSize: 8, color: ARIA.textMuted }}>
-          {open ? "▼" : "▶"}
-        </span>
+        {/* Row 1: ticker · industry · sector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.text }}>
+            {ticker || "—"}
+          </span>
+          <span
+            style={{
+              fontSize: 7,
+              color: ARIA.textMuted,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flex: 1,
+              fontFamily: "monospace",
+            }}
+          >
+            {parts.join(" · ")}
+          </span>
+          <span style={{ fontSize: 8, color: ARIA.textMuted }}>
+            {open ? "▼" : "▶"}
+          </span>
+        </div>
+        {/* Row 2: theme · subtheme — clickable pills that open the matching drawer */}
+        {Array.isArray(s.themes) && s.themes.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, fontFamily: "monospace" }}>
+            {s.themes.slice(0, 3).map((t, i) => {
+              const drawerId = THEME_TO_DRAWER[t.theme];
+              const c = drawerId ? DRAWER_COLORS[drawerId] : { bg: "transparent", border: ARIA.border, color: ARIA.textMuted };
+              return (
+                <span
+                  key={`${t.theme}-${t.subtheme}-${i}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (drawerId) window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: drawerId }));
+                  }}
+                  title={drawerId ? `Click to open ${drawerId.toUpperCase()} value-chain drawer` : `${t.theme} — no drawer mapped`}
+                  style={{
+                    fontSize: 7,
+                    fontWeight: 700,
+                    padding: "1px 5px",
+                    borderRadius: 2,
+                    background: c.bg,
+                    border: `1px solid ${c.border}`,
+                    color: c.color,
+                    cursor: drawerId ? "pointer" : "default",
+                    whiteSpace: "nowrap",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {t.theme} · {t.subtheme || "—"}
+                </span>
+              );
+            })}
+          </div>
+        )}
       </div>
       {open && (
         <div style={{ display: "flex", height: 70 }}>
@@ -7320,6 +7356,32 @@ function AppMain() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Theme → Drawer routing (used by TickerInfoBox to show "would-be drawer"
+// for tickers not explicitly placed in any drawer's curated list)
+// ──────────────────────────────────────────────────────────────────────────
+const THEME_TO_DRAWER = {
+  "AI INFRASTRUCTURE": "ai",
+  "PHOTONICS":         "ai",
+  "SEMICONDUCTORS":    "ai",
+  "POWER GRID":        "ai",
+  "ENERGY":            "ai",
+  "DEFENSE":           "defense",
+  "SPACE":             "space",
+  "AUTONOMOUS SYSTEMS":"robotics",
+  "ROBOTICS":          "robotics",
+  "EV":                "ev",
+  "QUANTUM":           "quantum",
+};
+const DRAWER_COLORS = {
+  ai:       { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
+  defense:  { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
+  robotics: { bg: "rgba(34,211,238,0.12)",  border: "#1a8aa4", color: "#22d3ee" },
+  ev:       { bg: "rgba(109,222,142,0.12)", border: "#2c5e3e", color: "#6dde8e" },
+  quantum:  { bg: "rgba(184,106,252,0.12)", border: "#5a3e8e", color: "#b86afc" },
+  space:    { bg: "rgba(106,158,255,0.12)", border: "#3a5a8a", color: "#6a9eff" },
+};
+
+// ──────────────────────────────────────────────────────────────────────────
 // Theme Value-Chain Drawers — multiple slide-out drawers, one per theme
 // ──────────────────────────────────────────────────────────────────────────
 // Each theme has its own right-edge handle (stacked vertically). Click any
@@ -7342,6 +7404,13 @@ function AIInfraDrawer() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [openId]);
+  useEffect(() => {
+    // External components (e.g., TickerInfoBox theme pills) can request a
+    // drawer open via window.dispatchEvent(new CustomEvent('tp-open-drawer', { detail: 'ai' }))
+    const onOpen = (e) => { if (e?.detail) setOpenId(e.detail); };
+    window.addEventListener("tp-open-drawer", onOpen);
+    return () => window.removeEventListener("tp-open-drawer", onOpen);
+  }, []);
   const open = openId != null;
   const active = VALUE_CHAIN_THEMES.find((t) => t.id === openId);
   return (
