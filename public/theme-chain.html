@@ -164,6 +164,15 @@
   .layer-aggs .br.lo { color: #ef9a9a; }
   .layer-aggs .br.mid { color: #6a6a7a; }
   .layer-aggs .sep { color: #2a2a40; }
+  .layer-aggs .score {
+    padding: 1px 4px; border-radius: 3px;
+    font-weight: 800; letter-spacing: 0.3px;
+  }
+  .layer-aggs .score.scorch { background: rgba(251,191,36,0.18); color: #fbbf24; border: 1px solid #a07a1f; }
+  .layer-aggs .score.hot    { background: rgba(109,222,142,0.15); color: #6dde8e; border: 1px solid #2c5e3e; }
+  .layer-aggs .score.warm   { background: rgba(120,120,140,0.10); color: #9090a0; border: 1px solid #3a3a4a; }
+  .layer-aggs .score.weak   { background: rgba(239,154,154,0.10); color: #ef9a9a; border: 1px solid #6e2828; }
+  .layer-aggs .score.ice    { background: rgba(239,68,68,0.18); color: #ef4444; border: 1px solid #7e2828; }
   .layer.firing { box-shadow: inset 4px 0 0 #6dde8e; }
   .layer.cooling { box-shadow: inset 4px 0 0 #ef9a9a; }
   .live-status {
@@ -781,7 +790,9 @@ const median = (arr) => {
   const s = [...arr].sort((a, b) => a - b);
   return s[Math.floor(s.length / 2)];
 };
-const layerAggsHtml = (chgMed, rvolMed, breadth, hotCount) => {
+const scoreCls = (s) =>
+  s == null ? "warm" : s >= 8 ? "scorch" : s >= 4 ? "hot" : s <= -4 ? "ice" : s <= -1 ? "weak" : "warm";
+const layerAggsHtml = (chgMed, rvolMed, breadth, hotCount, scoreMed) => {
   const chgCls = chgMed == null ? "flat" : chgMed > 0.5 ? "up" : chgMed < -0.5 ? "down" : "flat";
   const chgTxt = chgMed == null ? "—" : `${chgMed >= 0 ? "+" : ""}${chgMed.toFixed(1)}%`;
   const rvCls = rvolMed == null ? "norm" : rvolMed >= 2 ? "hot" : rvolMed >= 1.5 ? "heat" : "norm";
@@ -789,10 +800,14 @@ const layerAggsHtml = (chgMed, rvolMed, breadth, hotCount) => {
   const brCls = breadth == null ? "mid" : breadth >= 60 ? "hi" : breadth <= 40 ? "lo" : "mid";
   const brTxt = breadth == null ? "—" : `${breadth.toFixed(0)}%`;
   const hotTxt = hotCount > 0 ? `<span class="rv hot">🔥${hotCount}</span><span class="sep">·</span>` : "";
+  const sCls = scoreCls(scoreMed);
+  const sTxt = scoreMed == null ? "—" : (scoreMed >= 0 ? "+" : "") + scoreMed.toFixed(1);
+  const scoreChip = `<span class="sep">·</span><span class="score ${sCls}" title="Composite strength: median(chg × RVol × CR/100). >+4 firing, <-1 weak, <-4 ice.">S ${sTxt}</span>`;
   return hotTxt +
     `<span class="agg ${chgCls}">${chgTxt}</span><span class="sep">·</span>` +
     `<span class="rv ${rvCls}">${rvTxt}</span><span class="sep">·</span>` +
-    `<span class="br ${brCls}">${brTxt} up</span>`;
+    `<span class="br ${brCls}">${brTxt} up</span>` +
+    scoreChip;
 };
 const updateLayerAggs = () => {
   LAYER_REFS.forEach((ref) => {
@@ -813,11 +828,26 @@ const updateLayerAggs = () => {
     const chgMed = chgs.length ? median(chgs) : null;
     const rvolMed = rvols.length ? median(rvols) : null;
     const breadth = dataCount > 0 ? (upCount / dataCount) * 100 : null;
-    ref.aggsEl.innerHTML = layerAggsHtml(chgMed, rvolMed, breadth, hotCount);
+    // Composite strength score: median(chg × RVol × CR/100) across constituents
+    const scores = [];
+    for (const tk of tickers) {
+      const q = LIVE_QUOTES[tk];
+      if (!q) continue;
+      const c = q.chg ?? 0;
+      const r = q.rvol ?? 1;
+      const cr = q.cr ?? 50;
+      scores.push(c * r * (cr / 100));
+    }
+    const scoreMed = scores.length ? median(scores) : null;
+    ref.aggsEl.innerHTML = layerAggsHtml(chgMed, rvolMed, breadth, hotCount, scoreMed);
+    // Heat indicator driven by composite score (captures conviction +
+    // close-strength, not just direction + breadth):
+    //   firing  if median score ≥ +4
+    //   cooling if median score ≤ -3
     ref.layerEl.classList.remove("firing", "cooling");
-    if (chgMed != null && breadth != null) {
-      if (chgMed >= 1.5 && breadth >= 60) ref.layerEl.classList.add("firing");
-      else if (chgMed <= -1.5 && breadth <= 40) ref.layerEl.classList.add("cooling");
+    if (scoreMed != null) {
+      if (scoreMed >= 4) ref.layerEl.classList.add("firing");
+      else if (scoreMed <= -3) ref.layerEl.classList.add("cooling");
     }
     // Re-order tiles within this row by composite strength score:
     //   chg% × RVol × (CR%/100)
