@@ -373,6 +373,7 @@
   .er-pctile.p-high { background: rgba(34,211,238,0.2); color: #22d3ee; }
   .er-pctile.p-mid { background: rgba(144,144,160,0.2); color: #b0b0c0; }
   .er-pctile.p-low { background: rgba(200,80,80,0.2); color: #e06060; }
+  .er-pctile-row { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
   .er-qbars-row {
     display: flex; gap: 4px;
     align-items: stretch;
@@ -1256,12 +1257,18 @@ const renderDetailPanel = async (ticker) => {
   const themePills = themes.map((tid) =>
     `<span class="pill t-${tid}" data-theme="${tid}">${themeLabel[tid] || tid}</span>`
   ).join("");
+  const epsPct = pctileRank(UNIVERSE_EPS_SORTED, pipeEr.eps_estimated);
+  const revPct = pctileRank(UNIVERSE_REV_SORTED, pipeEr.revenue_estimated);
+  const pctBadge = (label, p) => p == null ? ""
+    : `<span class="er-pctile ${p >= 90 ? "p-top" : p >= 70 ? "p-high" : p >= 40 ? "p-mid" : "p-low"}">${label} ${ordinal(p)} %ile</span>`;
+  const pctBadges = (epsPct != null || revPct != null)
+    ? `<div class="er-pctile-row">${pctBadge("EPS", epsPct)}${pctBadge("Rev", revPct)}</div>` : "";
   root.className = "er-detail";
   root.innerHTML = `
     <div class="er-detail-header">
       <div class="logo"><img src="${earningsLogo(ticker)}" alt="${ticker}" onerror="this.parentElement.innerHTML='${ticker}';this.parentElement.style.background='#2a2a40';this.parentElement.style.color='#c0c0d8';this.parentElement.style.fontSize='11px';this.parentElement.style.fontWeight='800';"/></div>
       <div class="meta">
-        <div class="ticker-sym">${ticker}</div>
+        <div class="ticker-sym">${ticker}${pctBadges}</div>
         <div class="company">${pipeEr.company || ""}</div>
       </div>
       <div class="er-detail-tag ${tagCls}">${tag}</div>
@@ -1302,7 +1309,7 @@ const renderDetailPanel = async (ticker) => {
       (_first.year === _last.year && parseInt((_first.period || "Q0").slice(1)) > parseInt((_last.period || "Q0").slice(1)))
     );
     const series = _newestFirst ? [...fvQuarters].reverse() : [...fvQuarters];
-    const renderQBars = (label, accessor, yoyAccessor, color, fmt, pctile) => {
+    const renderQBars = (label, accessor, yoyAccessor, color, fmt) => {
       const values = series.map(accessor).filter((v) => v != null && Number.isFinite(v));
       if (!values.length) return "";
       const max = Math.max(...values, 0);
@@ -1311,12 +1318,9 @@ const renderDetailPanel = async (ticker) => {
       const baseline = max / range;          // fraction of bar area above zero
       const barAreaH = 64;                    // CSS er-qbar-track height
       const lastIdx = series.length - 1;
-      const pctBadge = pctile != null
-        ? `<span class="er-pctile ${pctile >= 90 ? "p-top" : pctile >= 70 ? "p-high" : pctile >= 40 ? "p-mid" : "p-low"}">${ordinal(pctile)} %ile</span>`
-        : "";
       return `
         <div class="er-qbars">
-          <div class="er-qbars-title">${label}${pctBadge}</div>
+          <div class="er-qbars-title">${label}</div>
           <div class="er-qbars-row">
             ${series.map((q, i) => {
               const v = accessor(q);
@@ -1352,8 +1356,6 @@ const renderDetailPanel = async (ticker) => {
       `;
     };
 
-    const epsPctile = pctileRank(UNIVERSE_EPS_SORTED, pipeEr.eps_estimated);
-    const revPctile = pctileRank(UNIVERSE_REV_SORTED, pipeEr.revenue_estimated);
     const blocks = [
       renderQBars(
         "Net Margin",
@@ -1374,16 +1376,14 @@ const renderDetailPanel = async (ticker) => {
         (q) => q.eps,
         (q) => q.eps_yoy,
         "eps",
-        (v) => v.toFixed(2),
-        epsPctile
+        (v) => v.toFixed(2)
       ),
       renderQBars(
         "Revenue",
         (q) => q.revenue,
         (q) => q.revenue_yoy,
         "rev",
-        (v) => v >= 1000 ? (v / 1000).toFixed(1) + "B" : Math.round(v) + "M",
-        revPctile
+        (v) => v >= 1000 ? (v / 1000).toFixed(1) + "B" : Math.round(v) + "M"
       ),
     ];
 
