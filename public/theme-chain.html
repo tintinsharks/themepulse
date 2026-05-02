@@ -129,6 +129,23 @@
   .tile.t-risk .ticker-sym { color: #ef9a9a; }
   .tile.t-alpha  { border-color: #5a3e8e; background: rgba(120,80,200,0.08); }
   .tile.t-alpha .ticker-sym { color: #c4a8ff; }
+  .layer-aggs {
+    display: flex; gap: 5px; align-items: center;
+    margin-top: 4px; font-size: 9px; font-weight: 700;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .layer-aggs .agg.up { color: #6dde8e; }
+  .layer-aggs .agg.down { color: #ef9a9a; }
+  .layer-aggs .agg.flat { color: #6a6a7a; }
+  .layer-aggs .rv.hot { color: #fbbf24; }
+  .layer-aggs .rv.heat { color: #6dde8e; }
+  .layer-aggs .rv.norm { color: #6a6a7a; }
+  .layer-aggs .br.hi { color: #6dde8e; }
+  .layer-aggs .br.lo { color: #ef9a9a; }
+  .layer-aggs .br.mid { color: #6a6a7a; }
+  .layer-aggs .sep { color: #2a2a40; }
+  .layer.firing { box-shadow: inset 4px 0 0 #6dde8e; }
+  .layer.cooling { box-shadow: inset 4px 0 0 #ef9a9a; }
   .live-status {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 8px; border-radius: 12px;
@@ -475,6 +492,8 @@ document.getElementById("title").innerHTML =
 document.getElementById("tagline").textContent = theme.tagline;
 
 const TILE_REFS = {};
+const LAYER_REFS = [];   // [{ aggsEl, layerEl, tickers }]
+const LIVE_QUOTES = {};
 
 const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
 
@@ -489,9 +508,12 @@ const buildLayers = () => {
       <div class="layer-icon">${layer.icon || "•"}</div>
       <div>
         <div class="layer-name">${layer.name}</div>
+        <div class="layer-aggs"><span class="agg flat">—</span></div>
       </div>
       ${layer.tooltip ? `<div class="layer-tooltip">${layer.tooltip}</div>` : ""}
     `;
+    const aggsEl = labelEl.querySelector(".layer-aggs");
+    LAYER_REFS.push({ aggsEl, layerEl, tickers: layer.tickers.map((t) => t[0]) });
     const tickersEl = document.createElement("div");
     tickersEl.className = "tickers";
     layer.tickers.forEach(([ticker, tier]) => {
@@ -543,6 +565,52 @@ const fmtRvol = (v) => {
   const cls = v >= 2 ? "hot" : v >= 1.5 ? "heat" : "norm";
   return { txt: `${v.toFixed(1)}x`, cls };
 };
+const median = (arr) => {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+const layerAggsHtml = (chgMed, rvolMed, breadth, hotCount) => {
+  const chgCls = chgMed == null ? "flat" : chgMed > 0.5 ? "up" : chgMed < -0.5 ? "down" : "flat";
+  const chgTxt = chgMed == null ? "—" : `${chgMed >= 0 ? "+" : ""}${chgMed.toFixed(1)}%`;
+  const rvCls = rvolMed == null ? "norm" : rvolMed >= 2 ? "hot" : rvolMed >= 1.5 ? "heat" : "norm";
+  const rvTxt = rvolMed == null ? "—" : `${rvolMed.toFixed(1)}x`;
+  const brCls = breadth == null ? "mid" : breadth >= 60 ? "hi" : breadth <= 40 ? "lo" : "mid";
+  const brTxt = breadth == null ? "—" : `${breadth.toFixed(0)}%`;
+  const hotTxt = hotCount > 0 ? `<span class="rv hot">🔥${hotCount}</span><span class="sep">·</span>` : "";
+  return hotTxt +
+    `<span class="agg ${chgCls}">${chgTxt}</span><span class="sep">·</span>` +
+    `<span class="rv ${rvCls}">${rvTxt}</span><span class="sep">·</span>` +
+    `<span class="br ${brCls}">${brTxt} up</span>`;
+};
+const updateLayerAggs = () => {
+  LAYER_REFS.forEach((ref) => {
+    const tickers = ref.tickers || [];
+    const chgs = [], rvols = [];
+    let upCount = 0, hotCount = 0, dataCount = 0;
+    for (const tk of tickers) {
+      const q = LIVE_QUOTES[tk];
+      if (!q) continue;
+      dataCount += 1;
+      if (q.chg != null && !isNaN(q.chg)) {
+        chgs.push(q.chg);
+        if (q.chg > 0) upCount += 1;
+      }
+      if (q.rvol != null && !isNaN(q.rvol)) rvols.push(q.rvol);
+      if (q.chg != null && q.chg >= 2 && q.rvol != null && q.rvol >= 1.5) hotCount += 1;
+    }
+    const chgMed = chgs.length ? median(chgs) : null;
+    const rvolMed = rvols.length ? median(rvols) : null;
+    const breadth = dataCount > 0 ? (upCount / dataCount) * 100 : null;
+    ref.aggsEl.innerHTML = layerAggsHtml(chgMed, rvolMed, breadth, hotCount);
+    ref.layerEl.classList.remove("firing", "cooling");
+    if (chgMed != null && breadth != null) {
+      if (chgMed >= 1.5 && breadth >= 60) ref.layerEl.classList.add("firing");
+      else if (chgMed <= -1.5 && breadth <= 40) ref.layerEl.classList.add("cooling");
+    }
+  });
+};
+
 const setStatus = (state, text) => {
   const el = document.getElementById("live-status");
   const txt = document.getElementById("live-status-text");
@@ -562,12 +630,14 @@ const updateLive = async () => {
     let updated = 0;
     arr.forEach((q) => {
       if (!q || !q.ticker) return;
-      const tiles = TILE_REFS[q.ticker.toUpperCase()];
+      const tk = q.ticker.toUpperCase();
+      const tiles = TILE_REFS[tk];
       if (!tiles || !tiles.length) return;
       const chg = fmtChg(q.change);
       const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
         ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
       const rv = fmtRvol(rvol);
+      LIVE_QUOTES[tk] = { chg: q.change, rvol };
       tiles.forEach((live) => {
         live.innerHTML =
           `<span class="chg ${chg.cls}">${chg.txt}</span>` +
@@ -576,6 +646,7 @@ const updateLive = async () => {
       });
       updated += 1;
     });
+    updateLayerAggs();
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     if (market) {
       setStatus("live", `LIVE · ${updated}/${ALL_TICKERS.length} tickers · ${ts}`);
