@@ -3,770 +3,495 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Infrastructure Stack — Bottlenecks Map</title>
+<title>Data Centre Value Chain — AI Infrastructure</title>
 <style>
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    padding: 24px;
+    padding: 32px 24px 48px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: #0a0a14;
-    color: #c8c8d8;
-    font-size: 12px;
-    line-height: 1.4;
+    background: radial-gradient(circle at 20% 0%, #0d1530 0%, #07070d 50%, #050508 100%);
+    color: #e0e0e8;
+    min-height: 100vh;
+  }
+  .header {
+    max-width: 1280px;
+    margin: 0 auto 32px;
+    padding: 0 8px;
   }
   h1 {
-    font-size: 18px;
-    color: #ffffff;
-    margin: 0 0 6px 0;
-    letter-spacing: 0.5px;
+    font-size: 44px;
+    line-height: 1.05;
+    margin: 0 0 4px 0;
+    letter-spacing: -1px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #6cd5e8 60%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
+  h1 .accent { color: #6cd5e8; -webkit-text-fill-color: #6cd5e8; }
   .subtitle {
-    color: #7a7a8a;
     font-size: 11px;
-    margin-bottom: 24px;
+    color: #7a7a8a;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    font-weight: 700;
+    margin-top: 8px;
   }
   .legend {
     display: flex;
-    gap: 18px;
+    gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 20px;
+    margin-top: 18px;
     padding: 8px 12px;
-    background: #15152a;
-    border: 1px solid #2a2a40;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1f1f2e;
     border-radius: 6px;
     font-size: 10px;
+    color: #9090a0;
   }
-  .legend-item {
-    display: flex;
+  .legend-pill {
+    display: inline-flex;
     align-items: center;
     gap: 5px;
   }
-  .stack {
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    gap: 16px;
-    align-items: start;
+  .legend-pill .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
   }
-  .layers {
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
   }
+  /* Each layer is a horizontal row */
   .layer {
-    border: 1px solid;
-    border-radius: 8px;
-    padding: 12px 14px;
-    background: #11111e;
-    position: relative;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 14px;
+    background: rgba(15, 15, 24, 0.6);
+    border: 1px solid #1c1c2c;
+    border-radius: 14px;
+    padding: 14px;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.2s, transform 0.2s;
   }
-  .layer-title {
+  .layer:hover { border-color: #303048; }
+  /* Layer label box on the left */
+  .layer-label {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--layer-bg);
+    border: 1px solid var(--layer-border);
+    cursor: help;
+    position: relative;
+  }
+  .layer-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--layer-icon-bg);
+    border: 1px solid var(--layer-icon-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 20px;
   }
   .layer-name {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--layer-fg);
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
+    line-height: 1.2;
   }
-  .layer-tag {
+  .layer-phase {
     font-size: 8px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: #2a2a40;
-    color: #9090a0;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-  }
-  .layer-role {
-    font-size: 10px;
-    color: #9090a0;
-    margin-bottom: 10px;
-  }
-  /* Time-phase indicator — where each layer sits in its rotation cycle */
-  .cycle-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    font-size: 9px;
-  }
-  .cycle-track {
-    flex: 1;
-    height: 4px;
-    background: #1a1a26;
-    border-radius: 2px;
-    position: relative;
-    overflow: hidden;
-  }
-  .cycle-fill {
-    height: 100%;
-    border-radius: 2px;
-  }
-  .cycle-fill.p-early  { width: 18%; background: linear-gradient(90deg, #00c853, #6dde8e); }
-  .cycle-fill.p-emid   { width: 38%; background: linear-gradient(90deg, #00c853, #fbbf24); }
-  .cycle-fill.p-mid    { width: 55%; background: linear-gradient(90deg, #6dde8e, #fbbf24); }
-  .cycle-fill.p-lmid   { width: 70%; background: linear-gradient(90deg, #fbbf24, #f97316); }
-  .cycle-fill.p-late   { width: 85%; background: linear-gradient(90deg, #f97316, #ef4444); }
-  .cycle-fill.p-mature { width: 95%; background: linear-gradient(90deg, #f97316, #6b7280); }
-  .cycle-label {
     color: #7a7a8a;
+    margin-top: 3px;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 700;
-    min-width: 70px;
-  }
-  .cycle-label.p-early  { color: #00c853; }
-  .cycle-label.p-emid   { color: #6dde8e; }
-  .cycle-label.p-mid    { color: #fbbf24; }
-  .cycle-label.p-lmid   { color: #f97316; }
-  .cycle-label.p-late   { color: #ef4444; }
-  .cycle-label.p-mature { color: #6b7280; }
-  /* Failure-mode (thesis killer) — what invalidates the layer */
-  .kill-mode {
-    margin-top: 8px;
-    padding: 5px 8px;
-    background: #1f0d0d;
-    border: 1px solid #6e2828;
-    border-left: 2px solid #ef4444;
-    border-radius: 4px;
-    font-size: 9px;
-    color: #ef9a9a;
-    line-height: 1.4;
-  }
-  .kill-mode strong {
-    color: #ef4444;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .cell {
-    background: #161624;
-    border: 1px solid #2a2a40;
-    border-radius: 5px;
-    padding: 8px 10px;
-  }
-  .cell-name {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 0.4px;
-    color: #c0c0d8;
-    margin-bottom: 4px;
   }
-  .ticker-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 4px;
-  }
-  .ticker {
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 5px;
-    background: #1f1f33;
+  /* Tooltip on hover — appears below the label */
+  .layer-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 10;
+    width: 320px;
+    padding: 10px 12px;
+    background: #0c0c18;
     border: 1px solid #303048;
-    border-radius: 2px;
-    color: #c8c8d8;
+    border-radius: 8px;
+    font-size: 10px;
+    line-height: 1.5;
+    color: #c0c0d8;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
   }
-  .ticker.t-strong { background: #0d2a1a; border-color: #2c5e3e; color: #6dde8e; }
-  .ticker.t-watch  { background: #2a1f08; border-color: #6e5e1c; color: #fbbf24; }
-  .ticker.t-risk   { background: #2a0d0d; border-color: #6e2828; color: #ef9a9a; }
-  .cell-note {
-    font-size: 9px;
-    color: #7a7a8a;
-    margin-top: 2px;
-  }
-  .bottleneck {
-    margin-top: 6px;
-    font-size: 9px;
-    color: #ef4444;
-    font-weight: 700;
+  .layer-label:hover .layer-tooltip { opacity: 1; }
+  .layer-tooltip strong { color: var(--layer-fg); }
+  .layer-tooltip .label { color: #6a6a7a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 8px; display: block; margin-top: 6px; }
+  .layer-tooltip .kill { color: #ef9a9a; }
+  .layer-tooltip .bottleneck { color: #fbbf24; }
+  /* Ticker tile area */
+  .tickers {
     display: flex;
     align-items: center;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 4px 8px;
   }
-  .arrow-down {
-    text-align: center;
-    color: #4a4a60;
-    font-size: 16px;
-    line-height: 1;
-    margin: -2px 0;
-  }
-  /* Layer color tints */
-  .layer-demand    { border-color: #6a9eff; background: linear-gradient(180deg, #0d1430 0%, #11111e 100%); }
-  .layer-vertical  { border-color: #b86afc; background: linear-gradient(180deg, #1c0d2a 0%, #11111e 100%); }
-  .layer-silicon   { border-color: #00c853; background: linear-gradient(180deg, #0d2a1a 0%, #11111e 100%); }
-  .layer-memory    { border-color: #fbbf24; background: linear-gradient(180deg, #2a1f08 0%, #11111e 100%); }
-  .layer-connectivity { border-color: #ec4899; background: linear-gradient(180deg, #2a0a1f 0%, #11111e 100%); }
-  .layer-photonics { border-color: #22d3ee; background: linear-gradient(180deg, #0a2630 0%, #11111e 100%); }
-  .layer-power     { border-color: #f97316; background: linear-gradient(180deg, #2a1505 0%, #11111e 100%); }
-  .layer-dccooling { border-color: #38bdf8; background: linear-gradient(180deg, #0a1d2e 0%, #11111e 100%); }
-  .layer-raw       { border-color: #6b7280; background: linear-gradient(180deg, #1a1a26 0%, #11111e 100%); }
-
-  /* Right rail: bottleneck callouts */
-  .rail {
+  .tile {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    position: sticky;
-    top: 20px;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px 7px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid #1f1f2e;
+    min-width: 78px;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
   }
-  .rail-card {
-    background: #11111e;
-    border: 1px solid #6e2828;
-    border-left: 3px solid #ef4444;
-    border-radius: 5px;
-    padding: 8px 10px;
+  .tile:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #404060;
   }
-  .rail-card.warn { border-color: #6e5e1c; border-left-color: #fbbf24; }
-  .rail-card.opp  { border-color: #2c5e3e; border-left-color: #6dde8e; }
-  .rail-title {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #ef9a9a;
-    margin-bottom: 3px;
+  .tile .logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
-  .rail-card.warn .rail-title { color: #fbbf24; }
-  .rail-card.opp .rail-title  { color: #6dde8e; }
-  .rail-text {
-    font-size: 10px;
+  .tile .logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 4px;
+  }
+  .tile .logo.fallback {
+    background: linear-gradient(135deg, #2a2a40 0%, #1a1a26 100%);
     color: #c0c0d8;
-    line-height: 1.5;
-  }
-  .footer {
-    margin-top: 24px;
-    padding-top: 12px;
-    border-top: 1px solid #2a2a40;
     font-size: 10px;
-    color: #5a5a6a;
-    line-height: 1.6;
+    font-weight: 800;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.5px;
   }
-  @media (max-width: 1100px) {
-    .stack { grid-template-columns: 1fr; }
-    .rail { position: static; }
+  .tile .ticker-sym {
+    font-size: 10px;
+    font-weight: 700;
+    color: #c0c0d8;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  /* Tier-based tile styling */
+  .tile.t-strong { border-color: #2c5e3e; }
+  .tile.t-strong .ticker-sym { color: #6dde8e; }
+  .tile.t-watch  { border-color: #4a4055; }
+  .tile.t-risk   { border-color: #6e2828; }
+  .tile.t-risk .ticker-sym { color: #ef9a9a; }
+  .tile.t-alpha  { border-color: #5a3e8e; background: rgba(120,80,200,0.08); }
+  .tile.t-alpha .ticker-sym { color: #c4a8ff; }
+  /* Layer color tokens */
+  .layer.l-demand     { --layer-bg: linear-gradient(135deg, #15203a 0%, #0d1530 100%); --layer-border: #3a5a8a; --layer-icon-bg: #1e2f55; --layer-icon-border: #4a6ab0; --layer-fg: #6a9eff; }
+  .layer.l-vertical   { --layer-bg: linear-gradient(135deg, #2a1640 0%, #1a0d2a 100%); --layer-border: #6a3eaf; --layer-icon-bg: #341c4d; --layer-icon-border: #8a5ec4; --layer-fg: #b86afc; }
+  .layer.l-silicon    { --layer-bg: linear-gradient(135deg, #14401e 0%, #0d2a18 100%); --layer-border: #2a8a4f; --layer-icon-bg: #1c4f2c; --layer-icon-border: #3eb56e; --layer-fg: #6dde8e; }
+  .layer.l-memory     { --layer-bg: linear-gradient(135deg, #3a2a08 0%, #2a1f08 100%); --layer-border: #a07a1f; --layer-icon-bg: #4a3812; --layer-icon-border: #d4a23a; --layer-fg: #fbbf24; }
+  .layer.l-connect    { --layer-bg: linear-gradient(135deg, #3a1230 0%, #2a0a1f 100%); --layer-border: #c83a8e; --layer-icon-bg: #4a1838; --layer-icon-border: #ec4899; --layer-fg: #ec4899; }
+  .layer.l-photonics  { --layer-bg: linear-gradient(135deg, #0a3640 0%, #0a2630 100%); --layer-border: #1a8aa4; --layer-icon-bg: #103e4f; --layer-icon-border: #2cb5d4; --layer-fg: #22d3ee; }
+  .layer.l-dccooling  { --layer-bg: linear-gradient(135deg, #0a2840 0%, #0a1d2e 100%); --layer-border: #2879b8; --layer-icon-bg: #103758; --layer-icon-border: #4aaae4; --layer-fg: #38bdf8; }
+  .layer.l-power      { --layer-bg: linear-gradient(135deg, #3a1f08 0%, #2a1505 100%); --layer-border: #c45f1c; --layer-icon-bg: #4a2810; --layer-icon-border: #f97316; --layer-fg: #f97316; }
+  .layer.l-raw        { --layer-bg: linear-gradient(135deg, #1f1f2a 0%, #15151e 100%); --layer-border: #4a4a5e; --layer-icon-bg: #25252e; --layer-icon-border: #6b7280; --layer-fg: #9ca3af; }
+  /* Footer */
+  .footer {
+    max-width: 1280px;
+    margin: 32px auto 0;
+    padding: 16px 12px 0;
+    border-top: 1px solid #1f1f2e;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #6a6a7a;
+  }
+  .footer strong { color: #c0c0d8; }
+  @media (max-width: 900px) {
+    .layer { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
   }
 </style>
 </head>
 <body>
 
-<h1>AI Infrastructure Stack — Bottlenecks Map</h1>
-<div class="subtitle">
-  Read top-down: demand at the top, raw materials at the bottom. Each layer feeds the layer above. Bottlenecks (red ★) sit where capacity is least fungible — typically conversion, assembly, and test, NOT raw materials.
+<div class="header">
+  <h1>DATA CENTRE<br><span class="accent">VALUE CHAIN</span></h1>
+  <div class="subtitle">The Full Ecosystem Behind AI Infrastructure</div>
+  <div class="legend">
+    <span class="legend-pill"><span class="swatch" style="background:#6dde8e;"></span> Structural winner</span>
+    <span class="legend-pill"><span class="swatch" style="background:#a09060;"></span> Demand pull / supplier</span>
+    <span class="legend-pill"><span class="swatch" style="background:#ef9a9a;"></span> Pressured / disruption risk</span>
+    <span class="legend-pill"><span class="swatch" style="background:#c4a8ff;"></span> Alpha / speculative</span>
+    <span class="legend-pill" style="margin-left:auto;color:#9090a0;">💡 Hover any layer label for cycle phase, bottlenecks, and thesis killer</span>
+  </div>
 </div>
 
-<div class="legend">
-  <span class="legend-item"><span class="ticker t-strong">TICKER</span> Structural winner</span>
-  <span class="legend-item"><span class="ticker t-watch">TICKER</span> Demand pull / supplier</span>
-  <span class="legend-item"><span class="ticker t-risk">TICKER</span> Pressured / disruption risk</span>
-  <span class="legend-item"><span style="color:#ef4444; font-weight:700;">★ Bottleneck</span> (margin sits here)</span>
-  <span class="legend-item">⏱ <span style="color:#00c853;">EARLY</span> → <span style="color:#fbbf24;">MID</span> → <span style="color:#ef4444;">LATE</span> (cycle phase)</span>
-  <span class="legend-item"><span style="color:#ef4444; font-weight:700; border-left:2px solid #ef4444; padding-left:4px;">Thesis killer</span> (what invalidates the layer)</span>
-</div>
+<div class="container">
 
-<div class="stack">
-  <div class="layers">
-
-    <!-- DEMAND -->
-    <div class="layer layer-demand">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#6a9eff;">1 · Demand — Hyperscalers + AI Workloads</span>
-        <span class="layer-tag">$115–200B+ annual capex per name</span>
+  <!-- COMPUTE SILICON -->
+  <div class="layer l-silicon">
+    <div class="layer-label">
+      <div class="layer-icon">⚙</div>
+      <div>
+        <div class="layer-name">Compute<br>Silicon</div>
+        <div class="layer-phase">⏱ MID-LATE</div>
       </div>
-      <div class="layer-role">Money source — capex commitments flow downstream. All four said "power and compute constrained."</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-mid">⏱ MID</span>
-        <div class="cycle-track"><div class="cycle-fill p-mid"></div></div>
-        <span style="color:#7a7a8a;">capex prints flowing · multi-year visibility</span>
+      <div class="layer-tooltip">
+        <strong>Custom silicon + merchant GPUs.</strong> Hyperscalers route compute to in-house ASICs (Trainium / TPU / MTIA / Maia). AVGO is the second-derivative beneficiary — fabs Trainium + TPU + MTIA simultaneously.
+        <span class="label bottleneck">★ bottleneck</span>
+        Advanced packaging (TSMC CoWoS) gates GPU/ASIC volumes.
+        <span class="label kill">⚠ thesis killer</span>
+        NVDA cuts ASP to compete with hyperscaler ASICs, OR Anthropic/OpenAI standardize on merchant GPUs.
       </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Cloud + Models (full-stack)</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">GOOGL</span>
-            <span class="ticker t-watch">MSFT</span>
-            <span class="ticker t-watch">AMZN</span>
-            <span class="ticker t-watch">META</span>
-            <span class="ticker t-watch">ORCL</span>
-          </div>
-          <div class="cell-note">GOOGL = full 6/6 stack layers · AMZN/MSFT 5/6 · META 4/6</div>
-          <div class="bottleneck">★ POWER + COMPUTE CONSTRAINED — supply, not demand, is the bottleneck</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Workload drivers</div>
-          <div class="cell-note">
-            Inference at scale (KV cache, RAG, agentic systems)<br>
-            Trillion-parameter models · custom training<br>
-            On-device AI premium (AAPL/Samsung)
-          </div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> hyperscaler capex revision down. Trigger = AI ROI miss in 2-3 consecutive quarterly prints, or one big public capex cut. Watch META and MSFT capex guides for the canary.</div>
     </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- CUSTOM SILICON / VERTICAL INTEGRATION -->
-    <div class="layer layer-vertical">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#b86afc;">2 · Custom Silicon + Vertical Capture</span>
-        <span class="layer-tag">Hyperscaler ASICs displace merchant share</span>
-      </div>
-      <div class="layer-role">Hyperscalers route compute to in-house ASICs (Trainium / TPU / MTIA / Maia) — AVGO is the second-derivative beneficiary.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-lmid">⏱ MID-LATE</span>
-        <div class="cycle-track"><div class="cycle-fill p-lmid"></div></div>
-        <span style="color:#7a7a8a;">TPU/Trainium ramping · AVGO order book extended</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Custom-silicon partners</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">AVGO</span>
-            <span class="ticker t-strong">MRVL</span>
-            <span class="ticker t-watch">ARM</span>
-            <span class="ticker t-watch">ALAB</span>
-          </div>
-          <div class="cell-note">AVGO fabs Trainium + TPU + MTIA simultaneously — TAM grows w/ each hyperscaler</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Merchant GPU + alt accelerators</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">NVDA</span>
-            <span class="ticker t-watch">AMD</span>
-            <span class="ticker t-watch">INTC</span>
-          </div>
-          <div class="cell-note">Bull: TAM growing · Bear: hyperscaler ASIC share rises</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> NVDA cuts ASP to compete with hyperscaler ASICs, OR Anthropic/OpenAI standardize on merchant GPUs and pause custom-silicon investment. Either compresses the AVGO/MRVL second-derivative trade.</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- FOUNDRY -->
-    <div class="layer layer-silicon">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#00c853;">3 · Foundry — Compute Manufacturing</span>
-        <span class="layer-tag">2-3 quarter lead time</span>
-      </div>
-      <div class="layer-role">Every custom-silicon win at AVGO/NVDA flows to TSM allocation. GFS for legacy/specialty nodes.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-mid">⏱ MID</span>
-        <div class="cycle-track"><div class="cycle-fill p-mid"></div></div>
-        <span style="color:#7a7a8a;">CoWoS expansion mid-stream · 2nm ramp ahead</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Leading-edge logic</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">TSM</span>
-            <span class="ticker t-watch">INTC</span>
-          </div>
-          <div class="cell-note">2nm/3nm capacity gates AI roadmap</div>
-          <div class="bottleneck">★ ADVANCED PACKAGING (CoWoS) — TSMC capacity is the visible choke point for GPU/ASIC volume</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Specialty + legacy</div>
-          <div class="ticker-row">
-            <span class="ticker">GFS</span>
-            <span class="ticker">UMC</span>
-            <span class="ticker">SKYT</span>
-          </div>
-          <div class="cell-note">Trailing-node capacity for I/O, RF, analog</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> CoWoS capacity slip extends another 2 quarters. Foundry becomes a relief-valve story, not a growth story, if advanced packaging stays gated. Watch TSMC's capex pace + monthly revenue prints.</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- MEMORY -->
-    <div class="layer layer-memory">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#fbbf24;">4 · Memory + Storage</span>
-        <span class="layer-tag">2027 demand pre-booked · 78% GM SNDK</span>
-      </div>
-      <div class="layer-role">Samsung: 2027 already pre-booked, supply-demand gap WIDENS vs 2026. SNDK: $11B in customer financial guarantees.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-lmid">⏱ MID-LATE</span>
-        <div class="cycle-track"><div class="cycle-fill p-lmid"></div></div>
-        <span style="color:#7a7a8a;">78% GM is near peak · 2027 pre-booked extends thesis</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">HBM + DRAM</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">MU</span>
-            <span class="ticker t-watch">FORM</span>
-            <span class="ticker t-watch">AMKR</span>
-          </div>
-          <div class="cell-note">HBM3e/HBM4 capacity is gated by probe-card (FORM) + advanced packaging (AMKR). MU is the only US-listed HBM scale play.</div>
-          <div class="bottleneck">★ HBM CAPACITY — pricing power 2026-2027 multi-year</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">NAND + Storage</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">SNDK</span>
-            <span class="ticker t-watch">MU</span>
-            <span class="ticker t-watch">SIMO</span>
-            <span class="ticker t-risk">WDC</span>
-            <span class="ticker t-risk">STX</span>
-          </div>
-          <div class="cell-note">SNDK 78% GM · "NAND is the only economically viable solution" for inference KV cache + RAG · SIMO = storage controllers riding NAND cycle (consumer/automotive bias, less AI-enterprise risk than Phison)</div>
-          <div class="bottleneck">★ HDD ACTIVE TIER LOSING TO FLASH (STX/WDC at risk for AI inference)</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> spot-pricing reversal + cycle peak (memory is historically cyclical). 78% GM unsustainable if 2-3 hyperscalers cut buying. Customer concentration in $11B guarantees = bilateral risk.</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- AI CONNECTIVITY / INTERCONNECT BENCH (NEW LAYER) -->
-    <div class="layer layer-connectivity">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#ec4899;">5 · AI Connectivity — Interconnect Bench</span>
-        <span class="layer-tag">"Get bits between chips" — distinct from chips themselves</span>
-      </div>
-      <div class="layer-role">Names whose role is moving bits between AI chips and clusters. Sits between Custom Silicon (compute) and Photonics (deeper supply chain). Captures value from EVERY GPU/ASIC scale-out — independent of which silicon vendor wins.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-mid">⏱ MID</span>
-        <div class="cycle-track"><div class="cycle-fill p-mid"></div></div>
-        <span style="color:#7a7a8a;">800G live · 1.6T qualifying · CPO 2027-28 · CXL/PCIe Gen6 ramping</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Electrical interconnect (chip + box level)</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">ALAB</span>
-            <span class="ticker t-strong">CRDO</span>
-            <span class="ticker t-watch">MRVL</span>
-            <span class="ticker t-watch">AVGO</span>
-            <span class="ticker t-strong">ANET</span>
-            <span class="ticker t-watch">CSCO</span>
-          </div>
-          <div class="cell-note">Chip-level: ALAB (PCIe/CXL retimers) · CRDO (SerDes + AECs) · MRVL (optical DSPs) · AVGO (switch silicon)<br>Box-level: ANET (Tomahawk-based DC switches — the integrator) · CSCO (enterprise/legacy DC)</div>
-          <div class="bottleneck">★ EVERY GPU/ASIC NEEDS ONE — captures TAM regardless of which compute vendor wins · ANET sits where chip silicon becomes a deployable switch</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Optical interconnect (rack-to-rack / row-to-row)</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">AAOI</span>
-            <span class="ticker t-watch">MXL</span>
-            <span class="ticker t-watch">CIEN</span>
-          </div>
-          <div class="cell-note">AAOI = 800G/1.6T pluggable specialist · MXL = optical DSP pivot from broadband · CIEN = coherent line systems (long-haul)</div>
-          <div class="bottleneck">★ 800G→1.6T CYCLE NOW · CPO TRANSITION 2027-28 = re-rating event for survivors</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> co-packaged optics (CPO) compresses pluggable TAM faster than expected. AAOI most exposed; MRVL/CRDO have CPO roadmaps that absorb the transition. ALAB is insulated (PCIe/CXL is electrical-only and CPO-orthogonal).</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- PHOTONICS -->
-    <div class="layer layer-photonics">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#22d3ee;">6 · Photonics — Substrates → Test → Assembly → CPO</span>
-        <span class="layer-tag">7-step chain, low fungibility · feeds Layer 5</span>
-      </div>
-      <div class="layer-role">Bottlenecks live in TEST + ASSEMBLY, not raw materials. CPO transition shifts value to advanced packaging + fiber attach.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-emid">⏱ EARLY-MID</span>
-        <div class="cycle-track"><div class="cycle-fill p-emid"></div></div>
-        <span style="color:#7a7a8a;">CPO transition just starting · 6-inch InP qualifying</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Substrates + Epitaxy + PIC fab</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">COHR</span>
-            <span class="ticker t-watch">LITE</span>
-            <span class="ticker t-watch">AXTI</span>
-          </div>
-          <div class="cell-note">COHR = vertically integrated (substrate→epi→PIC→module). 6-inch InP fab announced. AXTI is smallest US pure-play.</div>
-          <div class="bottleneck">★ 6-INCH InP TRANSITION — multi-year requalification across stack</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Modules + High-Speed Pluggable</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">FN</span>
-            <span class="ticker t-watch">CIEN</span>
-            <span class="ticker t-watch">CRDO</span>
-            <span class="ticker t-watch">AAOI</span>
-            <span class="ticker t-watch">MXL</span>
-            <span class="ticker t-watch">NOK</span>
-            <span class="ticker t-watch">JBL</span>
-          </div>
-          <div class="cell-note">FN = assembly bottleneck owner · AAOI on 800G/1.6T cycle · MXL emerging optical DSP · NOK absorbed Infinera (InP photonics)</div>
-          <div class="bottleneck">★ HERMETIC PACKAGING — late-stage gate, capacity AFTER most cost incurred</div>
-        </div>
-      </div>
-      <div class="row" style="margin-top: 8px;">
-        <div class="cell">
-          <div class="cell-name">Test + Inspection (THE choke point)</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">AEHR</span>
-            <span class="ticker t-strong">ONTO</span>
-            <span class="ticker t-strong">CAMT</span>
-            <span class="ticker t-watch">KEYS</span>
-            <span class="ticker t-watch">COHU</span>
-            <span class="ticker t-watch">TER</span>
-            <span class="ticker t-watch">VIAV</span>
-            <span class="ticker t-watch">FORM</span>
-          </div>
-          <div class="cell-note">AEHR = pure-play optical burn-in · FORM = HBM probe cards · ONTO/CAMT = wafer/PIC inspection</div>
-          <div class="bottleneck">★ TEST CAPACITY GATES SHIPMENTS — VIAV/FORM thesis lives here</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">CPO transition + Fiber</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">MTSI</span>
-            <span class="ticker t-watch">POET</span>
-            <span class="ticker t-watch">TSEM</span>
-            <span class="ticker t-strong">GLW</span>
-            <span class="ticker">COMM</span>
-          </div>
-          <div class="cell-note">CPO relocates bottlenecks to advanced packaging · GLW fiber demand scales w/ rack count</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> CPO timeline slips by 12+ months. Most photonics-test capex is being deployed assuming a 2027-2028 CPO ramp; a delay sends the test bench (AEHR/CAMT/ONTO) into pluggable-only TAM, which is smaller and increasingly commoditized.</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- DATACENTER + COOLING (NEW LAYER) -->
-    <div class="layer layer-dccooling">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#38bdf8;">7 · Datacenter + Cooling — The Physical Envelope</span>
-        <span class="layer-tag">Where everything lives</span>
-      </div>
-      <div class="layer-role">Datacenters are the literal site for compute + memory + photonics + power. Cooling is co-equal with power as a density constraint at AI rack densities (50-150kW/rack). Site permitting + thermal design is increasingly the rate-limit, not silicon supply.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-mid">⏱ MID</span>
-        <div class="cycle-track"><div class="cycle-fill p-mid"></div></div>
-        <span style="color:#7a7a8a;">VRT already ran · REIT pricing power emerging · liquid cooling adoption mid-stream</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Datacenter REITs + Colo</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">DLR</span>
-            <span class="ticker t-strong">EQIX</span>
-            <span class="ticker t-watch">IRM</span>
-          </div>
-          <div class="cell-note">Pricing power up materially as new builds hit power constraints. DLR/EQIX rerated as "scarce site + scarce power" plays.</div>
-          <div class="bottleneck">★ POWER INTERCONNECT QUEUE — REITs with secured PPAs win; new entrants face 3-5 yr permit cycles</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Datacenter Construction</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">EME</span>
-            <span class="ticker t-strong">FIX</span>
-            <span class="ticker t-watch">IESC</span>
-            <span class="ticker t-watch">FLR</span>
-            <span class="ticker t-watch">PWR</span>
-            <span class="ticker t-watch">ACM</span>
-          </div>
-          <div class="cell-note">EME/FIX = MEP contractors for AI datacenter buildouts. Backlog visibility through 2027.</div>
-        </div>
-      </div>
-      <div class="row" style="margin-top: 8px;">
-        <div class="cell">
-          <div class="cell-name">Liquid + Immersion Cooling</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">VRT</span>
-            <span class="ticker t-watch">MOD</span>
-            <span class="ticker t-watch">NVT</span>
-            <span class="ticker t-watch">CARR</span>
-          </div>
-          <div class="cell-note">Direct-to-chip + immersion required at &gt;50kW/rack densities. VRT is the headline play — already ran but TAM still expanding.</div>
-          <div class="bottleneck">★ THERMAL DENSITY — air cooling caps out, liquid attach requires retrofit OR ground-up new build</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Air Cooling + HVAC + Building Systems</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">AAON</span>
-            <span class="ticker t-watch">JCI</span>
-            <span class="ticker t-watch">LII</span>
-            <span class="ticker t-watch">TT</span>
-            <span class="ticker t-watch">WSO</span>
-          </div>
-          <div class="cell-note">Co-deployed with liquid for hybrid loops. JCI controls building automation across AI campuses.</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> hyperscalers self-build at much greater pace than expected (insourcing colo demand), OR a regulatory pause on permits (CA, VA, IE) freezes new capacity. Either compresses the REIT/construction pricing power thesis.</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- POWER -->
-    <div class="layer layer-power">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#f97316;">8 · Power — Generation + Grid</span>
-        <span class="layer-tag">2-5 year cycle · permitting bound</span>
-      </div>
-      <div class="layer-role">All four hyperscalers said "power constrained" in unison. Grid buildout is a multi-year cycle, IPP/nuclear/grid-construction bench has multi-year visibility.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-early">⏱ EARLY</span>
-        <div class="cycle-track"><div class="cycle-fill p-early"></div></div>
-        <span style="color:#7a7a8a;">Multi-year cycle · institutional rotation just starting</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">IPP + Nuclear (Datacenter Power)</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">VST</span>
-            <span class="ticker t-strong">CEG</span>
-            <span class="ticker t-watch">TLN</span>
-            <span class="ticker t-watch">NRG</span>
-            <span class="ticker t-watch">NEE</span>
-          </div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">OKLO</span>
-            <span class="ticker t-watch">SMR</span>
-            <span class="ticker t-watch">NNE</span>
-            <span class="ticker t-watch">BWXT</span>
-            <span class="ticker t-watch">BE</span>
-            <span class="ticker t-watch">EQT</span>
-          </div>
-          <div class="cell-note">NEE = scaled renewable utility w/ DC PPAs · BE (Bloom Energy) = on-site fuel cells, bypasses grid interconnect queue · EQT = natural gas for gas-fired DC backup</div>
-          <div class="bottleneck">★ PERMITTING + INTERCONNECT QUEUE — multi-year structural choke</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Grid Equipment + Construction</div>
-          <div class="ticker-row">
-            <span class="ticker t-strong">GEV</span>
-            <span class="ticker t-strong">ETN</span>
-            <span class="ticker t-watch">PWR</span>
-            <span class="ticker t-watch">MYRG</span>
-            <span class="ticker t-watch">PRIM</span>
-            <span class="ticker t-watch">DY</span>
-            <span class="ticker t-watch">AGX</span>
-            <span class="ticker t-watch">EME</span>
-            <span class="ticker t-watch">EOSE</span>
-          </div>
-          <div class="cell-note">Grid construction = "the plumbing" — second-derivative of IPP capex. MIR for nuclear instrumentation. EOSE = grid-scale battery storage for DC load smoothing.</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> AI ROI questioned + hyperscaler capex pulled back → power demand assumptions cut. IPPs trading at PPA-secured premium revert to utility multiples. Nuclear/SMR (OKLO/SMR/NNE) most exposed since they're priced on optionality.</div>
-    </div>
-    <div class="arrow-down">↓</div>
-
-    <!-- RAW MATERIALS -->
-    <div class="layer layer-raw">
-      <div class="layer-title">
-        <span class="layer-name" style="color:#9090a0;">9 · Raw Materials + Semicap Equipment</span>
-        <span class="layer-tag">Less levered than memory/photonics earnings imply</span>
-      </div>
-      <div class="layer-role">SNDK CapEx only 4% of revenue → memory profits accrue to producers, NOT equipment. Raw indium upstream is byproduct-coupled to zinc.</div>
-      <div class="cycle-bar">
-        <span class="cycle-label p-mid">⏱ MID</span>
-        <div class="cycle-track"><div class="cycle-fill p-mid"></div></div>
-        <span style="color:#7a7a8a;">Selective: test/inspection &gt; deposition tools (WFE caveat)</span>
-      </div>
-      <div class="row">
-        <div class="cell">
-          <div class="cell-name">Wafer Fab Equipment</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">AMAT</span>
-            <span class="ticker t-watch">LRCX</span>
-            <span class="ticker t-watch">ASML</span>
-            <span class="ticker t-watch">KLAC</span>
-          </div>
-          <div class="cell-note">Tools for foundry/memory expansion · ASML EUV is monopoly choke point (Dutch-listed but ADR liquid)</div>
-          <div class="bottleneck">★ NAND CAPEX UPSIDE LIMITED — supply growth via node transitions, not greenfield</div>
-        </div>
-        <div class="cell">
-          <div class="cell-name">Specialty materials + indium</div>
-          <div class="ticker-row">
-            <span class="ticker t-watch">MKSI</span>
-            <span class="ticker t-watch">ENTG</span>
-            <span class="ticker">TECK</span>
-          </div>
-          <div class="cell-note">MKSI = plasma chemistry · ENTG = specialty filtration · Indium is byproduct of zinc smelting (China refines 68%)</div>
-          <div class="bottleneck">★ INDIUM = SYSTEMIC RISK — single-point failure for InP photonics</div>
-        </div>
-      </div>
-      <div class="kill-mode"><strong>Thesis killer:</strong> indium/zinc supply shock (China export restriction) → all InP-dependent margins compress simultaneously. WFE side: NAND CapEx surprise to upside (greenfield) reverses the "test &gt; deposition" thesis.</div>
-    </div>
-
+    <div class="tickers" id="row-silicon"></div>
   </div>
 
-  <!-- RIGHT RAIL: BOTTLENECK SUMMARY -->
-  <div class="rail">
-    <div class="rail-card">
-      <div class="rail-title">★ Compute bottleneck</div>
-      <div class="rail-text">Advanced packaging (TSMC CoWoS) is THE choke for GPU/ASIC volumes. ASML EUV monopoly gates leading-edge logic.</div>
-    </div>
-    <div class="rail-card">
-      <div class="rail-title">★ Memory bottleneck</div>
-      <div class="rail-text">HBM probe-card test (FORM) and HBM advanced-packaging are the gates. Supply pre-booked through 2027.</div>
-    </div>
-    <div class="rail-card">
-      <div class="rail-title">★ Connectivity advantage</div>
-      <div class="rail-text">ALAB/CRDO/MRVL/AAOI/MXL get paid on EVERY GPU/ASIC scale-out — agnostic to which compute vendor wins. PCIe/CXL (ALAB) is CPO-orthogonal so insulated from optical transition risk.</div>
-    </div>
-    <div class="rail-card">
-      <div class="rail-title">★ Photonics bottleneck</div>
-      <div class="rail-text">TEST + ALIGNMENT + HERMETIC PACKAGING — not raw materials. AEHR/CAMT/ONTO/FN capture margin during demand surges.</div>
-    </div>
-    <div class="rail-card">
-      <div class="rail-title">★ DC + Cooling bottleneck</div>
-      <div class="rail-text">Power-secured sites (DLR/EQIX) command pricing power. Liquid cooling (VRT/MOD) required &gt;50kW/rack — air-cooling caps out. EME/FIX MEP backlog through 2027.</div>
-    </div>
-    <div class="rail-card">
-      <div class="rail-title">★ Power bottleneck</div>
-      <div class="rail-text">Permitting + interconnect queue is multi-year structural. Grid-equipment + construction (GEV/ETN/PWR/MYRG) front-runs IPPs.</div>
-    </div>
-    <div class="rail-card warn">
-      <div class="rail-title">⚠ WFE caveat</div>
-      <div class="rail-text">Memory earnings expand WITHOUT a NAND CapEx boom. SNDK at 4% capex/revenue. Avoid extrapolating high GM into greenfield orders.</div>
-    </div>
-    <div class="rail-card warn">
-      <div class="rail-title">⚠ CPO transition risk</div>
-      <div class="rail-text">CPO doesn't shrink the supply chain — it relocates bottlenecks. Pluggable specialists (AAOI) face TAM compression. FN/AEHR absorb new work.</div>
-    </div>
-    <div class="rail-card opp">
-      <div class="rail-title">★ Cleanest expressions</div>
-      <div class="rail-text">
-        <strong>Compute</strong>: AVGO (custom silicon TAM)<br>
-        <strong>Memory</strong>: MU + SNDK<br>
-        <strong>Connectivity</strong>: ALAB + CRDO + MRVL + <span style="color:#ec4899;">ANET</span><br>
-        <strong>Photonics</strong>: COHR + FN + AEHR<br>
-        <strong>SiPh foundry alpha</strong>: TSEM + POET<br>
-        <strong>DC + Cooling</strong>: DLR + EQIX + VRT + EME<br>
-        <strong>Power</strong>: VST + CEG + GEV + MYRG + <span style="color:#f97316;">NEE</span>
+  <!-- AI CONNECTIVITY -->
+  <div class="layer l-connect">
+    <div class="layer-label">
+      <div class="layer-icon">⇆</div>
+      <div>
+        <div class="layer-name">AI<br>Connectivity</div>
+        <div class="layer-phase">⏱ MID</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Get bits between chips.</strong> Names whose role is moving bits between AI chips/clusters — agnostic to which compute vendor wins. ANET integrates the chip-level pieces into deployable switches.
+        <span class="label bottleneck">★ bottleneck</span>
+        Every GPU/ASIC needs interconnect — captures TAM regardless of which compute vendor wins.
+        <span class="label kill">⚠ thesis killer</span>
+        CPO compresses pluggable TAM faster than expected. ALAB insulated (PCIe/CXL is electrical-only and CPO-orthogonal).
       </div>
     </div>
-    <div class="rail-card opp">
-      <div class="rail-title">★ Cleanest pair trades</div>
-      <div class="rail-text">
-        Long ALAB/CRDO vs short AAOI (CPO transition; ALAB orthogonal)<br>
-        Long FN/AEHR vs short AAOI (CPO transition)<br>
-        Long MU/SNDK vs short STX/WDC (active-tier flash)<br>
-        Long ONTO/CAMT/AEHR vs broader semicap basket (WFE caveat)
-      </div>
-    </div>
+    <div class="tickers" id="row-connect"></div>
   </div>
+
+  <!-- MEMORY & STORAGE -->
+  <div class="layer l-memory">
+    <div class="layer-label">
+      <div class="layer-icon">▦</div>
+      <div>
+        <div class="layer-name">Memory<br>& Storage</div>
+        <div class="layer-phase">⏱ MID-LATE</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>HBM, DRAM, NAND.</strong> Samsung 2027 already pre-booked. SNDK 78% GM, $11B in customer financial guarantees. NAND is the only economically viable solution for inference KV cache + RAG.
+        <span class="label bottleneck">★ bottleneck</span>
+        HBM probe-card test (FORM) and HBM advanced-packaging are the gates.
+        <span class="label kill">⚠ thesis killer</span>
+        Spot-pricing reversal + cycle peak. 78% GM unsustainable if 2-3 hyperscalers cut buying.
+      </div>
+    </div>
+    <div class="tickers" id="row-memory"></div>
+  </div>
+
+  <!-- SERVER OEMS / DC INFRA -->
+  <div class="layer l-dccooling">
+    <div class="layer-label">
+      <div class="layer-icon">🗄</div>
+      <div>
+        <div class="layer-name">Server OEMs<br>& DC Infra</div>
+        <div class="layer-phase">⏱ MID</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>The physical envelope.</strong> Datacenter REITs/colo + DC construction + cooling (liquid for >50kW racks). VRT already ran but TAM still expanding. EME/FIX MEP backlog visible through 2027.
+        <span class="label bottleneck">★ bottleneck</span>
+        Power-secured sites (DLR/EQIX) command pricing power. Liquid cooling required at AI rack densities.
+        <span class="label kill">⚠ thesis killer</span>
+        Hyperscalers self-build pace ramps OR regulatory permit pause (CA/VA/IE) freezes new capacity.
+      </div>
+    </div>
+    <div class="tickers" id="row-dc"></div>
+  </div>
+
+  <!-- PHOTONICS -->
+  <div class="layer l-photonics">
+    <div class="layer-label">
+      <div class="layer-icon">⚛</div>
+      <div>
+        <div class="layer-name">Photonics<br>(Test + CPO)</div>
+        <div class="layer-phase">⏱ EARLY-MID</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Substrates → epi → fab → test → assembly → CPO.</strong> Bottlenecks live in TEST + ASSEMBLY, not raw materials. CPO transition shifts value to advanced packaging + fiber attach.
+        <span class="label bottleneck">★ bottleneck</span>
+        Test capacity (AEHR/CAMT/ONTO) gates shipments. Hermetic packaging is late-stage gate AFTER most cost incurred.
+        <span class="label kill">⚠ thesis killer</span>
+        CPO timeline slips by 12+ months. Most photonics-test capex assumes 2027-2028 CPO ramp.
+      </div>
+    </div>
+    <div class="tickers" id="row-photonics"></div>
+  </div>
+
+  <!-- NEOCLOUDS -->
+  <div class="layer l-vertical">
+    <div class="layer-label">
+      <div class="layer-icon">☁</div>
+      <div>
+        <div class="layer-name">Neoclouds<br>+ Hyperscalers</div>
+        <div class="layer-phase">⏱ MID</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Money source.</strong> Hyperscalers commit capex (top of stack). Neoclouds (CRWV/IREN/NBIS/APLD) sit between hyperscaler scale and pure spec — own the GPUs, rent them out.
+        <span class="label bottleneck">★ bottleneck</span>
+        Power + compute constrained — supply, not demand, is the bottleneck. All four hyperscalers said it.
+        <span class="label kill">⚠ thesis killer</span>
+        AI ROI miss in 2-3 consecutive prints triggers capex revision down. Watch META + MSFT capex guides.
+      </div>
+    </div>
+    <div class="tickers" id="row-cloud"></div>
+  </div>
+
+  <!-- ENERGY (POWER LAYER) -->
+  <div class="layer l-power">
+    <div class="layer-label">
+      <div class="layer-icon">⚡</div>
+      <div>
+        <div class="layer-name">Energy<br>(Power Layer)</div>
+        <div class="layer-phase">⏱ EARLY</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Multi-year cycle.</strong> All four hyperscalers said "power constrained" in unison. Grid buildout is a 2-5 year cycle. IPP/nuclear/grid-construction bench has multi-year visibility.
+        <span class="label bottleneck">★ bottleneck</span>
+        Permitting + interconnect queue is multi-year structural. Grid-equipment + construction front-runs IPPs.
+        <span class="label kill">⚠ thesis killer</span>
+        AI ROI questioned + hyperscaler capex pulled back → power demand assumptions cut.
+      </div>
+    </div>
+    <div class="tickers" id="row-energy"></div>
+  </div>
+
+  <!-- SEMICAP / RAW -->
+  <div class="layer l-raw">
+    <div class="layer-label">
+      <div class="layer-icon">⛏</div>
+      <div>
+        <div class="layer-name">Semicap<br>+ Materials</div>
+        <div class="layer-phase">⏱ MID</div>
+      </div>
+      <div class="layer-tooltip">
+        <strong>Selective: test/inspection &gt; deposition.</strong> SNDK CapEx only 4% of revenue → memory profits accrue to producers, not equipment. Indium upstream is byproduct-coupled to zinc.
+        <span class="label bottleneck">★ bottleneck</span>
+        ASML EUV monopoly gates leading-edge logic. Indium concentration in China = systemic risk.
+        <span class="label kill">⚠ thesis killer</span>
+        NAND CapEx surprise to upside reverses the "test &gt; deposition" thesis.
+      </div>
+    </div>
+    <div class="tickers" id="row-semicap"></div>
+  </div>
+
 </div>
 
 <div class="footer">
-  <strong>Lead-lag horizon:</strong> Demand commitments (top) → flow downstream over 1-4 quarters per layer. A hyperscaler capex print today benefits foundry in ~1Q, memory in ~1-2Q, photonics test in ~2-3Q, datacenter+cooling in ~1-3Q (depends on permit status), power in ~2-8Q (longest cycle).
-  <br>
-  <strong>Time-phase rule:</strong> ⏱ EARLY layers have the most upside left (e.g., Power gen). LATE layers are pricing in much of the thesis already (e.g., custom silicon, near-peak memory GM). Use phase as a position-sizing input — overweight EARLY, lighten LATE.
-  <br>
-  <strong>Bottleneck rule:</strong> bottlenecks (★) live where capacity is least fungible (test, packaging, advanced packaging, hermetic seal, permitting, thermal density). NOT in raw materials. Margin accrues at the bottleneck.
-  <br>
-  <strong>Failure-mode rule:</strong> every layer's thesis killer is annotated inline. Position size proportional to confidence × distance from kill condition.
-  <br>
-  <strong>Cross-references in <code>theme_notes.json</code>:</strong> hyperscaler-capex-2026-q1, hyperscaler-power-compute-constrained-2026-q1, samsung-2027-prebooked-2026-q1, sndk-q3-fy2026-2026-04-30, photonics-supply-chain-2026-04-30, viav-form-2026-q1, googl-vertical-ai-stack-2026-q1, amzn-aws-once-in-a-lifetime-2026-q1.
+  <strong>Lead-lag horizon.</strong> Demand commitments (Neoclouds + Hyperscalers) flow downstream over 1-4 quarters per layer. A hyperscaler capex print today benefits foundry in ~1Q, memory in ~1-2Q, photonics test in ~2-3Q, DC+cooling in ~1-3Q, power in ~2-8Q (longest cycle).<br>
+  <strong>Time-phase rule.</strong> ⏱ EARLY layers have most upside left (Power, Photonics). LATE layers price in much of the thesis (Compute Silicon, near-peak Memory GM). Use phase as position-sizing input — overweight EARLY, lighten LATE.<br>
+  <strong>Bottleneck rule.</strong> Bottlenecks live where capacity is least fungible (test, packaging, advanced packaging, hermetic seal, permitting, thermal density) — NOT in raw materials. Margin accrues at the bottleneck.<br>
+  <strong>Cross-references in <code>theme_notes.json</code>:</strong> hyperscaler-capex, hyperscaler-power-compute-constrained, samsung-2027-prebooked, sndk-q3-fy2026, photonics-supply-chain, viav-form, googl-vertical-ai-stack, amzn-aws-once-in-a-lifetime, sive-apple-silicon-photonics.
 </div>
+
+<script>
+// Ticker → tier mapping. tier: 'strong' | 'watch' | 'risk' | 'alpha'
+const ROWS = {
+  silicon: [
+    ['NVDA','watch'], ['AMD','watch'], ['AVGO','strong'], ['INTC','watch'],
+    ['MRVL','strong'], ['ARM','watch'], ['ALAB','strong'], ['TSM','strong']
+  ],
+  connect: [
+    ['ANET','strong'], ['ALAB','strong'], ['CRDO','strong'], ['MRVL','strong'],
+    ['CSCO','watch'], ['AAOI','watch'], ['CIEN','watch'], ['MXL','watch'],
+    ['JBL','watch']
+  ],
+  memory: [
+    ['MU','strong'], ['SNDK','strong'], ['FORM','watch'], ['AMKR','watch'],
+    ['SIMO','watch'], ['WDC','risk'], ['STX','risk']
+  ],
+  dc: [
+    ['DLR','strong'], ['EQIX','strong'], ['VRT','strong'], ['EME','strong'],
+    ['SMCI','watch'], ['DELL','watch'], ['HPE','watch'], ['ETN','strong'],
+    ['MOD','watch'], ['NVT','watch'], ['CARR','watch'], ['JCI','watch'],
+    ['FIX','watch']
+  ],
+  photonics: [
+    ['COHR','strong'], ['FN','strong'], ['AEHR','strong'], ['ONTO','strong'],
+    ['CAMT','strong'], ['LITE','watch'], ['KEYS','watch'], ['VIAV','watch'],
+    ['AXTI','watch'], ['MTSI','watch'], ['POET','alpha'], ['TSEM','alpha'],
+    ['GLW','strong']
+  ],
+  cloud: [
+    ['MSFT','watch'], ['GOOGL','watch'], ['AMZN','watch'], ['META','watch'],
+    ['ORCL','watch'], ['NBIS','watch'], ['IREN','watch'], ['CRWV','watch'],
+    ['APLD','watch']
+  ],
+  energy: [
+    ['VST','strong'], ['CEG','strong'], ['NEE','watch'], ['TLN','watch'],
+    ['NRG','watch'], ['GEV','strong'], ['ETN','strong'], ['PWR','watch'],
+    ['MYRG','watch'], ['PRIM','watch'], ['OKLO','watch'], ['SMR','watch'],
+    ['NNE','watch'], ['BWXT','watch'], ['BE','watch'], ['EOSE','watch'],
+    ['EQT','watch']
+  ],
+  semicap: [
+    ['AMAT','watch'], ['LRCX','watch'], ['ASML','watch'], ['KLAC','watch'],
+    ['MKSI','watch'], ['ENTG','watch']
+  ],
+};
+
+// FMP company image URL — public CDN. Falls back to a text tile if 404.
+const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
+
+const render = () => {
+  for (const [rowKey, items] of Object.entries(ROWS)) {
+    const container = document.getElementById(`row-${rowKey}`);
+    if (!container) continue;
+    items.forEach(([ticker, tier]) => {
+      const tile = document.createElement('div');
+      tile.className = `tile t-${tier}`;
+      tile.title = `${ticker} — click to open in TradingView`;
+      tile.onclick = () => window.open(`https://www.tradingview.com/symbols/${ticker}/`, '_blank');
+      const logo = document.createElement('div');
+      logo.className = 'logo';
+      const img = document.createElement('img');
+      img.src = logoUrl(ticker);
+      img.alt = ticker;
+      img.onerror = () => {
+        // Replace with text fallback on 404
+        logo.classList.add('fallback');
+        logo.innerHTML = ticker;
+      };
+      logo.appendChild(img);
+      const sym = document.createElement('div');
+      sym.className = 'ticker-sym';
+      sym.textContent = ticker;
+      tile.appendChild(logo);
+      tile.appendChild(sym);
+      container.appendChild(tile);
+    });
+  }
+};
+render();
+</script>
 
 </body>
 </html>
