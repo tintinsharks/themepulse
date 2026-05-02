@@ -56,6 +56,121 @@
     background: linear-gradient(135deg, #fbbf24 0%, #ec4899 100%);
     color: #0a0a14;
   }
+  /* Tab nav: Ranking vs Earnings */
+  .tabs {
+    display: flex; gap: 4px; margin-top: 14px;
+    border-bottom: 1px solid #1f1f2e;
+    padding-bottom: 0;
+  }
+  .tabs button {
+    background: transparent; border: none;
+    color: #6a6a7a;
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tabs button:hover { color: #c0c0d8; }
+  .tabs button.active {
+    color: #fbbf24;
+    border-bottom-color: #fbbf24;
+  }
+  /* Earnings calendar */
+  .week-block { max-width: 1280px; margin: 0 auto 18px; }
+  .week-header {
+    font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: #fbbf24;
+    padding: 8px 0 6px 12px;
+    border-left: 3px solid #fbbf24;
+    margin-bottom: 4px;
+  }
+  .week-header.this-week  { color: #6dde8e; border-left-color: #6dde8e; }
+  .week-header.next-week  { color: #22d3ee; border-left-color: #22d3ee; }
+  .week-header.future     { color: #7a7a8a; border-left-color: #4a4a5e; }
+  .er-row {
+    display: grid;
+    grid-template-columns: 80px 110px 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 14px;
+    background: rgba(15, 15, 24, 0.5);
+    border: 1px solid #1c1c2c;
+    border-radius: 6px;
+    margin-bottom: 3px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .er-row:hover { background: rgba(255,255,255,0.04); border-color: #303048; }
+  .er-row .er-ticker {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-weight: 800; font-size: 13px;
+    color: #c0c0d8;
+  }
+  .er-row .er-date {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; font-weight: 700;
+    color: #c0c0d8;
+  }
+  .er-row .er-date .ts {
+    color: #6a6a7a; margin-left: 4px;
+    font-size: 9px;
+  }
+  .er-row .er-themes {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    font-size: 8px; min-width: 0;
+  }
+  .er-row .er-themes .pill {
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #2a2a40;
+    white-space: nowrap;
+  }
+  .er-row .er-themes .pill.t-ai      { color: #6cd5e8; border-color: #1a8aa4; }
+  .er-row .er-themes .pill.t-software{ color: #a78bfa; border-color: #5a3e8e; }
+  .er-row .er-themes .pill.t-cyber   { color: #ef4444; border-color: #7e2828; }
+  .er-row .er-themes .pill.t-fintech { color: #fbbf24; border-color: #a07a1f; }
+  .er-row .er-themes .pill.t-defense { color: #f97316; border-color: #c45f1c; }
+  .er-row .er-themes .pill.t-robotics{ color: #22d3ee; border-color: #1a8aa4; }
+  .er-row .er-themes .pill.t-ev      { color: #6dde8e; border-color: #2c5e3e; }
+  .er-row .er-themes .pill.t-quantum { color: #b86afc; border-color: #5a3e8e; }
+  .er-row .er-themes .pill.t-space   { color: #6a9eff; border-color: #3a5a8a; }
+  .er-row .er-move {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; font-weight: 700;
+    color: #fbbf24;
+    text-align: right;
+    min-width: 56px;
+  }
+  .er-row .er-grade {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.3px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #2a2a40;
+    color: #9090a0;
+    min-width: 36px; text-align: center;
+  }
+  .er-row .er-grade.a { color: #6dde8e; border-color: #2c5e3e; background: rgba(109,222,142,0.10); }
+  .er-row .er-grade.b { color: #fbbf24; border-color: #a07a1f; background: rgba(251,191,36,0.10); }
+  .er-row .er-grade.c { color: #ef9a9a; border-color: #6e2828; background: rgba(239,154,154,0.10); }
+  .empty-state {
+    max-width: 1280px; margin: 32px auto;
+    text-align: center; padding: 32px;
+    color: #6a6a7a; font-size: 12px;
+    border: 1px dashed #2a2a40;
+    border-radius: 8px;
+  }
   .narrative-pulse {
     margin: 12px 0 16px;
     padding: 12px 14px;
@@ -225,8 +340,18 @@
 <div class="header">
   <h1>Subtheme Leaderboard</h1>
   <div class="subtitle">
-    Every Subtheme Across All Drawers · Ranked By Composite Strength
+    Every Subtheme Across All Drawers
     <span id="live-status" class="live-status off"><span class="dot"></span><span id="live-status-text">loading…</span></span>
+  </div>
+  <div class="tabs" id="tab-nav">
+    <button data-tab="ranking" class="active">📊 Strength Ranking</button>
+    <button data-tab="earnings">📅 Earnings Calendar</button>
+  </div>
+</div>
+
+<!-- RANKING TAB -->
+<div id="tab-ranking">
+  <div style="max-width:1280px; margin:14px auto 12px; display:flex; justify-content:flex-end;">
     <span class="controls" id="sort-controls">
       <button data-sort="score" class="active">S Score</button>
       <button data-sort="chg">% Chg</button>
@@ -235,11 +360,14 @@
       <button data-sort="rs">RS</button>
     </span>
   </div>
+  <div id="narrative-pulse" class="narrative-pulse" style="display:none;"></div>
+  <div class="container" id="leaderboard"></div>
 </div>
 
-<div id="narrative-pulse" class="narrative-pulse" style="display:none;"></div>
-
-<div class="container" id="leaderboard"></div>
+<!-- EARNINGS TAB -->
+<div id="tab-earnings" style="display:none; margin-top: 14px;">
+  <div id="earnings-calendar"></div>
+</div>
 
 <div class="footer">
   <strong>Composite strength:</strong> median(chg × RVol × CR/100) across the layer's constituents — captures magnitude (chg), conviction (RVol), and intraday close strength (CR%).<br>
@@ -325,6 +453,7 @@ const ALL_TICKERS = Array.from(new Set(SUBTHEMES.flatMap((s) => s.tickers)));
 
 const PIPELINE_AVGVOL = {};
 const PIPELINE_RS = {};                  // ticker → RS rank (pipeline)
+const PIPELINE_ER = {};                  // ticker → { earnings_days, er_timing, avg_er_move, earnings_display, qmag_grade, sector }
 const NARRATIVES = [];                   // loaded narratives.json content
 let SORT_KEY = "score";                  // active sort key
 
@@ -338,6 +467,19 @@ const loadPipelineData = async () => {
       if (!tk) return;
       if (s.avg_volume_raw && s.avg_volume_raw > 0) PIPELINE_AVGVOL[tk] = s.avg_volume_raw;
       if (s.rs != null && !isNaN(s.rs)) PIPELINE_RS[tk] = s.rs;
+      // Earnings calendar fields
+      if (s.earnings_days != null || s.earnings_display) {
+        PIPELINE_ER[tk] = {
+          earnings_days: s.earnings_days,
+          er_timing: s.er_timing,
+          avg_er_move: s.avg_er_move,
+          earnings_display: s.earnings_display,
+          qmag_grade: s.qmag_grade,
+          sector: s.sector,
+          industry: s.industry,
+          company: s.company,
+        };
+      }
     });
   } catch (e) { /* ignore */ }
 };
@@ -546,6 +688,116 @@ const renderLeaderboard = () => {
     root.appendChild(row);
   });
 };
+
+// ─── EARNINGS CALENDAR ────────────────────────────────────────────────────
+// Build a ticker → [drawers it appears in] map so each row can show its
+// theme membership.
+const TICKER_THEMES = {};
+SUBTHEMES.forEach((sub) => {
+  sub.tickers.forEach((tk) => {
+    if (!TICKER_THEMES[tk]) TICKER_THEMES[tk] = new Set();
+    TICKER_THEMES[tk].add(sub.themeId);
+  });
+});
+
+const renderEarningsCalendar = () => {
+  const root = document.getElementById("earnings-calendar");
+  if (!root) return;
+  // Collect upcoming earnings for tickers in our drawer universe.
+  // Filter to next 60 days; today and past 7 days included so user sees
+  // "just-reported" context.
+  const universe = Object.keys(TICKER_THEMES);
+  const upcoming = [];
+  universe.forEach((tk) => {
+    const er = PIPELINE_ER[tk];
+    if (!er) return;
+    const d = er.earnings_days;
+    if (d == null || isNaN(d)) return;
+    if (d < -7 || d > 60) return;
+    upcoming.push({ ticker: tk, ...er, themes: Array.from(TICKER_THEMES[tk] || []) });
+  });
+  // Sort by earnings_days ascending (soonest first; past dates negative)
+  upcoming.sort((a, b) => a.earnings_days - b.earnings_days);
+  if (upcoming.length === 0) {
+    root.innerHTML = `<div class="empty-state">No earnings reports in the next 60 days for tickers in the drawer universe.<br><span style="font-size:10px;color:#5a5a6a;">Earnings data refreshes when the pipeline runs.</span></div>`;
+    return;
+  }
+  // Bucket by week relative to today (rolling Mon-Sun weeks anchored on today)
+  const buckets = { past: [], thisWeek: [], nextWeek: [], future: {} };
+  upcoming.forEach((er) => {
+    const d = er.earnings_days;
+    if (d < 0) buckets.past.push(er);
+    else if (d <= 7) buckets.thisWeek.push(er);
+    else if (d <= 14) buckets.nextWeek.push(er);
+    else {
+      const wkOffset = Math.floor(d / 7);
+      const weekKey = `Week of +${wkOffset * 7}d`;
+      if (!buckets.future[weekKey]) buckets.future[weekKey] = [];
+      buckets.future[weekKey].push(er);
+    }
+  });
+
+  const renderRow = (er) => {
+    const tag = (() => {
+      if (er.earnings_days === 0) return "TODAY";
+      if (er.earnings_days < 0) return `${-er.earnings_days}d ago`;
+      return `${er.earnings_days}d`;
+    })();
+    const dateText = er.earnings_display || "—";
+    const moveText = er.avg_er_move != null ? `±${er.avg_er_move.toFixed(1)}%` : "—";
+    const grade = er.qmag_grade || "—";
+    const gradeCls = grade.startsWith("A") ? "a" : grade.startsWith("B") ? "b" : grade !== "—" ? "c" : "";
+    const themePills = er.themes.map((tid) => {
+      const labelMap = { ai: "AI Infra", software: "Software", cyber: "Cyber", fintech: "Fintech", defense: "Defense", robotics: "Robotics", ev: "EV", quantum: "Quantum", space: "Space" };
+      return `<span class="pill t-${tid}">${labelMap[tid] || tid}</span>`;
+    }).join("");
+    return `
+      <div class="er-row" data-themes="${er.themes.join(",")}" data-ticker="${er.ticker}">
+        <div class="er-ticker">${er.ticker}</div>
+        <div class="er-date">${dateText} <span class="ts">${er.er_timing || ""} · ${tag}</span></div>
+        <div class="er-themes">${themePills}</div>
+        <div class="er-move">${moveText}</div>
+        <div class="er-grade ${gradeCls}">${grade}</div>
+      </div>
+    `;
+  };
+
+  let html = "";
+  if (buckets.past.length) {
+    html += `<div class="week-block"><div class="week-header" style="color:#6a6a7a; border-left-color:#3a3a4a;">JUST REPORTED · ${buckets.past.length}</div>${buckets.past.map(renderRow).join("")}</div>`;
+  }
+  if (buckets.thisWeek.length) {
+    html += `<div class="week-block"><div class="week-header this-week">THIS WEEK · ${buckets.thisWeek.length}</div>${buckets.thisWeek.map(renderRow).join("")}</div>`;
+  }
+  if (buckets.nextWeek.length) {
+    html += `<div class="week-block"><div class="week-header next-week">NEXT WEEK · ${buckets.nextWeek.length}</div>${buckets.nextWeek.map(renderRow).join("")}</div>`;
+  }
+  Object.keys(buckets.future).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/))).forEach((wk) => {
+    html += `<div class="week-block"><div class="week-header future">${wk} · ${buckets.future[wk].length}</div>${buckets.future[wk].map(renderRow).join("")}</div>`;
+  });
+  root.innerHTML = html;
+  // Wire row clicks to open the matching drawer (first theme)
+  root.querySelectorAll(".er-row").forEach((row) => {
+    row.addEventListener("click", () => {
+      const themes = row.dataset.themes.split(",").filter(Boolean);
+      if (themes.length > 0) {
+        window.parent.postMessage({ type: "tp-open-drawer", id: themes[0] }, "*");
+      }
+    });
+  });
+};
+
+// ─── TAB SWITCHER ─────────────────────────────────────────────────────────
+document.querySelectorAll("#tab-nav button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#tab-nav button").forEach((b) =>
+      b.classList.toggle("active", b === btn));
+    const tab = btn.dataset.tab;
+    document.getElementById("tab-ranking").style.display  = tab === "ranking" ? "" : "none";
+    document.getElementById("tab-earnings").style.display = tab === "earnings" ? "" : "none";
+    if (tab === "earnings") renderEarningsCalendar();
+  });
+});
 
 // ─── SORT BUTTONS ─────────────────────────────────────────────────────────
 document.querySelectorAll("#sort-controls button").forEach((btn) => {
