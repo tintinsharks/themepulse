@@ -374,6 +374,12 @@
   .er-pctile.p-mid { background: rgba(144,144,160,0.2); color: #b0b0c0; }
   .er-pctile.p-low { background: rgba(200,80,80,0.2); color: #e06060; }
   .er-pctile-row { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+  .er-daily-chart {
+    margin-top: 12px; padding: 8px 0;
+    border-top: 1px solid #2a2a3a;
+  }
+  .er-daily-chart .er-block-title { margin-bottom: 6px; }
+  .er-chart-svg { width: 100%; display: block; }
   .er-qbars-row {
     display: flex; gap: 4px;
     align-items: stretch;
@@ -1234,6 +1240,87 @@ const ordinal = (n) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
+const renderDailyChart = (ohlc, erDays) => {
+  if (!ohlc || !ohlc.length) return "";
+  const bars = ohlc.slice(-120);
+  const W = 900, priceH = 180, volH = 50, pad = { l: 0, r: 0, t: 4, b: 0 };
+  const totalH = priceH + volH + pad.t + pad.b + 4;
+  const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
+  const gap = 1;
+  const allH = bars.map(b => b.high), allL = bars.map(b => b.low);
+  const pMax = Math.max(...allH), pMin = Math.min(...allL);
+  const pRange = pMax - pMin || 1;
+  const vMax = Math.max(...bars.map(b => b.volume)) || 1;
+  const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
+  const vy = (v) => pad.t + priceH + 4 + (1 - v / vMax) * volH;
+
+  // 50-day and 200-day SMA
+  const sma = (arr, n) => {
+    const out = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (i < n - 1) { out.push(null); continue; }
+      let sum = 0;
+      for (let j = i - n + 1; j <= i; j++) sum += arr[j];
+      out.push(sum / n);
+    }
+    return out;
+  };
+  const closes = bars.map(b => b.close);
+  const fullCloses = ohlc.map(b => b.close);
+  const sma50full = sma(fullCloses, 50);
+  const sma200full = sma(fullCloses, 200);
+  const sma50 = sma50full.slice(-120);
+  const sma200 = sma200full.slice(-120);
+
+  const smaPath = (vals, color) => {
+    const pts = vals.map((v, i) => v != null ? `${pad.l + i * (bw + gap) + bw / 2},${py(v)}` : null).filter(Boolean);
+    if (pts.length < 2) return "";
+    return `<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="1" opacity="0.6"/>`;
+  };
+
+  // Earnings date marker
+  let erMarker = "";
+  if (erDays != null && bars.length > 0) {
+    const lastDate = bars[bars.length - 1].time;
+    const erTime = lastDate + erDays * 86400;
+    const erIdx = bars.findIndex(b => b.time >= erTime);
+    const idx = erDays <= 0 && erIdx >= 0 ? erIdx : erDays > 0 ? bars.length - 1 + erDays * (bw + gap) / (bw + gap) : -1;
+    if (erDays <= 0 && erIdx >= 0) {
+      const x = pad.l + erIdx * (bw + gap) + bw / 2;
+      erMarker = `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + priceH + volH + 4}" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>`;
+    }
+  }
+
+  let candleSvg = "";
+  let volSvg = "";
+  bars.forEach((b, i) => {
+    const x = pad.l + i * (bw + gap);
+    const isUp = b.close >= b.open;
+    const color = isUp ? "#0d9163" : "#d94040";
+    const bodyTop = py(Math.max(b.open, b.close));
+    const bodyBot = py(Math.min(b.open, b.close));
+    const bodyH = Math.max(1, bodyBot - bodyTop);
+    const wickX = x + bw / 2;
+    candleSvg += `<line x1="${wickX}" y1="${py(b.high)}" x2="${wickX}" y2="${py(b.low)}" stroke="${color}" stroke-width="0.8"/>`;
+    candleSvg += `<rect x="${x}" y="${bodyTop}" width="${bw}" height="${bodyH}" fill="${color}" rx="0.5"/>`;
+    const vh = Math.max(0.5, (b.volume / vMax) * volH);
+    volSvg += `<rect x="${x}" y="${pad.t + priceH + 4 + volH - vh}" width="${bw}" height="${vh}" fill="${color}" opacity="0.4" rx="0.3"/>`;
+  });
+
+  return `
+    <div class="er-daily-chart">
+      <div class="er-block-title">Daily Chart · ${bars.length} Sessions</div>
+      <svg class="er-chart-svg" viewBox="0 0 ${W} ${totalH}" preserveAspectRatio="none">
+        ${erMarker}
+        ${smaPath(sma50, "#22d3ee")}
+        ${smaPath(sma200, "#fbbf24")}
+        ${candleSvg}
+        ${volSvg}
+      </svg>
+    </div>
+  `;
+};
+
 const renderDetailPanel = async (ticker) => {
   const root = document.getElementById("er-detail");
   if (!root) return;
@@ -1285,8 +1372,12 @@ const renderDetailPanel = async (ticker) => {
     });
   });
 
-  // Parallel fetch: FMP (estimates + next ER) + Finviz quarters (actuals + YoY)
-  const [fmp, finviz] = await Promise.all([fetchErFmp(ticker), fetchErFinviz(ticker)]);
+  // Parallel fetch: FMP (estimates + next ER) + Finviz quarters (actuals + YoY) + OHLC daily
+  const [fmp, finviz, ohlcData] = await Promise.all([
+    fetchErFmp(ticker),
+    fetchErFinviz(ticker),
+    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null).catch(() => null),
+  ]);
   if (ER_SELECTED_TICKER !== ticker) return;        // user clicked away mid-fetch
 
   const body = document.getElementById("er-detail-body");
@@ -1408,7 +1499,8 @@ const renderDetailPanel = async (ticker) => {
     }
   }
 
-  body.innerHTML = historyBlock;
+  const chartBlock = renderDailyChart(ohlcData?.ohlc, pipeEr.earnings_days);
+  body.innerHTML = chartBlock + historyBlock;
 };
 
 const renderEarningsCalendar = async () => {
