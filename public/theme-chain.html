@@ -54,8 +54,22 @@
     padding: 12px 14px; border-radius: 10px;
     background: var(--layer-bg);
     border: 1px solid var(--layer-border);
-    cursor: help; position: relative;
+    cursor: pointer; position: relative;
+    user-select: none;
+    transition: border-color 0.2s;
   }
+  .layer-label:hover { border-color: var(--layer-icon-border); }
+  .layer-label::after {
+    content: "↻";
+    position: absolute;
+    top: 4px; right: 6px;
+    font-size: 11px;
+    color: var(--layer-fg);
+    opacity: 0.4;
+    transition: transform 0.4s, opacity 0.2s;
+  }
+  .layer-label:hover::after { opacity: 0.9; }
+  .layer-label.flipped::after { transform: rotate(360deg); }
   .layer-icon {
     width: 36px; height: 36px; border-radius: 8px;
     background: var(--layer-icon-bg);
@@ -70,14 +84,20 @@
     line-height: 1.2;
   }
   .layer-tooltip {
-    position: absolute; top: calc(100% + 8px); left: 0; z-index: 10;
-    width: 320px; padding: 10px 12px;
-    background: #0c0c18; border: 1px solid #303048; border-radius: 8px;
+    position: absolute;
+    inset: 0;
+    padding: 12px 28px 12px 14px;
+    background: var(--layer-bg);
+    border-radius: 10px;
     font-size: 10px; line-height: 1.5; color: #c0c0d8;
-    opacity: 0; pointer-events: none; transition: opacity 0.15s;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    overflow-y: auto;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
   }
-  .layer-label:hover .layer-tooltip { opacity: 1; }
+  .layer-label.flipped .layer-tooltip {
+    opacity: 1;
+    pointer-events: auto;
+  }
   .layer-tooltip strong { color: var(--layer-fg); }
   .tickers { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 4px 8px; }
   .tile {
@@ -189,7 +209,7 @@
     <span class="legend-pill"><span class="swatch" style="background:#a09060;"></span> Demand pull / supplier</span>
     <span class="legend-pill"><span class="swatch" style="background:#ef9a9a;"></span> Pressured / disruption risk</span>
     <span class="legend-pill"><span class="swatch" style="background:#c4a8ff;"></span> Alpha / speculative</span>
-    <span class="legend-pill" style="margin-left:auto;color:#9090a0;">💡 Hover any layer label for context</span>
+    <span class="legend-pill" style="margin-left:auto;color:#9090a0;">↻ Click any layer label to flip and see context</span>
   </div>
 </div>
 
@@ -515,6 +535,8 @@ const buildLayers = () => {
     const aggsEl = labelEl.querySelector(".layer-aggs");
     const layerRef = { aggsEl, layerEl, container: null, tiles: [], tickers: layer.tickers.map((t) => t[0]) };
     LAYER_REFS.push(layerRef);
+    // Click-to-flip: toggle .flipped on the label so context overlays the front face
+    labelEl.addEventListener("click", () => labelEl.classList.toggle("flipped"));
     const tickersEl = document.createElement("div");
     tickersEl.className = "tickers";
     layer.tickers.forEach(([ticker, tier]) => {
