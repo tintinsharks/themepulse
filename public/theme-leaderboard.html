@@ -880,6 +880,8 @@ const loadPipelineData = async () => {
           company: s.company,
           revenue_estimated: s.revenue_estimated,
           eps_estimated: s.eps_estimated,
+          price: s.price || s.close || 0,
+          off_52w_high: s.off_52w_high,
         };
       }
     });
@@ -1509,8 +1511,14 @@ const renderDetailPanel = async (ticker) => {
   const revPct = pctileRank(UNIVERSE_REV_SORTED, pipeEr.revenue_estimated);
   const pctBadge = (label, p) => p == null ? ""
     : `<span class="er-pctile ${p >= 90 ? "p-top" : p >= 70 ? "p-high" : p >= 40 ? "p-mid" : "p-low"}">${label} ${ordinal(p)} %ile</span>`;
-  const pctBadges = (epsPct != null || revPct != null)
-    ? `<div class="er-pctile-row">${pctBadge("EPS", epsPct)}${pctBadge("Rev", revPct)}</div>` : "";
+  const off52 = pipeEr.off_52w_high;
+  const price52 = pipeEr.price;
+  const hi52 = (off52 != null && price52 > 0) ? price52 / (1 + off52 / 100) : null;
+  const hi52Badge = hi52 != null
+    ? `<span class="er-pctile" style="background:rgba(255,255,255,0.06);color:${off52 >= -5 ? "#4ade80" : off52 >= -15 ? "#fbbf24" : "#f87171"}">52W $${hi52 >= 1000 ? hi52.toFixed(0) : hi52.toFixed(2)} (${off52 > 0 ? "+" : ""}${off52.toFixed(1)}%)</span>`
+    : "";
+  const pctBadges = (epsPct != null || revPct != null || hi52Badge)
+    ? `<div class="er-pctile-row">${pctBadge("EPS", epsPct)}${pctBadge("Rev", revPct)}${hi52Badge}</div>` : "";
   root.className = "er-detail";
   root.innerHTML = `
     <div class="er-detail-header">
