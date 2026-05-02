@@ -826,6 +826,7 @@ const SUBTHEMES = [
 const ALL_TICKERS = Array.from(new Set(SUBTHEMES.flatMap((s) => s.tickers)));
 
 const PIPELINE_AVGVOL = {};
+const PIPELINE_DVOL = {};                // ticker → avg_dollar_vol_raw
 const PIPELINE_RS = {};                  // ticker → RS rank (pipeline)
 const PIPELINE_ER = {};                  // ticker → { earnings_days, er_timing, avg_er_move, earnings_display, qmag_grade, sector }
 const NARRATIVES = [];                   // loaded narratives.json content
@@ -842,6 +843,7 @@ const loadPipelineData = async () => {
       const tk = s.ticker?.toUpperCase();
       if (!tk) return;
       if (s.avg_volume_raw && s.avg_volume_raw > 0) PIPELINE_AVGVOL[tk] = s.avg_volume_raw;
+      if (s.avg_dollar_vol_raw > 0) PIPELINE_DVOL[tk] = s.avg_dollar_vol_raw;
       if (s.rs != null && !isNaN(s.rs)) PIPELINE_RS[tk] = s.rs;
       // Earnings calendar fields
       if (s.earnings_days != null || s.earnings_display) {
@@ -1481,10 +1483,11 @@ const renderEarningsCalendar = async () => {
     }).filter(Boolean);
   }
 
-  // Apply scope filter
+  // Apply scope filter + $100M avg dollar volume minimum for "all" scope
+  const MIN_DVOL = 100_000_000;
   const scopedEvents = ER_SCOPE === "drawer"
     ? placedEvents.filter((e) => TICKER_THEMES[e.ticker])
-    : placedEvents;
+    : placedEvents.filter((e) => TICKER_THEMES[e.ticker] || (PIPELINE_DVOL[e.ticker] || 0) >= MIN_DVOL);
 
   // FMP /stable/earnings-calendar returns no BMO/AMC timing field — it's always
   // empty. Pipeline er_timing is sometimes stale. Rather than show wrong
