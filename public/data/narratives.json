@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Mention-velocity tracker for collated trader opinions. Each narrative groups multiple mentions by canonical narrative_key. Heat score = distinct days with ≥1 mention / 7. Badge fires at heat ≥ 0.4 (3+ days of last 7).",
-  "updated": "2026-05-02",
+  "updated": "2026-05-02T13:05:00Z",
   "narratives": [
     {
       "narrative_key": "power-bottleneck-ai",
@@ -30,7 +30,20 @@
         { "received_at": "2026-04-29T16:00:00Z", "gist": "AMZN Jassy: memory and storage costs have skyrocketed, with memory under the most pressure. Not enough capacity for current demand." },
         { "received_at": "2026-04-30T14:00:00Z", "gist": "Samsung: 2027 demand already pre-booked. Supply-demand gap widens vs 2026." },
         { "received_at": "2026-04-30T16:30:00Z", "gist": "SNDK Q3 FY26: 78% GM, $11B in customer financial guarantees, $42B contractual revenue. NAND moves from spot commodity to strategic input." },
-        { "received_at": "2026-05-02T12:05:00Z", "gist": "AI Memory is printing historic numbers. MU and SNDK not cyclical anymore. Supply constrained through 2028. Demand accelerating faster than any model projected." }
+        { "received_at": "2026-05-02T12:05:00Z", "gist": "AI Memory is printing historic numbers. MU and SNDK not cyclical anymore. Supply constrained through 2028. Demand accelerating faster than any model projected." },
+        { "received_at": "2026-05-02T13:00:00Z", "gist": "Memory demand rising as CPU booms. NVDA Vera Rubin = 288GB HBM, INTC Xeon + AMD Epyc = up to 400GB DDR5. Structural change, not cyclical upcycle. Repricing of memory stocks looks inevitable." }
+      ]
+    },
+    {
+      "narrative_key": "cpu-inference-shift",
+      "current_thesis": "AI workload shift from training → inference + agents drives CPU:GPU ratio from 1:8 toward 1:2 or 1:1 over time. CPU TAM expansion as inference scales — INTC/AMD/ARM are the direct beneficiaries; second-order benefit is even more memory per node.",
+      "stance": "bull",
+      "affected_layers": [
+        { "theme_id": "ai", "layer_name": "Compute Silicon" }
+      ],
+      "tickers": ["INTC", "AMD", "ARM"],
+      "mentions": [
+        { "received_at": "2026-05-02T13:00:00Z", "gist": "As we move from AI training to inference and agents, CPU:GPU ratio moves from 1:8 → 1:2 or 1:1. INTC/AMD/ARM benefit. Confirms memory supercycle is far from over (more compute per node = more memory per node)." }
       ]
     },
     {
