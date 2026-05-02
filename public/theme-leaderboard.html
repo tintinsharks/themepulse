@@ -1243,79 +1243,135 @@ const ordinal = (n) => {
 const renderDailyChart = (ohlc, erDays) => {
   if (!ohlc || !ohlc.length) return "";
   const bars = ohlc.slice(-120);
-  const W = 900, priceH = 180, volH = 50, pad = { l: 0, r: 0, t: 4, b: 0 };
-  const totalH = priceH + volH + pad.t + pad.b + 4;
+  const W = 900, priceH = 180, volH = 60, pad = { l: 0, r: 0, t: 4, b: 0 };
+  const volGap = 6;
+  const totalH = priceH + volGap + volH + pad.t + pad.b;
   const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
   const gap = 1;
-  const allH = bars.map(b => b.high), allL = bars.map(b => b.low);
-  const pMax = Math.max(...allH), pMin = Math.min(...allL);
+  const pMax = Math.max(...bars.map(b => b.high));
+  const pMin = Math.min(...bars.map(b => b.low));
   const pRange = pMax - pMin || 1;
   const vMax = Math.max(...bars.map(b => b.volume)) || 1;
   const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
-  const vy = (v) => pad.t + priceH + 4 + (1 - v / vMax) * volH;
+  const volTop = pad.t + priceH + volGap;
 
-  // 50-day and 200-day SMA
-  const sma = (arr, n) => {
-    const out = [];
+  const calcEMA = (arr, n) => {
+    const k = 2 / (n + 1), out = [];
+    let prev = null;
     for (let i = 0; i < arr.length; i++) {
-      if (i < n - 1) { out.push(null); continue; }
-      let sum = 0;
-      for (let j = i - n + 1; j <= i; j++) sum += arr[j];
-      out.push(sum / n);
+      if (arr[i] == null) { out.push(null); continue; }
+      if (prev == null) {
+        if (i < n - 1) { out.push(null); continue; }
+        let s = 0; for (let j = i - n + 1; j <= i; j++) s += arr[j];
+        prev = s / n; out.push(prev);
+      } else { prev = arr[i] * k + prev * (1 - k); out.push(prev); }
     }
     return out;
   };
-  const closes = bars.map(b => b.close);
-  const fullCloses = ohlc.map(b => b.close);
-  const sma50full = sma(fullCloses, 50);
-  const sma200full = sma(fullCloses, 200);
-  const sma50 = sma50full.slice(-120);
-  const sma200 = sma200full.slice(-120);
+  const calcSMA = (arr, n) => {
+    const out = [];
+    for (let i = 0; i < arr.length; i++) {
+      if (i < n - 1) { out.push(null); continue; }
+      let s = 0; for (let j = i - n + 1; j <= i; j++) s += arr[j];
+      out.push(s / n);
+    }
+    return out;
+  };
 
-  const smaPath = (vals, color) => {
-    const pts = vals.map((v, i) => v != null ? `${pad.l + i * (bw + gap) + bw / 2},${py(v)}` : null).filter(Boolean);
+  const fullC = ohlc.map(b => b.close), fullH = ohlc.map(b => b.high), fullL = ohlc.map(b => b.low);
+  const fullV = ohlc.map(b => b.volume || 0);
+  const ema10 = calcEMA(fullC, 10).slice(-120);
+  const ema21hi = calcEMA(fullH, 21).slice(-120);
+  const ema21close = calcEMA(fullC, 21).slice(-120);
+  const ema21lo = calcEMA(fullL, 21).slice(-120);
+  const sma50 = calcSMA(fullC, 50).slice(-120);
+  const ema200 = calcEMA(fullC, 200).slice(-120);
+  const volMA = calcSMA(fullV, 50).slice(-120);
+
+  const maPath = (vals, color, width, dash) => {
+    const pts = [];
+    vals.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${py(v)}`); });
     if (pts.length < 2) return "";
-    return `<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="1" opacity="0.6"/>`;
+    return `<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="${width}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  };
+  const volMaPath = () => {
+    const pts = [];
+    volMA.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
+    if (pts.length < 2) return "";
+    return `<polyline points="${pts.join(" ")}" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.5"/>`;
   };
 
   // Earnings date marker
   let erMarker = "";
-  if (erDays != null && bars.length > 0) {
+  if (erDays != null && erDays <= 0 && bars.length > 0) {
     const lastDate = bars[bars.length - 1].time;
     const erTime = lastDate + erDays * 86400;
     const erIdx = bars.findIndex(b => b.time >= erTime);
-    const idx = erDays <= 0 && erIdx >= 0 ? erIdx : erDays > 0 ? bars.length - 1 + erDays * (bw + gap) / (bw + gap) : -1;
-    if (erDays <= 0 && erIdx >= 0) {
+    if (erIdx >= 0) {
       const x = pad.l + erIdx * (bw + gap) + bw / 2;
-      erMarker = `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + priceH + volH + 4}" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>`;
+      erMarker = `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${totalH}" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>`;
     }
   }
 
-  let candleSvg = "";
-  let volSvg = "";
+  // Volume coloring: match main chart — pocket pivots, highest up vol, down bars
+  const allBars = ohlc;
+  const sliceStart = allBars.length - bars.length;
+  let candleSvg = "", volSvg = "";
   bars.forEach((b, i) => {
+    const gi = sliceStart + i;
     const x = pad.l + i * (bw + gap);
     const isUp = b.close >= b.open;
-    const color = isUp ? "#0d9163" : "#d94040";
+
+    // Candle colors match main chart
+    const candleColor = isUp ? "#2bb886" : "#f87171";
     const bodyTop = py(Math.max(b.open, b.close));
     const bodyBot = py(Math.min(b.open, b.close));
     const bodyH = Math.max(1, bodyBot - bodyTop);
     const wickX = x + bw / 2;
-    candleSvg += `<line x1="${wickX}" y1="${py(b.high)}" x2="${wickX}" y2="${py(b.low)}" stroke="${color}" stroke-width="0.8"/>`;
-    candleSvg += `<rect x="${x}" y="${bodyTop}" width="${bw}" height="${bodyH}" fill="${color}" rx="0.5"/>`;
-    const vh = Math.max(0.5, (b.volume / vMax) * volH);
-    volSvg += `<rect x="${x}" y="${pad.t + priceH + 4 + volH - vh}" width="${bw}" height="${vh}" fill="${color}" opacity="0.4" rx="0.3"/>`;
+    candleSvg += `<line x1="${wickX}" y1="${py(b.high)}" x2="${wickX}" y2="${py(b.low)}" stroke="${candleColor}" stroke-width="0.8"/>`;
+    candleSvg += `<rect x="${x}" y="${bodyTop}" width="${bw}" height="${bodyH}" fill="${candleColor}" rx="0.5"/>`;
+
+    // Volume bar color logic
+    const vol = b.volume || 0;
+    let vColor;
+    if (!isUp) {
+      vColor = "#6b7280cc";
+    } else {
+      // Pocket pivot: vol > max down vol of prior 10 sessions
+      const downVols = [];
+      for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
+        if (allBars[j].close < allBars[j].open) downVols.push(allBars[j].volume || 0);
+      }
+      if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
+        vColor = "#2563eb";
+      } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
+        vColor = "#0d9488";
+      } else {
+        vColor = "#ffffffcc";
+      }
+    }
+    const vh = Math.max(0.5, (vol / vMax) * volH);
+    volSvg += `<rect x="${x}" y="${volTop + volH - vh}" width="${bw}" height="${vh}" fill="${vColor}" opacity="0.7" rx="0.3"/>`;
   });
+
+  // Separator line between price and volume
+  const sepY = pad.t + priceH + volGap / 2;
 
   return `
     <div class="er-daily-chart">
       <div class="er-block-title">Daily Chart · ${bars.length} Sessions</div>
       <svg class="er-chart-svg" viewBox="0 0 ${W} ${totalH}" preserveAspectRatio="none">
+        <line x1="0" y1="${sepY}" x2="${W}" y2="${sepY}" stroke="#2a2a3a" stroke-width="0.5"/>
         ${erMarker}
-        ${smaPath(sma50, "#22d3ee")}
-        ${smaPath(sma200, "#fbbf24")}
+        ${maPath(ema21hi, "#80808060", 1)}
+        ${maPath(ema21lo, "#80808060", 1)}
+        ${maPath(ema21close, "#808080", 1.5)}
+        ${maPath(ema10, "#ff828c", 1)}
+        ${maPath(sma50, "#2dd4bf", 1, "4,2")}
+        ${maPath(ema200, "#8232c8", 1)}
         ${candleSvg}
         ${volSvg}
+        ${volMaPath()}
       </svg>
     </div>
   `;
