@@ -1339,10 +1339,15 @@ const renderDailyChart = (ohlc) => {
       for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
         if (allBars[j].close < allBars[j].open) downVols.push(allBars[j].volume || 0);
       }
+      const chgPct = b.open > 0 ? (b.close - b.open) / b.open * 100 : 0;
+      const volSma = volMA[i];
+      const rVol = volSma > 0 ? vol / volSma : 0;
       if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
         vColor = "#2563eb";
       } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
         vColor = "#0d9488";
+      } else if (chgPct > 0 && rVol >= 2) {
+        vColor = "#fbbf24";
       } else {
         vColor = "#ffffffcc";
       }
@@ -1372,9 +1377,7 @@ const renderDailyChart = (ohlc) => {
       <div class="er-vol-legend">
         <span><i style="background:#2563eb"></i>PP 10d</span>
         <span><i style="background:#0d9488"></i>PP 5d</span>
-        <span><i style="background:#ffffffcc"></i>Up</span>
-        <span><i style="background:#6b7280"></i>Down</span>
-        <span><i style="background:#fbbf24"></i>Vol MA</span>
+        <span><i style="background:#fbbf24"></i>RVol 2x+</span>
       </div>
     </div>
   `;
