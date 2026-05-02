@@ -65,11 +65,12 @@ export default async function handler(req, res) {
   //   2. /stable/income-statement    — quarterly revenue actuals
   //   3. /stable/earnings-calendar   — next upcoming ER (filter by ticker)
   // Plus optional /stable/analyst-estimates for revenue forecasts on history.
-  const [surprises, income, calendar, analyst] = await Promise.all([
+  const [surprises, income, calendar, analyst, histCal] = await Promise.all([
     fetchJson(`${FMP_BASE}/earnings-surprises?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=8&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/earnings-calendar?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/analyst-estimates?symbol=${ticker}&period=quarter&apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/historical/earning_calendar/${ticker}?apikey=${fmpKey}`),
   ]);
 
   // Build history map by date so revenue + EPS can be merged
@@ -104,6 +105,16 @@ export default async function handler(req, res) {
     });
   }
 
+  // Map fiscal quarter end → actual report date from historical earnings calendar
+  const reportDateMap = {};
+  if (Array.isArray(histCal)) {
+    histCal.forEach((e) => {
+      if (e.date && e.fiscalDateEnding) {
+        reportDateMap[e.fiscalDateEnding] = e.date;
+      }
+    });
+  }
+
   // Convert to sorted descending array, compute surprise %
   const history = Object.values(byDate)
     .filter((row) => row.eps_actual != null || row.revenue_actual != null)
@@ -118,6 +129,7 @@ export default async function handler(req, res) {
         : null;
       return {
         date: row.date,
+        report_date: reportDateMap[row.date] || null,
         period: row.period,
         eps_actual: row.eps_actual ?? null,
         eps_estimate: row.eps_estimate ?? null,
