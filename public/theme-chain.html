@@ -39,7 +39,7 @@
   .container { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
   .layer {
     display: grid;
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: 248px 1fr;
     gap: 14px;
     background: rgba(15, 15, 24, 0.6);
     border: 1px solid #1c1c2c;
@@ -150,10 +150,12 @@
   .tile.t-alpha  { border-color: #5a3e8e; background: rgba(120,80,200,0.08); }
   .tile.t-alpha .ticker-sym { color: #c4a8ff; }
   .layer-aggs {
-    display: flex; gap: 5px; align-items: center;
+    display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
     margin-top: 4px; font-size: 9px; font-weight: 700;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    line-height: 1.4;
   }
+  .layer-aggs > span { white-space: nowrap; }
   .layer-aggs .agg.up { color: #6dde8e; }
   .layer-aggs .agg.down { color: #ef9a9a; }
   .layer-aggs .agg.flat { color: #6a6a7a; }
@@ -806,7 +808,7 @@ const layerAggsHtml = (chgMed, rvolMed, breadth, hotCount, scoreMed) => {
   return hotTxt +
     `<span class="agg ${chgCls}">${chgTxt}</span><span class="sep">·</span>` +
     `<span class="rv ${rvCls}">${rvTxt}</span><span class="sep">·</span>` +
-    `<span class="br ${brCls}">${brTxt} up</span>` +
+    `<span class="br ${brCls}">${brTxt}↑</span>` +
     scoreChip;
 };
 const updateLayerAggs = () => {
