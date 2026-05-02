@@ -7320,54 +7320,76 @@ function AppMain() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// AI Infrastructure Value Chain — slide-out drawer
+// Theme Value-Chain Drawers — multiple slide-out drawers, one per theme
 // ──────────────────────────────────────────────────────────────────────────
-// A right-edge handle that opens a drawer containing the
-// /ai-infrastructure.html visualization in an iframe.
-// Click handle to toggle. ESC or click outside the drawer to close.
+// Each theme has its own right-edge handle (stacked vertically). Click any
+// handle to slide in a drawer with the iframe visualization for that theme.
+// ESC or click outside to close.
+const VALUE_CHAIN_THEMES = [
+  { id: "ai",       label: "⛓ AI INFRA",  src: "/ai-infrastructure.html",          gradient: "linear-gradient(135deg, #ec4899 0%, #6cd5e8 100%)", title: "AI INFRASTRUCTURE — Data Centre Value Chain" },
+  { id: "defense",  label: "✈ DEFENSE",   src: "/theme-chain.html?id=defense",     gradient: "linear-gradient(135deg, #fbbf24 0%, #f97316 100%)", title: "DEFENSE Value Chain" },
+  { id: "robotics", label: "🤖 ROBOTICS", src: "/theme-chain.html?id=robotics",    gradient: "linear-gradient(135deg, #22d3ee 0%, #6dde8e 100%)", title: "ROBOTICS + AUTONOMOUS Value Chain" },
+  { id: "ev",       label: "🚗 EV",       src: "/theme-chain.html?id=ev",          gradient: "linear-gradient(135deg, #6dde8e 0%, #fbbf24 100%)", title: "EV + BATTERY Value Chain" },
+  { id: "quantum",  label: "⚛ QUANTUM",   src: "/theme-chain.html?id=quantum",     gradient: "linear-gradient(135deg, #b86afc 0%, #6a9eff 100%)", title: "QUANTUM COMPUTING Value Chain" },
+  { id: "space",    label: "🚀 SPACE",    src: "/theme-chain.html?id=space",       gradient: "linear-gradient(135deg, #6a9eff 0%, #22d3ee 100%)", title: "SPACE ECOSYSTEM Value Chain" },
+];
+
 function AIInfraDrawer() {
-  const [open, setOpen] = useState(false);
+  const [openId, setOpenId] = useState(null);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    if (!openId) return;
+    const onKey = (e) => { if (e.key === "Escape") setOpenId(null); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [openId]);
+  const open = openId != null;
+  const active = VALUE_CHAIN_THEMES.find((t) => t.id === openId);
   return (
     <>
-      {/* Always-visible right-edge handle */}
-      <button
-        onClick={() => setOpen(true)}
-        title="Open AI Infrastructure value chain (drawer)"
-        style={{
-          position: "fixed",
-          right: 0,
-          top: "40%",
-          transform: "translateY(-50%)",
-          zIndex: 998,
-          padding: "12px 6px",
-          background: "linear-gradient(135deg, #ec4899 0%, #6cd5e8 100%)",
-          color: "#0a0a14",
-          border: "none",
-          borderRadius: "6px 0 0 6px",
-          cursor: "pointer",
-          fontFamily: "monospace",
-          fontSize: 9,
-          fontWeight: 800,
-          letterSpacing: 1.5,
-          writingMode: "vertical-rl",
-          textOrientation: "mixed",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-          opacity: open ? 0 : 0.92,
-          transition: "opacity 0.2s",
-          pointerEvents: open ? "none" : "auto",
-        }}
-      >
-        ⛓ AI INFRA
-      </button>
+      {/* Stacked right-edge handles — one per theme */}
+      <div style={{
+        position: "fixed",
+        right: 0,
+        top: "50%",
+        transform: "translateY(-50%)",
+        zIndex: 998,
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        opacity: open ? 0 : 1,
+        pointerEvents: open ? "none" : "auto",
+        transition: "opacity 0.2s",
+      }}>
+        {VALUE_CHAIN_THEMES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setOpenId(t.id)}
+            title={`Open ${t.title}`}
+            style={{
+              padding: "10px 5px",
+              background: t.gradient,
+              color: "#0a0a14",
+              border: "none",
+              borderRadius: "6px 0 0 6px",
+              cursor: "pointer",
+              fontFamily: "monospace",
+              fontSize: 8,
+              fontWeight: 800,
+              letterSpacing: 1.5,
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+              boxShadow: "-2px 4px 12px rgba(0,0,0,0.4)",
+              opacity: 0.92,
+              minHeight: 90,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
       {/* Backdrop */}
       <div
-        onClick={() => setOpen(false)}
+        onClick={() => setOpenId(null)}
         style={{
           position: "fixed", inset: 0, zIndex: 999,
           background: "rgba(0,0,0,0.55)",
@@ -7397,19 +7419,21 @@ function AIInfraDrawer() {
           background: "#0d0d1a", flexShrink: 0,
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#c0c0d8", letterSpacing: 1 }}>
-            ⛓ AI INFRASTRUCTURE — Data Centre Value Chain
+            {active ? active.title : ""}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <a href="/ai-infrastructure.html" target="_blank" rel="noopener noreferrer"
-               title="Open in new tab"
-               style={{
-                 fontSize: 9, color: "#7a7a8a", textDecoration: "none",
-                 padding: "3px 8px", border: "1px solid #2a2a40", borderRadius: 3,
-                 fontFamily: "monospace",
-               }}>
-              ↗ NEW TAB
-            </a>
-            <button onClick={() => setOpen(false)}
+            {active && (
+              <a href={active.src} target="_blank" rel="noopener noreferrer"
+                 title="Open in new tab"
+                 style={{
+                   fontSize: 9, color: "#7a7a8a", textDecoration: "none",
+                   padding: "3px 8px", border: "1px solid #2a2a40", borderRadius: 3,
+                   fontFamily: "monospace",
+                 }}>
+                ↗ NEW TAB
+              </a>
+            )}
+            <button onClick={() => setOpenId(null)}
               title="Close (ESC)"
               style={{
                 fontSize: 11, color: "#c0c0d8", background: "transparent",
@@ -7420,11 +7444,14 @@ function AIInfraDrawer() {
             </button>
           </div>
         </div>
-        <iframe
-          src="/ai-infrastructure.html"
-          title="AI Infrastructure Value Chain"
-          style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14" }}
-        />
+        {active && (
+          <iframe
+            key={active.id}
+            src={active.src}
+            title={active.title}
+            style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14" }}
+          />
+        )}
       </div>
     </>
   );

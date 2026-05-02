@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Theme Value Chain</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 24px 48px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: radial-gradient(circle at 20% 0%, var(--accent-bg, #0d1530) 0%, #07070d 50%, #050508 100%);
+    color: #e0e0e8;
+    min-height: 100vh;
+  }
+  .header { max-width: 1280px; margin: 0 auto 32px; padding: 0 8px; }
+  h1 {
+    font-size: 44px; line-height: 1.05;
+    margin: 0 0 4px 0; letter-spacing: -1px; font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, var(--accent, #6cd5e8) 60%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  h1 .accent { color: var(--accent, #6cd5e8); -webkit-text-fill-color: var(--accent, #6cd5e8); }
+  .subtitle {
+    font-size: 11px; color: #7a7a8a;
+    text-transform: uppercase; letter-spacing: 2.5px;
+    font-weight: 700; margin-top: 8px;
+  }
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-top: 18px; padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1f1f2e; border-radius: 6px;
+    font-size: 10px; color: #9090a0;
+  }
+  .legend-pill { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .container { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .layer {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 14px;
+    background: rgba(15, 15, 24, 0.6);
+    border: 1px solid #1c1c2c;
+    border-radius: 14px;
+    padding: 14px;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.2s;
+  }
+  .layer:hover { border-color: #303048; }
+  .layer-label {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 10px;
+    background: var(--layer-bg);
+    border: 1px solid var(--layer-border);
+    cursor: help; position: relative;
+  }
+  .layer-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--layer-icon-bg);
+    border: 1px solid var(--layer-icon-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 20px;
+  }
+  .layer-name {
+    font-size: 11px; font-weight: 800;
+    color: var(--layer-fg);
+    text-transform: uppercase; letter-spacing: 1px;
+    line-height: 1.2;
+  }
+  .layer-tooltip {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 10;
+    width: 320px; padding: 10px 12px;
+    background: #0c0c18; border: 1px solid #303048; border-radius: 8px;
+    font-size: 10px; line-height: 1.5; color: #c0c0d8;
+    opacity: 0; pointer-events: none; transition: opacity 0.15s;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  }
+  .layer-label:hover .layer-tooltip { opacity: 1; }
+  .layer-tooltip strong { color: var(--layer-fg); }
+  .tickers { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 4px 8px; }
+  .tile {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 6px 10px 7px; border-radius: 8px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid #1f1f2e;
+    min-width: 78px; cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .tile:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #404060;
+  }
+  .tile .logo {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .tile .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+  .tile .logo.fallback {
+    background: linear-gradient(135deg, #2a2a40 0%, #1a1a26 100%);
+    color: #c0c0d8; font-size: 10px; font-weight: 800;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.5px;
+  }
+  .tile .ticker-sym {
+    font-size: 10px; font-weight: 700; color: #c0c0d8;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .tile .live {
+    font-size: 8px; font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: #5a5a6a; margin-top: 1px;
+    display: flex; gap: 3px; line-height: 1;
+  }
+  .tile .live .chg.up   { color: #6dde8e; }
+  .tile .live .chg.down { color: #ef9a9a; }
+  .tile .live .chg.flat { color: #6a6a7a; }
+  .tile .live .rv.hot   { color: #fbbf24; }
+  .tile .live .rv.heat  { color: #6dde8e; }
+  .tile .live .rv.norm  { color: #5a5a6a; }
+  .tile .live .sep      { color: #2a2a40; }
+  .tile.t-strong { border-color: #2c5e3e; }
+  .tile.t-strong .ticker-sym { color: #6dde8e; }
+  .tile.t-watch  { border-color: #4a4055; }
+  .tile.t-risk   { border-color: #6e2828; }
+  .tile.t-risk .ticker-sym { color: #ef9a9a; }
+  .tile.t-alpha  { border-color: #5a3e8e; background: rgba(120,80,200,0.08); }
+  .tile.t-alpha .ticker-sym { color: #c4a8ff; }
+  .live-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1f1f2e;
+    font-size: 9px; color: #7a7a8a; margin-left: 8px;
+  }
+  .live-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #5a5a6a; }
+  .live-status.live .dot { background: #6dde8e; box-shadow: 0 0 6px #6dde8e; }
+  .live-status.live      { color: #6dde8e; }
+  .live-status.off .dot  { background: #6a6a7a; }
+  .live-status.warm .dot { background: #fbbf24; }
+  .footer {
+    max-width: 1280px; margin: 32px auto 0;
+    padding: 16px 12px 0; border-top: 1px solid #1f1f2e;
+    font-size: 11px; line-height: 1.6; color: #6a6a7a;
+  }
+  .footer strong { color: #c0c0d8; }
+  /* Theme color tokens — assigned dynamically per theme */
+  .l-c1 { --layer-bg: linear-gradient(135deg, #14401e 0%, #0d2a18 100%); --layer-border: #2a8a4f; --layer-icon-bg: #1c4f2c; --layer-icon-border: #3eb56e; --layer-fg: #6dde8e; }
+  .l-c2 { --layer-bg: linear-gradient(135deg, #15203a 0%, #0d1530 100%); --layer-border: #3a5a8a; --layer-icon-bg: #1e2f55; --layer-icon-border: #4a6ab0; --layer-fg: #6a9eff; }
+  .l-c3 { --layer-bg: linear-gradient(135deg, #2a1640 0%, #1a0d2a 100%); --layer-border: #6a3eaf; --layer-icon-bg: #341c4d; --layer-icon-border: #8a5ec4; --layer-fg: #b86afc; }
+  .l-c4 { --layer-bg: linear-gradient(135deg, #3a2a08 0%, #2a1f08 100%); --layer-border: #a07a1f; --layer-icon-bg: #4a3812; --layer-icon-border: #d4a23a; --layer-fg: #fbbf24; }
+  .l-c5 { --layer-bg: linear-gradient(135deg, #3a1230 0%, #2a0a1f 100%); --layer-border: #c83a8e; --layer-icon-bg: #4a1838; --layer-icon-border: #ec4899; --layer-fg: #ec4899; }
+  .l-c6 { --layer-bg: linear-gradient(135deg, #0a3640 0%, #0a2630 100%); --layer-border: #1a8aa4; --layer-icon-bg: #103e4f; --layer-icon-border: #2cb5d4; --layer-fg: #22d3ee; }
+  .l-c7 { --layer-bg: linear-gradient(135deg, #3a1f08 0%, #2a1505 100%); --layer-border: #c45f1c; --layer-icon-bg: #4a2810; --layer-icon-border: #f97316; --layer-fg: #f97316; }
+  .l-c8 { --layer-bg: linear-gradient(135deg, #1f1f2a 0%, #15151e 100%); --layer-border: #4a4a5e; --layer-icon-bg: #25252e; --layer-icon-border: #6b7280; --layer-fg: #9ca3af; }
+  @media (max-width: 900px) { .layer { grid-template-columns: 1fr; } h1 { font-size: 30px; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="title">…</h1>
+  <div class="subtitle">
+    <span id="tagline">Loading…</span>
+    <span id="live-status" class="live-status off"><span class="dot"></span><span id="live-status-text">live data paused</span></span>
+  </div>
+  <div class="legend">
+    <span class="legend-pill"><span class="swatch" style="background:#6dde8e;"></span> Structural winner</span>
+    <span class="legend-pill"><span class="swatch" style="background:#a09060;"></span> Demand pull / supplier</span>
+    <span class="legend-pill"><span class="swatch" style="background:#ef9a9a;"></span> Pressured / disruption risk</span>
+    <span class="legend-pill"><span class="swatch" style="background:#c4a8ff;"></span> Alpha / speculative</span>
+    <span class="legend-pill" style="margin-left:auto;color:#9090a0;">💡 Hover any layer label for context</span>
+  </div>
+</div>
+
+<div class="container" id="container"></div>
+
+<div class="footer">
+  <strong>Lead-lag horizon:</strong> top rows = closer to the demand source (capital flowing in); bottom rows = downstream beneficiaries.<br>
+  <strong>Live data:</strong> chg% + RVol pulled from /api/live every 30s during market hours, single-shot at last close off-hours.<br>
+  <strong>Theme map source of truth:</strong> <code>stock-pipeline/scripts/theme_definitions.py</code> (curated subset surfaced here).
+</div>
+
+<script>
+// ─── THEME CONFIGS ─────────────────────────────────────────────────────────
+// Each theme is a config object: { title, accent, accentBg, tagline, layers[] }
+// Layers = [{ name, icon, tooltip, tickers: [[ticker, tier]...] }]
+// Tier: 'strong' | 'watch' | 'risk' | 'alpha'
+// Dropped foreign tickers — only US-listed tradeable names.
+const THEMES = {
+  defense: {
+    title: ["DEFENSE", "VALUE CHAIN"],
+    accent: "#fbbf24",
+    accentBg: "#3a2a08",
+    tagline: "Aerospace · Space · Drones · Cyber · Autonomous · Weapons",
+    layers: [
+      {
+        name: "Prime<br>Contractors", icon: "✈", color: "c4",
+        tooltip: "Big-cap defense primes — multi-decade backlogs, government contracts. Slow growth but stable. Watch for individual program wins (F-35, Sentinel, Columbia-class subs).",
+        tickers: [
+          ["LMT","strong"],["RTX","strong"],["NOC","strong"],["GD","strong"],
+          ["BA","watch"],["LHX","watch"],["HII","watch"],["TDG","strong"],
+          ["GE","watch"],["HEI","watch"],["TXT","watch"],["TDY","watch"],
+        ]
+      },
+      {
+        name: "Drones<br>+ EVTOL", icon: "🚁", color: "c5",
+        tooltip: "Autonomous flight, urban air mobility, military drones. Highly speculative cohort with extreme momentum cycles. UMAC/RCAT/ONDS = small-cap drone plays. JOBY/ACHR/EH = eVTOL passenger.",
+        tickers: [
+          ["AVAV","strong"],["KTOS","strong"],["ONDS","watch"],["RCAT","watch"],
+          ["UMAC","watch"],["ACHR","watch"],["JOBY","watch"],["EH","watch"],
+          ["EVTL","watch"],["PDYN","alpha"],
+        ]
+      },
+      {
+        name: "Space<br>Defense", icon: "🛰", color: "c2",
+        tooltip: "Earth observation, launch, satellite comms, space infrastructure. Strong rotation cohort — ASTS direct-to-cell, RKLB launch + spacecraft, LUNR lunar lander.",
+        tickers: [
+          ["RKLB","strong"],["ASTS","strong"],["LUNR","watch"],["RDW","watch"],
+          ["GSAT","watch"],["IRDM","watch"],["BKSY","watch"],["PL","watch"],
+          ["SPCE","risk"],["MNTS","watch"],["BWXT","watch"],
+        ]
+      },
+      {
+        name: "Autonomous<br>+ AI Defense", icon: "🤖", color: "c3",
+        tooltip: "AI-native defense software + autonomous systems. PLTR is the headline name. BBAI/LDOS adjacent. AVAV/KTOS sit at intersection of drones + autonomy.",
+        tickers: [
+          ["PLTR","strong"],["LDOS","watch"],["BBAI","watch"],["BAH","watch"],
+          ["CACI","watch"],["SAIC","watch"],
+        ]
+      },
+      {
+        name: "Cyber<br>Defense", icon: "🛡", color: "c6",
+        tooltip: "Cyber for defense + intel agencies. Mostly services/integrators. Less momentum than commercial cyber but more durable contracts.",
+        tickers: [
+          ["BAH","watch"],["CACI","watch"],["LDOS","watch"],["SAIC","watch"],
+        ]
+      },
+      {
+        name: "Weapons<br>+ Munitions", icon: "🎯", color: "c7",
+        tooltip: "Tactical weapons, body armor, less-lethal. AXON dominates law enforcement (Tasers, body cams). Defense weapons concentrated in primes (LMT/RTX).",
+        tickers: [
+          ["AXON","strong"],["GD","strong"],["LHX","watch"],["RTX","watch"],
+          ["RGR","watch"],["SWBI","watch"],
+        ]
+      },
+    ]
+  },
+
+  robotics: {
+    title: ["ROBOTICS", "+ AUTONOMOUS"],
+    accent: "#22d3ee",
+    accentBg: "#0a2630",
+    tagline: "Humanoid · Industrial · Vision · AV · Service · Medical",
+    layers: [
+      {
+        name: "Humanoid<br>+ General-Purpose", icon: "🧍", color: "c3",
+        tooltip: "Bipedal humanoid robots are the moonshot — TSLA Optimus, NVDA's enabler role. Industrial automation incumbents (ABB, FANUY) bring manufacturing experience.",
+        tickers: [
+          ["TSLA","strong"],["NVDA","strong"],
+        ]
+      },
+      {
+        name: "Industrial<br>Automation", icon: "⚙", color: "c1",
+        tooltip: "Factory automation backbone. EMR/ETN/ROK/NDSN are the industrial winners benefiting from reshoring + AI-enabled manufacturing. SYM is warehouse automation pure-play.",
+        tickers: [
+          ["EMR","watch"],["ETN","strong"],["ROK","watch"],["NDSN","watch"],
+          ["GNRC","watch"],["NNDM","watch"],["SYM","strong"],
+        ]
+      },
+      {
+        name: "Service<br>+ Delivery Robots", icon: "🤖", color: "c5",
+        tooltip: "Delivery, security, hospitality robots. SERV (autonomous delivery), KSCP (security robots), RR (commercial service). High-momentum small-caps.",
+        tickers: [
+          ["SERV","alpha"],["RR","alpha"],["KSCP","alpha"],
+        ]
+      },
+      {
+        name: "Machine Vision<br>+ LiDAR", icon: "👁", color: "c6",
+        tooltip: "Sensors that let robots see. LiDAR has multiple players in shake-out (HSAI/INVZ/LIDR/LAZR/MVIS/OUST). CGNX = industrial machine vision incumbent.",
+        tickers: [
+          ["CGNX","watch"],["AEVA","watch"],["OUST","watch"],["LAZR","risk"],
+          ["MVIS","risk"],["HSAI","watch"],["INVZ","risk"],["LIDR","risk"],
+        ]
+      },
+      {
+        name: "AV<br>+ Self-Driving", icon: "🚗", color: "c2",
+        tooltip: "Autonomous vehicles. TSLA leads with FSD; MBLY (Intel-owned) is the pure-play. AUR for trucking. Waymo (GOOGL) is non-public but rolls up to GOOGL.",
+        tickers: [
+          ["TSLA","strong"],["MBLY","strong"],["AUR","watch"],["GOOGL","watch"],
+        ]
+      },
+      {
+        name: "Medical<br>Robotics", icon: "⚕", color: "c4",
+        tooltip: "Surgical robots + medical automation. ISRG (da Vinci) is dominant; SYK in spine + ortho. Mature category, slower momentum but durable.",
+        tickers: [
+          ["ISRG","strong"],["SYK","watch"],["MDT","watch"],["ABT","watch"],
+          ["MASI","watch"],["STXS","alpha"],
+        ]
+      },
+      {
+        name: "Warehouse<br>+ Logistics", icon: "📦", color: "c7",
+        tooltip: "Robotic warehouses, autonomous logistics. AMZN at scale (Kiva → MK Robotics). SYM serves Walmart. GXO is contract logistics.",
+        tickers: [
+          ["AMZN","watch"],["SYM","strong"],["GXO","watch"],["SERV","alpha"],
+        ]
+      },
+    ]
+  },
+
+  ev: {
+    title: ["EV", "+ BATTERY"],
+    accent: "#6dde8e",
+    accentBg: "#0d2a18",
+    tagline: "Makers · Batteries · Materials · Charging · LiDAR · Self-Driving",
+    layers: [
+      {
+        name: "Makers", icon: "🚗", color: "c1",
+        tooltip: "EV OEMs. TSLA dominant; RIVN/LCID still execution-risk. Legacy F/GM in transition. Chinese names (NIO/LI/XPEV) carry geopolitical risk.",
+        tickers: [
+          ["TSLA","strong"],["RIVN","watch"],["LCID","risk"],["F","watch"],
+          ["GM","watch"],["NIO","risk"],["LI","watch"],["XPEV","watch"],
+          ["STLA","watch"],
+        ]
+      },
+      {
+        name: "Batteries<br>+ Cells", icon: "🔋", color: "c4",
+        tooltip: "Battery makers + cell tech. ABAT/AMPX/ENVX = US-domestic plays. QS/SLDP = solid-state speculative. KULR/FREY/MVST = small-cap battery safety/storage.",
+        tickers: [
+          ["ABAT","alpha"],["AMPX","watch"],["ENVX","watch"],["QS","alpha"],
+          ["SLDP","alpha"],["KULR","alpha"],["FREY","watch"],["MVST","watch"],
+          ["AEHR","watch"],
+        ]
+      },
+      {
+        name: "Battery<br>Materials", icon: "⛏", color: "c8",
+        tooltip: "Lithium, mining, materials. Cyclical with lithium spot pricing. ALB/SQM/LAC = lithium producers. MP = rare earths (magnets for motors).",
+        tickers: [
+          ["ALB","watch"],["SQM","watch"],["LAC","alpha"],["MP","strong"],
+          ["LITM","alpha"],
+        ]
+      },
+      {
+        name: "Charging<br>Infrastructure", icon: "⚡", color: "c7",
+        tooltip: "EV charging networks + power conversion. EVGO/CHPT direct exposure (highly volatile). SHLS = inverters/electrical components for both EV + solar.",
+        tickers: [
+          ["EVGO","watch"],["SHLS","watch"],
+        ]
+      },
+      {
+        name: "LiDAR<br>+ Sensing", icon: "👁", color: "c6",
+        tooltip: "LiDAR for AV. Sector consolidating; survivors will be 1-2 vendors. HSAI is Chinese leader (geopolitical risk). MBLY is camera-first (Intel-owned).",
+        tickers: [
+          ["HSAI","watch"],["INVZ","risk"],["LIDR","risk"],["LAZR","risk"],
+          ["MVIS","risk"],["AEVA","watch"],["OUST","watch"],["MBLY","strong"],
+        ]
+      },
+      {
+        name: "Auto Parts<br>+ Suppliers", icon: "🔧", color: "c2",
+        tooltip: "EV auto parts winners (vs ICE losers). APTV = full-stack EV electronics. MGA/LEA = body/seats. WOLF = SiC chips for EV inverters.",
+        tickers: [
+          ["APTV","watch"],["MGA","watch"],["LEA","watch"],["WOLF","risk"],
+          ["NVTS","watch"],["BWA","watch"],["ALV","watch"],
+        ]
+      },
+    ]
+  },
+
+  quantum: {
+    title: ["QUANTUM", "COMPUTING"],
+    accent: "#b86afc",
+    accentBg: "#1c0d2a",
+    tagline: "Hardware · Mega-cap plays · Software · Enabling tech",
+    layers: [
+      {
+        name: "Pure-Play<br>Hardware", icon: "⚛", color: "c3",
+        tooltip: "Pure-play quantum computing names. Highly speculative, multi-year tech maturity. IONQ (trapped-ion) most-followed; RGTI/QUBT/QBTS in different physical implementations.",
+        tickers: [
+          ["IONQ","alpha"],["RGTI","alpha"],["QUBT","alpha"],["QBTS","alpha"],
+        ]
+      },
+      {
+        name: "Mega-Cap<br>Quantum Plays", icon: "☁", color: "c2",
+        tooltip: "Big tech with quantum programs. GOOGL (Willow chip), MSFT (topological), AMZN (Braket), IBM (Quantum Network), NVDA (CUDA-Q simulators). Less direct exposure but real R&D.",
+        tickers: [
+          ["GOOGL","strong"],["MSFT","strong"],["AMZN","strong"],["IBM","watch"],
+          ["NVDA","strong"],
+        ]
+      },
+      {
+        name: "Software<br>+ Algorithms", icon: "💻", color: "c5",
+        tooltip: "Quantum software, cybersecurity, algorithms. LAES = post-quantum cryptography (real revenue). ARQQ = quantum software pure-play.",
+        tickers: [
+          ["LAES","alpha"],["ARQQ","alpha"],
+        ]
+      },
+      {
+        name: "Enabling Tech<br>(picks + shovels)", icon: "🔧", color: "c6",
+        tooltip: "Companies whose existing products enable quantum systems — lasers, photonics, precision instruments, electronics. Less risk than pure-plays, real cash flow.",
+        tickers: [
+          ["COHR","strong"],["FORM","watch"],["HON","watch"],["NOVT","watch"],
+          ["POET","alpha"],
+        ]
+      },
+    ]
+  },
+
+  space: {
+    title: ["SPACE", "ECOSYSTEM"],
+    accent: "#6a9eff",
+    accentBg: "#15203a",
+    tagline: "Launch · Defense · Earth Obs · Satellites · Lunar · Infra",
+    layers: [
+      {
+        name: "Launch<br>Vehicles", icon: "🚀", color: "c2",
+        tooltip: "Launch pure-plays. RKLB is the leader after SpaceX (private). LUNR for lunar landers. RDW for reusable systems. SPCE largely written off.",
+        tickers: [
+          ["RKLB","strong"],["LUNR","strong"],["RDW","watch"],["SPCE","risk"],
+        ]
+      },
+      {
+        name: "Defense<br>Space", icon: "🛡", color: "c4",
+        tooltip: "Defense primes with major space exposure. LMT/NOC/RTX/BA all have space divisions. BWXT for nuclear thermal propulsion + space reactors.",
+        tickers: [
+          ["LMT","strong"],["NOC","strong"],["RTX","strong"],["BA","watch"],
+          ["LHX","watch"],["BWXT","watch"],
+        ]
+      },
+      {
+        name: "Earth<br>Observation", icon: "🌍", color: "c1",
+        tooltip: "Imagery + analytics from orbit. PL (Planet Labs) is the leader with daily revisit; BKSY uses radar (synthetic aperture); SPIR for maritime tracking.",
+        tickers: [
+          ["PL","strong"],["BKSY","watch"],["SPIR","alpha"],
+        ]
+      },
+      {
+        name: "Satellites<br>+ Connectivity", icon: "📡", color: "c6",
+        tooltip: "Satellite operators + comms. ASTS direct-to-cell partnership w/ AT&T, T-Mobile (huge potential). GSAT/IRDM = legacy satellite. AMPG = satcom hardware.",
+        tickers: [
+          ["ASTS","strong"],["GSAT","watch"],["IRDM","watch"],["VSAT","watch"],
+          ["AMPG","alpha"],["BKSY","watch"],
+        ]
+      },
+      {
+        name: "Lunar<br>+ Deep Space", icon: "🌙", color: "c3",
+        tooltip: "Lunar economy + deep space. LUNR (Intuitive Machines), LDOS (defense lunar contracts), LMT for HALO module + Artemis.",
+        tickers: [
+          ["LUNR","strong"],["LDOS","watch"],["LMT","watch"],
+        ]
+      },
+      {
+        name: "Space<br>Infrastructure", icon: "🛰", color: "c7",
+        tooltip: "Components, propulsion, ground systems. BWXT for reactors. RDW for orbital servicing/manufacturing. MNTS for rideshare/launch services.",
+        tickers: [
+          ["BWXT","watch"],["RDW","watch"],["MNTS","watch"],["GHM","alpha"],
+        ]
+      },
+    ]
+  },
+};
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+const themeId = (params.get("id") || "defense").toLowerCase();
+const theme = THEMES[themeId] || THEMES.defense;
+
+document.title = `${theme.title.join(" ")} — Theme Value Chain`;
+document.documentElement.style.setProperty("--accent", theme.accent);
+document.documentElement.style.setProperty("--accent-bg", theme.accentBg);
+document.getElementById("title").innerHTML =
+  `${theme.title[0]}<br><span class="accent">${theme.title[1]}</span>`;
+document.getElementById("tagline").textContent = theme.tagline;
+
+const TILE_REFS = {};
+
+const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
+
+const buildLayers = () => {
+  const root = document.getElementById("container");
+  theme.layers.forEach((layer, idx) => {
+    const layerEl = document.createElement("div");
+    layerEl.className = `layer l-${layer.color || "c1"}`;
+    const labelEl = document.createElement("div");
+    labelEl.className = "layer-label";
+    labelEl.innerHTML = `
+      <div class="layer-icon">${layer.icon || "•"}</div>
+      <div>
+        <div class="layer-name">${layer.name}</div>
+      </div>
+      ${layer.tooltip ? `<div class="layer-tooltip">${layer.tooltip}</div>` : ""}
+    `;
+    const tickersEl = document.createElement("div");
+    tickersEl.className = "tickers";
+    layer.tickers.forEach(([ticker, tier]) => {
+      const tile = document.createElement("div");
+      tile.className = `tile t-${tier}`;
+      tile.title = `${ticker} — click to open in TradingView`;
+      tile.onclick = () => window.open(`https://www.tradingview.com/symbols/${ticker}/`, "_blank");
+      const logo = document.createElement("div");
+      logo.className = "logo";
+      const img = document.createElement("img");
+      img.src = logoUrl(ticker); img.alt = ticker;
+      img.onerror = () => { logo.classList.add("fallback"); logo.innerHTML = ticker; };
+      logo.appendChild(img);
+      const sym = document.createElement("div");
+      sym.className = "ticker-sym"; sym.textContent = ticker;
+      const live = document.createElement("div");
+      live.className = "live";
+      live.innerHTML = '<span class="chg flat">—</span><span class="sep">·</span><span class="rv norm">—</span>';
+      tile.appendChild(logo); tile.appendChild(sym); tile.appendChild(live);
+      tickersEl.appendChild(tile);
+      if (!TILE_REFS[ticker]) TILE_REFS[ticker] = [];
+      TILE_REFS[ticker].push(live);
+    });
+    layerEl.appendChild(labelEl);
+    layerEl.appendChild(tickersEl);
+    root.appendChild(layerEl);
+  });
+};
+buildLayers();
+
+// ─── LIVE DATA POLLING ────────────────────────────────────────────────────
+const ALL_TICKERS = Array.from(new Set(theme.layers.flatMap(l => l.tickers.map(t => t[0]))));
+
+const isMarketHours = () => {
+  const now = new Date();
+  const day = now.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  const hourPT = (now.getUTCHours() - 7 + 24) % 24;
+  return hourPT >= 4 && hourPT <= 17;
+};
+const fmtChg = (v) => {
+  if (v == null || isNaN(v)) return { txt: "—", cls: "flat" };
+  const sign = v > 0 ? "+" : "";
+  const cls = v > 0.05 ? "up" : v < -0.05 ? "down" : "flat";
+  return { txt: `${sign}${v.toFixed(1)}%`, cls };
+};
+const fmtRvol = (v) => {
+  if (v == null || isNaN(v) || v === 0) return { txt: "—", cls: "norm" };
+  const cls = v >= 2 ? "hot" : v >= 1.5 ? "heat" : "norm";
+  return { txt: `${v.toFixed(1)}x`, cls };
+};
+const setStatus = (state, text) => {
+  const el = document.getElementById("live-status");
+  const txt = document.getElementById("live-status-text");
+  if (!el || !txt) return;
+  el.className = `live-status ${state}`;
+  txt.textContent = text;
+};
+const updateLive = async () => {
+  const market = isMarketHours();
+  setStatus("warm", market ? "fetching live…" : "loading last close…");
+  try {
+    const url = `/api/live?universe=${ALL_TICKERS.join(",")}&t=${Date.now()}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`live ${r.status}`);
+    const data = await r.json();
+    const arr = (data.theme_universe || data.universe || []);
+    let updated = 0;
+    arr.forEach((q) => {
+      if (!q || !q.ticker) return;
+      const tiles = TILE_REFS[q.ticker.toUpperCase()];
+      if (!tiles || !tiles.length) return;
+      const chg = fmtChg(q.change);
+      const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
+        ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
+      const rv = fmtRvol(rvol);
+      tiles.forEach((live) => {
+        live.innerHTML =
+          `<span class="chg ${chg.cls}">${chg.txt}</span>` +
+          `<span class="sep">·</span>` +
+          `<span class="rv ${rv.cls}">${rv.txt}</span>`;
+      });
+      updated += 1;
+    });
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    if (market) {
+      setStatus("live", `LIVE · ${updated}/${ALL_TICKERS.length} tickers · ${ts}`);
+    } else {
+      setStatus("off", `MARKET CLOSED · last close · ${updated}/${ALL_TICKERS.length} tickers`);
+    }
+  } catch (e) {
+    setStatus("warm", `error · ${(e && e.message) || "fetch failed"}`);
+  }
+};
+const scheduleNext = () => {
+  if (!isMarketHours()) return;
+  setTimeout(async () => { await updateLive(); scheduleNext(); }, 30_000);
+};
+updateLive().then(scheduleNext);
+</script>
+
+</body>
+</html>
