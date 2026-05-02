@@ -882,6 +882,7 @@ const loadPipelineData = async () => {
           eps_estimated: s.eps_estimated,
           price: s.price || s.close || 0,
           off_52w_high: s.off_52w_high,
+          ipo_date: s.ipo_date,
         };
       }
     });
@@ -1525,7 +1526,7 @@ const renderDetailPanel = async (ticker) => {
       <div class="logo"><img src="${earningsLogo(ticker)}" alt="${ticker}" onerror="this.parentElement.innerHTML='${ticker}';this.parentElement.style.background='#2a2a40';this.parentElement.style.color='#c0c0d8';this.parentElement.style.fontSize='11px';this.parentElement.style.fontWeight='800';"/></div>
       <div class="meta">
         <div class="ticker-sym">${ticker}${pctBadges}</div>
-        <div class="company">${(typeof pipeEr.company === "string" && pipeEr.company) || ""}</div>
+        <div class="company">${(typeof pipeEr.company === "string" && pipeEr.company) || ""}${pipeEr.ipo_date ? `<span style="margin-left:6px;color:#7a7a8a">IPO ${pipeEr.ipo_date}</span>` : ""}</div>
       </div>
       <div class="er-detail-tag ${tagCls}">${tag}</div>
     </div>
