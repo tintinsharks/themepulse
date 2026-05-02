@@ -78,7 +78,222 @@
     color: #fbbf24;
     border-bottom-color: #fbbf24;
   }
-  /* Earnings calendar */
+  /* Earnings calendar — week grid layout (Mon-Fri columns) */
+  .er-shell {
+    max-width: 1500px; margin: 12px auto 0;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 14px;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .er-shell { grid-template-columns: 1fr; }
+  }
+  .er-nav {
+    grid-column: 1 / -1;
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 4px; padding: 0 4px;
+  }
+  .er-nav button {
+    background: rgba(255,255,255,0.04); border: 1px solid #2a2a40;
+    color: #c0c0d8; font-size: 10px; font-weight: 700;
+    padding: 5px 10px; border-radius: 5px; cursor: pointer;
+    font-family: inherit;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .er-nav button:hover { border-color: #404060; color: #fff; }
+  .er-nav .week-label {
+    font-size: 11px; color: #9090a0; font-weight: 700;
+    margin-left: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-week-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .er-day-col {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .er-day-header {
+    text-align: center;
+    font-size: 11px; font-weight: 800;
+    color: #c0c0d8;
+    text-transform: uppercase; letter-spacing: 1px;
+    padding: 4px 0;
+  }
+  .er-day-header.today { color: #fbbf24; }
+  .er-section {
+    background: rgba(15, 15, 24, 0.55);
+    border: 1px solid #1c1c2c;
+    border-radius: 10px;
+    padding: 8px 8px 10px;
+  }
+  .er-section-header {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 9px; font-weight: 700;
+    color: #9090a0;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    padding: 3px 4px 6px;
+  }
+  .er-section.bmo .er-section-header { color: #fbbf24; }
+  .er-section.amc .er-section-header { color: #6cd5e8; }
+  .er-tile-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .er-tile {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 3px;
+    padding: 6px 4px 5px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid #1f1f2e;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    min-width: 0;
+  }
+  .er-tile:hover, .er-tile.selected {
+    transform: translateY(-1px);
+    border-color: #fbbf24;
+    background: rgba(251,191,36,0.08);
+  }
+  .er-tile .logo {
+    width: 30px; height: 30px;
+    border-radius: 5px;
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .er-tile .logo img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+  .er-tile .logo.fallback {
+    background: linear-gradient(135deg, #2a2a40 0%, #1a1a26 100%);
+    color: #c0c0d8; font-size: 9px; font-weight: 800;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-tile .sym {
+    font-size: 9px; font-weight: 700;
+    color: #c0c0d8;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .er-overflow {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 9px; font-weight: 700;
+    color: #7a7a8a;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid #1f1f2e;
+    border-radius: 5px;
+    padding: 4px;
+    cursor: pointer;
+  }
+  .er-overflow:hover { color: #c0c0d8; border-color: #303048; }
+  .er-empty {
+    font-size: 9px; color: #5a5a6a;
+    text-align: center;
+    padding: 8px 0;
+    font-style: italic;
+  }
+  /* Detail panel (right pane) */
+  .er-detail {
+    background: rgba(15, 15, 24, 0.7);
+    border: 1px solid #2a2a40;
+    border-radius: 10px;
+    padding: 14px;
+    position: sticky; top: 16px;
+    min-height: 200px;
+  }
+  .er-detail.empty {
+    text-align: center;
+    color: #6a6a7a;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 40px 14px;
+    font-style: italic;
+  }
+  .er-detail-header {
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a2a40;
+    margin-bottom: 12px;
+  }
+  .er-detail-header .logo {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .er-detail-header .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+  .er-detail-header .meta { flex: 1; min-width: 0; }
+  .er-detail-header .ticker-sym {
+    font-size: 14px; font-weight: 800;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: #fff;
+  }
+  .er-detail-header .company {
+    font-size: 9px; color: #9090a0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .er-detail-tag {
+    font-size: 9px; font-weight: 700;
+    padding: 3px 8px; border-radius: 4px;
+    background: rgba(251,191,36,0.12);
+    border: 1px solid #a07a1f;
+    color: #fbbf24;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    white-space: nowrap;
+  }
+  .er-detail-tag.amc { background: rgba(108,213,232,0.12); border-color: #3a8a9e; color: #6cd5e8; }
+  .er-detail-tag.today { background: rgba(239,68,68,0.18); border-color: #7e2828; color: #ef4444; }
+  .er-result-block {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid #1c1c2c;
+    border-radius: 6px;
+  }
+  .er-result-block .row {
+    display: grid;
+    grid-template-columns: 50px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-result-block .row .label { color: #7a7a8a; font-weight: 700; }
+  .er-result-block .row .val { color: #c0c0d8; font-weight: 700; }
+  .er-result-block .row .delta { font-weight: 800; }
+  .er-result-block .row .delta.up { color: #6dde8e; }
+  .er-result-block .row .delta.down { color: #ef9a9a; }
+  .er-themes-bar {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-bottom: 10px;
+  }
+  .er-themes-bar .pill {
+    font-size: 8px; font-weight: 700;
+    padding: 2px 6px; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #2a2a40;
+    cursor: pointer;
+  }
+  .er-themes-bar .pill.t-ai      { color: #6cd5e8; border-color: #1a8aa4; }
+  .er-themes-bar .pill.t-software{ color: #a78bfa; border-color: #5a3e8e; }
+  .er-themes-bar .pill.t-cyber   { color: #ef4444; border-color: #7e2828; }
+  .er-themes-bar .pill.t-fintech { color: #fbbf24; border-color: #a07a1f; }
+  .er-themes-bar .pill.t-defense { color: #f97316; border-color: #c45f1c; }
+  .er-themes-bar .pill.t-robotics{ color: #22d3ee; border-color: #1a8aa4; }
+  .er-themes-bar .pill.t-ev      { color: #6dde8e; border-color: #2c5e3e; }
+  .er-themes-bar .pill.t-quantum { color: #b86afc; border-color: #5a3e8e; }
+  .er-themes-bar .pill.t-space   { color: #6a9eff; border-color: #3a5a8a; }
+  /* Legacy week-bucket headers (still used for "Just Reported" + future weeks ≥3) */
   .week-block { max-width: 1280px; margin: 0 auto 18px; }
   .week-header {
     font-size: 10px; font-weight: 800;
@@ -481,8 +696,17 @@ const loadPipelineData = async () => {
         };
       }
     });
+    // Earnings movers (just-reported with results) — keyed by ticker
+    (d.earnings_movers || []).forEach((m) => {
+      const tk = m.ticker?.toUpperCase();
+      if (!tk) return;
+      ER_RESULTS[tk] = m;
+    });
   } catch (e) { /* ignore */ }
 };
+
+// ER_RESULTS holds beat/miss data for stocks that have already reported
+const ER_RESULTS = {};
 const loadNarratives = async () => {
   try {
     const r = await fetch("/data/narratives.json", { cache: "no-store" });
@@ -700,91 +924,203 @@ SUBTHEMES.forEach((sub) => {
   });
 });
 
+// Week navigation state — offset of weeks from current trading week
+let ER_WEEK_OFFSET = 0;
+let ER_SELECTED_TICKER = null;
+
+const startOfTradingWeek = (offset = 0) => {
+  // Returns Monday 00:00 UTC of the trading week containing today + offset*7 days.
+  const now = new Date();
+  const dow = now.getUTCDay() || 7;          // 1..7 (Mon=1, Sun=7)
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() - (dow - 1) + offset * 7);
+  monday.setUTCHours(0, 0, 0, 0);
+  return monday;
+};
+const formatDayHeader = (date) => {
+  const dayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][date.getUTCDay()];
+  return `${dayName} ${date.getUTCDate()}`;
+};
+
+const earningsLogo = (tk) => `https://images.financialmodelingprep.com/symbol/${tk}.png`;
+const themeLabel = { ai: "AI Infra", software: "Software", cyber: "Cyber", fintech: "Fintech", defense: "Defense", robotics: "Robotics", ev: "EV", quantum: "Quantum", space: "Space" };
+
+const renderTile = (er) => {
+  const sel = er.ticker === ER_SELECTED_TICKER ? "selected" : "";
+  return `
+    <div class="er-tile ${sel}" data-ticker="${er.ticker}" data-themes="${er.themes.join(",")}">
+      <div class="logo"><img src="${earningsLogo(er.ticker)}" alt="${er.ticker}" onerror="this.parentElement.classList.add('fallback'); this.parentElement.innerHTML='${er.ticker}';"/></div>
+      <div class="sym">${er.ticker}</div>
+    </div>
+  `;
+};
+
+const renderDetailPanel = (ticker) => {
+  const root = document.getElementById("er-detail");
+  if (!root) return;
+  if (!ticker || !PIPELINE_ER[ticker]) {
+    root.className = "er-detail empty";
+    root.innerHTML = `<div>📅 Click a ticker on the left<br>to see earnings detail</div>`;
+    return;
+  }
+  const er = PIPELINE_ER[ticker];
+  const themes = Array.from(TICKER_THEMES[ticker] || []);
+  const tag = er.earnings_days === 0 ? "TODAY"
+    : er.earnings_days < 0 ? `${-er.earnings_days}d ago`
+    : `${er.earnings_days}d away`;
+  const tagCls = er.earnings_days === 0 ? "today" : (er.er_timing === "AMC" ? "amc" : "");
+  const result = ER_RESULTS[ticker];
+
+  let resultsBlock = "";
+  if (result) {
+    // Beat/miss data available — show actual vs estimate
+    const fmtMoney = (v) => v == null ? "—" : v >= 1e9 ? `$${(v/1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(0)}M` : `$${v.toFixed(0)}`;
+    const fmtEps = (v) => v == null ? "—" : `$${v.toFixed(2)}`;
+    const pct = (act, est) => est && est !== 0 ? ((act - est) / Math.abs(est)) * 100 : null;
+    const revPct = pct(result.revenue_actual, result.revenue_estimate);
+    const epsPct = pct(result.eps_actual, result.eps_estimate);
+    const cls = (p) => p == null ? "" : p >= 0 ? "up" : "down";
+    const fmtPct = (p) => p == null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
+    resultsBlock = `
+      <div class="er-result-block">
+        <div style="font-size:9px;color:#9090a0;text-transform:uppercase;letter-spacing:0.6px;font-weight:800;margin-bottom:6px;">Results</div>
+        <div class="row">
+          <span class="label">REV</span>
+          <span class="val">${fmtMoney(result.revenue_estimate)} <span style="color:#5a5a6a">(est)</span> · ${fmtMoney(result.revenue_actual)}</span>
+          <span class="delta ${cls(revPct)}">${fmtPct(revPct)}</span>
+        </div>
+        <div class="row">
+          <span class="label">EPS*</span>
+          <span class="val">${fmtEps(result.eps_estimate)} <span style="color:#5a5a6a">(est)</span> · ${fmtEps(result.eps_actual)}</span>
+          <span class="delta ${cls(epsPct)}">${fmtPct(epsPct)}</span>
+        </div>
+        <div style="font-size:8px;color:#5a5a6a;margin-top:4px;">*Adjusted GAAP, excludes one-time events</div>
+      </div>
+    `;
+  } else {
+    // Pre-earnings — show expected move + grade
+    const move = er.avg_er_move != null ? `±${er.avg_er_move.toFixed(1)}%` : "—";
+    const grade = er.qmag_grade || "—";
+    resultsBlock = `
+      <div class="er-result-block">
+        <div style="font-size:9px;color:#9090a0;text-transform:uppercase;letter-spacing:0.6px;font-weight:800;margin-bottom:6px;">Pre-Earnings Setup</div>
+        <div class="row"><span class="label">Move</span><span class="val">Avg implied/realized</span><span class="delta" style="color:#fbbf24">${move}</span></div>
+        <div class="row"><span class="label">Grade</span><span class="val">QM Composite</span><span class="delta">${grade}</span></div>
+        <div class="row"><span class="label">Date</span><span class="val">${er.earnings_display || "—"}</span><span class="delta" style="color:#9090a0">${er.er_timing || ""}</span></div>
+      </div>
+    `;
+  }
+  const themePills = themes.map((tid) =>
+    `<span class="pill t-${tid}" data-theme="${tid}">${themeLabel[tid] || tid}</span>`
+  ).join("");
+  root.className = "er-detail";
+  root.innerHTML = `
+    <div class="er-detail-header">
+      <div class="logo"><img src="${earningsLogo(ticker)}" alt="${ticker}" onerror="this.parentElement.innerHTML='${ticker}';this.parentElement.style.background='#2a2a40';this.parentElement.style.color='#c0c0d8';this.parentElement.style.fontSize='11px';this.parentElement.style.fontWeight='800';"/></div>
+      <div class="meta">
+        <div class="ticker-sym">${ticker}</div>
+        <div class="company">${er.company || ""}</div>
+      </div>
+      <div class="er-detail-tag ${tagCls}">${tag}</div>
+    </div>
+    <div class="er-themes-bar">${themePills}</div>
+    ${resultsBlock}
+  `;
+  // Wire theme pills → open drawer
+  root.querySelectorAll(".er-themes-bar .pill").forEach((p) => {
+    p.addEventListener("click", () => {
+      const tid = p.dataset.theme;
+      if (tid) window.parent.postMessage({ type: "tp-open-drawer", id: tid }, "*");
+    });
+  });
+};
+
 const renderEarningsCalendar = () => {
   const root = document.getElementById("earnings-calendar");
   if (!root) return;
-  // Collect upcoming earnings for tickers in our drawer universe.
-  // Filter to next 60 days; today and past 7 days included so user sees
-  // "just-reported" context.
-  const universe = Object.keys(TICKER_THEMES);
-  const upcoming = [];
-  universe.forEach((tk) => {
+
+  // Build the calendar shell
+  const monday = startOfTradingWeek(ER_WEEK_OFFSET);
+  const todayMidnight = new Date();
+  todayMidnight.setUTCHours(0, 0, 0, 0);
+
+  // Bucket tickers by day-of-week + BMO/AMC
+  const grid = [0, 1, 2, 3, 4].map(() => ({ bmo: [], amc: [] }));
+  const overflow = [];
+  Object.keys(TICKER_THEMES).forEach((tk) => {
     const er = PIPELINE_ER[tk];
-    if (!er) return;
-    const d = er.earnings_days;
-    if (d == null || isNaN(d)) return;
-    if (d < -7 || d > 60) return;
-    upcoming.push({ ticker: tk, ...er, themes: Array.from(TICKER_THEMES[tk] || []) });
-  });
-  // Sort by earnings_days ascending (soonest first; past dates negative)
-  upcoming.sort((a, b) => a.earnings_days - b.earnings_days);
-  if (upcoming.length === 0) {
-    root.innerHTML = `<div class="empty-state">No earnings reports in the next 60 days for tickers in the drawer universe.<br><span style="font-size:10px;color:#5a5a6a;">Earnings data refreshes when the pipeline runs.</span></div>`;
-    return;
-  }
-  // Bucket by week relative to today (rolling Mon-Sun weeks anchored on today)
-  const buckets = { past: [], thisWeek: [], nextWeek: [], future: {} };
-  upcoming.forEach((er) => {
-    const d = er.earnings_days;
-    if (d < 0) buckets.past.push(er);
-    else if (d <= 7) buckets.thisWeek.push(er);
-    else if (d <= 14) buckets.nextWeek.push(er);
-    else {
-      const wkOffset = Math.floor(d / 7);
-      const weekKey = `Week of +${wkOffset * 7}d`;
-      if (!buckets.future[weekKey]) buckets.future[weekKey] = [];
-      buckets.future[weekKey].push(er);
+    if (!er || er.earnings_days == null || isNaN(er.earnings_days)) return;
+    // Compute the date for this ER
+    const erDate = new Date(todayMidnight);
+    erDate.setUTCDate(erDate.getUTCDate() + er.earnings_days);
+    erDate.setUTCHours(0, 0, 0, 0);
+    const dayOffset = Math.floor((erDate - monday) / 86400000);
+    if (dayOffset < 0 || dayOffset > 4) {
+      overflow.push({ ticker: tk, ...er, dayOffset });
+      return;
     }
-  });
-
-  const renderRow = (er) => {
-    const tag = (() => {
-      if (er.earnings_days === 0) return "TODAY";
-      if (er.earnings_days < 0) return `${-er.earnings_days}d ago`;
-      return `${er.earnings_days}d`;
-    })();
-    const dateText = er.earnings_display || "—";
-    const moveText = er.avg_er_move != null ? `±${er.avg_er_move.toFixed(1)}%` : "—";
-    const grade = er.qmag_grade || "—";
-    const gradeCls = grade.startsWith("A") ? "a" : grade.startsWith("B") ? "b" : grade !== "—" ? "c" : "";
-    const themePills = er.themes.map((tid) => {
-      const labelMap = { ai: "AI Infra", software: "Software", cyber: "Cyber", fintech: "Fintech", defense: "Defense", robotics: "Robotics", ev: "EV", quantum: "Quantum", space: "Space" };
-      return `<span class="pill t-${tid}">${labelMap[tid] || tid}</span>`;
-    }).join("");
-    return `
-      <div class="er-row" data-themes="${er.themes.join(",")}" data-ticker="${er.ticker}">
-        <div class="er-ticker">${er.ticker}</div>
-        <div class="er-date">${dateText} <span class="ts">${er.er_timing || ""} · ${tag}</span></div>
-        <div class="er-themes">${themePills}</div>
-        <div class="er-move">${moveText}</div>
-        <div class="er-grade ${gradeCls}">${grade}</div>
-      </div>
-    `;
-  };
-
-  let html = "";
-  if (buckets.past.length) {
-    html += `<div class="week-block"><div class="week-header" style="color:#6a6a7a; border-left-color:#3a3a4a;">JUST REPORTED · ${buckets.past.length}</div>${buckets.past.map(renderRow).join("")}</div>`;
-  }
-  if (buckets.thisWeek.length) {
-    html += `<div class="week-block"><div class="week-header this-week">THIS WEEK · ${buckets.thisWeek.length}</div>${buckets.thisWeek.map(renderRow).join("")}</div>`;
-  }
-  if (buckets.nextWeek.length) {
-    html += `<div class="week-block"><div class="week-header next-week">NEXT WEEK · ${buckets.nextWeek.length}</div>${buckets.nextWeek.map(renderRow).join("")}</div>`;
-  }
-  Object.keys(buckets.future).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/))).forEach((wk) => {
-    html += `<div class="week-block"><div class="week-header future">${wk} · ${buckets.future[wk].length}</div>${buckets.future[wk].map(renderRow).join("")}</div>`;
-  });
-  root.innerHTML = html;
-  // Wire row clicks to open the matching drawer (first theme)
-  root.querySelectorAll(".er-row").forEach((row) => {
-    row.addEventListener("click", () => {
-      const themes = row.dataset.themes.split(",").filter(Boolean);
-      if (themes.length > 0) {
-        window.parent.postMessage({ type: "tp-open-drawer", id: themes[0] }, "*");
-      }
+    const bucket = (er.er_timing || "").toUpperCase() === "BMO" ? "bmo" : "amc";
+    grid[dayOffset][bucket].push({
+      ticker: tk,
+      ...er,
+      themes: Array.from(TICKER_THEMES[tk] || []),
     });
   });
+
+  const weekLabel = `Week of ${formatDayHeader(monday)} → ${formatDayHeader(new Date(monday.getTime() + 4 * 86400000))}`;
+  const TILE_LIMIT = 9;     // 3x3 visible per section, more shown as +N
+  let calendarHtml = "";
+  for (let i = 0; i < 5; i++) {
+    const day = new Date(monday); day.setUTCDate(monday.getUTCDate() + i);
+    const isToday = day.getTime() === todayMidnight.getTime();
+    const renderSection = (cls, label, list) => {
+      if (!list.length) return `<div class="er-section ${cls}"><div class="er-section-header">${cls === "bmo" ? "☀ Before Open" : "🌙 After Close"}</div><div class="er-empty">— no earnings —</div></div>`;
+      const visible = list.slice(0, TILE_LIMIT);
+      const extra = list.length - visible.length;
+      return `<div class="er-section ${cls}"><div class="er-section-header">${cls === "bmo" ? "☀ Before Open" : "🌙 After Close"}</div><div class="er-tile-grid">${visible.map(renderTile).join("")}${extra > 0 ? `<div class="er-overflow">+${extra}</div>` : ""}</div></div>`;
+    };
+    calendarHtml += `
+      <div class="er-day-col">
+        <div class="er-day-header ${isToday ? "today" : ""}">${formatDayHeader(day)}</div>
+        ${renderSection("bmo", "Before Open", grid[i].bmo)}
+        ${renderSection("amc", "After Close", grid[i].amc)}
+      </div>
+    `;
+  }
+
+  root.innerHTML = `
+    <div class="er-shell">
+      <div class="er-nav">
+        <button id="er-prev">← Prev Week</button>
+        <button id="er-today">Today</button>
+        <button id="er-next">Next Week →</button>
+        <span class="week-label">${weekLabel}</span>
+      </div>
+      <div>
+        <div class="er-week-grid">${calendarHtml}</div>
+      </div>
+      <div id="er-detail" class="er-detail empty"><div>📅 Click a ticker on the left<br>to see earnings detail</div></div>
+    </div>
+  `;
+
+  // Wire navigation
+  document.getElementById("er-prev").addEventListener("click", () => { ER_WEEK_OFFSET--; renderEarningsCalendar(); });
+  document.getElementById("er-next").addEventListener("click", () => { ER_WEEK_OFFSET++; renderEarningsCalendar(); });
+  document.getElementById("er-today").addEventListener("click", () => { ER_WEEK_OFFSET = 0; renderEarningsCalendar(); });
+
+  // Wire tile clicks → populate detail panel
+  root.querySelectorAll(".er-tile").forEach((tile) => {
+    tile.addEventListener("click", (e) => {
+      e.stopPropagation();
+      ER_SELECTED_TICKER = tile.dataset.ticker;
+      // Highlight selected tile
+      root.querySelectorAll(".er-tile").forEach((t) => t.classList.toggle("selected", t === tile));
+      renderDetailPanel(ER_SELECTED_TICKER);
+    });
+  });
+
+  // Restore selected state if user navigated weeks
+  if (ER_SELECTED_TICKER) renderDetailPanel(ER_SELECTED_TICKER);
 };
 
 // ─── TAB SWITCHER ─────────────────────────────────────────────────────────
