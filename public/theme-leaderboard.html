@@ -78,16 +78,12 @@
     color: #fbbf24;
     border-bottom-color: #fbbf24;
   }
-  /* Earnings calendar — week grid layout (Mon-Fri columns) */
+  /* Earnings calendar — week grid layout (Mon-Fri columns) + detail below */
   .er-shell {
     max-width: 1500px; margin: 12px auto 0;
-    display: grid;
-    grid-template-columns: 1fr 360px;
+    display: flex;
+    flex-direction: column;
     gap: 14px;
-    align-items: start;
-  }
-  @media (max-width: 1100px) {
-    .er-shell { grid-template-columns: 1fr; }
   }
   .er-nav {
     grid-column: 1 / -1;
@@ -225,14 +221,14 @@
     padding: 8px 0;
     font-style: italic;
   }
-  /* Detail panel (right pane) */
+  /* Detail panel — sits below the calendar grid, full width */
   .er-detail {
     background: rgba(15, 15, 24, 0.7);
     border: 1px solid #2a2a40;
     border-radius: 10px;
-    padding: 14px;
-    position: sticky; top: 16px;
-    min-height: 200px;
+    padding: 16px;
+    min-height: 220px;
+    width: 100%;
   }
   .er-detail.empty {
     text-align: center;
@@ -345,6 +341,79 @@
   .er-history-metric .delta { font-weight: 800; font-size: 9.5px; }
   .er-history-metric .delta.up { color: #6dde8e; }
   .er-history-metric .delta.down { color: #ef9a9a; }
+  /* Bar-chart quarter visualization (matches App.jsx MiniQBars used on chart panel) */
+  .er-qbars-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 12px;
+  }
+  @media (max-width: 800px) { .er-qbars-grid { grid-template-columns: 1fr; } }
+  .er-qbars {
+    display: flex; flex-direction: column;
+    min-width: 0;
+  }
+  .er-qbars-title {
+    font-size: 9px; color: #9090a0;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-qbars-row {
+    display: flex; gap: 4px;
+    align-items: stretch;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-qbar-cell {
+    flex: 1;
+    min-width: 0;
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .er-qbar-val {
+    font-size: 10px;
+    font-weight: 800;
+    color: #c0c0d8;
+    height: 14px;
+    line-height: 14px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+  .er-qbar-val.latest {
+    border-color: #fbbf24;
+    color: #fbbf24;
+  }
+  .er-qbar-track {
+    width: 100%;
+    height: 64px;
+    display: flex; align-items: flex-end;
+    position: relative;
+  }
+  .er-qbar {
+    width: 100%;
+    border-radius: 2px 2px 0 0;
+    min-height: 1px;
+    transition: height 0.2s;
+  }
+  .er-qbar.color-eps  { background: linear-gradient(180deg, #6a9eff 0%, #4a7bdf 100%); }
+  .er-qbar.color-rev  { background: linear-gradient(180deg, #b86afc 0%, #8a4ed4 100%); }
+  .er-qbar.color-mgn  { background: linear-gradient(180deg, #22d3ee 0%, #1aa4b8 100%); }
+  .er-qbar.color-ocf  { background: linear-gradient(180deg, #fbbf24 0%, #d49a18 100%); }
+  .er-qbar-yoy {
+    font-size: 8px;
+    font-weight: 700;
+    color: #6dde8e;
+  }
+  .er-qbar-yoy.down { color: #ef9a9a; }
+  .er-qbar-yoy.flat { color: #6a6a7a; }
+  .er-qbar-label {
+    font-size: 8px;
+    color: #6a6a7a;
+    font-weight: 600;
+  }
   .er-themes-bar {
     display: flex; flex-wrap: wrap; gap: 4px;
     margin-bottom: 10px;
@@ -1187,37 +1256,95 @@ const renderDetailPanel = async (ticker) => {
     </div>
   `;
 
-  // Finviz quarter history — actuals from FactSet/Finviz + YoY growth.
-  // Same source the chart panel uses. Most reliable per-quarter data.
+  // Finviz quarter history — bar-chart visualization matching App.jsx MiniQBars.
+  // 4 metrics shown as 2x2 grid: Net Margin, OCF/sh, EPS, Revenue.
   let historyBlock = "";
   if (fvQuarters.length > 0) {
-    const renderFvRow = (q) => {
-      const revYoyCls = q.revenue_yoy == null ? "" : q.revenue_yoy >= 0 ? "up" : "down";
-      const epsYoyCls = q.eps_yoy == null ? "" : q.eps_yoy >= 0 ? "up" : "down";
-      const marginCls = q.net_margin == null ? "" : q.net_margin >= 15 ? "up" : q.net_margin <= 5 ? "down" : "";
+    // Order chronologically (oldest left → newest right) — Finviz returns
+    // newest-first, so reverse.
+    const series = [...fvQuarters].reverse();
+    const renderQBars = (label, accessor, yoyAccessor, color, fmt) => {
+      const values = series.map(accessor).filter((v) => v != null && Number.isFinite(v));
+      if (!values.length) return "";
+      const max = Math.max(...values, 0);
+      const min = Math.min(...values, 0);
+      const range = max - min || 1;
+      const baseline = max / range;          // fraction of bar area above zero
+      const barAreaH = 64;                    // CSS er-qbar-track height
+      const lastIdx = series.length - 1;
       return `
-        <div class="er-history-row">
-          <div class="er-history-period">${q.label || (q.period + "-" + (q.year || "").toString().slice(-2))}<span class="er-history-date">${q.report_date || ""}</span></div>
-          <div class="er-history-metrics">
-            <div class="er-history-metric">
-              <span class="lbl">REV</span>
-              <span class="val"><strong>${q.revenue_fmt || fmtMoney((q.revenue || 0) * 1e6)}</strong></span>
-              <span class="delta ${revYoyCls}">${q.revenue_yoy == null ? "—" : (q.revenue_yoy >= 0 ? "+" : "") + q.revenue_yoy.toFixed(1) + "% YoY"}</span>
-            </div>
-            <div class="er-history-metric">
-              <span class="lbl">EPS</span>
-              <span class="val"><strong>${q.eps != null ? "$" + q.eps.toFixed(2) : "—"}</strong></span>
-              <span class="delta ${epsYoyCls}">${q.eps_yoy == null ? "—" : (q.eps_yoy >= 0 ? "+" : "") + q.eps_yoy.toFixed(1) + "% YoY"}</span>
-            </div>
-            ${q.net_margin != null ? `<div class="er-history-metric"><span class="lbl">Mgn</span><span class="val">Net margin</span><span class="delta ${marginCls}">${q.net_margin.toFixed(1)}%</span></div>` : ""}
+        <div class="er-qbars">
+          <div class="er-qbars-title">${label}</div>
+          <div class="er-qbars-row">
+            ${series.map((q, i) => {
+              const v = accessor(q);
+              const yoy = yoyAccessor ? yoyAccessor(q) : null;
+              const yoyCls = yoy == null ? "flat" : yoy >= 0 ? "" : "down";
+              const yoyTxt = yoy == null ? "—" : `${yoy >= 0 ? "+" : ""}${yoy.toFixed(0)}%`;
+              const valTxt = v == null ? "—" : fmt(v);
+              const isLatest = i === lastIdx;
+              // Bar height proportional to absolute value above/below baseline
+              let h = 0, top = 0;
+              if (v != null) {
+                if (v >= 0) {
+                  h = (v / range) * barAreaH;
+                  top = (max - v) / range * barAreaH;
+                } else {
+                  h = (Math.abs(v) / range) * barAreaH;
+                  top = baseline * barAreaH;
+                }
+              }
+              return `
+                <div class="er-qbar-cell">
+                  <div class="er-qbar-val ${isLatest ? "latest" : ""}">${valTxt}</div>
+                  <div class="er-qbar-track">
+                    <div class="er-qbar color-${color}" style="height: ${h.toFixed(0)}px;"></div>
+                  </div>
+                  <div class="er-qbar-yoy ${yoyCls}">${yoyTxt}</div>
+                  <div class="er-qbar-label">${q.label || ""}</div>
+                </div>
+              `;
+            }).join("")}
           </div>
         </div>
       `;
     };
+
+    const blocks = [
+      renderQBars(
+        "Net Margin",
+        (q) => q.net_margin,
+        (q) => q._marginDelta ?? null,
+        "mgn",
+        (v) => v.toFixed(1) + "%"
+      ),
+      renderQBars(
+        "Op Cash Flow / sh",
+        (q) => q.ocf_ps,
+        (q) => q.ocf_yoy,
+        "ocf",
+        (v) => v.toFixed(2)
+      ),
+      renderQBars(
+        "EPS (Diluted)",
+        (q) => q.eps,
+        (q) => q.eps_yoy,
+        "eps",
+        (v) => v.toFixed(2)
+      ),
+      renderQBars(
+        "Revenue",
+        (q) => q.revenue,
+        (q) => q.revenue_yoy,
+        "rev",
+        (v) => v >= 1000 ? (v / 1000).toFixed(1) + "B" : Math.round(v) + "M"
+      ),
+    ];
+
     historyBlock = `
       <div class="er-history-section">
-        <div class="er-block-title">Last ${fvQuarters.length} Quarter${fvQuarters.length === 1 ? "" : "s"} · Finviz Actuals</div>
-        ${fvQuarters.map(renderFvRow).join("")}
+        <div class="er-block-title">Last ${series.length} Quarter${series.length === 1 ? "" : "s"} · Finviz Actuals</div>
+        <div class="er-qbars-grid">${blocks.join("")}</div>
       </div>
     `;
   } else {
@@ -1252,7 +1379,7 @@ const renderEarningsCalendar = async () => {
   const toIso = isoDate(sunday);
   const weekLabel = `Week of ${formatDayHeader(monday)} → ${formatDayHeader(friday)}`;
 
-  // Show loading shell first
+  // Show loading shell first — detail panel sits BELOW the calendar grid
   root.innerHTML = `
     <div class="er-shell">
       <div class="er-nav">
@@ -1266,7 +1393,7 @@ const renderEarningsCalendar = async () => {
         <span class="week-label">${weekLabel}</span>
       </div>
       <div><div class="er-week-grid"><div class="er-empty" style="grid-column:1/-1; padding:32px;">Loading earnings calendar from FMP…</div></div></div>
-      <div id="er-detail" class="er-detail empty"><div>📅 Click a ticker on the left<br>to see earnings detail</div></div>
+      <div id="er-detail" class="er-detail empty"><div>📅 Click a ticker above to see earnings detail (charts of quarterly EPS, Revenue, Margin, OCF)</div></div>
     </div>
   `;
 
