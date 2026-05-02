@@ -4228,6 +4228,16 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
                   position: "relative",
                 }}
               >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: zeroLine,
+                    left: 0,
+                    right: 0,
+                    height: 1,
+                    background: "#ffffff30",
+                  }}
+                />
                 {hPos > 0 && (
                   <div
                     style={{
