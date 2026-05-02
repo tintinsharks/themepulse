@@ -1066,10 +1066,88 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
+        // ── +4% BO / -4% BD / VCP Tight / Dry-up markers on volume bars ──
+        const isDaily = tf === "D";
+        if (isDaily) {
+          // 20-day volume SMA for dry-up detection
+          const volSma20 = calcSMA(bars.map(b => b.volume || 0), 20);
+
+          // VCP Tightness Score: 0=super tight, 100=loose
+          const TIGHT_LB = 5, ADR_LB = 20, HIST_LB = 50;
+          const vcpScores = new Array(bars.length).fill(null);
+          for (let i = Math.max(TIGHT_LB, ADR_LB) - 1; i < bars.length; i++) {
+            let adrSum = 0, adrN = 0;
+            for (let j = i - ADR_LB + 1; j <= i; j++) {
+              const mid = (bars[j].high + bars[j].low) / 2;
+              if (mid > 0) { adrSum += (bars[j].high - bars[j].low) / mid * 100; adrN++; }
+            }
+            if (adrN === 0) continue;
+            const adr = adrSum / adrN;
+            if (adr <= 0) continue;
+            let hiC = -Infinity, loC = Infinity, hiH = -Infinity, loL = Infinity;
+            for (let j = i - TIGHT_LB + 1; j <= i; j++) {
+              hiC = Math.max(hiC, bars[j].close); loC = Math.min(loC, bars[j].close);
+              hiH = Math.max(hiH, bars[j].high); loL = Math.min(loL, bars[j].low);
+            }
+            const midC = (hiC + loC) / 2, midHL = (hiH + loL) / 2;
+            if (midC <= 0 || midHL <= 0) continue;
+            const rawScore = ((hiC - loC) / midC * 100 / adr + (hiH - loL) / midHL * 100 / adr) / 2;
+            let histMin = rawScore, histMax = rawScore;
+            for (let h = i - HIST_LB + 1; h <= i; h++) {
+              if (h < Math.max(TIGHT_LB, ADR_LB) - 1) continue;
+              let hAS = 0, hAN = 0;
+              for (let j = h - ADR_LB + 1; j <= h; j++) {
+                const m = (bars[j].high + bars[j].low) / 2;
+                if (m > 0) { hAS += (bars[j].high - bars[j].low) / m * 100; hAN++; }
+              }
+              if (hAN === 0) continue;
+              const hAdr = hAS / hAN;
+              if (hAdr <= 0) continue;
+              let hHiC = -Infinity, hLoC = Infinity, hHiH = -Infinity, hLoL = Infinity;
+              for (let j = h - TIGHT_LB + 1; j <= h; j++) {
+                hHiC = Math.max(hHiC, bars[j].close); hLoC = Math.min(hLoC, bars[j].close);
+                hHiH = Math.max(hHiH, bars[j].high); hLoL = Math.min(hLoL, bars[j].low);
+              }
+              const hMC = (hHiC + hLoC) / 2, hMHL = (hHiH + hLoL) / 2;
+              if (hMC <= 0 || hMHL <= 0) continue;
+              const hRaw = ((hHiC - hLoC) / hMC * 100 / hAdr + (hHiH - hLoL) / hMHL * 100 / hAdr) / 2;
+              histMin = Math.min(histMin, hRaw); histMax = Math.max(histMax, hRaw);
+            }
+            const rng = histMax - histMin;
+            vcpScores[i] = rng > 0 ? Math.max(0, Math.min(100, (rawScore - histMin) / rng * 100)) : 50;
+          }
+
+          for (let i = 1; i < bars.length; i++) {
+            const vol = bars[i].volume || 0;
+            const prevClose = bars[i - 1]?.close || 0;
+            const prevVol = bars[i - 1]?.volume || 0;
+            const chgPct = prevClose > 0 ? (bars[i].close - prevClose) / prevClose * 100 : 0;
+
+            // +4% breakout — gold diamond
+            if (chgPct >= 4 && vol > prevVol && vol > 100000) {
+              volMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#fbbf24", shape: "arrowUp", size: 0.5 });
+            }
+            // -4% breakdown — red diamond
+            else if (chgPct <= -4 && vol > prevVol && vol > 100000) {
+              volMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#f87171", shape: "arrowDown", size: 0.5 });
+            }
+
+            // VCP super-tight T (score ≤ 10)
+            if (vcpScores[i] != null && vcpScores[i] <= 10) {
+              volMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#fbbf24", shape: "square", size: 0, text: "T" });
+            }
+
+            // Volume dry-up — teal dot (vol < 0.5x 20-day avg)
+            const vAvg = volSma20[i] || 0;
+            if (vAvg > 0 && vol > 0 && vol < vAvg * 0.5) {
+              volMarkers.push({ time: btime(bars[i]), position: "belowBar", color: "#2dd4bf", shape: "circle", size: 0.3 });
+            }
+          }
+        }
+
         // Minervini "Cheat" setup markers are gated behind a primary-trend
         // check — stock must be up 30%+ over the last ~63 trading days (3
         // months). Daily only; meaningless on weekly or intraday.
-        const isDaily = tf === "D";
         const isPrimaryTrend = (i) => {
           if (i < 63) return false;
           const old = bars[i - 63]?.close;
@@ -1851,6 +1929,31 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
         >
           <span>Vol</span>
           <span style={{ color: "#3a3a48" }}>|</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, background: "#2563eb", display: "inline-block" }} />
+            <span>PP 10d</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, background: "#0d9488", display: "inline-block" }} />
+            <span>PP 5d</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ color: "#fbbf24", fontSize: 9, lineHeight: 1 }}>▲</span>
+            <span>+4% BO</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ color: "#f87171", fontSize: 9, lineHeight: 1 }}>▼</span>
+            <span>-4% BD</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ color: "#fbbf24", fontWeight: 900, fontSize: 8 }}>T</span>
+            <span>Tight</span>
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#2dd4bf", display: "inline-block" }} />
+            <span>Dry-Up</span>
+          </span>
+          <span style={{ color: "#3a3a48" }}>|</span>
           <span style={{ color: "#707080" }}>Cheat:</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f87171", display: "inline-block" }} />
@@ -1863,10 +1966,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22d3ee", display: "inline-block" }} />
             <span>VUD</span>
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-            <span style={{ width: 5, height: 5, background: "#fbbf24", display: "inline-block" }} />
-            <span>Tight</span>
           </span>
         </div>
       </div>
