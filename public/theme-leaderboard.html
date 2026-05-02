@@ -272,6 +272,52 @@
   .er-result-block .row .delta { font-weight: 800; }
   .er-result-block .row .delta.up { color: #6dde8e; }
   .er-result-block .row .delta.down { color: #ef9a9a; }
+  .er-block-title {
+    font-size: 9px; color: #9090a0;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    font-weight: 800; margin-bottom: 6px;
+  }
+  /* Quarter history rows */
+  .er-history-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #2a2a40;
+  }
+  .er-history-row {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid #1c1c2c;
+    border-radius: 6px;
+  }
+  .er-history-period {
+    font-size: 10px; font-weight: 800;
+    color: #c0c0d8;
+    margin-bottom: 5px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .er-history-period .er-history-date {
+    color: #6a6a7a; font-weight: 500;
+    margin-left: 6px;
+  }
+  .er-history-metrics {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .er-history-metric {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 6px;
+    font-size: 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    align-items: center;
+  }
+  .er-history-metric .lbl { color: #7a7a8a; font-weight: 700; }
+  .er-history-metric .val { color: #c0c0d8; font-size: 9.5px; }
+  .er-history-metric .val .muted { color: #5a5a6a; }
+  .er-history-metric .val strong { color: #fff; font-weight: 800; }
+  .er-history-metric .delta { font-weight: 800; font-size: 9.5px; }
+  .er-history-metric .delta.up { color: #6dde8e; }
+  .er-history-metric .delta.down { color: #ef9a9a; }
   .er-themes-bar {
     display: flex; flex-wrap: wrap; gap: 4px;
     margin-bottom: 10px;
@@ -706,7 +752,24 @@ const loadPipelineData = async () => {
 };
 
 // ER_RESULTS holds beat/miss data for stocks that have already reported
+// (sourced from dashboard_data.json earnings_movers — pipeline-baked)
 const ER_RESULTS = {};
+
+// FMP-sourced earnings detail cache: ticker → { next, history[] }
+// Populated lazily when user clicks a tile in the calendar.
+const ER_FMP = {};
+const fetchErFmp = async (ticker) => {
+  if (ER_FMP[ticker]) return ER_FMP[ticker];
+  try {
+    const r = await fetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    ER_FMP[ticker] = d;
+    return d;
+  } catch {
+    return null;
+  }
+};
 const loadNarratives = async () => {
   try {
     const r = await fetch("/data/narratives.json", { cache: "no-store" });
@@ -955,61 +1018,47 @@ const renderTile = (er) => {
   `;
 };
 
-const renderDetailPanel = (ticker) => {
+const fmtMoney = (v) => v == null ? "—" : v >= 1e9 ? `$${(v/1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(0)}M` : `$${v.toFixed(0)}`;
+const fmtEps = (v) => v == null ? "—" : `$${v.toFixed(2)}`;
+const fmtPct = (p) => p == null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
+const surpriseCls = (p) => p == null ? "" : p >= 0 ? "up" : "down";
+
+const renderHistoryRow = (h) => `
+  <div class="er-history-row">
+    <div class="er-history-period">${h.period || ""} <span class="er-history-date">${h.date || ""}</span></div>
+    <div class="er-history-metrics">
+      <div class="er-history-metric">
+        <span class="lbl">REV</span>
+        <span class="val">${fmtMoney(h.revenue_estimate)} <span class="muted">(est)</span> · <strong>${fmtMoney(h.revenue_actual)}</strong></span>
+        <span class="delta ${surpriseCls(h.revenue_surprise_pct)}">${fmtPct(h.revenue_surprise_pct)}</span>
+      </div>
+      <div class="er-history-metric">
+        <span class="lbl">EPS</span>
+        <span class="val">${fmtEps(h.eps_estimate)} <span class="muted">(est)</span> · <strong>${fmtEps(h.eps_actual)}</strong></span>
+        <span class="delta ${surpriseCls(h.eps_surprise_pct)}">${fmtPct(h.eps_surprise_pct)}</span>
+      </div>
+    </div>
+  </div>
+`;
+
+const renderDetailPanel = async (ticker) => {
   const root = document.getElementById("er-detail");
   if (!root) return;
-  if (!ticker || !PIPELINE_ER[ticker]) {
+  if (!ticker) {
     root.className = "er-detail empty";
     root.innerHTML = `<div>📅 Click a ticker on the left<br>to see earnings detail</div>`;
     return;
   }
-  const er = PIPELINE_ER[ticker];
+  const pipeEr = PIPELINE_ER[ticker] || {};
   const themes = Array.from(TICKER_THEMES[ticker] || []);
-  const tag = er.earnings_days === 0 ? "TODAY"
-    : er.earnings_days < 0 ? `${-er.earnings_days}d ago`
-    : `${er.earnings_days}d away`;
-  const tagCls = er.earnings_days === 0 ? "today" : (er.er_timing === "AMC" ? "amc" : "");
-  const result = ER_RESULTS[ticker];
+  const days = pipeEr.earnings_days;
+  const tag = days == null ? "—"
+    : days === 0 ? "TODAY"
+    : days < 0 ? `${-days}d ago`
+    : `${days}d away`;
+  const tagCls = days === 0 ? "today" : (pipeEr.er_timing === "AMC" ? "amc" : "");
 
-  let resultsBlock = "";
-  if (result) {
-    // Beat/miss data available — show actual vs estimate
-    const fmtMoney = (v) => v == null ? "—" : v >= 1e9 ? `$${(v/1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(0)}M` : `$${v.toFixed(0)}`;
-    const fmtEps = (v) => v == null ? "—" : `$${v.toFixed(2)}`;
-    const pct = (act, est) => est && est !== 0 ? ((act - est) / Math.abs(est)) * 100 : null;
-    const revPct = pct(result.revenue_actual, result.revenue_estimate);
-    const epsPct = pct(result.eps_actual, result.eps_estimate);
-    const cls = (p) => p == null ? "" : p >= 0 ? "up" : "down";
-    const fmtPct = (p) => p == null ? "—" : `${p >= 0 ? "+" : ""}${p.toFixed(2)}%`;
-    resultsBlock = `
-      <div class="er-result-block">
-        <div style="font-size:9px;color:#9090a0;text-transform:uppercase;letter-spacing:0.6px;font-weight:800;margin-bottom:6px;">Results</div>
-        <div class="row">
-          <span class="label">REV</span>
-          <span class="val">${fmtMoney(result.revenue_estimate)} <span style="color:#5a5a6a">(est)</span> · ${fmtMoney(result.revenue_actual)}</span>
-          <span class="delta ${cls(revPct)}">${fmtPct(revPct)}</span>
-        </div>
-        <div class="row">
-          <span class="label">EPS*</span>
-          <span class="val">${fmtEps(result.eps_estimate)} <span style="color:#5a5a6a">(est)</span> · ${fmtEps(result.eps_actual)}</span>
-          <span class="delta ${cls(epsPct)}">${fmtPct(epsPct)}</span>
-        </div>
-        <div style="font-size:8px;color:#5a5a6a;margin-top:4px;">*Adjusted GAAP, excludes one-time events</div>
-      </div>
-    `;
-  } else {
-    // Pre-earnings — show expected move + grade
-    const move = er.avg_er_move != null ? `±${er.avg_er_move.toFixed(1)}%` : "—";
-    const grade = er.qmag_grade || "—";
-    resultsBlock = `
-      <div class="er-result-block">
-        <div style="font-size:9px;color:#9090a0;text-transform:uppercase;letter-spacing:0.6px;font-weight:800;margin-bottom:6px;">Pre-Earnings Setup</div>
-        <div class="row"><span class="label">Move</span><span class="val">Avg implied/realized</span><span class="delta" style="color:#fbbf24">${move}</span></div>
-        <div class="row"><span class="label">Grade</span><span class="val">QM Composite</span><span class="delta">${grade}</span></div>
-        <div class="row"><span class="label">Date</span><span class="val">${er.earnings_display || "—"}</span><span class="delta" style="color:#9090a0">${er.er_timing || ""}</span></div>
-      </div>
-    `;
-  }
+  // Skeleton render (so user sees something instantly while we fetch)
   const themePills = themes.map((tid) =>
     `<span class="pill t-${tid}" data-theme="${tid}">${themeLabel[tid] || tid}</span>`
   ).join("");
@@ -1019,20 +1068,60 @@ const renderDetailPanel = (ticker) => {
       <div class="logo"><img src="${earningsLogo(ticker)}" alt="${ticker}" onerror="this.parentElement.innerHTML='${ticker}';this.parentElement.style.background='#2a2a40';this.parentElement.style.color='#c0c0d8';this.parentElement.style.fontSize='11px';this.parentElement.style.fontWeight='800';"/></div>
       <div class="meta">
         <div class="ticker-sym">${ticker}</div>
-        <div class="company">${er.company || ""}</div>
+        <div class="company">${pipeEr.company || ""}</div>
       </div>
       <div class="er-detail-tag ${tagCls}">${tag}</div>
     </div>
     <div class="er-themes-bar">${themePills}</div>
-    ${resultsBlock}
+    <div id="er-detail-body"><div style="font-size:10px; color:#7a7a8a; padding:12px 4px;">Loading earnings history…</div></div>
   `;
-  // Wire theme pills → open drawer
+
+  // Wire theme pills
   root.querySelectorAll(".er-themes-bar .pill").forEach((p) => {
     p.addEventListener("click", () => {
       const tid = p.dataset.theme;
       if (tid) window.parent.postMessage({ type: "tp-open-drawer", id: tid }, "*");
     });
   });
+
+  // Fetch FMP earnings history + render body
+  const fmp = await fetchErFmp(ticker);
+  if (ER_SELECTED_TICKER !== ticker) return;        // user clicked away mid-fetch
+
+  const body = document.getElementById("er-detail-body");
+  if (!body) return;
+
+  const history = (fmp && Array.isArray(fmp.history)) ? fmp.history : [];
+  const next = fmp?.next || null;
+
+  // Pre-earnings setup card (always shown)
+  const move = pipeEr.avg_er_move != null ? `±${pipeEr.avg_er_move.toFixed(1)}%` : "—";
+  const grade = pipeEr.qmag_grade || "—";
+  const setup = `
+    <div class="er-result-block">
+      <div class="er-block-title">Pre-Earnings Setup</div>
+      <div class="row"><span class="label">Move</span><span class="val">Avg implied/realized</span><span class="delta" style="color:#fbbf24">${move}</span></div>
+      <div class="row"><span class="label">Grade</span><span class="val">QM Composite</span><span class="delta">${grade}</span></div>
+      <div class="row"><span class="label">Date</span><span class="val">${pipeEr.earnings_display || (next?.date || "—")}</span><span class="delta" style="color:#9090a0">${pipeEr.er_timing || (next?.timing || "")}</span></div>
+      ${next?.eps_estimate != null ? `<div class="row"><span class="label">EPS*</span><span class="val">Consensus estimate</span><span class="delta" style="color:#fbbf24">${fmtEps(next.eps_estimate)}</span></div>` : ""}
+      ${next?.revenue_estimate != null ? `<div class="row"><span class="label">REV</span><span class="val">Consensus estimate</span><span class="delta" style="color:#fbbf24">${fmtMoney(next.revenue_estimate)}</span></div>` : ""}
+    </div>
+  `;
+
+  // Quarter history
+  let historyBlock = "";
+  if (history.length > 0) {
+    historyBlock = `
+      <div class="er-history-section">
+        <div class="er-block-title">Last ${history.length} Quarter${history.length === 1 ? "" : "s"} · Beat/Miss</div>
+        ${history.map(renderHistoryRow).join("")}
+      </div>
+    `;
+  } else {
+    historyBlock = `<div style="font-size:10px; color:#7a7a8a; padding:8px 4px;">No FMP earnings history available.</div>`;
+  }
+
+  body.innerHTML = setup + historyBlock;
 };
 
 const renderEarningsCalendar = () => {
