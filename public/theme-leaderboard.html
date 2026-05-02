@@ -418,19 +418,25 @@
   .er-qbar-track {
     width: 100%;
     height: 64px;
-    display: flex; align-items: flex-end;
     position: relative;
+  }
+  .er-qbar-zero {
+    position: absolute; left: 0; right: 0;
+    height: 1px; background: #ffffff30;
   }
   .er-qbar {
     width: 100%;
-    border-radius: 2px 2px 0 0;
     min-height: 1px;
-    transition: height 0.2s;
+    position: absolute; left: 0; right: 0;
+    transition: height 0.2s, top 0.2s;
   }
-  .er-qbar.color-eps  { background: linear-gradient(180deg, #6a9eff 0%, #4a7bdf 100%); }
-  .er-qbar.color-rev  { background: linear-gradient(180deg, #b86afc 0%, #8a4ed4 100%); }
-  .er-qbar.color-mgn  { background: linear-gradient(180deg, #22d3ee 0%, #1aa4b8 100%); }
-  .er-qbar.color-ocf  { background: linear-gradient(180deg, #fbbf24 0%, #d49a18 100%); }
+  .er-qbar.pos { border-radius: 2px 2px 0 0; }
+  .er-qbar.neg { border-radius: 0 0 2px 2px; }
+  .er-qbar.pos.color-eps { background: linear-gradient(180deg, #6a9eff 0%, #4a7bdf 100%); }
+  .er-qbar.pos.color-rev { background: linear-gradient(180deg, #b86afc 0%, #8a4ed4 100%); }
+  .er-qbar.pos.color-mgn { background: linear-gradient(180deg, #22d3ee 0%, #1aa4b8 100%); }
+  .er-qbar.pos.color-ocf { background: linear-gradient(180deg, #fbbf24 0%, #d49a18 100%); }
+  .er-qbar.neg { background: linear-gradient(180deg, #f87171 0%, #dc2626 100%); }
   .er-qbar-yoy {
     font-size: 8px;
     font-weight: 700;
@@ -1558,8 +1564,7 @@ const renderDetailPanel = async (ticker) => {
       const max = Math.max(...values, 0);
       const min = Math.min(...values, 0);
       const range = max - min || 1;
-      const baseline = max / range;          // fraction of bar area above zero
-      const barAreaH = 64;                    // CSS er-qbar-track height
+      const zeroY = (max / range) * 64;
       const lastIdx = series.length - 1;
       return `
         <div class="er-qbars">
@@ -1572,22 +1577,23 @@ const renderDetailPanel = async (ticker) => {
               const yoyTxt = yoy == null ? "—" : `${yoy >= 0 ? "+" : ""}${yoy.toFixed(0)}%`;
               const valTxt = v == null ? "—" : fmt(v);
               const isLatest = i === lastIdx;
-              // Bar height proportional to absolute value above/below baseline
-              let h = 0, top = 0;
+              let h = 0, top = 0, sign = "pos";
               if (v != null) {
                 if (v >= 0) {
-                  h = (v / range) * barAreaH;
-                  top = (max - v) / range * barAreaH;
+                  h = (v / range) * 64;
+                  top = zeroY - h;
                 } else {
-                  h = (Math.abs(v) / range) * barAreaH;
-                  top = baseline * barAreaH;
+                  h = (Math.abs(v) / range) * 64;
+                  top = zeroY;
+                  sign = "neg";
                 }
               }
               return `
                 <div class="er-qbar-cell">
                   <div class="er-qbar-val ${isLatest ? "latest" : ""}">${valTxt}</div>
                   <div class="er-qbar-track">
-                    <div class="er-qbar color-${color}" style="height: ${h.toFixed(0)}px;"></div>
+                    <div class="er-qbar-zero" style="top:${zeroY.toFixed(0)}px"></div>
+                    <div class="er-qbar ${sign} color-${color}" style="height:${h.toFixed(0)}px;top:${top.toFixed(0)}px"></div>
                   </div>
                   <div class="er-qbar-yoy ${yoyCls}">${yoyTxt}</div>
                   <div class="er-qbar-label">${q.label || ""}</div>
