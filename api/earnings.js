@@ -65,12 +65,16 @@ export default async function handler(req, res) {
   //   2. /stable/income-statement    — quarterly revenue actuals
   //   3. /stable/earnings-calendar   — next upcoming ER (filter by ticker)
   // Plus optional /stable/analyst-estimates for revenue forecasts on history.
+  const today = new Date();
+  const twoYearsAgo = new Date(today); twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const fromStr = twoYearsAgo.toISOString().slice(0, 10);
+  const toStr = today.toISOString().slice(0, 10);
   const [surprises, income, calendar, analyst, histCal] = await Promise.all([
     fetchJson(`${FMP_BASE}/earnings-surprises?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=8&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/earnings-calendar?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/analyst-estimates?symbol=${ticker}&period=quarter&apikey=${fmpKey}`),
-    fetchJson(`${FMP_BASE}/historical/earning_calendar/${ticker}?apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/earnings-calendar?from=${fromStr}&to=${toStr}&symbol=${ticker}&apikey=${fmpKey}`),
   ]);
 
   // Build history map by date so revenue + EPS can be merged
@@ -105,12 +109,15 @@ export default async function handler(req, res) {
     });
   }
 
-  // Map fiscal quarter end → actual report date from historical earnings calendar
+  // Map fiscal quarter end → actual report date from earnings calendar history
   const reportDateMap = {};
   if (Array.isArray(histCal)) {
     histCal.forEach((e) => {
-      if (e.date && e.fiscalDateEnding) {
-        reportDateMap[e.fiscalDateEnding] = e.date;
+      if (!e?.symbol || e.symbol.toUpperCase() !== ticker) return;
+      const reportDate = e.date;
+      const fiscalEnd = e.fiscalDateEnding;
+      if (reportDate && fiscalEnd) {
+        reportDateMap[fiscalEnd] = reportDate;
       }
     });
   }
