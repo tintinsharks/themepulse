@@ -906,6 +906,8 @@ const loadPipelineData = async () => {
 // ER_RESULTS holds beat/miss data for stocks that have already reported
 // (sourced from dashboard_data.json earnings_movers — pipeline-baked)
 const ER_RESULTS = {};
+// Actual ER report dates from the calendar grid (FMP earnings-week or pipeline)
+const ER_ACTUAL_DATES = {};
 
 // FMP-sourced earnings detail cache: ticker → { next, history[] }
 // Populated lazily when user clicks a tile in the calendar.
@@ -1261,7 +1263,7 @@ const ordinal = (n) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-const renderDailyChart = (ohlc, erHistory) => {
+const renderDailyChart = (ohlc, erHistory, knownErDate) => {
   if (!ohlc || !ohlc.length) return "";
   const bars = ohlc.slice(-120);
   const W = 900, priceH = 180, volH = 60, pad = { l: 0, r: 0, t: 4, b: 0 };
@@ -1455,27 +1457,50 @@ const renderDailyChart = (ohlc, erHistory) => {
     }
   });
 
-  // Earnings markers — Finviz quarters with report_date (actual ER day)
+  // Earnings markers — Finviz quarters. Most recent quarter uses knownErDate
+  // from the calendar grid (actual ER day). Older quarters use gap-detection
+  // since report_date is really the fiscal quarter end date.
   let erMarkerSvg = "";
   if (erHistory && erHistory.length) {
     const barDateIdx = {};
     bars.forEach((b, i) => { barDateIdx[b.date] = i; });
+    let usedKnownDate = false;
     for (const q of erHistory) {
       if (!q.report_date) continue;
-      let matchIdx = barDateIdx[q.report_date];
-      if (matchIdx == null) {
-        const d = new Date(q.report_date + "T00:00:00");
-        for (let j = 1; j <= 5; j++) {
-          d.setDate(d.getDate() + 1);
-          const ds = d.toISOString().slice(0, 10);
-          if (barDateIdx[ds] != null) { matchIdx = barDateIdx[ds]; break; }
+      let bestIdx = -1;
+      // For the most recent quarter, use the known ER date from the calendar
+      if (knownErDate && !usedKnownDate) {
+        usedKnownDate = true;
+        bestIdx = barDateIdx[knownErDate] ?? -1;
+        if (bestIdx < 0) {
+          const d = new Date(knownErDate + "T00:00:00");
+          for (let j = 1; j <= 3; j++) {
+            d.setDate(d.getDate() + 1);
+            const ds = d.toISOString().slice(0, 10);
+            if (barDateIdx[ds] != null) { bestIdx = barDateIdx[ds]; break; }
+          }
         }
       }
-      if (matchIdx == null) continue;
-      const x = pad.l + matchIdx * (bw + gap) + bw / 2;
+      // Older quarters: gap-detection from fiscal quarter end
+      if (bestIdx < 0) {
+        const qEnd = new Date(q.report_date + "T00:00:00");
+        const minD = new Date(qEnd); minD.setDate(minD.getDate() + 15);
+        const maxD = new Date(qEnd); maxD.setDate(maxD.getDate() + 55);
+        const minStr = minD.toISOString().slice(0, 10);
+        const maxStr = maxD.toISOString().slice(0, 10);
+        let bestGap = 0;
+        for (let i = 1; i < bars.length; i++) {
+          const d = bars[i].date;
+          if (d < minStr || d > maxStr) continue;
+          const g = Math.abs(bars[i].open - bars[i - 1].close);
+          if (g > bestGap) { bestGap = g; bestIdx = i; }
+        }
+      }
+      if (bestIdx < 0) continue;
+      const x = pad.l + bestIdx * (bw + gap) + bw / 2;
       const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "—";
       const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "—";
-      const isUp = bars[matchIdx].close >= bars[matchIdx].open;
+      const isUp = bars[bestIdx].close >= bars[bestIdx].open;
       const dotColor = isUp ? "#4ade80" : "#f87171";
       erMarkerSvg += `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t + priceH}" stroke="${dotColor}" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.5"/>`;
       erMarkerSvg += `<text x="${x}" y="${pad.t + 10}" text-anchor="middle" font-size="7" font-weight="700" fill="${dotColor}" opacity="0.9" font-family="ui-monospace,monospace">${q.label || ""}</text>`;
@@ -1704,7 +1729,7 @@ const renderDetailPanel = async (ticker) => {
     }
   }
 
-  const chartBlock = renderDailyChart(ohlcData?.ohlc, fvQuarters);
+  const chartBlock = renderDailyChart(ohlcData?.ohlc, fvQuarters, ER_ACTUAL_DATES[ticker]);
   body.innerHTML = chartBlock + historyBlock;
 };
 
@@ -1792,6 +1817,7 @@ const renderEarningsCalendar = async () => {
   // tickers (with pipeline er_timing) get a small badge per tile when known.
   const grid = [0, 1, 2, 3, 4].map(() => []);
   scopedEvents.forEach((e) => {
+    ER_ACTUAL_DATES[e.ticker] = e.date;
     const erDate = new Date(`${e.date}T00:00:00Z`);
     const dayOffset = Math.floor((erDate - monday) / 86400000);
     if (dayOffset < 0 || dayOffset > 4) return;
