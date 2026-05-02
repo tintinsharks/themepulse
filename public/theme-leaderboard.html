@@ -1438,7 +1438,7 @@ const renderDailyChart = (ohlc) => {
     const vScore = vcpScores[i];
     if (vScore != null && vScore <= 10) {
       const tx = x + bw / 2;
-      const ty = vy + vh / 2 + 3;
+      const ty = vy + vh - 1;
       volSvg += `<text x="${tx}" y="${ty}" text-anchor="middle" font-size="${Math.min(bw + 1, 7)}" font-weight="900" font-family="monospace" fill="#fbbf24" opacity="0.9">T</text>`;
     }
   });
