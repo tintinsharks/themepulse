@@ -306,6 +306,11 @@
   .tile.t-risk   { border-color: #6e2828; }
   .tile.t-risk .ticker-sym { color: #ef9a9a; }
   .tile.t-alpha  { border-color: #5a3e8e; background: rgba(120,80,200,0.08); }
+  /* Earnings within ±7 trading days — shaded background matching tier color */
+  .tile.t-strong.er-near { background: rgba(44,94,62,0.25); }
+  .tile.t-watch.er-near  { background: rgba(74,64,85,0.30); }
+  .tile.t-risk.er-near   { background: rgba(110,40,40,0.25); }
+  .tile.t-alpha.er-near  { background: rgba(120,80,200,0.18); }
   .tile.t-alpha .ticker-sym { color: #c4a8ff; }
   /* Layer color tokens */
   .layer.l-demand     { --layer-bg: linear-gradient(135deg, #15203a 0%, #0d1530 100%); --layer-border: #3a5a8a; --layer-icon-bg: #1e2f55; --layer-icon-border: #4a6ab0; --layer-fg: #6a9eff; }
@@ -663,6 +668,7 @@ const LIVE_QUOTES = {};
 // Used as primary fallback when /api/live's avgVolume is null — same approach
 // the scan watch table uses, which is why it has RVol for every ticker.
 const PIPELINE_AVGVOL = {};
+const PIPELINE_ER_DAYS = {};
 const loadPipelineAvgVol = async () => {
   try {
     const r = await fetch("/dashboard_data.json", { cache: "force-cache" });
@@ -670,9 +676,10 @@ const loadPipelineAvgVol = async () => {
     const d = await r.json();
     const stocks = d.stocks || d.universe || [];
     stocks.forEach((s) => {
-      if (s.ticker && s.avg_volume_raw && s.avg_volume_raw > 0) {
-        PIPELINE_AVGVOL[s.ticker.toUpperCase()] = s.avg_volume_raw;
-      }
+      if (!s.ticker) return;
+      const t = s.ticker.toUpperCase();
+      if (s.avg_volume_raw && s.avg_volume_raw > 0) PIPELINE_AVGVOL[t] = s.avg_volume_raw;
+      if (s.earnings_days != null) PIPELINE_ER_DAYS[t] = s.earnings_days;
     });
   } catch (e) { /* ignore */ }
 };
@@ -989,8 +996,19 @@ const scheduleNext = () => {
 };
 // Load pipeline avg-volume + narratives first so the very first poll has
 // all data ready (RVol coverage and narrative pulse badges).
+const applyEarningsShading = () => {
+  for (const [ticker, refs] of Object.entries(TILE_REFS)) {
+    const erDays = PIPELINE_ER_DAYS[ticker];
+    if (erDays != null && Math.abs(erDays) <= 7) {
+      refs.forEach((liveEl) => {
+        const tile = liveEl.closest(".tile");
+        if (tile) tile.classList.add("er-near");
+      });
+    }
+  }
+};
 Promise.all([loadPipelineAvgVol(), loadNarratives()])
-  .then(updateLive)
+  .then(() => { applyEarningsShading(); return updateLive(); })
   .then(scheduleNext);
 
 </script>
