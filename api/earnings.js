@@ -169,7 +169,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const data = { ticker, next, history };
+  const data = { ticker, next, history, _debug_histCal: Array.isArray(histCal) ? histCal.slice(0, 3) : histCal, _debug_reportDateMap: reportDateMap };
   _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
   return res.status(200).json(data);
 }
