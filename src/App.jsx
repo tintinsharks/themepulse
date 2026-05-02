@@ -7314,7 +7314,119 @@ function AppMain() {
             subtabs. See ChartPanelInline rightTab state. */}
 
       </div>
+      <AIInfraDrawer />
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// AI Infrastructure Value Chain — slide-out drawer
+// ──────────────────────────────────────────────────────────────────────────
+// A right-edge handle that opens a drawer containing the
+// /ai-infrastructure.html visualization in an iframe.
+// Click handle to toggle. ESC or click outside the drawer to close.
+function AIInfraDrawer() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <>
+      {/* Always-visible right-edge handle */}
+      <button
+        onClick={() => setOpen(true)}
+        title="Open AI Infrastructure value chain (drawer)"
+        style={{
+          position: "fixed",
+          right: 0,
+          top: "40%",
+          transform: "translateY(-50%)",
+          zIndex: 998,
+          padding: "12px 6px",
+          background: "linear-gradient(135deg, #ec4899 0%, #6cd5e8 100%)",
+          color: "#0a0a14",
+          border: "none",
+          borderRadius: "6px 0 0 6px",
+          cursor: "pointer",
+          fontFamily: "monospace",
+          fontSize: 9,
+          fontWeight: 800,
+          letterSpacing: 1.5,
+          writingMode: "vertical-rl",
+          textOrientation: "mixed",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          opacity: open ? 0 : 0.92,
+          transition: "opacity 0.2s",
+          pointerEvents: open ? "none" : "auto",
+        }}
+      >
+        ⛓ AI INFRA
+      </button>
+      {/* Backdrop */}
+      <div
+        onClick={() => setOpen(false)}
+        style={{
+          position: "fixed", inset: 0, zIndex: 999,
+          background: "rgba(0,0,0,0.55)",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+          transition: "opacity 0.25s",
+        }}
+      />
+      {/* Drawer */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0, right: 0, bottom: 0,
+          width: "min(1320px, 92vw)",
+          zIndex: 1000,
+          background: "#0a0a14",
+          boxShadow: "-12px 0 40px rgba(0,0,0,0.6)",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 14px", borderBottom: "1px solid #1f1f2e",
+          background: "#0d0d1a", flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#c0c0d8", letterSpacing: 1 }}>
+            ⛓ AI INFRASTRUCTURE — Data Centre Value Chain
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a href="/ai-infrastructure.html" target="_blank" rel="noopener noreferrer"
+               title="Open in new tab"
+               style={{
+                 fontSize: 9, color: "#7a7a8a", textDecoration: "none",
+                 padding: "3px 8px", border: "1px solid #2a2a40", borderRadius: 3,
+                 fontFamily: "monospace",
+               }}>
+              ↗ NEW TAB
+            </a>
+            <button onClick={() => setOpen(false)}
+              title="Close (ESC)"
+              style={{
+                fontSize: 11, color: "#c0c0d8", background: "transparent",
+                border: "1px solid #2a2a40", borderRadius: 3,
+                padding: "2px 8px", cursor: "pointer", fontFamily: "monospace",
+              }}>
+              ✕
+            </button>
+          </div>
+        </div>
+        <iframe
+          src="/ai-infrastructure.html"
+          title="AI Infrastructure Value Chain"
+          style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14" }}
+        />
+      </div>
+    </>
   );
 }
 
