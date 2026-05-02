@@ -1066,7 +1066,7 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           }
         }
 
-        // ── +4% BO / -4% BD / VCP Tight / Dry-up markers on volume bars ──
+        // ── VCP Tight / Dry-up markers on volume bars ──
         const isDaily = tf === "D";
         if (isDaily) {
           // 20-day volume SMA for dry-up detection
@@ -1122,15 +1122,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
             const prevClose = bars[i - 1]?.close || 0;
             const prevVol = bars[i - 1]?.volume || 0;
             const chgPct = prevClose > 0 ? (bars[i].close - prevClose) / prevClose * 100 : 0;
-
-            // +4% breakout — gold diamond
-            if (chgPct >= 4 && vol > prevVol && vol > 100000) {
-              volMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#fbbf24", shape: "arrowUp", size: 0.5 });
-            }
-            // -4% breakdown — red diamond
-            else if (chgPct <= -4 && vol > prevVol && vol > 100000) {
-              volMarkers.push({ time: btime(bars[i]), position: "aboveBar", color: "#f87171", shape: "arrowDown", size: 0.5 });
-            }
 
             // VCP super-tight T (score ≤ 10)
             if (vcpScores[i] != null && vcpScores[i] <= 10) {
@@ -1936,14 +1927,6 @@ function LWChart({ ticker, tf = "D", entry, stop, target, quarters }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
             <span style={{ width: 5, height: 5, background: "#0d9488", display: "inline-block" }} />
             <span>PP 5d</span>
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-            <span style={{ color: "#fbbf24", fontSize: 9, lineHeight: 1 }}>▲</span>
-            <span>+4% BO</span>
-          </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-            <span style={{ color: "#f87171", fontSize: 9, lineHeight: 1 }}>▼</span>
-            <span>-4% BD</span>
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
             <span style={{ color: "#fbbf24", fontWeight: 900, fontSize: 8 }}>T</span>
