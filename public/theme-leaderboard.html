@@ -798,6 +798,28 @@ const fetchErFmp = async (ticker) => {
     return null;
   }
 };
+// Finviz quarter history (actuals: revenue, EPS, YoY, margins) — same data
+// the chart panel uses. /api/live returns it under finvizQuarters when called
+// with ?news=X. Cached per ticker on first click.
+const ER_FINVIZ = {};
+const fetchErFinviz = async (ticker) => {
+  if (ER_FINVIZ[ticker]) return ER_FINVIZ[ticker];
+  try {
+    const r = await fetch(`/api/live?news=${encodeURIComponent(ticker)}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const result = {
+      quarters: d.finvizQuarters || [],
+      annual: d.finvizAnnual || [],
+      analyst: d.analyst || null,
+      description: d.description || "",
+    };
+    ER_FINVIZ[ticker] = result;
+    return result;
+  } catch {
+    return null;
+  }
+};
 const loadNarratives = async () => {
   try {
     const r = await fetch("/data/narratives.json", { cache: "no-store" });
@@ -1141,15 +1163,15 @@ const renderDetailPanel = async (ticker) => {
     });
   });
 
-  // Fetch FMP earnings history + render body
-  const fmp = await fetchErFmp(ticker);
+  // Parallel fetch: FMP (estimates + next ER) + Finviz quarters (actuals + YoY)
+  const [fmp, finviz] = await Promise.all([fetchErFmp(ticker), fetchErFinviz(ticker)]);
   if (ER_SELECTED_TICKER !== ticker) return;        // user clicked away mid-fetch
 
   const body = document.getElementById("er-detail-body");
   if (!body) return;
 
-  const history = (fmp && Array.isArray(fmp.history)) ? fmp.history : [];
   const next = fmp?.next || null;
+  const fvQuarters = (finviz?.quarters || []).slice(0, 8);
 
   // Pre-earnings setup card (always shown)
   const move = pipeEr.avg_er_move != null ? `±${pipeEr.avg_er_move.toFixed(1)}%` : "—";
@@ -1165,17 +1187,52 @@ const renderDetailPanel = async (ticker) => {
     </div>
   `;
 
-  // Quarter history
+  // Finviz quarter history — actuals from FactSet/Finviz + YoY growth.
+  // Same source the chart panel uses. Most reliable per-quarter data.
   let historyBlock = "";
-  if (history.length > 0) {
+  if (fvQuarters.length > 0) {
+    const renderFvRow = (q) => {
+      const revYoyCls = q.revenue_yoy == null ? "" : q.revenue_yoy >= 0 ? "up" : "down";
+      const epsYoyCls = q.eps_yoy == null ? "" : q.eps_yoy >= 0 ? "up" : "down";
+      const marginCls = q.net_margin == null ? "" : q.net_margin >= 15 ? "up" : q.net_margin <= 5 ? "down" : "";
+      return `
+        <div class="er-history-row">
+          <div class="er-history-period">${q.label || (q.period + "-" + (q.year || "").toString().slice(-2))}<span class="er-history-date">${q.report_date || ""}</span></div>
+          <div class="er-history-metrics">
+            <div class="er-history-metric">
+              <span class="lbl">REV</span>
+              <span class="val"><strong>${q.revenue_fmt || fmtMoney((q.revenue || 0) * 1e6)}</strong></span>
+              <span class="delta ${revYoyCls}">${q.revenue_yoy == null ? "—" : (q.revenue_yoy >= 0 ? "+" : "") + q.revenue_yoy.toFixed(1) + "% YoY"}</span>
+            </div>
+            <div class="er-history-metric">
+              <span class="lbl">EPS</span>
+              <span class="val"><strong>${q.eps != null ? "$" + q.eps.toFixed(2) : "—"}</strong></span>
+              <span class="delta ${epsYoyCls}">${q.eps_yoy == null ? "—" : (q.eps_yoy >= 0 ? "+" : "") + q.eps_yoy.toFixed(1) + "% YoY"}</span>
+            </div>
+            ${q.net_margin != null ? `<div class="er-history-metric"><span class="lbl">Mgn</span><span class="val">Net margin</span><span class="delta ${marginCls}">${q.net_margin.toFixed(1)}%</span></div>` : ""}
+          </div>
+        </div>
+      `;
+    };
     historyBlock = `
       <div class="er-history-section">
-        <div class="er-block-title">Last ${history.length} Quarter${history.length === 1 ? "" : "s"} · Beat/Miss</div>
-        ${history.map(renderHistoryRow).join("")}
+        <div class="er-block-title">Last ${fvQuarters.length} Quarter${fvQuarters.length === 1 ? "" : "s"} · Finviz Actuals</div>
+        ${fvQuarters.map(renderFvRow).join("")}
       </div>
     `;
   } else {
-    historyBlock = `<div style="font-size:10px; color:#7a7a8a; padding:8px 4px;">No FMP earnings history available.</div>`;
+    // Fallback — use FMP history only if Finviz returns empty
+    const fmpHist = (fmp && Array.isArray(fmp.history)) ? fmp.history.slice(0, 4) : [];
+    if (fmpHist.length > 0) {
+      historyBlock = `
+        <div class="er-history-section">
+          <div class="er-block-title">Last ${fmpHist.length} Quarter${fmpHist.length === 1 ? "" : "s"} · FMP Beat/Miss (fallback)</div>
+          ${fmpHist.map(renderHistoryRow).join("")}
+        </div>
+      `;
+    } else {
+      historyBlock = `<div style="font-size:10px; color:#7a7a8a; padding:8px 4px;">No earnings history available.</div>`;
+    }
   }
 
   body.innerHTML = setup + historyBlock;
