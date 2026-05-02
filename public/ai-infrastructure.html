@@ -200,6 +200,45 @@
     color: #c0c0d8;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
   }
+  /* Live stats line under ticker — chg% · rvol */
+  .tile .live {
+    font-size: 8px;
+    font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: #5a5a6a;
+    margin-top: 1px;
+    display: flex;
+    gap: 3px;
+    line-height: 1;
+  }
+  .tile .live .chg.up   { color: #6dde8e; }
+  .tile .live .chg.down { color: #ef9a9a; }
+  .tile .live .chg.flat { color: #6a6a7a; }
+  .tile .live .rv.hot   { color: #fbbf24; }
+  .tile .live .rv.heat  { color: #6dde8e; }
+  .tile .live .rv.norm  { color: #5a5a6a; }
+  .tile .live .sep      { color: #2a2a40; }
+  /* Live status badge in header */
+  .live-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1f1f2e;
+    font-size: 9px;
+    color: #7a7a8a;
+    margin-left: 8px;
+  }
+  .live-status .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #5a5a6a;
+  }
+  .live-status.live .dot { background: #6dde8e; box-shadow: 0 0 6px #6dde8e; }
+  .live-status.live      { color: #6dde8e; }
+  .live-status.off .dot  { background: #6a6a7a; }
+  .live-status.warm .dot { background: #fbbf24; }
   /* Tier-based tile styling */
   .tile.t-strong { border-color: #2c5e3e; }
   .tile.t-strong .ticker-sym { color: #6dde8e; }
@@ -239,7 +278,10 @@
 
 <div class="header">
   <h1>DATA CENTRE<br><span class="accent">VALUE CHAIN</span></h1>
-  <div class="subtitle">The Full Ecosystem Behind AI Infrastructure</div>
+  <div class="subtitle">
+    The Full Ecosystem Behind AI Infrastructure
+    <span id="live-status" class="live-status off"><span class="dot"></span><span id="live-status-text">live data paused</span></span>
+  </div>
   <div class="legend">
     <span class="legend-pill"><span class="swatch" style="background:#6dde8e;"></span> Structural winner</span>
     <span class="legend-pill"><span class="swatch" style="background:#a09060;"></span> Demand pull / supplier</span>
@@ -461,6 +503,9 @@ const ROWS = {
 // FMP company image URL — public CDN. Falls back to a text tile if 404.
 const logoUrl = (ticker) => `https://images.financialmodelingprep.com/symbol/${ticker}.png`;
 
+// Track tile DOM nodes per ticker so the live updater can target them.
+const TILE_REFS = {};   // ticker → { live: <div> }
+
 const render = () => {
   for (const [rowKey, items] of Object.entries(ROWS)) {
     const container = document.getElementById(`row-${rowKey}`);
@@ -476,7 +521,6 @@ const render = () => {
       img.src = logoUrl(ticker);
       img.alt = ticker;
       img.onerror = () => {
-        // Replace with text fallback on 404
         logo.classList.add('fallback');
         logo.innerHTML = ticker;
       };
@@ -484,13 +528,108 @@ const render = () => {
       const sym = document.createElement('div');
       sym.className = 'ticker-sym';
       sym.textContent = ticker;
+      // Live stats placeholder — populated by updateLive()
+      const live = document.createElement('div');
+      live.className = 'live';
+      live.innerHTML = '<span class="chg flat">—</span><span class="sep">·</span><span class="rv norm">—</span>';
       tile.appendChild(logo);
       tile.appendChild(sym);
+      tile.appendChild(live);
       container.appendChild(tile);
+      // Multiple tiles can share a ticker (e.g. ALAB in compute + connect).
+      // Store all of them under that ticker so live updates hit every copy.
+      if (!TILE_REFS[ticker]) TILE_REFS[ticker] = [];
+      TILE_REFS[ticker].push(live);
     });
   }
 };
 render();
+
+// ─── LIVE DATA POLLING ─────────────────────────────────────────────────────
+// Pulls real-time quotes from /api/live every 30s during market hours.
+// Outside market hours, polls every 5 min so a manual market-open or
+// pre-market move surfaces eventually without burning rate budget.
+const ALL_TICKERS = Array.from(new Set(
+  Object.values(ROWS).flat().map(([t]) => t)
+));
+
+const isMarketHours = () => {
+  // Approx US market hours, including extended (4 AM PT - 5 PM PT, Mon-Fri)
+  const now = new Date();
+  const day = now.getUTCDay();              // 0 Sun, 6 Sat
+  if (day === 0 || day === 6) return false;
+  const hourPT = (now.getUTCHours() - 7 + 24) % 24;  // crude PT (DST varies)
+  return hourPT >= 4 && hourPT <= 17;
+};
+
+const fmtChg = (v) => {
+  if (v == null || isNaN(v)) return { txt: "—", cls: "flat" };
+  const sign = v > 0 ? "+" : "";
+  const cls = v > 0.05 ? "up" : v < -0.05 ? "down" : "flat";
+  return { txt: `${sign}${v.toFixed(1)}%`, cls };
+};
+const fmtRvol = (v) => {
+  if (v == null || isNaN(v) || v === 0) return { txt: "—", cls: "norm" };
+  const cls = v >= 2 ? "hot" : v >= 1.5 ? "heat" : "norm";
+  return { txt: `${v.toFixed(1)}x`, cls };
+};
+
+const setStatus = (state, text) => {
+  const el = document.getElementById("live-status");
+  const txt = document.getElementById("live-status-text");
+  if (!el || !txt) return;
+  el.className = `live-status ${state}`;
+  txt.textContent = text;
+};
+
+const updateLive = async () => {
+  if (!isMarketHours()) {
+    setStatus("off", "live data paused (off-hours)");
+    return;
+  }
+  setStatus("warm", "fetching…");
+  try {
+    // Chunk if needed — single 80-ticker request is well within FMP limits
+    const url = `/api/live?universe=${ALL_TICKERS.join(",")}&t=${Date.now()}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`live ${r.status}`);
+    const data = await r.json();
+    const arr = (data.theme_universe || data.universe || []);
+    let updated = 0;
+    arr.forEach((q) => {
+      if (!q || !q.ticker) return;
+      const tiles = TILE_REFS[q.ticker.toUpperCase()];
+      if (!tiles || !tiles.length) return;
+      const chg = fmtChg(q.change);
+      const rvol = (q.volume && q.avgVolume && q.avgVolume > 0)
+        ? Math.round((q.volume / q.avgVolume) * 10) / 10 : null;
+      const rv = fmtRvol(rvol);
+      tiles.forEach((live) => {
+        live.innerHTML =
+          `<span class="chg ${chg.cls}">${chg.txt}</span>` +
+          `<span class="sep">·</span>` +
+          `<span class="rv ${rv.cls}">${rv.txt}</span>`;
+      });
+      updated += 1;
+    });
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setStatus("live", `LIVE · ${updated}/${ALL_TICKERS.length} tickers · ${ts}`);
+  } catch (e) {
+    setStatus("warm", `error · ${(e && e.message) || "fetch failed"}`);
+  }
+};
+
+// Self-rescheduling loop so the cadence dynamically adjusts when the
+// market opens/closes mid-session.
+const scheduleNext = () => {
+  const delay = isMarketHours() ? 30_000 : 5 * 60_000;
+  setTimeout(async () => {
+    await updateLive();
+    scheduleNext();
+  }, delay);
+};
+updateLive().then(scheduleNext);
+
 </script>
 
 </body>
