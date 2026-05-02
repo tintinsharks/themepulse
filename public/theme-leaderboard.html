@@ -1200,9 +1200,11 @@ const renderDetailPanel = async (ticker) => {
   if (!root) return;
   if (!ticker) {
     root.className = "er-detail empty";
-    root.innerHTML = `<div>📅 Click a ticker on the left<br>to see earnings detail</div>`;
+    root.style.display = "none";
+    root.innerHTML = "";
     return;
   }
+  root.style.display = "";
   const pipeEr = PIPELINE_ER[ticker] || {};
   const themes = Array.from(TICKER_THEMES[ticker] || []);
   const days = pipeEr.earnings_days;
@@ -1391,8 +1393,8 @@ const renderEarningsCalendar = async () => {
         </span>
         <span class="week-label">${weekLabel}</span>
       </div>
+      <div id="er-detail" class="er-detail empty" style="display:none"></div>
       <div><div class="er-week-grid"><div class="er-empty" style="grid-column:1/-1; padding:32px;">Loading earnings calendar from FMP…</div></div></div>
-      <div id="er-detail" class="er-detail empty"><div>📅 Click a ticker above to see earnings detail (charts of quarterly EPS, Revenue, Margin, OCF)</div></div>
     </div>
   `;
 
@@ -1500,13 +1502,20 @@ const renderEarningsCalendar = async () => {
     }
   }
 
-  // Wire tile clicks (including hidden tiles that become visible on expand)
+  // Wire tile clicks — click again to deselect
   root.querySelectorAll(".er-tile").forEach((tile) => {
     tile.addEventListener("click", (e) => {
       e.stopPropagation();
-      ER_SELECTED_TICKER = tile.dataset.ticker;
-      root.querySelectorAll(".er-tile").forEach((t) => t.classList.toggle("selected", t === tile));
-      renderDetailPanel(ER_SELECTED_TICKER);
+      const ticker = tile.dataset.ticker;
+      if (ER_SELECTED_TICKER === ticker) {
+        ER_SELECTED_TICKER = null;
+        root.querySelectorAll(".er-tile").forEach((t) => t.classList.remove("selected"));
+        renderDetailPanel(null);
+      } else {
+        ER_SELECTED_TICKER = ticker;
+        root.querySelectorAll(".er-tile").forEach((t) => t.classList.toggle("selected", t.dataset.ticker === ticker));
+        renderDetailPanel(ticker);
+      }
     });
   });
 
