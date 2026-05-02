@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subtheme Leaderboard — Composite Strength Ranking</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 24px 48px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: radial-gradient(circle at 20% 0%, #1a0d2a 0%, #07070d 50%, #050508 100%);
+    color: #e0e0e8;
+    min-height: 100vh;
+    font-size: 12px;
+  }
+  .header { max-width: 1280px; margin: 0 auto 20px; }
+  h1 {
+    font-size: 32px; line-height: 1.05;
+    margin: 0 0 4px 0; letter-spacing: -0.5px; font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #fbbf24 60%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    font-size: 10px; color: #7a7a8a;
+    text-transform: uppercase; letter-spacing: 2px; font-weight: 700;
+    margin-top: 6px;
+  }
+  .live-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1f1f2e;
+    font-size: 9px; color: #7a7a8a; margin-left: 8px;
+  }
+  .live-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #5a5a6a; }
+  .live-status.live .dot { background: #6dde8e; box-shadow: 0 0 6px #6dde8e; }
+  .live-status.live { color: #6dde8e; }
+  .live-status.off .dot { background: #6a6a7a; }
+  .live-status.warm .dot { background: #fbbf24; }
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(15, 15, 24, 0.6);
+    border: 1px solid #1c1c2c;
+    border-left: 3px solid var(--theme-color, #5a5a6a);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  }
+  .row:hover {
+    border-color: var(--theme-color, #5a5a6a);
+    background: rgba(255,255,255,0.04);
+    transform: translateX(2px);
+  }
+  .rank {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 14px; font-weight: 800;
+    color: var(--theme-color, #5a5a6a);
+    text-align: right;
+  }
+  .label {
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 0;
+  }
+  .theme-name {
+    font-size: 8px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--theme-color, #5a5a6a);
+  }
+  .layer-name {
+    font-size: 13px; font-weight: 700;
+    color: #e0e0e8;
+  }
+  .metrics {
+    display: flex; gap: 8px; align-items: center;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px; font-weight: 700;
+    white-space: nowrap;
+  }
+  .metrics .agg.up { color: #6dde8e; }
+  .metrics .agg.down { color: #ef9a9a; }
+  .metrics .agg.flat { color: #6a6a7a; }
+  .metrics .rv.hot { color: #fbbf24; }
+  .metrics .rv.heat { color: #6dde8e; }
+  .metrics .rv.norm { color: #6a6a7a; }
+  .metrics .br.hi { color: #6dde8e; }
+  .metrics .br.lo { color: #ef9a9a; }
+  .metrics .br.mid { color: #6a6a7a; }
+  .metrics .sep { color: #2a2a40; }
+  .score {
+    padding: 3px 8px; border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; font-weight: 800;
+    letter-spacing: 0.3px;
+    min-width: 56px; text-align: center;
+  }
+  .score.scorch { background: rgba(251,191,36,0.18); color: #fbbf24; border: 1px solid #a07a1f; }
+  .score.hot    { background: rgba(109,222,142,0.15); color: #6dde8e; border: 1px solid #2c5e3e; }
+  .score.warm   { background: rgba(120,120,140,0.10); color: #9090a0; border: 1px solid #3a3a4a; }
+  .score.weak   { background: rgba(239,154,154,0.10); color: #ef9a9a; border: 1px solid #6e2828; }
+  .score.ice    { background: rgba(239,68,68,0.18);   color: #ef4444; border: 1px solid #7e2828; }
+  .top-tickers {
+    display: flex; gap: 4px;
+    grid-column: 2 / 5;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .tk {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 3px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #2a2a40;
+    color: #c0c0d8;
+    white-space: nowrap;
+  }
+  .tk .pct { color: #6dde8e; margin-left: 3px; }
+  .tk .pct.down { color: #ef9a9a; }
+  .footer {
+    max-width: 1280px; margin: 24px auto 0;
+    padding-top: 12px; border-top: 1px solid #1f1f2e;
+    font-size: 10px; line-height: 1.6; color: #6a6a7a;
+  }
+  .footer strong { color: #c0c0d8; }
+  /* Theme color tokens */
+  .t-ai      { --theme-color: #6cd5e8; }
+  .t-software{ --theme-color: #a78bfa; }
+  .t-cyber   { --theme-color: #ef4444; }
+  .t-fintech { --theme-color: #fbbf24; }
+  .t-defense { --theme-color: #f97316; }
+  .t-robotics{ --theme-color: #22d3ee; }
+  .t-ev      { --theme-color: #6dde8e; }
+  .t-quantum { --theme-color: #b86afc; }
+  .t-space   { --theme-color: #6a9eff; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Subtheme Leaderboard</h1>
+  <div class="subtitle">
+    Every Subtheme Across All Drawers · Ranked By Composite Strength
+    <span id="live-status" class="live-status off"><span class="dot"></span><span id="live-status-text">loading…</span></span>
+  </div>
+</div>
+
+<div class="container" id="leaderboard"></div>
+
+<div class="footer">
+  <strong>Composite strength:</strong> median(chg × RVol × CR/100) across the layer's constituents — captures magnitude (chg), conviction (RVol), and intraday close strength (CR%).<br>
+  <strong>Click any row</strong> to jump to its drawer.<br>
+  <strong>Updates</strong> every 30s during market hours, single-shot at last close off-hours.
+</div>
+
+<script>
+// ─── ALL SUBTHEMES ACROSS ALL DRAWERS ─────────────────────────────────────
+// Each entry: { theme, themeId, layer, drawerSrc, tickers[] }
+// Tickers are pulled directly from the same lists used in ai-infrastructure.html
+// and theme-chain.html — must stay in sync.
+const SUBTHEMES = [
+  // AI INFRA
+  { theme: "AI Infra",       themeId: "ai", layer: "Compute Silicon",          drawerSrc: "/ai-infrastructure.html", tickers: ["NVDA","AMD","AVGO","INTC","MRVL","ARM","ALAB","TSM"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "AI Connectivity",          drawerSrc: "/ai-infrastructure.html", tickers: ["ANET","ALAB","CRDO","MRVL","CSCO","AAOI","CIEN","MXL","JBL"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "Memory + Storage",         drawerSrc: "/ai-infrastructure.html", tickers: ["MU","SNDK","FORM","AMKR","SIMO","WDC","STX"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "DC + Cooling",             drawerSrc: "/ai-infrastructure.html", tickers: ["DLR","EQIX","VRT","EME","SMCI","DELL","HPE","ETN","MOD","NVT","CARR","JCI","FIX"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "Photonics",                drawerSrc: "/ai-infrastructure.html", tickers: ["COHR","FN","AEHR","ONTO","CAMT","LITE","KEYS","VIAV","AXTI","MTSI","POET","TSEM","LWLG","GLW"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "Neoclouds + Hyperscalers", drawerSrc: "/ai-infrastructure.html", tickers: ["MSFT","GOOGL","AMZN","META","ORCL","NBIS","IREN","CRWV","APLD"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "Energy / Power",           drawerSrc: "/ai-infrastructure.html", tickers: ["VST","CEG","NEE","TLN","NRG","GEV","ETN","PWR","MYRG","PRIM","OKLO","SMR","NNE","BWXT","BE","EOSE","EQT"] },
+  { theme: "AI Infra",       themeId: "ai", layer: "Semicap + Materials",      drawerSrc: "/ai-infrastructure.html", tickers: ["AMAT","LRCX","ASML","KLAC","MKSI","ENTG"] },
+  // SOFTWARE
+  { theme: "Software",       themeId: "software", layer: "AI Agents + Apps",        drawerSrc: "/theme-chain.html?id=software", tickers: ["PLTR","NOW","CRM","AI","BBAI","SOUN","PATH","IOT","DOCS"] },
+  { theme: "Software",       themeId: "software", layer: "Data Platforms",          drawerSrc: "/theme-chain.html?id=software", tickers: ["SNOW","MDB","DDOG","DBX","ESTC","CFLT","TDC"] },
+  { theme: "Software",       themeId: "software", layer: "Enterprise SaaS",         drawerSrc: "/theme-chain.html?id=software", tickers: ["INTU","ADBE","WDAY","VEEV","HUBS","SAP","IBM","YOU"] },
+  { theme: "Software",       themeId: "software", layer: "DevOps + Observability",  drawerSrc: "/theme-chain.html?id=software", tickers: ["DDOG","GTLB","TEAM","FROG","PD","SWI","ESTC"] },
+  { theme: "Software",       themeId: "software", layer: "Collab + Productivity",   drawerSrc: "/theme-chain.html?id=software", tickers: ["ASAN","MNDY","ZM","DOCU","BOX","SMAR","RNG"] },
+  { theme: "Software",       themeId: "software", layer: "Vertical SaaS",           drawerSrc: "/theme-chain.html?id=software", tickers: ["TYL","GWRE","MANH","PCOR","OLO","AZPN","CCC","VERX"] },
+  { theme: "Software",       themeId: "software", layer: "CDN + Edge Cloud",        drawerSrc: "/theme-chain.html?id=software", tickers: ["NET","FSLY","AKAM","LLNW"] },
+  // CYBER
+  { theme: "Cyber",          themeId: "cyber", layer: "Platform Consolidators",  drawerSrc: "/theme-chain.html?id=cyber", tickers: ["PANW","CRWD","FTNT","ZS"] },
+  { theme: "Cyber",          themeId: "cyber", layer: "Endpoint + XDR",          drawerSrc: "/theme-chain.html?id=cyber", tickers: ["CRWD","S","FTNT","GEN","PANW"] },
+  { theme: "Cyber",          themeId: "cyber", layer: "Identity + Access",       drawerSrc: "/theme-chain.html?id=cyber", tickers: ["OKTA","CYBR","SAIL","OSPN"] },
+  { theme: "Cyber",          themeId: "cyber", layer: "Cloud + Network Sec",     drawerSrc: "/theme-chain.html?id=cyber", tickers: ["ZS","NET","AKAM","CHKP","RDWR","RBRK"] },
+  { theme: "Cyber",          themeId: "cyber", layer: "Threat Operations",      drawerSrc: "/theme-chain.html?id=cyber", tickers: ["TENB","QLYS","RPD","VRNS","SUMO"] },
+  { theme: "Cyber",          themeId: "cyber", layer: "Defense Cyber",          drawerSrc: "/theme-chain.html?id=cyber", tickers: ["BAH","CACI","SAIC","LDOS"] },
+  // FINTECH
+  { theme: "Fintech",        themeId: "fintech", layer: "Crypto Infra + Exchanges", drawerSrc: "/theme-chain.html?id=fintech", tickers: ["COIN","MSTR","HOOD","GLXY"] },
+  { theme: "Fintech",        themeId: "fintech", layer: "Crypto Miners",            drawerSrc: "/theme-chain.html?id=fintech", tickers: ["MARA","RIOT","CLSK","CIFR","IREN","WULF","HUT","CORZ","BTDR","BITF"] },
+  { theme: "Fintech",        themeId: "fintech", layer: "Bitcoin ETFs",             drawerSrc: "/theme-chain.html?id=fintech", tickers: ["IBIT","FBTC","BITB","BITO","BITW","GBTC","BRRR"] },
+  { theme: "Fintech",        themeId: "fintech", layer: "Neobanks + Digital",       drawerSrc: "/theme-chain.html?id=fintech", tickers: ["SOFI","NU","ALLY","HOOD","LC","DAVE","KSPI"] },
+  { theme: "Fintech",        themeId: "fintech", layer: "Payments",                 drawerSrc: "/theme-chain.html?id=fintech", tickers: ["V","MA","PYPL","SQ","AFRM","FOUR","TOST","NVEI","PAGS","DLO"] },
+  { theme: "Fintech",        themeId: "fintech", layer: "Asset Mgmt + Trading",     drawerSrc: "/theme-chain.html?id=fintech", tickers: ["SCHW","BLK","KKR","BX","IBKR","FUTU","TIGR","RJF","MS","GS"] },
+  // DEFENSE
+  { theme: "Defense",        themeId: "defense", layer: "Prime Contractors",      drawerSrc: "/theme-chain.html?id=defense", tickers: ["LMT","RTX","NOC","GD","BA","LHX","HII","TDG","GE","HEI","TXT","TDY"] },
+  { theme: "Defense",        themeId: "defense", layer: "Drones + EVTOL",         drawerSrc: "/theme-chain.html?id=defense", tickers: ["AVAV","KTOS","ONDS","RCAT","UMAC","ACHR","JOBY","EH","EVTL","PDYN"] },
+  { theme: "Defense",        themeId: "defense", layer: "Space Defense",          drawerSrc: "/theme-chain.html?id=defense", tickers: ["RKLB","ASTS","LUNR","RDW","GSAT","IRDM","BKSY","PL","SPCE","MNTS","BWXT"] },
+  { theme: "Defense",        themeId: "defense", layer: "Autonomous + AI Defense",drawerSrc: "/theme-chain.html?id=defense", tickers: ["PLTR","LDOS","BBAI","BAH","CACI","SAIC"] },
+  { theme: "Defense",        themeId: "defense", layer: "Cyber Defense",          drawerSrc: "/theme-chain.html?id=defense", tickers: ["BAH","CACI","LDOS","SAIC"] },
+  { theme: "Defense",        themeId: "defense", layer: "Weapons + Munitions",    drawerSrc: "/theme-chain.html?id=defense", tickers: ["AXON","GD","LHX","RTX","RGR","SWBI"] },
+  // ROBOTICS
+  { theme: "Robotics",       themeId: "robotics", layer: "Humanoid",                drawerSrc: "/theme-chain.html?id=robotics", tickers: ["TSLA","NVDA"] },
+  { theme: "Robotics",       themeId: "robotics", layer: "Industrial Automation",   drawerSrc: "/theme-chain.html?id=robotics", tickers: ["EMR","ETN","ROK","NDSN","GNRC","NNDM","SYM"] },
+  { theme: "Robotics",       themeId: "robotics", layer: "Service + Delivery",      drawerSrc: "/theme-chain.html?id=robotics", tickers: ["SERV","RR","KSCP"] },
+  { theme: "Robotics",       themeId: "robotics", layer: "Machine Vision + LiDAR",  drawerSrc: "/theme-chain.html?id=robotics", tickers: ["CGNX","AEVA","OUST","LAZR","MVIS","HSAI","INVZ","LIDR"] },
+  { theme: "Robotics",       themeId: "robotics", layer: "AV + Self-Driving",       drawerSrc: "/theme-chain.html?id=robotics", tickers: ["TSLA","MBLY","AUR","GOOGL"] },
+  { theme: "Robotics",       themeId: "robotics", layer: "Medical Robotics",        drawerSrc: "/theme-chain.html?id=robotics", tickers: ["ISRG","SYK","MDT","ABT","MASI","STXS"] },
+  { theme: "Robotics",       themeId: "robotics", layer: "Warehouse + Logistics",   drawerSrc: "/theme-chain.html?id=robotics", tickers: ["AMZN","SYM","GXO","SERV"] },
+  // EV
+  { theme: "EV",             themeId: "ev", layer: "Makers",                    drawerSrc: "/theme-chain.html?id=ev", tickers: ["TSLA","RIVN","LCID","F","GM","NIO","LI","XPEV","STLA"] },
+  { theme: "EV",             themeId: "ev", layer: "Batteries + Cells",         drawerSrc: "/theme-chain.html?id=ev", tickers: ["ABAT","AMPX","ENVX","QS","SLDP","KULR","FREY","MVST","AEHR"] },
+  { theme: "EV",             themeId: "ev", layer: "Battery Materials",         drawerSrc: "/theme-chain.html?id=ev", tickers: ["ALB","SQM","LAC","MP","LITM"] },
+  { theme: "EV",             themeId: "ev", layer: "Charging Infra",            drawerSrc: "/theme-chain.html?id=ev", tickers: ["EVGO","SHLS"] },
+  { theme: "EV",             themeId: "ev", layer: "LiDAR + Sensing",           drawerSrc: "/theme-chain.html?id=ev", tickers: ["HSAI","INVZ","LIDR","LAZR","MVIS","AEVA","OUST","MBLY"] },
+  { theme: "EV",             themeId: "ev", layer: "Auto Parts + Suppliers",    drawerSrc: "/theme-chain.html?id=ev", tickers: ["APTV","MGA","LEA","WOLF","NVTS","BWA","ALV"] },
+  // QUANTUM
+  { theme: "Quantum",        themeId: "quantum", layer: "Pure-Play Hardware", drawerSrc: "/theme-chain.html?id=quantum", tickers: ["IONQ","RGTI","QUBT","QBTS"] },
+  { theme: "Quantum",        themeId: "quantum", layer: "Mega-Cap Quantum",   drawerSrc: "/theme-chain.html?id=quantum", tickers: ["GOOGL","MSFT","AMZN","IBM","NVDA"] },
+  { theme: "Quantum",        themeId: "quantum", layer: "Software + Algos",   drawerSrc: "/theme-chain.html?id=quantum", tickers: ["LAES","ARQQ"] },
+  { theme: "Quantum",        themeId: "quantum", layer: "Enabling Tech",      drawerSrc: "/theme-chain.html?id=quantum", tickers: ["COHR","FORM","HON","NOVT","POET"] },
+  // SPACE
+  { theme: "Space",          themeId: "space", layer: "Launch Vehicles",       drawerSrc: "/theme-chain.html?id=space", tickers: ["RKLB","LUNR","RDW","SPCE"] },
+  { theme: "Space",          themeId: "space", layer: "Defense Space",         drawerSrc: "/theme-chain.html?id=space", tickers: ["LMT","NOC","RTX","BA","LHX","BWXT"] },
+  { theme: "Space",          themeId: "space", layer: "Earth Observation",     drawerSrc: "/theme-chain.html?id=space", tickers: ["PL","BKSY","SPIR"] },
+  { theme: "Space",          themeId: "space", layer: "Satellites + Connect",  drawerSrc: "/theme-chain.html?id=space", tickers: ["ASTS","GSAT","IRDM","VSAT","AMPG","BKSY"] },
+  { theme: "Space",          themeId: "space", layer: "Lunar + Deep Space",    drawerSrc: "/theme-chain.html?id=space", tickers: ["LUNR","LDOS","LMT"] },
+  { theme: "Space",          themeId: "space", layer: "Space Infrastructure",  drawerSrc: "/theme-chain.html?id=space", tickers: ["BWXT","RDW","MNTS","GHM"] },
+];
+
+// ─── DATA SOURCES ─────────────────────────────────────────────────────────
+const ALL_TICKERS = Array.from(new Set(SUBTHEMES.flatMap((s) => s.tickers)));
+
+const PIPELINE_AVGVOL = {};
+const loadPipelineAvgVol = async () => {
+  try {
+    const r = await fetch("/dashboard_data.json", { cache: "force-cache" });
+    if (!r.ok) return;
+    const d = await r.json();
+    (d.stocks || d.universe || []).forEach((s) => {
+      if (s.ticker && s.avg_volume_raw && s.avg_volume_raw > 0) {
+        PIPELINE_AVGVOL[s.ticker.toUpperCase()] = s.avg_volume_raw;
+      }
+    });
+  } catch (e) { /* ignore */ }
+};
+
+const LIVE_QUOTES = {};
+
+const isMarketHours = () => {
+  const now = new Date();
+  const day = now.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  const hourPT = (now.getUTCHours() - 7 + 24) % 24;
+  return hourPT >= 4 && hourPT <= 17;
+};
+const median = (arr) => {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+const setStatus = (state, text) => {
+  const el = document.getElementById("live-status");
+  const txt = document.getElementById("live-status-text");
+  if (!el || !txt) return;
+  el.className = `live-status ${state}`;
+  txt.textContent = text;
+};
+
+// Chunk fetcher — single-call universe param of 350 tickers comfortable
+const fetchAllQuotes = async () => {
+  const CHUNK = 400;
+  const chunks = [];
+  for (let i = 0; i < ALL_TICKERS.length; i += CHUNK) {
+    chunks.push(ALL_TICKERS.slice(i, i + CHUNK));
+  }
+  const results = await Promise.all(chunks.map(async (tks) => {
+    try {
+      const r = await fetch(`/api/live?universe=${tks.join(",")}&t=${Date.now()}`);
+      if (!r.ok) return [];
+      const d = await r.json();
+      return d.theme_universe || d.universe || [];
+    } catch { return []; }
+  }));
+  return results.flat();
+};
+
+const updateQuotes = async () => {
+  const market = isMarketHours();
+  setStatus("warm", market ? "fetching live…" : "loading last close…");
+  try {
+    const arr = await fetchAllQuotes();
+    arr.forEach((q) => {
+      if (!q || !q.ticker) return;
+      const tk = q.ticker.toUpperCase();
+      const avgV = PIPELINE_AVGVOL[tk] || q.avgVolume;
+      const rvol = (q.volume && avgV && avgV > 0) ? Math.round((q.volume / avgV) * 10) / 10 : null;
+      const cr = (q.price != null && q.dayHigh != null && q.dayLow != null && q.dayHigh > q.dayLow)
+        ? Math.max(0, Math.min(100, ((q.price - q.dayLow) / (q.dayHigh - q.dayLow)) * 100))
+        : null;
+      LIVE_QUOTES[tk] = { chg: q.change, rvol, cr };
+    });
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setStatus(market ? "live" : "off", market
+      ? `LIVE · ${arr.length}/${ALL_TICKERS.length} · ${ts}`
+      : `MARKET CLOSED · last close · ${arr.length}/${ALL_TICKERS.length}`);
+    renderLeaderboard();
+  } catch (e) {
+    setStatus("warm", `error · ${(e && e.message) || "fetch failed"}`);
+  }
+};
+
+// ─── COMPUTE + RENDER LEADERBOARD ─────────────────────────────────────────
+const fmtChg = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+const fmtRv  = (v) => v == null ? "—" : `${v.toFixed(1)}x`;
+const scoreCls = (s) => s == null ? "warm" : s >= 8 ? "scorch" : s >= 4 ? "hot" : s <= -4 ? "ice" : s <= -1 ? "weak" : "warm";
+const chgCls = (v) => v == null ? "flat" : v > 0.5 ? "up" : v < -0.5 ? "down" : "flat";
+const rvCls  = (v) => v == null ? "norm" : v >= 2 ? "hot" : v >= 1.5 ? "heat" : "norm";
+
+const computeLayer = (sub) => {
+  const chgs = [], rvols = [], scores = [];
+  let upCount = 0, n = 0;
+  const tickerScores = [];
+  for (const tk of sub.tickers) {
+    const q = LIVE_QUOTES[tk];
+    if (!q) continue;
+    n += 1;
+    if (q.chg != null) { chgs.push(q.chg); if (q.chg > 0) upCount += 1; }
+    if (q.rvol != null) rvols.push(q.rvol);
+    const c = q.chg ?? 0, r = q.rvol ?? 1, cr = q.cr ?? 50;
+    const s = c * r * (cr / 100);
+    scores.push(s);
+    tickerScores.push({ ticker: tk, score: s, chg: q.chg });
+  }
+  return {
+    chgMed: chgs.length ? median(chgs) : null,
+    rvolMed: rvols.length ? median(rvols) : null,
+    breadth: n > 0 ? (upCount / n) * 100 : null,
+    scoreMed: scores.length ? median(scores) : null,
+    n,
+    topTickers: tickerScores.sort((a, b) => b.score - a.score).slice(0, 5),
+  };
+};
+
+const renderLeaderboard = () => {
+  const root = document.getElementById("leaderboard");
+  const enriched = SUBTHEMES.map((sub) => ({ ...sub, ...computeLayer(sub) }));
+  const sorted = enriched.sort((a, b) => {
+    const sa = a.scoreMed == null ? -Infinity : a.scoreMed;
+    const sb = b.scoreMed == null ? -Infinity : b.scoreMed;
+    return sb - sa;
+  });
+  root.innerHTML = "";
+  sorted.forEach((sub, idx) => {
+    const row = document.createElement("div");
+    row.className = `row t-${sub.themeId}`;
+    row.title = `Click to open ${sub.theme} drawer`;
+    row.onclick = () => window.parent.postMessage({ type: "tp-open-drawer", id: sub.themeId }, "*");
+    const sCls = scoreCls(sub.scoreMed);
+    const sTxt = sub.scoreMed == null ? "—" : (sub.scoreMed >= 0 ? "+" : "") + sub.scoreMed.toFixed(1);
+    const chgT = `<span class="agg ${chgCls(sub.chgMed)}">${fmtChg(sub.chgMed)}</span>`;
+    const rvT  = `<span class="rv ${rvCls(sub.rvolMed)}">${fmtRv(sub.rvolMed)}</span>`;
+    const brT  = sub.breadth == null ? "<span class='br mid'>—</span>"
+      : `<span class="br ${sub.breadth >= 60 ? "hi" : sub.breadth <= 40 ? "lo" : "mid"}">${sub.breadth.toFixed(0)}%↑</span>`;
+    const tickerChips = sub.topTickers.map((t) => {
+      const pctCls = t.chg != null && t.chg < 0 ? "down" : "";
+      const pctTxt = t.chg == null ? "" : `<span class="pct ${pctCls}">${t.chg >= 0 ? "+" : ""}${t.chg.toFixed(1)}%</span>`;
+      return `<span class="tk">${t.ticker}${pctTxt}</span>`;
+    }).join("");
+    row.innerHTML = `
+      <div class="rank">${idx + 1}</div>
+      <div class="label">
+        <div class="theme-name">${sub.theme}</div>
+        <div class="layer-name">${sub.layer}</div>
+      </div>
+      <div class="metrics">
+        ${chgT}<span class="sep">·</span>${rvT}<span class="sep">·</span>${brT}
+      </div>
+      <div class="score ${sCls}">S ${sTxt}</div>
+      <div class="top-tickers">${tickerChips}</div>
+    `;
+    root.appendChild(row);
+  });
+};
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────
+const scheduleNext = () => {
+  if (!isMarketHours()) return;
+  setTimeout(async () => { await updateQuotes(); scheduleNext(); }, 30_000);
+};
+loadPipelineAvgVol().then(updateQuotes).then(scheduleNext);
+</script>
+
+</body>
+</html>

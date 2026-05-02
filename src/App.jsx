@@ -7396,6 +7396,7 @@ const DRAWER_COLORS = {
 // handle to slide in a drawer with the iframe visualization for that theme.
 // ESC or click outside to close.
 const VALUE_CHAIN_THEMES = [
+  { id: "leaderboard", label: "📊 RANK", src: "/theme-leaderboard.html",            gradient: "linear-gradient(135deg, #ffffff 0%, #fbbf24 100%)", title: "Subtheme Leaderboard — Composite Strength Ranking" },
   { id: "ai",       label: "⛓ AI INFRA",  src: "/ai-infrastructure.html",          gradient: "linear-gradient(135deg, #ec4899 0%, #6cd5e8 100%)", title: "AI INFRASTRUCTURE — Data Centre Value Chain" },
   { id: "software", label: "💻 SOFTWARE", src: "/theme-chain.html?id=software",    gradient: "linear-gradient(135deg, #a78bfa 0%, #6cd5e8 100%)", title: "SOFTWARE + AI APPS Value Chain" },
   { id: "cyber",    label: "🛡 CYBER",    src: "/theme-chain.html?id=cyber",       gradient: "linear-gradient(135deg, #ef4444 0%, #fbbf24 100%)", title: "CYBER SECURITY Value Chain" },
@@ -7420,7 +7421,18 @@ function AIInfraDrawer() {
     // drawer open via window.dispatchEvent(new CustomEvent('tp-open-drawer', { detail: 'ai' }))
     const onOpen = (e) => { if (e?.detail) setOpenId(e.detail); };
     window.addEventListener("tp-open-drawer", onOpen);
-    return () => window.removeEventListener("tp-open-drawer", onOpen);
+    // The leaderboard iframe posts messages back to switch drawers
+    // when a row is clicked.
+    const onMsg = (e) => {
+      if (e?.data?.type === "tp-open-drawer" && e.data.id) {
+        setOpenId(e.data.id);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => {
+      window.removeEventListener("tp-open-drawer", onOpen);
+      window.removeEventListener("message", onMsg);
+    };
   }, []);
   const open = openId != null;
   const active = VALUE_CHAIN_THEMES.find((t) => t.id === openId);
