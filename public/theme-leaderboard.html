@@ -1296,6 +1296,7 @@ const renderDailyChart = (ohlc) => {
   const sma50 = calcSMA(fullC, 50).slice(-120);
   const ema200 = calcEMA(fullC, 200).slice(-120);
   const volMA = calcSMA(fullV, 50).slice(-120);
+  const volMA20 = calcSMA(fullV, 20).slice(-120);
 
   const maPath = (vals, color, width, dash) => {
     const pts = [];
@@ -1341,8 +1342,8 @@ const renderDailyChart = (ohlc) => {
       }
       const prevClose = gi > 0 ? allBars[gi - 1].close : b.open;
       const chgPct = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
-      const volSma = volMA[i] || 0;
-      const rVol = volSma > 0 ? vol / volSma : 0;
+      const volAvg20 = volMA20[i] || 0;
+      const rVol = volAvg20 > 0 ? vol / volAvg20 : 0;
       if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
         vColor = "#2563eb";
       } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
