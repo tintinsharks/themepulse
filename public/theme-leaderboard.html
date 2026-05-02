@@ -929,11 +929,14 @@ const fetchErFinviz = async (ticker) => {
     const r = await fetch(`/api/live?news=${encodeURIComponent(ticker)}`);
     if (!r.ok) return null;
     const d = await r.json();
+    const desc = d.description || "";
+    const companyName = desc.split(/\s+(engages?|is a|provides|operates|develops|designs|manufactures|offers)\s/i)[0].replace(/[.,]+$/, "").trim();
     const result = {
       quarters: d.finvizQuarters || [],
       annual: d.finvizAnnual || [],
       analyst: d.analyst || null,
-      description: d.description || "",
+      description: desc,
+      companyName: companyName || "",
     };
     ER_FINVIZ[ticker] = result;
     return result;
@@ -1514,7 +1517,7 @@ const renderDetailPanel = async (ticker) => {
       <div class="logo"><img src="${earningsLogo(ticker)}" alt="${ticker}" onerror="this.parentElement.innerHTML='${ticker}';this.parentElement.style.background='#2a2a40';this.parentElement.style.color='#c0c0d8';this.parentElement.style.fontSize='11px';this.parentElement.style.fontWeight='800';"/></div>
       <div class="meta">
         <div class="ticker-sym">${ticker}${pctBadges}</div>
-        <div class="company">${pipeEr.company || ""}</div>
+        <div class="company">${(typeof pipeEr.company === "string" && pipeEr.company) || ""}</div>
       </div>
       <div class="er-detail-tag ${tagCls}">${tag}</div>
     </div>
@@ -1540,6 +1543,12 @@ const renderDetailPanel = async (ticker) => {
 
   const body = document.getElementById("er-detail-body");
   if (!body) return;
+
+  // Backfill company name from Finviz description if pipeline didn't have it
+  if (finviz?.companyName) {
+    const compEl = root.querySelector(".company");
+    if (compEl && !compEl.textContent.trim()) compEl.textContent = finviz.companyName;
+  }
 
   const next = fmp?.next || null;
   const fvQuarters = (finviz?.quarters || []).slice(0, 8);
