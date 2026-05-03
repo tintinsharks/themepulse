@@ -4844,19 +4844,9 @@ function ChartPanelInline({
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
   const [ohlcBars, setOhlcBars] = useState([]);
-  const [showQuarters, setShowQuarters] = useState(
-    () => localStorage.getItem("themepulse-qbars-open") === "1"
-  );
   const [qbarsMode, setQbarsMode] = useState(
     () => localStorage.getItem("themepulse-qbars-mode") || "quarter"
   );
-  const toggleQuarters = useCallback(() => {
-    setShowQuarters((prev) => {
-      const next = !prev;
-      localStorage.setItem("themepulse-qbars-open", next ? "1" : "0");
-      return next;
-    });
-  }, []);
   const setQbarsModePersist = useCallback((mode) => {
     setQbarsMode(mode);
     localStorage.setItem("themepulse-qbars-mode", mode);
@@ -5107,9 +5097,6 @@ function ChartPanelInline({
           <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
             {inPF ? "✓PF" : "+PF"}
           </button>
-          <button onClick={toggleQuarters} title="Toggle quarterly EPS / Revenue bars (Finviz FactSet)" style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.blue}80`, color: showQuarters ? ARIA.bg : ARIA.blue, background: showQuarters ? ARIA.blue : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-            Qtrs {showQuarters ? "▲" : "▼"}
-          </button>
           <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
           {tfBtn("D", "D", tf, setTf)}
           {tfBtn("W", "W", tf, setTf)}
@@ -5275,223 +5262,59 @@ function ChartPanelInline({
       </div>
 
 
-      {/* EPS + Revenue bars. Collapsible (Qtrs toggle in title row) with a
-          Timeframe selector so the same two-bar layout can render quarterly
-          or annual data. YoY% below each bar is always vs the same period
-          one year prior. */}
-      {showQuarters && (
-        <div
-          style={{
-            padding: "6px 14px 10px",
-            borderBottom: `1px solid ${ARIA.border}`,
-            background: ARIA.glass || "transparent",
-          }}
-        >
-          {/* Header row: legend (left) + timeframe selector (right) */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 6,
-              fontFamily: "monospace",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 7,
-                color: ARIA.textMuted,
-                flexWrap: "wrap",
-              }}
-            >
-              <span
-                style={{
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  fontWeight: 700,
-                }}
-              >
-                YoY Tiers
-              </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                <span style={{ color: ARIA.blue, fontWeight: 700 }}>EPS ≥ 25</span>
-                <span>/</span>
-                <span style={{ color: ARIA.blue, fontWeight: 700 }}>Sales ≥ 20</span>
-              </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                <span style={{ color: "#f59e0b", fontWeight: 700 }}>≥ 40 super</span>
-              </span>
-              <span
-                title="Minervini Code 33 — 3 consecutive periods of accelerating EPS, Sales, and Margin"
-                style={{
-                  border: `1px solid ${ARIA.yellow}`,
-                  borderRadius: 3,
-                  padding: "0 4px",
-                  color: ARIA.yellow,
-                  fontWeight: 700,
-                  boxShadow: `0 0 4px ${ARIA.yellow}60`,
-                }}
-              >
-                33
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                marginLeft: "auto",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 7,
-                  color: ARIA.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  fontWeight: 700,
-                  marginRight: 2,
-                }}
-              >
-                Timeframe
-              </span>
-              <button
-                onClick={() => setQbarsModePersist("annual")}
-                style={pillStyle(qbarsMode === "annual", ARIA.blue)}
-              >
-                Annual
-              </button>
-              <button
-                onClick={() => setQbarsModePersist("quarter")}
-                style={pillStyle(qbarsMode === "quarter", ARIA.blue)}
-              >
-                Quarterly
-              </button>
-            </div>
-          </div>
-          {(() => {
-            const baseSeries = qbarsMode === "annual" ? annuals : quarters;
-            const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
-            // Minervini Code 33: period N qualifies when EPS YoY, Sales YoY,
-            // and net margin have all accelerated for the last 3 periods
-            // (N > N-1 > N-2 for each metric). Marked with a gold border on
-            // the value label so qualifying periods stand out on both bars.
-            const series = baseSeries.map((p, i, arr) => {
-              const prevMargin = i > 0 ? arr[i - 1].net_margin : null;
-              const marginDelta =
-                p.net_margin != null && prevMargin != null
-                  ? p.net_margin - prevMargin
-                  : null;
-              if (i < 2) return { ...p, _code33: false, _marginDelta: marginDelta };
-              const a = arr[i - 2], b = arr[i - 1], c = p;
-              const accel = (x, y, z) =>
-                x != null && y != null && z != null && z > y && y > x;
-              const c33 =
-                accel(a.eps_yoy, b.eps_yoy, c.eps_yoy) &&
-                accel(a.revenue_yoy, b.revenue_yoy, c.revenue_yoy) &&
-                accel(a.net_margin, b.net_margin, c.net_margin);
-              return { ...p, _code33: c33, _marginDelta: marginDelta };
-            });
-            if (series.length === 0) {
-              return (
-                <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
-                  No {modeLabel} data for {ticker}.
-                </span>
-              );
-            }
-            return (
-              <div style={{ display: "flex", gap: 14 }}>
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    minWidth: 0,
-                  }}
-                >
-                  <MiniQBars
-                    quarters={series}
-                    accessor={(q) => q.net_margin}
-                    yoyAccessor={(q) => q._marginDelta}
-                    color={ARIA.cyan}
-                    labelFmt={(v) => v.toFixed(1) + "%"}
-                    title="Net Margin"
-                    ARIA={ARIA}
-                    passYoy={2}
-                    hotYoy={5}
-                  />
-                  <MiniQBars
-                    quarters={series}
-                    accessor={(q) => q.eps}
-                    yoyAccessor={(q) => q.eps_yoy}
-                    color={ARIA.blue}
-                    labelFmt={(v) => v.toFixed(2)}
-                    title="EPS (Diluted)"
-                    ARIA={ARIA}
-                    passYoy={25}
-                    hotYoy={40}
-                  />
-                </div>
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    minWidth: 0,
-                  }}
-                >
-                  <MiniQBars
-                    quarters={series}
-                    accessor={(q) => q.ocf_ps}
-                    yoyAccessor={(q) => q.ocf_yoy}
-                    color={ARIA.yellow}
-                    labelFmt={(v) => v.toFixed(2)}
-                    title="Op Cash Flow/sh"
-                    ARIA={ARIA}
-                    passYoy={25}
-                    hotYoy={40}
-                  />
-                  <MiniQBars
-                    quarters={series}
-                    accessor={(q) => q.revenue}
-                    yoyAccessor={(q) => q.revenue_yoy}
-                    color={ARIA.purple}
-                    labelFmt={(v) =>
-                      v >= 1000
-                        ? `${(v / 1000).toFixed(1)}B`
-                        : `${Math.round(v)}M`
-                    }
-                    title="Revenue"
-                    ARIA={ARIA}
-                    passYoy={20}
-                    hotYoy={40}
-                  />
-                </div>
-                <CanslimScorecard
-                  ticker={ticker}
-                  stockInfo={stockInfo}
-                  cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null}
-                  annuals={annuals}
-                  stockMap={stockMap}
-                  ARIA={ARIA}
-                />
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
       {/* SVG Daily Chart */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <ErrorBoundary>
           <DailyChartSVG ohlc={ohlcBars} quarters={quarters} height={height} />
         </ErrorBoundary>
       </div>
+
+      {/* Quarterly fundamentals — always visible below chart */}
+      {(() => {
+        const baseSeries = qbarsMode === "annual" ? annuals : quarters;
+        const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
+        const series = baseSeries.map((p, i, arr) => {
+          const prevMargin = i > 0 ? arr[i - 1].net_margin : null;
+          const marginDelta =
+            p.net_margin != null && prevMargin != null
+              ? p.net_margin - prevMargin
+              : null;
+          if (i < 2) return { ...p, _code33: false, _marginDelta: marginDelta };
+          const a = arr[i - 2], b = arr[i - 1], c = p;
+          const accel = (x, y, z) =>
+            x != null && y != null && z != null && z > y && y > x;
+          const c33 =
+            accel(a.eps_yoy, b.eps_yoy, c.eps_yoy) &&
+            accel(a.revenue_yoy, b.revenue_yoy, c.revenue_yoy) &&
+            accel(a.net_margin, b.net_margin, c.net_margin);
+          return { ...p, _code33: c33, _marginDelta: marginDelta };
+        });
+        if (series.length === 0) return null;
+        return (
+          <div style={{ padding: "6px 14px 10px", borderTop: `1px solid ${ARIA.border}`, background: ARIA.glass || "transparent" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontFamily: "monospace" }}>
+              <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
+                Last {series.length} Quarter{series.length === 1 ? "" : "s"} · Finviz Actuals
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                <button onClick={() => setQbarsModePersist("quarter")} style={pillStyle(qbarsMode === "quarter", ARIA.blue)}>Quarterly</button>
+                <button onClick={() => setQbarsModePersist("annual")} style={pillStyle(qbarsMode === "annual", ARIA.blue)}>Annual</button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 14 }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                <MiniQBars quarters={series} accessor={(q) => q.net_margin} yoyAccessor={(q) => q._marginDelta} color={ARIA.cyan} labelFmt={(v) => v.toFixed(1) + "%"} title="Net Margin" ARIA={ARIA} passYoy={2} hotYoy={5} />
+                <MiniQBars quarters={series} accessor={(q) => q.eps} yoyAccessor={(q) => q.eps_yoy} color={ARIA.blue} labelFmt={(v) => v.toFixed(2)} title="EPS (Diluted)" ARIA={ARIA} passYoy={25} hotYoy={40} />
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                <MiniQBars quarters={series} accessor={(q) => q.ocf_ps} yoyAccessor={(q) => q.ocf_yoy} color={ARIA.yellow} labelFmt={(v) => v.toFixed(2)} title="Op Cash Flow/sh" ARIA={ARIA} passYoy={25} hotYoy={40} />
+                <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
+              </div>
+              <CanslimScorecard ticker={ticker} stockInfo={stockInfo} cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null} annuals={annuals} stockMap={stockMap} ARIA={ARIA} />
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
