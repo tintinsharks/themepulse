@@ -5104,8 +5104,8 @@ function ChartPanelInline({
             <span style={{ color: chgColor, fontWeight: 700 }}>{chgPct != null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "—"}</span>
           </span>
           <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-            <span style={{ color: ARIA.textMuted }}>Open</span>
-            <span style={{ color: liveQuote?.gap != null ? (liveQuote.gap >= 0 ? ARIA.green : ARIA.red) : ARIA.textMuted, fontWeight: 700 }}>{liveQuote?.gap != null ? `${liveQuote.gap >= 0 ? "+" : ""}${liveQuote.gap.toFixed(2)}%` : "—"}</span>
+            <span style={{ color: ARIA.textMuted }}>Intra</span>
+            <span style={{ color: o > 0 && c > 0 ? (c >= o ? ARIA.green : ARIA.red) : ARIA.textMuted, fontWeight: 700 }}>{o > 0 && c > 0 ? `${c >= o ? "+" : ""}${((c - o) / o * 100).toFixed(2)}%` : "—"}</span>
           </span>
           <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
             <span style={{ color: ARIA.textMuted }}>RVol</span>
