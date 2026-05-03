@@ -1263,7 +1263,7 @@ const ordinal = (n) => {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
 
-const renderDailyChart = (ohlc, erHistory, knownErDate) => {
+const renderDailyChart = (ohlc, erHistory) => {
   if (!ohlc || !ohlc.length) return "";
   const bars = ohlc.slice(-120);
   const W = 900, priceH = 180, volH = 60, pad = { l: 0, r: 0, t: 4, b: 0 };
@@ -1457,43 +1457,21 @@ const renderDailyChart = (ohlc, erHistory, knownErDate) => {
     }
   });
 
-  // Earnings markers — Finviz quarters. Most recent quarter uses knownErDate
-  // from the calendar grid (actual ER day). Older quarters use gap-detection
-  // since report_date is really the fiscal quarter end date.
+  // Earnings markers — same approach as LWChartLegacy: match report_date
+  // directly against bar dates with ±5 day forward fallback
   let erMarkerSvg = "";
   if (erHistory && erHistory.length) {
     const barDateIdx = {};
     bars.forEach((b, i) => { barDateIdx[b.date] = i; });
-    let usedKnownDate = false;
     for (const q of erHistory) {
       if (!q.report_date) continue;
-      let bestIdx = -1;
-      // For the most recent quarter, use the known ER date from the calendar
-      if (knownErDate && !usedKnownDate) {
-        usedKnownDate = true;
-        bestIdx = barDateIdx[knownErDate] ?? -1;
-        if (bestIdx < 0) {
-          const d = new Date(knownErDate + "T00:00:00");
-          for (let j = 1; j <= 3; j++) {
-            d.setDate(d.getDate() + 1);
-            const ds = d.toISOString().slice(0, 10);
-            if (barDateIdx[ds] != null) { bestIdx = barDateIdx[ds]; break; }
-          }
-        }
-      }
-      // Older quarters: gap-detection from fiscal quarter end
+      let bestIdx = barDateIdx[q.report_date] ?? -1;
       if (bestIdx < 0) {
-        const qEnd = new Date(q.report_date + "T00:00:00");
-        const minD = new Date(qEnd); minD.setDate(minD.getDate() + 15);
-        const maxD = new Date(qEnd); maxD.setDate(maxD.getDate() + 55);
-        const minStr = minD.toISOString().slice(0, 10);
-        const maxStr = maxD.toISOString().slice(0, 10);
-        let bestGap = 0;
-        for (let i = 1; i < bars.length; i++) {
-          const d = bars[i].date;
-          if (d < minStr || d > maxStr) continue;
-          const g = Math.abs(bars[i].open - bars[i - 1].close);
-          if (g > bestGap) { bestGap = g; bestIdx = i; }
+        const d = new Date(q.report_date + "T00:00:00");
+        for (let j = 1; j <= 5; j++) {
+          d.setDate(d.getDate() + 1);
+          const ds = d.toISOString().slice(0, 10);
+          if (barDateIdx[ds] != null) { bestIdx = barDateIdx[ds]; break; }
         }
       }
       if (bestIdx < 0) continue;
@@ -1729,7 +1707,7 @@ const renderDetailPanel = async (ticker) => {
     }
   }
 
-  const chartBlock = renderDailyChart(ohlcData?.ohlc, fvQuarters, ER_ACTUAL_DATES[ticker]);
+  const chartBlock = renderDailyChart(ohlcData?.ohlc, fvQuarters);
   body.innerHTML = chartBlock + historyBlock;
 };
 
