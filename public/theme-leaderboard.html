@@ -266,6 +266,12 @@
     font-size: 9px; color: #9090a0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .er-detail-header .co-desc {
+    font-size: 8.5px; color: #6a6a7a; line-height: 1.35;
+    margin-top: 2px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .er-detail-tag {
     font-size: 9px; font-weight: 700;
     padding: 3px 8px; border-radius: 4px;
@@ -1211,10 +1217,7 @@ const themeLabel = { ai: "AI Infra", software: "Software", cyber: "Cyber", finte
 
 const renderTile = (er) => {
   const sel = er.ticker === ER_SELECTED_TICKER ? "selected" : "";
-  // Timing badge — only shown if we have it from pipeline (best-effort).
-  // FMP doesn't provide it on the /stable/earnings-calendar endpoint.
-  const tm = (er.pipe_timing || "").toUpperCase();
-  const badge = tm === "BMO" || tm === "AMC" ? `<span class="tile-badge ${tm.toLowerCase()}">${tm}</span>` : "";
+  const badge = "";
   // Drawer membership accent — show small dot for tickers in our drawers
   const dotted = (er.themes && er.themes.length > 0) ? "drawer" : "";
   return `
@@ -1559,6 +1562,7 @@ const renderDetailPanel = async (ticker) => {
       <div class="meta">
         <div class="ticker-sym">${ticker}${pctBadges}</div>
         <div class="company">${(typeof pipeEr.company === "string" && pipeEr.company) || ""}${pipeEr.ipo_date ? `<span style="margin-left:6px;color:#7a7a8a">IPO ${pipeEr.ipo_date}</span>` : ""}</div>
+        <div class="co-desc"></div>
       </div>
       <div class="er-detail-tag ${tagCls}">${tag}</div>
     </div>
@@ -1585,10 +1589,14 @@ const renderDetailPanel = async (ticker) => {
   const body = document.getElementById("er-detail-body");
   if (!body) return;
 
-  // Backfill company name from Finviz description if pipeline didn't have it
+  // Backfill company name + description from Finviz
   if (finviz?.companyName) {
     const compEl = root.querySelector(".company");
     if (compEl && !compEl.textContent.trim()) compEl.textContent = finviz.companyName;
+  }
+  if (finviz?.description) {
+    const descEl = root.querySelector(".co-desc");
+    if (descEl) descEl.textContent = finviz.description;
   }
 
   const next = fmp?.next || null;
