@@ -4458,7 +4458,7 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
 function DailyChartSVG({ ohlc, quarters, height = 400 }) {
   const chartData = useMemo(() => {
     if (!ohlc || !ohlc.length) return null;
-    const bars = ohlc.slice(-120);
+    const bars = ohlc.slice(-375);
     const W = 900, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
     const volGap = 6;
     const totalH = priceH + volGap + volH + pad.t + pad.b;
@@ -4496,14 +4496,14 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
 
     const fullC = ohlc.map(b => b.close), fullH = ohlc.map(b => b.high), fullL = ohlc.map(b => b.low);
     const fullV = ohlc.map(b => b.volume || 0);
-    const ema10 = calcEMA(fullC, 10).slice(-120);
-    const ema21hi = calcEMA(fullH, 21).slice(-120);
-    const ema21close = calcEMA(fullC, 21).slice(-120);
-    const ema21lo = calcEMA(fullL, 21).slice(-120);
-    const sma50 = calcSMA(fullC, 50).slice(-120);
-    const ema200 = calcEMA(fullC, 200).slice(-120);
-    const volMA = calcSMA(fullV, 50).slice(-120);
-    const volMA20 = calcSMA(fullV, 20).slice(-120);
+    const ema10 = calcEMA(fullC, 10).slice(-375);
+    const ema21hi = calcEMA(fullH, 21).slice(-375);
+    const ema21close = calcEMA(fullC, 21).slice(-375);
+    const ema21lo = calcEMA(fullL, 21).slice(-375);
+    const sma50 = calcSMA(fullC, 50).slice(-375);
+    const ema200 = calcEMA(fullC, 200).slice(-375);
+    const volMA = calcSMA(fullV, 50).slice(-375);
+    const volMA20 = calcSMA(fullV, 20).slice(-375);
 
     const allBars = ohlc;
     const sliceStart = allBars.length - bars.length;

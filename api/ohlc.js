@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         .filter((c) => c.time != null && c.open != null && c.close != null);
     } else {
       const now = new Date();
-      const fromDate = new Date(now.getTime() - 370 * 24 * 3600 * 1000);
+      const fromDate = new Date(now.getTime() - 900 * 24 * 3600 * 1000);
       const fromStr = fromDate.toISOString().split("T")[0];
       const toStr = now.toISOString().split("T")[0];
       const url = `${FMP_BASE}/historical-price-eod/full?symbol=${encodeURIComponent(ticker)}&from=${fromStr}&to=${toStr}&apikey=${apiKey}`;
