@@ -5236,6 +5236,9 @@ function ChartPanelInline({
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
+    setFmpPeers([]);
+    setFinvizPeers([]);
+    setFmpPeersLoading(true);
     fetch(`/api/live?news=${encodeURIComponent(ticker)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -5250,7 +5253,9 @@ function ChartPanelInline({
         setAnnuals(orient(d?.finvizAnnual));
         setNews(d?.news || []);
         setDescription(d?.description || "");
+        setFmpPeers(d?.fmpPeers || []);
         setFinvizPeers(d?.peers || []);
+        setFmpPeersLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
@@ -5259,6 +5264,7 @@ function ChartPanelInline({
           setNews([]);
           setDescription("");
           setFinvizPeers([]);
+          setFmpPeersLoading(false);
         }
       });
     return () => {
@@ -5266,23 +5272,6 @@ function ChartPanelInline({
     };
   }, [ticker]);
 
-  useEffect(() => {
-    if (!ticker) return;
-    let cancelled = false;
-    setFmpPeers([]);
-    setFmpPeersLoading(true);
-    fetch(`/api/peers?ticker=${encodeURIComponent(ticker)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled) return;
-        setFmpPeers(d?.peers || []);
-        setFmpPeersLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setFmpPeersLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [ticker]);
   // Fetch OHLC bars for inline SVG daily chart
   useEffect(() => {
     if (!ticker) return;

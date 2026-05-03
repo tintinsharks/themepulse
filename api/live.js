@@ -1573,19 +1573,24 @@ export default async function handler(req, res) {
     const newsTicker = (req.query.news || "").trim().toUpperCase();
     const tickerData = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
 
-    // FMP bar data — quarterly (fallback only when Finviz FactSet is empty,
-    // which is currently every ticker) and annual (always from FMP since the
-    // Finviz scrape path doesn't cover it).
+    // FMP bar data + FMP peer comparison — run in parallel
     let quartersFallback = [];
     let annualFallback = [];
+    let fmpPeers = [];
     if (newsTicker && fmpKey) {
       const needQuarters = !tickerData?.quarters || tickerData.quarters.length === 0;
-      const [qData, aData] = await Promise.all([
+      const [qData, aData, peersResp] = await Promise.all([
         needQuarters ? fetchFinancialsFmp(newsTicker, fmpKey, "quarter") : Promise.resolve([]),
         fetchFinancialsFmp(newsTicker, fmpKey, "annual"),
+        fetch(`${FMP_BASE}/stock-peers?symbol=${encodeURIComponent(newsTicker)}&apikey=${fmpKey}`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null),
       ]);
       quartersFallback = qData;
       annualFallback = aData;
+      if (Array.isArray(peersResp) && peersResp[0]?.peersList) {
+        fmpPeers = peersResp[0].peersList.filter(p => p && p !== newsTicker);
+      }
     }
 
     // Fetch homepage data (futures, earnings, major news) if requested
@@ -1612,6 +1617,7 @@ export default async function handler(req, res) {
       theme_universe: themeUniverse,
       news: tickerData?.news || null,
       peers: tickerData?.peers || null,
+      fmpPeers: fmpPeers.length > 0 ? fmpPeers : null,
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
       finvizQuarters:
