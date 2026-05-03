@@ -5565,6 +5565,37 @@ function ChartPanelInline({
         </div>
       </div>
 
+      {/* Performance row */}
+      {(() => {
+        const perfs = [
+          { label: "1M",   val: stockInfo?.return_1m },
+          { label: "3M",   val: stockInfo?.return_3m },
+          { label: "6M",   val: stockInfo?.return_6m },
+          { label: "1Y",   val: stockInfo?.return_1y },
+          { label: "52wL", val: stockInfo?.above_52w_low },
+        ];
+        if (perfs.every(p => p.val == null)) return null;
+        const perfColor = (v) =>
+          v == null ? ARIA.textMuted
+          : v >= 50  ? "#0d9163"
+          : v >= 20  ? "#22a37a"
+          : v >= 0   ? "#5a9a6a"
+          : v >= -20 ? "#a06030"
+          : "#c04040";
+        return (
+          <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+            {perfs.map(({ label, val }) => (
+              <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ color: ARIA.textMuted }}>{label}</span>
+                <span style={{ color: perfColor(val), fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
+                  {val != null ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
+                </span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* News + Notes — two-column row */}
       {(() => {
         const tickerNote = sheetNotes?.[ticker] || "";
