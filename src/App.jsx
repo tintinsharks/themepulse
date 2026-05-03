@@ -1339,11 +1339,12 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
   }, [expanded, monday]);
 
   // Build pipeline lookup maps
+  // drawerSet = tickers that belong to a value-chain drawer (same logic as
+  // leaderboard's TICKER_THEMES — stock.themes[].theme must map to a drawer
+  // via THEME_TO_DRAWER). WL/PF tickers are NOT included in drawerSet.
   const { pipelineER, pipelineDvol, drawerSet } = useMemo(() => {
     const er = {}, dvol = {};
-    const portfolio = JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]");
-    const watchlist = JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]");
-    const dSet = new Set([...portfolio, ...watchlist]);
+    const dSet = new Set();
     if (stocks) {
       stocks.forEach((s) => {
         const tk = s.ticker;
@@ -1351,7 +1352,11 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
         if (s.earnings_days != null) {
           er[tk] = { earnings_days: s.earnings_days, er_timing: s.er_timing || "", avg_er_move: s.avg_er_move, grade: s.grade || "" };
         }
-        if (s.themes?.length > 0) dSet.add(tk);
+        if (s.themes?.length > 0) {
+          for (const t of s.themes) {
+            if (THEME_TO_DRAWER[(t.theme || "").toUpperCase()]) { dSet.add(tk); break; }
+          }
+        }
       });
     }
     return { pipelineER: er, pipelineDvol: dvol, drawerSet: dSet };
