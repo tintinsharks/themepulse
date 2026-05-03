@@ -1500,6 +1500,8 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") === "1");
   const [openTheme, setOpenTheme] = useState(null);
+  const scrollContainerRef = useRef(null);
+  const pendingScrollTicker = useRef(null);
 
   useEffect(() => { localStorage.setItem("tp-drawer-themes-open", expanded ? "1" : "0"); }, [expanded]);
 
@@ -1510,10 +1512,24 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
     if (match) {
       setExpanded(true);
       setOpenTheme(match.themeId);
+      pendingScrollTicker.current = chartTicker;
     } else {
       setOpenTheme(null);
+      pendingScrollTicker.current = null;
     }
   }, [chartTicker]);
+
+  // After the theme layers render, scroll to the layer containing the ticker
+  useEffect(() => {
+    if (!pendingScrollTicker.current || !scrollContainerRef.current) return;
+    const ticker = pendingScrollTicker.current;
+    const id = setTimeout(() => {
+      const el = scrollContainerRef.current?.querySelector(`[data-layer-has~="${ticker}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      pendingScrollTicker.current = null;
+    }, 50);
+    return () => clearTimeout(id);
+  }, [openTheme]);
 
   const grouped = useMemo(() => {
     const themes = [];
@@ -1544,7 +1560,7 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
         <span style={{ fontSize: 8, color: ARIA.textMuted }}>({totalTickers})</span>
       </div>
       {expanded && (
-        <div style={{ padding: "0 12px 6px", overflowY: "auto", flex: 1 }}>
+        <div ref={scrollContainerRef} style={{ padding: "0 12px 6px", overflowY: "auto", flex: 1 }}>
           {grouped.map((theme) => {
             const c = DRAWER_COLORS[theme.id] || { bg: "rgba(255,255,255,0.06)", border: ARIA.border, color: ARIA.textDim };
             const isOpen = openTheme === theme.id;
@@ -1568,7 +1584,7 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
                 {isOpen && (
                   <div style={{ padding: "4px 0 2px 12px" }}>
                     {theme.layers.map((layer, li) => (
-                      <div key={li} style={{ marginBottom: 4 }}>
+                      <div key={li} data-layer-has={layer.tickers.join(" ")} style={{ marginBottom: 4 }}>
                         <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600 }}>
                           {layer.layer}
                         </div>
