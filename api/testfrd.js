@@ -1,3 +1,5 @@
+export const config = { maxDuration: 15 };
+
 export default async function handler(req, res) {
   const ticker = (req.query.ticker || "AAPL").trim().toUpperCase();
   const fmpKey = process.env.FMP_API_KEY;
