@@ -4456,15 +4456,6 @@ function ChartPanelInline({
   height = 580,
   stockMap,
   themeHealth,
-  // Agent picks data — when present, the right pane gets a Chart/Picks subtab
-  rvolPicks,
-  pmPicks,
-  ahPicks,
-  analyzedPicks,
-  onAnalyze,
-  isAnalyzing,
-  analyzingTicker,
-  onAnalyzedRemove,
 }) {
   const ARIA = useAriaTheme();
   const [tf, setTf] = useState("D"); // "D" or "W"
@@ -4522,52 +4513,10 @@ function ChartPanelInline({
     };
   }, [ticker]);
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
-  const [rightTab, setRightTab] = useState(() => {
-    const saved = localStorage.getItem("themepulse-chart-righttab");
-    return saved && ["chart", "picks"].includes(saved) ? saved : "chart";
-  });
-  const setRightTabPersist = useCallback((t) => {
-    setRightTab(t);
-    localStorage.setItem("themepulse-chart-righttab", t);
-  }, []);
 
   // Draggable split between daily (left) and intraday (right) panes.
   // Stored as a 0..1 fraction of the chart body width assigned to the LEFT.
   // Default 0.55 ≈ Aria's flex 6/(6+5).
-  const [splitFrac, setSplitFrac] = useState(() => {
-    const saved = parseFloat(localStorage.getItem("themepulse-chart-split") || "");
-    return Number.isFinite(saved) && saved > 0.15 && saved < 0.85 ? saved : 0.55;
-  });
-  const chartBodyRef = React.useRef(null);
-  const startDrag = useCallback((e) => {
-    e.preventDefault();
-    const body = chartBodyRef.current;
-    if (!body) return;
-    const rect = body.getBoundingClientRect();
-    function onMove(ev) {
-      const x = (ev.clientX || 0) - rect.left;
-      const f = Math.max(0.15, Math.min(0.85, x / rect.width));
-      setSplitFrac(f);
-    }
-    function onUp() {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      // Persist after drag ends
-      try {
-        const body2 = chartBodyRef.current;
-        if (body2) {
-          const r2 = body2.getBoundingClientRect();
-          // Read latest splitFrac via DOM measurement
-        }
-      } catch {}
-    }
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, []);
-  // Persist whenever splitFrac changes
-  useEffect(() => {
-    localStorage.setItem("themepulse-chart-split", String(splitFrac));
-  }, [splitFrac]);
 
   const dailyInterval = tf === "W" ? "1d" : "1d";
   const intradayInterval = intradayTf === "30m" ? "30m" : "5m";
@@ -5241,13 +5190,7 @@ function ChartPanelInline({
         </div>
       )}
 
-      {/* Body: dual-pane chart split with draggable divider.
-          splitFrac controls how much horizontal space the LEFT pane gets
-          (0.15 .. 0.85). Persisted to localStorage so the choice survives
-          reloads. Each pane is in its own ErrorBoundary so a chart crash
-          can't take down the page. */}
       <div
-        ref={chartBodyRef}
         style={{
           display: "flex",
           gap: 0,
@@ -5255,13 +5198,12 @@ function ChartPanelInline({
           position: "relative",
         }}
       >
-        {/* Left pane: Daily/Weekly chart with all indicators */}
+        {/* Full-width chart */}
         <div
           style={{
-            width: `${splitFrac * 100}%`,
+            width: "100%",
             display: "flex",
             flexDirection: "column",
-            minWidth: 100,
             overflow: "hidden",
             position: "relative",
           }}
@@ -5269,129 +5211,6 @@ function ChartPanelInline({
           <ErrorBoundary>
             <LegacyLWChart ticker={ticker} tf={tf} quarters={quarters} />
           </ErrorBoundary>
-        </div>
-
-        {/* Draggable divider — matches Aria's chart-split-divider */}
-        <div
-          onMouseDown={startDrag}
-          style={{
-            width: 6,
-            cursor: "col-resize",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative",
-            zIndex: 5,
-            userSelect: "none",
-          }}
-          onMouseEnter={(e) => {
-            const inner = e.currentTarget.firstChild;
-            if (inner) inner.style.background = ARIA.green;
-          }}
-          onMouseLeave={(e) => {
-            const inner = e.currentTarget.firstChild;
-            if (inner) inner.style.background = ARIA.border;
-          }}
-        >
-          <div
-            style={{
-              width: 1,
-              height: "100%",
-              background: ARIA.border,
-              transition: "background 0.15s",
-            }}
-          />
-        </div>
-
-        {/* Right pane: subtab between intraday chart and agent picks */}
-        <div
-          style={{
-            width: `${(1 - splitFrac) * 100}%`,
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 100,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {/* Ticker info box (news + description) — sits above the tab bar */}
-          <TickerInfoBox ticker={ticker} stockMap={stockMap} onTickerClick={onTickerChange} />
-          {/* Subtab bar */}
-          <div
-            style={{
-              display: "flex",
-              gap: 0,
-              padding: "4px 8px",
-              borderBottom: `1px solid ${ARIA.border}`,
-              background: ARIA.bgCard,
-              flexShrink: 0,
-            }}
-          >
-            {[
-              { key: "chart", label: "CHART" },
-              { key: "picks", label: "AGENT PICKS" },
-            ].map((t, i, arr) => {
-              const on = rightTab === t.key;
-              const isFirst = i === 0;
-              const isLast = i === arr.length - 1;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setRightTabPersist(t.key)}
-                  style={{
-                    fontSize: 9,
-                    padding: "3px 10px",
-                    borderRadius: isFirst
-                      ? "4px 0 0 4px"
-                      : isLast
-                      ? "0 4px 4px 0"
-                      : "0",
-                    cursor: "pointer",
-                    fontFamily: "monospace",
-                    fontWeight: 700,
-                    border: `1px solid ${on ? ARIA.green : ARIA.border}`,
-                    borderLeft: isFirst ? undefined : "none",
-                    color: on ? ARIA.green : ARIA.textMuted,
-                    background: on ? ARIA.glowGreen : "transparent",
-                  }}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Subtab content */}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            {rightTab === "chart" && (
-              <ErrorBoundary>
-                <LegacyIntradayChart ticker={ticker} />
-              </ErrorBoundary>
-            )}
-            {rightTab === "picks" && (
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                <ErrorBoundary>
-                  <AgentPicks
-                    rvolPicks={rvolPicks}
-                    pmPicks={pmPicks}
-                    ahPicks={ahPicks}
-                    analyzedPicks={analyzedPicks}
-                    onAnalyzedRemove={onAnalyzedRemove}
-                    onTickerClick={onTickerChange}
-                  />
-                </ErrorBoundary>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -7007,12 +6826,6 @@ function ChartScanRow({
   handleTickerClick,
   stockMap,
   themeHealth,
-  picks,
-  analyzedPicks,
-  handleAnalyze,
-  isAnalyzing,
-  analyzingTicker,
-  removeAnalyzed,
   stocks,
   pipelineMeta,
 }) {
@@ -7058,14 +6871,6 @@ function ChartScanRow({
           onTickerChange={handleTickerClick}
           stockMap={stockMap}
           themeHealth={themeHealth}
-          rvolPicks={picks.rvolPicks}
-          pmPicks={picks.pmPicks}
-          ahPicks={picks.ahPicks}
-          analyzedPicks={analyzedPicks}
-          onAnalyze={handleAnalyze}
-          isAnalyzing={isAnalyzing}
-          analyzingTicker={analyzingTicker}
-          onAnalyzedRemove={removeAnalyzed}
         />
       </div>
       <div
@@ -7104,29 +6909,6 @@ function AppMain() {
   const ARIA = useAriaTheme();
   const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
-  // usePicks disabled — auto sources (PM/AH/RVol) no longer fired by CI.
-  // Agent Picks panel is now driven entirely by useAnalyzedPicks.
-  const picks = { rvolPicks: null, pmPicks: null, ahPicks: null };
-  const { list: analyzedPicks, removePick: removeAnalyzed } = useAnalyzedPicks();
-  const { isAnalyzing, activeTicker: analyzingTicker, analyze } = useAnalyzer();
-  // After analyze succeeds, switch the right pane to the picks subtab so the
-  // user immediately sees the new analysis. The analyze() helper handles
-  // localStorage append; we just trigger the UI flip.
-  const handleAnalyze = useCallback(
-    async (ticker) => {
-      const result = await analyze(ticker);
-      if (result) {
-        try {
-          localStorage.setItem("themepulse-chart-righttab", "picks");
-          localStorage.setItem("aria-ap-tab", "analyzed");
-          window.dispatchEvent(new CustomEvent("tp-pw-changed"));
-        } catch {}
-      }
-      return result;
-    },
-    [analyze]
-  );
-
   // Active ticker for the inline chart panel.
   // Default chart ticker. Persists in localStorage.
   const [chartTicker, setChartTicker] = useState(() => {
@@ -7344,18 +7126,9 @@ function AppMain() {
           handleTickerClick={handleTickerClick}
           stockMap={stockMap}
           themeHealth={data.pipeline?.theme_health || []}
-          picks={picks}
-          analyzedPicks={analyzedPicks}
-          handleAnalyze={handleAnalyze}
-          isAnalyzing={isAnalyzing}
-          analyzingTicker={analyzingTicker}
-          removeAnalyzed={removeAnalyzed}
           stocks={stocks}
           pipelineMeta={data.pipeline?.pipeline_meta}
         />
-
-        {/* Agent Picks + Watchlist moved into ChartPanelInline as right-pane
-            subtabs. See ChartPanelInline rightTab state. */}
 
       </div>
       <AIInfraDrawer />
