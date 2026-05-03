@@ -1339,12 +1339,10 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
   }, [expanded, monday]);
 
   // Build pipeline lookup maps
-  // drawerSet = tickers that belong to a value-chain drawer (same logic as
-  // leaderboard's TICKER_THEMES — stock.themes[].theme must map to a drawer
-  // via THEME_TO_DRAWER). WL/PF tickers are NOT included in drawerSet.
-  const { pipelineER, pipelineDvol, drawerSet } = useMemo(() => {
+  // drawerSet = DRAWER_TICKERS — the curated value-chain ticker list, same as
+  // the leaderboard's SUBTHEMES → TICKER_THEMES.
+  const { pipelineER, pipelineDvol } = useMemo(() => {
     const er = {}, dvol = {};
-    const dSet = new Set();
     if (stocks) {
       stocks.forEach((s) => {
         const tk = s.ticker;
@@ -1352,15 +1350,11 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
         if (s.earnings_days != null) {
           er[tk] = { earnings_days: s.earnings_days, er_timing: s.er_timing || "", avg_er_move: s.avg_er_move, grade: s.grade || "" };
         }
-        if (s.themes?.length > 0) {
-          for (const t of s.themes) {
-            if (THEME_TO_DRAWER[(t.theme || "").toUpperCase()]) { dSet.add(tk); break; }
-          }
-        }
       });
     }
-    return { pipelineER: er, pipelineDvol: dvol, drawerSet: dSet };
+    return { pipelineER: er, pipelineDvol: dvol };
   }, [stocks]);
+  const drawerSet = DRAWER_TICKERS;
 
   const weekData = useMemo(() => {
     const todayMidnight = new Date();
@@ -7527,6 +7521,10 @@ const THEME_TO_DRAWER = {
   "CYBER":             "cyber",
   "FINTECH":           "fintech",
 };
+// Curated drawer-universe tickers — must match SUBTHEMES in theme-leaderboard.html.
+// Only these tickers appear in the Earnings Calendar "Drawer" scope.
+const DRAWER_TICKERS = new Set(["AAOI","ABAT","ABT","ACHR","ADBE","AEHR","AEVA","AFRM","AI","AKAM","ALAB","ALB","ALLY","ALV","AMAT","AMD","AMKR","AMPG","AMPX","AMZN","ANET","APH","APLD","APTV","ARM","ARQQ","ASAN","ASML","ASTS","AUR","AVAV","AVGO","AXON","AXTI","AZPN","BA","BAH","BBAI","BE","BITB","BITF","BITO","BITW","BKSY","BLK","BOX","BRRR","BTDR","BWA","BWXT","BX","CACI","CAMT","CARR","CCC","CEG","CFLT","CGNX","CHKP","CIEN","CIFR","CLS","CLSK","COHR","COIN","CORZ","CRDO","CRM","CRWD","CRWV","CSCO","CYBR","DAVE","DBX","DDOG","DELL","DLO","DLR","DOCS","DOCU","EH","EME","EMR","ENTG","ENVX","EOSE","EQIX","EQT","ESTC","ETN","EVGO","EVTL","F","FBTC","FIX","FN","FORM","FOUR","FREY","FROG","FSLY","FTNT","FUTU","GBTC","GD","GE","GEN","GEV","GHM","GLW","GLXY","GM","GNRC","GOOGL","GS","GSAT","GTLB","GWRE","GXO","HEI","HII","HON","HOOD","HPE","HSAI","HUBS","HUT","IBIT","IBKR","IBM","INTC","INTU","INVZ","IONQ","IOT","IRDM","IREN","ISRG","JBL","JCI","JOBY","KEYS","KKR","KLAC","KSCP","KSPI","KTOS","KULR","LAC","LAES","LAZR","LC","LCID","LDOS","LEA","LHX","LI","LIDR","LITE","LITM","LLNW","LMT","LRCX","LUNR","LWLG","MA","MANH","MARA","MASI","MBLY","MDB","MDT","META","MGA","MKSI","MNDY","MNTS","MOD","MP","MRVL","MS","MSFT","MSTR","MTSI","MU","MVIS","MVST","MXL","MYRG","NBIS","NDSN","NEE","NET","NIO","NNDM","NNE","NOC","NOVT","NOW","NRG","NU","NVDA","NVEI","NVT","NVTS","OKLO","OKTA","OLO","ONDS","ONTO","ORCL","OSPN","OUST","PAGS","PANW","PATH","PCOR","PD","PDYN","PL","PLTR","POET","PRIM","PWR","PYPL","QBTS","QLYS","QS","QUBT","RBRK","RCAT","RDW","RDWR","RGR","RGTI","RIOT","RIVN","RJF","RKLB","RNG","ROK","RPD","RR","RTX","S","SAIC","SAIL","SAP","SCHW","SERV","SHLS","SIMO","SLDP","SMAR","SMCI","SMR","SNDK","SNOW","SOFI","SOUN","SPCE","SPIR","SQ","SQM","STLA","STX","STXS","SUMO","SWBI","SWI","SYK","SYM","TDC","TDG","TDY","TEAM","TEL","TENB","TIGR","TLN","TOST","TSEM","TSLA","TSM","TXT","TYL","UMAC","V","VEEV","VERX","VIAV","VRNS","VRT","VSAT","VST","WDAY","WDC","WOLF","WULF","XPEV","YOU","ZM","ZS"]);
+
 const DRAWER_COLORS = {
   ai:       { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
   defense:  { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
