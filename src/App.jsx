@@ -5065,7 +5065,6 @@ function ChartPanelInline({
                 52W {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
               </span>
             )}
-            {erDate && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erDate.replace(/~/g, " ").trim()}</span>}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
             {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
@@ -5115,6 +5114,7 @@ function ChartPanelInline({
             <span style={{ color: ARIA.textMuted }}>ADR</span>
             <span style={{ color: ARIA.cyan }}>{adr != null ? `${adr.toFixed(1)}%` : "—"}</span>
           </span>
+          {erDate && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erDate.replace(/~/g, " ").trim()}</span>}
           <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 60, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
         </div>
       </div>
