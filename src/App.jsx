@@ -4592,7 +4592,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
     const bars = ohlc.slice(start, end);
     if (bars.length === 0) return null;
 
-    const W = containerW, priceH = 260, volH = 80, yAxisW = 48, pad = { l: 0, r: yAxisW, t: 4, b: 0 };
+    const W = containerW, priceH = 260, volH = 80, yAxisW = 48, pad = { l: 0, r: yAxisW, t: 16, b: 0 };
     const volGap = 6;
     const totalH = priceH + volGap + volH + pad.t + pad.b;
     const chartRight = W - pad.r;
@@ -4740,10 +4740,33 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       );
     }
 
+    // X-axis month labels at the top
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const xAxisElements = [];
+    let prevMonth = null;
+    bars.forEach((b, i) => {
+      if (!b.date) return;
+      const d = new Date(b.date + "T00:00:00");
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const key = `${y}-${m}`;
+      if (key !== prevMonth) {
+        prevMonth = key;
+        const x = pad.l + i * (bw + gap) + bw / 2;
+        if (x > pad.l + 10 && x < chartRight - 20) {
+          const label = m === 0 ? `${MONTHS[m]} '${String(y).slice(2)}` : MONTHS[m];
+          xAxisElements.push(
+            <line key={`xg${key}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke="#2a2a3a" strokeWidth={0.5} strokeDasharray="2,4" />,
+            <text key={`xl${key}`} x={x} y={pad.t - 4} fontSize={8} fill="#6a6a7a" fontFamily="ui-monospace,monospace" textAnchor="start">{label}</text>
+          );
+        }
+      }
+    });
+
     const sepY = pad.t + priceH + volGap / 2;
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
-      candleElements, volElements, erMarkers, yAxisElements,
+      candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
       maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
@@ -4807,6 +4830,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       <svg ref={svgRef} width={chartData.W} height={chartData.totalH}
         style={{ display: "block", cursor: dragRef.current ? "grabbing" : "grab" }}
         onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
+        {chartData.xAxisElements}
         {chartData.yAxisElements}
         <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
         <line x1={chartData.chartRight} y1={0} x2={chartData.chartRight} y2={chartData.totalH} stroke="#2a2a3a" strokeWidth={0.5} />
