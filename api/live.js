@@ -1583,8 +1583,8 @@ export default async function handler(req, res) {
         needQuarters ? fetchFinancialsFmp(newsTicker, fmpKey, "quarter") : Promise.resolve([]),
         fetchFinancialsFmp(newsTicker, fmpKey, "annual"),
         fetch(`${FMP_BASE}/stock-peers?symbol=${encodeURIComponent(newsTicker)}&apikey=${fmpKey}`)
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null),
+          .then(async r => { const body = await r.json(); console.log('FMP peers raw:', JSON.stringify(body).slice(0, 300)); return body; })
+          .catch(e => { console.log('FMP peers error:', e.message); return null; }),
       ]);
       quartersFallback = qData;
       annualFallback = aData;
