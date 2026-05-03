@@ -7919,10 +7919,14 @@ const DRAWER_SUBTHEMES = [
   { theme: "Materials", themeId: "materials", layer: "Rare Earths", tickers: ["MP","USAR","IDR"] },
   { theme: "Materials", themeId: "materials", layer: "Uranium", tickers: ["CCJ","NXE","UEC","DNN","UUUU","LEU"] },
   { theme: "Materials", themeId: "materials", layer: "Lithium", tickers: ["ALB","SQM","LAC","SGML","RIO"] },
+  { theme: "Materials", themeId: "materials", layer: "Graphite & Anode", tickers: ["NVX","NMG","WWR"] },
   { theme: "Materials", themeId: "materials", layer: "Copper", tickers: ["FCX","SCCO","TGB","HBM","ERO"] },
-  { theme: "Materials", themeId: "materials", layer: "Graphite", tickers: ["NVX","NMG","WWR"] },
-  { theme: "Materials", themeId: "materials", layer: "Antimony", tickers: ["UAMY","NVA"] },
-  { theme: "Materials", themeId: "materials", layer: "Multi Minerals", tickers: ["CRML","TMRC","UAMY"] },
+  { theme: "Materials", themeId: "materials", layer: "Steel & Iron", tickers: ["NUE","STLD","CLF","X","CMC","RS","TS"] },
+  { theme: "Materials", themeId: "materials", layer: "Specialty Chemicals", tickers: ["EMN","CE","AVNT","OLN","LYB","TROX","HUN"] },
+  { theme: "Materials", themeId: "materials", layer: "Fertilizers & Ag", tickers: ["MOS","NTR","CF","FMC","CTVA","IPI"] },
+  { theme: "Materials", themeId: "materials", layer: "Precious Metals", tickers: ["NEM","AEM","GOLD","WPM","FNV","AG","HL","EGO","KGC"] },
+  { theme: "Materials", themeId: "materials", layer: "Industrial Gases", tickers: ["LIN","APD"] },
+  { theme: "Materials", themeId: "materials", layer: "Multi Minerals", tickers: ["CRML","TMRC","UAMY","NVA"] },
 ];
 
 const DRAWER_COLORS = {
