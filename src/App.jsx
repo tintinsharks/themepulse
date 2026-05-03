@@ -1503,6 +1503,16 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
 
   useEffect(() => { localStorage.setItem("tp-drawer-themes-open", expanded ? "1" : "0"); }, [expanded]);
 
+  // Auto-expand when the selected ticker belongs to a value chain
+  useEffect(() => {
+    if (!chartTicker) return;
+    const match = DRAWER_SUBTHEMES.find(s => s.tickers.includes(chartTicker));
+    if (match) {
+      setExpanded(true);
+      setOpenTheme(match.themeId);
+    }
+  }, [chartTicker]);
+
   const grouped = useMemo(() => {
     const themes = [];
     const seen = new Set();
