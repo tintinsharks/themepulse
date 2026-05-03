@@ -1530,10 +1530,10 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
   const totalTickers = DRAWER_TICKERS.size;
 
   return (
-    <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+    <div style={{ borderBottom: `1px solid ${ARIA.border}`, display: "flex", flexDirection: "column", maxHeight: expanded ? 260 : "none", minHeight: 0 }}>
       <div
         onClick={() => setExpanded(!expanded)}
-        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", flexShrink: 0 }}
       >
         <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
@@ -1542,7 +1542,7 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
         <span style={{ fontSize: 8, color: ARIA.textMuted }}>({totalTickers})</span>
       </div>
       {expanded && (
-        <div style={{ padding: "0 12px 6px" }}>
+        <div style={{ padding: "0 12px 6px", overflowY: "auto", flex: 1 }}>
           {grouped.map((theme) => {
             const c = DRAWER_COLORS[theme.id] || { bg: "rgba(255,255,255,0.06)", border: ARIA.border, color: ARIA.textDim };
             const isOpen = openTheme === theme.id;
