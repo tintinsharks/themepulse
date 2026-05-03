@@ -1285,6 +1285,131 @@ function ETFScanTable({ onTickerClick }) {
   );
 }
 
+// ── Earnings Calendar — collapsible weekly ER schedule above Scan Watch ──
+function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
+  const ARIA = useAriaTheme();
+  const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-er-cal-open") === "1");
+  const [mode, setMode] = useState(() => localStorage.getItem("tp-er-cal-mode") || "drawer");
+
+  useEffect(() => { localStorage.setItem("tp-er-cal-open", expanded ? "1" : "0"); }, [expanded]);
+  useEffect(() => { localStorage.setItem("tp-er-cal-mode", mode); }, [mode]);
+
+  const weekData = useMemo(() => {
+    if (!stocks?.length) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayOfWeek = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    const days = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push({ label: dayNames[i], date: d, dateStr: d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" }), tickers: [] });
+    }
+
+    const isDrawer = mode === "drawer";
+    const portfolio = JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]");
+    const watchlist = JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]");
+    const drawerSet = new Set([...portfolio, ...watchlist]);
+
+    stocks.forEach((s) => {
+      if (s.earnings_days == null) return;
+      const erDisplay = s.earnings_display || "";
+      if (!erDisplay) return;
+      const erDate = new Date(erDisplay.replace(/~/g, "").trim());
+      if (isNaN(erDate.getTime())) return;
+      erDate.setHours(0, 0, 0, 0);
+      if (erDate < monday || erDate > friday) return;
+      if (isDrawer && !drawerSet.has(s.ticker)) return;
+      const dayIdx = Math.round((erDate - monday) / 86400000);
+      if (dayIdx >= 0 && dayIdx < 5) {
+        days[dayIdx].tickers.push({
+          ticker: s.ticker,
+          timing: s.er_timing || "",
+          grade: s.grade || "",
+          avgMove: s.avg_er_move,
+        });
+      }
+    });
+
+    days.forEach((d) => {
+      d.tickers.sort((a, b) => {
+        const timingOrder = { BMO: 0, "": 1, AMC: 2 };
+        return (timingOrder[a.timing] ?? 1) - (timingOrder[b.timing] ?? 1) || a.ticker.localeCompare(b.ticker);
+      });
+    });
+
+    return days;
+  }, [stocks, mode]);
+
+  const totalCount = weekData.reduce((n, d) => n + d.tickers.length, 0);
+
+  const pillBg = (timing) => timing === "BMO" ? "rgba(251,191,36,0.12)" : timing === "AMC" ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.06)";
+  const pillBorder = (timing) => timing === "BMO" ? "#a07a1f" : timing === "AMC" ? "#7c3aed" : ARIA.border;
+  const pillColor = (timing) => timing === "BMO" ? "#fbbf24" : timing === "AMC" ? "#a78bfa" : ARIA.textDim;
+
+  return (
+    <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+      >
+        <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
+          Earnings Calendar
+        </span>
+        <span style={{ fontSize: 8, color: ARIA.textMuted }}>({totalCount})</span>
+        {expanded && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 3 }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setMode("drawer")} style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", fontWeight: mode === "drawer" ? 700 : 400, border: `1px solid ${ARIA.cyan}`, color: ARIA.cyan, background: mode === "drawer" ? `${ARIA.cyan}26` : "transparent" }}>Drawer</button>
+            <button onClick={() => setMode("all")} style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", fontWeight: mode === "all" ? 700 : 400, border: `1px solid ${ARIA.cyan}`, color: ARIA.cyan, background: mode === "all" ? `${ARIA.cyan}26` : "transparent" }}>All Universe</button>
+          </div>
+        )}
+      </div>
+      {expanded && (
+        <div style={{ padding: "0 12px 8px" }}>
+          {weekData.map((day, di) => (
+            <div key={di} style={{ marginBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                <span style={{ fontSize: 8, fontWeight: 700, color: day.date.toDateString() === new Date().toDateString() ? ARIA.cyan : ARIA.textMuted, fontFamily: "monospace", minWidth: 22 }}>{day.label}</span>
+                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{day.dateStr}</span>
+                <span style={{ fontSize: 7, color: ARIA.textMuted }}>({day.tickers.length})</span>
+              </div>
+              {day.tickers.length > 0 ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 26 }}>
+                  {day.tickers.map((t) => (
+                    <button
+                      key={t.ticker}
+                      onClick={() => onTickerClick(t.ticker)}
+                      style={{
+                        fontSize: 8, padding: "2px 5px", borderRadius: 3, cursor: "pointer",
+                        fontFamily: "monospace", fontWeight: chartTicker === t.ticker ? 800 : 600,
+                        background: chartTicker === t.ticker ? ARIA.cyan : pillBg(t.timing),
+                        border: `1px solid ${chartTicker === t.ticker ? ARIA.cyan : pillBorder(t.timing)}`,
+                        color: chartTicker === t.ticker ? ARIA.bg : pillColor(t.timing),
+                      }}
+                      title={`${t.ticker} ${t.timing || "TBD"}${t.avgMove ? ` · avg ER move ±${t.avgMove.toFixed(1)}%` : ""}`}
+                    >
+                      {t.ticker}{t.timing ? ` ${t.timing}` : ""}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 7, color: "#4a4a5a", paddingLeft: 26, fontStyle: "italic" }}>—</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow"
@@ -7041,6 +7166,7 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
+        <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} />
       </div>
     </div>
