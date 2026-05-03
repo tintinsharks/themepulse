@@ -4457,7 +4457,7 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
 // ──────────────────────────────────────────────────────────────────────────
 function DailyChartSVG({ ohlc, quarters, height = 400 }) {
   const MAX_BARS = 375;
-  const DEFAULT_BARS = 95;
+  const DEFAULT_BARS = 70;
   const MIN_VISIBLE = 30;
 
   // Visible window: endIdx is always the right edge (exclusive), visibleCount is how many bars to show
