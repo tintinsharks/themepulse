@@ -5520,7 +5520,7 @@ function ChartPanelInline({
           </div>
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {stockInfo.company || ""}{stockInfo.ipo_date ? <span style={{ marginLeft: 6, color: "#7a7a8a" }}>IPO {stockInfo.ipo_date}</span> : null}
+            {stockInfo.company || ""}
           </div>
           {/* Description */}
           {description && (
@@ -5741,6 +5741,15 @@ function ChartPanelInline({
               : `${instTrans >= 0 ? "+" : ""}${instTrans.toFixed(2)}%`}
           </span>
         </span>
+        {stockInfo.ipo_date && (
+          <>
+            <span style={{ color: ARIA.border }}>|</span>
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+              <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>{" "}
+              <span style={{ fontWeight: 700, color: ARIA.textDim }}>{stockInfo.ipo_date}</span>
+            </span>
+          </>
+        )}
         {magna != null && (
           <>
             <span style={{ color: ARIA.border }}>|</span>
