@@ -1341,18 +1341,19 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
   // Build pipeline lookup maps
   // drawerSet = DRAWER_TICKERS — the curated value-chain ticker list, same as
   // the leaderboard's SUBTHEMES → TICKER_THEMES.
-  const { pipelineER, pipelineDvol } = useMemo(() => {
-    const er = {}, dvol = {};
+  const { pipelineER, pipelineDvol, pipelineMcap } = useMemo(() => {
+    const er = {}, dvol = {}, mcap = {};
     if (stocks) {
       stocks.forEach((s) => {
         const tk = s.ticker;
         if (s.avg_dollar_vol_raw > 0) dvol[tk] = s.avg_dollar_vol_raw;
+        if (s.market_cap_raw > 0) mcap[tk] = s.market_cap_raw;
         if (s.earnings_days != null) {
           er[tk] = { earnings_days: s.earnings_days, er_timing: s.er_timing || "", avg_er_move: s.avg_er_move, grade: s.grade || "" };
         }
       });
     }
-    return { pipelineER: er, pipelineDvol: dvol };
+    return { pipelineER: er, pipelineDvol: dvol, pipelineMcap: mcap };
   }, [stocks]);
   const drawerSet = DRAWER_TICKERS;
 
@@ -1410,16 +1411,13 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
       });
     });
 
-    // Sort: drawer tickers first, then alphabetic
+    // Sort: market cap descending
     days.forEach((d) => {
-      d.tickers.sort((a, b) => {
-        if (a.inDrawer !== b.inDrawer) return a.inDrawer ? -1 : 1;
-        return a.ticker.localeCompare(b.ticker);
-      });
+      d.tickers.sort((a, b) => (pipelineMcap[b.ticker] || 0) - (pipelineMcap[a.ticker] || 0));
     });
 
     return { days, usingFallback };
-  }, [fmpEvents, pipelineER, pipelineDvol, drawerSet, mode, monday]);
+  }, [fmpEvents, pipelineER, pipelineDvol, pipelineMcap, drawerSet, mode, monday]);
 
   const totalCount = weekData.days.reduce((n, d) => n + d.tickers.length, 0);
 
