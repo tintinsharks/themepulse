@@ -154,7 +154,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const data = { ticker, next, history, _debug_asReported: Array.isArray(asReported) ? asReported.slice(0, 3) : asReported };
+  const data = { ticker, next, history, _debug_incomeRaw: Array.isArray(income) ? income.slice(0, 2) : income };
   _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
   return res.status(200).json(data);
 }
