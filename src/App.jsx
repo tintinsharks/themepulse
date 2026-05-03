@@ -1425,7 +1425,6 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
 
   const timingBadge = (timing) => {
     if (timing === "bmo") return { bg: "rgba(251,191,36,0.18)", color: "#fbbf24", border: "#a07a1f", label: "BMO" };
-    if (timing === "amc") return { bg: "rgba(108,213,232,0.18)", color: "#6cd5e8", border: "#3a8a9e", label: "AMC" };
     return null;
   };
 
