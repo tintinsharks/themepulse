@@ -5582,7 +5582,6 @@ function ChartPanelInline({
           { label: "1Y",     val: stockInfo?.return_1y },
           { label: ipoLabel, val: ipoPerf },
         ];
-        if (perfs.every(p => p.val == null)) return null;
         const perfColor = (v) =>
           v == null ? ARIA.textMuted
           : v >= 50  ? "#0d9163"
