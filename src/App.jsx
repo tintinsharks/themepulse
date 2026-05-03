@@ -5502,16 +5502,6 @@ function ChartPanelInline({
             <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#fff" }}>{ticker}</span>
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
-            {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
-              <span key={`th${i}`} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-                {t.subtheme || t.theme}
-              </span>
-            ))}
-            {stockInfo.sector && !stockInfo.themes?.some(t => t.theme === stockInfo.sector) && (
-              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-                {stockInfo.sector}
-              </span>
-            )}
           </div>
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -5579,7 +5569,22 @@ function ChartPanelInline({
           : v >= -20 ? "#a06030"
           : "#c04040";
         return (
-          <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 14, justifyContent: "flex-end", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+          <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+            {/* Left: theme tags */}
+            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+              {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
+                <span key={`th${i}`} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+                  {t.subtheme || t.theme}
+                </span>
+              ))}
+              {stockInfo.sector && !stockInfo.themes?.some(t => t.theme === stockInfo.sector) && (
+                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+                  {stockInfo.sector}
+                </span>
+              )}
+            </div>
+            {/* Right: grade + perf metrics */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0, flexWrap: "wrap" }}>
             {grade && (
               <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
                 {grade}
@@ -5601,6 +5606,7 @@ function ChartPanelInline({
                 </span>
               </span>
             )}
+            </div>
           </div>
         );
       })()}
