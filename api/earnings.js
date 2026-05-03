@@ -65,11 +65,12 @@ export default async function handler(req, res) {
   //   2. /stable/income-statement    — quarterly revenue actuals
   //   3. /stable/earnings-calendar   — next upcoming ER (filter by ticker)
   // Plus optional /stable/analyst-estimates for revenue forecasts on history.
-  const [surprises, income, calendar, analyst] = await Promise.all([
+  const [surprises, income, calendar, analyst, newsRaw] = await Promise.all([
     fetchJson(`${FMP_BASE}/earnings-surprises?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=8&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/earnings-calendar?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/analyst-estimates?symbol=${ticker}&period=quarter&apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/news/stock?symbols=${ticker}&page=0&limit=10&apikey=${fmpKey}`),
   ]);
 
   // Build history map by date so revenue + EPS can be merged
@@ -153,7 +154,14 @@ export default async function handler(req, res) {
     }
   }
 
-  const data = { ticker, next, history };
+  const news = Array.isArray(newsRaw) ? newsRaw.slice(0, 10).map((a) => ({
+    title: a.title || "",
+    url: a.url || "",
+    source: a.site || "",
+    date: a.publishedDate || a.date || "",
+  })) : [];
+
+  const data = { ticker, next, history, news };
   _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
   return res.status(200).json(data);
 }
