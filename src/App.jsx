@@ -7916,6 +7916,13 @@ const DRAWER_SUBTHEMES = [
   { theme: "Space", themeId: "space", layer: "Satellites + Connect", tickers: ["ASTS","GSAT","IRDM","VSAT","AMPG","BKSY"] },
   { theme: "Space", themeId: "space", layer: "Lunar + Deep Space", tickers: ["LUNR","LDOS","LMT"] },
   { theme: "Space", themeId: "space", layer: "Space Infrastructure", tickers: ["BWXT","RDW","MNTS","GHM"] },
+  { theme: "Materials", themeId: "materials", layer: "Rare Earths", tickers: ["MP","USAR","IDR"] },
+  { theme: "Materials", themeId: "materials", layer: "Uranium", tickers: ["CCJ","NXE","UEC","DNN","UUUU","LEU"] },
+  { theme: "Materials", themeId: "materials", layer: "Lithium", tickers: ["ALB","SQM","LAC","SGML","RIO"] },
+  { theme: "Materials", themeId: "materials", layer: "Copper", tickers: ["FCX","SCCO","TGB","HBM","ERO"] },
+  { theme: "Materials", themeId: "materials", layer: "Graphite", tickers: ["NVX","NMG","WWR"] },
+  { theme: "Materials", themeId: "materials", layer: "Antimony", tickers: ["UAMY","NVA"] },
+  { theme: "Materials", themeId: "materials", layer: "Multi Minerals", tickers: ["CRML","TMRC","UAMY"] },
 ];
 
 const DRAWER_COLORS = {
@@ -7927,7 +7934,8 @@ const DRAWER_COLORS = {
   space:    { bg: "rgba(106,158,255,0.12)", border: "#3a5a8a", color: "#6a9eff" },
   software: { bg: "rgba(167,139,250,0.12)", border: "#5a3e8e", color: "#a78bfa" },
   cyber:    { bg: "rgba(239,68,68,0.12)",   border: "#7e2828", color: "#ef4444" },
-  fintech:  { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
+  fintech:   { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
+  materials: { bg: "rgba(163,230,53,0.12)",  border: "#4a6e1a", color: "#a3e635" },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -7946,7 +7954,8 @@ const VALUE_CHAIN_THEMES = [
   { id: "robotics", label: "🤖 ROBOTICS", src: "/theme-chain.html?id=robotics",    gradient: "linear-gradient(135deg, #22d3ee 0%, #6dde8e 100%)", title: "ROBOTICS + AUTONOMOUS Value Chain" },
   { id: "ev",       label: "🚗 EV",       src: "/theme-chain.html?id=ev",          gradient: "linear-gradient(135deg, #6dde8e 0%, #fbbf24 100%)", title: "EV + BATTERY Value Chain" },
   { id: "quantum",  label: "⚛ QUANTUM",   src: "/theme-chain.html?id=quantum",     gradient: "linear-gradient(135deg, #b86afc 0%, #6a9eff 100%)", title: "QUANTUM COMPUTING Value Chain" },
-  { id: "space",    label: "🚀 SPACE",    src: "/theme-chain.html?id=space",       gradient: "linear-gradient(135deg, #6a9eff 0%, #22d3ee 100%)", title: "SPACE ECOSYSTEM Value Chain" },
+  { id: "space",     label: "🚀 SPACE",     src: "/theme-chain.html?id=space",       gradient: "linear-gradient(135deg, #6a9eff 0%, #22d3ee 100%)", title: "SPACE ECOSYSTEM Value Chain" },
+  { id: "materials", label: "⛏ MATERIALS", src: "/theme-chain.html?id=materials",  gradient: "linear-gradient(135deg, #a3e635 0%, #84cc16 100%)", title: "CRITICAL MATERIALS — Rare Earths, Uranium, Lithium, Copper" },
 ];
 
 function AIInfraDrawer() {
