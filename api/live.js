@@ -1011,8 +1011,8 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
         label: isAnnual ? String(year) : `${q.period}-${String(year).slice(2)}`,
         period: isAnnual ? "FY" : q.period,
         year,
-        // report_date is what the chart markers key off — filing date from FMP
-        report_date: q.date || null,
+        // report_date: actual SEC filing date (when earnings were reported)
+        report_date: q.filingDate || q.date || null,
         revenue: revenueM,
         revenue_yoy: revenueYoyRounded,
         // Alias so the legacy chart marker code (expects sales_yoy) works too
