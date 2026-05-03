@@ -4313,27 +4313,6 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
             </span>
           </React.Fragment>
         )}
-        {/* 20-day rolling dollar-volume sparkline — accumulation / drying-up
-            signal sitting as a row within the CANSLIM scorecard grid. Spans
-            all four columns so the label + chart + value read as one unit. */}
-        <span
-          style={{
-            gridColumn: "1 / -1",
-            borderTop: `1px solid ${ARIA.border}`,
-            paddingTop: 3,
-            marginTop: 2,
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <DvolSparkline
-            ticker={ticker}
-            history={dvolHistory}
-            ARIA={ARIA}
-            width={220}
-            height={40}
-          />
-        </span>
         {naCriteria.map((l) => (
           <React.Fragment key={l}>
             <span style={{ color: ARIA.textMuted }}>·</span>
