@@ -4450,6 +4450,307 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// DailyChartSVG — inline SVG candlestick chart with MAs, volume overlays,
+// pocket pivots, VCP tightness, +4% breakout hatching, dry-up dots, and
+// earnings markers. Ported from theme-leaderboard.html renderDailyChart.
+// ──────────────────────────────────────────────────────────────────────────
+function DailyChartSVG({ ohlc, quarters, height = 400 }) {
+  const chartData = useMemo(() => {
+    if (!ohlc || !ohlc.length) return null;
+    const bars = ohlc.slice(-120);
+    const W = 900, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
+    const volGap = 6;
+    const totalH = priceH + volGap + volH + pad.t + pad.b;
+    const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
+    const gap = 1;
+    const pMax = Math.max(...bars.map(b => b.high));
+    const pMin = Math.min(...bars.map(b => b.low));
+    const pRange = pMax - pMin || 1;
+    const vMax = Math.max(...bars.map(b => b.volume)) || 1;
+    const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
+    const volTop = pad.t + priceH + volGap;
+
+    const calcEMA = (arr, n) => {
+      const k = 2 / (n + 1), out = [];
+      let prev = null;
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] == null) { out.push(null); continue; }
+        if (prev == null) {
+          if (i < n - 1) { out.push(null); continue; }
+          let s = 0; for (let j = i - n + 1; j <= i; j++) s += arr[j];
+          prev = s / n; out.push(prev);
+        } else { prev = arr[i] * k + prev * (1 - k); out.push(prev); }
+      }
+      return out;
+    };
+    const calcSMA = (arr, n) => {
+      const out = [];
+      for (let i = 0; i < arr.length; i++) {
+        if (i < n - 1) { out.push(null); continue; }
+        let s = 0; for (let j = i - n + 1; j <= i; j++) s += arr[j];
+        out.push(s / n);
+      }
+      return out;
+    };
+
+    const fullC = ohlc.map(b => b.close), fullH = ohlc.map(b => b.high), fullL = ohlc.map(b => b.low);
+    const fullV = ohlc.map(b => b.volume || 0);
+    const ema10 = calcEMA(fullC, 10).slice(-120);
+    const ema21hi = calcEMA(fullH, 21).slice(-120);
+    const ema21close = calcEMA(fullC, 21).slice(-120);
+    const ema21lo = calcEMA(fullL, 21).slice(-120);
+    const sma50 = calcSMA(fullC, 50).slice(-120);
+    const ema200 = calcEMA(fullC, 200).slice(-120);
+    const volMA = calcSMA(fullV, 50).slice(-120);
+    const volMA20 = calcSMA(fullV, 20).slice(-120);
+
+    const allBars = ohlc;
+    const sliceStart = allBars.length - bars.length;
+
+    // Build MA polyline points
+    const maPoints = (vals) => {
+      const pts = [];
+      vals.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${py(v)}`); });
+      return pts.join(" ");
+    };
+    const volMaPoints = () => {
+      const pts = [];
+      volMA.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
+      return pts.join(" ");
+    };
+
+    // VCP Tightness scores
+    const vcpScores = new Array(bars.length).fill(null);
+    const TIGHT_LB = 5, ADR_LB = 20, HIST_LB = 50;
+    for (let i = 0; i < bars.length; i++) {
+      const gi = sliceStart + i;
+      if (gi < Math.max(TIGHT_LB, ADR_LB) - 1) continue;
+      let adrSum = 0, adrCount = 0;
+      for (let j = gi - ADR_LB + 1; j <= gi; j++) {
+        if (j < 0) continue;
+        const mid = (allBars[j].high + allBars[j].low) / 2;
+        if (mid > 0) { adrSum += (allBars[j].high - allBars[j].low) / mid * 100; adrCount++; }
+      }
+      if (adrCount === 0) continue;
+      const adr = adrSum / adrCount;
+      if (adr <= 0) continue;
+      let hiC = -Infinity, loC = Infinity, hiH = -Infinity, loL = Infinity;
+      for (let j = gi - TIGHT_LB + 1; j <= gi; j++) {
+        if (j < 0) continue;
+        hiC = Math.max(hiC, allBars[j].close); loC = Math.min(loC, allBars[j].close);
+        hiH = Math.max(hiH, allBars[j].high); loL = Math.min(loL, allBars[j].low);
+      }
+      const midC = (hiC + loC) / 2, midHL = (hiH + loL) / 2;
+      if (midC <= 0 || midHL <= 0) continue;
+      const closeSpread = (hiC - loC) / midC * 100 / adr;
+      const swingSpread = (hiH - loL) / midHL * 100 / adr;
+      const rawScore = (closeSpread + swingSpread) / 2;
+      let histMin = rawScore, histMax = rawScore;
+      for (let h = gi - HIST_LB + 1; h <= gi; h++) {
+        if (h < Math.max(TIGHT_LB, ADR_LB) - 1 || h < 0) continue;
+        let hAdrSum = 0, hAdrN = 0;
+        for (let j2 = h - ADR_LB + 1; j2 <= h; j2++) {
+          if (j2 < 0) continue;
+          const mid = (allBars[j2].high + allBars[j2].low) / 2;
+          if (mid > 0) { hAdrSum += (allBars[j2].high - allBars[j2].low) / mid * 100; hAdrN++; }
+        }
+        if (hAdrN === 0) continue;
+        const hAdr = hAdrSum / hAdrN;
+        if (hAdr <= 0) continue;
+        let hHiC = -Infinity, hLoC = Infinity, hHiH = -Infinity, hLoL = Infinity;
+        for (let j2 = h - TIGHT_LB + 1; j2 <= h; j2++) {
+          if (j2 < 0) continue;
+          hHiC = Math.max(hHiC, allBars[j2].close); hLoC = Math.min(hLoC, allBars[j2].close);
+          hHiH = Math.max(hHiH, allBars[j2].high); hLoL = Math.min(hLoL, allBars[j2].low);
+        }
+        const hMidC = (hHiC + hLoC) / 2, hMidHL = (hHiH + hLoL) / 2;
+        if (hMidC <= 0 || hMidHL <= 0) continue;
+        const hRaw = ((hHiC - hLoC) / hMidC * 100 / hAdr + (hHiH - hLoL) / hMidHL * 100 / hAdr) / 2;
+        histMin = Math.min(histMin, hRaw);
+        histMax = Math.max(histMax, hRaw);
+      }
+      const range = histMax - histMin;
+      vcpScores[i] = range > 0 ? Math.max(0, Math.min(100, (rawScore - histMin) / range * 100)) : 50;
+    }
+
+    // Build candle and volume elements
+    const candleElements = [];
+    const volElements = [];
+    bars.forEach((b, i) => {
+      const gi = sliceStart + i;
+      const x = pad.l + i * (bw + gap);
+      const isUp = b.close >= b.open;
+      const candleColor = isUp ? "#2bb886" : "#f87171";
+      const bodyTop = py(Math.max(b.open, b.close));
+      const bodyBot = py(Math.min(b.open, b.close));
+      const bodyH = Math.max(1, bodyBot - bodyTop);
+      const wickX = x + bw / 2;
+
+      // Wick + body
+      candleElements.push(
+        <line key={`w${i}`} x1={wickX} y1={py(b.high)} x2={wickX} y2={py(b.low)} stroke={candleColor} strokeWidth={0.8} />,
+        <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH} fill={candleColor} rx={0.5} />
+      );
+
+      // Volume bar color logic
+      const vol = b.volume || 0;
+      let vColor;
+      if (!isUp) {
+        vColor = "#6b7280cc";
+      } else {
+        const downVols = [];
+        for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
+          if (allBars[j].close < allBars[j].open) downVols.push(allBars[j].volume || 0);
+        }
+        if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
+          vColor = "#2563eb";
+        } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
+          vColor = "#0d9488";
+        } else {
+          vColor = "#ffffffcc";
+        }
+      }
+      const vh = Math.max(0.5, (vol / vMax) * volH);
+      const vy = volTop + volH - vh;
+      volElements.push(
+        <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh} fill={vColor} opacity={0.7} rx={0.3} />
+      );
+
+      // +4% breakout hatching
+      const prevClose = gi > 0 ? allBars[gi - 1].close : b.open;
+      const prevVol = gi > 0 ? (allBars[gi - 1].volume || 0) : 0;
+      const chg = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
+      if (chg >= 4 && vol > prevVol && vol > 100000) {
+        const slope = bw * 0.4;
+        for (let dy = 3; dy < vh - 1; dy += 5) {
+          const y1 = vy + dy;
+          const y2 = y1 - slope;
+          if (y2 >= vy) volElements.push(
+            <line key={`bo${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke="#fbbf24" strokeWidth={0.8} opacity={0.8} />
+          );
+        }
+      } else if (chg <= -4 && vol > prevVol && vol > 100000) {
+        const slope = bw * 0.4;
+        for (let dy = 3; dy < vh - 1; dy += 5) {
+          const y1 = vy + dy;
+          const y2 = y1 + slope;
+          if (y2 <= vy + vh) volElements.push(
+            <line key={`bd${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke="#f8717180" strokeWidth={0.8} />
+          );
+        }
+      }
+
+      // Volume dry-up dot
+      const vAvg20 = volMA20[i] || 0;
+      if (vAvg20 > 0 && vol < vAvg20 * 0.5 && vol > 0) {
+        volElements.push(
+          <circle key={`du${i}`} cx={x + bw / 2} cy={vy - 3} r={1.5} fill="#2dd4bf" opacity={0.9} />
+        );
+      }
+
+      // VCP tight marker
+      const vScore = vcpScores[i];
+      if (vScore != null && vScore <= 10) {
+        volElements.push(
+          <text key={`t${i}`} x={x + bw / 2} y={vy + vh - 1} textAnchor="middle" fontSize={Math.min(bw + 1, 7)} fontWeight={900} fontFamily="monospace" fill="#fbbf24" opacity={0.9}>T</text>
+        );
+      }
+    });
+
+    // Earnings markers
+    const erMarkers = [];
+    if (quarters && quarters.length) {
+      const barDateIdx = {};
+      bars.forEach((b, i) => { barDateIdx[b.date] = i; });
+      for (const q of quarters) {
+        if (!q.report_date) continue;
+        let bestIdx = barDateIdx[q.report_date] ?? -1;
+        if (bestIdx < 0) {
+          const d = new Date(q.report_date + "T00:00:00");
+          for (let j = 1; j <= 5; j++) {
+            d.setDate(d.getDate() + 1);
+            const ds = d.toISOString().slice(0, 10);
+            if (barDateIdx[ds] != null) { bestIdx = barDateIdx[ds]; break; }
+          }
+        }
+        if (bestIdx < 0) continue;
+        const x = pad.l + bestIdx * (bw + gap) + bw / 2;
+        const ePct = q.eps_yoy != null ? `${q.eps_yoy > 0 ? "+" : ""}${q.eps_yoy.toFixed(0)}%` : "—";
+        const sPct = q.sales_yoy != null ? `${q.sales_yoy > 0 ? "+" : ""}${q.sales_yoy.toFixed(0)}%` : "—";
+        const dotColor = bars[bestIdx].close >= bars[bestIdx].open ? "#4ade80" : "#f87171";
+        erMarkers.push(
+          <line key={`erl${q.report_date}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke={dotColor} strokeWidth={0.5} strokeDasharray="2,3" opacity={0.5} />,
+          <text key={`ert${q.report_date}`} x={x} y={pad.t + priceH - 10} textAnchor="middle" fontSize={7} fontWeight={700} fill={dotColor} opacity={0.9} fontFamily="ui-monospace,monospace">{q.label || ""}</text>,
+          <text key={`ers${q.report_date}`} x={x} y={pad.t + priceH - 2} textAnchor="middle" fontSize={6.5} fontWeight={600} fill="#c0c0d8" opacity={0.8} fontFamily="ui-monospace,monospace">{ePct} | {sPct}</text>
+        );
+      }
+    }
+
+    const sepY = pad.t + priceH + volGap / 2;
+
+    return {
+      W, totalH, sepY, bars,
+      candleElements, volElements, erMarkers,
+      maEma21hi: maPoints(ema21hi),
+      maEma21lo: maPoints(ema21lo),
+      maEma21close: maPoints(ema21close),
+      maEma10: maPoints(ema10),
+      maSma50: maPoints(sma50),
+      maEma200: maPoints(ema200),
+      volMaPts: volMaPoints(),
+    };
+  }, [ohlc, quarters]);
+
+  if (!chartData) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: height || 400, color: "#6a6a7a", fontSize: 11, fontFamily: "monospace" }}>
+        No chart data
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: "100%", padding: "0 4px" }}>
+      <svg viewBox={`0 0 ${chartData.W} ${chartData.totalH}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
+        {/* Separator line */}
+        <line x1={0} y1={chartData.sepY} x2={chartData.W} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
+        {/* MA lines */}
+        {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
+        {chartData.maEma21lo && <polyline points={chartData.maEma21lo} fill="none" stroke="#80808060" strokeWidth={1} />}
+        {chartData.maEma21close && <polyline points={chartData.maEma21close} fill="none" stroke="#808080" strokeWidth={1.5} />}
+        {chartData.maEma10 && <polyline points={chartData.maEma10} fill="none" stroke="#ff828c" strokeWidth={1} />}
+        {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
+        {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
+        {/* Candles */}
+        {chartData.candleElements}
+        {/* Volume */}
+        {chartData.volElements}
+        {/* Volume MA */}
+        {chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
+        {/* Earnings markers */}
+        {chartData.erMarkers}
+      </svg>
+      {/* Volume legend */}
+      <div style={{ display: "flex", gap: 10, padding: "4px 8px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px)", border: "1px solid #fbbf2480", borderRadius: 1, display: "inline-block" }} />+4% BO</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px)", border: "1px solid #f8717180", borderRadius: 1, display: "inline-block" }} />-4% BD</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#1a1a24", color: "#fbbf24", fontSize: 7, fontWeight: 900, textAlign: "center", lineHeight: "8px", fontFamily: "monospace", borderRadius: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>T</span>Tight</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "radial-gradient(circle,#2dd4bf 3px,transparent 3px)", borderRadius: 1, display: "inline-block" }} />Dry-Up</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
+          <span style={{ color: "#ff828c" }}>EMA10</span>
+          <span style={{ color: "#808080" }}>EMA21</span>
+          <span style={{ color: "#2dd4bf" }}>SMA50</span>
+          <span style={{ color: "#8232c8" }}>EMA200</span>
+          <span style={{ color: "#fbbf24" }}>Vol MA</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ChartPanelInline({
   ticker,
   onTickerChange,
@@ -4469,6 +4770,9 @@ function ChartPanelInline({
   //   qbarsMode: which series to display ("quarter" or "annual")
   const [quarters, setQuarters] = useState([]);
   const [annuals, setAnnuals] = useState([]);
+  const [news, setNews] = useState([]);
+  const [description, setDescription] = useState("");
+  const [ohlcBars, setOhlcBars] = useState([]);
   const [showQuarters, setShowQuarters] = useState(
     () => localStorage.getItem("themepulse-qbars-open") === "1"
   );
@@ -4501,17 +4805,32 @@ function ChartPanelInline({
         };
         setQuarters(orient(d?.finvizQuarters));
         setAnnuals(orient(d?.finvizAnnual));
+        setNews(d?.news || []);
+        setDescription(d?.description || "");
       })
       .catch(() => {
         if (!cancelled) {
           setQuarters([]);
           setAnnuals([]);
+          setNews([]);
+          setDescription("");
         }
       });
     return () => {
       cancelled = true;
     };
   }, [ticker]);
+  // Fetch OHLC bars for inline SVG daily chart
+  useEffect(() => {
+    if (!ticker) return;
+    let cancelled = false;
+    const interval = tf === "W" ? "1wk" : "1d";
+    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d?.ohlc) setOhlcBars(d.ohlc); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [ticker, tf]);
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
 
   // Draggable split between daily (left) and intraday (right) panes.
@@ -4629,6 +4948,15 @@ function ChartPanelInline({
     }
   };
 
+  const agoLabel = (dateStr) => {
+    if (!dateStr) return "";
+    const ms = Date.now() - new Date(dateStr).getTime();
+    const h = Math.floor(ms / 3600000);
+    if (h < 1) return `${Math.max(1, Math.floor(ms / 60000))}m`;
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  };
+
   const tfBtn = (key, label, current, setter) => {
     const on = current === key;
     return (
@@ -4664,164 +4992,93 @@ function ChartPanelInline({
         flexDirection: "column",
       }}
     >
-      {/* Header row 1: Title + OHLC + Chg + Vol + RV + badges + buttons */}
-      <div
-        style={{
-          padding: "6px 14px",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: ARIA.text,
-            fontFamily: "monospace",
-            flexShrink: 0,
-          }}
-        >
-          {ticker}
-        </span>
-        {/* OHLC line — alternating muted/dim colors like Aria */}
-        <span
-          style={{
-            fontSize: 11,
-            fontFamily: "monospace",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            display: "flex",
-            alignItems: "baseline",
-            gap: 4,
-          }}
-        >
-          <span style={{ color: ARIA.textMuted }}>O</span>
-          <span style={{ color: ARIA.textDim }}>{o.toFixed(2)}</span>
-          <span style={{ color: ARIA.textMuted }}>H</span>
-          <span style={{ color: ARIA.textDim }}>{h.toFixed(2)}</span>
-          <span style={{ color: ARIA.textMuted }}>L</span>
-          <span style={{ color: ARIA.textDim }}>{l.toFixed(2)}</span>
-          <span style={{ color: ARIA.textMuted }}>C</span>
-          <span style={{ color: ARIA.textDim }}>{c.toFixed(2)}</span>
-          {chgPct != null && (
-            <span style={{ fontWeight: 700, color: chgColor, marginLeft: 4 }}>
-              {(chgAbs >= 0 ? "+" : "") + chgAbs.toFixed(2)} ({(chgPct >= 0 ? "+" : "") + chgPct.toFixed(2)}%)
+      {/* Header: Logo + Meta + Buttons */}
+      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${ARIA.border}` }}>
+        {/* Logo */}
+        <div style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+          <img src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt={ticker} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} onError={e => { e.target.style.display = "none"; e.target.parentElement.style.background = "#2a2a40"; e.target.parentElement.style.color = "#c0c0d8"; e.target.parentElement.style.fontSize = "11px"; e.target.parentElement.style.fontWeight = "800"; e.target.parentElement.textContent = ticker; }} />
+        </div>
+        {/* Meta block */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#fff" }}>{ticker}</span>
+            {chgPct != null && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: chgColor, fontFamily: "monospace" }}>
+                {c.toFixed(2)} {(chgPct >= 0 ? "+" : "") + chgPct.toFixed(2)}%
+              </span>
+            )}
+            {grade && <span style={badgeStyle(gradeColor)}>{grade}</span>}
+            {fromHi != null && (
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.06)", color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontFamily: "monospace" }}>
+                52W {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
+              </span>
+            )}
+            {erDate && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erDate.replace(/~/g, " ").trim()}</span>}
+            {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
+            {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
+          </div>
+          {/* Company + IPO */}
+          <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {stockInfo.company || ""}{stockInfo.ipo_date ? <span style={{ marginLeft: 6, color: "#7a7a8a" }}>IPO {stockInfo.ipo_date}</span> : null}
+          </div>
+          {/* Description */}
+          {description && (
+            <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {description}
+            </div>
+          )}
+        </div>
+        {/* Right side: buttons */}
+        <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
+          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inWL ? ARIA.bg : ARIA.cyan, background: inWL ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
+            {inWL ? "✓WL" : "+WL"}
+          </button>
+          <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
+            {inPF ? "✓PF" : "+PF"}
+          </button>
+          <button onClick={toggleQuarters} title="Toggle quarterly EPS / Revenue bars (Finviz FactSet)" style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.blue}80`, color: showQuarters ? ARIA.bg : ARIA.blue, background: showQuarters ? ARIA.blue : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
+            Qtrs {showQuarters ? "▲" : "▼"}
+          </button>
+          <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
+          {tfBtn("D", "D", tf, setTf)}
+          {tfBtn("W", "W", tf, setTf)}
+          <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
+          {tfBtn("5m", "5m", intradayTf, setIntradayTf)}
+          {tfBtn("30m", "30m", intradayTf, setIntradayTf)}
+          <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 60, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
+        </div>
+      </div>
+
+      {/* News headlines */}
+      {news.length > 0 && (
+        <div style={{ padding: "4px 14px 2px", maxHeight: 90, overflowY: "auto" }}>
+          {news.slice(0, 4).map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "3px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
+              <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
+              {a.headline}
+              <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* Theme pills */}
+      {stockInfo.themes?.length > 0 && (
+        <div style={{ padding: "4px 14px 6px", display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {stockInfo.themes.slice(0, 5).map((t, i) => (
+            <span key={i} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap", cursor: "pointer" }}>
+              {t.subtheme || t.theme}
+            </span>
+          ))}
+          {stockInfo.sector && !stockInfo.themes?.some(t => t.theme === stockInfo.sector) && (
+            <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+              {stockInfo.sector}
             </span>
           )}
-          <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>Vol</span>
-          <span style={{ color: ARIA.textDim }}>{fmtVol(liveVol)}</span>
-          {rvol != null && (
-            <>
-              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>RV</span>
-              <span style={{ color: rvColor, fontWeight: rvol >= 1.5 ? 700 : 400 }}>
-                {rvol.toFixed(1)}x
-              </span>
-            </>
-          )}
-          {/* Badges: 9M / VOL / HI / Grade / ER / ADR */}
-          {has9M && (
-            <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>
-          )}
-          {rvol != null && rvol >= 2 && (
-            <span style={badgeStyle("#c084fc")}>VOL</span>
-          )}
-          {fromHi != null && fromHi >= -3 && (
-            <span style={badgeStyle(ARIA.green)}>HI</span>
-          )}
-          {grade && (
-            <span style={badgeStyle(gradeColor)}>{grade}</span>
-          )}
-          {adr != null && (
-            <>
-              <span style={{ color: ARIA.textMuted, marginLeft: 4 }}>ADR</span>
-              <span style={{ color: ARIA.cyan }}>{adr.toFixed(1)}%</span>
-            </>
-          )}
-        </span>
-        {/* +WL +PF buttons */}
-        <button
-          onClick={toggleWL}
-          title={inWL ? "Remove from Watchlist" : "Add to Watchlist"}
-          style={{
-            fontSize: 8,
-            padding: "2px 6px",
-            borderRadius: 3,
-            border: `1px solid ${ARIA.cyan}80`,
-            color: inWL ? ARIA.bg : ARIA.cyan,
-            background: inWL ? ARIA.cyan : "transparent",
-            cursor: "pointer",
-            fontFamily: "monospace",
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          {inWL ? "✓WL" : "+WL"}
-        </button>
-        <button
-          onClick={togglePF}
-          title={inPF ? "Remove from Portfolio" : "Add to Portfolio"}
-          style={{
-            fontSize: 8,
-            padding: "2px 6px",
-            borderRadius: 3,
-            border: `1px solid ${ARIA.yellow}80`,
-            color: inPF ? ARIA.bg : ARIA.yellow,
-            background: inPF ? ARIA.yellow : "transparent",
-            cursor: "pointer",
-            fontFamily: "monospace",
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          {inPF ? "✓PF" : "+PF"}
-        </button>
-        <button
-          onClick={toggleQuarters}
-          title="Toggle quarterly EPS / Revenue bars (Finviz FactSet)"
-          style={{
-            fontSize: 8,
-            padding: "2px 6px",
-            borderRadius: 3,
-            border: `1px solid ${ARIA.blue}80`,
-            color: showQuarters ? ARIA.bg : ARIA.blue,
-            background: showQuarters ? ARIA.blue : "transparent",
-            cursor: "pointer",
-            fontFamily: "monospace",
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          Qtrs {showQuarters ? "▲" : "▼"}
-        </button>
-        <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
-        {tfBtn("D", "D", tf, setTf)}
-        {tfBtn("W", "W", tf, setTf)}
-        <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
-        {tfBtn("5m", "5m", intradayTf, setIntradayTf)}
-        {tfBtn("30m", "30m", intradayTf, setIntradayTf)}
-        <input
-          value={tickerInput}
-          onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && submitTicker()}
-          placeholder="Ticker"
-          style={{
-            width: 60,
-            fontSize: 9,
-            padding: "2px 6px",
-            background: ARIA.bg,
-            border: `1px solid ${ARIA.border}`,
-            borderRadius: 3,
-            color: ARIA.textDim,
-            fontFamily: "monospace",
-            textTransform: "uppercase",
-            outline: "none",
-            marginLeft: "auto",
-          }}
-        />
-      </div>
+        </div>
+      )}
 
       {/* Header row 2: CANSLIM stats line (Aria-faithful) */}
       <div
@@ -5158,28 +5415,11 @@ function ChartPanelInline({
         </div>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: 0,
-          height,
-          position: "relative",
-        }}
-      >
-        {/* Full-width chart */}
-        <div
-          style={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          <ErrorBoundary>
-            <LegacyLWChart ticker={ticker} tf={tf} quarters={quarters} />
-          </ErrorBoundary>
-        </div>
+      {/* SVG Daily Chart */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <ErrorBoundary>
+          <DailyChartSVG ohlc={ohlcBars} quarters={quarters} height={height} />
+        </ErrorBoundary>
       </div>
     </div>
   );
