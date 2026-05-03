@@ -5920,6 +5920,8 @@ function WatchlistSectionTable({
   count,
   onTickerClick,
   removeTicker,
+  focusTickers,
+  toggleFocus,
 }) {
   const ARIA = useAriaTheme();
   const [sortKey, setSortKey] = useState("change");
@@ -5936,6 +5938,10 @@ function WatchlistSectionTable({
   const sortedRows = useMemo(() => {
     const arr = rows.slice();
     arr.sort((a, b) => {
+      // Focus tickers always float to top
+      const af = focusTickers?.has(a.ticker) ? 0 : 1;
+      const bf = focusTickers?.has(b.ticker) ? 0 : 1;
+      if (af !== bf) return af - bf;
       let av = a[sortKey];
       let bv = b[sortKey];
       if (sortKey === "ticker" || sortKey === "subtheme") {
@@ -5948,7 +5954,7 @@ function WatchlistSectionTable({
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, sortKey, sortDir]);
+  }, [rows, sortKey, sortDir, focusTickers]);
 
   const visibleTickers = sortedRows.map((r) => r.ticker);
   useEffect(() => {
@@ -6125,6 +6131,7 @@ function WatchlistSectionTable({
                     ? ARIA.textDim
                     : ARIA.red;
                 const isSel = selectedTicker === r.ticker;
+                const isFocus = focusTickers?.has(r.ticker);
                 return (
                   <tr
                     key={r.ticker}
@@ -6135,18 +6142,19 @@ function WatchlistSectionTable({
                     }}
                     style={{
                       cursor: "pointer",
-                      background: isSel ? `${ARIA.cyan}26` : "transparent",
+                      background: isSel ? `${ARIA.cyan}26` : isFocus ? "rgba(251,191,36,0.07)" : "transparent",
+                      borderLeft: isFocus ? "2px solid #fbbf24" : "2px solid transparent",
                     }}
                     onMouseEnter={(e) => {
-                      if (!isSel) e.currentTarget.style.background = ARIA.bgHover;
+                      if (!isSel) e.currentTarget.style.background = isFocus ? "rgba(251,191,36,0.12)" : ARIA.bgHover;
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = isSel
                         ? `${ARIA.cyan}26`
-                        : "transparent";
+                        : isFocus ? "rgba(251,191,36,0.07)" : "transparent";
                     }}
                   >
-                    <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text }}>
+                    <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: isFocus ? "#fbbf24" : ARIA.text }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                         {r.ticker}
                         {r.is9m && (
@@ -6207,24 +6215,45 @@ function WatchlistSectionTable({
                       {r.subtheme || "—"}
                     </td>
                     <td style={{ ...cell, padding: "2px 4px" }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTicker(list, r.ticker);
-                        }}
-                        title="Remove"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          color: ARIA.textMuted,
-                          cursor: "pointer",
-                          fontSize: 12,
-                          padding: 0,
-                          lineHeight: 1,
-                        }}
-                      >
-                        ×
-                      </button>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFocus && toggleFocus(r.ticker);
+                          }}
+                          title={isFocus ? "Remove focus" : "Mark as focus"}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: isFocus ? "#fbbf24" : ARIA.textMuted,
+                            cursor: "pointer",
+                            fontSize: 10,
+                            padding: 0,
+                            lineHeight: 1,
+                            opacity: isFocus ? 1 : 0.4,
+                          }}
+                        >
+                          ★
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeTicker(list, r.ticker);
+                          }}
+                          title="Remove"
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: ARIA.textMuted,
+                            cursor: "pointer",
+                            fontSize: 12,
+                            padding: 0,
+                            lineHeight: 1,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 );
@@ -6248,6 +6277,18 @@ function Watchlist({ stockMap, onTickerClick }) {
   // Shared hook so chart header +WL/+PF buttons stay in sync with this panel
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focusTickers, setFocusTickers] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("themepulse-focus") || "[]")); }
+    catch { return new Set(); }
+  });
+  const toggleFocus = useCallback((ticker) => {
+    setFocusTickers((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticker)) next.delete(ticker); else next.add(ticker);
+      localStorage.setItem("themepulse-focus", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
   const [pInput, setPInput] = useState("");
   const [wInput, setWInput] = useState("");
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
@@ -7005,6 +7046,8 @@ function Watchlist({ stockMap, onTickerClick }) {
             onAddSubmit={addPortfolio}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}
+            focusTickers={focusTickers}
+            toggleFocus={toggleFocus}
           />
           <WatchlistSectionTable
             rows={chgPosFilter ? watchRows.filter((r) => (r.change || 0) > 0) : watchRows}
@@ -7016,6 +7059,8 @@ function Watchlist({ stockMap, onTickerClick }) {
             onAddSubmit={addWatchlist}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}
+            focusTickers={focusTickers}
+            toggleFocus={toggleFocus}
           />
         </div>
       )}
@@ -7543,7 +7588,7 @@ function ChartScanRow({
   // Default 320px to match Aria's #sw-column initial width.
   const [scanW, setScanW] = useState(() => {
     const saved = parseFloat(localStorage.getItem("themepulse-scan-width") || "");
-    return Number.isFinite(saved) && saved >= 150 && saved <= 900 ? saved : 320;
+    return Number.isFinite(saved) && saved >= 150 && saved <= 900 ? saved : 400;
   });
   const rowRef = React.useRef(null);
   useEffect(() => {
