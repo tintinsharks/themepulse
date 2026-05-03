@@ -4592,10 +4592,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
     const bars = ohlc.slice(start, end);
     if (bars.length === 0) return null;
 
-    const W = containerW, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
+    const W = containerW, priceH = 260, volH = 80, yAxisW = 48, pad = { l: 0, r: yAxisW, t: 4, b: 0 };
     const volGap = 6;
     const totalH = priceH + volGap + volH + pad.t + pad.b;
-    const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
+    const chartRight = W - pad.r;
+    const bw = Math.max(2, (chartRight - pad.l) / bars.length - 1);
     const gap = 1;
     const pMax = Math.max(...bars.map(b => b.high));
     const pMin = Math.min(...bars.map(b => b.low));
@@ -4718,10 +4719,31 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       }
     }
 
+    // Y-axis price ticks — pick ~5-7 nice round values
+    const niceStep = (range) => {
+      const rough = range / 6;
+      const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+      const residual = rough / mag;
+      const nice = residual <= 1.5 ? 1 : residual <= 3 ? 2 : residual <= 7 ? 5 : 10;
+      return nice * mag;
+    };
+    const step = niceStep(pRange);
+    const tickStart = Math.ceil(pMin / step) * step;
+    const yAxisElements = [];
+    const fmtPrice = (v) => v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2);
+    for (let v = tickStart; v <= pMax; v += step) {
+      const y = py(v);
+      if (y < pad.t + 8 || y > pad.t + priceH - 4) continue;
+      yAxisElements.push(
+        <line key={`yg${v}`} x1={pad.l} y1={y} x2={chartRight} y2={y} stroke="#2a2a3a" strokeWidth={0.5} />,
+        <text key={`yl${v}`} x={chartRight + 4} y={y + 3} fontSize={8} fill="#6a6a7a" fontFamily="ui-monospace,monospace">${fmtPrice(v)}</text>
+      );
+    }
+
     const sepY = pad.t + priceH + volGap / 2;
     return {
-      W, totalH, sepY, barCount: bars.length, totalBars: total,
-      candleElements, volElements, erMarkers,
+      W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
+      candleElements, volElements, erMarkers, yAxisElements,
       maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
@@ -4785,7 +4807,9 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       <svg ref={svgRef} width={chartData.W} height={chartData.totalH}
         style={{ display: "block", cursor: dragRef.current ? "grabbing" : "grab" }}
         onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
-        <line x1={0} y1={chartData.sepY} x2={chartData.W} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
+        {chartData.yAxisElements}
+        <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
+        <line x1={chartData.chartRight} y1={0} x2={chartData.chartRight} y2={chartData.totalH} stroke="#2a2a3a" strokeWidth={0.5} />
         {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
         {chartData.maEma21lo && <polyline points={chartData.maEma21lo} fill="none" stroke="#80808060" strokeWidth={1} />}
         {chartData.maEma21close && <polyline points={chartData.maEma21close} fill="none" stroke="#808080" strokeWidth={1.5} />}
