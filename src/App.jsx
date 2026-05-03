@@ -4812,10 +4812,45 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
 
 // ──────────────────────────────────────────────────────────────────────────
 // DailyChartSVG — inline SVG candlestick chart with MAs, volume overlays,
+// Wilder's smoothed ATR — identical to ThinkScript ta.atr / Pine ta.atr.
+function calcWilderATR(bars, period = 14) {
+  if (!bars || bars.length < period) return null;
+  const tr = bars.map((b, i) =>
+    i === 0
+      ? b.high - b.low
+      : Math.max(b.high - b.low, Math.abs(b.high - bars[i - 1].close), Math.abs(b.low - bars[i - 1].close))
+  );
+  let atr = null;
+  for (let i = 0; i < tr.length; i++) {
+    if (i < period - 1) continue;
+    if (i === period - 1) atr = tr.slice(0, period).reduce((s, v) => s + v, 0) / period;
+    else atr = (atr * (period - 1) + tr[i]) / period;
+  }
+  return atr;
+}
+
+// Risk position-sizing — port of ThinkScript calc_size().
+function calcRiskSize(stopPrice, entryPrice, accountSize, riskPct, maxAllocPct) {
+  const dist = entryPrice - stopPrice;
+  if (dist <= 0 || entryPrice <= 0) return null;
+  const riskUsd = accountSize * (riskPct / 100);
+  const maxPosUsd = accountSize * (maxAllocPct / 100);
+  const distPct = (dist / entryPrice) * 100;
+  const rawShares = Math.floor(riskUsd / dist);
+  const rawInvested = rawShares * entryPrice;
+  const capped = rawInvested > maxPosUsd;
+  const finalShares = capped ? Math.floor(maxPosUsd / entryPrice) : rawShares;
+  const actInvested = finalShares * entryPrice;
+  const actRisk = finalShares * dist;
+  const investedPct = (actInvested / accountSize) * 100;
+  return { shares: finalShares, risk: actRisk, investedPct, capped, distPct, stopPrice };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // pocket pivots, VCP tightness, +4% breakout hatching, dry-up dots, and
 // earnings markers. Ported from theme-leaderboard.html renderDailyChart.
 // ──────────────────────────────────────────────────────────────────────────
-function DailyChartSVG({ ohlc, quarters, height = 400 }) {
+function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
   const MAX_BARS = 375;
   const DEFAULT_BARS = 113;
   const MIN_VISIBLE = 30;
@@ -5132,6 +5167,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
+      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH,
     };
   }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW]);
 
@@ -5204,6 +5240,24 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
         {chartData.volElements}
         {chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
         {chartData.erMarkers}
+        {stopLines.map((sl, i) => {
+          if (!sl?.price || sl.price <= 0) return null;
+          const pMin = chartData.pMin, pMax = chartData.pMax, pRange = chartData.pRange;
+          const padT = chartData.padT, priceH = chartData.priceH;
+          if (sl.price < pMin || sl.price > pMax) return null;
+          const y = padT + (1 - (sl.price - pMin) / pRange) * priceH;
+          return (
+            <g key={i}>
+              <line x1={chartData.padL} y1={y} x2={chartData.chartRight} y2={y}
+                stroke={sl.color} strokeWidth={1.5}
+                strokeDasharray={sl.dashed ? "5,3" : undefined} opacity={0.85} />
+              <text x={chartData.chartRight + 4} y={y + 3} fontSize={7.5} fill={sl.color}
+                fontFamily="ui-monospace,monospace" fontWeight={700}>
+                {sl.label} {sl.price.toFixed(2)}
+              </text>
+            </g>
+          );
+        })}
       </svg>
       {/* Legend + zoom info */}
       <div style={{ display: "flex", gap: 10, padding: "4px 8px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap" }}>
@@ -5269,6 +5323,15 @@ function ChartPanelInline({
   const [description, setDescription] = useState("");
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
+  const [showTrade, setShowTrade] = useState(false);
+  const [tradeSettings, setTradeSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("themepulse-risk-settings") || "null") ||
+      { accountSize: 300000, riskPct: 1.0, maxAllocPct: 25.0, atrLen: 14 }; }
+    catch { return { accountSize: 300000, riskPct: 1.0, maxAllocPct: 25.0, atrLen: 14 }; }
+  });
+  useEffect(() => {
+    localStorage.setItem("themepulse-risk-settings", JSON.stringify(tradeSettings));
+  }, [tradeSettings]);
   const [qbarsMode, setQbarsMode] = useState(
     () => localStorage.getItem("themepulse-qbars-mode") || "quarter"
   );
@@ -5420,6 +5483,23 @@ function ChartPanelInline({
   const magna = stockInfo.magna ?? null;
   const adr = stockInfo.adr_pct ?? null;
   const erDate = stockInfo.earnings_display || "";
+
+  // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
+  const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
+  const riskEntry = c > 0 ? c : null;
+  const riskDayLow = l > 0 ? l : (ohlcBars[ohlcBars.length - 1]?.low ?? null);
+  const riskPDL = ohlcBars[ohlcBars.length - 1]?.low ?? null;
+  const riskScenarios = useMemo(() => {
+    if (!riskEntry || !dailyATR) return null;
+    const { accountSize, riskPct, maxAllocPct } = tradeSettings;
+    return {
+      tight: calcRiskSize(riskEntry - dailyATR * 0.5, riskEntry, accountSize, riskPct, maxAllocPct),
+      base:  calcRiskSize(riskEntry - dailyATR * 1.0, riskEntry, accountSize, riskPct, maxAllocPct),
+      wide:  calcRiskSize(riskEntry - dailyATR * 2.0, riskEntry, accountSize, riskPct, maxAllocPct),
+      lod:   riskDayLow ? calcRiskSize(riskDayLow, riskEntry, accountSize, riskPct, maxAllocPct) : null,
+      pdl:   riskPDL    ? calcRiskSize(riskPDL,    riskEntry, accountSize, riskPct, maxAllocPct) : null,
+    };
+  }, [riskEntry, dailyATR, riskDayLow, riskPDL, tradeSettings]);
 
   // Minervini / O'Neill fundamentals gate — simple floor criteria. Green
   // light only when EPS + Sales growth and net margin all clear the bar
@@ -5615,6 +5695,100 @@ function ChartPanelInline({
         );
       })()}
 
+      {/* Risk Management Dashboard */}
+      {showTrade && (() => {
+        const inputStyle = {
+          width: 80, fontSize: 9, padding: "2px 5px", background: "#0a0a14",
+          border: "1px solid #2a2a3a", borderRadius: 3, color: "#c0c0d8",
+          fontFamily: "monospace", outline: "none",
+        };
+        const labelStyle = { fontSize: 8, color: "#6a6a7a", marginRight: 3 };
+        const cols = [
+          { key: "tight", label: "0.5× ATR" },
+          { key: "base",  label: "1× ATR" },
+          { key: "wide",  label: "2× ATR" },
+          { key: "lod",   label: "Day Low" },
+          { key: "pdl",   label: "Prev Low" },
+        ];
+        const atrPct = dailyATR && riskEntry ? ((dailyATR / riskEntry) * 100).toFixed(2) : null;
+        const fmtN = (v, dec = 2) => v != null ? v.toFixed(dec) : "—";
+        const cellBg = "#0d0d1a";
+        const headBg = "#14142a";
+        const colColors = ["#ef4444","#f97316","#f59e0b","#9ca3af","#fb923c"];
+        return (
+          <div style={{ borderBottom: "1px solid #1a1a2e", background: "#0b0b18", padding: "8px 14px" }}>
+            {/* Input row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 9, fontFamily: "monospace", color: "#0d9163", fontWeight: 700 }}>
+                ATR({tradeSettings.atrLen}): ${dailyATR ? dailyATR.toFixed(2) : "—"}{atrPct ? ` (${atrPct}%)` : ""}
+              </span>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={labelStyle}>Acct $</span>
+                <input style={inputStyle} type="number" value={tradeSettings.accountSize}
+                  onChange={e => setTradeSettings(s => ({ ...s, accountSize: parseFloat(e.target.value) || s.accountSize }))} />
+              </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={labelStyle}>Risk %</span>
+                <input style={{ ...inputStyle, width: 50 }} type="number" step="0.1" value={tradeSettings.riskPct}
+                  onChange={e => setTradeSettings(s => ({ ...s, riskPct: parseFloat(e.target.value) || s.riskPct }))} />
+              </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={labelStyle}>Max %</span>
+                <input style={{ ...inputStyle, width: 50 }} type="number" step="1" value={tradeSettings.maxAllocPct}
+                  onChange={e => setTradeSettings(s => ({ ...s, maxAllocPct: parseFloat(e.target.value) || s.maxAllocPct }))} />
+              </label>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={labelStyle}>ATR Len</span>
+                <input style={{ ...inputStyle, width: 45 }} type="number" step="1" value={tradeSettings.atrLen}
+                  onChange={e => setTradeSettings(s => ({ ...s, atrLen: parseInt(e.target.value) || s.atrLen }))} />
+              </label>
+            </div>
+            {/* Table */}
+            {riskScenarios && (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 9 }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: "3px 8px", background: headBg, color: "#5a5a7a", textAlign: "left", fontWeight: 600, fontSize: 8, borderBottom: "1px solid #1a1a2e" }}></th>
+                    {cols.map((col, ci) => (
+                      <th key={col.key} style={{ padding: "3px 8px", background: headBg, color: colColors[ci], textAlign: "right", fontWeight: 700, fontSize: 8, borderBottom: "1px solid #1a1a2e", whiteSpace: "nowrap" }}>
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { row: "Stop $",    fn: s => s ? `$${fmtN(s.stopPrice)}` : "—" },
+                    { row: "Shares",    fn: s => s ? `${s.shares}${s.capped ? "*" : ""}` : "—", cappedFn: s => s?.capped },
+                    { row: "Dist %",    fn: s => s ? `-${fmtN(s.distPct)}%` : "—" },
+                    { row: "Invested",  fn: s => s ? `${fmtN(s.investedPct, 1)}%` : "—" },
+                    { row: "Risk $",    fn: s => s ? `$${fmtN(s.risk)}` : "—" },
+                  ].map(({ row, fn, cappedFn }) => (
+                    <tr key={row}>
+                      <td style={{ padding: "3px 8px", background: headBg, color: "#6a6a7a", fontSize: 8, fontWeight: 600, borderBottom: "1px solid #111120" }}>{row}</td>
+                      {cols.map((col, ci) => {
+                        const s = riskScenarios[col.key];
+                        const isCapped = cappedFn ? cappedFn(s) : false;
+                        return (
+                          <td key={col.key} style={{
+                            padding: "3px 8px", textAlign: "right", borderBottom: "1px solid #111120",
+                            background: isCapped ? "rgba(251,191,36,0.12)" : cellBg,
+                            color: isCapped ? "#fbbf24" : colColors[ci],
+                            fontWeight: row === "Stop $" || row === "Shares" ? 700 : 400,
+                          }}>
+                            {fn(s)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
+
       {/* News + Notes — two-column row */}
       {(() => {
         const tickerNote = sheetNotes?.[ticker] || "";
@@ -5771,6 +5945,19 @@ function ChartPanelInline({
             </span>
           </>
         )}
+        <span style={{ color: ARIA.border }}>|</span>
+        <button
+          onClick={() => setShowTrade(t => !t)}
+          style={{
+            fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+            background: showTrade ? "#0d9163" : "transparent",
+            border: "1px solid #0d9163",
+            color: showTrade ? "#fff" : "#0d9163",
+            fontFamily: "monospace", fontWeight: 700,
+          }}
+        >
+          TRADE
+        </button>
         {magna != null && (
           <>
             <span style={{ color: ARIA.border }}>|</span>
@@ -5800,7 +5987,18 @@ function ChartPanelInline({
       {/* SVG Daily Chart */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <ErrorBoundary>
-          <DailyChartSVG ohlc={ohlcBars} quarters={quarters} height={height} />
+          <DailyChartSVG
+            ohlc={ohlcBars}
+            quarters={quarters}
+            height={height}
+            stopLines={showTrade && riskScenarios ? [
+              { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
+              { price: riskScenarios.base?.stopPrice,  color: "#f97316", label: "1x",   dashed: true },
+              { price: riskScenarios.wide?.stopPrice,  color: "#f59e0b", label: "2x",   dashed: true },
+              { price: riskDayLow,                     color: "#9ca3af", label: "LOD",  dashed: false },
+              { price: riskPDL,                        color: "#fb923c", label: "PDL",  dashed: true },
+            ].filter(sl => sl.price > 0) : []}
+          />
         </ErrorBoundary>
       </div>
 
