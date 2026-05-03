@@ -65,11 +65,13 @@ export default async function handler(req, res) {
   //   2. /stable/income-statement    — quarterly revenue actuals
   //   3. /stable/earnings-calendar   — next upcoming ER (filter by ticker)
   // Plus optional /stable/analyst-estimates for revenue forecasts on history.
-  const [surprises, income, calendar, analyst] = await Promise.all([
+  const [surprises, income, calendar, analyst, reportDates, confirmedCal] = await Promise.all([
     fetchJson(`${FMP_BASE}/earnings-surprises?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=8&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/earnings-calendar?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/analyst-estimates?symbol=${ticker}&period=quarter&apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/financial-reports-dates?symbol=${ticker}&apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/earning-calendar-confirmed?symbol=${ticker}&apikey=${fmpKey}`),
   ]);
 
   // Build history map by date so revenue + EPS can be merged
@@ -153,7 +155,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const data = { ticker, next, history };
+  const data = { ticker, next, history, _debug_reportDates: Array.isArray(reportDates) ? reportDates.slice(0, 4) : reportDates, _debug_confirmedCal: Array.isArray(confirmedCal) ? confirmedCal.slice(0, 4) : confirmedCal };
   _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
   return res.status(200).json(data);
 }
