@@ -4456,21 +4456,24 @@ function DvolSparkline({ ticker, history, ARIA, width = 320, height = 52 }) {
 // earnings markers. Ported from theme-leaderboard.html renderDailyChart.
 // ──────────────────────────────────────────────────────────────────────────
 function DailyChartSVG({ ohlc, quarters, height = 400 }) {
-  const chartData = useMemo(() => {
-    if (!ohlc || !ohlc.length) return null;
-    const bars = ohlc.slice(-375);
-    const W = 900, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
-    const volGap = 6;
-    const totalH = priceH + volGap + volH + pad.t + pad.b;
-    const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
-    const gap = 1;
-    const pMax = Math.max(...bars.map(b => b.high));
-    const pMin = Math.min(...bars.map(b => b.low));
-    const pRange = pMax - pMin || 1;
-    const vMax = Math.max(...bars.map(b => b.volume)) || 1;
-    const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
-    const volTop = pad.t + priceH + volGap;
+  const MAX_BARS = 375;
+  const MIN_VISIBLE = 30;
 
+  // Visible window: endIdx is always the right edge (exclusive), visibleCount is how many bars to show
+  const [visibleCount, setVisibleCount] = useState(MAX_BARS);
+  const [endIdx, setEndIdx] = useState(null);
+  const svgRef = React.useRef(null);
+  const dragRef = React.useRef(null);
+
+  // Reset view when ticker changes (ohlc reference changes)
+  useEffect(() => {
+    setVisibleCount(MAX_BARS);
+    setEndIdx(null);
+  }, [ohlc]);
+
+  // Pre-compute MAs and VCP scores on the full dataset (expensive, only when ohlc changes)
+  const precomputed = useMemo(() => {
+    if (!ohlc || !ohlc.length) return null;
     const calcEMA = (arr, n) => {
       const k = 2 / (n + 1), out = [];
       let prev = null;
@@ -4493,53 +4496,28 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       }
       return out;
     };
-
     const fullC = ohlc.map(b => b.close), fullH = ohlc.map(b => b.high), fullL = ohlc.map(b => b.low);
     const fullV = ohlc.map(b => b.volume || 0);
-    const ema10 = calcEMA(fullC, 10).slice(-375);
-    const ema21hi = calcEMA(fullH, 21).slice(-375);
-    const ema21close = calcEMA(fullC, 21).slice(-375);
-    const ema21lo = calcEMA(fullL, 21).slice(-375);
-    const sma50 = calcSMA(fullC, 50).slice(-375);
-    const ema200 = calcEMA(fullC, 200).slice(-375);
-    const volMA = calcSMA(fullV, 50).slice(-375);
-    const volMA20 = calcSMA(fullV, 20).slice(-375);
 
-    const allBars = ohlc;
-    const sliceStart = allBars.length - bars.length;
-
-    // Build MA polyline points
-    const maPoints = (vals) => {
-      const pts = [];
-      vals.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${py(v)}`); });
-      return pts.join(" ");
-    };
-    const volMaPoints = () => {
-      const pts = [];
-      volMA.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
-      return pts.join(" ");
-    };
-
-    // VCP Tightness scores
-    const vcpScores = new Array(bars.length).fill(null);
+    // VCP scores for the full dataset
+    const vcpScores = new Array(ohlc.length).fill(null);
     const TIGHT_LB = 5, ADR_LB = 20, HIST_LB = 50;
-    for (let i = 0; i < bars.length; i++) {
-      const gi = sliceStart + i;
-      if (gi < Math.max(TIGHT_LB, ADR_LB) - 1) continue;
+    for (let i = 0; i < ohlc.length; i++) {
+      if (i < Math.max(TIGHT_LB, ADR_LB) - 1) continue;
       let adrSum = 0, adrCount = 0;
-      for (let j = gi - ADR_LB + 1; j <= gi; j++) {
+      for (let j = i - ADR_LB + 1; j <= i; j++) {
         if (j < 0) continue;
-        const mid = (allBars[j].high + allBars[j].low) / 2;
-        if (mid > 0) { adrSum += (allBars[j].high - allBars[j].low) / mid * 100; adrCount++; }
+        const mid = (ohlc[j].high + ohlc[j].low) / 2;
+        if (mid > 0) { adrSum += (ohlc[j].high - ohlc[j].low) / mid * 100; adrCount++; }
       }
       if (adrCount === 0) continue;
       const adr = adrSum / adrCount;
       if (adr <= 0) continue;
       let hiC = -Infinity, loC = Infinity, hiH = -Infinity, loL = Infinity;
-      for (let j = gi - TIGHT_LB + 1; j <= gi; j++) {
+      for (let j = i - TIGHT_LB + 1; j <= i; j++) {
         if (j < 0) continue;
-        hiC = Math.max(hiC, allBars[j].close); loC = Math.min(loC, allBars[j].close);
-        hiH = Math.max(hiH, allBars[j].high); loL = Math.min(loL, allBars[j].low);
+        hiC = Math.max(hiC, ohlc[j].close); loC = Math.min(loC, ohlc[j].close);
+        hiH = Math.max(hiH, ohlc[j].high); loL = Math.min(loL, ohlc[j].low);
       }
       const midC = (hiC + loC) / 2, midHL = (hiH + loL) / 2;
       if (midC <= 0 || midHL <= 0) continue;
@@ -4547,13 +4525,13 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       const swingSpread = (hiH - loL) / midHL * 100 / adr;
       const rawScore = (closeSpread + swingSpread) / 2;
       let histMin = rawScore, histMax = rawScore;
-      for (let h = gi - HIST_LB + 1; h <= gi; h++) {
+      for (let h = i - HIST_LB + 1; h <= i; h++) {
         if (h < Math.max(TIGHT_LB, ADR_LB) - 1 || h < 0) continue;
         let hAdrSum = 0, hAdrN = 0;
         for (let j2 = h - ADR_LB + 1; j2 <= h; j2++) {
           if (j2 < 0) continue;
-          const mid = (allBars[j2].high + allBars[j2].low) / 2;
-          if (mid > 0) { hAdrSum += (allBars[j2].high - allBars[j2].low) / mid * 100; hAdrN++; }
+          const mid = (ohlc[j2].high + ohlc[j2].low) / 2;
+          if (mid > 0) { hAdrSum += (ohlc[j2].high - ohlc[j2].low) / mid * 100; hAdrN++; }
         }
         if (hAdrN === 0) continue;
         const hAdr = hAdrSum / hAdrN;
@@ -4561,8 +4539,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
         let hHiC = -Infinity, hLoC = Infinity, hHiH = -Infinity, hLoL = Infinity;
         for (let j2 = h - TIGHT_LB + 1; j2 <= h; j2++) {
           if (j2 < 0) continue;
-          hHiC = Math.max(hHiC, allBars[j2].close); hLoC = Math.min(hLoC, allBars[j2].close);
-          hHiH = Math.max(hHiH, allBars[j2].high); hLoL = Math.min(hLoL, allBars[j2].low);
+          hHiC = Math.max(hHiC, ohlc[j2].close); hLoC = Math.min(hLoC, ohlc[j2].close);
+          hHiH = Math.max(hHiH, ohlc[j2].high); hLoL = Math.min(hLoL, ohlc[j2].low);
         }
         const hMidC = (hHiC + hLoC) / 2, hMidHL = (hHiH + hLoL) / 2;
         if (hMidC <= 0 || hMidHL <= 0) continue;
@@ -4574,11 +4552,69 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       vcpScores[i] = range > 0 ? Math.max(0, Math.min(100, (rawScore - histMin) / range * 100)) : 50;
     }
 
-    // Build candle and volume elements
+    return {
+      ema10: calcEMA(fullC, 10),
+      ema21hi: calcEMA(fullH, 21),
+      ema21close: calcEMA(fullC, 21),
+      ema21lo: calcEMA(fullL, 21),
+      sma50: calcSMA(fullC, 50),
+      ema200: calcEMA(fullC, 200),
+      volMA: calcSMA(fullV, 50),
+      volMA20: calcSMA(fullV, 20),
+      vcpScores,
+      totalBars: ohlc.length,
+    };
+  }, [ohlc]);
+
+  // Render the visible window
+  const chartData = useMemo(() => {
+    if (!precomputed || !ohlc || !ohlc.length) return null;
+    const total = ohlc.length;
+    const count = Math.min(visibleCount, total);
+    const end = endIdx != null ? Math.min(endIdx, total) : total;
+    const start = Math.max(0, end - count);
+    const bars = ohlc.slice(start, end);
+    if (bars.length === 0) return null;
+
+    const W = 900, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
+    const volGap = 6;
+    const totalH = priceH + volGap + volH + pad.t + pad.b;
+    const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
+    const gap = 1;
+    const pMax = Math.max(...bars.map(b => b.high));
+    const pMin = Math.min(...bars.map(b => b.low));
+    const pRange = pMax - pMin || 1;
+    const vMax = Math.max(...bars.map(b => b.volume)) || 1;
+    const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
+    const volTop = pad.t + priceH + volGap;
+
+    // Slice MAs to visible window
+    const sliceMA = (ma) => ma.slice(start, end);
+    const ema10 = sliceMA(precomputed.ema10);
+    const ema21hi = sliceMA(precomputed.ema21hi);
+    const ema21close = sliceMA(precomputed.ema21close);
+    const ema21lo = sliceMA(precomputed.ema21lo);
+    const sma50 = sliceMA(precomputed.sma50);
+    const ema200 = sliceMA(precomputed.ema200);
+    const volMA = sliceMA(precomputed.volMA);
+    const volMA20 = sliceMA(precomputed.volMA20);
+    const vcpScores = precomputed.vcpScores.slice(start, end);
+
+    const maPoints = (vals) => {
+      const pts = [];
+      vals.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${py(v)}`); });
+      return pts.length >= 2 ? pts.join(" ") : null;
+    };
+    const volMaPoints = () => {
+      const pts = [];
+      volMA.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
+      return pts.length >= 2 ? pts.join(" ") : null;
+    };
+
     const candleElements = [];
     const volElements = [];
     bars.forEach((b, i) => {
-      const gi = sliceStart + i;
+      const gi = start + i;
       const x = pad.l + i * (bw + gap);
       const isUp = b.close >= b.open;
       const candleColor = isUp ? "#2bb886" : "#f87171";
@@ -4586,14 +4622,10 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       const bodyBot = py(Math.min(b.open, b.close));
       const bodyH = Math.max(1, bodyBot - bodyTop);
       const wickX = x + bw / 2;
-
-      // Wick + body
       candleElements.push(
         <line key={`w${i}`} x1={wickX} y1={py(b.high)} x2={wickX} y2={py(b.low)} stroke={candleColor} strokeWidth={0.8} />,
         <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH} fill={candleColor} rx={0.5} />
       );
-
-      // Volume bar color logic
       const vol = b.volume || 0;
       let vColor;
       if (!isUp) {
@@ -4601,7 +4633,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       } else {
         const downVols = [];
         for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
-          if (allBars[j].close < allBars[j].open) downVols.push(allBars[j].volume || 0);
+          if (ohlc[j].close < ohlc[j].open) downVols.push(ohlc[j].volume || 0);
         }
         if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
           vColor = "#2563eb";
@@ -4616,49 +4648,32 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       volElements.push(
         <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh} fill={vColor} opacity={0.7} rx={0.3} />
       );
-
-      // +4% breakout hatching
-      const prevClose = gi > 0 ? allBars[gi - 1].close : b.open;
-      const prevVol = gi > 0 ? (allBars[gi - 1].volume || 0) : 0;
+      const prevClose = gi > 0 ? ohlc[gi - 1].close : b.open;
+      const prevVol = gi > 0 ? (ohlc[gi - 1].volume || 0) : 0;
       const chg = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
       if (chg >= 4 && vol > prevVol && vol > 100000) {
         const slope = bw * 0.4;
         for (let dy = 3; dy < vh - 1; dy += 5) {
-          const y1 = vy + dy;
-          const y2 = y1 - slope;
-          if (y2 >= vy) volElements.push(
-            <line key={`bo${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke="#fbbf24" strokeWidth={0.8} opacity={0.8} />
-          );
+          const y1 = vy + dy, y2 = y1 - slope;
+          if (y2 >= vy) volElements.push(<line key={`bo${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke="#fbbf24" strokeWidth={0.8} opacity={0.8} />);
         }
       } else if (chg <= -4 && vol > prevVol && vol > 100000) {
         const slope = bw * 0.4;
         for (let dy = 3; dy < vh - 1; dy += 5) {
-          const y1 = vy + dy;
-          const y2 = y1 + slope;
-          if (y2 <= vy + vh) volElements.push(
-            <line key={`bd${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke="#f8717180" strokeWidth={0.8} />
-          );
+          const y1 = vy + dy, y2 = y1 + slope;
+          if (y2 <= vy + vh) volElements.push(<line key={`bd${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke="#f8717180" strokeWidth={0.8} />);
         }
       }
-
-      // Volume dry-up dot
       const vAvg20 = volMA20[i] || 0;
       if (vAvg20 > 0 && vol < vAvg20 * 0.5 && vol > 0) {
-        volElements.push(
-          <circle key={`du${i}`} cx={x + bw / 2} cy={vy - 3} r={1.5} fill="#2dd4bf" opacity={0.9} />
-        );
+        volElements.push(<circle key={`du${i}`} cx={x + bw / 2} cy={vy - 3} r={1.5} fill="#2dd4bf" opacity={0.9} />);
       }
-
-      // VCP tight marker
       const vScore = vcpScores[i];
       if (vScore != null && vScore <= 10) {
-        volElements.push(
-          <text key={`t${i}`} x={x + bw / 2} y={vy + vh - 1} textAnchor="middle" fontSize={Math.min(bw + 1, 7)} fontWeight={900} fontFamily="monospace" fill="#fbbf24" opacity={0.9}>T</text>
-        );
+        volElements.push(<text key={`t${i}`} x={x + bw / 2} y={vy + vh - 1} textAnchor="middle" fontSize={Math.min(bw + 1, 7)} fontWeight={900} fontFamily="monospace" fill="#fbbf24" opacity={0.9}>T</text>);
       }
     });
 
-    // Earnings markers
     const erMarkers = [];
     if (quarters && quarters.length) {
       const barDateIdx = {};
@@ -4688,19 +4703,73 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
     }
 
     const sepY = pad.t + priceH + volGap / 2;
-
     return {
-      W, totalH, sepY, bars,
+      W, totalH, sepY, barCount: bars.length, totalBars: total,
       candleElements, volElements, erMarkers,
-      maEma21hi: maPoints(ema21hi),
-      maEma21lo: maPoints(ema21lo),
-      maEma21close: maPoints(ema21close),
-      maEma10: maPoints(ema10),
-      maSma50: maPoints(sma50),
-      maEma200: maPoints(ema200),
+      maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
+      maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
+      maSma50: maPoints(sma50), maEma200: maPoints(ema200),
       volMaPts: volMaPoints(),
+      startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
     };
-  }, [ohlc, quarters]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx]);
+
+  // Wheel zoom: scroll up = zoom in, scroll down = zoom out, centered on mouse position
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    if (!ohlc || !ohlc.length) return;
+    const total = ohlc.length;
+    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
+
+    setVisibleCount((prev) => {
+      const next = Math.max(MIN_VISIBLE, Math.min(MAX_BARS, Math.round(prev * zoomFactor)));
+      // Adjust endIdx to zoom centered on mouse position
+      const svgEl = svgRef.current;
+      if (svgEl) {
+        const rect = svgEl.getBoundingClientRect();
+        const mouseRatio = (e.clientX - rect.left) / rect.width;
+        setEndIdx((prevEnd) => {
+          const curEnd = prevEnd != null ? Math.min(prevEnd, total) : total;
+          const curStart = Math.max(0, curEnd - prev);
+          const anchor = curStart + Math.round(prev * mouseRatio);
+          const newStart = Math.max(0, Math.min(total - next, anchor - Math.round(next * mouseRatio)));
+          return Math.min(total, newStart + next);
+        });
+      }
+      return next;
+    });
+  }, [ohlc]);
+
+  // Drag to pan
+  const handleMouseDown = useCallback((e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startEndIdx: endIdx, startCount: visibleCount };
+    const onMove = (ev) => {
+      if (!dragRef.current || !svgRef.current || !ohlc) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const dx = ev.clientX - dragRef.current.startX;
+      const barsPerPx = dragRef.current.startCount / rect.width;
+      const barShift = Math.round(dx * barsPerPx);
+      const total = ohlc.length;
+      const curEnd = dragRef.current.startEndIdx != null ? dragRef.current.startEndIdx : total;
+      const newEnd = Math.max(dragRef.current.startCount, Math.min(total, curEnd - barShift));
+      setEndIdx(newEnd);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [endIdx, visibleCount, ohlc]);
+
+  // Double-click to reset view
+  const handleDblClick = useCallback(() => {
+    setVisibleCount(MAX_BARS);
+    setEndIdx(null);
+  }, []);
 
   if (!chartData) {
     return (
@@ -4712,26 +4781,22 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
 
   return (
     <div style={{ width: "100%", padding: "0 4px" }}>
-      <svg viewBox={`0 0 ${chartData.W} ${chartData.totalH}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
-        {/* Separator line */}
+      <svg ref={svgRef} viewBox={`0 0 ${chartData.W} ${chartData.totalH}`} preserveAspectRatio="none"
+        style={{ width: "100%", height, cursor: dragRef.current ? "grabbing" : "grab" }}
+        onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
         <line x1={0} y1={chartData.sepY} x2={chartData.W} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
-        {/* MA lines */}
         {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
         {chartData.maEma21lo && <polyline points={chartData.maEma21lo} fill="none" stroke="#80808060" strokeWidth={1} />}
         {chartData.maEma21close && <polyline points={chartData.maEma21close} fill="none" stroke="#808080" strokeWidth={1.5} />}
         {chartData.maEma10 && <polyline points={chartData.maEma10} fill="none" stroke="#ff828c" strokeWidth={1} />}
         {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
         {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
-        {/* Candles */}
         {chartData.candleElements}
-        {/* Volume */}
         {chartData.volElements}
-        {/* Volume MA */}
         {chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
-        {/* Earnings markers */}
         {chartData.erMarkers}
       </svg>
-      {/* Volume legend */}
+      {/* Legend + zoom info */}
       <div style={{ display: "flex", gap: 10, padding: "4px 8px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
@@ -4746,6 +4811,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
           <span style={{ color: "#8232c8" }}>EMA200</span>
           <span style={{ color: "#fbbf24" }}>Vol MA</span>
         </span>
+        {chartData.barCount < chartData.totalBars && (
+          <span style={{ color: "#5a5a6a" }} title="Double-click to reset view">
+            {chartData.startDate} → {chartData.endDate} · {chartData.barCount}d
+          </span>
+        )}
       </div>
     </div>
   );
