@@ -4354,7 +4354,50 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
           </span>
           <span style={{ color: ARIA.textMuted }}>composite</span>
         </div>
+        {/* EPS + Revenue percentile ranks vs universe */}
+        <PctileRanks ticker={ticker} stockMap={stockMap} ARIA={ARIA} />
       </div>
+    </div>
+  );
+}
+
+// EPS & Revenue estimate percentile ranks — same logic as leaderboard drawer
+function PctileRanks({ ticker, stockMap, ARIA }) {
+  const { epsPct, revPct } = useMemo(() => {
+    if (!stockMap || !ticker) return {};
+    const s = stockMap[ticker];
+    if (!s) return {};
+    const epsVals = [], revVals = [];
+    Object.values(stockMap).forEach((st) => {
+      if (st.eps_estimated != null && Number.isFinite(st.eps_estimated)) epsVals.push(st.eps_estimated);
+      if (st.revenue_estimated > 0) revVals.push(st.revenue_estimated);
+    });
+    epsVals.sort((a, b) => a - b);
+    revVals.sort((a, b) => a - b);
+    const rank = (sorted, val) => {
+      if (!sorted.length || val == null) return null;
+      let lo = 0, hi = sorted.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] < val) lo = mid + 1; else hi = mid; }
+      return Math.round((lo / sorted.length) * 100);
+    };
+    return { epsPct: rank(epsVals, s.eps_estimated), revPct: rank(revVals, s.revenue_estimated) };
+  }, [ticker, stockMap]);
+
+  if (epsPct == null && revPct == null) return null;
+
+  const ordinal = (n) => { const s = ["th","st","nd","rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+  const pColor = (p) => p >= 90 ? "#4ae8a0" : p >= 70 ? "#22d3ee" : p >= 40 ? "#b0b0c0" : "#e06060";
+  const pBg = (p) => p >= 90 ? "rgba(13,145,99,0.25)" : p >= 70 ? "rgba(34,211,238,0.2)" : p >= 40 ? "rgba(144,144,160,0.2)" : "rgba(200,80,80,0.2)";
+  const badge = (label, pct) => pct == null ? null : (
+    <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, fontFamily: "monospace", fontWeight: 700, background: pBg(pct), color: pColor(pct) }}>
+      {label} {ordinal(pct)} %ile
+    </span>
+  );
+
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", gap: 4, marginTop: 3 }}>
+      {badge("EPS", epsPct)}
+      {badge("Rev", revPct)}
     </div>
   );
 }
