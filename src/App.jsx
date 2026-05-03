@@ -1285,9 +1285,9 @@ function ETFScanTable({ onTickerClick }) {
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth }) {
   const ARIA = useAriaTheme();
-  const [swView, setSwView] = useState("scan"); // "scan" | "etf"
+  const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow"
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   // Owned-ticker set for the Hide Owned filter (reads the same cross-component
@@ -1572,6 +1572,9 @@ function ScanWatch({ stocks, onTickerClick, chartTicker }) {
         <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
           <button onClick={() => setSwView("scan")} style={pillStyle(swView === "scan", ARIA.green)}>Scan</button>
           <button onClick={() => setSwView("etf")} style={pillStyle(swView === "etf", ARIA.green)}>ETF</button>
+          <button onClick={() => setSwView("watchlist")} style={pillStyle(swView === "watchlist", ARIA.green)}>WL</button>
+          <button onClick={() => setSwView("themes")} style={pillStyle(swView === "themes", ARIA.green)}>Themes</button>
+          <button onClick={() => setSwView("subflow")} style={pillStyle(swView === "subflow", ARIA.green)}>Subflow</button>
         </div>
         <div
           style={{
@@ -1971,6 +1974,37 @@ function ScanWatch({ stocks, onTickerClick, chartTicker }) {
         />
       </div>
       </>}
+
+      {swView === "watchlist" && (
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <ErrorBoundary>
+            <Watchlist stockMap={stockMap} onTickerClick={onTickerClick} />
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {swView === "themes" && (
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <ErrorBoundary>
+            <SubthemePerformance stockMap={stockMap} themeHealth={themeHealth} onTickerClick={onTickerClick} />
+          </ErrorBoundary>
+        </div>
+      )}
+
+      {swView === "subflow" && (
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", zoom: 0.7, overflowX: "auto" }}>
+          <ErrorBoundary>
+            <SubthemeRotationAutoRefresh
+              dataUrl="/dashboard_data.json"
+              historyUrl="/subtheme_history.json"
+              portfolio={portfolio}
+              watchlist={watchlist}
+              onTickerClick={onTickerClick}
+            />
+          </ErrorBoundary>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -4488,9 +4522,10 @@ function ChartPanelInline({
     };
   }, [ticker]);
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
-  const [rightTab, setRightTab] = useState(
-    () => localStorage.getItem("themepulse-chart-righttab") || "chart"
-  );
+  const [rightTab, setRightTab] = useState(() => {
+    const saved = localStorage.getItem("themepulse-chart-righttab");
+    return saved && ["chart", "picks"].includes(saved) ? saved : "chart";
+  });
   const setRightTabPersist = useCallback((t) => {
     setRightTab(t);
     localStorage.setItem("themepulse-chart-righttab", t);
@@ -5296,9 +5331,6 @@ function ChartPanelInline({
             {[
               { key: "chart", label: "CHART" },
               { key: "picks", label: "AGENT PICKS" },
-              { key: "watchlist", label: "WATCHLIST" },
-              { key: "themes", label: "THEMES" },
-              { key: "subflow", label: "SUBFLOW" },
             ].map((t, i, arr) => {
               const on = rightTab === t.key;
               const isFirst = i === 0;
@@ -5354,40 +5386,6 @@ function ChartPanelInline({
                     ahPicks={ahPicks}
                     analyzedPicks={analyzedPicks}
                     onAnalyzedRemove={onAnalyzedRemove}
-                    onTickerClick={onTickerChange}
-                  />
-                </ErrorBoundary>
-              </div>
-            )}
-            {rightTab === "watchlist" && (
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-                <ErrorBoundary>
-                  <Watchlist
-                    stockMap={stockMap}
-                    onTickerClick={onTickerChange}
-                  />
-                </ErrorBoundary>
-              </div>
-            )}
-            {rightTab === "themes" && (
-              <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                <ErrorBoundary>
-                  <SubthemePerformance
-                    stockMap={stockMap}
-                    themeHealth={themeHealth}
-                    onTickerClick={onTickerChange}
-                  />
-                </ErrorBoundary>
-              </div>
-            )}
-            {rightTab === "subflow" && (
-              <div style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", zoom: 0.7, overflowX: "auto" }}>
-                <ErrorBoundary>
-                  <SubthemeRotationAutoRefresh
-                    dataUrl="/dashboard_data.json"
-                    historyUrl="/subtheme_history.json"
-                    portfolio={portfolio}
-                    watchlist={watchlist}
                     onTickerClick={onTickerChange}
                   />
                 </ErrorBoundary>
@@ -7092,7 +7090,7 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} />
       </div>
     </div>
   );
