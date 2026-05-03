@@ -4464,7 +4464,22 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
   const [visibleCount, setVisibleCount] = useState(DEFAULT_BARS);
   const [endIdx, setEndIdx] = useState(null);
   const svgRef = React.useRef(null);
+  const containerRef = React.useRef(null);
   const dragRef = React.useRef(null);
+  const [containerW, setContainerW] = useState(900);
+
+  // Measure container width
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect?.width;
+      if (w && w > 0) setContainerW(Math.round(w));
+    });
+    ro.observe(el);
+    setContainerW(Math.round(el.offsetWidth) || 900);
+    return () => ro.disconnect();
+  }, []);
 
   // Reset view when ticker changes (ohlc reference changes)
   useEffect(() => {
@@ -4577,7 +4592,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
     const bars = ohlc.slice(start, end);
     if (bars.length === 0) return null;
 
-    const W = 900, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
+    const W = containerW, priceH = 260, volH = 80, pad = { l: 0, r: 0, t: 4, b: 0 };
     const volGap = 6;
     const totalH = priceH + volGap + volH + pad.t + pad.b;
     const bw = Math.max(2, (W - pad.l - pad.r) / bars.length - 1);
@@ -4713,7 +4728,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -4759,16 +4774,16 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
 
   if (!chartData) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: height || 400, color: "#6a6a7a", fontSize: 11, fontFamily: "monospace" }}>
+      <div ref={containerRef} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: height || 400, color: "#6a6a7a", fontSize: 11, fontFamily: "monospace", width: "100%" }}>
         No chart data
       </div>
     );
   }
 
   return (
-    <div style={{ width: "100%", padding: "0 4px" }}>
-      <svg ref={svgRef} viewBox={`0 0 ${chartData.W} ${chartData.totalH}`} preserveAspectRatio="none"
-        style={{ width: "100%", height, cursor: dragRef.current ? "grabbing" : "grab" }}
+    <div ref={containerRef} style={{ width: "100%", padding: "0 4px" }}>
+      <svg ref={svgRef} width={chartData.W} height={chartData.totalH}
+        style={{ display: "block", cursor: dragRef.current ? "grabbing" : "grab" }}
         onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
         <line x1={0} y1={chartData.sepY} x2={chartData.W} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
         {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
