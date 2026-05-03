@@ -7049,6 +7049,8 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
   const [open, setOpen] = useState(true);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fmpPeers, setFmpPeers] = useState([]);
+  const [fmpLoading, setFmpLoading] = useState(false);
 
   useEffect(() => {
     if (!ticker) return;
@@ -7062,24 +7064,34 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
       .catch(() => setLoading(false));
   }, [ticker]);
 
+  useEffect(() => {
+    if (!ticker) return;
+    setFmpPeers([]);
+    setFmpLoading(true);
+    fetch(`/api/peers?ticker=${encodeURIComponent(ticker)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.peers) setFmpPeers(d.peers);
+        setFmpLoading(false);
+      })
+      .catch(() => setFmpLoading(false));
+  }, [ticker]);
+
   const s = stockMap?.[ticker] || {};
   const parts = [s.company || data?.description?.split(".")[0] || "", s.industry || "", s.sector || ""].filter(Boolean);
   const news = data?.news || [];
-  const desc = data?.description || "";
-  // Peers: prefer Finviz scrape from /api/live (when cookies work and the
-  // regex matches the current layout). Fall back to ticker's industry
-  // siblings from stockMap, sorted by RS desc, top 8.
+  // Peers: prefer FMP peer comparison API, then Finviz scrape, then industry siblings from stockMap.
   const peers = useMemo(() => {
+    if (fmpPeers.length > 0) return fmpPeers;
     const fromApi = data?.peers || [];
     if (fromApi.length > 0) return fromApi;
     if (!s?.industry || !stockMap) return [];
-    const siblings = Object.values(stockMap)
+    return Object.values(stockMap)
       .filter((x) => x?.industry === s.industry && x.ticker && x.ticker !== ticker)
       .sort((a, b) => (b.rs ?? 0) - (a.rs ?? 0))
       .slice(0, 8)
       .map((x) => x.ticker);
-    return siblings;
-  }, [data, s, stockMap, ticker]);
+  }, [fmpPeers, data, s, stockMap, ticker]);
 
   return (
     <div
@@ -7159,7 +7171,7 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
         )}
       </div>
       {open && (
-        <div style={{ display: "flex", height: 70 }}>
+        <div style={{ display: "flex", height: 80 }}>
           {/* Left: News */}
           <div
             style={{
@@ -7199,7 +7211,7 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
                 </div>
               ))}
           </div>
-          {/* Right: Description */}
+          {/* Right: Peer Comparison (FMP) */}
           <div
             style={{
               flex: 1,
@@ -7207,19 +7219,54 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
               overflowY: "auto",
               fontSize: 7,
               fontFamily: "monospace",
-              color: ARIA.textDim,
-              lineHeight: 1.4,
             }}
           >
-            {loading && (
-              <span style={{ color: ARIA.textMuted, fontSize: 7 }}>Loading...</span>
+            <div style={{ color: ARIA.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3, fontSize: 6 }}>
+              Peer Comparison {fmpLoading ? "…" : peers.length > 0 ? `(${peers.length})` : ""}
+            </div>
+            {fmpLoading && peers.length === 0 && (
+              <span style={{ color: ARIA.textMuted }}>Loading…</span>
             )}
-            {!loading && !desc && (
-              <span style={{ color: ARIA.textMuted, fontSize: 7 }}>
-                No description available
-              </span>
+            {!fmpLoading && peers.length === 0 && (
+              <span style={{ color: ARIA.textMuted }}>No peers found</span>
             )}
-            {!loading && desc}
+            {peers.slice(0, 10).map((p) => {
+              const ps = stockMap?.[p] || {};
+              const chg = ps.chg ?? ps.chgOpen ?? null;
+              const rvol = ps.rvol ?? null;
+              const rs = ps.rs ?? null;
+              const adr = ps.adr_pct ?? null;
+              const colorChg = chg == null ? ARIA.textMuted
+                : chg >= 2 ? ARIA.green
+                : chg >= 0 ? "#7cb342"
+                : chg >= -2 ? "#c47000"
+                : ARIA.red;
+              return (
+                <div key={p} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2, lineHeight: 1 }}>
+                  <span
+                    onClick={() => onTickerClick && onTickerClick(p)}
+                    title={`Load ${p}`}
+                    style={{ color: ARIA.cyan, cursor: "pointer", fontWeight: 700, minWidth: 36, fontSize: 7 }}
+                  >
+                    {p}
+                  </span>
+                  <span style={{ color: colorChg, minWidth: 34 }}>
+                    {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                  </span>
+                  {rvol != null && (
+                    <span style={{ color: rvol >= 2 ? ARIA.green : rvol >= 1.5 ? "#fbbf24" : ARIA.textMuted, minWidth: 26 }}>
+                      {rvol.toFixed(1)}x
+                    </span>
+                  )}
+                  {rs != null && (
+                    <span style={{ color: ARIA.textMuted, minWidth: 22 }}>RS{rs}</span>
+                  )}
+                  {adr != null && (
+                    <span style={{ color: ARIA.textMuted }}>ADR{adr.toFixed(1)}%</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
