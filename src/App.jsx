@@ -5411,6 +5411,10 @@ function ChartPanelInline({
     const r = stockInfo.roe ?? null;
     return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
   })();
+  const roic = (() => {
+    const r = stockInfo.roic ?? null;
+    return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
+  })();
   const instOwn = stockInfo.inst_own_pct ?? null;
   const instTrans = stockInfo.inst_trans_pct ?? null;
   const magna = stockInfo.magna ?? null;
@@ -5708,6 +5712,22 @@ function ChartPanelInline({
               : roe >= 17
               ? ARIA.blue
               : roe > 0
+              ? ARIA.textDim
+              : ARIA.red
+          }
+          ARIA={ARIA}
+        />
+        <CSStat
+          label="ROIC"
+          v={roic}
+          clr={
+            roic == null
+              ? ARIA.textMuted
+              : roic >= 20
+              ? ARIA.green
+              : roic >= 12
+              ? ARIA.blue
+              : roic > 0
               ? ARIA.textDim
               : ARIA.red
           }
