@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary — manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-04-30",
+  "updated": "2026-05-03",
   "notes": [
     {
       "id": "viav-form-2026-q1",
@@ -924,6 +924,92 @@
         "sive-apple-silicon-photonics-2026-04-30"
       ],
       "source": "Discord / personal note — thesis state-of-play update"
+    },
+    {
+      "id": "cpo-goldman-supercycle-2026-05-03",
+      "date": "2026-05-03",
+      "type": "macro_thesis",
+      "headline": "Goldman Sachs: optical networking TAM 9x to $154B — CPO alone $91B. 142% CAGR 2026–2030. Frontrunning the optical supercycle.",
+      "primary_tickers": ["LITE", "COHR", "AAOI", "CIEN", "VIAV", "AVGO", "NVDA"],
+      "derivative_tickers": ["TSEM", "MTSI", "FN", "CRDO", "POET"],
+      "speculative_pure_plays": [
+        "SIVE-B.ST (Sivers Semiconductors) — 2µm laser supplier, no 800G pluggable exposure, bleeding-edge CPO",
+        "MSSCorps — CPO yield play",
+        "Shunsin — CPO packaging play",
+        "Win Semi — CPO foundry (III-V on silicon)"
+      ],
+      "themes_implicated": [
+        "Co-Packaged Optics",
+        "High-Speed Pluggable",
+        "Optical Components",
+        "Silicon Photonics",
+        "AI Infrastructure",
+        "Custom Silicon / ASIC",
+        "Foundry"
+      ],
+      "key_numbers": {
+        "total_optical_TAM_today": "$15B",
+        "total_optical_TAM_target": "$154B (9x expansion)",
+        "CPO_contribution": "$91B (59% of total TAM)",
+        "CPO_CAGR_2026_2030": "142% (excl. ELS — embedded laser source)",
+        "scale_up_inflection": "Scale-up CPO surpasses scale-out before 2030 and becomes dominant market",
+        "goldman_eps_callout": "Significant EPS upside expected across: (1) optical modules/engines, (2) CW lasers and EMLs, (3) PCB/CCL manufacturers"
+      },
+      "goldman_supply_chain_map": {
+        "laser_light_sources_SiPh": {
+          "us_listed": ["LITE", "COHR", "AVGO", "AAOI"],
+          "foreign": ["Sumitomo (5802.T)", "Furukawa (5801.T)", "Landmark (3081.TWO)", "Etern (600105.SS)", "Everbright Photonics (688048.SS)", "Shijia Photons (688313.SS)", "Accelink (002281.SZ)", "Mitsubishi (6503.T)", "YJ Semi (688498.SS)"]
+        },
+        "laser_light_sources_EML": {
+          "us_listed": ["LITE", "COHR", "AVGO"],
+          "foreign": ["Sumitomo (5802.T)", "YJ Semi (688498.SS)", "Etern (600105.SS)", "Everbright Photonics (688048.SS)", "Shijia Photons (688313.SS)", "Accelink (002281.SZ)", "Furukawa (5801.T)", "Mitsubishi (6503.T)", "Source Photonics (Private)"]
+        },
+        "passive_couplers_splitters": {
+          "us_listed": ["LITE", "COHR"],
+          "foreign": ["FOCI (3363.TWO)", "AFR (300620.SZ)", "Everprox (300548.SZ)", "Senko (Private)"]
+        },
+        "passive_filters": {
+          "us_listed": ["LITE", "COHR", "VIAV"],
+          "foreign": ["Shijia Photons (688313.SS)", "Sumitomo (5802.T)", "FOCI (3363.TWO)"]
+        },
+        "passive_WDM": {
+          "us_listed": ["CIEN", "LITE"],
+          "foreign": ["AFR (300620.SZ)", "Everprox (300548.SZ)", "Accelink (002281.SZ)", "TFC Optical (300394.SZ)", "FOCI (3363.TWO)"]
+        },
+        "passive_attenuators": {
+          "us_listed": ["LITE"],
+          "foreign": ["Everprox (300548.SZ)", "Accelink (002281.SZ)", "FOCI (3363.TWO)"]
+        }
+      },
+      "lead_lag": {
+        "architecture_drivers": ["NVDA", "AVGO"],
+        "established_beneficiaries": ["LITE", "COHR", "AAOI", "CIEN", "VIAV"],
+        "pure_play_CPO_alpha": ["SIVE-B.ST", "MSSCorps", "Shunsin", "Win Semi", "TSEM"],
+        "horizon": "2026–2030 (inflection 2026 H2)",
+        "rationale": "NVDA/AVGO set the CPO architecture (NVLink, co-packaged switches). Institutional flows first hit the Goldman-named large caps (LITE/COHR/AAOI) as analysts upgrade on $91B TAM. Second wave hits undiscovered pure-plays (SIVE, MSSCorps, Shunsin) with no 800G pluggable baggage and highest CPO leverage. SIVE specifically is not on Goldman's list — that's where the alpha is.",
+        "sequencing": [
+          "1. Goldman report → analyst upgrades on LITE/COHR/AAOI",
+          "2. Institutional accumulation in established optical names",
+          "3. CPO becomes consensus → attention spreads to pure-play small caps",
+          "4. SIVE / MSSCorps / Shunsin re-rated as next-leg highest-beta plays"
+        ]
+      },
+      "why_scale_up_matters": "Scale-out (800G pluggables) connects racks — maturing, commoditizing. Scale-up CPO connects GPUs within the compute cluster (NVLink / Ultra Ethernet). Pluggable physics cannot achieve the bandwidth density at these distances. Scale-up CPO is structurally protected, not a design cycle. Surpasses scale-out before 2030.",
+      "why_sive_specifically": "2µm laser wavelength has lower loss through silicon photonics waveguides vs. 1310nm — key differentiator for embedded laser sources. Zero 800G pluggable revenue means no legacy headwind. Not on Goldman's list yet, which is the setup. III-V on silicon foundry (TSEM/Win Semi) is the manufacturing bottleneck — SIVE bypasses it with purpose-built CPO laser tech.",
+      "key_risk": "ELS (embedded laser source) adoption timeline: if co-packaged laser integration slips on yield, external laser suppliers like SIVE get a longer runway but total CPO ramp may shift. Goldman's 142% CAGR excludes ELS — watch for ELS qualification news as a catalyst re-timer.",
+      "caveats": [
+        "Most pure-play CPO names (Shunsin, MSSCorps, Win Semi) are not US-listed — no direct FMP data feed.",
+        "SIVE is Stockholm-listed (SIVE-B.ST) — won't surface in ThemePulse scan watch but track manually.",
+        "Goldman TAM assumes NVDA/AVGO architectural adoption holds — any shift back to copper-based retimers (e.g., new DSP generation) would compress the timeline.",
+        "LITE and COHR still have 800G pluggable revenue — near-term EPS could disappoint even if CPO thesis is intact."
+      ],
+      "linked_notes": [
+        "ai-infra-state-of-play-2026-05-02",
+        "photonics-supply-chain-2026-04-30",
+        "viav-form-2026-q1",
+        "hyperscaler-capex-2026-q1"
+      ],
+      "source": "Goldman Sachs optical networking report + Discord / personal note 2026-05-03"
     }
   ]
 }
