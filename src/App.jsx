@@ -5590,7 +5590,7 @@ function ChartPanelInline({
           : v >= -20 ? "#a06030"
           : "#c04040";
         return (
-          <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 14, borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+          <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 14, justifyContent: "flex-end", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
             {perfs.map(({ label, val }) => (
               <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
                 <span style={{ color: ARIA.textMuted }}>{label}</span>
