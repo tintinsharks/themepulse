@@ -5500,11 +5500,6 @@ function ChartPanelInline({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#fff" }}>{ticker}</span>
-            {chgPct != null && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: chgColor, fontFamily: "monospace" }}>
-                {c.toFixed(2)} {(chgPct >= 0 ? "+" : "") + chgPct.toFixed(2)}%
-              </span>
-            )}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
             {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
