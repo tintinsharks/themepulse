@@ -14,7 +14,7 @@
 // Phase 5   — Cutover
 // ════════════════════════════════════════════════════════════════════════════
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { scrollRowIntoScroller } from "./utils.js";
 import {
