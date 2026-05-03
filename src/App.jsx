@@ -5077,6 +5077,16 @@ function ChartPanelInline({
             {erDate && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erDate.replace(/~/g, " ").trim()}</span>}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
+            {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
+              <span key={`th${i}`} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+                {t.subtheme || t.theme}
+              </span>
+            ))}
+            {stockInfo.sector && !stockInfo.themes?.some(t => t.theme === stockInfo.sector) && (
+              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+                {stockInfo.sector}
+              </span>
+            )}
           </div>
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -5119,22 +5129,6 @@ function ChartPanelInline({
               <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
             </a>
           ))}
-        </div>
-      )}
-
-      {/* Theme pills */}
-      {stockInfo.themes?.length > 0 && (
-        <div style={{ padding: "4px 14px 6px", display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {stockInfo.themes.slice(0, 5).map((t, i) => (
-            <span key={i} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap", cursor: "pointer" }}>
-              {t.subtheme || t.theme}
-            </span>
-          ))}
-          {stockInfo.sector && !stockInfo.themes?.some(t => t.theme === stockInfo.sector) && (
-            <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-              {stockInfo.sector}
-            </span>
-          )}
         </div>
       )}
 
