@@ -5202,6 +5202,23 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
   );
 }
 
+const SHEET_NOTES_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRDC0MYBXHn-4hW-mVHZp0lusDe6zsQENz7zVAFanckp12axZ45XRkodzlJADoSciEmJEfvhkPuGZmk/pub?output=csv";
+const _sheetNotesCache = { map: null, loading: false };
+
+function parseSheetCSVRow(line) {
+  const result = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQ = !inQ; }
+    else if (ch === ',' && !inQ) { result.push(cur); cur = ""; }
+    else { cur += ch; }
+  }
+  result.push(cur);
+  return result;
+}
+
 function ChartPanelInline({
   ticker,
   onTickerChange,
@@ -5222,9 +5239,7 @@ function ChartPanelInline({
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
-  const [finvizPeers, setFinvizPeers] = useState([]);
-  const [fmpPeers, setFmpPeers] = useState([]);
-  const [fmpPeersLoading, setFmpPeersLoading] = useState(false);
+  const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [qbarsMode, setQbarsMode] = useState(
     () => localStorage.getItem("themepulse-qbars-mode") || "quarter"
@@ -5236,26 +5251,18 @@ function ChartPanelInline({
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
-    setFmpPeers([]);
-    setFinvizPeers([]);
-    setFmpPeersLoading(true);
     fetch(`/api/live?news=${encodeURIComponent(ticker)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return;
         const orient = (arr) => {
           if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
-          // Ensure oldest → newest. Finviz scraper returns newest-first; FMP
-          // path is already ascending.
           return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
         };
         setQuarters(orient(d?.finvizQuarters));
         setAnnuals(orient(d?.finvizAnnual));
         setNews(d?.news || []);
         setDescription(d?.description || "");
-        setFmpPeers(d?.fmpPeers || []);
-        setFinvizPeers(d?.peers || []);
-        setFmpPeersLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
@@ -5263,14 +5270,33 @@ function ChartPanelInline({
           setAnnuals([]);
           setNews([]);
           setDescription("");
-          setFinvizPeers([]);
-          setFmpPeersLoading(false);
         }
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [ticker]);
+
+  // Fetch Google Sheet notes once (cached across mounts)
+  useEffect(() => {
+    if (_sheetNotesCache.map) { setSheetNotes(_sheetNotesCache.map); return; }
+    if (_sheetNotesCache.loading) return;
+    _sheetNotesCache.loading = true;
+    fetch(SHEET_NOTES_URL)
+      .then(r => r.text())
+      .then(text => {
+        const map = {};
+        text.split('\n').slice(1).forEach(line => {
+          if (!line.trim()) return;
+          const cols = parseSheetCSVRow(line);
+          const tk = cols[0]?.trim();
+          const note = cols[5]?.trim();
+          if (tk && note) map[tk] = note;
+        });
+        _sheetNotesCache.map = map;
+        _sheetNotesCache.loading = false;
+        setSheetNotes(map);
+      })
+      .catch(() => { _sheetNotesCache.loading = false; });
+  }, []);
 
   // Fetch OHLC bars for inline SVG daily chart
   useEffect(() => {
@@ -5511,16 +5537,15 @@ function ChartPanelInline({
         </div>
       </div>
 
-      {/* News + Peer Comparison — two-column row */}
+      {/* News + Notes — two-column row */}
       {(() => {
-        const activePeers = fmpPeers.length > 0 ? fmpPeers : finvizPeers;
-        const hasPeers = activePeers.length > 0 || fmpPeersLoading;
+        const tickerNote = sheetNotes?.[ticker] || "";
         const hasNews = news.length > 0;
-        if (!hasNews && !hasPeers) return null;
+        if (!hasNews && !tickerNote) return null;
         return (
           <div style={{ display: "flex", maxHeight: 90, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             {/* Left: News */}
-            <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: hasPeers ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+            <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: tickerNote ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
               {hasNews ? news.slice(0, 4).map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "3px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
@@ -5532,48 +5557,11 @@ function ChartPanelInline({
                 </a>
               )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
             </div>
-            {/* Right: Peer Comparison (FMP) */}
-            {hasPeers && (
+            {/* Right: Notes from Google Sheet */}
+            {tickerNote && (
               <div style={{ width: 220, flexShrink: 0, padding: "4px 10px 2px", overflowY: "auto" }}>
-                <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
-                  Peers {fmpPeersLoading && activePeers.length === 0 ? "…" : `(${activePeers.length})`}
-                </div>
-                {fmpPeersLoading && activePeers.length === 0 && (
-                  <span style={{ fontSize: 8, color: "#5a5a6a" }}>Loading…</span>
-                )}
-                {activePeers.slice(0, 8).map((p) => {
-                  const ps = stockMap?.[p] || {};
-                  const chg = ps.chg ?? ps.chgOpen ?? null;
-                  const rvol = ps.rvol ?? null;
-                  const rs = ps.rs ?? null;
-                  const colorChg = chg == null ? "#5a5a6a"
-                    : chg >= 2 ? "#0d9163"
-                    : chg >= 0 ? "#5a9a6a"
-                    : chg >= -2 ? "#a06030"
-                    : "#c04040";
-                  return (
-                    <div key={p} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", fontFamily: "monospace" }}>
-                      <span
-                        onClick={() => onTickerChange && onTickerChange(p)}
-                        title={`Load ${p}`}
-                        style={{ fontSize: 8.5, color: "#22d3ee", fontWeight: 700, cursor: "pointer", minWidth: 38 }}
-                      >
-                        {p}
-                      </span>
-                      <span style={{ fontSize: 8, color: colorChg, minWidth: 38 }}>
-                        {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
-                      </span>
-                      {rvol != null && (
-                        <span style={{ fontSize: 8, color: rvol >= 2 ? "#0d9163" : rvol >= 1.5 ? "#fbbf24" : "#5a5a6a" }}>
-                          {rvol.toFixed(1)}x
-                        </span>
-                      )}
-                      {rs != null && (
-                        <span style={{ fontSize: 8, color: "#5a5a6a" }}>RS{rs}</span>
-                      )}
-                    </div>
-                  );
-                })}
+                <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Notes</div>
+                <div style={{ fontSize: 9, color: "#c0c0d0", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tickerNote}</div>
               </div>
             )}
           </div>
