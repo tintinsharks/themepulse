@@ -4796,38 +4796,6 @@ function ChartPanelInline({
         >
           Qtrs {showQuarters ? "▲" : "▼"}
         </button>
-        {/* Analyze button — runs the 4-agent analysis on the active ticker */}
-        {onAnalyze && (
-          <button
-            onClick={() => onAnalyze(ticker)}
-            disabled={isAnalyzing}
-            title={
-              isAnalyzing && analyzingTicker === ticker
-                ? "Analyzing…"
-                : "Run 4-agent analysis (Fund / Tech / Sent / Attn + catalyst)"
-            }
-            style={{
-              fontSize: 8,
-              padding: "2px 6px",
-              borderRadius: 3,
-              border: `1px solid ${ARIA.purple}80`,
-              color:
-                isAnalyzing && analyzingTicker === ticker
-                  ? ARIA.bg
-                  : ARIA.purple,
-              background:
-                isAnalyzing && analyzingTicker === ticker
-                  ? ARIA.purple
-                  : "transparent",
-              cursor: isAnalyzing ? "wait" : "pointer",
-              fontFamily: "monospace",
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
-          >
-            {isAnalyzing && analyzingTicker === ticker ? "…" : "🔬 ANALYZE"}
-          </button>
-        )}
         <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
         {tfBtn("D", "D", tf, setTf)}
         {tfBtn("W", "W", tf, setTf)}
