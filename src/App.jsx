@@ -5222,6 +5222,9 @@ function ChartPanelInline({
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
+  const [finvizPeers, setFinvizPeers] = useState([]);
+  const [fmpPeers, setFmpPeers] = useState([]);
+  const [fmpPeersLoading, setFmpPeersLoading] = useState(false);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [qbarsMode, setQbarsMode] = useState(
     () => localStorage.getItem("themepulse-qbars-mode") || "quarter"
@@ -5247,6 +5250,7 @@ function ChartPanelInline({
         setAnnuals(orient(d?.finvizAnnual));
         setNews(d?.news || []);
         setDescription(d?.description || "");
+        setFinvizPeers(d?.peers || []);
       })
       .catch(() => {
         if (!cancelled) {
@@ -5254,11 +5258,30 @@ function ChartPanelInline({
           setAnnuals([]);
           setNews([]);
           setDescription("");
+          setFinvizPeers([]);
         }
       });
     return () => {
       cancelled = true;
     };
+  }, [ticker]);
+
+  useEffect(() => {
+    if (!ticker) return;
+    let cancelled = false;
+    setFmpPeers([]);
+    setFmpPeersLoading(true);
+    fetch(`/api/peers?ticker=${encodeURIComponent(ticker)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        setFmpPeers(d?.peers || []);
+        setFmpPeersLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setFmpPeersLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [ticker]);
   // Fetch OHLC bars for inline SVG daily chart
   useEffect(() => {
@@ -5499,20 +5522,74 @@ function ChartPanelInline({
         </div>
       </div>
 
-      {/* News headlines */}
-      {news.length > 0 && (
-        <div style={{ padding: "4px 14px 2px", maxHeight: 90, overflowY: "auto" }}>
-          {news.slice(0, 4).map((a, i) => (
-            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "3px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
-              onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
-              <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
-              {a.headline}
-              <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
-            </a>
-          ))}
-        </div>
-      )}
+      {/* News + Peer Comparison — two-column row */}
+      {(() => {
+        const activePeers = fmpPeers.length > 0 ? fmpPeers : finvizPeers;
+        const hasPeers = activePeers.length > 0 || fmpPeersLoading;
+        const hasNews = news.length > 0;
+        if (!hasNews && !hasPeers) return null;
+        return (
+          <div style={{ display: "flex", maxHeight: 90, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            {/* Left: News */}
+            <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: hasPeers ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+              {hasNews ? news.slice(0, 4).map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                  style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "3px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
+                  {a.headline}
+                  <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
+                </a>
+              )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
+            </div>
+            {/* Right: Peer Comparison (FMP) */}
+            {hasPeers && (
+              <div style={{ width: 220, flexShrink: 0, padding: "4px 10px 2px", overflowY: "auto" }}>
+                <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>
+                  Peers {fmpPeersLoading && activePeers.length === 0 ? "…" : `(${activePeers.length})`}
+                </div>
+                {fmpPeersLoading && activePeers.length === 0 && (
+                  <span style={{ fontSize: 8, color: "#5a5a6a" }}>Loading…</span>
+                )}
+                {activePeers.slice(0, 8).map((p) => {
+                  const ps = stockMap?.[p] || {};
+                  const chg = ps.chg ?? ps.chgOpen ?? null;
+                  const rvol = ps.rvol ?? null;
+                  const rs = ps.rs ?? null;
+                  const colorChg = chg == null ? "#5a5a6a"
+                    : chg >= 2 ? "#0d9163"
+                    : chg >= 0 ? "#5a9a6a"
+                    : chg >= -2 ? "#a06030"
+                    : "#c04040";
+                  return (
+                    <div key={p} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", fontFamily: "monospace" }}>
+                      <span
+                        onClick={() => onTickerChange && onTickerChange(p)}
+                        title={`Load ${p}`}
+                        style={{ fontSize: 8.5, color: "#22d3ee", fontWeight: 700, cursor: "pointer", minWidth: 38 }}
+                      >
+                        {p}
+                      </span>
+                      <span style={{ fontSize: 8, color: colorChg, minWidth: 38 }}>
+                        {chg != null ? `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}
+                      </span>
+                      {rvol != null && (
+                        <span style={{ fontSize: 8, color: rvol >= 2 ? "#0d9163" : rvol >= 1.5 ? "#fbbf24" : "#5a5a6a" }}>
+                          {rvol.toFixed(1)}x
+                        </span>
+                      )}
+                      {rs != null && (
+                        <span style={{ fontSize: 8, color: "#5a5a6a" }}>RS{rs}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Header row 2: CANSLIM stats line (Aria-faithful) */}
       <div
