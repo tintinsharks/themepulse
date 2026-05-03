@@ -5505,12 +5505,6 @@ function ChartPanelInline({
                 {c.toFixed(2)} {(chgPct >= 0 ? "+" : "") + chgPct.toFixed(2)}%
               </span>
             )}
-            {grade && <span style={badgeStyle(gradeColor)}>{grade}</span>}
-            {fromHi != null && (
-              <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.06)", color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontFamily: "monospace" }}>
-                52W {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
-              </span>
-            )}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
             {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
@@ -5591,6 +5585,11 @@ function ChartPanelInline({
           : "#c04040";
         return (
           <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 14, justifyContent: "flex-end", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+            {grade && (
+              <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
+                {grade}
+              </span>
+            )}
             {perfs.map(({ label, val }) => (
               <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
                 <span style={{ color: ARIA.textMuted }}>{label}</span>
@@ -5599,6 +5598,14 @@ function ChartPanelInline({
                 </span>
               </span>
             ))}
+            {fromHi != null && (
+              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ color: ARIA.textMuted }}>52W</span>
+                <span style={{ color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontWeight: 700 }}>
+                  {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
+                </span>
+              </span>
+            )}
           </div>
         );
       })()}
