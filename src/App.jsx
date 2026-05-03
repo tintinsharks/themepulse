@@ -5567,12 +5567,20 @@ function ChartPanelInline({
 
       {/* Performance row */}
       {(() => {
+        const firstClose = ohlcBars.length > 1 ? ohlcBars[0]?.close : null;
+        const lastClose  = ohlcBars.length > 1 ? ohlcBars[ohlcBars.length - 1]?.close : null;
+        const ipoDate    = stockInfo?.ipo_date;
+        const ipoDaysAgo = ipoDate ? Math.floor((Date.now() - new Date(ipoDate).getTime()) / 86400000) : null;
+        const ipoLabel   = ipoDaysAgo != null && ipoDaysAgo <= 910 ? "IPO" : "2.5Y";
+        const ipoPerf    = firstClose && lastClose && firstClose > 0
+          ? ((lastClose - firstClose) / firstClose) * 100
+          : null;
         const perfs = [
-          { label: "1M",   val: stockInfo?.return_1m },
-          { label: "3M",   val: stockInfo?.return_3m },
-          { label: "6M",   val: stockInfo?.return_6m },
-          { label: "1Y",   val: stockInfo?.return_1y },
-          { label: "52wL", val: stockInfo?.above_52w_low },
+          { label: "1M",     val: stockInfo?.return_1m },
+          { label: "3M",     val: stockInfo?.return_3m },
+          { label: "6M",     val: stockInfo?.return_6m },
+          { label: "1Y",     val: stockInfo?.return_1y },
+          { label: ipoLabel, val: ipoPerf },
         ];
         if (perfs.every(p => p.val == null)) return null;
         const perfColor = (v) =>
