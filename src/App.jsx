@@ -5540,12 +5540,13 @@ function ChartPanelInline({
       {/* News + Notes — two-column row */}
       {(() => {
         const tickerNote = sheetNotes?.[ticker] || "";
+        const sheetLoaded = sheetNotes !== null;
         const hasNews = news.length > 0;
-        if (!hasNews && !tickerNote) return null;
+        if (!hasNews && !sheetLoaded) return null;
         return (
           <div style={{ display: "flex", maxHeight: 90, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             {/* Left: News */}
-            <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: tickerNote ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+            <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
               {hasNews ? news.slice(0, 4).map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "3px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
@@ -5558,12 +5559,13 @@ function ChartPanelInline({
               )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
             </div>
             {/* Right: Notes from Google Sheet */}
-            {tickerNote && (
-              <div style={{ width: 220, flexShrink: 0, padding: "4px 10px 2px", overflowY: "auto" }}>
-                <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Notes</div>
-                <div style={{ fontSize: 9, color: "#c0c0d0", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tickerNote}</div>
-              </div>
-            )}
+            <div style={{ width: 220, flexShrink: 0, padding: "4px 10px 2px", overflowY: "auto" }}>
+              <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Notes</div>
+              {tickerNote
+                ? <div style={{ fontSize: 9, color: "#c0c0d0", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tickerNote}</div>
+                : <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic" }}>Add notes in Google Sheet</div>
+              }
+            </div>
           </div>
         );
       })()}
