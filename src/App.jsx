@@ -4715,46 +4715,31 @@ function DailyChartSVG({ ohlc, quarters, height = 400 }) {
     };
   }, [ohlc, precomputed, quarters, visibleCount, endIdx]);
 
-  // Wheel zoom: scroll up = zoom in, scroll down = zoom out, centered on mouse position
+  // Wheel zoom — LightweightCharts style: right edge stays pinned,
+  // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     if (!ohlc || !ohlc.length) return;
-    const total = ohlc.length;
-    const zoomFactor = e.deltaY > 0 ? 1.15 : 0.87;
-
-    setVisibleCount((prev) => {
-      const next = Math.max(MIN_VISIBLE, Math.min(MAX_BARS, Math.round(prev * zoomFactor)));
-      // Adjust endIdx to zoom centered on mouse position
-      const svgEl = svgRef.current;
-      if (svgEl) {
-        const rect = svgEl.getBoundingClientRect();
-        const mouseRatio = (e.clientX - rect.left) / rect.width;
-        setEndIdx((prevEnd) => {
-          const curEnd = prevEnd != null ? Math.min(prevEnd, total) : total;
-          const curStart = Math.max(0, curEnd - prev);
-          const anchor = curStart + Math.round(prev * mouseRatio);
-          const newStart = Math.max(0, Math.min(total - next, anchor - Math.round(next * mouseRatio)));
-          return Math.min(total, newStart + next);
-        });
-      }
-      return next;
-    });
+    // Normalize: mouse wheel gives ±100–120, trackpad gives small floats
+    const ticks = Math.sign(e.deltaY) * Math.max(1, Math.min(5, Math.abs(e.deltaY) / 30));
+    const delta = Math.round(ticks * 3);
+    setVisibleCount((prev) => Math.max(MIN_VISIBLE, Math.min(MAX_BARS, prev + delta)));
   }, [ohlc]);
 
-  // Drag to pan
+  // Drag to pan — LightweightCharts style: drag right = see older data
   const handleMouseDown = useCallback((e) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    dragRef.current = { startX: e.clientX, startEndIdx: endIdx, startCount: visibleCount };
+    const total = ohlc?.length || 0;
+    dragRef.current = { startX: e.clientX, startEndIdx: endIdx != null ? endIdx : total, accumulated: 0 };
     const onMove = (ev) => {
       if (!dragRef.current || !svgRef.current || !ohlc) return;
       const rect = svgRef.current.getBoundingClientRect();
+      const pxPerBar = rect.width / visibleCount;
       const dx = ev.clientX - dragRef.current.startX;
-      const barsPerPx = dragRef.current.startCount / rect.width;
-      const barShift = Math.round(dx * barsPerPx);
-      const total = ohlc.length;
-      const curEnd = dragRef.current.startEndIdx != null ? dragRef.current.startEndIdx : total;
-      const newEnd = Math.max(dragRef.current.startCount, Math.min(total, curEnd - barShift));
+      const barShift = Math.round(dx / pxPerBar);
+      const t = ohlc.length;
+      const newEnd = Math.max(visibleCount, Math.min(t, dragRef.current.startEndIdx - barShift));
       setEndIdx(newEnd);
     };
     const onUp = () => {
