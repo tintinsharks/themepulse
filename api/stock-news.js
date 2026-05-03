@@ -5,6 +5,14 @@ const FMP_BASE = "https://financialmodelingprep.com/stable";
 const _cache = new Map();
 const CACHE_MS = 30 * 60 * 1000;
 
+const fetchJson = async (url) => {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET");
@@ -27,23 +35,23 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "FMP_API_KEY not configured" });
   }
 
-  try {
-    const url = `${FMP_BASE}/news/stock-latest?symbol=${ticker}&page=0&limit=10&apikey=${fmpKey}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!r.ok) return res.status(502).json({ error: "FMP news fetch failed" });
-    const raw = await r.json();
-
-    const articles = (Array.isArray(raw) ? raw : []).map((a) => ({
+  // fmp-articles has a tickers field (e.g. "NYSE:SNDK") — fetch a few pages
+  // and filter server-side since FMP doesn't support per-ticker filtering
+  const pages = await Promise.all([0, 1, 2].map((p) =>
+    fetchJson(`${FMP_BASE}/fmp-articles?page=${p}&limit=100&apikey=${fmpKey}`)
+  ));
+  const all = pages.flat();
+  const matched = all
+    .filter((a) => (a.tickers || "").toUpperCase().includes(ticker))
+    .slice(0, 8)
+    .map((a) => ({
       title: a.title || "",
-      url: a.url || "",
-      source: a.source || "",
-      date: a.publishedDate || a.date || "",
+      url: a.link || "",
+      source: a.site || "FMP",
+      date: a.date || "",
     }));
 
-    const data = { ticker, articles };
-    _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
-    return res.status(200).json(data);
-  } catch {
-    return res.status(502).json({ error: "FMP news fetch error" });
-  }
+  const data = { ticker, articles: matched };
+  _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
+  return res.status(200).json(data);
 }
