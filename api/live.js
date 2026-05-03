@@ -578,7 +578,7 @@ async function fetchTickerNews(cookies, ticker) {
         const linkMatch = contentCell.match(/href="([^"]+)"[^>]*>([^<]+)<\/a>/);
         if (!linkMatch) continue;
         const articleUrl = linkMatch[1];
-        const headline = linkMatch[2].trim();
+        const headline = linkMatch[2].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
         const sourceMatch = contentCell.match(/<\/a>\s*(?:<[^>]+>)?\s*([^<]+)/);
         const source = sourceMatch ? sourceMatch[1].trim().replace(/[()]/g, '') : '';
         news.push({ date: dateCell, headline, url: articleUrl, source });

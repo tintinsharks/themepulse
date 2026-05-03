@@ -5011,7 +5011,21 @@ function ChartPanelInline({
 
   const agoLabel = (dateStr) => {
     if (!dateStr) return "";
-    const ms = Date.now() - new Date(dateStr).getTime();
+    let d = new Date(dateStr);
+    if (isNaN(d.getTime())) {
+      // Finviz formats: "May-01-26", "Apr-30-26 08:30AM", "Today", "08:30AM"
+      const m = dateStr.match(/^([A-Z][a-z]{2})-(\d{2})-(\d{2})/);
+      if (m) {
+        const yr = parseInt(m[3]) + 2000;
+        d = new Date(`${m[1]} ${m[2]}, ${yr}`);
+      } else if (/today/i.test(dateStr) || /^\d{1,2}:\d{2}/.test(dateStr)) {
+        return "today";
+      } else {
+        return "";
+      }
+    }
+    if (isNaN(d.getTime())) return "";
+    const ms = Date.now() - d.getTime();
     const h = Math.floor(ms / 3600000);
     if (h < 1) return `${Math.max(1, Math.floor(ms / 60000))}m`;
     if (h < 24) return `${h}h`;
