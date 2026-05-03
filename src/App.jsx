@@ -4830,8 +4830,7 @@ function ChartPanelInline({
   themeHealth,
 }) {
   const ARIA = useAriaTheme();
-  const [tf, setTf] = useState("D"); // "D" or "W"
-  const [intradayTf, setIntradayTf] = useState("5m"); // "5m" or "30m"
+  const tf = "D";
   const [tickerInput, setTickerInput] = useState("");
   // EPS + Revenue bars below the CANSLIM stats row. Fetches the same
   // /api/live?news=X payload TickerInfoBox uses — browser coalesces the
@@ -4898,8 +4897,6 @@ function ChartPanelInline({
   // Stored as a 0..1 fraction of the chart body width assigned to the LEFT.
   // Default 0.55 ≈ Aria's flex 6/(6+5).
 
-  const dailyInterval = tf === "W" ? "1d" : "1d";
-  const intradayInterval = intradayTf === "30m" ? "30m" : "5m";
 
   // Live quote for the active ticker — drives the OHLC + RVol header line
   const tickerList = useMemo(() => (ticker ? [ticker] : []), [ticker]);
@@ -5032,26 +5029,6 @@ function ChartPanelInline({
     return `${Math.floor(h / 24)}d`;
   };
 
-  const tfBtn = (key, label, current, setter) => {
-    const on = current === key;
-    return (
-      <button
-        onClick={() => setter(key)}
-        style={{
-          fontSize: 9,
-          padding: "2px 8px",
-          borderRadius: 3,
-          cursor: "pointer",
-          fontFamily: "monospace",
-          border: `1px solid ${on ? ARIA.green : ARIA.border}`,
-          color: on ? ARIA.green : ARIA.textMuted,
-          background: on ? ARIA.glowGreen : "transparent",
-        }}
-      >
-        {label}
-      </button>
-    );
-  };
 
   return (
     <div
@@ -5122,11 +5099,22 @@ function ChartPanelInline({
             {inPF ? "✓PF" : "+PF"}
           </button>
           <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
-          {tfBtn("D", "D", tf, setTf)}
-          {tfBtn("W", "W", tf, setTf)}
-          <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
-          {tfBtn("5m", "5m", intradayTf, setIntradayTf)}
-          {tfBtn("30m", "30m", intradayTf, setIntradayTf)}
+          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+            <span style={{ color: ARIA.textMuted }}>Chg</span>
+            <span style={{ color: chgColor, fontWeight: 700 }}>{chgPct != null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "—"}</span>
+          </span>
+          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+            <span style={{ color: ARIA.textMuted }}>Open</span>
+            <span style={{ color: liveQuote?.gap != null ? (liveQuote.gap >= 0 ? ARIA.green : ARIA.red) : ARIA.textMuted, fontWeight: 700 }}>{liveQuote?.gap != null ? `${liveQuote.gap >= 0 ? "+" : ""}${liveQuote.gap.toFixed(2)}%` : "—"}</span>
+          </span>
+          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+            <span style={{ color: ARIA.textMuted }}>RVol</span>
+            <span style={{ color: rvColor, fontWeight: rvol >= 1.5 ? 700 : 400 }}>{rvol != null ? `${rvol.toFixed(1)}x` : "—"}</span>
+          </span>
+          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+            <span style={{ color: ARIA.textMuted }}>ADR</span>
+            <span style={{ color: ARIA.cyan }}>{adr != null ? `${adr.toFixed(1)}%` : "—"}</span>
+          </span>
           <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 60, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
         </div>
       </div>
