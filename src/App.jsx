@@ -1286,75 +1286,153 @@ function ETFScanTable({ onTickerClick }) {
 }
 
 // ── Earnings Calendar — collapsible weekly ER schedule above Scan Watch ──
+// Replicates the leaderboard's renderEarningsCalendar logic:
+//   1. FMP /api/earnings-week as authoritative source, falls back to pipeline
+//   2. Drawer (theme-universe + WL/PF) vs All Universe ($100M dvol min) scope
+//   3. Prev/Next week navigation
+//   4. Logo tiles with BMO/AMC badges, drawer tickers sorted first
+const ER_LOGO = (tk) => `https://images.financialmodelingprep.com/symbol/${tk}.png`;
+const erCalCache = {};
+
 function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-er-cal-open") === "1");
   const [mode, setMode] = useState(() => localStorage.getItem("tp-er-cal-mode") || "drawer");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [fmpEvents, setFmpEvents] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => { localStorage.setItem("tp-er-cal-open", expanded ? "1" : "0"); }, [expanded]);
   useEffect(() => { localStorage.setItem("tp-er-cal-mode", mode); }, [mode]);
 
-  const weekData = useMemo(() => {
-    if (!stocks?.length) return [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dayOfWeek = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
+  const isoDate = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-    const days = [];
-    for (let i = 0; i < 5; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      days.push({ label: dayNames[i], date: d, dateStr: d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" }), tickers: [] });
-    }
+  const { monday, friday, weekLabel } = useMemo(() => {
+    const now = new Date();
+    const dow = now.getUTCDay() || 7;
+    const mon = new Date(now);
+    mon.setUTCDate(now.getUTCDate() - (dow - 1) + weekOffset * 7);
+    mon.setUTCHours(0, 0, 0, 0);
+    const fri = new Date(mon.getTime() + 4 * 86400000);
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const label = `${dayNames[mon.getUTCDay()]} ${mon.getUTCDate()} → ${dayNames[fri.getUTCDay()]} ${fri.getUTCDate()}`;
+    return { monday: mon, friday: fri, weekLabel: label };
+  }, [weekOffset]);
 
-    const isDrawer = mode === "drawer";
+  // Fetch FMP earnings calendar for the week
+  useEffect(() => {
+    if (!expanded) return;
+    const from = isoDate(monday);
+    const to = isoDate(new Date(monday.getTime() + 6 * 86400000));
+    const key = `${from}_${to}`;
+    if (erCalCache[key]) { setFmpEvents(erCalCache[key]); return; }
+    setLoading(true);
+    fetch(`/api/earnings-week?from=${from}&to=${to}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const ev = d?.events || [];
+        erCalCache[key] = ev;
+        setFmpEvents(ev);
+      })
+      .catch(() => setFmpEvents(null))
+      .finally(() => setLoading(false));
+  }, [expanded, monday]);
+
+  // Build pipeline lookup maps
+  const { pipelineER, pipelineDvol, drawerSet } = useMemo(() => {
+    const er = {}, dvol = {};
     const portfolio = JSON.parse(localStorage.getItem("themepulse-portfolio") || "[]");
     const watchlist = JSON.parse(localStorage.getItem("themepulse-watchlist") || "[]");
-    const drawerSet = new Set([...portfolio, ...watchlist]);
+    const dSet = new Set([...portfolio, ...watchlist]);
+    if (stocks) {
+      stocks.forEach((s) => {
+        const tk = s.ticker;
+        if (s.avg_dollar_vol_raw > 0) dvol[tk] = s.avg_dollar_vol_raw;
+        if (s.earnings_days != null) {
+          er[tk] = { earnings_days: s.earnings_days, er_timing: s.er_timing || "", avg_er_move: s.avg_er_move, grade: s.grade || "" };
+        }
+        if (s.themes?.length > 0) dSet.add(tk);
+      });
+    }
+    return { pipelineER: er, pipelineDvol: dvol, drawerSet: dSet };
+  }, [stocks]);
 
-    stocks.forEach((s) => {
-      if (s.earnings_days == null) return;
-      const erDisplay = s.earnings_display || "";
-      if (!erDisplay) return;
-      const erDate = new Date(erDisplay.replace(/~/g, "").trim());
-      if (isNaN(erDate.getTime())) return;
-      erDate.setHours(0, 0, 0, 0);
-      if (erDate < monday || erDate > friday) return;
-      if (isDrawer && !drawerSet.has(s.ticker)) return;
-      const dayIdx = Math.round((erDate - monday) / 86400000);
-      if (dayIdx >= 0 && dayIdx < 5) {
-        days[dayIdx].tickers.push({
-          ticker: s.ticker,
-          timing: s.er_timing || "",
-          grade: s.grade || "",
-          avgMove: s.avg_er_move,
+  const weekData = useMemo(() => {
+    const todayMidnight = new Date();
+    todayMidnight.setUTCHours(0, 0, 0, 0);
+
+    // Build events: prefer FMP, fallback to pipeline
+    let events;
+    let usingFallback = false;
+    if (fmpEvents && fmpEvents.length > 0) {
+      events = fmpEvents;
+    } else {
+      usingFallback = true;
+      events = Object.entries(pipelineER)
+        .filter(([, v]) => v.earnings_days != null)
+        .map(([tk, v]) => {
+          const erDate = new Date(todayMidnight);
+          erDate.setUTCDate(erDate.getUTCDate() + v.earnings_days);
+          return { ticker: tk, date: isoDate(erDate), timing: (v.er_timing || "").toLowerCase() };
         });
-      }
-    });
+    }
 
-    days.forEach((d) => {
-      d.tickers.sort((a, b) => {
-        const timingOrder = { BMO: 0, "": 1, AMC: 2 };
-        return (timingOrder[a.timing] ?? 1) - (timingOrder[b.timing] ?? 1) || a.ticker.localeCompare(b.ticker);
+    // Scope filter
+    const MIN_DVOL = 100_000_000;
+    const scoped = mode === "drawer"
+      ? events.filter(e => drawerSet.has(e.ticker))
+      : events.filter(e => drawerSet.has(e.ticker) || (pipelineDvol[e.ticker] || 0) >= MIN_DVOL);
+
+    // Bucket into Mon-Fri
+    const days = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(monday.getTime() + i * 86400000);
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      days.push({
+        label: `${dayNames[d.getUTCDay()]} ${d.getUTCDate()}`,
+        date: d,
+        dateStr: isoDate(d),
+        isToday: d.getTime() === todayMidnight.getTime(),
+        tickers: [],
+      });
+    }
+
+    scoped.forEach((e) => {
+      const erDate = new Date(`${e.date}T00:00:00Z`);
+      const dayIdx = Math.floor((erDate - monday) / 86400000);
+      if (dayIdx < 0 || dayIdx > 4) return;
+      const pipe = pipelineER[e.ticker] || {};
+      days[dayIdx].tickers.push({
+        ticker: e.ticker,
+        timing: e.timing || (pipe.er_timing || "").toLowerCase(),
+        inDrawer: drawerSet.has(e.ticker),
+        grade: pipe.grade || "",
+        avgMove: pipe.avg_er_move,
       });
     });
 
-    return days;
-  }, [stocks, mode]);
+    // Sort: drawer tickers first, then alphabetic
+    days.forEach((d) => {
+      d.tickers.sort((a, b) => {
+        if (a.inDrawer !== b.inDrawer) return a.inDrawer ? -1 : 1;
+        return a.ticker.localeCompare(b.ticker);
+      });
+    });
 
-  const totalCount = weekData.reduce((n, d) => n + d.tickers.length, 0);
+    return { days, usingFallback };
+  }, [fmpEvents, pipelineER, pipelineDvol, drawerSet, mode, monday]);
 
-  const pillBg = (timing) => timing === "BMO" ? "rgba(251,191,36,0.12)" : timing === "AMC" ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.06)";
-  const pillBorder = (timing) => timing === "BMO" ? "#a07a1f" : timing === "AMC" ? "#7c3aed" : ARIA.border;
-  const pillColor = (timing) => timing === "BMO" ? "#fbbf24" : timing === "AMC" ? "#a78bfa" : ARIA.textDim;
+  const totalCount = weekData.days.reduce((n, d) => n + d.tickers.length, 0);
+
+  const timingBadge = (timing) => {
+    if (timing === "bmo") return { bg: "rgba(251,191,36,0.18)", color: "#fbbf24", border: "#a07a1f", label: "BMO" };
+    if (timing === "amc") return { bg: "rgba(108,213,232,0.18)", color: "#6cd5e8", border: "#3a8a9e", label: "AMC" };
+    return null;
+  };
 
   return (
     <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+      {/* Header */}
       <div
         onClick={() => setExpanded(!expanded)}
         style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
@@ -1365,42 +1443,56 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
         </span>
         <span style={{ fontSize: 8, color: ARIA.textMuted }}>({totalCount})</span>
         {expanded && (
-          <div style={{ marginLeft: "auto", display: "flex", gap: 3 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 3, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setWeekOffset(w => w - 1)} style={{ fontSize: 8, padding: "1px 4px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", border: `1px solid ${ARIA.border}`, color: ARIA.textMuted, background: "transparent" }}>←</button>
+            <button onClick={() => setWeekOffset(0)} style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", border: `1px solid ${ARIA.border}`, color: weekOffset === 0 ? ARIA.cyan : ARIA.textMuted, background: "transparent" }}>Today</button>
+            <button onClick={() => setWeekOffset(w => w + 1)} style={{ fontSize: 8, padding: "1px 4px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", border: `1px solid ${ARIA.border}`, color: ARIA.textMuted, background: "transparent" }}>→</button>
+            <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: 4 }}>{weekLabel}</span>
+            <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
             <button onClick={() => setMode("drawer")} style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", fontWeight: mode === "drawer" ? 700 : 400, border: `1px solid ${ARIA.cyan}`, color: ARIA.cyan, background: mode === "drawer" ? `${ARIA.cyan}26` : "transparent" }}>Drawer</button>
             <button onClick={() => setMode("all")} style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", fontWeight: mode === "all" ? 700 : 400, border: `1px solid ${ARIA.cyan}`, color: ARIA.cyan, background: mode === "all" ? `${ARIA.cyan}26` : "transparent" }}>All Universe</button>
           </div>
         )}
       </div>
+      {/* Body */}
       {expanded && (
         <div style={{ padding: "0 12px 8px" }}>
-          {weekData.map((day, di) => (
-            <div key={di} style={{ marginBottom: 4 }}>
+          {loading && <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "4px 0" }}>Loading FMP calendar…</div>}
+          {weekData.usingFallback && !loading && <div style={{ fontSize: 7, color: "#fbbf24", padding: "2px 0 4px" }}>Using pipeline data (FMP unavailable). Timing may be stale.</div>}
+          {weekData.days.map((day, di) => (
+            <div key={di} style={{ marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
-                <span style={{ fontSize: 8, fontWeight: 700, color: day.date.toDateString() === new Date().toDateString() ? ARIA.cyan : ARIA.textMuted, fontFamily: "monospace", minWidth: 22 }}>{day.label}</span>
-                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{day.dateStr}</span>
+                <span style={{ fontSize: 8, fontWeight: 700, color: day.isToday ? ARIA.cyan : ARIA.textMuted, fontFamily: "monospace" }}>{day.label}</span>
                 <span style={{ fontSize: 7, color: ARIA.textMuted }}>({day.tickers.length})</span>
               </div>
               {day.tickers.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 26 }}>
-                  {day.tickers.map((t) => (
-                    <button
-                      key={t.ticker}
-                      onClick={() => onTickerClick(t.ticker)}
-                      style={{
-                        fontSize: 8, padding: "2px 5px", borderRadius: 3, cursor: "pointer",
-                        fontFamily: "monospace", fontWeight: chartTicker === t.ticker ? 800 : 600,
-                        background: chartTicker === t.ticker ? ARIA.cyan : pillBg(t.timing),
-                        border: `1px solid ${chartTicker === t.ticker ? ARIA.cyan : pillBorder(t.timing)}`,
-                        color: chartTicker === t.ticker ? ARIA.bg : pillColor(t.timing),
-                      }}
-                      title={`${t.ticker} ${t.timing || "TBD"}${t.avgMove ? ` · avg ER move ±${t.avgMove.toFixed(1)}%` : ""}`}
-                    >
-                      {t.ticker}{t.timing ? ` ${t.timing}` : ""}
-                    </button>
-                  ))}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 4 }}>
+                  {day.tickers.map((t) => {
+                    const sel = chartTicker === t.ticker;
+                    const badge = timingBadge(t.timing);
+                    return (
+                      <button
+                        key={t.ticker}
+                        onClick={() => onTickerClick(t.ticker)}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 3,
+                          fontSize: 8, padding: "2px 5px", borderRadius: 3, cursor: "pointer",
+                          fontFamily: "monospace", fontWeight: sel ? 800 : t.inDrawer ? 700 : 500,
+                          background: sel ? ARIA.cyan : t.inDrawer ? "rgba(255,255,255,0.06)" : "transparent",
+                          border: `1px solid ${sel ? ARIA.cyan : t.inDrawer ? ARIA.border : "#2a2a3a"}`,
+                          color: sel ? ARIA.bg : t.inDrawer ? "#e0e0f0" : ARIA.textMuted,
+                        }}
+                        title={`${t.ticker}${badge ? ` ${badge.label}` : ""}${t.avgMove ? ` · avg ER move ±${t.avgMove.toFixed(1)}%` : ""}${t.grade ? ` · ${t.grade}` : ""}`}
+                      >
+                        <img src={ER_LOGO(t.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
+                        {t.ticker}
+                        {badge && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, fontWeight: 700, lineHeight: "12px" }}>{badge.label}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
-                <div style={{ fontSize: 7, color: "#4a4a5a", paddingLeft: 26, fontStyle: "italic" }}>—</div>
+                <div style={{ fontSize: 7, color: "#4a4a5a", paddingLeft: 4, fontStyle: "italic" }}>— no earnings —</div>
               )}
             </div>
           ))}
