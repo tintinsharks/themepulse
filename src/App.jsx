@@ -5703,7 +5703,34 @@ function ChartPanelInline({
 
       {/* Quarterly fundamentals — always visible below chart */}
       {(() => {
-        const baseSeries = qbarsMode === "annual" ? annuals : quarters;
+        // Normalize pipeline quarters/annual into the same shape as FMP data.
+        // Pipeline revenue is raw dollars; MiniQBars expects millions.
+        const normPipelineQ = (arr) =>
+          Array.isArray(arr)
+            ? arr.map(q => ({
+                ...q,
+                revenue: q.revenue != null ? q.revenue / 1_000_000 : null,
+                revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
+                ocf_ps: null,
+                ocf_yoy: null,
+              }))
+            : [];
+        const normPipelineA = (arr) =>
+          Array.isArray(arr)
+            ? arr.map(q => ({
+                ...q,
+                label: String(q.year),
+                period: "FY",
+                revenue: q.revenue != null ? q.revenue / 1_000_000 : null,
+                revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
+                net_margin: q.net_margin ?? null,
+                ocf_ps: null,
+                ocf_yoy: null,
+              }))
+            : [];
+        const effectiveQuarters = quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters);
+        const effectiveAnnuals  = annuals.length  > 0 ? annuals  : normPipelineA(stockInfo?.annual);
+        const baseSeries = qbarsMode === "annual" ? effectiveAnnuals : effectiveQuarters;
         const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
         const series = baseSeries.map((p, i, arr) => {
           const prevMargin = i > 0 ? arr[i - 1].net_margin : null;
@@ -5726,7 +5753,7 @@ function ChartPanelInline({
           <div style={{ padding: "6px 14px 10px", borderTop: `1px solid ${ARIA.border}`, background: ARIA.glass || "transparent" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontFamily: "monospace" }}>
               <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
-                Last {series.length} Quarter{series.length === 1 ? "" : "s"} · Finviz Actuals
+                Last {series.length} Quarter{series.length === 1 ? "" : "s"} · {quarters.length > 0 ? "Finviz Actuals" : "Pipeline Data"}
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
                 <button onClick={() => setQbarsModePersist("quarter")} style={pillStyle(qbarsMode === "quarter", ARIA.blue)}>Quarterly</button>
@@ -5742,7 +5769,7 @@ function ChartPanelInline({
                 <MiniQBars quarters={series} accessor={(q) => q.ocf_ps} yoyAccessor={(q) => q.ocf_yoy} color={ARIA.yellow} labelFmt={(v) => v.toFixed(2)} title="Op Cash Flow/sh" ARIA={ARIA} passYoy={25} hotYoy={40} />
                 <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
               </div>
-              <CanslimScorecard ticker={ticker} stockInfo={stockInfo} cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null} annuals={annuals} stockMap={stockMap} ARIA={ARIA} />
+              <CanslimScorecard ticker={ticker} stockInfo={stockInfo} cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null} annuals={effectiveAnnuals} stockMap={stockMap} ARIA={ARIA} />
             </div>
           </div>
         );
