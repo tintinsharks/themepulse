@@ -1495,6 +1495,106 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
   );
 }
 
+// ── Drawer Themes — collapsible inline view of value-chain themes/subthemes ──
+function DrawerThemes({ onTickerClick, chartTicker }) {
+  const ARIA = useAriaTheme();
+  const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") === "1");
+  const [openTheme, setOpenTheme] = useState(null);
+
+  useEffect(() => { localStorage.setItem("tp-drawer-themes-open", expanded ? "1" : "0"); }, [expanded]);
+
+  const grouped = useMemo(() => {
+    const themes = [];
+    const seen = new Set();
+    DRAWER_SUBTHEMES.forEach((s) => {
+      if (!seen.has(s.themeId)) {
+        seen.add(s.themeId);
+        themes.push({ id: s.themeId, name: s.theme, layers: [] });
+      }
+      const t = themes.find((th) => th.id === s.themeId);
+      t.layers.push({ layer: s.layer, tickers: s.tickers });
+    });
+    return themes;
+  }, []);
+
+  const totalTickers = DRAWER_TICKERS.size;
+
+  return (
+    <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+      >
+        <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
+          Value Chains
+        </span>
+        <span style={{ fontSize: 8, color: ARIA.textMuted }}>({totalTickers})</span>
+      </div>
+      {expanded && (
+        <div style={{ padding: "0 12px 6px" }}>
+          {grouped.map((theme) => {
+            const c = DRAWER_COLORS[theme.id] || { bg: "rgba(255,255,255,0.06)", border: ARIA.border, color: ARIA.textDim };
+            const isOpen = openTheme === theme.id;
+            return (
+              <div key={theme.id} style={{ marginBottom: 3 }}>
+                <button
+                  onClick={() => setOpenTheme(isOpen ? null : theme.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 4, width: "100%",
+                    fontSize: 8, fontWeight: 700, padding: "3px 6px", borderRadius: 3,
+                    cursor: "pointer", fontFamily: "monospace", textAlign: "left",
+                    background: isOpen ? c.bg : "transparent",
+                    border: `1px solid ${isOpen ? c.border : "transparent"}`,
+                    color: c.color, textTransform: "uppercase", letterSpacing: 0.5,
+                  }}
+                >
+                  <span style={{ fontSize: 7, transition: "transform 0.15s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+                  {theme.name}
+                  <span style={{ color: ARIA.textMuted, fontWeight: 400, marginLeft: "auto" }}>{theme.layers.length} layers</span>
+                </button>
+                {isOpen && (
+                  <div style={{ padding: "4px 0 2px 12px" }}>
+                    {theme.layers.map((layer, li) => (
+                      <div key={li} style={{ marginBottom: 4 }}>
+                        <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600 }}>
+                          {layer.layer}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 2, paddingLeft: 4 }}>
+                          {layer.tickers.map((tk) => {
+                            const sel = chartTicker === tk;
+                            return (
+                              <button
+                                key={tk}
+                                onClick={() => onTickerClick(tk)}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  fontSize: 7, padding: "1px 4px", borderRadius: 3, cursor: "pointer",
+                                  fontFamily: "monospace", fontWeight: sel ? 800 : 600,
+                                  background: sel ? c.color : c.bg,
+                                  border: `1px solid ${sel ? c.color : c.border}`,
+                                  color: sel ? ARIA.bg : c.color,
+                                }}
+                              >
+                                <img src={ER_LOGO(tk)} alt="" style={{ width: 10, height: 10, borderRadius: 1 }} onError={(e) => { e.target.style.display = "none"; }} />
+                                {tk}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow"
@@ -7274,6 +7374,7 @@ function ChartScanRow({
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
+        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} />
       </div>
     </div>
@@ -7540,6 +7641,70 @@ const THEME_TO_DRAWER = {
 // Curated drawer-universe tickers — must match SUBTHEMES in theme-leaderboard.html.
 // Only these tickers appear in the Earnings Calendar "Drawer" scope.
 const DRAWER_TICKERS = new Set(["AAOI","ABAT","ABT","ACHR","ADBE","AEHR","AEVA","AFRM","AI","AKAM","ALAB","ALB","ALLY","ALV","AMAT","AMD","AMKR","AMPG","AMPX","AMZN","ANET","APH","APLD","APTV","ARM","ARQQ","ASAN","ASML","ASTS","AUR","AVAV","AVGO","AXON","AXTI","AZPN","BA","BAH","BBAI","BE","BITB","BITF","BITO","BITW","BKSY","BLK","BOX","BRRR","BTDR","BWA","BWXT","BX","CACI","CAMT","CARR","CCC","CEG","CFLT","CGNX","CHKP","CIEN","CIFR","CLS","CLSK","COHR","COIN","CORZ","CRDO","CRM","CRWD","CRWV","CSCO","CYBR","DAVE","DBX","DDOG","DELL","DLO","DLR","DOCS","DOCU","EH","EME","EMR","ENTG","ENVX","EOSE","EQIX","EQT","ESTC","ETN","EVGO","EVTL","F","FBTC","FIX","FN","FORM","FOUR","FREY","FROG","FSLY","FTNT","FUTU","GBTC","GD","GE","GEN","GEV","GHM","GLW","GLXY","GM","GNRC","GOOGL","GS","GSAT","GTLB","GWRE","GXO","HEI","HII","HON","HOOD","HPE","HSAI","HUBS","HUT","IBIT","IBKR","IBM","INTC","INTU","INVZ","IONQ","IOT","IRDM","IREN","ISRG","JBL","JCI","JOBY","KEYS","KKR","KLAC","KSCP","KSPI","KTOS","KULR","LAC","LAES","LAZR","LC","LCID","LDOS","LEA","LHX","LI","LIDR","LITE","LITM","LLNW","LMT","LRCX","LUNR","LWLG","MA","MANH","MARA","MASI","MBLY","MDB","MDT","META","MGA","MKSI","MNDY","MNTS","MOD","MP","MRVL","MS","MSFT","MSTR","MTSI","MU","MVIS","MVST","MXL","MYRG","NBIS","NDSN","NEE","NET","NIO","NNDM","NNE","NOC","NOVT","NOW","NRG","NU","NVDA","NVEI","NVT","NVTS","OKLO","OKTA","OLO","ONDS","ONTO","ORCL","OSPN","OUST","PAGS","PANW","PATH","PCOR","PD","PDYN","PL","PLTR","POET","PRIM","PWR","PYPL","QBTS","QLYS","QS","QUBT","RBRK","RCAT","RDW","RDWR","RGR","RGTI","RIOT","RIVN","RJF","RKLB","RNG","ROK","RPD","RR","RTX","S","SAIC","SAIL","SAP","SCHW","SERV","SHLS","SIMO","SLDP","SMAR","SMCI","SMR","SNDK","SNOW","SOFI","SOUN","SPCE","SPIR","SQ","SQM","STLA","STX","STXS","SUMO","SWBI","SWI","SYK","SYM","TDC","TDG","TDY","TEAM","TEL","TENB","TIGR","TLN","TOST","TSEM","TSLA","TSM","TXT","TYL","UMAC","V","VEEV","VERX","VIAV","VRNS","VRT","VSAT","VST","WDAY","WDC","WOLF","WULF","XPEV","YOU","ZM","ZS"]);
+
+// Curated subthemes — mirrors SUBTHEMES in theme-leaderboard.html
+const DRAWER_SUBTHEMES = [
+  { theme: "AI Infra", themeId: "ai", layer: "Compute Silicon", tickers: ["NVDA","AMD","AVGO","INTC","MRVL","ARM","ALAB","TSM"] },
+  { theme: "AI Infra", themeId: "ai", layer: "AI Connectivity", tickers: ["ALAB","CRDO","MRVL","AAOI","MXL","AVGO"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Networking + Components", tickers: ["ANET","CSCO","CIEN","APH","TEL","CLS","JBL"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Memory + Storage", tickers: ["MU","SNDK","FORM","AMKR","SIMO","WDC","STX"] },
+  { theme: "AI Infra", themeId: "ai", layer: "DC + Cooling", tickers: ["DLR","EQIX","VRT","EME","SMCI","DELL","HPE","ETN","MOD","NVT","CARR","JCI","FIX"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Photonics", tickers: ["COHR","FN","AEHR","ONTO","CAMT","LITE","KEYS","VIAV","AXTI","MTSI","POET","TSEM","LWLG","GLW"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Neoclouds + Hyperscalers", tickers: ["MSFT","GOOGL","AMZN","META","ORCL","NBIS","IREN","CRWV","APLD"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Power Generation (IPPs)", tickers: ["VST","CEG","TLN","NRG","NEE","EQT"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Grid Equipment + EPC", tickers: ["GEV","ETN","PWR","MYRG","PRIM"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Nuclear / SMR", tickers: ["OKLO","SMR","NNE","BWXT"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Energy Storage + Fuel Cell", tickers: ["BE","EOSE"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Semicap + Materials", tickers: ["AMAT","LRCX","ASML","KLAC","MKSI","ENTG"] },
+  { theme: "Software", themeId: "software", layer: "AI Agents + Apps", tickers: ["PLTR","NOW","CRM","AI","BBAI","SOUN","PATH","IOT","DOCS"] },
+  { theme: "Software", themeId: "software", layer: "Data Platforms", tickers: ["SNOW","MDB","DDOG","DBX","ESTC","CFLT","TDC"] },
+  { theme: "Software", themeId: "software", layer: "Enterprise SaaS", tickers: ["INTU","ADBE","WDAY","VEEV","HUBS","SAP","IBM","YOU"] },
+  { theme: "Software", themeId: "software", layer: "DevOps + Observability", tickers: ["DDOG","GTLB","TEAM","FROG","PD","SWI","ESTC"] },
+  { theme: "Software", themeId: "software", layer: "Collab + Productivity", tickers: ["ASAN","MNDY","ZM","DOCU","BOX","SMAR","RNG"] },
+  { theme: "Software", themeId: "software", layer: "Vertical SaaS", tickers: ["TYL","GWRE","MANH","PCOR","OLO","AZPN","CCC","VERX"] },
+  { theme: "Software", themeId: "software", layer: "CDN + Edge Cloud", tickers: ["NET","FSLY","AKAM","LLNW"] },
+  { theme: "Cyber", themeId: "cyber", layer: "Platform Consolidators", tickers: ["PANW","CRWD","FTNT","ZS"] },
+  { theme: "Cyber", themeId: "cyber", layer: "Endpoint + XDR", tickers: ["CRWD","S","FTNT","GEN","PANW"] },
+  { theme: "Cyber", themeId: "cyber", layer: "Identity + Access", tickers: ["OKTA","CYBR","SAIL","OSPN"] },
+  { theme: "Cyber", themeId: "cyber", layer: "Cloud + Network Sec", tickers: ["ZS","NET","AKAM","CHKP","RDWR","RBRK"] },
+  { theme: "Cyber", themeId: "cyber", layer: "Threat Operations", tickers: ["TENB","QLYS","RPD","VRNS","SUMO"] },
+  { theme: "Cyber", themeId: "cyber", layer: "Defense Cyber", tickers: ["BAH","CACI","SAIC","LDOS"] },
+  { theme: "Fintech", themeId: "fintech", layer: "Crypto Infra + Exchanges", tickers: ["COIN","MSTR","HOOD","GLXY"] },
+  { theme: "Fintech", themeId: "fintech", layer: "Crypto Miners", tickers: ["MARA","RIOT","CLSK","CIFR","IREN","WULF","HUT","CORZ","BTDR","BITF"] },
+  { theme: "Fintech", themeId: "fintech", layer: "Bitcoin ETFs", tickers: ["IBIT","FBTC","BITB","BITO","BITW","GBTC","BRRR"] },
+  { theme: "Fintech", themeId: "fintech", layer: "Neobanks + Digital", tickers: ["SOFI","NU","ALLY","HOOD","LC","DAVE","KSPI"] },
+  { theme: "Fintech", themeId: "fintech", layer: "Payments", tickers: ["V","MA","PYPL","SQ","AFRM","FOUR","TOST","NVEI","PAGS","DLO"] },
+  { theme: "Fintech", themeId: "fintech", layer: "Asset Mgmt + Trading", tickers: ["SCHW","BLK","KKR","BX","IBKR","FUTU","TIGR","RJF","MS","GS"] },
+  { theme: "Defense", themeId: "defense", layer: "Prime Contractors", tickers: ["LMT","RTX","NOC","GD","BA","LHX","HII","TDG","GE","HEI","TXT","TDY"] },
+  { theme: "Defense", themeId: "defense", layer: "Drones + EVTOL", tickers: ["AVAV","KTOS","ONDS","RCAT","UMAC","ACHR","JOBY","EH","EVTL","PDYN"] },
+  { theme: "Defense", themeId: "defense", layer: "Space Defense", tickers: ["RKLB","ASTS","LUNR","RDW","GSAT","IRDM","BKSY","PL","SPCE","MNTS","BWXT"] },
+  { theme: "Defense", themeId: "defense", layer: "Autonomous + AI Defense", tickers: ["PLTR","LDOS","BBAI","BAH","CACI","SAIC"] },
+  { theme: "Defense", themeId: "defense", layer: "Cyber Defense", tickers: ["BAH","CACI","LDOS","SAIC"] },
+  { theme: "Defense", themeId: "defense", layer: "Weapons + Munitions", tickers: ["AXON","GD","LHX","RTX","RGR","SWBI"] },
+  { theme: "Robotics", themeId: "robotics", layer: "Humanoid", tickers: ["TSLA","NVDA"] },
+  { theme: "Robotics", themeId: "robotics", layer: "Industrial Automation", tickers: ["EMR","ETN","ROK","NDSN","GNRC","NNDM","SYM"] },
+  { theme: "Robotics", themeId: "robotics", layer: "Service + Delivery", tickers: ["SERV","RR","KSCP"] },
+  { theme: "Robotics", themeId: "robotics", layer: "Machine Vision + LiDAR", tickers: ["CGNX","AEVA","OUST","LAZR","MVIS","HSAI","INVZ","LIDR"] },
+  { theme: "Robotics", themeId: "robotics", layer: "AV + Self-Driving", tickers: ["TSLA","MBLY","AUR","GOOGL"] },
+  { theme: "Robotics", themeId: "robotics", layer: "Medical Robotics", tickers: ["ISRG","SYK","MDT","ABT","MASI","STXS"] },
+  { theme: "Robotics", themeId: "robotics", layer: "Warehouse + Logistics", tickers: ["AMZN","SYM","GXO","SERV"] },
+  { theme: "EV", themeId: "ev", layer: "Makers", tickers: ["TSLA","RIVN","LCID","F","GM","NIO","LI","XPEV","STLA"] },
+  { theme: "EV", themeId: "ev", layer: "Batteries + Cells", tickers: ["ABAT","AMPX","ENVX","QS","SLDP","KULR","FREY","MVST","AEHR"] },
+  { theme: "EV", themeId: "ev", layer: "Battery Materials", tickers: ["ALB","SQM","LAC","MP","LITM"] },
+  { theme: "EV", themeId: "ev", layer: "Charging Infra", tickers: ["EVGO","SHLS"] },
+  { theme: "EV", themeId: "ev", layer: "LiDAR + Sensing", tickers: ["HSAI","INVZ","LIDR","LAZR","MVIS","AEVA","OUST","MBLY"] },
+  { theme: "EV", themeId: "ev", layer: "Auto Parts + Suppliers", tickers: ["APTV","MGA","LEA","WOLF","NVTS","BWA","ALV"] },
+  { theme: "Quantum", themeId: "quantum", layer: "Pure-Play Hardware", tickers: ["IONQ","RGTI","QUBT","QBTS"] },
+  { theme: "Quantum", themeId: "quantum", layer: "Mega-Cap Quantum", tickers: ["GOOGL","MSFT","AMZN","IBM","NVDA"] },
+  { theme: "Quantum", themeId: "quantum", layer: "Software + Algos", tickers: ["LAES","ARQQ"] },
+  { theme: "Quantum", themeId: "quantum", layer: "Enabling Tech", tickers: ["COHR","FORM","HON","NOVT","POET"] },
+  { theme: "Space", themeId: "space", layer: "Launch Vehicles", tickers: ["RKLB","LUNR","RDW","SPCE"] },
+  { theme: "Space", themeId: "space", layer: "Defense Space", tickers: ["LMT","NOC","RTX","BA","LHX","BWXT"] },
+  { theme: "Space", themeId: "space", layer: "Earth Observation", tickers: ["PL","BKSY","SPIR"] },
+  { theme: "Space", themeId: "space", layer: "Satellites + Connect", tickers: ["ASTS","GSAT","IRDM","VSAT","AMPG","BKSY"] },
+  { theme: "Space", themeId: "space", layer: "Lunar + Deep Space", tickers: ["LUNR","LDOS","LMT"] },
+  { theme: "Space", themeId: "space", layer: "Space Infrastructure", tickers: ["BWXT","RDW","MNTS","GHM"] },
+];
 
 const DRAWER_COLORS = {
   ai:       { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
