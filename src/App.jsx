@@ -1584,6 +1584,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
     themes.forEach(t => {
       t.layers.sort((a, b) => avgRS(b.tickers) - avgRS(a.tickers));
     });
+    themes.sort((a, b) => avgRS(b.layers.flatMap(l => l.tickers)) - avgRS(a.layers.flatMap(l => l.tickers)));
     return themes;
   }, [stockMap]);
 
