@@ -2394,7 +2394,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       {swView === "watchlist" && (
         <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
           <ErrorBoundary>
-            <Watchlist stockMap={stockMap} onTickerClick={onTickerClick} />
+            <Watchlist stockMap={stockMap} onTickerClick={onTickerClick} tickerStrengthMap={tickerStrengthMap} />
           </ErrorBoundary>
         </div>
       )}
@@ -6241,6 +6241,7 @@ function WatchlistSectionTable({
   removeTicker,
   focusTickers,
   toggleFocus,
+  tickerStrengthMap,
 }) {
   const ARIA = useAriaTheme();
   const [sortKey, setSortKey] = useState("change");
@@ -6315,7 +6316,7 @@ function WatchlistSectionTable({
 
   const headers = [
     { k: "ticker", label: "Ticker", align: "left" },
-    { k: "qmagScore", label: "BO" },
+    { k: "strScore", label: "Str" },
     { k: "change", label: "Chg%" },
     { k: "rvol", label: "RV" },
     { k: "liveVol", label: "Vol" },
@@ -6494,8 +6495,8 @@ function WatchlistSectionTable({
                         )}
                       </span>
                     </td>
-                    <td style={{ ...cell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
-                      {r.qmagScore || "—"}
+                    <td style={{ ...cell, color: r.strScore >= 65 ? ARIA.green : r.strScore >= 50 ? ARIA.blue : r.strScore >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
+                      {r.strScore != null ? r.strScore : "—"}
                     </td>
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
                     <td style={{ ...cell, color: colorRvol(r.rvol) }}>
@@ -6585,7 +6586,7 @@ function WatchlistSectionTable({
   );
 }
 
-function Watchlist({ stockMap, onTickerClick }) {
+function Watchlist({ stockMap, onTickerClick, tickerStrengthMap }) {
   const ARIA = useAriaTheme();
   const [view, setView] = useState(
     () => localStorage.getItem("themepulse-pw-view") || "themes"
@@ -6693,6 +6694,7 @@ function Watchlist({ stockMap, onTickerClick }) {
         liveVol,
         adr: s.adr_pct || 0,
         qmagScore: s.qmag_score || 0,
+        strScore: tickerStrengthMap?.[ticker] ?? null,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
         rs: s.rs_rank || 0,
         accel: s.accel || 0,
@@ -7367,6 +7369,7 @@ function Watchlist({ stockMap, onTickerClick }) {
             removeTicker={removeTicker}
             focusTickers={focusTickers}
             toggleFocus={toggleFocus}
+            tickerStrengthMap={tickerStrengthMap}
           />
           <WatchlistSectionTable
             rows={chgPosFilter ? watchRows.filter((r) => (r.change || 0) > 0) : watchRows}
@@ -7380,6 +7383,7 @@ function Watchlist({ stockMap, onTickerClick }) {
             removeTicker={removeTicker}
             focusTickers={focusTickers}
             toggleFocus={toggleFocus}
+            tickerStrengthMap={tickerStrengthMap}
           />
         </div>
       )}
