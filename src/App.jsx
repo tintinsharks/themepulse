@@ -864,6 +864,8 @@ function rowSortValue(r, key) {
       return r.magna || 0;
     case "qm_bo":
       return r.qmagScore || 0;
+    case "strScore":
+      return r.strScore ?? 0;
     case "chgOpen":
       return r.chgOpen || 0;
     case "liveVol":
@@ -1655,7 +1657,7 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow"
   // ── State: filters + sort + tags + preset ──────────────────────────────
@@ -1843,6 +1845,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth }
           "",
         liveVol: liveVol || 0,
         is9m,
+        strScore: tickerStrengthMap?.[s.ticker] ?? null,
       });
     }
     // Sort: primary DESC, secondary DESC tiebreaker. String values use locale.
@@ -2504,6 +2507,8 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
     v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
   const colorBo = (v) =>
     v == null || v === 0 ? ARIA.textMuted : v >= 7 ? ARIA.green : v >= 5 ? ARIA.blue : ARIA.textDim;
+  const colorStr = (v) =>
+    v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
 
   const chgKey = chgMode === "open" ? "chgOpen" : "change";
   const chgLabel = chgMode === "open" ? "Open%" : "Chg%";
@@ -2541,7 +2546,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
       >
         <tr>
           <Th k="ticker" label="Ticker" align="left" sticky />
-          <Th k="qm_bo" label="BO" />
+          <Th k="strScore" label="Str" />
           <Th k={chgKey} label={chgLabel} />
           <Th k="rvol" label="RV" />
           <Th k="liveVol" label="Vol" />
@@ -2622,8 +2627,8 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
                   )}
                 </span>
               </td>
-              <td style={{ ...bodyCell, color: colorBo(r.qmagScore), fontWeight: 700 }}>
-                {r.qmagScore || "—"}
+              <td style={{ ...bodyCell, color: colorStr(r.strScore), fontWeight: 700 }}>
+                {r.strScore != null ? r.strScore : "—"}
               </td>
               <td style={{ ...bodyCell, color: colorChg(chgVal) }}>
                 {fmtPct(chgVal)}
@@ -7940,7 +7945,7 @@ function ChartScanRow({
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} />
       </div>
     </div>
   );
@@ -7985,6 +7990,42 @@ function AppMain() {
     });
     return m;
   }, [stocks]);
+
+  // Subtheme setup score per ticker — used in Scan Watch "Str" column.
+  // Formula mirrors computeDailySetupScore in SubthemeRotation.jsx.
+  const tickerStrengthMap = useMemo(() => {
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const map = {};
+    (data.pipeline?.themes || []).forEach(theme => {
+      (theme.subthemes || []).forEach(sub => {
+        if (sub.rs == null) return;
+        const rs = sub.rs;
+        const breadth = sub.breadth ?? 50;
+        const weeklyRs = sub.weekly_rs ?? null;
+        const monthlyRs = sub.monthly_rs ?? null;
+        const strength = rs * 0.6 + breadth * 0.4;
+        const d1 = weeklyRs != null && monthlyRs != null ? weeklyRs - monthlyRs : 0;
+        const d4 = monthlyRs != null ? monthlyRs - 50 : 0;
+        const d1Score = clamp(50 + d1 * 5, 0, 100);
+        const d4Score = clamp(50 + d4 * 2.5, 0, 100);
+        const direction = clamp(d1Score * 0.5 + d4Score * 0.3 + 50, 0, 100);
+        // Dispersion from constituent RS std dev
+        const rsVals = (sub.tickers || []).map(t => t.rs).filter(v => v != null);
+        let disp = 30;
+        if (rsVals.length >= 2) {
+          const mean = rsVals.reduce((a, b) => a + b, 0) / rsVals.length;
+          disp = Math.sqrt(rsVals.reduce((s, v) => s + (v - mean) ** 2, 0) / rsVals.length);
+        }
+        const conviction = clamp(100 - disp * 2.5, 0, 100);
+        const score = Math.round(Math.pow(strength * direction * conviction, 1 / 3));
+        (sub.tickers || []).forEach(t => {
+          const ticker = typeof t === "string" ? t : t.ticker;
+          if (ticker && map[ticker] == null) map[ticker] = score;
+        });
+      });
+    });
+    return map;
+  }, [data.pipeline]);
 
   // ── Now safe to do conditional early returns ───────────────────────────
   if (data.loading) {
