@@ -8334,7 +8334,6 @@ const DRAWER_SUBTHEMES = [
   { theme: "Materials", themeId: "materials", layer: "Multi Minerals", tickers: ["CRML","TMRC","UAMY","NVA"] },
   { theme: "Semiconductors", themeId: "semis", layer: "Analog", tickers: ["MPWR","ON","ADI","TXN","NXPI","MCHP","STM","ALGM","AOSL","CRUS","POWI"] },
   { theme: "Semiconductors", themeId: "semis", layer: "Compute", tickers: ["NVDA","AMD","ARM","ALAB","MRVL","AVGO","INTC","QCOM","AMBA","LSCC"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Memory", tickers: ["MU","SNDK","WDC","STX","RMBS","SIMO"] },
   { theme: "Semiconductors", themeId: "semis", layer: "Packaging", tickers: ["AMKR","FORM","ONTO","KLIC","COHU","ASX","IMOS"] },
   { theme: "Semiconductors", themeId: "semis", layer: "Foundries", tickers: ["TSM","GFS","UMC","SKYT"] },
   { theme: "Semiconductors", themeId: "semis", layer: "Equipment", tickers: ["AMAT","LRCX","ASML","KLAC","ACLS","TER","NVMI","MKSI","ENTG","VECO"] },
