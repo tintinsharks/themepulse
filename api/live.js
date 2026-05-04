@@ -1436,27 +1436,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ETF holdings — short-circuit before Finviz login
-    const etfTicker = (req.query.etf || "").trim().toUpperCase();
-    if (etfTicker) {
-      const fmpKey = process.env.FMP_API_KEY;
-      if (!fmpKey) return res.status(200).json({ holdings: [] });
-      try {
-      try {
-        const r = await fetch(`${FMP_BASE}/etf-holdings?symbol=${encodeURIComponent(etfTicker)}&apikey=${fmpKey}`);
-        const raw = r.ok ? await r.json() : [];
-        const arr = Array.isArray(raw) ? raw : (raw?.holdings || []);
-        const holdings = arr
-          .filter(h => h.asset && h.weightPercentage != null)
-          .sort((a, b) => b.weightPercentage - a.weightPercentage)
-          .slice(0, 15)
-          .map(h => ({ ticker: h.asset, name: h.name || h.asset, weight: Math.round(h.weightPercentage * 10) / 10 }));
-        return res.status(200).json({ holdings });
-      } catch {
-        return res.status(200).json({ holdings: [] });
-      }
-    }
-
     const cookies = await loginFinviz();
 
     // Parse all ticker params — both go into a single FMP batch
