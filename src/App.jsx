@@ -1644,7 +1644,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
                                   fontFamily: "monospace", fontWeight: sel ? 800 : 600,
                                   background: sel ? c.color : c.bg,
                                   border: `1px solid ${sel ? c.color : c.border}`,
-                                  color: sel ? ARIA.bg : c.color,
+                                  color: sel ? ARIA.bg : ARIA.textMuted,
                                 }}
                               >
                                 <img src={ER_LOGO(tk)} alt="" style={{ width: 10, height: 10, borderRadius: 1 }} onError={(e) => { e.target.style.display = "none"; }} />
