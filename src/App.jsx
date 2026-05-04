@@ -5341,13 +5341,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       </svg>
       {/* Legend + zoom info */}
       <div style={{ display: "flex", gap: 10, padding: "4px 8px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px)", border: "1px solid #fbbf2480", borderRadius: 1, display: "inline-block" }} />+4% BO</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px)", border: "1px solid #f8717180", borderRadius: 1, display: "inline-block" }} />-4% BD</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#1a1a24", color: "#fbbf24", fontSize: 7, fontWeight: 900, textAlign: "center", lineHeight: "8px", fontFamily: "monospace", borderRadius: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>T</span>Tight</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "radial-gradient(circle,#2dd4bf 3px,transparent 3px)", borderRadius: 1, display: "inline-block" }} />Dry-Up</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: "auto" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
           <span style={{ color: "#ff828c" }}>EMA10</span>
           <span style={{ color: "#808080" }}>EMA21</span>
           <span style={{ color: "#2dd4bf" }}>SMA50</span>
@@ -5359,6 +5353,14 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
             {chartData.startDate} → {chartData.endDate} · {chartData.barCount}d
           </span>
         )}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px)", border: "1px solid #fbbf2480", borderRadius: 1, display: "inline-block" }} />+4% BO</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px)", border: "1px solid #f8717180", borderRadius: 1, display: "inline-block" }} />-4% BD</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#1a1a24", color: "#fbbf24", fontSize: 7, fontWeight: 900, textAlign: "center", lineHeight: "8px", fontFamily: "monospace", borderRadius: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>T</span>Tight</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "radial-gradient(circle,#2dd4bf 3px,transparent 3px)", borderRadius: 1, display: "inline-block" }} />Dry-Up</span>
+        </span>
       </div>
     </div>
   );
