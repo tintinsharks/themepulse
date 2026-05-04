@@ -1565,6 +1565,11 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
     return () => clearTimeout(id);
   }, [openTheme]);
 
+  const avgRS = (tickers) => {
+    const vals = tickers.map(tk => stockMap?.[tk]?.rs_rank ?? null).filter(v => v != null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  };
+
   const grouped = useMemo(() => {
     const themes = [];
     const seen = new Set();
@@ -1576,8 +1581,11 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
       const t = themes.find((th) => th.id === s.themeId);
       t.layers.push({ layer: s.layer, tickers: s.tickers });
     });
+    themes.forEach(t => {
+      t.layers.sort((a, b) => avgRS(b.tickers) - avgRS(a.tickers));
+    });
     return themes;
-  }, []);
+  }, [stockMap]);
 
   const totalTickers = DRAWER_TICKERS.size;
 
