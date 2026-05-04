@@ -5378,6 +5378,7 @@ function ChartPanelInline({
   height = 580,
   stockMap,
   themeHealth,
+  tickerStrengthMap,
 }) {
   const ARIA = useAriaTheme();
   const tf = "D";
@@ -5769,6 +5770,14 @@ function ChartPanelInline({
                 </span>
               </span>
             )}
+            {(() => { const str = ticker && tickerStrengthMap?.[ticker]; return str != null ? (
+              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ color: ARIA.textMuted }}>Str</span>
+                <span style={{ color: str >= 65 ? ARIA.green : str >= 50 ? ARIA.blue : str >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
+                  {str}
+                </span>
+              </span>
+            ) : null; })()}
             </div>
           </div>
         );
@@ -7929,6 +7938,7 @@ function ChartScanRow({
           onTickerChange={handleTickerClick}
           stockMap={stockMap}
           themeHealth={themeHealth}
+          tickerStrengthMap={tickerStrengthMap}
         />
       </div>
       <div
