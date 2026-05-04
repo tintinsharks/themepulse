@@ -1002,7 +1002,7 @@ function ETFScanTable({ onTickerClick }) {
   );
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
-  const [noLev, setNoLev] = useState(false);
+  const [noLev, setNoLev] = useState(true);
   const [gainOnly, setGainOnly] = useState(false);
   const [ownedView, setOwnedView] = useState("all"); // "all" | "owned" | "hide"
   const [sortKey, setSortKey] = useState("change");
