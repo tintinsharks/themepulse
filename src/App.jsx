@@ -7876,6 +7876,7 @@ function ChartScanRow({
   themeHealth,
   stocks,
   pipelineMeta,
+  tickerStrengthMap,
 }) {
   // Default 320px to match Aria's #sw-column initial width.
   const [scanW, setScanW] = useState(() => {
@@ -8214,6 +8215,7 @@ function AppMain() {
           themeHealth={data.pipeline?.theme_health || []}
           stocks={stocks}
           pipelineMeta={data.pipeline?.pipeline_meta}
+          tickerStrengthMap={tickerStrengthMap}
         />
 
       </div>
