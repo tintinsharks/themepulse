@@ -5378,6 +5378,7 @@ function ChartPanelInline({
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
+  const [etfHoldings, setEtfHoldings] = useState([]);
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [showTrade, setShowTrade] = useState(false);
@@ -5399,27 +5400,30 @@ function ChartPanelInline({
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
-    fetch(`/api/live?news=${encodeURIComponent(ticker)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled) return;
-        const orient = (arr) => {
-          if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
-          return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
-        };
-        setQuarters(orient(d?.finvizQuarters));
-        setAnnuals(orient(d?.finvizAnnual));
-        setNews(d?.news || []);
-        setDescription(d?.description || "");
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setQuarters([]);
-          setAnnuals([]);
-          setNews([]);
-          setDescription("");
-        }
-      });
+    setEtfHoldings([]);
+    Promise.all([
+      fetch(`/api/live?news=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/live?etf=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
+    ]).then(([d, etfData]) => {
+      if (cancelled) return;
+      const orient = (arr) => {
+        if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
+        return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
+      };
+      setQuarters(orient(d?.finvizQuarters));
+      setAnnuals(orient(d?.finvizAnnual));
+      setNews(d?.news || []);
+      setDescription(d?.description || "");
+      setEtfHoldings(etfData?.holdings || []);
+    }).catch(() => {
+      if (!cancelled) {
+        setQuarters([]);
+        setAnnuals([]);
+        setNews([]);
+        setDescription("");
+        setEtfHoldings([]);
+      }
+    });
     return () => { cancelled = true; };
   }, [ticker]);
 
@@ -5845,6 +5849,36 @@ function ChartPanelInline({
           </div>
         );
       })()}
+
+      {/* ETF Holdings strip — shown above news when ticker is an ETF */}
+      {etfHoldings.length > 0 && (
+        <div style={{
+          padding: "5px 14px",
+          borderBottom: "1px solid rgba(255,255,255,0.05)",
+          background: "#0d0d1a",
+        }}>
+          <div style={{ fontSize: 8, color: "#5a5a7a", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+            Top Holdings
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {etfHoldings.map((h) => (
+              <button
+                key={h.ticker}
+                onClick={() => onTickerChange?.(h.ticker)}
+                title={`${h.name} — ${h.weight}% of ETF`}
+                style={{
+                  background: "#141420", border: "1px solid #222230",
+                  borderRadius: 3, padding: "2px 6px",
+                  cursor: "pointer", display: "flex", gap: 5, alignItems: "center",
+                }}
+              >
+                <span style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 700, color: "#c8c8d8" }}>{h.ticker}</span>
+                <span style={{ fontFamily: "monospace", fontSize: 9, color: "#5a5a7a" }}>{h.weight}%</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* News + Notes — two-column row */}
       {(() => {
