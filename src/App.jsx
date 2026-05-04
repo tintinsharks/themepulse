@@ -1530,7 +1530,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
 }
 
 // ── Drawer Themes — collapsible inline view of value-chain themes/subthemes ──
-function DrawerThemes({ onTickerClick, chartTicker }) {
+function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") === "1");
   const [openTheme, setOpenTheme] = useState(null);
@@ -1623,7 +1623,7 @@ function DrawerThemes({ onTickerClick, chartTicker }) {
                           {layer.layer}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 2, paddingLeft: 4 }}>
-                          {layer.tickers.map((tk) => {
+                          {[...layer.tickers].sort((a, b) => (stockMap?.[b]?.rs_rank ?? 0) - (stockMap?.[a]?.rs_rank ?? 0)).map((tk) => {
                             const sel = chartTicker === tk;
                             return (
                               <button
@@ -7945,7 +7945,7 @@ function ChartScanRow({
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
-        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} />
+        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} />
       </div>
     </div>
