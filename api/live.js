@@ -1444,6 +1444,7 @@ export default async function handler(req, res) {
       try {
         const r = await fetch(`${FMP_BASE}/etf-holdings?symbol=${encodeURIComponent(etfTicker)}&apikey=${fmpKey}`);
         const raw = r.ok ? await r.json() : [];
+        if (req.query.debug) return res.status(200).json({ status: r.status, raw: JSON.stringify(raw).slice(0, 2000) });
         const arr = Array.isArray(raw) ? raw : (raw?.holdings || []);
         const holdings = arr
           .filter(h => h.asset && h.weightPercentage != null)
@@ -1451,8 +1452,8 @@ export default async function handler(req, res) {
           .slice(0, 15)
           .map(h => ({ ticker: h.asset, name: h.name || h.asset, weight: Math.round(h.weightPercentage * 10) / 10 }));
         return res.status(200).json({ holdings });
-      } catch {
-        return res.status(200).json({ holdings: [] });
+      } catch (e) {
+        return res.status(200).json({ holdings: [], error: e.message });
       }
     }
 
