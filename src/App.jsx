@@ -2041,6 +2041,31 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth }
         })}
       </div>
 
+      {/* Active tag description box */}
+      {activeTags.size > 0 && (
+        <div style={{
+          padding: "5px 12px",
+          borderBottom: `1px solid ${ARIA.border}`,
+          background: ARIA.bgRow,
+          fontSize: 9,
+          color: ARIA.textDim,
+          lineHeight: 1.6,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}>
+          {[...activeTags].map((key) => {
+            const t = TAG_PREDICATES[key];
+            if (!t) return null;
+            return (
+              <div key={key}>
+                <b style={{ color: ARIA.green }}>{t.label}</b> — {t.desc}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Toggle/input filter row */}
       <div
         style={{
