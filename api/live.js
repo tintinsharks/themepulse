@@ -1442,7 +1442,7 @@ export default async function handler(req, res) {
       const fmpKey = process.env.FMP_API_KEY;
       if (!fmpKey) return res.status(200).json({ holdings: [] });
       try {
-        const r = await fetch(`${FMP_BASE}/etf-fund-holdings?symbol=${encodeURIComponent(etfTicker)}&apikey=${fmpKey}`);
+        const r = await fetch(`https://financialmodelingprep.com/api/v3/etf-holder/${encodeURIComponent(etfTicker)}?apikey=${fmpKey}`);
         const raw = r.ok ? await r.json() : [];
         if (req.query.debug) return res.status(200).json({ status: r.status, raw: JSON.stringify(raw).slice(0, 2000) });
         const arr = Array.isArray(raw) ? raw : (raw?.holdings || []);
