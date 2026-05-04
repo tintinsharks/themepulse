@@ -515,9 +515,26 @@ const computeLiveAggregates = (tickers, liveQuotes = null) => {
 };
 
 // ─── Main component ─────────────────────────────────────────────────────────
-export default function SubthemeRotation({ data, history, liveQuotes = null, portfolio = [], watchlist = [], onTickerClick }) {
+export default function SubthemeRotation({ data, history, liveQuotes = null, portfolio = [], watchlist = [], onTickerClick, themeNotes = null }) {
   const portfolioSet = useMemo(() => new Set((portfolio || []).map((t) => String(t).toUpperCase())), [portfolio]);
   const watchlistSet = useMemo(() => new Set((watchlist || []).map((t) => String(t).toUpperCase())), [watchlist]);
+
+  // Build ticker → [note, ...] lookup from theme_notes.json
+  const tickerNotesMap = useMemo(() => {
+    const notes = themeNotes?.notes;
+    if (!notes?.length) return {};
+    const map = {};
+    notes.forEach((note) => {
+      const tickers = [...(note.primary_tickers || []), ...(note.derivative_tickers || [])];
+      tickers.forEach((tk) => {
+        const key = tk.toUpperCase();
+        if (!map[key]) map[key] = [];
+        if (!map[key].includes(note)) map[key].push(note);
+      });
+    });
+    return map;
+  }, [themeNotes]);
+
   const [viewMode, setViewMode] = useState("flat"); // "scatter" | "flat" | "grouped"
   const [timeframe, setTimeframe] = useState("live"); // "daily" | "live"
   const [filterParent, setFilterParent] = useState("ALL");
@@ -872,6 +889,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
           portfolioSet={portfolioSet}
           watchlistSet={watchlistSet}
           liveQuotes={liveQuotes}
+          tickerNotesMap={tickerNotesMap}
         />
       )}
 
@@ -905,7 +923,7 @@ export default function SubthemeRotation({ data, history, liveQuotes = null, por
                   {g.subs.length} subthemes · top RS {g.maxRS?.toFixed(0)}
                 </span>
               </div>
-              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} portfolioSet={portfolioSet} watchlistSet={watchlistSet} liveQuotes={liveQuotes} />
+              <SubthemeTable rows={g.subs} onTickerClick={onTickerClick} timeframe={timeframe} showTickers={showTickers} portfolioSet={portfolioSet} watchlistSet={watchlistSet} liveQuotes={liveQuotes} tickerNotesMap={tickerNotesMap} />
             </div>
           ))}
         </div>
@@ -1317,7 +1335,95 @@ function ScatterPlot({ rows, timeframe, onTickerClick }) {
 }
 
 // ─── Sub-component: the actual table of rows ────────────────────────────────
-function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false, portfolioSet = null, watchlistSet = null, liveQuotes = null }) {
+// ─── Thesis context card ────────────────────────────────────────────────────
+function ThesisCard({ note, matchedTickers }) {
+  const [showMore, setShowMore] = useState(false);
+  const typeStyle = note.type === "macro_thesis"
+    ? { bg: "#1a0d30", border: "#7c3aed", label: "MACRO" }
+    : note.type === "earnings_thesis"
+    ? { bg: "#0d1a10", border: "#00c853", label: "EARNINGS" }
+    : { bg: "#141420", border: "#3a3a50", label: "NOTE" };
+
+  const allNoteTickers = [...(note.primary_tickers || []), ...(note.derivative_tickers || [])];
+  const hitTickers = allNoteTickers.filter((tk) => matchedTickers.has(tk.toUpperCase()));
+
+  const relevantNumbers = note.key_numbers
+    ? Object.entries(note.key_numbers).filter(([tk]) => matchedTickers.has(tk.toUpperCase()))
+    : [];
+
+  return (
+    <div style={{
+      background: typeStyle.bg, borderRadius: 4,
+      borderLeft: `3px solid ${typeStyle.border}`,
+      border: `1px solid ${typeStyle.border}30`,
+      padding: "7px 10px", fontSize: 11,
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 7, marginBottom: 5 }}>
+        <span style={{
+          fontSize: 8, fontWeight: 800, padding: "1px 5px", borderRadius: 2, flexShrink: 0,
+          background: typeStyle.border + "25", color: typeStyle.border,
+          border: `1px solid ${typeStyle.border}50`, fontFamily: "monospace", letterSpacing: 0.5,
+        }}>{typeStyle.label}</span>
+        <span style={{ color: "#e8e8f0", fontWeight: 600, lineHeight: 1.4 }}>{note.headline}</span>
+      </div>
+
+      {/* Matched tickers */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+        {hitTickers.map((tk) => (
+          <span key={tk} style={{
+            fontFamily: "monospace", fontSize: 9, padding: "1px 5px", borderRadius: 2,
+            background: "#1a2a3a", border: "1px solid #2a5a7a", color: "#7ab8d4", fontWeight: 700,
+          }}>{tk}</span>
+        ))}
+      </div>
+
+      {/* Lead-lag rationale */}
+      {note.lead_lag?.rationale && (
+        <div style={{ color: "#9a9ab0", fontSize: 10, lineHeight: 1.5, marginBottom: showMore ? 6 : 0 }}>
+          {note.lead_lag.rationale}
+        </div>
+      )}
+
+      {showMore && note.lead_lag?.sequencing?.length > 0 && (
+        <div style={{ marginTop: 4, marginBottom: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+          {note.lead_lag.sequencing.map((step, i) => (
+            <div key={i} style={{ color: "#7a7a8a", fontSize: 9 }}>{step}</div>
+          ))}
+        </div>
+      )}
+
+      {showMore && relevantNumbers.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+          {relevantNumbers.map(([tk, nums]) => (
+            <div key={tk} style={{
+              background: "#0a0a18", border: "1px solid #1a1a2e",
+              borderRadius: 3, padding: "4px 8px", fontSize: 9,
+            }}>
+              <div style={{ color: "#e0e0f0", fontWeight: 700, fontFamily: "monospace", marginBottom: 2 }}>{tk}</div>
+              {Object.entries(nums).slice(0, 4).map(([k, v]) => (
+                <div key={k} style={{ color: "#7a7a8a" }}>
+                  {k}: <span style={{ color: "#b0b0c8" }}>{Array.isArray(v) ? v.join(", ") : String(v)}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 5 }}>
+        <span style={{ color: "#3a3a50", fontSize: 8 }}>{note.date} · {note.source}</span>
+        {(note.lead_lag?.sequencing?.length > 0 || relevantNumbers.length > 0) && (
+          <button onClick={(e) => { e.stopPropagation(); setShowMore((v) => !v); }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#5a5a7a", fontSize: 9, padding: 0 }}>
+            {showMore ? "▲ less" : "▼ more"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortDir, onSort, showTickers = false, portfolioSet = null, watchlistSet = null, liveQuotes = null, tickerNotesMap = null }) {
   if (!rows.length) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "#5a5a6a", fontSize: 12 }}>
@@ -1371,6 +1477,7 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
           portfolioSet={portfolioSet}
           watchlistSet={watchlistSet}
           liveQuotes={liveQuotes}
+          tickerNotesMap={tickerNotesMap}
         />
       ))}
     </div>
@@ -1378,7 +1485,21 @@ function SubthemeTable({ rows, onTickerClick, timeframe = "daily", sortBy, sortD
 }
 
 // ─── Single subtheme row ────────────────────────────────────────────────────
-function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false, portfolioSet = null, watchlistSet = null, liveQuotes = null }) {
+function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = false, portfolioSet = null, watchlistSet = null, liveQuotes = null, tickerNotesMap = null }) {
+  // Find all theme notes that reference any ticker in this subtheme
+  const matchedNotes = useMemo(() => {
+    if (!tickerNotesMap) return [];
+    const seen = new Set();
+    const out = [];
+    (row.tickers || []).forEach((t) => {
+      const tk = (typeof t === "string" ? t : t?.ticker)?.toUpperCase();
+      if (!tk) return;
+      (tickerNotesMap[tk] || []).forEach((note) => {
+        if (!seen.has(note.id)) { seen.add(note.id); out.push(note); }
+      });
+    });
+    return out;
+  }, [row.tickers, tickerNotesMap]);
   // Resolve RVol the same way the watchlist does: prefer live FMP volume / avgVolume,
   // fall back to the pipeline-cached t.rvol when the ticker isn't in liveQuotes.
   const liveRvol = (t) => {
@@ -1533,6 +1654,21 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
               {volStyle.icon}
             </span>
           )}
+
+          {/* Thesis context badge — notes from theme_notes.json reference tickers in this subtheme */}
+          {matchedNotes.length > 0 && (
+            <span
+              title={`${matchedNotes.length} thesis note${matchedNotes.length > 1 ? "s" : ""}: ${matchedNotes.map(n => n.headline).join(" · ")}`}
+              style={{
+                fontSize: 8, fontWeight: 800,
+                padding: "1px 5px", borderRadius: 2,
+                background: "#1a0d30", color: "#a78bfa",
+                border: "1px solid #7c3aed60",
+                fontFamily: "monospace", flexShrink: 0, letterSpacing: 0.5,
+              }}>
+              ◈ THESIS
+            </span>
+          )}
         </div>
 
         {/* Bar + number overlaid. In live mode, a cyan tick shows daily RS
@@ -1648,6 +1784,18 @@ function SubthemeRow({ row, onTickerClick, timeframe = "daily", showTickers = fa
               </span>
             )}
           </div>
+          {/* Thesis context cards */}
+          {matchedNotes.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+              {matchedNotes.map((note) => {
+                const rowTickerSet = new Set(
+                  (row.tickers || []).map((t) => (typeof t === "string" ? t : t?.ticker)?.toUpperCase()).filter(Boolean)
+                );
+                return <ThesisCard key={note.id} note={note} matchedTickers={rowTickerSet} />;
+              })}
+            </div>
+          )}
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {[...(row.tickers || [])]
               .sort((a, b) => isLive
@@ -1737,6 +1885,7 @@ export function SubthemeRotationAutoRefresh({
 }) {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState(null);
+  const [themeNotes, setThemeNotes] = useState(null);
   const [loadedAt, setLoadedAt] = useState(null);
   const [liveQuotes, setLiveQuotes] = useState({});  // ticker → { change, volume, avgVolume }
   const [quotesAt, setQuotesAt] = useState(null);
@@ -1750,6 +1899,16 @@ export function SubthemeRotationAutoRefresh({
     const minutes = pt.getHours() * 60 + pt.getMinutes();
     return minutes >= 6 * 60 + 25 && minutes <= 13 * 60 + 10;
   };
+
+  // Load theme_notes.json once on mount
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/data/theme_notes.json")
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (!cancelled && j) setThemeNotes(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Load history once on mount (daily data, refreshes once per day)
   useEffect(() => {
@@ -1903,6 +2062,7 @@ export function SubthemeRotationAutoRefresh({
         portfolio={portfolio}
         watchlist={watchlist}
         onTickerClick={onTickerClick}
+        themeNotes={themeNotes}
       />
       {loadedAt && (
         <div style={{ padding: "0 16px 12px", color: "#5a5a6a", fontSize: 10, fontFamily: "system-ui",
