@@ -5672,7 +5672,7 @@ function ChartPanelInline({
           </div>
           {/* Description */}
           {description && (
-            <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 2, maxHeight: 40, overflowY: "auto" }}>
+            <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 2, maxHeight: 41, overflowY: "auto" }}>
               {description}
             </div>
           )}
