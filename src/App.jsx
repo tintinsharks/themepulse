@@ -1002,6 +1002,7 @@ function ETFScanTable({ onTickerClick }) {
   );
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
+  const [noLev, setNoLev] = useState(false);
   const [gainOnly, setGainOnly] = useState(false);
   const [ownedView, setOwnedView] = useState("all"); // "all" | "owned" | "hide"
   const [sortKey, setSortKey] = useState("change");
@@ -1067,6 +1068,7 @@ function ETFScanTable({ onTickerClick }) {
     else if (filter === "sector")
       arr = arr.filter((e) => e.category === "Sector" && e.leverage === "1x");
     else if (filter === "lev") arr = arr.filter((e) => e.leverage !== "1x");
+    if (noLev) arr = arr.filter((e) => e.leverage === "1x");
     if (gainOnly) arr = arr.filter((e) => (e.change || 0) > 0);
     if (ownedView === "hide") arr = arr.filter((e) => !ownedSet.has(e.ticker));
     else if (ownedView === "owned") arr = arr.filter((e) => ownedSet.has(e.ticker));
@@ -1185,6 +1187,10 @@ function ETFScanTable({ onTickerClick }) {
         {fBtn("index", "Index")}
         {fBtn("sector", "Sector")}
         {fBtn("lev", "2x/3x")}
+        <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
+        <button onClick={() => setNoLev((v) => !v)} style={pillStyle(noLev, ARIA.yellow)} title="Hide all leveraged and inverse ETFs">
+          No Lev
+        </button>
         <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
         <button onClick={() => setGainOnly((g) => !g)} style={pillStyle(gainOnly, ARIA.green)}>
           Chg&gt;0%
