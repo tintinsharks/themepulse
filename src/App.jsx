@@ -1536,12 +1536,21 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
   const [openTheme, setOpenTheme] = useState(null);
   const scrollContainerRef = useRef(null);
   const pendingScrollTicker = useRef(null);
+  // Track self-clicks so we don't auto-open the subtheme when a ticker is
+  // clicked from within the drawer itself — only external clicks (Scan Watch)
+  // should trigger auto-expand + scroll.
+  const selfClickedTicker = useRef(null);
 
   useEffect(() => { localStorage.setItem("tp-drawer-themes-open", expanded ? "1" : "0"); }, [expanded]);
 
-  // Auto-expand or collapse based on whether the ticker is in a value chain
+  // Auto-expand or collapse based on whether the ticker is in a value chain.
+  // Suppressed when the click originated from within this drawer.
   useEffect(() => {
     if (!chartTicker) return;
+    if (selfClickedTicker.current === chartTicker) {
+      selfClickedTicker.current = null;
+      return;
+    }
     const match = DRAWER_SUBTHEMES.find(s => s.tickers.includes(chartTicker));
     if (match) {
       setExpanded(true);
@@ -1637,7 +1646,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
                             return (
                               <button
                                 key={tk}
-                                onClick={() => onTickerClick(tk)}
+                                onClick={() => { selfClickedTicker.current = tk; onTickerClick(tk); }}
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 3,
                                   fontSize: 7, padding: "1px 4px", borderRadius: 3, cursor: "pointer",
