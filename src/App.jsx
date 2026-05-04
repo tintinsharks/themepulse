@@ -5378,6 +5378,8 @@ function ChartPanelInline({
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
+  const [peers, setPeers] = useState([]);
+  const [etfHoldings, setEtfHoldings] = useState([]);
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [showTrade, setShowTrade] = useState(false);
@@ -5399,27 +5401,33 @@ function ChartPanelInline({
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
-    fetch(`/api/live?news=${encodeURIComponent(ticker)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled) return;
-        const orient = (arr) => {
-          if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
-          return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
-        };
-        setQuarters(orient(d?.finvizQuarters));
-        setAnnuals(orient(d?.finvizAnnual));
-        setNews(d?.news || []);
-        setDescription(d?.description || "");
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setQuarters([]);
-          setAnnuals([]);
-          setNews([]);
-          setDescription("");
-        }
-      });
+    setPeers([]);
+    setEtfHoldings([]);
+    Promise.all([
+      fetch(`/api/live?news=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/live?etf=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
+    ]).then(([d, etfData]) => {
+      if (cancelled) return;
+      const orient = (arr) => {
+        if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
+        return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
+      };
+      setQuarters(orient(d?.finvizQuarters));
+      setAnnuals(orient(d?.finvizAnnual));
+      setNews(d?.news || []);
+      setDescription(d?.description || "");
+      setPeers(d?.fmpPeers || d?.peers || []);
+      setEtfHoldings(etfData?.holdings || []);
+    }).catch(() => {
+      if (!cancelled) {
+        setQuarters([]);
+        setAnnuals([]);
+        setNews([]);
+        setDescription("");
+        setPeers([]);
+        setEtfHoldings([]);
+      }
+    });
     return () => { cancelled = true; };
   }, [ticker]);
 
@@ -5867,13 +5875,37 @@ function ChartPanelInline({
                 </a>
               )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
             </div>
-            {/* Right: Notes from Google Sheet */}
+            {/* Right: ETF holdings (if ETF) or peers (if equity) */}
             <div style={{ width: 220, flexShrink: 0, padding: "4px 10px 2px", overflowY: "auto" }}>
-              <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Notes</div>
-              {tickerNote
-                ? <div style={{ fontSize: 9, color: "#c0c0d0", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{tickerNote}</div>
-                : <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic" }}>Add notes in Google Sheet</div>
-              }
+              {etfHoldings.length > 0 ? (
+                <>
+                  <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Top Holdings</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                    {etfHoldings.map(h => (
+                      <button key={h.ticker} onClick={() => onTickerChange?.(h.ticker)}
+                        title={`${h.name} — ${h.weight}%`}
+                        style={{ background: "#141420", border: "1px solid #222230", borderRadius: 3, padding: "1px 5px", cursor: "pointer", display: "flex", gap: 4, alignItems: "center" }}>
+                        <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#c8c8d8" }}>{h.ticker}</span>
+                        <span style={{ fontFamily: "monospace", fontSize: 8, color: "#5a5a7a" }}>{h.weight}%</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : peers.length > 0 ? (
+                <>
+                  <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Peers</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                    {peers.map(p => (
+                      <button key={p} onClick={() => onTickerChange?.(p)}
+                        style={{ background: "#141420", border: "1px solid #222230", borderRadius: 3, padding: "1px 5px", cursor: "pointer" }}>
+                        <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#c8c8d8" }}>{p}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>
+              )}
             </div>
           </div>
         );
