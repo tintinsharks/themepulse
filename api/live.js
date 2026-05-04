@@ -797,7 +797,13 @@ async function fetchTickerNews(cookies, ticker) {
     const recIdx = html.indexOf('Recom');
     analyst._debugRecom = recIdx !== -1 ? html.substring(recIdx - 50, recIdx + 200).replace(/\n/g, ' ') : 'Recom NOT FOUND';
 
-    return { news, peers, description, earningsData, quarters, analyst };
+    // ── EARNINGS DATE ──
+    // Finviz quote page stats table: <td>Earnings</td><td><b>May 26 AMC</b></td>
+    let earningsDate = null;
+    const erMatch = html.match(/<td[^>]*>\s*Earnings\s*<\/td>\s*<td[^>]*><b[^>]*>([^<]+)<\/b>/i);
+    if (erMatch) earningsDate = erMatch[1].trim();
+
+    return { news, peers, description, earningsData, quarters, analyst, earningsDate };
   } catch (err) {
     console.error(`News/peers fetch error for ${ticker}:`, err.message);
     return { news: [], peers: [], description: "", earningsData: {}, quarters: [], analyst: {} };
@@ -1642,6 +1648,7 @@ export default async function handler(req, res) {
       fmpPeers: fmpPeers.length > 0 ? fmpPeers : null,
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
+      earningsDate: tickerData?.earningsDate || null,
       finvizQuarters:
         tickerData?.quarters && tickerData.quarters.length > 0
           ? tickerData.quarters

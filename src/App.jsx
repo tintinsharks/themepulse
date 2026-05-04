@@ -5404,6 +5404,7 @@ function ChartPanelInline({
   const [description, setDescription] = useState("");
   const [peers, setPeers] = useState([]);
   const [etfHoldings, setEtfHoldings] = useState([]);
+  const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [showTrade, setShowTrade] = useState(false);
@@ -5427,6 +5428,7 @@ function ChartPanelInline({
     let cancelled = false;
     setPeers([]);
     setEtfHoldings([]);
+    setLiveEarningsDate(null);
     Promise.all([
       fetch(`/api/live?news=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
       fetch(`/api/live?etf=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
@@ -5442,6 +5444,7 @@ function ChartPanelInline({
       setDescription(d?.description || "");
       setPeers(d?.fmpPeers || d?.peers || []);
       setEtfHoldings(etfData?.holdings || []);
+      if (d?.earningsDate) setLiveEarningsDate(d.earningsDate);
     }).catch(() => {
       if (!cancelled) {
         setQuarters([]);
@@ -7502,7 +7505,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap }) {
 // Width of the right column is persisted and dragged via a 4px col-resize handle.
 // ── Peers row inside TickerInfoBox: peer chips (col 1) + selected
 //    ticker's live stats chg | openChg | RVol | ADR% | ER countdown (col 2) ────
-function PeersRow({ ticker, peers, onTickerClick, ARIA, stockMap }) {
+function PeersRow({ ticker, peers, onTickerClick, ARIA, stockMap, liveEarningsDate }) {
   const tickerList = useMemo(() => ticker ? [ticker] : [], [ticker]);
   const { quotes } = useLiveQuotes(tickerList, 30000);
   const q = quotes.get(ticker) || {};
@@ -7515,8 +7518,29 @@ function PeersRow({ ticker, peers, onTickerClick, ARIA, stockMap }) {
     : null;
   const s = stockMap?.[ticker] || {};
   const adr = s.adr_pct ?? null;
-  const erDays = s.earnings_days ?? null;       // signed (neg = past)
-  const erTiming = s.er_timing || "";            // "BMO" / "AMC"
+
+  // Prefer live Finviz earnings date (e.g. "May 26 AMC") over stale pipeline days
+  const { erDays, erTiming } = useMemo(() => {
+    if (liveEarningsDate) {
+      // Parse "May 26 AMC" or "Jun 02 BMO" — Finviz format
+      const parts = liveEarningsDate.trim().split(/\s+/);
+      const timing = parts.length >= 3 ? parts[parts.length - 1] : (s.er_timing || "");
+      const dateStr = parts.slice(0, 2).join(" ");
+      const months = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+      const monthIdx = months[dateStr.split(" ")[0]];
+      const day = parseInt(dateStr.split(" ")[1], 10);
+      if (monthIdx != null && !isNaN(day)) {
+        const today = new Date();
+        const erDate = new Date(Date.UTC(today.getFullYear(), monthIdx, day));
+        // If date already passed this year, try next year
+        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+        if (erDate < todayUTC) erDate.setFullYear(erDate.getFullYear() + 1);
+        const diffDays = Math.round((erDate - todayUTC) / 86400000);
+        return { erDays: diffDays, erTiming: timing };
+      }
+    }
+    return { erDays: s.earnings_days ?? null, erTiming: s.er_timing || "" };
+  }, [liveEarningsDate, s.earnings_days, s.er_timing]);
   const fmtPct = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
   const fmtRvol = (v) => v == null ? "—" : `${v.toFixed(1)}x`;
   const fmtAdr = (v) => v == null ? "—" : `${v.toFixed(1)}%`;
@@ -7825,7 +7849,7 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
         </div>
       )}
       {open && peers.length > 0 && (
-        <PeersRow ticker={ticker} peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} stockMap={stockMap} />
+        <PeersRow ticker={ticker} peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} stockMap={stockMap} liveEarningsDate={liveEarningsDate} />
       )}
     </div>
   );
