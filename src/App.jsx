@@ -1966,6 +1966,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           <button onClick={() => setSwView("watchlist")} style={pillStyle(swView === "watchlist", ARIA.green)}>WL</button>
           <button onClick={() => setSwView("themes")} style={pillStyle(swView === "themes", ARIA.green)}>Themes</button>
           <button onClick={() => setSwView("subflow")} style={pillStyle(swView === "subflow", ARIA.green)}>Subflow</button>
+          <button onClick={() => setSwView("leaderboard")} style={pillStyle(swView === "leaderboard", "#fbbf24")}>Rank</button>
         </div>
         <div
           style={{
@@ -2418,6 +2419,16 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
               onTickerClick={onTickerClick}
             />
           </ErrorBoundary>
+        </div>
+      )}
+
+      {swView === "leaderboard" && (
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <iframe
+            src="/theme-leaderboard.html"
+            title="Subtheme Leaderboard"
+            style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14" }}
+          />
         </div>
       )}
 
