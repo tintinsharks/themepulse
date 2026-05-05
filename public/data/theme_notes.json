@@ -1,8 +1,58 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary — manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-05-03",
+  "updated": "2026-05-04",
   "notes": [
+    {
+      "id": "cgeh-dc-power-thesis-2026-05",
+      "date": "2026-05-04",
+      "type": "discovery_thesis",
+      "headline": "CGEH (Capstone Green Energy) — behind-the-meter microturbine for AI data centers; 2.8x P/S vs BE at 41x",
+      "primary_tickers": ["CGEH"],
+      "derivative_tickers": ["BE", "NBIS", "EOSE"],
+      "themes_implicated": [
+        "Behind-the-Meter Power",
+        "AI Data Center Energy",
+        "Microgrid / On-Site Generation",
+        "DC Capacity Constraints"
+      ],
+      "thesis": "Found via NBIS capacity concerns — 30-50% data center delay headlines are real, not FUD. Physical world scaling constraints are the bottleneck for the AI buildout. CGEH makes modular microturbines (65kW–20MW, CHP up to ~80% efficiency) deployable on-site at DCs, industrial, and edge locations — exactly the kind of fast, scalable, behind-the-meter solution that bypasses the grid interconnection queue. If they land meaningful DC contracts, it is transformative for the stock at $306M MCap.",
+      "lead_lag": {
+        "leading": ["NBIS"],
+        "lagging": ["CGEH"],
+        "horizon": "2-4 quarters",
+        "rationale": "NBIS delay headlines signal the broader DC capacity crunch is real. Companies with fast-deploy, off-grid power solutions (CGEH, BE) benefit as hyperscalers and neoclouds scramble for alternatives to delayed grid connections."
+      },
+      "key_numbers": {
+        "CGEH": {
+          "price": "~$9.97",
+          "mcap": "~$306M",
+          "ttm_rev": "~$110M",
+          "ps_ttm": "~2.8x",
+          "fwd_ps_fy26": "~2.9x",
+          "gross_margin": "39%",
+          "profitability": "2 consecutive profitable quarters (small)",
+          "rev_growth_q3_fy26": "+33% YoY",
+          "listing": "OTCQX (uplist target 12 months)",
+          "beta": "3.16",
+          "technology": "Microturbine (combustion), 65kW–20MW modular"
+        },
+        "BE": {
+          "price": "~$292",
+          "mcap": "~$83B",
+          "ps_ttm": "~41x",
+          "fwd_ps_fy26": "~22-24x",
+          "technology": "Solid Oxide Fuel Cell (electrochemical), 100kW–1GW hyperscale"
+        }
+      },
+      "caveats": [
+        "OTCQX listed — not in FMP live feed, won't surface in scanner. Manual tracking only until uplist.",
+        "No major DC contracts announced yet — thesis is pre-catalyst.",
+        "Combustion-based (microturbine) vs electrochemical (fuel cell) — regulatory/ESG risk in some jurisdictions.",
+        "Small cap ($306M) — illiquid, high beta (3.16), binary on contract wins."
+      ],
+      "source": "Nitin personal research / Discord thesis"
+    },
     {
       "id": "viav-form-2026-q1",
       "date": "2026-04-29",

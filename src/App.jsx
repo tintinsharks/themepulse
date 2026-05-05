@@ -8320,7 +8320,7 @@ const DRAWER_SUBTHEMES = [
   { theme: "AI Infra", themeId: "ai", layer: "Power Generation (IPPs)", tickers: ["VST","CEG","TLN","NRG","NEE","EQT"] },
   { theme: "AI Infra", themeId: "ai", layer: "Grid Equipment + EPC", tickers: ["AGX","DY","EME","GEV","ETN","PWR","MYRG","PRIM"] },
   { theme: "AI Infra", themeId: "ai", layer: "Nuclear / SMR", tickers: ["OKLO","SMR","NNE","BWXT"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Energy Storage + Fuel Cell", tickers: ["BE","EOSE"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Energy Storage + Fuel Cell", tickers: ["BE","CGEH","EOSE"] },
   { theme: "AI Infra", themeId: "ai", layer: "Semicap + Materials", tickers: ["AMAT","LRCX","ASML","KLAC","MKSI","ENTG"] },
   { theme: "Software", themeId: "software", layer: "AI Agents + Apps", tickers: ["PLTR","NOW","CRM","AI","BBAI","SOUN","PATH","IOT","DOCS"] },
   { theme: "Software", themeId: "software", layer: "Data Platforms", tickers: ["SNOW","MDB","DDOG","DBX","ESTC","CFLT","TDC"] },
