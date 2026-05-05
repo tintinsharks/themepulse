@@ -4942,6 +4942,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
   const containerRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const [containerW, setContainerW] = useState(900);
+  const [volSubTab, setVolSubTab] = useState("vol");
 
   // Measure container width
   useEffect(() => {
@@ -5043,6 +5044,25 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       vcpScores[i] = range > 0 ? Math.max(0, Math.min(100, (rawScore - histMin) / range * 100)) : 50;
     }
 
+    // 14-period Wilder RSI
+    const rsiVals = new Array(ohlc.length).fill(null);
+    if (ohlc.length > 14) {
+      const rp = 14;
+      let avgG = 0, avgL = 0;
+      for (let i = 1; i <= rp; i++) {
+        const d = fullC[i] - fullC[i - 1];
+        if (d >= 0) avgG += d; else avgL -= d;
+      }
+      avgG /= rp; avgL /= rp;
+      rsiVals[rp] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+      for (let i = rp + 1; i < ohlc.length; i++) {
+        const d = fullC[i] - fullC[i - 1];
+        avgG = (avgG * (rp - 1) + Math.max(d, 0)) / rp;
+        avgL = (avgL * (rp - 1) + Math.max(-d, 0)) / rp;
+        rsiVals[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+      }
+    }
+
     return {
       ema10: calcEMA(fullC, 10),
       ema21hi: calcEMA(fullH, 21),
@@ -5053,6 +5073,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       volMA: calcSMA(fullV, 50),
       volMA20: calcSMA(fullV, 20),
       vcpScores,
+      rsiVals,
       totalBars: ohlc.length,
     };
   }, [ohlc]);
@@ -5239,6 +5260,20 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
     });
 
     const sepY = pad.t + priceH + volGap / 2;
+
+    // RSI path for the indicator pane
+    const rsiSlice = precomputed.rsiVals.slice(start, end);
+    let rsiPathD = "", prevNull = true, lastRsiX = null, lastRsiY = null, lastRsi = null;
+    for (let i = 0; i < rsiSlice.length; i++) {
+      const v = rsiSlice[i];
+      if (v == null) { prevNull = true; continue; }
+      const rx = pad.l + i * (bw + gap) + bw / 2;
+      const ry = volTop + (1 - v / 100) * volH;
+      rsiPathD += `${prevNull ? "M" : "L"}${rx.toFixed(1)},${ry.toFixed(1)} `;
+      prevNull = false;
+      lastRsiX = rx; lastRsiY = ry; lastRsi = v;
+    }
+
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
@@ -5248,6 +5283,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
       pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH,
+      volTop, volH, rsiPathD, lastRsiX, lastRsiY, lastRsi,
     };
   }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW]);
 
@@ -5317,8 +5353,35 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
         {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
         {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
         {chartData.candleElements}
-        {chartData.volElements}
-        {chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
+        {volSubTab === "vol" && chartData.volElements}
+        {volSubTab === "vol" && chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
+        {volSubTab === "rsi" && (() => {
+          const { volTop, volH, chartRight, padL, rsiPathD, lastRsiX, lastRsiY, lastRsi } = chartData;
+          const yRef = (v) => volTop + (1 - v / 100) * volH;
+          const rsiColor = lastRsi >= 70 ? "#f87171" : lastRsi <= 30 ? "#4ade80" : "#60a5fa";
+          return (
+            <>
+              <line x1={padL} y1={yRef(70)} x2={chartRight} y2={yRef(70)} stroke="#f87171" strokeWidth={0.5} strokeDasharray="3,2" opacity={0.35} />
+              <line x1={padL} y1={yRef(50)} x2={chartRight} y2={yRef(50)} stroke="#3a3a4a" strokeWidth={0.5} strokeDasharray="2,3" />
+              <line x1={padL} y1={yRef(30)} x2={chartRight} y2={yRef(30)} stroke="#4ade80" strokeWidth={0.5} strokeDasharray="3,2" opacity={0.35} />
+              {rsiPathD && <path d={rsiPathD} fill="none" stroke={rsiColor} strokeWidth={1.5} />}
+              {lastRsiX != null && <circle cx={lastRsiX} cy={lastRsiY} r={2} fill={rsiColor} />}
+              <text x={chartRight + 4} y={yRef(70) + 3} fontSize={7} fill="#f87171" fontFamily="ui-monospace,monospace" opacity={0.7}>70</text>
+              <text x={chartRight + 4} y={yRef(50) + 3} fontSize={7} fill="#6a6a7a" fontFamily="ui-monospace,monospace">50</text>
+              <text x={chartRight + 4} y={yRef(30) + 3} fontSize={7} fill="#4ade80" fontFamily="ui-monospace,monospace" opacity={0.7}>30</text>
+              {lastRsi != null && <text x={chartRight + 4} y={lastRsiY + 3} fontSize={7} fontWeight={700} fill={rsiColor} fontFamily="ui-monospace,monospace">{lastRsi.toFixed(0)}</text>}
+            </>
+          );
+        })()}
+        {/* Vol / RSI tab toggles at top of indicator pane */}
+        <text x={4} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+          fill={volSubTab === "vol" ? "#0d9163" : "#4a4a5a"}
+          style={{ cursor: "pointer", userSelect: "none" }}
+          onClick={() => setVolSubTab("vol")}>Vol</text>
+        <text x={26} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+          fill={volSubTab === "rsi" ? "#60a5fa" : "#4a4a5a"}
+          style={{ cursor: "pointer", userSelect: "none" }}
+          onClick={() => setVolSubTab("rsi")}>RSI</text>
         {chartData.erMarkers}
         {stopLines.map((sl, i) => {
           if (!sl?.price || sl.price <= 0) return null;
