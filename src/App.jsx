@@ -7521,25 +7521,14 @@ function PeersRow({ ticker, peers, onTickerClick, ARIA, stockMap, liveEarningsDa
   const s = stockMap?.[ticker] || {};
   const adr = s.adr_pct ?? null;
 
-  // Prefer live Finviz earnings date (e.g. "May 26 AMC") over stale pipeline days
+  // Prefer FMP earnings date { date: "2026-05-06", time: "bmo" } over stale pipeline days
   const { erDays, erTiming } = useMemo(() => {
-    if (liveEarningsDate) {
-      // Parse "May 26 AMC" or "Jun 02 BMO" — Finviz format
-      const parts = liveEarningsDate.trim().split(/\s+/);
-      const timing = parts.length >= 3 ? parts[parts.length - 1] : (s.er_timing || "");
-      const dateStr = parts.slice(0, 2).join(" ");
-      const months = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
-      const monthIdx = months[dateStr.split(" ")[0]];
-      const day = parseInt(dateStr.split(" ")[1], 10);
-      if (monthIdx != null && !isNaN(day)) {
-        const today = new Date();
-        const erDate = new Date(Date.UTC(today.getFullYear(), monthIdx, day));
-        // If date already passed this year, try next year
-        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-        if (erDate < todayUTC) erDate.setFullYear(erDate.getFullYear() + 1);
-        const diffDays = Math.round((erDate - todayUTC) / 86400000);
-        return { erDays: diffDays, erTiming: timing };
-      }
+    if (liveEarningsDate?.date) {
+      const todayUTC = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()));
+      const erDate = new Date(`${liveEarningsDate.date}T00:00:00Z`);
+      const diffDays = Math.round((erDate - todayUTC) / 86400000);
+      const timing = (liveEarningsDate.time || s.er_timing || "").toUpperCase();
+      return { erDays: diffDays, erTiming: timing };
     }
     return { erDays: s.earnings_days ?? null, erTiming: s.er_timing || "" };
   }, [liveEarningsDate, s.earnings_days, s.er_timing]);

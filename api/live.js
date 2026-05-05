@@ -1604,20 +1604,36 @@ export default async function handler(req, res) {
     let quartersFallback = [];
     let annualFallback = [];
     let fmpPeers = [];
+    let fmpEarningsDate = null;
     if (newsTicker && fmpKey) {
       const needQuarters = !tickerData?.quarters || tickerData.quarters.length === 0;
-      const [qData, aData, peersResp] = await Promise.all([
+      const today = new Date();
+      const from = today.toISOString().slice(0, 10);
+      const to = new Date(today.getTime() + 120 * 86400000).toISOString().slice(0, 10);
+      const [qData, aData, peersResp, erResp] = await Promise.all([
         needQuarters ? fetchFinancialsFmp(newsTicker, fmpKey, "quarter") : Promise.resolve([]),
         fetchFinancialsFmp(newsTicker, fmpKey, "annual"),
         fetch(`${FMP_BASE}/stock-peers?symbol=${encodeURIComponent(newsTicker)}&apikey=${fmpKey}`)
           .then(r => r.json())
-          .catch(e => { console.log('FMP peers error:', e.message); return null; }),
+          .catch(() => null),
+        fetch(`${FMP_BASE}/earnings-calendar?symbol=${encodeURIComponent(newsTicker)}&from=${from}&to=${to}&apikey=${fmpKey}`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null),
       ]);
       quartersFallback = qData;
       annualFallback = aData;
       // FMP /stable/stock-peers returns [{symbol, companyName, price, mktCap, ...}]
       if (Array.isArray(peersResp) && peersResp.length > 0 && peersResp[0]?.symbol) {
         fmpPeers = peersResp.map(p => p.symbol).filter(p => p && p !== newsTicker);
+      }
+      // FMP earnings calendar — pick the soonest upcoming date
+      if (Array.isArray(erResp) && erResp.length > 0) {
+        const sorted = erResp
+          .filter(e => e.date)
+          .sort((a, b) => a.date.localeCompare(b.date));
+        if (sorted[0]) {
+          fmpEarningsDate = { date: sorted[0].date, time: sorted[0].time || null };
+        }
       }
     }
 
@@ -1648,7 +1664,7 @@ export default async function handler(req, res) {
       fmpPeers: fmpPeers.length > 0 ? fmpPeers : null,
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
-      earningsDate: tickerData?.earningsDate || null,
+      earningsDate: fmpEarningsDate || null,
       finvizQuarters:
         tickerData?.quarters && tickerData.quarters.length > 0
           ? tickerData.quarters
