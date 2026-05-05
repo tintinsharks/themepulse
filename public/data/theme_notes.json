@@ -4,6 +4,39 @@
   "updated": "2026-05-04",
   "notes": [
     {
+      "id": "cifr-iren-uuuu-mp-earnings-catalyst-2026-05",
+      "date": "2026-05-04",
+      "type": "earnings_catalyst",
+      "headline": "CIFR/IREN/UUUU/MP — massive monthly bases + staggered earnings May 5-8. Compute, nuclear, rare earth — perfect catalysts for 1-2 year moves.",
+      "primary_tickers": ["CIFR", "IREN", "UUUU", "MP"],
+      "derivative_tickers": ["MARA", "RIOT", "CORZ", "WULF", "CCJ", "NXE", "USAR", "AAPL"],
+      "themes_implicated": [
+        "Crypto Miners / AI Compute",
+        "Uranium / Nuclear",
+        "Rare Earths / Critical Materials"
+      ],
+      "earnings_schedule": {
+        "CIFR": "May 5 BMO",
+        "UUUU": "May 7",
+        "MP": "May 8",
+        "IREN": "May 8"
+      },
+      "thesis": "Ted Zhang (TedHZhang) — monthly charts on CIFR, IREN, UUUU, MP are forming massive bases across three convergent themes: AI compute (crypto miners pivoting to HPC), nuclear baseload energy, and domestic rare earths. MP has both a government investment catalyst and AAPL partnership. Staggered earnings May 5-8 create a rolling catalyst window where a beat in one name could lift the entire basket. Each name has potential 1-2 year move if earnings confirm the thesis.",
+      "lead_lag": {
+        "leading": ["CIFR"],
+        "lagging": ["IREN", "UUUU", "MP"],
+        "horizon": "1-2 weeks (earnings catalyst), 1-2 years (base breakout)",
+        "rationale": "CIFR reports first (May 5 BMO) — sets tone for AI compute/miner earnings. IREN is the higher-quality neocloud name that benefits from same trend. UUUU and MP are independent catalysts but part of the same physical-world scarcity narrative as CGEH."
+      },
+      "caveats": [
+        "Monthly base setups require patience — earnings catalyst could fail and reset the base.",
+        "UUUU and MP are materials names — sensitive to spot uranium/rare earth prices independent of earnings.",
+        "MP AAPL partnership details not yet public — could be overhyped or underwhelming on disclosure.",
+        "CIFR/IREN high beta — crypto price action can override earnings fundamentals."
+      ],
+      "source": "Ted Zhang (@TedHZhang) Twitter/X — May 4, 2026"
+    },
+    {
       "id": "cgeh-dc-power-thesis-2026-05",
       "date": "2026-05-04",
       "type": "discovery_thesis",
