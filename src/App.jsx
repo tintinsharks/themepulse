@@ -5054,7 +5054,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
         if (d >= 0) avgG += d; else avgL -= d;
       }
       avgG /= rp; avgL /= rp;
-      rsiVals[rp] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+      rsiVals[rp] = avgL === 0 ? 100 : avgG === 0 ? 0 : 100 - 100 / (1 + avgG / avgL);
       for (let i = rp + 1; i < ohlc.length; i++) {
         const d = fullC[i] - fullC[i - 1];
         avgG = (avgG * (rp - 1) + Math.max(d, 0)) / rp;
@@ -5377,11 +5377,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
         <text x={4} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
           fill={volSubTab === "vol" ? "#0d9163" : "#4a4a5a"}
           style={{ cursor: "pointer", userSelect: "none" }}
-          onClick={() => setVolSubTab("vol")}>Vol</text>
+          onMouseDown={(e) => { e.stopPropagation(); setVolSubTab("vol"); }}>Vol</text>
         <text x={26} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
           fill={volSubTab === "rsi" ? "#60a5fa" : "#4a4a5a"}
           style={{ cursor: "pointer", userSelect: "none" }}
-          onClick={() => setVolSubTab("rsi")}>RSI</text>
+          onMouseDown={(e) => { e.stopPropagation(); setVolSubTab("rsi"); }}>RSI</text>
         {chartData.erMarkers}
         {stopLines.map((sl, i) => {
           if (!sl?.price || sl.price <= 0) return null;
