@@ -5576,7 +5576,11 @@ function ChartPanelInline({
   const instTrans = stockInfo.inst_trans_pct ?? null;
   const magna = stockInfo.magna ?? null;
   const adr = stockInfo.adr_pct ?? null;
-  const erDate = stockInfo.earnings_display || "";
+  const erDaysRaw = stockInfo.earnings_days ?? null;
+  const erTimingRaw = stockInfo.er_timing || "";
+  const erCountdown = erDaysRaw != null
+    ? (erDaysRaw === 0 ? "TODAY" : erDaysRaw > 0 ? `${erDaysRaw}d` : `${-erDaysRaw}d ago`)
+    : "";
 
   // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
   const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
@@ -5717,7 +5721,7 @@ function ChartPanelInline({
             <span style={{ color: ARIA.textMuted }}>ADR</span>
             <span style={{ color: ARIA.cyan }}>{adr != null ? `${adr.toFixed(1)}%` : "—"}</span>
           </span>
-          {erDate && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erDate.replace(/~/g, " ").trim()}</span>}
+          {erCountdown && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erCountdown}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>}
           <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 60, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
         </div>
       </div>
@@ -5969,10 +5973,10 @@ function ChartPanelInline({
             EPS
           </span>
         )}
-        {erDate && (
+        {erCountdown && (
           <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}>
             <span style={{ color: ARIA.textMuted }}>ER</span>
-            <span style={{ color: ARIA.textDim }}>{erDate.replace(/~/g, " ").trim()}</span>
+            <span style={{ color: ARIA.textDim }}>{erCountdown}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
           </span>
         )}
         <CSStat label="EPS" v={epsYoy} clr={csClr(epsYoy)} ARIA={ARIA} />
