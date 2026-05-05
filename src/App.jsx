@@ -5425,6 +5425,8 @@ function ChartPanelInline({
     setQbarsMode(mode);
     localStorage.setItem("themepulse-qbars-mode", mode);
   }, []);
+  const [volSubTab, setVolSubTab] = useState("vol");
+  const dvolHistory = useDvolHistory();
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
@@ -6131,6 +6133,88 @@ function ChartPanelInline({
           />
         </ErrorBoundary>
       </div>
+
+      {/* Vol / RSI subtab panel */}
+      {(() => {
+        const hasVol = dvolHistory?.tickers?.[ticker];
+        const hasRsi = ohlcBars.length >= 15;
+        if (!hasVol && !hasRsi) return null;
+        const tabBtn = (id, label) => (
+          <button
+            key={id}
+            onClick={() => setVolSubTab(id)}
+            style={{
+              fontSize: 8, padding: "1px 6px", borderRadius: 3, border: "none", cursor: "pointer",
+              fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.3,
+              background: volSubTab === id ? ARIA.green + "33" : "transparent",
+              color: volSubTab === id ? ARIA.green : ARIA.textMuted,
+            }}
+          >{label}</button>
+        );
+        const rsiSparkline = (() => {
+          if (ohlcBars.length < 15) return null;
+          const closes = ohlcBars.map(b => b.close);
+          const period = 14;
+          // Wilder smoothing RSI
+          let gains = 0, losses = 0;
+          for (let i = 1; i <= period; i++) {
+            const d = closes[i] - closes[i - 1];
+            if (d >= 0) gains += d; else losses -= d;
+          }
+          let avgGain = gains / period, avgLoss = losses / period;
+          const rsiSeries = [];
+          for (let i = period + 1; i < closes.length; i++) {
+            const d = closes[i] - closes[i - 1];
+            avgGain = (avgGain * (period - 1) + Math.max(d, 0)) / period;
+            avgLoss = (avgLoss * (period - 1) + Math.max(-d, 0)) / period;
+            rsiSeries.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+          }
+          if (rsiSeries.length < 2) return null;
+          const last = rsiSeries[rsiSeries.length - 1];
+          const W = 320, H = 48, padL = 4, padR = 4, padT = 6, padB = 14;
+          const iW = W - padL - padR, iH = H - padT - padB;
+          const xf = (i) => padL + (i / (rsiSeries.length - 1)) * iW;
+          const yf = (v) => padT + iH - ((v - 0) / 100) * iH;
+          const pathD = rsiSeries.map((v, i) => `${i === 0 ? "M" : "L"}${xf(i).toFixed(1)},${yf(v).toFixed(1)}`).join(" ");
+          const lineColor = last >= 70 ? ARIA.red : last <= 30 ? ARIA.green : ARIA.blue;
+          const y70 = yf(70), y30 = yf(30), y50 = yf(50);
+          return (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "2px 0 0", fontFamily: "monospace", lineHeight: 1 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "baseline", fontSize: 10 }}>
+                <span style={{ color: ARIA.text, fontWeight: 700 }}>RSI(14)</span>
+                <span style={{ color: lineColor, fontWeight: 700 }}>{last.toFixed(1)}</span>
+                <span style={{ color: last >= 70 ? ARIA.red : last <= 30 ? ARIA.green : ARIA.textMuted, fontSize: 8 }}>
+                  {last >= 70 ? "OVERBOUGHT" : last <= 30 ? "OVERSOLD" : last >= 55 ? "STRONG" : last <= 45 ? "WEAK" : "NEUTRAL"}
+                </span>
+              </div>
+              <svg width={W} height={H} style={{ overflow: "visible" }}>
+                <line x1={padL} y1={y70} x2={W - padR} y2={y70} stroke={ARIA.red} strokeWidth={0.5} strokeDasharray="3,2" opacity={0.5} />
+                <line x1={padL} y1={y50} x2={W - padR} y2={y50} stroke={ARIA.border} strokeWidth={0.5} strokeDasharray="2,3" opacity={0.4} />
+                <line x1={padL} y1={y30} x2={W - padR} y2={y30} stroke={ARIA.green} strokeWidth={0.5} strokeDasharray="3,2" opacity={0.5} />
+                <path d={pathD} fill="none" stroke={lineColor} strokeWidth={1.5} />
+                <circle cx={xf(rsiSeries.length - 1)} cy={yf(last)} r={2} fill={lineColor} />
+                <text x={W - padR} y={y70 - 2} textAnchor="end" fontSize={7} fill={ARIA.red} opacity={0.7}>70</text>
+                <text x={W - padR} y={y30 - 2} textAnchor="end" fontSize={7} fill={ARIA.green} opacity={0.7}>30</text>
+                <text x={padL} y={H - 2} textAnchor="start" fontSize={7} fill={ARIA.textMuted}>
+                  {rsiSeries.length + period} bars
+                </text>
+              </svg>
+            </div>
+          );
+        })();
+        return (
+          <div style={{ padding: "4px 8px 0", borderTop: `1px solid ${ARIA.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+              {hasVol && tabBtn("vol", "Vol")}
+              {hasRsi && tabBtn("rsi", "RSI")}
+            </div>
+            {volSubTab === "vol" && hasVol && (
+              <DvolSparkline ticker={ticker} history={dvolHistory} ARIA={ARIA} width={320} height={52} />
+            )}
+            {volSubTab === "rsi" && rsiSparkline}
+          </div>
+        );
+      })()}
 
       {/* Quarterly fundamentals — always visible below chart */}
       {(() => {
