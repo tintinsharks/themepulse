@@ -5274,6 +5274,21 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       lastRsiX = rx; lastRsiY = ry; lastRsi = v;
     }
 
+    // Gradient fill paths — overbought (above 60) and oversold (below 40)
+    const y60 = volTop + (1 - 60 / 100) * volH;
+    const y40 = volTop + (1 - 40 / 100) * volH;
+    const rsiXOf = (i) => pad.l + i * (bw + gap) + bw / 2;
+    // Overbought: trace RSI clamped to [60,100] along top, return along y60
+    const obTopPts = rsiSlice.map((v, i) => `${rsiXOf(i).toFixed(1)},${(volTop + (1 - Math.max(v ?? 60, 60) / 100) * volH).toFixed(1)}`);
+    const rsiOverboughtPathD = rsiSlice.some(v => v != null && v > 60)
+      ? `M${rsiXOf(0).toFixed(1)},${y60.toFixed(1)} ${obTopPts.join(" ")} L${rsiXOf(rsiSlice.length - 1).toFixed(1)},${y60.toFixed(1)} Z`
+      : null;
+    // Oversold: trace RSI clamped to [0,40] along bottom, return along y40
+    const osBottomPts = rsiSlice.map((v, i) => `${rsiXOf(i).toFixed(1)},${(volTop + (1 - Math.min(v ?? 40, 40) / 100) * volH).toFixed(1)}`);
+    const rsiOversoldPathD = rsiSlice.some(v => v != null && v < 40)
+      ? `M${rsiXOf(0).toFixed(1)},${y40.toFixed(1)} ${osBottomPts.join(" ")} L${rsiXOf(rsiSlice.length - 1).toFixed(1)},${y40.toFixed(1)} Z`
+      : null;
+
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
@@ -5283,7 +5298,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
       pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH,
-      volTop, volH, rsiPathD, lastRsiX, lastRsiY, lastRsi,
+      volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
+      rsiOverboughtPathD, rsiOversoldPathD,
     };
   }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW]);
 
@@ -5342,6 +5358,16 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       <svg ref={svgRef} width={chartData.W} height={chartData.totalH}
         style={{ display: "block", cursor: dragRef.current ? "grabbing" : "grab" }}
         onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
+        <defs>
+          <linearGradient id="rsiObGrad" x1="0" y1={chartData.volTop} x2="0" y2={chartData.y60} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#4ade80" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#4ade80" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="rsiOsGrad" x1="0" y1={chartData.y40} x2="0" y2={chartData.volTop + chartData.volH} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#f87171" stopOpacity="0" />
+            <stop offset="100%" stopColor="#f87171" stopOpacity="0.45" />
+          </linearGradient>
+        </defs>
         {chartData.xAxisElements}
         {chartData.yAxisElements}
         <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
@@ -5361,6 +5387,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
           const rsiColor = lastRsi >= 60 ? "#f87171" : lastRsi <= 40 ? "#4ade80" : "#60a5fa";
           return (
             <>
+              {chartData.rsiOverboughtPathD && <path d={chartData.rsiOverboughtPathD} fill="url(#rsiObGrad)" />}
+              {chartData.rsiOversoldPathD && <path d={chartData.rsiOversoldPathD} fill="url(#rsiOsGrad)" />}
               <line x1={padL} y1={yRef(60)} x2={chartRight} y2={yRef(60)} stroke="#f87171" strokeWidth={0.5} strokeDasharray="3,2" opacity={0.35} />
               <line x1={padL} y1={yRef(50)} x2={chartRight} y2={yRef(50)} stroke="#3a3a4a" strokeWidth={0.5} strokeDasharray="2,3" />
               <line x1={padL} y1={yRef(40)} x2={chartRight} y2={yRef(40)} stroke="#4ade80" strokeWidth={0.5} strokeDasharray="3,2" opacity={0.35} />
