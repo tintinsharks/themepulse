@@ -1581,6 +1581,14 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
     const vals = tickers.map(tk => stockMap?.[tk]?.rs_rank ?? null).filter(v => v != null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   };
+  const layerAggs = (tickers) => {
+    const chgs = tickers.map(tk => stockMap?.[tk]?.change_pct).filter(v => v != null && !isNaN(v));
+    const rvols = tickers.map(tk => stockMap?.[tk]?.rvol).filter(v => v != null && !isNaN(v) && v > 0);
+    return {
+      avgChg: chgs.length ? chgs.reduce((a, b) => a + b, 0) / chgs.length : null,
+      avgRvol: rvols.length ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null,
+    };
+  };
 
   const grouped = useMemo(() => {
     const themes = [];
@@ -1634,14 +1642,46 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
                 >
                   <span style={{ fontSize: 7, transition: "transform 0.15s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
                   {theme.name}
-                  <span style={{ color: ARIA.textMuted, fontWeight: 400, marginLeft: "auto" }}>{theme.layers.length} layers</span>
+                  {(() => {
+                    const allTk = theme.layers.flatMap(l => l.tickers);
+                    const { avgChg, avgRvol } = layerAggs(allTk);
+                    const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
+                    return (
+                      <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center", fontWeight: 400 }}>
+                        {avgChg != null && (
+                          <span style={{ color: chgColor, fontSize: 8 }}>
+                            {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
+                          </span>
+                        )}
+                        {avgRvol != null && (
+                          <span style={{ color: avgRvol >= 1.5 ? ARIA.purple : ARIA.textMuted, fontSize: 8 }}>
+                            {avgRvol.toFixed(1) + "x"}
+                          </span>
+                        )}
+                        <span style={{ color: ARIA.textMuted }}>{theme.layers.length} layers</span>
+                      </span>
+                    );
+                  })()}
                 </button>
                 {isOpen && (
                   <div style={{ padding: "4px 0 2px 12px" }}>
-                    {theme.layers.map((layer, li) => (
+                    {theme.layers.map((layer, li) => {
+                      const { avgChg, avgRvol } = layerAggs(layer.tickers);
+                      const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
+                      return (
                       <div key={li} data-layer-has={layer.tickers.join(" ")} style={{ marginBottom: 4 }}>
-                        <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600 }}>
-                          {layer.layer}
+                        <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>{layer.layer}</span>
+                          {avgChg != null && (
+                            <span style={{ color: chgColor, fontWeight: 700 }}>
+                              {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
+                            </span>
+                          )}
+                          {avgRvol != null && (
+                            <span style={{ color: avgRvol >= 1.5 ? ARIA.purple : ARIA.textDim, fontWeight: 700 }}>
+                              {avgRvol.toFixed(1) + "x"}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 2, paddingLeft: 4 }}>
                           {[...layer.tickers].sort((a, b) => (stockMap?.[b]?.rs_rank ?? 0) - (stockMap?.[a]?.rs_rank ?? 0)).map((tk) => {
@@ -1666,7 +1706,8 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
                           })}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
