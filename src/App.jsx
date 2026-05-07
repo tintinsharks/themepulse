@@ -1805,7 +1805,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
     setWatchlist((cur) => inWL ? cur.filter((t) => t !== chartTicker) : [...cur, chartTicker]);
   };
   const [sort, setSort] = useState(DEFAULT_SORT);
-  const [activePreset, setActivePreset] = useState(null);
+  const [activePresets, setActivePresets] = useState(() => new Set(["strongest", "stealth", "accum_stack", "tightness"]));
   const [activeTags, setActiveTags] = useState(() => new Set());
   const [activeSubtheme, setActiveSubtheme] = useState(null);
 
@@ -1813,16 +1813,19 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
     setFilters((f) => ({ ...f, ...patch }));
   }, []);
 
-  // Toggle preset on/off (clicking again clears it). Clears tags too,
-  // matching Aria behavior (presets and tags are mutually exclusive).
+  // Toggle preset on/off — multi-select. Each active preset's `test` must
+  // pass (AND semantics), so adding more narrows results.
   const togglePreset = useCallback((key) => {
-    setActivePreset((cur) => (cur === key ? null : key));
-    setActiveTags(new Set());
+    setActivePresets((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }, []);
 
   // Toggle a tag on/off. Also clears the active preset (mutex).
   const toggleTag = useCallback((tag) => {
-    setActivePreset(null);
     setActiveTags((prev) => {
       const next = new Set(prev);
       if (next.has(tag)) next.delete(tag);
@@ -1862,9 +1865,10 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       if (filters.minDvolM > 0 && dvol < filters.minDvolM * 1e6) return false;
       const price = s.price || s.close || 0;
       if (price < 1) return false;
-      // Apply preset filter (if active)
-      if (activePreset && PRESETS[activePreset]) {
-        if (!PRESETS[activePreset].test(s)) return false;
+      // Apply all active preset filters (AND — every active preset must pass)
+      for (const pkey of activePresets) {
+        const p = PRESETS[pkey];
+        if (p && !p.test(s)) return false;
       }
       // Apply tag filters (all selected tags must match)
       // 9M is computed at row time using live volume — skip here.
@@ -1875,7 +1879,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       }
       return true;
     });
-  }, [stocks, filters, activePreset, activeTags]);
+  }, [stocks, filters, activePresets, activeTags]);
 
   // ── Step 2: rank candidates by stale chg_pct, take top 150 ──────────────
   // Live-enrichment universe — capped at 500 (FMP batch-quote single-call
@@ -2118,7 +2122,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         }}
       >
         {Object.entries(PRESETS).map(([key, p]) => {
-          const on = activePreset === key;
+          const on = activePresets.has(key);
           return (
             <button
               key={key}
@@ -2142,8 +2146,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         })}
       </div>
 
-      {/* Active preset description box */}
-      {activePreset && PRESETS[activePreset] && (
+      {/* Active preset description box(es) */}
+      {activePresets.size > 0 && (
         <div
           style={{
             padding: "5px 12px",
@@ -2151,11 +2155,21 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
             background: ARIA.bgRow,
             fontSize: 9,
             color: ARIA.textDim,
-            lineHeight: 1.4,
+            lineHeight: 1.5,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
           }}
         >
-          <b style={{ color: ARIA.text }}>{PRESETS[activePreset].label}</b> —{" "}
-          {PRESETS[activePreset].desc}
+          {[...activePresets].map((pkey) => {
+            const p = PRESETS[pkey];
+            if (!p) return null;
+            return (
+              <div key={pkey}>
+                <b style={{ color: p.color }}>{p.label}</b> — {p.desc}
+              </div>
+            );
+          })}
         </div>
       )}
 
