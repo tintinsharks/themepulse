@@ -655,7 +655,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 36px 1fr auto auto;
+    grid-template-columns: 36px 1fr auto auto auto;
     gap: 12px;
     align-items: center;
     padding: 10px 14px;
@@ -720,10 +720,33 @@
   .score.ice    { background: rgba(239,68,68,0.18);   color: #ef4444; border: 1px solid #7e2828; }
   .top-tickers {
     display: flex; gap: 4px;
-    grid-column: 2 / 5;
+    grid-column: 2 / 6;
     margin-top: 4px;
     flex-wrap: wrap;
   }
+  .fins {
+    display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 9px; font-weight: 700; white-space: nowrap;
+  }
+  .fins .frow { display: flex; gap: 4px; align-items: center; }
+  .fins .flbl { color: #3a3a52; }
+  .fins .fv.pos2 { color: #6dde8e; }
+  .fins .fv.pos1 { color: #a3e635; }
+  .fins .fv.flat { color: #6a6a7a; }
+  .fins .fv.neg  { color: #ef9a9a; }
+  .fins .fsep    { color: #2a2a40; }
+  .combo-score {
+    padding: 3px 8px; border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.3px;
+    min-width: 72px; text-align: center;
+    background: rgba(108,213,232,0.12); color: #6cd5e8; border: 1px solid #1a8aa4;
+  }
+  .combo-score.hi  { background: rgba(109,222,142,0.18); color: #6dde8e; border-color: #2c5e3e; }
+  .combo-score.mid { background: rgba(108,213,232,0.12); color: #6cd5e8; border-color: #1a8aa4; }
+  .combo-score.lo  { background: rgba(120,120,140,0.08); color: #6a6a7a; border-color: #2a2a3a; }
+  .combo-score.neg { background: rgba(239,154,154,0.10); color: #ef9a9a; border-color: #6e2828; }
   .tk {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 9px; font-weight: 700;
@@ -776,6 +799,9 @@
       <button data-sort="rvol">RVol</button>
       <button data-sort="breadth">Breadth</button>
       <button data-sort="rs">RS</button>
+      <button data-sort="rev" style="border-left:1px solid #2a2a40;margin-left:4px;">Rev YoY</button>
+      <button data-sort="eps">EPS YoY</button>
+      <button data-sort="combo" style="background:rgba(108,213,232,0.08);color:#6cd5e8;border-color:#1a8aa4;">⚡ Flow+Fins</button>
     </span>
   </div>
   <div id="narrative-pulse" class="narrative-pulse" style="display:none;"></div>
@@ -876,6 +902,7 @@ const ALL_TICKERS = Array.from(new Set(SUBTHEMES.flatMap((s) => s.tickers)));
 const PIPELINE_AVGVOL = {};
 const PIPELINE_DVOL = {};                // ticker → avg_dollar_vol_raw
 const PIPELINE_RS = {};                  // ticker → RS rank (pipeline)
+const PIPELINE_FINS = {};                // ticker → { revYoy, epsYoy, netMargin }
 const PIPELINE_ER = {};                  // ticker → { earnings_days, er_timing, avg_er_move, earnings_display, qmag_grade, sector }
 const NARRATIVES = [];                   // loaded narratives.json content
 let SORT_KEY = "score";                  // active sort key
@@ -893,6 +920,12 @@ const loadPipelineData = async () => {
       if (s.avg_volume_raw && s.avg_volume_raw > 0) PIPELINE_AVGVOL[tk] = s.avg_volume_raw;
       if (s.avg_dollar_vol_raw > 0) PIPELINE_DVOL[tk] = s.avg_dollar_vol_raw;
       if (s.rs != null && !isNaN(s.rs)) PIPELINE_RS[tk] = s.rs;
+      const q0 = s.quarters && s.quarters[0];
+      PIPELINE_FINS[tk] = {
+        revYoy:    q0 ? q0.sales_yoy  : (s.sales_yoy  ?? null),
+        epsYoy:    q0 ? q0.eps_yoy    : (s.eps_yoy    ?? null),
+        netMargin: q0 ? q0.net_margin : (s.profit_margin != null ? s.profit_margin * 100 : null),
+      };
       // Earnings calendar fields
       if (s.earnings_days != null || s.earnings_display) {
         PIPELINE_ER[tk] = {
@@ -1109,12 +1142,43 @@ const computeLayer = (sub) => {
   };
 };
 
+const computeLayerFins = (sub) => {
+  const revs = [], epss = [], margins = [];
+  for (const tk of sub.tickers) {
+    const f = PIPELINE_FINS[tk];
+    if (!f) continue;
+    if (f.revYoy    != null) revs.push(f.revYoy);
+    if (f.epsYoy    != null) epss.push(f.epsYoy);
+    if (f.netMargin != null) margins.push(f.netMargin);
+  }
+  return {
+    revMed:    revs.length    ? median(revs)    : null,
+    epsMed:    epss.length    ? median(epss)    : null,
+    marginMed: margins.length ? median(margins) : null,
+  };
+};
+
+// Flow+Fins composite: blends price momentum with fundamental quality.
+// Each dimension normalised to [0,1] before combining so neither dominates.
+const flowFinScore = (sub) => {
+  const norm = (v, lo, hi) => v == null ? 0.5 : Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  const mom = norm(sub.scoreMed,  -5, 10);   // composite strength score
+  const rev = norm(sub.revMed,   -20, 80);   // revenue yoy %
+  const eps = norm(sub.epsMed,   -50, 150);  // eps yoy %
+  const mar = norm(sub.marginMed,  0, 40);   // net margin %
+  // 30% momentum, 30% rev growth, 25% eps growth, 15% margin
+  return (mom * 0.30 + rev * 0.30 + eps * 0.25 + mar * 0.15) * 20 - 3; // scale to ~[-3, +17]
+};
+
 const SORT_FNS = {
-  score:   (a, b) => (b.scoreMed ?? -Infinity) - (a.scoreMed ?? -Infinity),
-  chg:     (a, b) => (b.chgMed   ?? -Infinity) - (a.chgMed   ?? -Infinity),
-  rvol:    (a, b) => (b.rvolMed  ?? -Infinity) - (a.rvolMed  ?? -Infinity),
-  breadth: (a, b) => (b.breadth  ?? -Infinity) - (a.breadth  ?? -Infinity),
-  rs:      (a, b) => (b.rsMed    ?? -Infinity) - (a.rsMed    ?? -Infinity),
+  score:   (a, b) => (b.scoreMed  ?? -Infinity) - (a.scoreMed  ?? -Infinity),
+  chg:     (a, b) => (b.chgMed    ?? -Infinity) - (a.chgMed    ?? -Infinity),
+  rvol:    (a, b) => (b.rvolMed   ?? -Infinity) - (a.rvolMed   ?? -Infinity),
+  breadth: (a, b) => (b.breadth   ?? -Infinity) - (a.breadth   ?? -Infinity),
+  rs:      (a, b) => (b.rsMed     ?? -Infinity) - (a.rsMed     ?? -Infinity),
+  rev:     (a, b) => (b.revMed    ?? -Infinity) - (a.revMed    ?? -Infinity),
+  eps:     (a, b) => (b.epsMed    ?? -Infinity) - (a.epsMed    ?? -Infinity),
+  combo:   (a, b) => flowFinScore(b) - flowFinScore(a),
 };
 
 const renderNarrativePulse = () => {
@@ -1139,8 +1203,9 @@ const renderLeaderboard = () => {
   const root = document.getElementById("leaderboard");
   const enriched = SUBTHEMES.map((sub) => {
     const computed = computeLayer(sub);
+    const fins = computeLayerFins(sub);
     const { heat, narrative } = layerHeat(sub.themeId, sub.layer);
-    return { ...sub, ...computed, heat, narrative };
+    return { ...sub, ...computed, ...fins, heat, narrative };
   });
   const cmp = SORT_FNS[SORT_KEY] || SORT_FNS.score;
   const sorted = enriched.sort(cmp);
@@ -1165,6 +1230,29 @@ const renderLeaderboard = () => {
       const pctTxt = t.chg == null ? "" : `<span class="pct ${pctCls}">${t.chg >= 0 ? "+" : ""}${t.chg.toFixed(1)}%</span>`;
       return `<span class="tk">${t.ticker}${pctTxt}</span>`;
     }).join("");
+
+    // Fins column
+    const fvCls = (v) => v == null ? "flat" : v >= 20 ? "pos2" : v >= 0 ? "pos1" : "neg";
+    const fvFmt = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`;
+    const finsCol = `
+      <div class="fins">
+        <div class="frow">
+          <span class="flbl">R̃</span><span class="fv ${fvCls(sub.revMed)}">${fvFmt(sub.revMed)}</span>
+          <span class="fsep">·</span>
+          <span class="flbl">Ẽ</span><span class="fv ${fvCls(sub.epsMed)}">${fvFmt(sub.epsMed)}</span>
+        </div>
+        <div class="frow">
+          <span class="flbl">NM</span><span class="fv ${fvCls(sub.marginMed)}">${fvFmt(sub.marginMed)}</span>
+        </div>
+      </div>`;
+
+    // Score chip: show combo score when sorted by Flow+Fins, else S Score
+    const isCombo = SORT_KEY === "combo";
+    const cScore = flowFinScore(sub);
+    const scorePill = isCombo
+      ? `<div class="combo-score ${cScore >= 8 ? "hi" : cScore >= 4 ? "mid" : cScore >= 0 ? "lo" : "neg"}">⚡ ${cScore.toFixed(1)}</div>`
+      : `<div class="score ${sCls}">S ${sTxt}</div>`;
+
     row.innerHTML = `
       <div class="rank">${idx + 1}</div>
       <div class="label">
@@ -1174,7 +1262,8 @@ const renderLeaderboard = () => {
       <div class="metrics">
         ${chgT}<span class="sep">·</span>${rvT}<span class="sep">·</span>${brT}${rsT}
       </div>
-      <div class="score ${sCls}">S ${sTxt}</div>
+      ${finsCol}
+      ${scorePill}
       <div class="top-tickers">${tickerChips}</div>
     `;
     root.appendChild(row);
