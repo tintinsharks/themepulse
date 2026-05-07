@@ -2627,7 +2627,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
 
   const rows = useMemo(() => {
     return DRAWER_SUBTHEMES.map((sub) => {
-      const chgs = [], rvols = [], strs = [], crs = [];
+      const chgs = [], rvols = [], strs = [], crs = [], rocs = [];
       sub.tickers.forEach((tk) => {
         const q = liveQuotes.get(tk);
         const s = stockMap?.[tk];
@@ -2649,6 +2649,14 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
           cr = s.cr_pct;
         }
         if (cr != null) crs.push(cr);
+        // 2nd-derivative ROC (Druckenmiller acceleration): recent monthly pace
+        // vs implied monthly pace from the last 3 months. Positive = momentum
+        // accelerating, negative = decelerating. Units: percentage points.
+        const r1m = s?.return_1m;
+        const r3m = s?.return_3m;
+        if (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) {
+          rocs.push(r1m - r3m / 3);
+        }
       });
       const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
       return {
@@ -2661,6 +2669,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
         avgRvol: avg(rvols),
         avgStr: avg(strs),
         avgCr: avg(crs),
+        avgRoc2: avg(rocs),
       };
     });
   }, [liveQuotes, stockMap, tickerStrengthMap]);
@@ -2726,6 +2735,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
             <Th k="avgChg" label="Chg%" />
             <Th k="avgRvol" label="RV" />
             <Th k="avgCr" label="CR%" />
+            <Th k="avgRoc2" label="ROC²" />
             <Th k="nTickers" label="N" />
           </tr>
         </thead>
@@ -2761,6 +2771,12 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
                 </td>
                 <td style={{ ...cell, color: crColor(r.avgCr) }}>
                   {r.avgCr != null ? Math.round(r.avgCr) + "%" : "—"}
+                </td>
+                <td
+                  style={{ ...cell, color: chgColor(r.avgRoc2), fontWeight: 700 }}
+                  title="ROC² (Druckenmiller acceleration): 1M return − (3M return ÷ 3). Positive = momentum accelerating, negative = decelerating."
+                >
+                  {r.avgRoc2 != null ? (r.avgRoc2 > 0 ? "+" : "") + r.avgRoc2.toFixed(1) : "—"}
                 </td>
                 <td style={{ ...cell, color: ARIA.textMuted, fontSize: 8 }}>{r.nTickers}</td>
               </tr>
