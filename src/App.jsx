@@ -1595,6 +1595,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
     const chgs = [];
     const rvols = [];
     const strs = [];
+    const crs = [];
     tickers.forEach((tk) => {
       const q = liveQuotes.get(tk);
       const s = stockMap?.[tk];
@@ -1608,13 +1609,28 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
       if (rvol != null) rvols.push(rvol);
       const str = tickerStrengthMap?.[tk];
       if (str != null && !isNaN(str)) strs.push(str);
+      // CR% — closing range from live quote (price, high, low). Falls back
+      // to pipeline cr_pct if live not yet loaded.
+      const price = q?.price;
+      const high = q?.high;
+      const low = q?.low;
+      let cr = null;
+      if (price != null && high != null && low != null && high > low) {
+        cr = ((price - low) / (high - low)) * 100;
+      } else if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
+        cr = s.cr_pct;
+      }
+      if (cr != null) crs.push(cr);
     });
     return {
       avgChg: chgs.length ? chgs.reduce((a, b) => a + b, 0) / chgs.length : null,
       avgRvol: rvols.length ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null,
       avgStr: strs.length ? strs.reduce((a, b) => a + b, 0) / strs.length : null,
+      avgCr: crs.length ? crs.reduce((a, b) => a + b, 0) / crs.length : null,
     };
   };
+  const crColor = (v) =>
+    v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
   const strColor = (v) =>
     v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
 
@@ -1675,7 +1691,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                   {theme.name}
                   {(() => {
                     const allTk = theme.layers.flatMap(l => l.tickers);
-                    const { avgChg, avgRvol, avgStr } = layerAggs(allTk);
+                    const { avgChg, avgRvol, avgStr, avgCr } = layerAggs(allTk);
                     const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
                     return (
                       <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center", fontWeight: 400 }}>
@@ -1694,6 +1710,11 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                             {avgRvol.toFixed(1) + "x"}
                           </span>
                         )}
+                        {avgCr != null && (
+                          <span style={{ color: crColor(avgCr), fontSize: 8 }} title="Avg closing range %">
+                            {Math.round(avgCr) + "%"}
+                          </span>
+                        )}
                         <span style={{ color: ARIA.textMuted }}>{theme.layers.length} layers</span>
                       </span>
                     );
@@ -1702,7 +1723,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                 {isOpen && (
                   <div style={{ padding: "4px 0 2px 12px" }}>
                     {theme.layers.map((layer, li) => {
-                      const { avgChg, avgRvol, avgStr } = layerAggs(layer.tickers);
+                      const { avgChg, avgRvol, avgStr, avgCr } = layerAggs(layer.tickers);
                       const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
                       return (
                       <div key={li} data-layer-has={layer.tickers.join(" ")} style={{ marginBottom: 4 }}>
@@ -1725,6 +1746,11 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                           {avgRvol != null && (
                             <span style={{ color: avgRvol >= 1.5 ? ARIA.purple : ARIA.textDim, fontWeight: 700 }}>
                               {avgRvol.toFixed(1) + "x"}
+                            </span>
+                          )}
+                          {avgCr != null && (
+                            <span style={{ color: crColor(avgCr), fontWeight: 700 }} title="Avg closing range %">
+                              {Math.round(avgCr) + "%"}
                             </span>
                           )}
                         </div>
