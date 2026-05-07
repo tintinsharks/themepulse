@@ -1789,7 +1789,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilter, clearChainFilter }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilter, clearChainFilter, onLayerClick }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [chainId, setChainId] = useState("leaderboard");
@@ -2602,60 +2602,172 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       )}
 
       {swView === "chain" && (
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          {/* Theme selector pills */}
-          <div style={{
-            padding: "4px 8px", display: "flex", gap: 2, flexWrap: "wrap",
-            borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgRow,
-          }}>
-            {chainPrev != null && chainPrev !== chainId && (
-              <button
-                onClick={() => { setChainId(chainPrev); setChainPrev(null); }}
-                style={{
-                  fontSize: 7, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
-                  fontFamily: "monospace", fontWeight: 700, border: "1px solid #2a4a5a",
-                  background: "rgba(34,211,238,0.08)", color: ARIA.cyan,
-                  marginRight: 4,
-                }}
-              >← Back</button>
-            )}
-            <button
-              onClick={() => navigateChain("leaderboard")}
-              style={{
-                fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-                fontFamily: "monospace", fontWeight: 700, border: "1px solid",
-                background: chainId === "leaderboard" ? "rgba(251,191,36,0.18)" : "transparent",
-                borderColor: chainId === "leaderboard" ? "#a07a1f" : "#2a2a40",
-                color: chainId === "leaderboard" ? "#fbbf24" : ARIA.textMuted,
-              }}
-            >📊 RANK</button>
-            {VALUE_CHAIN_THEMES.filter(t => t.id !== "leaderboard").map(t => {
-              const active = chainId === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => navigateChain(t.id)}
-                  style={{
-                    fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-                    fontFamily: "monospace", fontWeight: 700, border: "1px solid",
-                    background: active ? `${DRAWER_COLORS[t.id]?.bg || "rgba(255,255,255,0.06)"}` : "transparent",
-                    borderColor: active ? `${DRAWER_COLORS[t.id]?.border || "#404060"}` : "#2a2a40",
-                    color: active ? `${DRAWER_COLORS[t.id]?.color || "#c0c0d8"}` : ARIA.textMuted,
-                  }}
-                >{t.label}</button>
-              );
-            })}
-          </div>
-          {/* Chain iframe */}
-          <iframe
-            key={chainId}
-            src={chainId === "leaderboard" ? "/theme-leaderboard.html" : (VALUE_CHAIN_THEMES.find(t => t.id === chainId)?.src || "/theme-leaderboard.html")}
-            title={chainId}
-            style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14", minHeight: 400 }}
-          />
-        </div>
+        <ChainLayerTable
+          stockMap={stockMap}
+          tickerStrengthMap={tickerStrengthMap}
+          onLayerClick={onLayerClick}
+          activeFilterName={chainFilter?.name}
+        />
       )}
 
+    </div>
+  );
+}
+
+// ── ChainLayerTable: every value-chain sub-layer with live aggregates,
+// sortable. Replaces the iframe view in ScanWatch's "Chain" sub-tab.
+function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterName }) {
+  const ARIA = useAriaTheme();
+  const allTickers = useMemo(() => {
+    const s = new Set();
+    DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    return [...s];
+  }, []);
+  const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
+
+  const rows = useMemo(() => {
+    return DRAWER_SUBTHEMES.map((sub) => {
+      const chgs = [], rvols = [], strs = [], crs = [];
+      sub.tickers.forEach((tk) => {
+        const q = liveQuotes.get(tk);
+        const s = stockMap?.[tk];
+        const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
+        if (chg != null && !isNaN(chg)) chgs.push(chg);
+        const liveVol = q?.volume;
+        const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+        let rvol = null;
+        if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+        else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
+        if (rvol != null) rvols.push(rvol);
+        const str = tickerStrengthMap?.[tk];
+        if (str != null && !isNaN(str)) strs.push(str);
+        const price = q?.price, high = q?.high, low = q?.low;
+        let cr = null;
+        if (price != null && high != null && low != null && high > low) {
+          cr = ((price - low) / (high - low)) * 100;
+        } else if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
+          cr = s.cr_pct;
+        }
+        if (cr != null) crs.push(cr);
+      });
+      const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+      return {
+        themeId: sub.themeId,
+        theme: sub.theme,
+        layer: sub.layer,
+        tickers: sub.tickers,
+        nTickers: sub.tickers.length,
+        avgChg: avg(chgs),
+        avgRvol: avg(rvols),
+        avgStr: avg(strs),
+        avgCr: avg(crs),
+      };
+    });
+  }, [liveQuotes, stockMap, tickerStrengthMap]);
+
+  const [sortKey, setSortKey] = useState("avgStr");
+  const [sortDir, setSortDir] = useState("desc");
+  const sorted = useMemo(() => {
+    const arr = rows.slice();
+    arr.sort((a, b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (sortKey === "layer" || sortKey === "theme") {
+        av = (av || "").toString();
+        bv = (bv || "").toString();
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      av = av == null ? -Infinity : av;
+      bv = bv == null ? -Infinity : bv;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+    return arr;
+  }, [rows, sortKey, sortDir]);
+  const toggleSort = (k) => {
+    setSortKey((cur) => {
+      if (cur === k) {
+        setSortDir((d) => d === "asc" ? "desc" : "asc");
+        return cur;
+      }
+      setSortDir(k === "layer" || k === "theme" ? "asc" : "desc");
+      return k;
+    });
+  };
+
+  const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
+  const crColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
+  const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const rvColor = (v) => v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
+
+  const Th = ({ k, label, align = "right" }) => {
+    const on = sortKey === k;
+    const arrow = on ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+    return (
+      <th onClick={() => toggleSort(k)}
+        style={{
+          padding: "3px 5px", fontSize: 7, fontWeight: 700,
+          color: on ? ARIA.green : ARIA.textMuted,
+          textTransform: "uppercase", letterSpacing: 0.3, textAlign: align,
+          borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap",
+          cursor: "pointer", background: ARIA.bgCard, userSelect: "none",
+        }}>{label}{arrow}</th>
+    );
+  };
+
+  const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto", fontFamily: "monospace" }}>
+        <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
+          <tr>
+            <Th k="theme" label="Chain" align="left" />
+            <Th k="layer" label="Layer" align="left" />
+            <Th k="avgStr" label="Str" />
+            <Th k="avgChg" label="Chg%" />
+            <Th k="avgRvol" label="RV" />
+            <Th k="avgCr" label="CR%" />
+            <Th k="nTickers" label="N" />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((r, i) => {
+            const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
+            const isActive = activeFilterName === r.layer;
+            return (
+              <tr
+                key={`${r.themeId}-${r.layer}-${i}`}
+                onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
+                style={{ cursor: "pointer", background: isActive ? `${c.color}26` : "transparent" }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = ARIA.bgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? `${c.color}26` : "transparent"; }}
+                title={`${r.theme} → ${r.layer} — click to filter Scan to these ${r.nTickers} tickers`}
+              >
+                <td style={{ ...cell, textAlign: "left" }}>
+                  <span style={{
+                    fontSize: 7, fontWeight: 700, color: c.color,
+                    background: c.bg, border: `1px solid ${c.border}`,
+                    padding: "0 4px", borderRadius: 2,
+                  }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+                </td>
+                <td style={{ ...cell, textAlign: "left", color: ARIA.text, fontWeight: 600 }}>{r.layer}</td>
+                <td style={{ ...cell, color: strColor(r.avgStr), fontWeight: 700 }}>
+                  {r.avgStr != null ? Math.round(r.avgStr) : "—"}
+                </td>
+                <td style={{ ...cell, color: chgColor(r.avgChg) }}>
+                  {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: rvColor(r.avgRvol) }}>
+                  {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
+                </td>
+                <td style={{ ...cell, color: crColor(r.avgCr) }}>
+                  {r.avgCr != null ? Math.round(r.avgCr) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: ARIA.textMuted, fontSize: 8 }}>{r.nTickers}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -8431,7 +8543,7 @@ function ChartScanRow({
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterName={chainFilter?.name} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilter={chainFilter} clearChainFilter={() => setChainFilter(null)} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilter={chainFilter} clearChainFilter={() => setChainFilter(null)} onLayerClick={handleLayerClick} />
       </div>
     </div>
   );
