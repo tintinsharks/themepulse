@@ -5783,8 +5783,17 @@ function ChartPanelInline({
   const instTrans = stockInfo.inst_trans_pct ?? null;
   const magna = stockInfo.magna ?? null;
   const adr = stockInfo.adr_pct ?? null;
-  const erDaysRaw = stockInfo.earnings_days ?? null;
-  const erTimingRaw = stockInfo.er_timing || "";
+  // Prefer live FMP earnings date over pipeline's stale earnings_days
+  const { erDaysRaw, erTimingRaw } = useMemo(() => {
+    if (liveEarningsDate?.date) {
+      const todayUTC = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()));
+      const erDate = new Date(`${liveEarningsDate.date}T00:00:00Z`);
+      const diffDays = Math.round((erDate - todayUTC) / 86400000);
+      const timing = (liveEarningsDate.time || stockInfo.er_timing || "").toUpperCase();
+      return { erDaysRaw: diffDays, erTimingRaw: timing };
+    }
+    return { erDaysRaw: stockInfo.earnings_days ?? null, erTimingRaw: stockInfo.er_timing || "" };
+  }, [liveEarningsDate, stockInfo.earnings_days, stockInfo.er_timing]);
   const erCountdown = erDaysRaw != null
     ? (erDaysRaw === 0 ? "TODAY" : erDaysRaw > 0 ? `${erDaysRaw}d` : `${-erDaysRaw}d ago`)
     : "";

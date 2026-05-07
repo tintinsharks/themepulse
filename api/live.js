@@ -1627,9 +1627,11 @@ export default async function handler(req, res) {
         fmpPeers = peersResp.map(p => p.symbol).filter(p => p && p !== newsTicker);
       }
       // FMP earnings calendar — pick the soonest upcoming date
+      // Defensive: filter to date >= today (FMP sometimes returns historical
+      // entries within the window) and require ticker symbol match.
       if (Array.isArray(erResp) && erResp.length > 0) {
         const sorted = erResp
-          .filter(e => e.date)
+          .filter(e => e.date && e.date >= from && (!e.symbol || e.symbol.toUpperCase() === newsTicker))
           .sort((a, b) => a.date.localeCompare(b.date));
         if (sorted[0]) {
           fmpEarningsDate = { date: sorted[0].date, time: sorted[0].time || null };
