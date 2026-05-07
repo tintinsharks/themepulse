@@ -2755,35 +2755,30 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
               >
                 {r.rs || "—"}
               </td>
-              <td style={{ ...bodyCell, textAlign: "left", padding: "3px 4px" }}>
+              <td style={{ ...bodyCell, textAlign: "left", padding: "3px 4px", maxWidth: 100 }}>
                 {(() => {
-                  const chains = TICKER_CHAIN_MAP.get(r.ticker) || [];
-                  if (!chains.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                  const entries = TICKER_CHAIN_MAP.get(r.ticker) || [];
+                  if (!entries.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
                   return (
-                    <span style={{ display: "inline-flex", gap: 2, flexWrap: "nowrap" }}>
-                      {chains.map((id) => {
-                        const c = DRAWER_COLORS[id] || { bg: "rgba(255,255,255,0.06)", border: "#404060", color: "#c0c0d8" };
+                    <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {entries.map(({ themeId, layer }, i) => {
+                        const c = DRAWER_COLORS[themeId] || { color: "#c0c0d8" };
                         return (
                           <span
-                            key={id}
-                            title={`View ${id} value chain`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onChainClick && onChainClick(id);
-                            }}
+                            key={i}
+                            title={`${layer} — click to view ${themeId} chain`}
+                            onClick={(e) => { e.stopPropagation(); onChainClick && onChainClick(themeId); }}
                             style={{
                               fontSize: 7,
-                              fontWeight: 700,
                               color: c.color,
-                              background: c.bg,
-                              border: `1px solid ${c.border}`,
-                              borderRadius: 2,
-                              padding: "0 3px",
                               cursor: onChainClick ? "pointer" : "default",
                               whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              maxWidth: 100,
                             }}
                           >
-                            {CHAIN_ABBR[id] || id.toUpperCase()}
+                            {layer}
                           </span>
                         );
                       })}
@@ -6741,32 +6736,30 @@ function WatchlistSectionTable({
                     >
                       {r.rs || "—"}
                     </td>
-                    <td style={{ ...cell, textAlign: "left", padding: "2px 3px" }}>
+                    <td style={{ ...cell, textAlign: "left", padding: "2px 3px", maxWidth: 90 }}>
                       {(() => {
-                        const chains = TICKER_CHAIN_MAP.get(r.ticker) || [];
-                        if (!chains.length) return <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>;
+                        const entries = TICKER_CHAIN_MAP.get(r.ticker) || [];
+                        if (!entries.length) return <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>;
                         return (
-                          <span style={{ display: "inline-flex", gap: 2, flexWrap: "nowrap" }}>
-                            {chains.map((id) => {
-                              const c = DRAWER_COLORS[id] || { bg: "rgba(255,255,255,0.06)", border: "#404060", color: "#c0c0d8" };
+                          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            {entries.map(({ themeId, layer }, i) => {
+                              const c = DRAWER_COLORS[themeId] || { color: "#c0c0d8" };
                               return (
                                 <span
-                                  key={id}
-                                  title={`View ${id} value chain`}
-                                  onClick={(e) => { e.stopPropagation(); onChainClick && onChainClick(id); }}
+                                  key={i}
+                                  title={`${layer} — click to view ${themeId} chain`}
+                                  onClick={(e) => { e.stopPropagation(); onChainClick && onChainClick(themeId); }}
                                   style={{
                                     fontSize: 6,
-                                    fontWeight: 700,
                                     color: c.color,
-                                    background: c.bg,
-                                    border: `1px solid ${c.border}`,
-                                    borderRadius: 2,
-                                    padding: "0 2px",
                                     cursor: onChainClick ? "pointer" : "default",
                                     whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    maxWidth: 90,
                                   }}
                                 >
-                                  {CHAIN_ABBR[id] || id.toUpperCase()}
+                                  {layer}
                                 </span>
                               );
                             })}
@@ -8656,13 +8649,16 @@ const CHAIN_ABBR = {
   space: "SPC", materials: "MAT", semis: "SEM",
 };
 
-// Ticker → unique themeIds it belongs to across all DRAWER_SUBTHEMES entries
+// Ticker → array of { themeId, layer } entries (unique layers across all DRAWER_SUBTHEMES)
 const TICKER_CHAIN_MAP = (() => {
   const m = new Map();
-  DRAWER_SUBTHEMES.forEach(({ themeId, tickers }) => {
+  DRAWER_SUBTHEMES.forEach(({ themeId, layer, tickers }) => {
     tickers.forEach((t) => {
       if (!m.has(t)) m.set(t, []);
-      if (!m.get(t).includes(themeId)) m.get(t).push(themeId);
+      const arr = m.get(t);
+      if (!arr.some((e) => e.themeId === themeId && e.layer === layer)) {
+        arr.push({ themeId, layer });
+      }
     });
   });
   return m;
