@@ -1533,7 +1533,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
 }
 
 // ── Drawer Themes — collapsible inline view of value-chain themes/subthemes ──
-function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap }) {
+function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap, onLayerClick, activeFilterName }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") === "1");
   const [openTheme, setOpenTheme] = useState(null);
@@ -1658,13 +1658,16 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap 
             return (
               <div key={theme.id} style={{ marginBottom: 3 }}>
                 <button
-                  onClick={() => setOpenTheme(isOpen ? null : theme.id)}
+                  onClick={() => {
+                    setOpenTheme(isOpen ? null : theme.id);
+                    if (onLayerClick) onLayerClick(theme.name, theme.layers.flatMap(l => l.tickers));
+                  }}
                   style={{
                     display: "flex", alignItems: "center", gap: 4, width: "100%",
                     fontSize: 8, fontWeight: 700, padding: "3px 6px", borderRadius: 3,
                     cursor: "pointer", fontFamily: "monospace", textAlign: "left",
-                    background: isOpen ? c.bg : "transparent",
-                    border: `1px solid ${isOpen ? c.border : "transparent"}`,
+                    background: activeFilterName === theme.name ? `${c.color}26` : (isOpen ? c.bg : "transparent"),
+                    border: `1px solid ${activeFilterName === theme.name ? c.color : (isOpen ? c.border : "transparent")}`,
                     color: c.color, textTransform: "uppercase", letterSpacing: 0.5,
                   }}
                 >
@@ -1703,7 +1706,11 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap 
                       const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
                       return (
                       <div key={li} data-layer-has={layer.tickers.join(" ")} style={{ marginBottom: 4 }}>
-                        <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div
+                          onClick={() => onLayerClick && onLayerClick(layer.layer, layer.tickers)}
+                          title={`Filter Scan to ${layer.layer}`}
+                          style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, cursor: onLayerClick ? "pointer" : "default", padding: "1px 3px", borderRadius: 2, background: activeFilterName === layer.layer ? `${c.color}26` : "transparent", border: activeFilterName === layer.layer ? `1px solid ${c.color}` : "1px solid transparent" }}
+                        >
                           <span>{layer.layer}</span>
                           {avgStr != null && (
                             <span style={{ color: strColor(avgStr), fontWeight: 700 }} title="Avg strength score">
@@ -1757,11 +1764,13 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap 
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilter, clearChainFilter }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [chainId, setChainId] = useState("leaderboard");
   const [chainPrev, setChainPrev] = useState(null);
+  // Force scan view when an external chain/layer filter is applied
+  useEffect(() => { if (chainFilter) setSwView("scan"); }, [chainFilter?.name]);
   const navigateChain = useCallback((id, fromSwitch = false) => {
     setChainPrev((prev) => fromSwitch ? null : (id !== chainId ? chainId : prev));
     setChainId(id);
@@ -1873,11 +1882,19 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   // limit). 'Infinity' on the final result slice means we show every row
   // that passes the filters, drawn from this 500-stock pre-filtered pool.
   const topCandidates = useMemo(() => {
-    return candidates
-      .slice()
-      .sort((a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
-      .slice(0, 500);
-  }, [candidates]);
+    const sorted = candidates.slice().sort(
+      (a, b) => Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0)
+    );
+    // Chain filter active: include every chain ticker found in candidates
+    // (still capped at 500 — but chain layers are ~10–30 tickers so this is
+    // fine in practice).
+    if (chainFilter?.tickers?.size) {
+      const chainHits = sorted.filter((s) => chainFilter.tickers.has(s.ticker));
+      const others = sorted.filter((s) => !chainFilter.tickers.has(s.ticker));
+      return [...chainHits, ...others].slice(0, 500);
+    }
+    return sorted.slice(0, 500);
+  }, [candidates, chainFilter]);
 
   // ── Step 3: live enrichment ─────────────────────────────────────────────
   const candidateTickers = useMemo(
@@ -1980,11 +1997,15 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       return 0;
     });
     // Subtheme drill-down filter
-    const filtered = activeSubtheme
+    let filtered = activeSubtheme
       ? out.filter((r) => r.subtheme === activeSubtheme)
       : out;
+    // Chain/layer filter from DrawerThemes click
+    if (chainFilter?.tickers) {
+      filtered = filtered.filter((r) => chainFilter.tickers.has(r.ticker));
+    }
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilter]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -2420,6 +2441,17 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           );
         })}
       </div>
+
+      {/* Active chain/layer filter chip */}
+      {chainFilter && (
+        <div style={{ padding: "3px 12px", display: "flex", alignItems: "center", gap: 4, borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace" }}>
+          <span style={{ fontSize: 7, color: ARIA.textMuted }}>CHAIN</span>
+          <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.purple, border: `1px solid ${ARIA.purple}`, background: `${ARIA.purple}20`, padding: "1px 6px", borderRadius: 3 }}>
+            {chainFilter.name} ({chainFilter.tickers.size})
+          </span>
+          <button onClick={clearChainFilter} title="Clear chain filter" style={{ fontSize: 10, background: "transparent", border: "none", color: ARIA.textMuted, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>×</button>
+        </div>
+      )}
 
       {/* Active subtheme drill-down chip */}
       {activeSubtheme && (
@@ -8310,6 +8342,13 @@ function ChartScanRow({
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }, []);
+
+  // Chain filter — set when a layer/theme is clicked in DrawerThemes; restricts
+  // the Scan tab to only those tickers. Click again on same to toggle off.
+  const [chainFilter, setChainFilter] = useState(null);
+  const handleLayerClick = useCallback((name, tickers) => {
+    setChainFilter((prev) => prev?.name === name ? null : { name, tickers: new Set(tickers) });
+  }, []);
   return (
     <div
       ref={rowRef}
@@ -8352,8 +8391,8 @@ function ChartScanRow({
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
-        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} />
+        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterName={chainFilter?.name} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilter={chainFilter} clearChainFilter={() => setChainFilter(null)} />
       </div>
     </div>
   );
