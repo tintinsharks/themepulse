@@ -1533,7 +1533,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
 }
 
 // ── Drawer Themes — collapsible inline view of value-chain themes/subthemes ──
-function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
+function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") === "1");
   const [openTheme, setOpenTheme] = useState(null);
@@ -1594,6 +1594,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
   const layerAggs = (tickers) => {
     const chgs = [];
     const rvols = [];
+    const strs = [];
     tickers.forEach((tk) => {
       const q = liveQuotes.get(tk);
       const s = stockMap?.[tk];
@@ -1605,12 +1606,17 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
       if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
       else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
       if (rvol != null) rvols.push(rvol);
+      const str = tickerStrengthMap?.[tk];
+      if (str != null && !isNaN(str)) strs.push(str);
     });
     return {
       avgChg: chgs.length ? chgs.reduce((a, b) => a + b, 0) / chgs.length : null,
       avgRvol: rvols.length ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null,
+      avgStr: strs.length ? strs.reduce((a, b) => a + b, 0) / strs.length : null,
     };
   };
+  const strColor = (v) =>
+    v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
 
   const grouped = useMemo(() => {
     const themes = [];
@@ -1666,10 +1672,15 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
                   {theme.name}
                   {(() => {
                     const allTk = theme.layers.flatMap(l => l.tickers);
-                    const { avgChg, avgRvol } = layerAggs(allTk);
+                    const { avgChg, avgRvol, avgStr } = layerAggs(allTk);
                     const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
                     return (
                       <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center", fontWeight: 400 }}>
+                        {avgStr != null && (
+                          <span style={{ color: strColor(avgStr), fontSize: 8, fontWeight: 700 }} title="Avg strength score">
+                            {Math.round(avgStr)}
+                          </span>
+                        )}
                         {avgChg != null && (
                           <span style={{ color: chgColor, fontSize: 8 }}>
                             {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
@@ -1688,12 +1699,17 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
                 {isOpen && (
                   <div style={{ padding: "4px 0 2px 12px" }}>
                     {theme.layers.map((layer, li) => {
-                      const { avgChg, avgRvol } = layerAggs(layer.tickers);
+                      const { avgChg, avgRvol, avgStr } = layerAggs(layer.tickers);
                       const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
                       return (
                       <div key={li} data-layer-has={layer.tickers.join(" ")} style={{ marginBottom: 4 }}>
                         <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                           <span>{layer.layer}</span>
+                          {avgStr != null && (
+                            <span style={{ color: strColor(avgStr), fontWeight: 700 }} title="Avg strength score">
+                              {Math.round(avgStr)}
+                            </span>
+                          )}
                           {avgChg != null && (
                             <span style={{ color: chgColor, fontWeight: 700 }}>
                               {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
@@ -8336,7 +8352,7 @@ function ChartScanRow({
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
-        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} />
+        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} />
       </div>
     </div>
