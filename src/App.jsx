@@ -6462,7 +6462,7 @@ function WatchlistSectionTable({
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
-  const [pinStars, setPinStars] = useState(true);
+  const [pinStars, setPinStars] = useState(false);
   const wrapRef = React.useRef(null);
 
   const colorChg = (v) =>
