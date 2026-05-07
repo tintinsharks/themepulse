@@ -1679,14 +1679,19 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [chainId, setChainId] = useState("leaderboard");
+  const [chainPrev, setChainPrev] = useState(null);
+  const navigateChain = useCallback((id, fromSwitch = false) => {
+    setChainPrev((prev) => fromSwitch ? null : (id !== chainId ? chainId : prev));
+    setChainId(id);
+  }, [chainId]);
   // Listen for tp-open-drawer events (e.g. from leaderboard iframe clicks) — pull into chain tab
   useEffect(() => {
-    const onDrawer = (e) => { if (e?.detail) { setChainId(e.detail); setSwView("chain"); } };
-    const onMsg    = (e) => { if (e?.data?.type === "tp-open-drawer" && e.data.id) { setChainId(e.data.id); setSwView("chain"); } };
+    const onDrawer = (e) => { if (e?.detail) { setChainPrev(chainId); setChainId(e.detail); setSwView("chain"); } };
+    const onMsg    = (e) => { if (e?.data?.type === "tp-open-drawer" && e.data.id) { setChainPrev(chainId); setChainId(e.data.id); setSwView("chain"); } };
     window.addEventListener("tp-open-drawer", onDrawer);
     window.addEventListener("message", onMsg);
     return () => { window.removeEventListener("tp-open-drawer", onDrawer); window.removeEventListener("message", onMsg); };
-  }, []);
+  }, [chainId]);
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   // Owned-ticker set for the Hide Owned filter (reads the same cross-component
@@ -2449,8 +2454,19 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
             padding: "4px 8px", display: "flex", gap: 2, flexWrap: "wrap",
             borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgRow,
           }}>
+            {chainPrev != null && chainPrev !== chainId && (
+              <button
+                onClick={() => { setChainId(chainPrev); setChainPrev(null); }}
+                style={{
+                  fontSize: 7, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
+                  fontFamily: "monospace", fontWeight: 700, border: "1px solid #2a4a5a",
+                  background: "rgba(34,211,238,0.08)", color: ARIA.cyan,
+                  marginRight: 4,
+                }}
+              >← Back</button>
+            )}
             <button
-              onClick={() => setChainId("leaderboard")}
+              onClick={() => navigateChain("leaderboard")}
               style={{
                 fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
                 fontFamily: "monospace", fontWeight: 700, border: "1px solid",
@@ -2464,7 +2480,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
               return (
                 <button
                   key={t.id}
-                  onClick={() => setChainId(t.id)}
+                  onClick={() => navigateChain(t.id)}
                   style={{
                     fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
                     fontFamily: "monospace", fontWeight: 700, border: "1px solid",
@@ -8179,13 +8195,23 @@ function AppMain() {
   }, []);
   // Listen for ETF pill clicks from the Themes view (or anywhere else
   // that wants to load a chart without prop-drilling).
+  // Also catches postMessage from chain/leaderboard iframes.
   useEffect(() => {
     const onOpen = (e) => {
       const t = (e && e.detail && String(e.detail).toUpperCase()) || "";
       if (t) handleTickerClick(t);
     };
+    const onMsg = (e) => {
+      if (e?.data?.type === "tp-open-chart" && e.data.ticker) {
+        handleTickerClick(String(e.data.ticker).toUpperCase());
+      }
+    };
     window.addEventListener("tp-open-chart", onOpen);
-    return () => window.removeEventListener("tp-open-chart", onOpen);
+    window.addEventListener("message", onMsg);
+    return () => {
+      window.removeEventListener("tp-open-chart", onOpen);
+      window.removeEventListener("message", onMsg);
+    };
   }, [handleTickerClick]);
 
   // stockMap depends on data.pipeline.stocks. Compute it BEFORE the early

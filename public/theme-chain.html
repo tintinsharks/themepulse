@@ -846,8 +846,8 @@ const buildLayers = () => {
     layer.tickers.forEach(([ticker, tier]) => {
       const tile = document.createElement("div");
       tile.className = `tile t-${tier}`;
-      tile.title = `${ticker} — click to open in TradingView`;
-      tile.onclick = () => window.open(`https://www.tradingview.com/symbols/${ticker}/`, "_blank");
+      tile.title = `${ticker} — click to load chart`;
+      tile.onclick = () => window.parent.postMessage({ type: "tp-open-chart", ticker }, "*");
       const logo = document.createElement("div");
       logo.className = "logo";
       const img = document.createElement("img");

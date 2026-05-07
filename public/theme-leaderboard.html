@@ -1249,7 +1249,7 @@ const renderLeaderboard = () => {
     const tickerChips = sub.topTickers.map((t) => {
       const pctCls = t.chg != null && t.chg < 0 ? "down" : "";
       const pctTxt = t.chg == null ? "" : `<span class="pct ${pctCls}">${t.chg >= 0 ? "+" : ""}${t.chg.toFixed(1)}%</span>`;
-      return `<span class="tk">${t.ticker}${pctTxt}</span>`;
+      return `<span class="tk" style="cursor:pointer" title="Load ${t.ticker} chart" onclick="event.stopPropagation();window.parent.postMessage({type:'tp-open-chart',ticker:'${t.ticker}'},'*')">${t.ticker}${pctTxt}</span>`;
     }).join("");
 
     // Fins column
