@@ -1715,7 +1715,6 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                             {Math.round(avgCr) + "%"}
                           </span>
                         )}
-                        <span style={{ color: ARIA.textMuted }}>{theme.layers.length} layers</span>
                       </span>
                     );
                   })()}
