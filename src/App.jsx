@@ -1677,7 +1677,16 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
 
 function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap }) {
   const ARIA = useAriaTheme();
-  const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow"
+  const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
+  const [chainId, setChainId] = useState("leaderboard");
+  // Listen for tp-open-drawer events (e.g. from leaderboard iframe clicks) — pull into chain tab
+  useEffect(() => {
+    const onDrawer = (e) => { if (e?.detail) { setChainId(e.detail); setSwView("chain"); } };
+    const onMsg    = (e) => { if (e?.data?.type === "tp-open-drawer" && e.data.id) { setChainId(e.data.id); setSwView("chain"); } };
+    window.addEventListener("tp-open-drawer", onDrawer);
+    window.addEventListener("message", onMsg);
+    return () => { window.removeEventListener("tp-open-drawer", onDrawer); window.removeEventListener("message", onMsg); };
+  }, []);
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   // Owned-ticker set for the Hide Owned filter (reads the same cross-component
@@ -1967,6 +1976,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           <button onClick={() => setSwView("themes")} style={pillStyle(swView === "themes", ARIA.green)}>Themes</button>
           <button onClick={() => setSwView("subflow")} style={pillStyle(swView === "subflow", ARIA.green)}>Subflow</button>
           <button onClick={() => setSwView("leaderboard")} style={pillStyle(swView === "leaderboard", "#fbbf24")}>Rank</button>
+          <button onClick={() => setSwView("chain")} style={pillStyle(swView === "chain", "#6cd5e8")}>Chain</button>
         </div>
         <div
           style={{
@@ -2428,6 +2438,50 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
             src="/theme-leaderboard.html"
             title="Subtheme Leaderboard"
             style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14" }}
+          />
+        </div>
+      )}
+
+      {swView === "chain" && (
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          {/* Theme selector pills */}
+          <div style={{
+            padding: "4px 8px", display: "flex", gap: 2, flexWrap: "wrap",
+            borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgRow,
+          }}>
+            <button
+              onClick={() => setChainId("leaderboard")}
+              style={{
+                fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                fontFamily: "monospace", fontWeight: 700, border: "1px solid",
+                background: chainId === "leaderboard" ? "rgba(251,191,36,0.18)" : "transparent",
+                borderColor: chainId === "leaderboard" ? "#a07a1f" : "#2a2a40",
+                color: chainId === "leaderboard" ? "#fbbf24" : ARIA.textMuted,
+              }}
+            >📊 RANK</button>
+            {VALUE_CHAIN_THEMES.filter(t => t.id !== "leaderboard").map(t => {
+              const active = chainId === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setChainId(t.id)}
+                  style={{
+                    fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                    fontFamily: "monospace", fontWeight: 700, border: "1px solid",
+                    background: active ? `${DRAWER_COLORS[t.id]?.bg || "rgba(255,255,255,0.06)"}` : "transparent",
+                    borderColor: active ? `${DRAWER_COLORS[t.id]?.border || "#404060"}` : "#2a2a40",
+                    color: active ? `${DRAWER_COLORS[t.id]?.color || "#c0c0d8"}` : ARIA.textMuted,
+                  }}
+                >{t.label}</button>
+              );
+            })}
+          </div>
+          {/* Chain iframe */}
+          <iframe
+            key={chainId}
+            src={chainId === "leaderboard" ? "/theme-leaderboard.html" : (VALUE_CHAIN_THEMES.find(t => t.id === chainId)?.src || "/theme-leaderboard.html")}
+            title={chainId}
+            style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14", minHeight: 400 }}
           />
         </div>
       )}
@@ -8372,7 +8426,6 @@ function AppMain() {
         />
 
       </div>
-      <AIInfraDrawer />
     </div>
   );
 }
