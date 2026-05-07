@@ -6462,6 +6462,7 @@ function WatchlistSectionTable({
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
+  const [pinStars, setPinStars] = useState(true);
   const wrapRef = React.useRef(null);
 
   const colorChg = (v) =>
@@ -6473,10 +6474,12 @@ function WatchlistSectionTable({
   const sortedRows = useMemo(() => {
     const arr = rows.slice();
     arr.sort((a, b) => {
-      // Focus tickers always float to top
-      const af = focusTickers?.has(a.ticker) ? 0 : 1;
-      const bf = focusTickers?.has(b.ticker) ? 0 : 1;
-      if (af !== bf) return af - bf;
+      // Focus tickers float to top only when pinStars is on
+      if (pinStars) {
+        const af = focusTickers?.has(a.ticker) ? 0 : 1;
+        const bf = focusTickers?.has(b.ticker) ? 0 : 1;
+        if (af !== bf) return af - bf;
+      }
       let av = a[sortKey];
       let bv = b[sortKey];
       if (sortKey === "ticker" || sortKey === "subtheme") {
@@ -6558,6 +6561,24 @@ function WatchlistSectionTable({
           {list === "portfolio" ? "Portfolio" : "Watchlist"}
         </span>
         <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
+        {focusTickers?.size > 0 && (
+          <button
+            onClick={() => setPinStars((v) => !v)}
+            title={pinStars ? "Unpin starred — show in sort order" : "Pin starred to top"}
+            style={{
+              fontSize: 8,
+              padding: "1px 5px",
+              borderRadius: 3,
+              cursor: "pointer",
+              background: pinStars ? "rgba(251,191,36,0.15)" : "transparent",
+              border: `1px solid ${pinStars ? "#fbbf24" : ARIA.border}`,
+              color: pinStars ? "#fbbf24" : ARIA.textMuted,
+              lineHeight: 1.4,
+            }}
+          >
+            ★ {pinStars ? "pinned" : "unpinned"}
+          </button>
+        )}
         <input
           value={addInput}
           onChange={(e) => onAddInput(e.target.value.toUpperCase())}
