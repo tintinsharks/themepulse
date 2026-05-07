@@ -150,7 +150,7 @@ function etfsForTheme(subtheme, theme) {
 
 const DEFAULT_FILTERS = {
   noBio: true,
-  greenOnly: true,    // Chg>0% on chgOpen
+  greenOnly: false,   // Chg>0% on chgOpen
   ownedView: "all",   // "all" | "owned" | "hide" — filter by portfolio/watchlist membership. Default 'all' (no filtering).
   adrMin: 3,
   adrMax: 15,
