@@ -1228,7 +1228,6 @@ function ETFScanTable({ onTickerClick }) {
         ref={wrapRef}
         tabIndex={0}
         onKeyDown={onKeyDown}
-        onMouseEnter={() => wrapRef.current?.focus()}
         style={{ outline: "none", flex: 1, overflowY: "auto", overflowX: "auto", fontFamily: "monospace" }}
       >
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
@@ -2626,7 +2625,6 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
       ref={wrapRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      onMouseEnter={() => wrapRef.current && wrapRef.current.focus()}
       style={{ outline: "none" }}
     >
     <table
@@ -6620,7 +6618,6 @@ function WatchlistSectionTable({
           ref={wrapRef}
           tabIndex={0}
           onKeyDown={onKeyDown}
-          onMouseEnter={() => wrapRef.current && wrapRef.current.focus()}
           style={{ outline: "none", overflowX: "auto" }}
         >
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }}>
