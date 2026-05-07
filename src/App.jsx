@@ -8585,7 +8585,7 @@ const DRAWER_SUBTHEMES = [
   { theme: "AI Infra", themeId: "ai", layer: "Networking + Components", tickers: ["ANET","CSCO","CIEN","APH","TEL","CLS","JBL"] },
   { theme: "AI Infra", themeId: "ai", layer: "Memory + Storage", tickers: ["MU","SNDK","WDC","STX","RMBS","SIMO"] },
   { theme: "AI Infra", themeId: "ai", layer: "DC + Cooling", tickers: ["DLR","EQIX","VRT","EME","SMCI","DELL","HPE","ETN","MOD","NVT","CARR","JCI","FIX"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Photonics", tickers: ["AAOI","CIEN","COHR","FN","CRDO","LITE","VIAV","AXTI","MTSI","POET","LWLG"] },
+  { theme: "AI Infra", themeId: "ai", layer: "Photonics", tickers: ["AAOI","CIEN","COHR","FN","CRDO","LITE","VIAV","AXTI","MTSI","POET","LWLG","SIVEF"] },
   { theme: "AI Infra", themeId: "ai", layer: "Neoclouds + Hyperscalers", tickers: ["MSFT","GOOGL","AMZN","META","ORCL","NBIS","IREN","CRWV","APLD","WULF","HUT","CORZ"] },
   { theme: "AI Infra", themeId: "ai", layer: "Power Generation (IPPs)", tickers: ["VST","CEG","TLN","NRG","NEE"] },
   { theme: "AI Infra", themeId: "ai", layer: "Grid Equipment + EPC", tickers: ["AGX","DY","EME","GEV","ETN","PWR","MYRG","PRIM"] },
