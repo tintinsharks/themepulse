@@ -876,6 +876,10 @@ function rowSortValue(r, key) {
       return r.adr || 0;
     case "subtheme":
       return r.subtheme || "";
+    case "chain": {
+      const entries = TICKER_CHAIN_MAP.get(r.ticker) || [];
+      return entries.length ? entries[0].themeId : "";
+    }
     default:
       return 0;
   }
@@ -6480,7 +6484,13 @@ function WatchlistSectionTable({
       }
       let av = a[sortKey];
       let bv = b[sortKey];
-      if (sortKey === "ticker" || sortKey === "subtheme") {
+      if (sortKey === "ticker" || sortKey === "subtheme" || sortKey === "chain") {
+        if (sortKey === "chain") {
+          const ae = TICKER_CHAIN_MAP.get(a.ticker) || [];
+          const be = TICKER_CHAIN_MAP.get(b.ticker) || [];
+          av = ae.length ? ae[0].themeId : "";
+          bv = be.length ? be[0].themeId : "";
+        }
         av = (av || "").toString();
         bv = (bv || "").toString();
         return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
