@@ -142,6 +142,34 @@
   .tile .live .rv.heat  { color: #6dde8e; }
   .tile .live .rv.norm  { color: #5a5a6a; }
   .tile .live .sep      { color: #2a2a40; }
+  .tile .fin {
+    font-size: 8px; font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: #5a5a6a; margin-top: 1px; line-height: 1.35;
+    display: none; flex-direction: column; align-items: center; gap: 1px;
+  }
+  .tile .fin .fin-row { display: flex; gap: 3px; align-items: center; }
+  .tile .fin .fv.pos2 { color: #6dde8e; }
+  .tile .fin .fv.pos1 { color: #a3e635; }
+  .tile .fin .fv.flat { color: #6a6a7a; }
+  .tile .fin .fv.neg  { color: #ef9a9a; }
+  .tile .fin .flbl    { color: #3a3a52; }
+  .tile .fin .fsep    { color: #2a2a40; }
+  .body-fin .tile .live { display: none; }
+  .body-fin .tile .fin  { display: flex; }
+  .view-toggle {
+    display: inline-flex; align-items: center; gap: 0;
+    border: 1px solid #2a2a40; border-radius: 6px; overflow: hidden;
+    margin-left: 10px; vertical-align: middle;
+  }
+  .view-toggle button {
+    padding: 2px 8px; border: none; cursor: pointer;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: transparent; color: #5a5a6a; transition: background 0.15s, color 0.15s;
+  }
+  .view-toggle button.active { background: rgba(255,255,255,0.08); color: #c0c0d8; }
+  .view-toggle button:not(.active):hover { background: rgba(255,255,255,0.04); color: #9090a0; }
   .tile.t-strong { border-color: #2c5e3e; }
   .tile.t-strong .ticker-sym { color: #6dde8e; }
   .tile.t-watch  { border-color: #4a4055; }
@@ -221,6 +249,10 @@
   <div class="subtitle">
     <span id="tagline">Loading…</span>
     <span id="live-status" class="live-status off"><span class="dot"></span><span id="live-status-text">live data paused</span></span>
+    <span class="view-toggle">
+      <button id="btn-price" class="active" onclick="setView('price')">📈 PRICE</button>
+      <button id="btn-fin" onclick="setView('fin')">📊 FUNDAMENTALS</button>
+    </span>
   </div>
   <div class="legend">
     <span class="legend-pill"><span class="swatch" style="background:#6dde8e;"></span> Structural winner</span>
@@ -716,11 +748,13 @@ document.getElementById("title").innerHTML =
 document.getElementById("tagline").textContent = theme.tagline;
 
 const TILE_REFS = {};
+const TILE_FIN_REFS = {};
 const LAYER_REFS = [];   // [{ aggsEl, layerEl, container, tiles[{tile,ticker}], tickers }]
 const LIVE_QUOTES = {};
 // Pipeline-computed avg volume per ticker (from dashboard_data.json) —
 // primary source for RVol so every ticker has it (matches scan watch).
 const PIPELINE_AVGVOL = {};
+const PIPELINE_FINANCIALS = {};   // keyed by ticker: { revYoy, epsYoy, netMargin, revYoyPrev, epsYoyPrev, quarter }
 const loadPipelineAvgVol = async () => {
   try {
     const r = await fetch("/dashboard_data.json", { cache: "force-cache" });
@@ -728,9 +762,20 @@ const loadPipelineAvgVol = async () => {
     const d = await r.json();
     const stocks = d.stocks || d.universe || [];
     stocks.forEach((s) => {
-      if (s.ticker && s.avg_volume_raw && s.avg_volume_raw > 0) {
-        PIPELINE_AVGVOL[s.ticker.toUpperCase()] = s.avg_volume_raw;
-      }
+      const tk = (s.ticker || "").toUpperCase();
+      if (!tk) return;
+      if (s.avg_volume_raw && s.avg_volume_raw > 0) PIPELINE_AVGVOL[tk] = s.avg_volume_raw;
+      // Financials: prefer most-recent quarter entry; fall back to top-level fields
+      const q0 = s.quarters && s.quarters[0];
+      PIPELINE_FINANCIALS[tk] = {
+        revYoy:    q0 ? q0.sales_yoy  : (s.sales_yoy  ?? null),
+        epsYoy:    q0 ? q0.eps_yoy    : (s.eps_yoy    ?? null),
+        netMargin: q0 ? q0.net_margin : (s.profit_margin != null ? s.profit_margin * 100 : null),
+        quarter:   q0 ? q0.label      : null,
+        // Prior quarter for trend arrow
+        revYoyPrev:  s.quarters && s.quarters[1] ? s.quarters[1].sales_yoy : null,
+        epsYoyPrev:  s.quarters && s.quarters[1] ? s.quarters[1].eps_yoy   : null,
+      };
     });
   } catch (e) { /* ignore */ }
 };
@@ -814,7 +859,12 @@ const buildLayers = () => {
       const live = document.createElement("div");
       live.className = "live";
       live.innerHTML = '<span class="chg flat">—</span><span class="sep">·</span><span class="rv norm">—</span>';
-      tile.appendChild(logo); tile.appendChild(sym); tile.appendChild(live);
+      const fin = document.createElement("div");
+      fin.className = "fin";
+      fin.innerHTML = '<span class="fv flat">—</span>';
+      if (!TILE_FIN_REFS[ticker]) TILE_FIN_REFS[ticker] = [];
+      TILE_FIN_REFS[ticker].push(fin);
+      tile.appendChild(logo); tile.appendChild(sym); tile.appendChild(live); tile.appendChild(fin);
       tickersEl.appendChild(tile);
       if (!TILE_REFS[ticker]) TILE_REFS[ticker] = [];
       TILE_REFS[ticker].push(live);
@@ -995,6 +1045,81 @@ const scheduleNext = () => {
   if (!isMarketHours()) return;
   setTimeout(async () => { await updateLive(); scheduleNext(); }, 30_000);
 };
+
+// ─── FINANCIALS VIEW ──────────────────────────────────────────────────────
+let currentView = "price";
+
+const fvCls = (v) =>
+  v == null ? "flat" : v >= 20 ? "pos2" : v >= 0 ? "pos1" : "neg";
+const fvFmt = (v, suffix = "%") =>
+  v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(0)}${suffix}`;
+const trendArrow = (cur, prev) => {
+  if (cur == null || prev == null) return "";
+  return cur > prev + 2 ? "↑" : cur < prev - 2 ? "↓" : "→";
+};
+
+const updateFinTiles = () => {
+  Object.entries(TILE_FIN_REFS).forEach(([ticker, fins]) => {
+    const f = PIPELINE_FINANCIALS[ticker];
+    if (!f) return;
+    const rArrow = trendArrow(f.revYoy, f.revYoyPrev);
+    const eArrow = trendArrow(f.epsYoy, f.epsYoyPrev);
+    const html =
+      `<div class="fin-row">` +
+        `<span class="flbl">R</span><span class="fv ${fvCls(f.revYoy)}">${fvFmt(f.revYoy)}${rArrow}</span>` +
+        `<span class="fsep">·</span>` +
+        `<span class="flbl">E</span><span class="fv ${fvCls(f.epsYoy)}">${fvFmt(f.epsYoy)}${eArrow}</span>` +
+      `</div>` +
+      `<div class="fin-row">` +
+        `<span class="flbl">NM</span><span class="fv ${fvCls(f.netMargin)}">${fvFmt(f.netMargin)}</span>` +
+        (f.quarter ? `<span class="fsep"> ${f.quarter}</span>` : "") +
+      `</div>`;
+    fins.forEach((el) => { el.innerHTML = html; });
+  });
+};
+
+const updateLayerFinAggs = () => {
+  LAYER_REFS.forEach((ref) => {
+    if (currentView !== "fin") return;
+    const tickers = ref.tickers || [];
+    const revs = [], epss = [], margins = [];
+    tickers.forEach((tk) => {
+      const f = PIPELINE_FINANCIALS[tk];
+      if (!f) return;
+      if (f.revYoy != null)    revs.push(f.revYoy);
+      if (f.epsYoy != null)    epss.push(f.epsYoy);
+      if (f.netMargin != null) margins.push(f.netMargin);
+    });
+    const mRev = revs.length    ? median(revs)    : null;
+    const mEps = epss.length    ? median(epss)    : null;
+    const mMar = margins.length ? median(margins) : null;
+    const fmt = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`;
+    const cls = (v) => v == null ? "flat" : v >= 20 ? "agg up" : v >= 0 ? "agg flat" : "agg down";
+    ref.aggsEl.innerHTML =
+      `<span class="flbl" style="color:#4a4a62;font-size:8px;">R̃</span>` +
+      `<span class="${cls(mRev)}">${fmt(mRev)}</span>` +
+      `<span class="sep">·</span>` +
+      `<span class="flbl" style="color:#4a4a62;font-size:8px;">Ẽ</span>` +
+      `<span class="${cls(mEps)}">${fmt(mEps)}</span>` +
+      `<span class="sep">·</span>` +
+      `<span class="flbl" style="color:#4a4a62;font-size:8px;">NM</span>` +
+      `<span class="${cls(mMar)}">${fmt(mMar)}</span>`;
+  });
+};
+
+const setView = (view) => {
+  currentView = view;
+  document.body.classList.toggle("body-fin", view === "fin");
+  document.getElementById("btn-price").classList.toggle("active", view === "price");
+  document.getElementById("btn-fin").classList.toggle("active", view === "fin");
+  if (view === "fin") {
+    updateFinTiles();
+    updateLayerFinAggs();
+  } else {
+    updateLayerAggs();
+  }
+};
+
 Promise.all([loadPipelineAvgVol(), loadNarratives()])
   .then(updateLive)
   .then(scheduleNext);
