@@ -2403,6 +2403,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           chgMode={filters.chgMode}
           onTickerClick={onTickerClick}
           onSubthemeClick={setActiveSubtheme}
+          onChainClick={(id) => { setSwView("chain"); navigateChain(id); }}
         />
       </div>
       </>}
@@ -2410,7 +2411,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       {swView === "watchlist" && (
         <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
           <ErrorBoundary>
-            <Watchlist stockMap={stockMap} onTickerClick={onTickerClick} tickerStrengthMap={tickerStrengthMap} />
+            <Watchlist stockMap={stockMap} onTickerClick={onTickerClick} tickerStrengthMap={tickerStrengthMap} onChainClick={(id) => { setSwView("chain"); navigateChain(id); }} />
           </ErrorBoundary>
         </div>
       )}
@@ -2507,7 +2508,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 }
 
 // ── ScanWatchTable: Aria-faithful results table with click-to-sort headers ──
-function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, onSubthemeClick }) {
+function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, onSubthemeClick, onChainClick }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   // Keyboard nav: track selected ticker, allow ↑/↓ to move and load chart.
@@ -2652,6 +2653,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
           <Th k="cr" label="CR%" />
           <Th k="adr" label="ADR" />
           <Th k="rs" label="RS" />
+          <Th k="chain" label="Chain" align="left" />
           <Th k="subtheme" label="Sub" align="left" />
         </tr>
       </thead>
@@ -2659,7 +2661,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
         {rows.length === 0 && (
           <tr>
             <td
-              colSpan={9}
+              colSpan={10}
               style={{
                 padding: 12,
                 textAlign: "center",
@@ -2752,6 +2754,42 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
                 }}
               >
                 {r.rs || "—"}
+              </td>
+              <td style={{ ...bodyCell, textAlign: "left", padding: "3px 4px" }}>
+                {(() => {
+                  const chains = TICKER_CHAIN_MAP.get(r.ticker) || [];
+                  if (!chains.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                  return (
+                    <span style={{ display: "inline-flex", gap: 2, flexWrap: "nowrap" }}>
+                      {chains.map((id) => {
+                        const c = DRAWER_COLORS[id] || { bg: "rgba(255,255,255,0.06)", border: "#404060", color: "#c0c0d8" };
+                        return (
+                          <span
+                            key={id}
+                            title={`View ${id} value chain`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onChainClick && onChainClick(id);
+                            }}
+                            style={{
+                              fontSize: 7,
+                              fontWeight: 700,
+                              color: c.color,
+                              background: c.bg,
+                              border: `1px solid ${c.border}`,
+                              borderRadius: 2,
+                              padding: "0 3px",
+                              cursor: onChainClick ? "pointer" : "default",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {CHAIN_ABBR[id] || id.toUpperCase()}
+                          </span>
+                        );
+                      })}
+                    </span>
+                  );
+                })()}
               </td>
               <td
                 style={{
@@ -6423,6 +6461,7 @@ function WatchlistSectionTable({
   focusTickers,
   toggleFocus,
   tickerStrengthMap,
+  onChainClick,
 }) {
   const ARIA = useAriaTheme();
   const [sortKey, setSortKey] = useState("change");
@@ -6504,6 +6543,7 @@ function WatchlistSectionTable({
     { k: "cr", label: "CR%" },
     { k: "adr", label: "ADR" },
     { k: "rs", label: "RS" },
+    { k: "chain", label: "Chain", align: "left" },
     { k: "subtheme", label: "Sub", align: "left" },
     { k: null, label: "" },
   ];
@@ -6701,6 +6741,39 @@ function WatchlistSectionTable({
                     >
                       {r.rs || "—"}
                     </td>
+                    <td style={{ ...cell, textAlign: "left", padding: "2px 3px" }}>
+                      {(() => {
+                        const chains = TICKER_CHAIN_MAP.get(r.ticker) || [];
+                        if (!chains.length) return <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>;
+                        return (
+                          <span style={{ display: "inline-flex", gap: 2, flexWrap: "nowrap" }}>
+                            {chains.map((id) => {
+                              const c = DRAWER_COLORS[id] || { bg: "rgba(255,255,255,0.06)", border: "#404060", color: "#c0c0d8" };
+                              return (
+                                <span
+                                  key={id}
+                                  title={`View ${id} value chain`}
+                                  onClick={(e) => { e.stopPropagation(); onChainClick && onChainClick(id); }}
+                                  style={{
+                                    fontSize: 6,
+                                    fontWeight: 700,
+                                    color: c.color,
+                                    background: c.bg,
+                                    border: `1px solid ${c.border}`,
+                                    borderRadius: 2,
+                                    padding: "0 2px",
+                                    cursor: onChainClick ? "pointer" : "default",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {CHAIN_ABBR[id] || id.toUpperCase()}
+                                </span>
+                              );
+                            })}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td
                       style={{
                         ...cell,
@@ -6767,7 +6840,7 @@ function WatchlistSectionTable({
   );
 }
 
-function Watchlist({ stockMap, onTickerClick, tickerStrengthMap }) {
+function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick }) {
   const ARIA = useAriaTheme();
   const [view, setView] = useState(
     () => localStorage.getItem("themepulse-pw-view") || "themes"
@@ -7551,6 +7624,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap }) {
             focusTickers={focusTickers}
             toggleFocus={toggleFocus}
             tickerStrengthMap={tickerStrengthMap}
+            onChainClick={onChainClick}
           />
           <WatchlistSectionTable
             rows={chgPosFilter ? watchRows.filter((r) => (r.change || 0) > 0) : watchRows}
@@ -7565,6 +7639,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap }) {
             focusTickers={focusTickers}
             toggleFocus={toggleFocus}
             tickerStrengthMap={tickerStrengthMap}
+            onChainClick={onChainClick}
           />
         </div>
       )}
@@ -8574,6 +8649,24 @@ const DRAWER_COLORS = {
   materials: { bg: "rgba(163,230,53,0.12)",  border: "#4a6e1a", color: "#a3e635" },
   semis:    { bg: "rgba(251,146,60,0.12)",   border: "#9a4e1a", color: "#fb923c" },
 };
+
+const CHAIN_ABBR = {
+  ai: "AI", software: "SW", cyber: "CY", fintech: "FT",
+  defense: "DEF", robotics: "ROB", ev: "EV", quantum: "QTM",
+  space: "SPC", materials: "MAT", semis: "SEM",
+};
+
+// Ticker → unique themeIds it belongs to across all DRAWER_SUBTHEMES entries
+const TICKER_CHAIN_MAP = (() => {
+  const m = new Map();
+  DRAWER_SUBTHEMES.forEach(({ themeId, tickers }) => {
+    tickers.forEach((t) => {
+      if (!m.has(t)) m.set(t, []);
+      if (!m.get(t).includes(themeId)) m.get(t).push(themeId);
+    });
+  });
+  return m;
+})();
 
 // ──────────────────────────────────────────────────────────────────────────
 // Theme Value-Chain Drawers — multiple slide-out drawers, one per theme
