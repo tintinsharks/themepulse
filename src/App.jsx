@@ -1581,9 +1581,31 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap }) {
     const vals = tickers.map(tk => stockMap?.[tk]?.rs_rank ?? null).filter(v => v != null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   };
+
+  // Live aggregation — pull live quotes only when drawer is open, prefer live
+  // change/volume over stale pipeline snapshot
+  const allDrawerTickers = useMemo(() => {
+    const s = new Set();
+    DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    return [...s];
+  }, []);
+  const { quotes: liveQuotes } = useLiveQuotes(expanded ? allDrawerTickers : [], 30000);
+
   const layerAggs = (tickers) => {
-    const chgs = tickers.map(tk => stockMap?.[tk]?.change_pct).filter(v => v != null && !isNaN(v));
-    const rvols = tickers.map(tk => stockMap?.[tk]?.rvol).filter(v => v != null && !isNaN(v) && v > 0);
+    const chgs = [];
+    const rvols = [];
+    tickers.forEach((tk) => {
+      const q = liveQuotes.get(tk);
+      const s = stockMap?.[tk];
+      const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
+      if (chg != null && !isNaN(chg)) chgs.push(chg);
+      const liveVol = q?.volume;
+      const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+      let rvol = null;
+      if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+      else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
+      if (rvol != null) rvols.push(rvol);
+    });
     return {
       avgChg: chgs.length ? chgs.reduce((a, b) => a + b, 0) / chgs.length : null,
       avgRvol: rvols.length ? rvols.reduce((a, b) => a + b, 0) / rvols.length : null,
