@@ -1805,7 +1805,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
     setWatchlist((cur) => inWL ? cur.filter((t) => t !== chartTicker) : [...cur, chartTicker]);
   };
   const [sort, setSort] = useState(DEFAULT_SORT);
-  const [activePresets, setActivePresets] = useState(() => new Set(["strongest", "stealth", "accum_stack", "tightness"]));
+  const [activePresets, setActivePresets] = useState(() => new Set());
   const [activeTags, setActiveTags] = useState(() => new Set());
   const [activeSubtheme, setActiveSubtheme] = useState(null);
 
