@@ -1411,6 +1411,31 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
   }, [onTickerClickRaw]);
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-supercycle-open") === "1");
   const [notes, setNotes] = useState(() => _supercycleNotesCache.notes);
+  // Per-framework collapsed state — set of framework ids that are collapsed.
+  // Persisted to localStorage. Default: everything expanded (empty set).
+  const [collapsedFw, setCollapsedFw] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("tp-supercycle-collapsed") || "[]")); }
+    catch { return new Set(); }
+  });
+  const toggleFw = useCallback((id) => {
+    setCollapsedFw(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      localStorage.setItem("tp-supercycle-collapsed", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+  const collapseAll = useCallback(() => {
+    if (!notes) return;
+    const ids = notes.filter(n => n.type === "value_chain_framework" && n.layers).map(n => n.id);
+    const next = new Set(ids);
+    setCollapsedFw(next);
+    localStorage.setItem("tp-supercycle-collapsed", JSON.stringify([...next]));
+  }, [notes]);
+  const expandAll = useCallback(() => {
+    setCollapsedFw(new Set());
+    localStorage.setItem("tp-supercycle-collapsed", "[]");
+  }, []);
 
   useEffect(() => { injectSupercycleStyles(); }, []);
   useEffect(() => { localStorage.setItem("tp-supercycle-open", expanded ? "1" : "0"); }, [expanded]);
@@ -1728,6 +1753,29 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
           )}
 
           {/* Frameworks */}
+          {/* Frameworks header — collapse all / expand all */}
+          {frameworks.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <span style={{ fontSize: 8, color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>
+                Value Chain Frameworks
+              </span>
+              <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>
+                {frameworks.length - collapsedFw.size}/{frameworks.length} expanded
+              </span>
+              <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ARIA.border}, transparent)`, marginLeft: 4 }} />
+              <button onClick={expandAll} style={{
+                fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                fontFamily: "monospace", fontWeight: 700,
+                background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textMuted,
+              }}>+ ALL</button>
+              <button onClick={collapseAll} style={{
+                fontSize: 7, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                fontFamily: "monospace", fontWeight: 700,
+                background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textMuted,
+              }}>− ALL</button>
+            </div>
+          )}
+
           {frameworks.map((fw, fwIdx) => {
             const headlineShort = (fw.headline || "").split("—")[0]?.trim() || fw.id;
             const layerEntries = Object.entries(fw.layers);
@@ -1737,15 +1785,27 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
             const fwHasER = fwTickers.some(t => SC_RECENT_ER[t]);
             const phaseLabel = fwBeats >= 2 ? "PHASE 2 · Confirmed" : fwHasER ? "PHASE 1-2 · Building" : "PHASE 1 · Setup";
             const phaseColor = fwBeats >= 2 ? "#10b981" : fwHasER ? "#22d3ee" : "#f59e0b";
+            const isCollapsed = collapsedFw.has(fw.id);
 
             return (
-              <div key={fw.id} style={{ marginBottom: 14 }}>
-                {/* Framework header */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
-                  paddingBottom: 4,
-                  borderBottom: `1px dashed ${ARIA.border}`,
-                }}>
+              <div key={fw.id} style={{ marginBottom: isCollapsed ? 6 : 14 }}>
+                {/* Framework header — clickable to toggle collapse */}
+                <div
+                  onClick={() => toggleFw(fw.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
+                    paddingBottom: 4,
+                    borderBottom: `1px dashed ${ARIA.border}`,
+                    cursor: "pointer", userSelect: "none",
+                  }}
+                >
+                  <span style={{
+                    fontSize: 10, color: ARIA.textMuted,
+                    transition: "transform 0.15s",
+                    transform: isCollapsed ? "rotate(0deg)" : "rotate(90deg)",
+                    display: "inline-block",
+                    width: 10,
+                  }}>▶</span>
                   <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 800 }}>
                     {String(fwIdx + 1).padStart(2, "0")}
                   </span>
@@ -1766,11 +1826,16 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
                       ▲ {fwBeats} confirming
                     </span>
                   )}
+                  <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 600 }}>
+                    {layerEntries.length}L · {fwTickers.length}T
+                  </span>
                   <span style={{ marginLeft: "auto", fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>
                     {fw.date}
                   </span>
                 </div>
 
+                {!isCollapsed && (
+                <>
                 {/* Layer grid */}
                 <div style={{
                   display: "grid",
@@ -1948,6 +2013,8 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
                     <span style={{ color: phaseColor, fontWeight: 800, letterSpacing: 0.5 }}>FLOW →</span>{" "}
                     {fw.lead_lag.chain_flow}
                   </div>
+                )}
+                </>
                 )}
               </div>
             );
