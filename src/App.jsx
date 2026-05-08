@@ -1813,6 +1813,9 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   // Owned-ticker set for the Hide Owned filter (reads the same cross-component
   // store as useOwnedTint / the Watchlist panel). Setters are used by the
   // +WL / +PF toolbar buttons.
+  const [scanTableH, setScanTableH] = useState(() => parseInt(localStorage.getItem("tp-scan-height") || "480"));
+  const scanTableHRef = useRef(480);
+  useEffect(() => { scanTableHRef.current = scanTableH; }, [scanTableH]);
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
   const ownedSet = useMemo(
@@ -2542,7 +2545,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       {/* Results table */}
       <div
         style={{
-          maxHeight: 480,
+          height: scanTableH,
           overflowY: "auto",
           overflowX: "auto",
           fontFamily: "monospace",
@@ -2559,6 +2562,24 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           onChainClick={(id) => { setSwView("chain"); navigateChain(id); }}
         />
       </div>
+      {/* Drag handle */}
+      <div
+        title="Drag to resize"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          const startY = e.clientY;
+          const startH = scanTableHRef.current;
+          const onMove = (ev) => setScanTableH(Math.max(120, startH + ev.clientY - startY));
+          const onUp = () => {
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+            localStorage.setItem("tp-scan-height", String(scanTableHRef.current));
+          };
+          window.addEventListener("mousemove", onMove);
+          window.addEventListener("mouseup", onUp);
+        }}
+        style={{ height: 6, cursor: "ns-resize", background: ARIA.border, margin: "2px 0", borderRadius: 3, opacity: 0.6 }}
+      />
       </>}
 
       {swView === "watchlist" && (
