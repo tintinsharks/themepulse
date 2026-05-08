@@ -1752,11 +1752,13 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                             </button>
                           ))}
                           {avoid.map((t) => (
-                            <span
+                            <button
                               key={t}
-                              title={`${t} · AVOID`}
+                              onClick={() => onTickerClick?.(t)}
+                              title={`${t} · AVOID — click for chart`}
+                              className="tp-sc-pill"
                               style={{
-                                fontSize: 11, padding: "3px 8px", borderRadius: 4,
+                                fontSize: 11, padding: "3px 8px", borderRadius: 4, cursor: "pointer",
                                 fontFamily: "monospace", fontWeight: 500,
                                 whiteSpace: "nowrap", lineHeight: 1.2,
                                 background: "transparent",
@@ -1764,11 +1766,11 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                                 color: "#ef4444",
                                 textDecoration: "line-through",
                                 textDecorationColor: "rgba(239,68,68,0.6)",
-                                opacity: 0.7,
+                                opacity: 0.85,
                               }}
                             >
                               {t}
-                            </span>
+                            </button>
                           ))}
                           {unlisted.map((name) => (
                             <span key={name} title={`${name} · not US-listed`} style={{
