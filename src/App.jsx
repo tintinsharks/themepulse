@@ -2118,7 +2118,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
 // ── Drawer Themes — collapsible inline view of value-chain themes/subthemes ──
 function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap, onLayerClick, activeFilterName }) {
   const ARIA = useAriaTheme();
-  const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") === "1");
+  const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") !== "0");
   const [openTheme, setOpenTheme] = useState(null);
   const scrollContainerRef = useRef(null);
   const pendingScrollTicker = useRef(null);
