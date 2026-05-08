@@ -152,7 +152,7 @@ const DEFAULT_FILTERS = {
   noBio: true,
   greenOnly: false,   // Chg>0% on chgOpen
   ownedView: "all",   // "all" | "owned" | "hide" — filter by portfolio/watchlist membership. Default 'all' (no filtering).
-  adrMin: 3,
+  adrMin: 1,
   adrMax: 15,
   minDvolM: 20,        // dollar volume floor in millions
   minChg: 0,           // Chg≥ slider (%)
