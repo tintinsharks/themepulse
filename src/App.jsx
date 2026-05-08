@@ -3570,9 +3570,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="rvol" label="RV" />
             <Th k="rs" label="RS" />
             <Th k="str" label="Str" />
-            <Th k="cr" label="CR%" />
             <Th k="roc2" label="ROC²" />
             <Th k="dvol" label="$Vol" />
+            <Th k="cr" label="CR%" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
           </tr>
@@ -3623,14 +3623,14 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
                   {r.str != null ? Math.round(r.str) : "—"}
                 </td>
-                <td style={{ ...cell, color: crColor(r.cr) }}>
-                  {r.cr != null ? Math.round(r.cr) + "%" : "—"}
-                </td>
                 <td style={{ ...cell, color: chgColor(r.roc2), fontWeight: 700 }}
                     title="ROC² (Druckenmiller acceleration): 1M return − (3M return ÷ 3)">
                   {r.roc2 != null ? (r.roc2 > 0 ? "+" : "") + r.roc2.toFixed(1) : "—"}
                 </td>
                 <td style={{ ...cell, color: ARIA.textDim }}>{fmtDvol(r.dvol)}</td>
+                <td style={{ ...cell, color: crColor(r.cr) }}>
+                  {r.cr != null ? Math.round(r.cr) + "%" : "—"}
+                </td>
                 <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
                     title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
                   {r.dvolRatio != null ? r.dvolRatio.toFixed(1) + "x" : "—"}
