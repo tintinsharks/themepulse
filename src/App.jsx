@@ -2458,7 +2458,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
 
 function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilter, clearChainFilter, onLayerClick }) {
   const ARIA = useAriaTheme();
-  const [swView, setSwView] = useState("scan"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
+  const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [chainId, setChainId] = useState("leaderboard");
   const [chainPrev, setChainPrev] = useState(null);
   // Force scan view when an external chain/layer filter is applied
