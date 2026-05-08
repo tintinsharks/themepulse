@@ -3387,6 +3387,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
       if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
       else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
       const cr = computeCR(q, s);
+      const price = q?.price ?? s?.price ?? s?.close ?? null;
       const r1m = s?.return_1m, r3m = s?.return_3m;
       const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
       const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
