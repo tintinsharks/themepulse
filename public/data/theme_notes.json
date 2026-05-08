@@ -4,6 +4,182 @@
   "updated": "2026-05-07",
   "notes": [
     {
+      "id": "server-rack-integration-layer-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Server/Rack Integration Layer — SMCI, DELL, ANET: the missing layer between chip and cloud that assembles the actual racks.",
+      "primary_tickers": ["ANET", "DELL"],
+      "derivative_tickers": ["SMCI", "HPE", "NVDA", "AVGO"],
+      "themes_implicated": ["AI Infrastructure", "Networking / Switching", "Server OEM"],
+      "thesis": "Between chip (NVDA/AVGO) and cloud (hyperscalers) sits the rack integration layer. Arista (ANET) is the Tier 1 switching fabric play — its 400G/800G Ethernet switches are in every major AI cluster. DELL is the OEM beneficiary with PowerEdge GPU servers. SMCI (Super Micro) is the pure-play liquid-cooled server design house — closest to the AI rack build — but has had accounting/audit issues (10-K delays, Hindenburg short report). SMCI is only tradeable once accounting credibility is restored. ANET is the cleanest name: recurring software (EOS), hyperscaler stickiness, no controversy.",
+      "lead_lag": {
+        "leading": ["ANET"],
+        "lagging": ["DELL", "SMCI"],
+        "horizon": "1-2 years alongside the rack buildout cycle",
+        "rationale": "ANET leads because networking infrastructure gets ordered before servers ship. DELL lags because server OEM margins are thin and timing is lumpy. SMCI is uninvestable until audit completion."
+      },
+      "caveats": [
+        "SMCI: do not size until FY2024 10-K is filed and auditor concern resolved. Prior Hindenburg allegations of accounting irregularities.",
+        "ANET valuation is rich — trades at premium to software comps on hardware revenue. Multiple compression risk if hyperscaler capex guidance disappoints.",
+        "DELL has PC/commercial business drag — only ~20% of revenue is ISG (AI servers). Blended multiple stays depressed."
+      ],
+      "source": "ThemePulse value chain audit — May 7, 2026"
+    },
+    {
+      "id": "nuclear-sub-chain-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Nuclear Sub-Chain — CEG, NNE, OKLO, SMR, CCJ: AI power demand driving the next nuclear buildout cycle.",
+      "primary_tickers": ["CEG", "CCJ", "NNE"],
+      "derivative_tickers": ["OKLO", "SMR", "VST", "URA", "UUUU", "DNN"],
+      "themes_implicated": ["Nuclear Power", "AI Power Demand", "Uranium", "Small Modular Reactors"],
+      "lead_lag": {
+        "leading": ["CEG", "CCJ"],
+        "lagging": ["NNE", "OKLO", "SMR"],
+        "horizon": "3-7 years for SMR construction; 1-2 years for uranium supply response",
+        "rationale": "CEG (Constellation Energy) is the only near-term play — existing nuclear fleet restart (Three Mile Island Unit 1 for Microsoft). CCJ (Cameco) is the uranium supply proxy — orders today, fuel in 2-3 years. NNE/OKLO/SMR are SMR pure-plays on a 5-10 year timeline — momentum/narrative now, revenue later."
+      },
+      "layers": {
+        "existing_fleet": {
+          "tickers": ["CEG", "VST"],
+          "thesis": "Restart and life-extension of existing nuclear plants. CEG restarted Three Mile Island Unit 1 for MSFT. VST has Comanche Peak. These are the only near-term AI power solutions that don't require new construction."
+        },
+        "uranium_supply": {
+          "tickers": ["CCJ", "URA", "UUUU", "DNN"],
+          "thesis": "Uranium spot price proxy. CCJ is the blue chip. URA is the ETF. UUUU (Energy Fuels) is US domestic production — strategic given Russia import ban. Any nuclear buildout announcement drives this basket."
+        },
+        "smr_pure_plays": {
+          "tickers": ["NNE", "OKLO", "SMR"],
+          "thesis": "Small Modular Reactor companies. NNE (NuScale) is the furthest along in NRC licensing. OKLO is Sam Altman-backed, early stage. SMR (Nuscale spinoff). These are 5-10 year stories trading on narrative momentum. Size accordingly."
+        }
+      },
+      "thesis": "All four hyperscalers said 'power constrained' in Q1 2026 earnings. The only 24/7 carbon-free baseload solution is nuclear. CEG/VST are near-term plays (existing fleet). CCJ is the supply chain anchor. NNE/OKLO/SMR are long-duration options. The key catalyst is data center power purchase agreements (PPAs) — each new nuclear PPA announcement re-rates the entire basket.",
+      "caveats": [
+        "SMR pure-plays have no revenue — pure narrative. Drawdowns of 50-80% are possible without a fundamental change.",
+        "Uranium prices are volatile and tied to geopolitics (Kazakhstan, Russia supply disruptions).",
+        "NRC licensing timelines are unpredictable — NNE already had one project cancellation.",
+        "This chain trades differently from the chip/rack/optics chains — longer duration, higher vol, sentiment-driven."
+      ],
+      "source": "ThemePulse value chain audit — May 7, 2026"
+    },
+    {
+      "id": "sovereign-ai-demand-2026-05",
+      "date": "2026-05-07",
+      "type": "discovery_thesis",
+      "headline": "Sovereign AI — UAE ($1.4T deal), Saudi HUMAIN, Japan, India: new NVDA demand leg outside US hyperscalers that changes the supply/demand equation.",
+      "primary_tickers": ["NVDA", "NBIS"],
+      "derivative_tickers": ["AVGO", "ALAB", "CRDO", "VRT", "GEV", "CRWV"],
+      "themes_implicated": ["Sovereign AI", "International AI Buildout", "AI Infrastructure", "Geopolitics / Trade"],
+      "thesis": "The AI buildout is no longer a US hyperscaler story. Sovereign AI programs are emerging as a distinct demand leg: UAE signed a $1.4T AI investment framework with the US (May 2026), Saudi Arabia's HUMAIN entity is ordering NVDA at scale, Japan committed $67B to domestic AI infra, India's government-backed AI mission is procuring GPUs for national compute. Each sovereign program needs the full stack — GPUs (NVDA), custom silicon (AVGO), interconnects (ALAB/CRDO), power (VRT/GEV), and neocloud infrastructure (NBIS for European sovereign). This demand is on top of, not instead of, US hyperscaler capex. NBIS (Nebius) is the cleanest pure-play on European/non-US sovereign AI cloud — Russian-origin company (formerly Yandex) that relocated to Netherlands, now building GPU cloud for EU sovereign clients.",
+      "lead_lag": {
+        "leading": ["NVDA"],
+        "lagging": ["NBIS", "CRWV", "ALAB"],
+        "horizon": "1-3 years as sovereign programs scale from announcement to deployment",
+        "rationale": "NVDA gets the GPU orders first — sovereign deals are announced as GPU procurement agreements. Then the rack integration, interconnects, and cloud layers follow. NBIS is the read-through for non-US sovereign cloud."
+      },
+      "key_events": {
+        "UAE": "$1.4T AI investment framework signed May 2026 — G42 and other UAE entities ordering NVDA H100/B200 at scale",
+        "Saudi_HUMAIN": "Saudi Aramco / PIF-backed HUMAIN AI entity — committed to building national AI infrastructure",
+        "Japan": "$67B government AI infrastructure program — domestic GPU procurement",
+        "India": "IndiaAI Mission — government-subsidized GPU cloud access for startups and research"
+      },
+      "caveats": [
+        "Export control risk: any tightening of AI chip export rules to Middle East/Asia would directly impair this demand leg.",
+        "Announcement vs. execution gap — sovereign programs move slowly from commitment to actual hardware delivery.",
+        "Geopolitical sensitivity: UAE/Saudi programs involve US government approval. Regime change or diplomatic friction could cancel deals.",
+        "NBIS is a small-cap ($3-5B) with thin US float and European listing — vol is high."
+      ],
+      "source": "ThemePulse value chain audit + public deal announcements — May 7, 2026"
+    },
+    {
+      "id": "ai-inference-edge-layer-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "AI Inference & Edge Layer — ARM, QCOM, NVDA Jetson: as AI shifts from training to inference, the chip mix and winners change.",
+      "primary_tickers": ["ARM", "QCOM"],
+      "derivative_tickers": ["NVDA", "AVGO", "MRVL", "INTC", "AAPL"],
+      "themes_implicated": ["AI Inference", "Edge AI", "Chip Architecture", "On-Device AI"],
+      "thesis": "The AI buildout has two phases: training (build the model — needs massive GPU clusters, NVDA's core market) and inference (run the model — broader architecture competition). Inference is growing faster than training spend, and the optimal chip for inference is NOT always a GPU. ARM architecture dominates inference at the edge — every smartphone, every laptop, every IoT device runs ARM. QCOM's Snapdragon X Elite with NPU is the PC inference play. Apple Silicon (M4/A18) is the gold standard for on-device inference but AAPL doesn't sell the chip. The inflection: as inference moves to the edge (on-device, not cloud), NVDA's share of inference workloads is threatened. This is a 2-3 year transition, not immediate.",
+      "lead_lag": {
+        "leading": ["ARM"],
+        "lagging": ["QCOM", "NVDA"],
+        "horizon": "2-3 years for on-device inference to become a meaningful workload shift",
+        "rationale": "ARM licenses its architecture to everyone — every inference chip (QCOM, Apple, MediaTek, Ampere cloud) runs ARM ISA. ARM royalties compound as inference scales. QCOM is the most direct AI PC/edge pure-play. NVDA's inference exposure is primarily data center inference (NIM microservices on H100/B200) — not edge."
+      },
+      "architecture_map": {
+        "cloud_inference": "NVDA H100/B200 + NIM, AVGO custom ASICs, AWS Inferentia",
+        "edge_inference": "ARM Cortex-X / Neoverse, QCOM Snapdragon NPU, Apple ANE",
+        "iot_tiny": "ARM Cortex-M, low-power NPU designs"
+      },
+      "caveats": [
+        "ARM trades at 70-80x forward earnings — enormous multiple. Any inference growth slowdown or NVDA competition is punishing.",
+        "QCOM has a smartphone cyclical overhang — AI PC momentum needs to outrun handset weakness.",
+        "NVDA is not standing still — Grace Blackwell (CPU+GPU) and Jetson Orin target edge inference directly.",
+        "On-device inference is primarily a consumer story — different catalysts than enterprise AI capex cycle."
+      ],
+      "source": "ThemePulse value chain audit — May 7, 2026"
+    },
+    {
+      "id": "earnings-readthrough-map-2026-05",
+      "date": "2026-05-07",
+      "type": "lead_lag_framework",
+      "headline": "Earnings Read-Through Map — which print moves which chain stocks the next session.",
+      "primary_tickers": ["NVDA", "MSFT", "META", "AMZN", "GOOGL"],
+      "derivative_tickers": ["MU", "ALAB", "CRDO", "LITE", "VRT", "GEV", "AVGO", "MRVL", "CRWD", "PANW", "ANET", "SMCI"],
+      "themes_implicated": ["AI Infrastructure", "Earnings Season", "Lead-Lag", "Capex Cycle"],
+      "readthrough_map": {
+        "NVDA_earnings": {
+          "trigger": "NVDA quarterly earnings + guidance",
+          "next_session_watch": ["MU", "ALAB", "CRDO", "MRVL", "AVGO", "SMCI"],
+          "thesis": "NVDA is the mothership. Beat + raised guidance lifts entire AI semi chain. Miss/guide-down hits everything. Watch data center revenue and Blackwell ramp commentary specifically.",
+          "key_metrics": ["Data center revenue", "Blackwell shipment timing", "China revenue", "Gross margin"]
+        },
+        "hyperscaler_capex": {
+          "trigger": "MSFT / META / AMZN / GOOGL quarterly earnings",
+          "next_session_watch": ["VRT", "GEV", "ALAB", "ANET", "NVDA"],
+          "thesis": "Hyperscaler capex guidance is the second most important read-through in AI. All four said 'power and compute constrained' in Q1 2026 — that was a bullish read-through for VRT/GEV/ALAB. Any capex cut or 'pausing to digest' language is the biggest risk to the chain.",
+          "key_metrics": ["Capex guidance ($ and YoY %)", "Infrastructure commentary", "Power/compute constraint language", "AI revenue contribution"]
+        },
+        "AVGO_earnings": {
+          "trigger": "Broadcom quarterly earnings",
+          "next_session_watch": ["MRVL", "ALAB", "CRDO"],
+          "thesis": "AVGO's custom ASIC (XPU) commentary directly sets expectations for the custom silicon market. Strong XPU revenue = hyperscalers spending on non-NVDA AI chips = bullish for custom silicon ecosystem.",
+          "key_metrics": ["AI revenue segment", "Custom ASIC design win count", "Networking revenue"]
+        },
+        "MU_earnings": {
+          "trigger": "Micron quarterly earnings",
+          "next_session_watch": ["SNDK", "AMAT", "LRCX"],
+          "thesis": "MU's HBM pricing and demand commentary sets the memory supply/demand narrative. HBM ASP trends are the key — rising ASPs = supply-constrained = bullish.",
+          "key_metrics": ["HBM revenue and ASP", "DRAM pricing", "Data center vs consumer mix", "Inventory levels"]
+        },
+        "ANET_earnings": {
+          "trigger": "Arista Networks quarterly earnings",
+          "next_session_watch": ["DELL", "SMCI", "CRDO"],
+          "thesis": "ANET's AI cluster networking orders are the leading indicator for the rack integration build timeline. Product order book and backlog are the key metrics.",
+          "key_metrics": ["Cloud titan revenue %", "Product orders / backlog", "400G/800G mix", "AI vs enterprise split"]
+        },
+        "VRT_earnings": {
+          "trigger": "Vertiv quarterly earnings",
+          "next_session_watch": ["GEV", "ETN", "EATON"],
+          "thesis": "VRT's backlog commentary confirms or denies the power infrastructure demand thesis. Book-to-bill > 1.0 = constrained, bullish for the power chain.",
+          "key_metrics": ["Backlog and book-to-bill", "AI/data center % of orders", "Gross margin", "2026 guidance"]
+        },
+        "CRWD_earnings": {
+          "trigger": "CrowdStrike quarterly earnings",
+          "next_session_watch": ["PANW", "CYBR", "NET", "RBRK"],
+          "thesis": "CRWD is the cybersecurity RS leader. Its ARR growth and platform consolidation commentary sets the tone for the sector. Falcon platform expansion drives competitive displacement read-through.",
+          "key_metrics": ["ARR growth", "Net new ARR", "Falcon platform module adoption", "Customer count"]
+        }
+      },
+      "thesis": "Earnings read-throughs are the fastest way to get edge on positioning. Know which print moves which chain BEFORE the report, not after. The highest-alpha setup: if NVDA guides up strongly, buy ALAB/CRDO/MU pre-open the next day before consensus catches up. If hyperscalers cut capex, short VRT/GEV before the sector reprices.",
+      "caveats": [
+        "Read-throughs are noisy — the market sometimes ignores them or reverses within 2-3 sessions.",
+        "Same-day options activity can front-run read-throughs — check unusual options flow in the chain names ahead of earnings.",
+        "Macro selloffs (rate fears, tariff news) can override sector-specific read-throughs entirely."
+      ],
+      "source": "ThemePulse value chain audit — May 7, 2026"
+    },
+    {
       "id": "ai-ecosystem-layer-map-2026-05",
       "date": "2026-05-07",
       "type": "value_chain_framework",

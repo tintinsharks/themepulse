@@ -5875,6 +5875,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
 const SHEET_NOTES_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRDC0MYBXHn-4hW-mVHZp0lusDe6zsQENz7zVAFanckp12axZ45XRkodzlJADoSciEmJEfvhkPuGZmk/pub?output=csv";
 const _sheetNotesCache = { map: null, loading: false };
+const _themeNotesCache = { notes: null, loading: false };
 
 function parseSheetCSVRow(line) {
   const result = [];
@@ -5914,6 +5915,7 @@ function ChartPanelInline({
   const [etfHoldings, setEtfHoldings] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
+  const [themeNotes, setThemeNotes] = useState(() => _themeNotesCache.notes);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [showTrade, setShowTrade] = useState(false);
   const [tradeSettings, setTradeSettings] = useState(() => {
@@ -5987,6 +5989,22 @@ function ChartPanelInline({
         setSheetNotes(map);
       })
       .catch(() => { _sheetNotesCache.loading = false; });
+  }, []);
+
+  // Fetch theme_notes.json once (chain context overlay)
+  useEffect(() => {
+    if (_themeNotesCache.notes) { setThemeNotes(_themeNotesCache.notes); return; }
+    if (_themeNotesCache.loading) return;
+    _themeNotesCache.loading = true;
+    fetch("/data/theme_notes.json")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const notes = d?.notes || [];
+        _themeNotesCache.notes = notes;
+        _themeNotesCache.loading = false;
+        setThemeNotes(notes);
+      })
+      .catch(() => { _themeNotesCache.loading = false; });
   }, []);
 
   // Fetch OHLC bars for inline SVG daily chart
@@ -6406,6 +6424,99 @@ function ChartPanelInline({
                 </tbody>
               </table>
             )}
+          </div>
+        );
+      })()}
+
+      {/* Chain Context — derived from theme_notes.json */}
+      {(() => {
+        if (!themeNotes || !ticker) return null;
+        // Collect all notes that mention this ticker
+        const matched = themeNotes.filter(n => {
+          const inPrimary = (n.primary_tickers || []).includes(ticker);
+          const inDerivative = (n.derivative_tickers || []).includes(ticker);
+          // For value_chain_framework notes, also check layers
+          const inLayers = n.layers ? Object.values(n.layers).some(l =>
+            (l.tickers || []).includes(ticker) || (l.avoid || []).includes(ticker)
+          ) : false;
+          // For readthrough map, check nested ticker arrays
+          const inReadthrough = n.readthrough_map ? Object.values(n.readthrough_map).some(r =>
+            (r.next_session_watch || []).includes(ticker)
+          ) : false;
+          return inPrimary || inDerivative || inLayers || inReadthrough;
+        });
+        if (matched.length === 0) return null;
+
+        // For value_chain_framework notes, find which layer this ticker belongs to
+        const layerCtx = [];
+        matched.forEach(n => {
+          if (n.type === "value_chain_framework" && n.layers) {
+            Object.entries(n.layers).forEach(([key, l]) => {
+              if ((l.tickers || []).includes(ticker)) {
+                layerCtx.push({ noteId: n.id, label: l.label || key, tier: l.tier });
+              }
+            });
+          }
+          if (n.id === "ai-ecosystem-layer-map-2026-05" && n.layers) {
+            Object.entries(n.layers).forEach(([key, l]) => {
+              if ((l.tickers || []).includes(ticker)) {
+                const tierColors = { 1: "#0d9163", 2: "#22d3ee", 3: "#f59e0b" };
+                layerCtx.push({ noteId: n.id, label: l.label, tier: l.tier, tierColor: tierColors[l.tier] || "#666" });
+              }
+            });
+          }
+        });
+
+        // Collect related tickers (upstream/downstream) from lead_lag
+        const related = new Set();
+        matched.forEach(n => {
+          if (n.lead_lag) {
+            [...(n.lead_lag.leading || []), ...(n.lead_lag.lagging || [])].forEach(t => {
+              if (t !== ticker) related.add(t);
+            });
+          }
+          if (n.readthrough_map) {
+            Object.values(n.readthrough_map).forEach(r => {
+              if ((r.next_session_watch || []).includes(ticker)) {
+                related.add(r.trigger?.split("_")[0] || "");
+              }
+            });
+          }
+        });
+        const relatedArr = [...related].filter(Boolean).slice(0, 8);
+
+        const tierColors = { 1: "#0d9163", 2: "#22d3ee", 3: "#f59e0b" };
+
+        return (
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", padding: "4px 14px 5px", background: "rgba(13,145,99,0.04)" }}>
+            <div style={{ fontSize: 7, color: "#0d9163", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
+              Chain Context
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+              {matched.map(n => {
+                const layerEntry = layerCtx.find(l => l.noteId === n.id);
+                const label = layerEntry?.label || n.headline?.split("—")[0]?.trim().slice(0, 40) || n.id;
+                const tierColor = layerEntry ? (tierColors[layerEntry.tier] || "#666") : "#5a5a7a";
+                return (
+                  <span key={n.id} title={n.thesis?.slice(0, 200) || n.headline}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.05)", border: `1px solid ${tierColor}44`, borderRadius: 3, padding: "1px 6px" }}>
+                    {layerEntry?.tier && (
+                      <span style={{ fontSize: 7, fontWeight: 700, color: tierColor }}>T{layerEntry.tier}</span>
+                    )}
+                    <span style={{ fontSize: 8, color: "#c8c8d8" }}>{label}</span>
+                  </span>
+                );
+              })}
+              {relatedArr.length > 0 && (
+                <span style={{ fontSize: 7, color: "#5a5a6a", marginLeft: 4 }}>→</span>
+              )}
+              {relatedArr.map(t => (
+                <button key={t} onClick={() => onTickerChange?.(t)}
+                  style={{ background: "transparent", border: "1px solid #2a2a3a", borderRadius: 3, padding: "1px 5px", cursor: "pointer" }}>
+                  <span style={{ fontFamily: "monospace", fontSize: 8, fontWeight: 700, color: "#9090b0" }}>{t}</span>
+                </button>
+              ))}
+            </div>
           </div>
         );
       })()}
