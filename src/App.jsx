@@ -1327,11 +1327,77 @@ function ETFScanTable({ onTickerClick }) {
 // each layer as a tier-colored panel with clickable ticker pills.
 const _supercycleNotesCache = { notes: null, loading: false };
 
+// Inject keyframes once for the SupercycleMap animations
+const _supercycleStylesInjected = { done: false };
+function injectSupercycleStyles() {
+  if (_supercycleStylesInjected.done || typeof document === "undefined") return;
+  const css = `
+    @keyframes tp-sc-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--tp-glow), 0 0 8px 0 var(--tp-glow); }
+      50% { box-shadow: 0 0 0 2px var(--tp-glow-fade), 0 0 18px 4px var(--tp-glow); }
+    }
+    @keyframes tp-sc-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes tp-sc-fadein {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .tp-sc-card { transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease; }
+    .tp-sc-card:hover { transform: translateY(-1px); }
+    .tp-sc-pill { transition: transform .12s ease, box-shadow .12s ease, background .15s ease; }
+    .tp-sc-pill:hover { transform: translateY(-1px) scale(1.04); }
+    .tp-sc-pulse { animation: tp-sc-pulse 2.4s ease-in-out infinite; }
+    .tp-sc-shimmer {
+      background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+      background-size: 200% 100%;
+      animation: tp-sc-shimmer 4s linear infinite;
+    }
+    .tp-sc-fadein { animation: tp-sc-fadein .35s ease both; }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-tp-supercycle", "1");
+  style.appendChild(document.createTextNode(css));
+  document.head.appendChild(style);
+  _supercycleStylesInjected.done = true;
+}
+
+// Recent earnings results — May 5-7, 2026 — embedded for live status badges
+const SC_RECENT_ER = {
+  // May 5
+  "ANET": { status: "beat", date: "May 5", note: "Rev +35% YoY · record backlog · stock -13% on cautious guide" },
+  "ALAB": { status: "beat", date: "May 5", note: "Rev +93% YoY · Q2 guide raised to $355-365M · PCIe Gen6 = 33% rev" },
+  "AMD":  { status: "beat", date: "May 5", note: "DC rev +57% to $5.8B · MI300X premium ASPs · Q2 +46% YoY" },
+  "ETN":  { status: "beat", date: "May 5", note: "DC orders +240% · 228GW backlog (12yr) · 70% AI-related" },
+  "CCJ":  { status: "beat", date: "May 5", note: "EPS +30% surprise · U volumes +13% · realized prices rising" },
+  "SMCI": { status: "mixed", date: "May 5", note: "EPS beat · Rev -19% QoQ on shortages · $13B backlog" },
+  "LITE": { status: "beat", date: "May 5", note: "Record $808M · datacom +90% YoY · demand>supply 25-30%" },
+  "KBR":  { status: "beat", date: "May 5", note: "EPC backlog growing — gov AI infra read" },
+  "HII":  { status: "beat", date: "May 5", note: "Defense shipbuilding — separate cycle" },
+  "SWKS": { status: "mixed", date: "May 5", note: "RF semis — handset cycle weak" },
+  // May 6
+  "ARM":  { status: "mixed", date: "May 6", note: "Royalty miss $671M vs $697M · AGI CPU launched · stock vol" },
+  "COHR": { status: "beat", date: "May 6", note: "Record $1.81B · 1.6T ramp · orders to 2028 · InP-constrained" },
+  "FTNT": { status: "beat", date: "May 6", note: "Billings +31% · AI security ops +23% · guide raised" },
+  "UUUU": { status: "miss", date: "May 6", note: "EPS -$0.03 · early-stage US uranium production" },
+  "UBER": { status: "beat", date: "May 6", note: "Rev +13B · less direct AI infra read" },
+  // May 7
+  "VST":  { status: "beat", date: "May 7", note: "Record EBITDA $1.49B · Meta PJM nuclear PPAs · IG upgrade" },
+  "CRWV": { status: "mixed", date: "May 7", note: "Rev beat $2.08B · $99B backlog · 3.5GW contracted · Q2 light" },
+  "NET":  { status: "beat", date: "May 7", note: "Rev +34% · 1100 layoffs for AI pivot · DBNRR 118%" },
+  "MP":   { status: "beat", date: "May 7", note: "Triple beat · NdPr +63% YoY · magnet facility groundbreaking" },
+  "MCHP": { status: "beat", date: "May 7", note: "Rev +35% YoY · broad recovery · contra-AI-pull positive" },
+  "IREN": { status: "miss", date: "May 7", note: "Miss · no AI HPC % disclosed · pivot still narrative" },
+  "COIN": { status: "miss", date: "May 7", note: "Rev -31% YoY · crypto pullback · derivatives +169%" },
+};
+
 function SupercycleMap({ chartTicker, onTickerClick }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-supercycle-open") === "1");
   const [notes, setNotes] = useState(() => _supercycleNotesCache.notes);
 
+  useEffect(() => { injectSupercycleStyles(); }, []);
   useEffect(() => { localStorage.setItem("tp-supercycle-open", expanded ? "1" : "0"); }, [expanded]);
 
   useEffect(() => {
@@ -1349,7 +1415,6 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
       .catch(() => { _supercycleNotesCache.loading = false; });
   }, []);
 
-  // Pull all value_chain_framework notes that have a layers object
   const frameworks = useMemo(() => {
     if (!notes) return [];
     return notes.filter(n =>
@@ -1357,14 +1422,37 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
     );
   }, [notes]);
 
-  // Tier color map
+  // Tier color system — gradient + glow
   const TIER = {
-    1: { color: "#0d9163", label: "T1", desc: "Core / highest conviction" },
-    2: { color: "#22d3ee", label: "T2", desc: "Strong derivative" },
-    3: { color: "#f59e0b", label: "T3", desc: "Speculative / narrative" },
+    1: { color: "#10b981", glow: "rgba(16,185,129,0.55)", glowFade: "rgba(16,185,129,0)", label: "T1", desc: "Core · highest conviction", grad: "linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(16,185,129,0.02) 100%)" },
+    2: { color: "#22d3ee", glow: "rgba(34,211,238,0.45)", glowFade: "rgba(34,211,238,0)", label: "T2", desc: "Strong derivative", grad: "linear-gradient(135deg, rgba(34,211,238,0.16) 0%, rgba(34,211,238,0.02) 100%)" },
+    3: { color: "#f59e0b", glow: "rgba(245,158,11,0.45)", glowFade: "rgba(245,158,11,0)", label: "T3", desc: "Speculative · narrative", grad: "linear-gradient(135deg, rgba(245,158,11,0.14) 0%, rgba(245,158,11,0.02) 100%)" },
+  };
+
+  // Earnings status visual config
+  const ER_STATUS = {
+    beat:    { icon: "▲", color: "#10b981", bg: "rgba(16,185,129,0.18)", border: "rgba(16,185,129,0.55)", label: "BEAT" },
+    mixed:   { icon: "◐", color: "#fbbf24", bg: "rgba(251,191,36,0.16)", border: "rgba(251,191,36,0.5)",  label: "MIXED" },
+    miss:    { icon: "▼", color: "#ef4444", bg: "rgba(239,68,68,0.16)",  border: "rgba(239,68,68,0.5)",   label: "MISS" },
   };
 
   const layerCount = frameworks.reduce((n, f) => n + Object.keys(f.layers).length, 0);
+  const allTickers = useMemo(() => {
+    const set = new Set();
+    frameworks.forEach(f => Object.values(f.layers).forEach(l => (l.tickers || []).forEach(t => set.add(t))));
+    return set;
+  }, [frameworks]);
+  const erHits = useMemo(() => {
+    const arr = [];
+    Object.entries(SC_RECENT_ER).forEach(([t, e]) => {
+      if (allTickers.has(t)) arr.push({ ticker: t, ...e });
+    });
+    // Sort by date then ticker
+    return arr.sort((a, b) => (a.date + a.ticker).localeCompare(b.date + b.ticker));
+  }, [allTickers]);
+  const beatCount = erHits.filter(e => e.status === "beat").length;
+  const mixedCount = erHits.filter(e => e.status === "mixed").length;
+  const missCount = erHits.filter(e => e.status === "miss").length;
 
   if (!notes) return null;
 
@@ -1373,19 +1461,43 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
       {/* Header */}
       <div
         onClick={() => setExpanded(!expanded)}
-        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+        style={{
+          padding: "8px 12px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+          userSelect: "none",
+          background: expanded
+            ? "linear-gradient(90deg, rgba(16,185,129,0.08) 0%, rgba(34,211,238,0.04) 50%, rgba(245,158,11,0.06) 100%)"
+            : "transparent",
+          borderBottom: expanded ? `1px solid ${ARIA.border}` : "none",
+        }}
       >
-        <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
-          Supercycle Map
+        <span style={{ fontSize: 11, color: ARIA.textMuted, transition: "transform 0.2s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>⚡</span>
+          <span style={{
+            fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.2,
+            background: "linear-gradient(90deg, #10b981 0%, #22d3ee 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          }}>
+            Supercycle Intel
+          </span>
+        </div>
+        <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
+          {frameworks.length} frameworks · {layerCount} layers · {erHits.length} prints this wk
         </span>
-        <span style={{ fontSize: 8, color: ARIA.textMuted }}>({frameworks.length} frameworks · {layerCount} layers)</span>
         {expanded && (
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+            <span title={`${beatCount} beats`} style={{ fontSize: 9, color: ER_STATUS.beat.color, fontFamily: "monospace", fontWeight: 700 }}>▲ {beatCount}</span>
+            <span title={`${mixedCount} mixed`} style={{ fontSize: 9, color: ER_STATUS.mixed.color, fontFamily: "monospace", fontWeight: 700 }}>◐ {mixedCount}</span>
+            <span title={`${missCount} misses`} style={{ fontSize: 9, color: ER_STATUS.miss.color, fontFamily: "monospace", fontWeight: 700 }}>▼ {missCount}</span>
+            <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
             {Object.entries(TIER).map(([t, info]) => (
               <span key={t} title={info.desc} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: info.color, display: "inline-block" }} />
-                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{info.label}</span>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: info.color, boxShadow: `0 0 6px ${info.glow}`, display: "inline-block" }} />
+                <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700 }}>{info.label}</span>
               </span>
             ))}
           </div>
@@ -1394,67 +1506,227 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
 
       {/* Body */}
       {expanded && (
-        <div style={{ padding: "2px 12px 10px" }}>
-          {frameworks.map((fw) => {
+        <div className="tp-sc-fadein" style={{ padding: "10px 12px 14px", background: "linear-gradient(180deg, rgba(13,17,23,0.4) 0%, transparent 60%)" }}>
+
+          {/* Hero stats banner */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 6,
+            marginBottom: 12,
+            padding: "8px 10px",
+            borderRadius: 6,
+            background: "linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(34,211,238,0.08) 50%, rgba(245,158,11,0.06) 100%)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            position: "relative",
+            overflow: "hidden",
+          }}>
+            <div className="tp-sc-shimmer" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+            {[
+              { k: "FRAMEWORKS", v: frameworks.length, sub: "value chains", color: "#10b981" },
+              { k: "LAYERS", v: layerCount, sub: "tracked", color: "#22d3ee" },
+              { k: "Q1 BEATS", v: beatCount, sub: `of ${erHits.length} prints`, color: "#10b981" },
+              { k: "STATUS", v: missCount === 0 ? "ON" : "MIXED", sub: "supercycle", color: missCount === 0 ? "#10b981" : "#fbbf24" },
+            ].map((stat) => (
+              <div key={stat.k} style={{ position: "relative" }}>
+                <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.8, fontWeight: 700, marginBottom: 2 }}>
+                  {stat.k}
+                </div>
+                <div style={{ fontSize: 18, fontFamily: "monospace", fontWeight: 800, color: stat.color, lineHeight: 1, textShadow: `0 0 10px ${stat.color}55` }}>
+                  {stat.v}
+                </div>
+                <div style={{ fontSize: 7, color: ARIA.textDim, fontFamily: "monospace", marginTop: 2 }}>
+                  {stat.sub}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* This Week's Earnings strip */}
+          {erHits.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                <span style={{ fontSize: 8, color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>
+                  This Week's Prints
+                </span>
+                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>May 5-7 · Q1 2026</span>
+                <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ARIA.border}, transparent)`, marginLeft: 4 }} />
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {erHits.map(e => {
+                  const cfg = ER_STATUS[e.status];
+                  const sel = chartTicker === e.ticker;
+                  return (
+                    <button
+                      key={e.ticker}
+                      onClick={() => onTickerClick?.(e.ticker)}
+                      title={`${e.ticker} · ${cfg.label} (${e.date})\n${e.note}`}
+                      className="tp-sc-pill"
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        fontSize: 9, padding: "3px 7px", borderRadius: 4, cursor: "pointer",
+                        fontFamily: "monospace", fontWeight: 700,
+                        background: sel ? cfg.color : cfg.bg,
+                        border: `1px solid ${cfg.border}`,
+                        color: sel ? "#0a0a0e" : cfg.color,
+                      }}
+                    >
+                      <span style={{ fontSize: 8 }}>{cfg.icon}</span>
+                      {e.ticker}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Frameworks */}
+          {frameworks.map((fw, fwIdx) => {
             const headlineShort = (fw.headline || "").split("—")[0]?.trim() || fw.id;
+            const layerEntries = Object.entries(fw.layers);
+            // Cycle stage heuristic: any beat in the framework = Phase 2+ confirmed
+            const fwTickers = layerEntries.flatMap(([_, l]) => l.tickers || []);
+            const fwBeats = fwTickers.filter(t => SC_RECENT_ER[t]?.status === "beat").length;
+            const fwHasER = fwTickers.some(t => SC_RECENT_ER[t]);
+            const phaseLabel = fwBeats >= 2 ? "PHASE 2 · Confirmed" : fwHasER ? "PHASE 1-2 · Building" : "PHASE 1 · Setup";
+            const phaseColor = fwBeats >= 2 ? "#10b981" : fwHasER ? "#22d3ee" : "#f59e0b";
+
             return (
-              <div key={fw.id} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4, paddingTop: 4, borderTop: `1px dashed ${ARIA.border}` }}>
-                  <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>
+              <div key={fw.id} style={{ marginBottom: 14 }}>
+                {/* Framework header */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
+                  paddingBottom: 4,
+                  borderBottom: `1px dashed ${ARIA.border}`,
+                }}>
+                  <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 800 }}>
+                    {String(fwIdx + 1).padStart(2, "0")}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6 }}>
                     {headlineShort}
                   </span>
-                  <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{fw.date}</span>
+                  <span title={phaseLabel} style={{
+                    fontSize: 7, fontFamily: "monospace", fontWeight: 800,
+                    color: phaseColor, background: `${phaseColor}1f`,
+                    border: `1px solid ${phaseColor}55`,
+                    padding: "1px 6px", borderRadius: 3,
+                    letterSpacing: 0.5,
+                  }}>
+                    {phaseLabel}
+                  </span>
+                  {fwBeats > 0 && (
+                    <span style={{ fontSize: 7, color: "#10b981", fontFamily: "monospace", fontWeight: 700 }}>
+                      ▲ {fwBeats} confirming
+                    </span>
+                  )}
+                  <span style={{ marginLeft: "auto", fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>
+                    {fw.date}
+                  </span>
                 </div>
 
-                {/* Layer panels */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 5 }}>
-                  {Object.entries(fw.layers).map(([key, layer]) => {
-                    const tier = TIER[layer.tier] || { color: "#5a5a7a", label: "—", desc: "" };
+                {/* Layer grid */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gap: 7,
+                }}>
+                  {layerEntries.map(([key, layer], idx) => {
+                    const tier = TIER[layer.tier] || { color: "#5a5a7a", glow: "rgba(90,90,122,0.3)", glowFade: "rgba(90,90,122,0)", label: "—", grad: "linear-gradient(135deg, rgba(90,90,122,0.10), transparent)" };
                     const tickers = layer.tickers || [];
                     const avoid = layer.avoid || [];
                     const speculative = layer.speculative || [];
                     const unlisted = layer.unlisted || [];
                     const label = layer.label || key.replace(/_/g, " ");
+                    const layerBeats = tickers.filter(t => SC_RECENT_ER[t]?.status === "beat").length;
+
                     return (
                       <div
                         key={key}
-                        title={layer.thesis || ""}
+                        className="tp-sc-card"
                         style={{
-                          background: `${tier.color}0d`,
-                          border: `1px solid ${tier.color}33`,
-                          borderLeft: `3px solid ${tier.color}`,
-                          borderRadius: 4,
-                          padding: "5px 7px",
+                          background: tier.grad + ", linear-gradient(180deg, rgba(20,24,32,0.6) 0%, rgba(13,17,23,0.7) 100%)",
+                          border: `1px solid ${tier.color}38`,
+                          borderRadius: 6,
+                          padding: "8px 10px",
+                          position: "relative",
+                          boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.02), 0 1px 0 0 rgba(0,0,0,0.3)`,
+                          animationDelay: `${idx * 30}ms`,
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                        {/* Tier indicator strip */}
+                        <div style={{
+                          position: "absolute", left: 0, top: 0, bottom: 0, width: 3,
+                          background: `linear-gradient(180deg, ${tier.color} 0%, ${tier.color}66 100%)`,
+                          borderRadius: "6px 0 0 6px",
+                          boxShadow: `0 0 8px ${tier.glow}`,
+                        }} />
+
+                        {/* Header row */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
                           {layer.tier && (
-                            <span style={{ fontSize: 7, fontWeight: 800, color: tier.color, fontFamily: "monospace", background: `${tier.color}1a`, padding: "0 4px", borderRadius: 2 }}>
+                            <span style={{
+                              fontSize: 8, fontWeight: 900, color: tier.color, fontFamily: "monospace",
+                              background: `${tier.color}1f`, padding: "1px 5px", borderRadius: 3,
+                              border: `1px solid ${tier.color}66`,
+                              letterSpacing: 0.5,
+                              boxShadow: `0 0 6px ${tier.glow}`,
+                            }}>
                               {tier.label}
                             </span>
                           )}
-                          <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.text }}>{label}</span>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: ARIA.text, letterSpacing: 0.2 }}>
+                            {label}
+                          </span>
+                          {layerBeats > 0 && (
+                            <span title={`${layerBeats} beat this week`} style={{
+                              marginLeft: "auto", fontSize: 7, color: "#10b981", fontFamily: "monospace",
+                              fontWeight: 800, background: "rgba(16,185,129,0.12)",
+                              padding: "1px 5px", borderRadius: 2, border: "1px solid rgba(16,185,129,0.4)",
+                            }}>
+                              ▲{layerBeats}
+                            </span>
+                          )}
                         </div>
+
+                        {/* Thesis preview */}
+                        {layer.thesis && (
+                          <div style={{
+                            fontSize: 8, color: ARIA.textDim, lineHeight: 1.45, marginBottom: 6,
+                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }} title={layer.thesis}>
+                            {layer.thesis}
+                          </div>
+                        )}
+
+                        {/* Tickers */}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                           {tickers.map((t) => {
                             const sel = chartTicker === t;
+                            const er = SC_RECENT_ER[t];
+                            const erCfg = er ? ER_STATUS[er.status] : null;
+                            const tooltip = er ? `${t} · ${erCfg.label} (${er.date})\n${er.note}` : t;
                             return (
                               <button
                                 key={t}
                                 onClick={() => onTickerClick?.(t)}
-                                title={t}
+                                title={tooltip}
+                                className="tp-sc-pill"
                                 style={{
-                                  fontSize: 8.5,
-                                  padding: "1px 5px",
-                                  borderRadius: 3,
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  fontSize: 9.5,
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
                                   cursor: "pointer",
                                   fontFamily: "monospace",
                                   fontWeight: sel ? 800 : 700,
-                                  background: sel ? tier.color : "rgba(255,255,255,0.04)",
-                                  border: `1px solid ${sel ? tier.color : tier.color + "44"}`,
-                                  color: sel ? ARIA.bg : "#e0e0f0",
+                                  background: sel ? tier.color : (erCfg ? erCfg.bg : "rgba(255,255,255,0.04)"),
+                                  border: `1px solid ${sel ? tier.color : (erCfg ? erCfg.border : tier.color + "55")}`,
+                                  color: sel ? "#0a0a0e" : (erCfg ? erCfg.color : "#e8e8f4"),
+                                  boxShadow: sel ? `0 0 10px ${tier.glow}` : "none",
                                 }}
                               >
+                                {erCfg && <span style={{ fontSize: 7 }}>{erCfg.icon}</span>}
                                 {t}
                               </button>
                             );
@@ -1463,13 +1735,15 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                             <button
                               key={t}
                               onClick={() => onTickerClick?.(t)}
-                              title={`${t} (speculative)`}
+                              title={`${t} · speculative`}
+                              className="tp-sc-pill"
                               style={{
-                                fontSize: 8.5, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                                fontSize: 9, padding: "2px 6px", borderRadius: 4, cursor: "pointer",
                                 fontFamily: "monospace", fontWeight: 600,
-                                background: "rgba(245,158,11,0.06)",
-                                border: `1px dashed #f59e0b66`,
+                                background: "rgba(245,158,11,0.10)",
+                                border: "1px dashed rgba(245,158,11,0.55)",
                                 color: "#f59e0b",
+                                fontStyle: "italic",
                               }}
                             >
                               {t}
@@ -1478,25 +1752,28 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                           {avoid.map((t) => (
                             <span
                               key={t}
-                              title={`${t} (avoid)`}
+                              title={`${t} · AVOID`}
                               style={{
-                                fontSize: 8.5, padding: "1px 5px", borderRadius: 3,
+                                fontSize: 9, padding: "2px 6px", borderRadius: 4,
                                 fontFamily: "monospace", fontWeight: 500,
                                 background: "transparent",
-                                border: `1px dashed #ef444466`,
+                                border: "1px dashed rgba(239,68,68,0.5)",
                                 color: "#ef4444",
                                 textDecoration: "line-through",
-                                textDecorationColor: "#ef444488",
+                                textDecorationColor: "rgba(239,68,68,0.6)",
+                                opacity: 0.7,
                               }}
                             >
                               {t}
                             </span>
                           ))}
                           {unlisted.map((name) => (
-                            <span key={name} title={`${name} (not US-listed)`} style={{
-                              fontSize: 7.5, padding: "1px 4px", borderRadius: 3,
+                            <span key={name} title={`${name} · not US-listed`} style={{
+                              fontSize: 8, padding: "1px 5px", borderRadius: 3,
                               fontFamily: "monospace", fontStyle: "italic",
-                              color: ARIA.textMuted, border: `1px dotted ${ARIA.border}`,
+                              color: ARIA.textMuted,
+                              border: `1px dotted ${ARIA.border}`,
+                              opacity: 0.7,
                             }}>
                               {name}
                             </span>
@@ -1507,17 +1784,31 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                   })}
                 </div>
 
-                {/* Lead-lag flow if present */}
+                {/* Lead-lag flow */}
                 {fw.lead_lag?.chain_flow && (
-                  <div style={{ fontSize: 7.5, color: ARIA.textMuted, fontFamily: "monospace", marginTop: 4, paddingLeft: 4, lineHeight: 1.4 }}>
-                    <span style={{ color: ARIA.textDim, fontWeight: 700 }}>Flow:</span> {fw.lead_lag.chain_flow}
+                  <div style={{
+                    fontSize: 8, color: ARIA.textDim, fontFamily: "monospace",
+                    marginTop: 6, padding: "5px 8px", lineHeight: 1.5,
+                    background: "rgba(255,255,255,0.02)",
+                    border: `1px solid ${ARIA.border}`, borderRadius: 4,
+                    borderLeft: `2px solid ${phaseColor}`,
+                  }}>
+                    <span style={{ color: phaseColor, fontWeight: 800, letterSpacing: 0.5 }}>FLOW →</span>{" "}
+                    {fw.lead_lag.chain_flow}
                   </div>
                 )}
               </div>
             );
           })}
-          <div style={{ fontSize: 7, color: ARIA.textMuted, paddingTop: 4, borderTop: `1px dashed ${ARIA.border}`, fontStyle: "italic" }}>
-            Source: theme_notes.json · click a ticker to load chart
+
+          {/* Footer */}
+          <div style={{
+            fontSize: 7, color: ARIA.textMuted, paddingTop: 6,
+            borderTop: `1px dashed ${ARIA.border}`, fontStyle: "italic",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span>Source: theme_notes.json · ER status: Q1 2026 prints (May 5-7)</span>
+            <span style={{ fontFamily: "monospace" }}>click any ticker → chart</span>
           </div>
         </div>
       )}
