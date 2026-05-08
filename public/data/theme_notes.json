@@ -1,110 +1,813 @@
 {
   "version": 1,
-  "description": "Curated theme/subtheme commentary — manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
+  "description": "Curated theme/subtheme commentary \u2014 manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
   "updated": "2026-05-07",
   "notes": [
+    {
+      "id": "data-center-reits-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Data Center REITs \u2014 EQIX, DLR: real-estate arbitrage on AI scarcity, 50-year lease durability.",
+      "primary_tickers": [
+        "EQIX",
+        "DLR"
+      ],
+      "derivative_tickers": [
+        "IRM"
+      ],
+      "themes_implicated": [
+        "Data Center Real Estate",
+        "AI Infrastructure",
+        "REIT"
+      ],
+      "layers": {
+        "interconnect_reits": {
+          "label": "Interconnect / Hyperscaler Co-Lo",
+          "tier": 1,
+          "tickers": [
+            "EQIX",
+            "DLR"
+          ],
+          "thesis": "EQIX Q1 2026 $2.44B (+9.8%), 60% of largest deals AI-related, AFFO guide $4.20-4.28B. DLR signed largest 200MW AI lease in company history, raised capex by $250M to $3.5-4.0B, 1.2GW pipeline (+60%). Northern Virginia, Oregon, Texas command 15-20% power premiums."
+        },
+        "diversified_reits": {
+          "label": "Diversified \u2014 Data Storage Pivot",
+          "tier": 2,
+          "tickers": [
+            "IRM"
+          ],
+          "thesis": "Iron Mountain ~30% revenue transitioning to data centers from records storage. Less pure-play but more conservative valuation."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "DLR"
+        ],
+        "lagging": [
+          "EQIX"
+        ],
+        "horizon": "20-30 year lease durability; 8-9% dividend yields provide downside",
+        "chain_flow": "Hyperscaler GPU demand \u2192 DC capacity shortage \u2192 REIT power premium \u2192 20yr leases lock in"
+      },
+      "thesis": "REITs capture the real-estate arbitrage on AI data center scarcity. Power-constrained DCs in Northern Virginia/Oregon/Texas earn 15-20% premiums. EQIX/DLR have 50%+ TAM lock-in through 2028 via 20-30 year lease terms.",
+      "caveats": [
+        "Interest rate sensitivity \u2014 REITs underperform when 10yr yields rise sharply.",
+        "Power interconnection queue delays could push out new builds (5+ years in PJM).",
+        "Hyperscalers building their own DCs (Microsoft) is the long-term competitive risk."
+      ],
+      "source": "Research synthesis \u2014 May 2026 + Q1 2026 ER prints"
+    },
+    {
+      "id": "cooling-thermal-layer-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Cooling/Thermal Layer \u2014 VRT, MOD: liquid cooling adoption driving 30-40% CAGR.",
+      "primary_tickers": [
+        "VRT",
+        "MOD"
+      ],
+      "derivative_tickers": [
+        "AAON",
+        "JCI"
+      ],
+      "themes_implicated": [
+        "Liquid Cooling",
+        "Data Center Thermal",
+        "Power Efficiency"
+      ],
+      "layers": {
+        "liquid_cooling": {
+          "label": "Direct Liquid Cooling (DLC)",
+          "tier": 1,
+          "tickers": [
+            "VRT",
+            "MOD"
+          ],
+          "thesis": "VRT pure-play DLC leader, NVIDIA GB200 co-design, 3+ year backlog. MOD data center cooling fiscal Q3 +31% sequential, expects $400M+ quarterly, 50-70% growth over next 2 years. SMCI's 70% DLC market share drives this."
+        },
+        "air_handling": {
+          "label": "Specialized Air Handling",
+          "tier": 2,
+          "tickers": [
+            "AAON"
+          ],
+          "thesis": "Specialized HVAC for data center thermal. Less direct AI exposure but real-estate adjacency."
+        },
+        "diversified_hvac": {
+          "label": "Diversified Building / HVAC",
+          "tier": 3,
+          "tickers": [
+            "JCI"
+          ],
+          "thesis": "Johnson Controls \u2014 building efficiency. AI is minor revenue contributor; broader cyclical name."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "VRT"
+        ],
+        "lagging": [
+          "MOD",
+          "AAON"
+        ],
+        "horizon": "3-5 years as DLC adoption ramps from <10% to 50%+ of new DC builds",
+        "chain_flow": "GPU rack power density (130kW+) \u2192 air cooling fails \u2192 DLC mandatory \u2192 VRT/MOD orderbook"
+      },
+      "thesis": "Liquid cooling adoption is forced by GPU thermal density. SMCI 70% DLC share validates the inflection. MOD's 50-70% growth guidance reflects supply-demand inversion \u2014 water scarcity in California/Texas is accelerating adoption further.",
+      "caveats": [
+        "MOD is a small/mid cap with higher vol than VRT.",
+        "Hyperscalers may bring some cooling in-house long-term.",
+        "Water scarcity could ironically slow adoption if regulators restrict water-cooled designs."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "copper-electrification-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Copper Supercycle \u2014 FCX, SCCO: structural 2026-2040 demand from AI DCs + EVs + grid.",
+      "primary_tickers": [
+        "FCX",
+        "SCCO"
+      ],
+      "derivative_tickers": [
+        "TECK",
+        "ERO"
+      ],
+      "themes_implicated": [
+        "Copper",
+        "Electrification",
+        "Critical Materials",
+        "Mining"
+      ],
+      "layers": {
+        "majors": {
+          "label": "Copper Majors",
+          "tier": 1,
+          "tickers": [
+            "FCX",
+            "SCCO"
+          ],
+          "thesis": "FCX +40% YoY, Grasberg restoration 2027+, largest liquid copper play. SCCO 2026 revenue target $16B (+17%), record 2025 $13.42B. Spot $14.5K/tonne early 2026, consensus $20K+ by 2028-2029."
+        },
+        "polymetallic": {
+          "label": "Polymetallic / Hedged",
+          "tier": 2,
+          "tickers": [
+            "TECK",
+            "ERO"
+          ],
+          "thesis": "TECK copper+zinc+coal Chilean expansion. ERO high-grade Brazilian operations, lower permitting risk."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "FCX"
+        ],
+        "lagging": [
+          "SCCO",
+          "TECK",
+          "ERO"
+        ],
+        "horizon": "10-15 year supercycle; 5% major deposits last decade; 15-17 year permitting lead time",
+        "chain_flow": "AI DC (50K tonnes/facility) + EV adoption + grid expansion \u2192 50% demand growth \u2192 supply-constrained \u2192 spot $14.5K \u2192 $20K+"
+      },
+      "thesis": "Copper is the single most underappreciated AI-adjacent supercycle. Each AI data center consumes 50,000 tonnes of copper. Combined with EV and grid expansion, demand grows 50% by 2030. Supply is structurally constrained \u2014 only 5% of major deposits discovered in the last decade, 15-17 year permitting lead times.",
+      "caveats": [
+        "Cyclical macro exposure \u2014 global recession would dent demand near-term despite structural setup.",
+        "Grasberg/Chilean political risk (resource nationalism).",
+        "Copper trades on China sentiment \u2014 any Chinese stimulus disappointment hits the basket."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "ai-software-apps-layer-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "AI Software/Apps \u2014 MSFT, GOOGL, META, AMZN: $725B 2026 hyperscaler capex driving cloud AI TAM.",
+      "primary_tickers": [
+        "MSFT",
+        "GOOGL",
+        "META",
+        "AMZN"
+      ],
+      "derivative_tickers": [
+        "CRM",
+        "NOW",
+        "PLTR",
+        "SNOW"
+      ],
+      "themes_implicated": [
+        "AI Software",
+        "Hyperscaler Capex",
+        "Cloud AI",
+        "Enterprise SaaS"
+      ],
+      "layers": {
+        "hyperscalers": {
+          "label": "Hyperscaler Cloud + AI",
+          "tier": 1,
+          "tickers": [
+            "MSFT",
+            "GOOGL",
+            "META",
+            "AMZN"
+          ],
+          "thesis": "Combined 2026 capex $575B+ ($200B AMZN, $185B GOOGL, $125B META, $65B MSFT). 75% allocated to AI. AMZN AWS highest growth in 15 quarters, Anthropic partnership. GOOGL Cloud +63% YoY. META core ad +33% (fastest in years). MSFT Azure AI $37B ARR but Q1 2026 was 3rd consecutive miss."
+        },
+        "enterprise_ai_apps": {
+          "label": "Enterprise AI Software",
+          "tier": 2,
+          "tickers": [
+            "CRM",
+            "NOW",
+            "PLTR",
+            "SNOW"
+          ],
+          "thesis": "PLTR Q1 2026 $1.63B (+85%), record profit, government AI fastest-growing. NOW workflow automation. CRM Einstein 20-25% growth. SNOW data + AI analytics. PLTR is the breakout name."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "AMZN",
+          "GOOGL"
+        ],
+        "lagging": [
+          "MSFT"
+        ],
+        "horizon": "Capex cliff risk 2028-2029 if AI revenue doesn't justify spend",
+        "chain_flow": "AI compute capex \u2192 cloud AI TAM expansion \u2192 enterprise app monetization \u2192 margin proof or capex cut"
+      },
+      "thesis": "Hyperscaler capex of $725B in 2026 (+77% YoY) drives the entire AI infrastructure stack. AI is now 1.2% of US GDP. PLTR is the standout enterprise AI breakout. The risk: if capex doesn't translate to AI revenue by 2028, the cliff is severe.",
+      "caveats": [
+        "MSFT is now a relative laggard \u2014 three consecutive quarter misses on Azure.",
+        "Open-source LLAMA is commoditizing inference \u2014 pressure on proprietary model moats.",
+        "Capex-to-revenue conversion is the make-or-break metric \u2014 watch quarterly AI revenue disclosures.",
+        "PLTR valuation is rich; multiple compression risk if growth slows."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "defense-geopolitical-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Defense Supercycle \u2014 LMT, RTX, NOC + drones: $526B combined backlog, AI/autonomous +15% YoY.",
+      "primary_tickers": [
+        "LMT",
+        "RTX",
+        "NOC"
+      ],
+      "derivative_tickers": [
+        "GD",
+        "AVAV",
+        "KTOS"
+      ],
+      "themes_implicated": [
+        "Defense",
+        "Geopolitics",
+        "AI/Autonomous Systems",
+        "Critical National Tech"
+      ],
+      "layers": {
+        "primes": {
+          "label": "Defense Primes",
+          "tier": 1,
+          "tickers": [
+            "LMT",
+            "RTX",
+            "NOC"
+          ],
+          "thesis": "LMT $179B record backlog, F-35 stabilized. RTX $251B order book \u2014 largest in defense. NOC $96B record backlog, naval + electronic warfare. Combined backlog $526B = 3+ years revenue visibility."
+        },
+        "drones_autonomy": {
+          "label": "Drones & Autonomous Systems",
+          "tier": 2,
+          "tickers": [
+            "AVAV",
+            "KTOS"
+          ],
+          "thesis": "AVAV drone leader, Ukraine validated. KTOS defense automation + satellite/autonomous platforms. AI/autonomous segment growing 15%+ YoY vs <5% for legacy platforms."
+        },
+        "naval_land": {
+          "label": "Naval / Land Systems",
+          "tier": 2,
+          "tickers": [
+            "GD"
+          ],
+          "thesis": "Submarines, armored vehicles, combat systems integrating AI. More cyclical than primes."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "AVAV",
+          "KTOS"
+        ],
+        "lagging": [
+          "LMT",
+          "RTX",
+          "NOC"
+        ],
+        "horizon": "5-10 year defense cycle; bipartisan support guarantees budget through 2030",
+        "chain_flow": "Geopolitical escalation \u2192 bipartisan budget support \u2192 backlog accumulation \u2192 autonomous/AI segment outgrows legacy"
+      },
+      "thesis": "Defense TAM $1T+ locked in with bipartisan support. Taiwan tensions and Ukraine validation drive autonomous systems specifically. Backlogs of $526B combined for the primes provide unprecedented visibility. AVAV/KTOS represent the AI-defense intersection growing fastest.",
+      "caveats": [
+        "Political risk if defense spending becomes a budget cut target.",
+        "Primes are slow-growth (single-digit revenue) but high-quality. Multiple compression possible.",
+        "Drone names (AVAV) trade on news flow \u2014 high vol.",
+        "Supply chain bottlenecks (semis for guidance, rare earths for magnets) create execution risk."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "storage-enterprise-data-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Storage Supercycle \u2014 PSTG, NTAP all-flash; STX HAMR archive; AI training data 40%+ CAGR.",
+      "primary_tickers": [
+        "PSTG",
+        "NTAP",
+        "STX"
+      ],
+      "derivative_tickers": [
+        "SNDK"
+      ],
+      "themes_implicated": [
+        "Enterprise Storage",
+        "AI Training Data",
+        "NAND",
+        "HDD HAMR"
+      ],
+      "layers": {
+        "all_flash": {
+          "label": "All-Flash Enterprise",
+          "tier": 1,
+          "tickers": [
+            "PSTG",
+            "NTAP"
+          ],
+          "thesis": "PSTG Q1 2026 >$1.06B (+20% YoY), Everpure rebrand reflects AI-first positioning. NTAP AIDE AI Data Engine co-engineered with NVIDIA. AI training data storage growing 40%+ CAGR."
+        },
+        "hdd_archive": {
+          "label": "HDD / Cold Storage",
+          "tier": 2,
+          "tickers": [
+            "STX"
+          ],
+          "thesis": "Seagate HAMR 40TB+ drives, stock +210% in 2025. Cold storage TAM $50B+ by 2030 \u2014 AI archives are massive."
+        },
+        "nand_flash": {
+          "label": "NAND Flash",
+          "tier": 2,
+          "tickers": [
+            "SNDK"
+          ],
+          "thesis": "Newly independent post-WD spinoff. NAND pricing +20% Q4 2025. $42B contractual revenue backlog."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "PSTG"
+        ],
+        "lagging": [
+          "STX",
+          "SNDK"
+        ],
+        "horizon": "5-7 years as AI training data demand outpaces traditional enterprise growth",
+        "chain_flow": "AI model training \u2192 unprecedented data ingestion \u2192 all-flash for active + HDD for archive \u2192 NAND/HDD pricing power"
+      },
+      "thesis": "AI training and inference workloads have created a new storage tier above enterprise. PSTG is the breakout pure-play. STX HAMR is the archival angle (massive). NAND prices have power through 2027 on supply constraints.",
+      "caveats": [
+        "Storage has historically been commoditized \u2014 pricing power requires constant innovation.",
+        "Hyperscalers building custom storage stacks bypasses traditional vendors.",
+        "STX +210% in 2025 means significant gains already priced in.",
+        "SNDK has limited price history as newly independent."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "robotics-embodied-ai-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "Robotics / Embodied AI \u2014 ABB, ROK, ISRG, TER: $4B \u2192 $61B by 2034 (31% CAGR).",
+      "primary_tickers": [
+        "ABB",
+        "ROK"
+      ],
+      "derivative_tickers": [
+        "ISRG",
+        "TER"
+      ],
+      "themes_implicated": [
+        "Robotics",
+        "Embodied AI",
+        "Industrial Automation",
+        "Surgical Robots"
+      ],
+      "layers": {
+        "industrial_robotics": {
+          "label": "Industrial Robotics & Automation",
+          "tier": 1,
+          "tickers": [
+            "ABB",
+            "ROK"
+          ],
+          "thesis": "ABB Omniverse partnership (March 2026), 99% sim-to-reality fidelity, RobotStudio HyperReality. ROK industrial automation/control software with AI-driven predictive maintenance. Sim-to-reality validation is the inflection."
+        },
+        "specialized_robotics": {
+          "label": "Specialized Robotics",
+          "tier": 2,
+          "tickers": [
+            "ISRG",
+            "TER"
+          ],
+          "thesis": "ISRG da Vinci surgical robots with AI-guided planning. TER owns UR (collaborative arms) + MiR (warehouse bots) \u2014 autonomous robotics consolidation play."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "ABB"
+        ],
+        "lagging": [
+          "ROK",
+          "ISRG",
+          "TER"
+        ],
+        "horizon": "10+ year embodied AI buildout \u2014 long duration",
+        "chain_flow": "AI foundation models \u2192 sim-to-reality validation \u2192 industrial robot deployment \u2192 labor displacement TAM expansion"
+      },
+      "thesis": "Embodied AI TAM grows from $4.1B to $61B by 2034 (31% CAGR). ABB-NVIDIA partnership validates feasibility. The technology inflection is the sim-to-reality fidelity hitting 99%. Industrial robotics (ABB) and collaborative/autonomous (TER UR/MiR) are consolidating around AI platforms.",
+      "caveats": [
+        "Long-duration story \u2014 execution lags beyond typical momentum horizons.",
+        "Humanoid robotics (Tesla Optimus, Figure) is the wildcard that could disrupt the incumbents.",
+        "ISRG is more healthcare cycle than AI cycle.",
+        "Multiples are already pricing in significant adoption \u2014 disappointment risk high."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "hbm-advanced-packaging-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "HBM & Advanced Packaging \u2014 MU + AMAT, LRCX, KLAC, ASML: 40% CAGR through 2028.",
+      "primary_tickers": [
+        "MU",
+        "AMAT"
+      ],
+      "derivative_tickers": [
+        "LRCX",
+        "KLAC",
+        "ONTO",
+        "ASML",
+        "ACMR"
+      ],
+      "themes_implicated": [
+        "HBM Memory",
+        "Advanced Packaging",
+        "Semiconductor Equipment",
+        "Hybrid Bonding"
+      ],
+      "layers": {
+        "hbm_producers": {
+          "label": "HBM Producers (US-listed)",
+          "tier": 1,
+          "tickers": [
+            "MU"
+          ],
+          "unlisted": [
+            "SK Hynix (Korea)",
+            "Samsung (Korea)"
+          ],
+          "thesis": "MU HBM TAM 40% CAGR through 2028 ($35B \u2192 $100B). Hiroshima greenfield 2028 output. SK Hynix has the largest HBM share but Korea-listed; Samsung the same. MU is the only clean US-listed HBM play."
+        },
+        "wfe_majors": {
+          "label": "Wafer Fab Equipment Majors",
+          "tier": 1,
+          "tickers": [
+            "AMAT",
+            "LRCX",
+            "KLAC"
+          ],
+          "thesis": "AMAT etch/deposition 42% WFE share expansion, HBM tools 12+ month backlog. LRCX advanced packaging revenue tripled to $3B+. KLAC process control inspection/metrology critical for HBM yield."
+        },
+        "specialty_equipment": {
+          "label": "Specialty Equipment",
+          "tier": 2,
+          "tickers": [
+            "ONTO",
+            "ACMR"
+          ],
+          "thesis": "ONTO planarization/polishing HBM tools, +30% CAGR. ACMR China-exposed wet processing (geopolitical risk)."
+        },
+        "lithography": {
+          "label": "Lithography",
+          "tier": 1,
+          "tickers": [
+            "ASML"
+          ],
+          "thesis": "Q1 2026 EUR 8.8B sales. EUV monopoly. Hybrid bonding equipment in development for advanced packaging."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "MU"
+        ],
+        "lagging": [
+          "AMAT",
+          "LRCX",
+          "KLAC",
+          "ASML"
+        ],
+        "horizon": "3-5 year buildout cycle with 12+ month equipment backlogs providing visibility",
+        "chain_flow": "NVDA Blackwell ramp \u2192 HBM constraint \u2192 MU/SK Hynix capex \u2192 AMAT/LRCX/KLAC/ASML order books \u2192 2028 capacity"
+      },
+      "thesis": "HBM is the single most supply-constrained node in AI infrastructure. SK Hynix capacity is locked through 2027. MU is the only US-listed HBM pure-play. Equipment suppliers (AMAT, LRCX, KLAC, ASML) get the capex spend with 3-year backlog visibility \u2014 historically the highest-quality way to play semi cycles.",
+      "caveats": [
+        "MU has historically been a cyclical name \u2014 valuation can compress quickly when HBM ASPs roll.",
+        "ASML has China export restrictions affecting EUV sales.",
+        "ACMR is China-exposed \u2014 geopolitical risk.",
+        "Hybrid bonding adoption timing affects ASML/AMAT incremental revenue."
+      ],
+      "source": "Research synthesis \u2014 May 2026"
+    },
+    {
+      "id": "macro-supercycle-context-2026-05",
+      "date": "2026-05-07",
+      "type": "macro_context",
+      "headline": "Macro Supercycle Context \u2014 $725B hyperscaler capex (+77%), 1.2% US GDP, electrification 1920s analogue.",
+      "primary_tickers": [
+        "NVDA",
+        "MSFT",
+        "META",
+        "AMZN",
+        "GOOGL"
+      ],
+      "derivative_tickers": [],
+      "themes_implicated": [
+        "Macro",
+        "Supercycle",
+        "Hyperscaler Capex",
+        "Sovereign AI",
+        "Historical Analogies"
+      ],
+      "hyperscaler_capex_2026": {
+        "total_billion": 725,
+        "yoy_growth_pct": 77,
+        "ai_allocation_pct": 75,
+        "us_gdp_share_pct": 1.2,
+        "comparison": "Exceeds telecom buildout (1.0% GDP), trails railroad (6.0% GDP)",
+        "breakdown": {
+          "AMZN": {
+            "billion": 200,
+            "note": "Largest budget; AWS dominant"
+          },
+          "GOOGL": {
+            "billion": 185,
+            "note": "Cloud + Gemini"
+          },
+          "META": {
+            "billion": 125,
+            "note": "Raised guidance from 115-135 to 125-145"
+          },
+          "MSFT": {
+            "billion": 65,
+            "note": "Azure AI $37B ARR; +84% YoY capex"
+          },
+          "other": {
+            "billion": 150,
+            "note": "Apple, Tesla, ByteDance partial"
+          }
+        }
+      },
+      "sovereign_ai_programs": {
+        "UAE": "MGX $100B, 5GW AI Campus Abu Dhabi 2025-2027 (G42)",
+        "Saudi": "HUMAIN >$100B, 2,200MW / 11 DCs, AWS $5.3B region 2026",
+        "France": "\u20ac109B+ Mistral + Scaleway + OVH + Outscale",
+        "India": "BharatGen 22-language LLMs, 38K subsidized GPUs \u20b965/hr",
+        "Canada": "$2B 5-yr commitment, IREN 460MW / 140K GPUs end-2026",
+        "EU": "Gaia-X federated, IPCEI Microelectronics 2 \u20ac100B+",
+        "ticker_exposure": [
+          "IREN",
+          "CRWV",
+          "NBIS"
+        ]
+      },
+      "historical_analogies": {
+        "railroads_1880s": "Infrastructure phase 2024-2026 = railroad buildout. Consolidation/bankruptcy phase 2028-2035. Equipment suppliers (AMAT, ETN, VRT) win mid-term; operators (hyperscalers) win 50-yr long-term. Many stranded assets become essential decades later.",
+        "electrification_1920s": "Closest current analogue. Grid buildout 1920s = power infrastructure 2024-2026. Excess capacity risk 2026-2027. Resolution 1950s = AI productivity boom 2035-2040 justifies capex. Suppliers durability HIGH; capex cycle longer than railroads.",
+        "fiber_telecom_late_1990s": "Fiber overbuild 2000-2001 = DC capex 2024-2026 risk parallel. Stranded assets (Global Crossing) became essential broadband decades later. Equipment winners (CIENA, JDSU) > carriers (bankruptcy). For AI: AMAT/LRCX/KLAC/ASML/ETN > hyperscaler operators in 2028+ margin compression scenarios.",
+        "china_commodity_2000s": "Urbanization 2000s = AI infrastructure 2026-2030. Commodities then: iron ore/steel/coal/oil. Now: copper/lithium/nickel/uranium. Supply winners durable 8-12 years. Spot copper $14.5K \u2192 $20K+ consensus 2028-2029."
+      },
+      "thesis": "We are in Phase 2 of an AI-driven supercycle most closely analogous to electrification of the 1920s. Hyperscaler capex of $725B (+77% YoY) at 1.2% of US GDP is unprecedented in modern history outside of WWII mobilization. Equipment suppliers and bottleneck-node owners (HBM, optics, power, cooling) carry the highest-quality earnings visibility through 2028. Hyperscalers themselves face a capex-to-revenue conversion risk by 2028-2029 if AI monetization disappoints.",
+      "key_signals_to_watch": [
+        "Quarterly hyperscaler capex guidance \u2014 any cut = supercycle topping signal",
+        "NVDA forward gross margin trajectory \u2014 compression = ASIC competition real",
+        "HBM ASP trends in MU earnings \u2014 declining = supply catching up",
+        "Sovereign AI deal announcements \u2014 pipeline of $300B+ over 2026-2030",
+        "Power interconnection queue clearing \u2014 bottleneck for entire chain"
+      ],
+      "caveats": [
+        "Capex-to-revenue gap is the existential question. Closing it = supercycle extends. Failing = 2028 cliff.",
+        "Historical analogies all show 30-50% drawdowns mid-cycle even when long-term thesis was correct.",
+        "Geopolitical disruption (Taiwan, US-China decoupling) could fragment the global supply chain rapidly.",
+        "Open-source models (LLAMA, etc.) commoditize the model layer \u2014 winners shift from creators to deployers."
+      ],
+      "source": "Deep research synthesis \u2014 May 7, 2026"
+    },
     {
       "id": "server-rack-integration-layer-2026-05",
       "date": "2026-05-07",
       "type": "value_chain_framework",
-      "headline": "Server/Rack Integration Layer — SMCI, DELL, ANET: the missing layer between chip and cloud that assembles the actual racks.",
-      "primary_tickers": ["ANET", "DELL"],
-      "derivative_tickers": ["SMCI", "HPE", "NVDA", "AVGO"],
-      "themes_implicated": ["AI Infrastructure", "Networking / Switching", "Server OEM"],
-      "thesis": "Between chip (NVDA/AVGO) and cloud (hyperscalers) sits the rack integration layer. Arista (ANET) is the Tier 1 switching fabric play — its 400G/800G Ethernet switches are in every major AI cluster. DELL is the OEM beneficiary with PowerEdge GPU servers. SMCI (Super Micro) is the pure-play liquid-cooled server design house — closest to the AI rack build — but has had accounting/audit issues (10-K delays, Hindenburg short report). SMCI is only tradeable once accounting credibility is restored. ANET is the cleanest name: recurring software (EOS), hyperscaler stickiness, no controversy.",
+      "headline": "Server/Rack Integration Layer \u2014 SMCI, DELL, ANET: the missing layer between chip and cloud that assembles the actual racks.",
+      "primary_tickers": [
+        "ANET",
+        "DELL"
+      ],
+      "derivative_tickers": [
+        "SMCI",
+        "HPE",
+        "NVDA",
+        "AVGO"
+      ],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Networking / Switching",
+        "Server OEM"
+      ],
+      "thesis": "Between chip (NVDA/AVGO) and cloud (hyperscalers) sits the rack integration layer. Arista (ANET) is the Tier 1 switching fabric play \u2014 its 400G/800G Ethernet switches are in every major AI cluster. DELL is the OEM beneficiary with PowerEdge GPU servers. SMCI (Super Micro) is the pure-play liquid-cooled server design house \u2014 closest to the AI rack build \u2014 but has had accounting/audit issues (10-K delays, Hindenburg short report). SMCI is only tradeable once accounting credibility is restored. ANET is the cleanest name: recurring software (EOS), hyperscaler stickiness, no controversy.",
       "lead_lag": {
-        "leading": ["ANET"],
-        "lagging": ["DELL", "SMCI"],
+        "leading": [
+          "ANET"
+        ],
+        "lagging": [
+          "DELL",
+          "SMCI"
+        ],
         "horizon": "1-2 years alongside the rack buildout cycle",
         "rationale": "ANET leads because networking infrastructure gets ordered before servers ship. DELL lags because server OEM margins are thin and timing is lumpy. SMCI is uninvestable until audit completion."
       },
       "caveats": [
         "SMCI: do not size until FY2024 10-K is filed and auditor concern resolved. Prior Hindenburg allegations of accounting irregularities.",
-        "ANET valuation is rich — trades at premium to software comps on hardware revenue. Multiple compression risk if hyperscaler capex guidance disappoints.",
-        "DELL has PC/commercial business drag — only ~20% of revenue is ISG (AI servers). Blended multiple stays depressed."
+        "ANET valuation is rich \u2014 trades at premium to software comps on hardware revenue. Multiple compression risk if hyperscaler capex guidance disappoints.",
+        "DELL has PC/commercial business drag \u2014 only ~20% of revenue is ISG (AI servers). Blended multiple stays depressed."
       ],
-      "source": "ThemePulse value chain audit — May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
     },
     {
       "id": "nuclear-sub-chain-2026-05",
       "date": "2026-05-07",
       "type": "value_chain_framework",
-      "headline": "Nuclear Sub-Chain — CEG, NNE, OKLO, SMR, CCJ: AI power demand driving the next nuclear buildout cycle.",
-      "primary_tickers": ["CEG", "CCJ", "NNE"],
-      "derivative_tickers": ["OKLO", "SMR", "VST", "URA", "UUUU", "DNN"],
-      "themes_implicated": ["Nuclear Power", "AI Power Demand", "Uranium", "Small Modular Reactors"],
+      "headline": "Nuclear Sub-Chain \u2014 CEG, NNE, OKLO, SMR, CCJ: AI power demand driving the next nuclear buildout cycle.",
+      "primary_tickers": [
+        "CEG",
+        "CCJ",
+        "NNE"
+      ],
+      "derivative_tickers": [
+        "OKLO",
+        "SMR",
+        "VST",
+        "URA",
+        "UUUU",
+        "DNN"
+      ],
+      "themes_implicated": [
+        "Nuclear Power",
+        "AI Power Demand",
+        "Uranium",
+        "Small Modular Reactors"
+      ],
       "lead_lag": {
-        "leading": ["CEG", "CCJ"],
-        "lagging": ["NNE", "OKLO", "SMR"],
+        "leading": [
+          "CEG",
+          "CCJ"
+        ],
+        "lagging": [
+          "NNE",
+          "OKLO",
+          "SMR"
+        ],
         "horizon": "3-7 years for SMR construction; 1-2 years for uranium supply response",
-        "rationale": "CEG (Constellation Energy) is the only near-term play — existing nuclear fleet restart (Three Mile Island Unit 1 for Microsoft). CCJ (Cameco) is the uranium supply proxy — orders today, fuel in 2-3 years. NNE/OKLO/SMR are SMR pure-plays on a 5-10 year timeline — momentum/narrative now, revenue later."
+        "rationale": "CEG (Constellation Energy) is the only near-term play \u2014 existing nuclear fleet restart (Three Mile Island Unit 1 for Microsoft). CCJ (Cameco) is the uranium supply proxy \u2014 orders today, fuel in 2-3 years. NNE/OKLO/SMR are SMR pure-plays on a 5-10 year timeline \u2014 momentum/narrative now, revenue later."
       },
       "layers": {
         "existing_fleet": {
-          "tickers": ["CEG", "VST"],
+          "tickers": [
+            "CEG",
+            "VST"
+          ],
           "thesis": "Restart and life-extension of existing nuclear plants. CEG restarted Three Mile Island Unit 1 for MSFT. VST has Comanche Peak. These are the only near-term AI power solutions that don't require new construction."
         },
         "uranium_supply": {
-          "tickers": ["CCJ", "URA", "UUUU", "DNN"],
-          "thesis": "Uranium spot price proxy. CCJ is the blue chip. URA is the ETF. UUUU (Energy Fuels) is US domestic production — strategic given Russia import ban. Any nuclear buildout announcement drives this basket."
+          "tickers": [
+            "CCJ",
+            "URA",
+            "UUUU",
+            "DNN"
+          ],
+          "thesis": "Uranium spot price proxy. CCJ is the blue chip. URA is the ETF. UUUU (Energy Fuels) is US domestic production \u2014 strategic given Russia import ban. Any nuclear buildout announcement drives this basket."
         },
         "smr_pure_plays": {
-          "tickers": ["NNE", "OKLO", "SMR"],
+          "tickers": [
+            "NNE",
+            "OKLO",
+            "SMR"
+          ],
           "thesis": "Small Modular Reactor companies. NNE (NuScale) is the furthest along in NRC licensing. OKLO is Sam Altman-backed, early stage. SMR (Nuscale spinoff). These are 5-10 year stories trading on narrative momentum. Size accordingly."
         }
       },
-      "thesis": "All four hyperscalers said 'power constrained' in Q1 2026 earnings. The only 24/7 carbon-free baseload solution is nuclear. CEG/VST are near-term plays (existing fleet). CCJ is the supply chain anchor. NNE/OKLO/SMR are long-duration options. The key catalyst is data center power purchase agreements (PPAs) — each new nuclear PPA announcement re-rates the entire basket.",
+      "thesis": "All four hyperscalers said 'power constrained' in Q1 2026 earnings. The only 24/7 carbon-free baseload solution is nuclear. CEG/VST are near-term plays (existing fleet). CCJ is the supply chain anchor. NNE/OKLO/SMR are long-duration options. The key catalyst is data center power purchase agreements (PPAs) \u2014 each new nuclear PPA announcement re-rates the entire basket.",
       "caveats": [
-        "SMR pure-plays have no revenue — pure narrative. Drawdowns of 50-80% are possible without a fundamental change.",
+        "SMR pure-plays have no revenue \u2014 pure narrative. Drawdowns of 50-80% are possible without a fundamental change.",
         "Uranium prices are volatile and tied to geopolitics (Kazakhstan, Russia supply disruptions).",
-        "NRC licensing timelines are unpredictable — NNE already had one project cancellation.",
-        "This chain trades differently from the chip/rack/optics chains — longer duration, higher vol, sentiment-driven."
+        "NRC licensing timelines are unpredictable \u2014 NNE already had one project cancellation.",
+        "This chain trades differently from the chip/rack/optics chains \u2014 longer duration, higher vol, sentiment-driven."
       ],
-      "source": "ThemePulse value chain audit — May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
     },
     {
       "id": "sovereign-ai-demand-2026-05",
       "date": "2026-05-07",
       "type": "discovery_thesis",
-      "headline": "Sovereign AI — UAE ($1.4T deal), Saudi HUMAIN, Japan, India: new NVDA demand leg outside US hyperscalers that changes the supply/demand equation.",
-      "primary_tickers": ["NVDA", "NBIS"],
-      "derivative_tickers": ["AVGO", "ALAB", "CRDO", "VRT", "GEV", "CRWV"],
-      "themes_implicated": ["Sovereign AI", "International AI Buildout", "AI Infrastructure", "Geopolitics / Trade"],
-      "thesis": "The AI buildout is no longer a US hyperscaler story. Sovereign AI programs are emerging as a distinct demand leg: UAE signed a $1.4T AI investment framework with the US (May 2026), Saudi Arabia's HUMAIN entity is ordering NVDA at scale, Japan committed $67B to domestic AI infra, India's government-backed AI mission is procuring GPUs for national compute. Each sovereign program needs the full stack — GPUs (NVDA), custom silicon (AVGO), interconnects (ALAB/CRDO), power (VRT/GEV), and neocloud infrastructure (NBIS for European sovereign). This demand is on top of, not instead of, US hyperscaler capex. NBIS (Nebius) is the cleanest pure-play on European/non-US sovereign AI cloud — Russian-origin company (formerly Yandex) that relocated to Netherlands, now building GPU cloud for EU sovereign clients.",
+      "headline": "Sovereign AI \u2014 UAE ($1.4T deal), Saudi HUMAIN, Japan, India: new NVDA demand leg outside US hyperscalers that changes the supply/demand equation.",
+      "primary_tickers": [
+        "NVDA",
+        "NBIS"
+      ],
+      "derivative_tickers": [
+        "AVGO",
+        "ALAB",
+        "CRDO",
+        "VRT",
+        "GEV",
+        "CRWV"
+      ],
+      "themes_implicated": [
+        "Sovereign AI",
+        "International AI Buildout",
+        "AI Infrastructure",
+        "Geopolitics / Trade"
+      ],
+      "thesis": "The AI buildout is no longer a US hyperscaler story. Sovereign AI programs are emerging as a distinct demand leg: UAE signed a $1.4T AI investment framework with the US (May 2026), Saudi Arabia's HUMAIN entity is ordering NVDA at scale, Japan committed $67B to domestic AI infra, India's government-backed AI mission is procuring GPUs for national compute. Each sovereign program needs the full stack \u2014 GPUs (NVDA), custom silicon (AVGO), interconnects (ALAB/CRDO), power (VRT/GEV), and neocloud infrastructure (NBIS for European sovereign). This demand is on top of, not instead of, US hyperscaler capex. NBIS (Nebius) is the cleanest pure-play on European/non-US sovereign AI cloud \u2014 Russian-origin company (formerly Yandex) that relocated to Netherlands, now building GPU cloud for EU sovereign clients.",
       "lead_lag": {
-        "leading": ["NVDA"],
-        "lagging": ["NBIS", "CRWV", "ALAB"],
+        "leading": [
+          "NVDA"
+        ],
+        "lagging": [
+          "NBIS",
+          "CRWV",
+          "ALAB"
+        ],
         "horizon": "1-3 years as sovereign programs scale from announcement to deployment",
-        "rationale": "NVDA gets the GPU orders first — sovereign deals are announced as GPU procurement agreements. Then the rack integration, interconnects, and cloud layers follow. NBIS is the read-through for non-US sovereign cloud."
+        "rationale": "NVDA gets the GPU orders first \u2014 sovereign deals are announced as GPU procurement agreements. Then the rack integration, interconnects, and cloud layers follow. NBIS is the read-through for non-US sovereign cloud."
       },
       "key_events": {
-        "UAE": "$1.4T AI investment framework signed May 2026 — G42 and other UAE entities ordering NVDA H100/B200 at scale",
-        "Saudi_HUMAIN": "Saudi Aramco / PIF-backed HUMAIN AI entity — committed to building national AI infrastructure",
-        "Japan": "$67B government AI infrastructure program — domestic GPU procurement",
-        "India": "IndiaAI Mission — government-subsidized GPU cloud access for startups and research"
+        "UAE": "$1.4T AI investment framework signed May 2026 \u2014 G42 and other UAE entities ordering NVDA H100/B200 at scale",
+        "Saudi_HUMAIN": "Saudi Aramco / PIF-backed HUMAIN AI entity \u2014 committed to building national AI infrastructure",
+        "Japan": "$67B government AI infrastructure program \u2014 domestic GPU procurement",
+        "India": "IndiaAI Mission \u2014 government-subsidized GPU cloud access for startups and research"
       },
       "caveats": [
         "Export control risk: any tightening of AI chip export rules to Middle East/Asia would directly impair this demand leg.",
-        "Announcement vs. execution gap — sovereign programs move slowly from commitment to actual hardware delivery.",
+        "Announcement vs. execution gap \u2014 sovereign programs move slowly from commitment to actual hardware delivery.",
         "Geopolitical sensitivity: UAE/Saudi programs involve US government approval. Regime change or diplomatic friction could cancel deals.",
-        "NBIS is a small-cap ($3-5B) with thin US float and European listing — vol is high."
+        "NBIS is a small-cap ($3-5B) with thin US float and European listing \u2014 vol is high."
       ],
-      "source": "ThemePulse value chain audit + public deal announcements — May 7, 2026"
+      "source": "ThemePulse value chain audit + public deal announcements \u2014 May 7, 2026"
     },
     {
       "id": "ai-inference-edge-layer-2026-05",
       "date": "2026-05-07",
       "type": "value_chain_framework",
-      "headline": "AI Inference & Edge Layer — ARM, QCOM, NVDA Jetson: as AI shifts from training to inference, the chip mix and winners change.",
-      "primary_tickers": ["ARM", "QCOM"],
-      "derivative_tickers": ["NVDA", "AVGO", "MRVL", "INTC", "AAPL"],
-      "themes_implicated": ["AI Inference", "Edge AI", "Chip Architecture", "On-Device AI"],
-      "thesis": "The AI buildout has two phases: training (build the model — needs massive GPU clusters, NVDA's core market) and inference (run the model — broader architecture competition). Inference is growing faster than training spend, and the optimal chip for inference is NOT always a GPU. ARM architecture dominates inference at the edge — every smartphone, every laptop, every IoT device runs ARM. QCOM's Snapdragon X Elite with NPU is the PC inference play. Apple Silicon (M4/A18) is the gold standard for on-device inference but AAPL doesn't sell the chip. The inflection: as inference moves to the edge (on-device, not cloud), NVDA's share of inference workloads is threatened. This is a 2-3 year transition, not immediate.",
+      "headline": "AI Inference & Edge Layer \u2014 ARM, QCOM, NVDA Jetson: as AI shifts from training to inference, the chip mix and winners change.",
+      "primary_tickers": [
+        "ARM",
+        "QCOM"
+      ],
+      "derivative_tickers": [
+        "NVDA",
+        "AVGO",
+        "MRVL",
+        "INTC",
+        "AAPL"
+      ],
+      "themes_implicated": [
+        "AI Inference",
+        "Edge AI",
+        "Chip Architecture",
+        "On-Device AI"
+      ],
+      "thesis": "The AI buildout has two phases: training (build the model \u2014 needs massive GPU clusters, NVDA's core market) and inference (run the model \u2014 broader architecture competition). Inference is growing faster than training spend, and the optimal chip for inference is NOT always a GPU. ARM architecture dominates inference at the edge \u2014 every smartphone, every laptop, every IoT device runs ARM. QCOM's Snapdragon X Elite with NPU is the PC inference play. Apple Silicon (M4/A18) is the gold standard for on-device inference but AAPL doesn't sell the chip. The inflection: as inference moves to the edge (on-device, not cloud), NVDA's share of inference workloads is threatened. This is a 2-3 year transition, not immediate.",
       "lead_lag": {
-        "leading": ["ARM"],
-        "lagging": ["QCOM", "NVDA"],
+        "leading": [
+          "ARM"
+        ],
+        "lagging": [
+          "QCOM",
+          "NVDA"
+        ],
         "horizon": "2-3 years for on-device inference to become a meaningful workload shift",
-        "rationale": "ARM licenses its architecture to everyone — every inference chip (QCOM, Apple, MediaTek, Ampere cloud) runs ARM ISA. ARM royalties compound as inference scales. QCOM is the most direct AI PC/edge pure-play. NVDA's inference exposure is primarily data center inference (NIM microservices on H100/B200) — not edge."
+        "rationale": "ARM licenses its architecture to everyone \u2014 every inference chip (QCOM, Apple, MediaTek, Ampere cloud) runs ARM ISA. ARM royalties compound as inference scales. QCOM is the most direct AI PC/edge pure-play. NVDA's inference exposure is primarily data center inference (NIM microservices on H100/B200) \u2014 not edge."
       },
       "architecture_map": {
         "cloud_inference": "NVDA H100/B200 + NIM, AVGO custom ASICs, AWS Inferentia",
@@ -112,80 +815,194 @@
         "iot_tiny": "ARM Cortex-M, low-power NPU designs"
       },
       "caveats": [
-        "ARM trades at 70-80x forward earnings — enormous multiple. Any inference growth slowdown or NVDA competition is punishing.",
-        "QCOM has a smartphone cyclical overhang — AI PC momentum needs to outrun handset weakness.",
-        "NVDA is not standing still — Grace Blackwell (CPU+GPU) and Jetson Orin target edge inference directly.",
-        "On-device inference is primarily a consumer story — different catalysts than enterprise AI capex cycle."
+        "ARM trades at 70-80x forward earnings \u2014 enormous multiple. Any inference growth slowdown or NVDA competition is punishing.",
+        "QCOM has a smartphone cyclical overhang \u2014 AI PC momentum needs to outrun handset weakness.",
+        "NVDA is not standing still \u2014 Grace Blackwell (CPU+GPU) and Jetson Orin target edge inference directly.",
+        "On-device inference is primarily a consumer story \u2014 different catalysts than enterprise AI capex cycle."
       ],
-      "source": "ThemePulse value chain audit — May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
     },
     {
       "id": "earnings-readthrough-map-2026-05",
       "date": "2026-05-07",
       "type": "lead_lag_framework",
-      "headline": "Earnings Read-Through Map — which print moves which chain stocks the next session.",
-      "primary_tickers": ["NVDA", "MSFT", "META", "AMZN", "GOOGL"],
-      "derivative_tickers": ["MU", "ALAB", "CRDO", "LITE", "VRT", "GEV", "AVGO", "MRVL", "CRWD", "PANW", "ANET", "SMCI"],
-      "themes_implicated": ["AI Infrastructure", "Earnings Season", "Lead-Lag", "Capex Cycle"],
+      "headline": "Earnings Read-Through Map \u2014 which print moves which chain stocks the next session.",
+      "primary_tickers": [
+        "NVDA",
+        "MSFT",
+        "META",
+        "AMZN",
+        "GOOGL"
+      ],
+      "derivative_tickers": [
+        "MU",
+        "ALAB",
+        "CRDO",
+        "LITE",
+        "VRT",
+        "GEV",
+        "AVGO",
+        "MRVL",
+        "CRWD",
+        "PANW",
+        "ANET",
+        "SMCI"
+      ],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Earnings Season",
+        "Lead-Lag",
+        "Capex Cycle"
+      ],
       "readthrough_map": {
         "NVDA_earnings": {
           "trigger": "NVDA quarterly earnings + guidance",
-          "next_session_watch": ["MU", "ALAB", "CRDO", "MRVL", "AVGO", "SMCI"],
+          "next_session_watch": [
+            "MU",
+            "ALAB",
+            "CRDO",
+            "MRVL",
+            "AVGO",
+            "SMCI"
+          ],
           "thesis": "NVDA is the mothership. Beat + raised guidance lifts entire AI semi chain. Miss/guide-down hits everything. Watch data center revenue and Blackwell ramp commentary specifically.",
-          "key_metrics": ["Data center revenue", "Blackwell shipment timing", "China revenue", "Gross margin"]
+          "key_metrics": [
+            "Data center revenue",
+            "Blackwell shipment timing",
+            "China revenue",
+            "Gross margin"
+          ]
         },
         "hyperscaler_capex": {
           "trigger": "MSFT / META / AMZN / GOOGL quarterly earnings",
-          "next_session_watch": ["VRT", "GEV", "ALAB", "ANET", "NVDA"],
-          "thesis": "Hyperscaler capex guidance is the second most important read-through in AI. All four said 'power and compute constrained' in Q1 2026 — that was a bullish read-through for VRT/GEV/ALAB. Any capex cut or 'pausing to digest' language is the biggest risk to the chain.",
-          "key_metrics": ["Capex guidance ($ and YoY %)", "Infrastructure commentary", "Power/compute constraint language", "AI revenue contribution"]
+          "next_session_watch": [
+            "VRT",
+            "GEV",
+            "ALAB",
+            "ANET",
+            "NVDA"
+          ],
+          "thesis": "Hyperscaler capex guidance is the second most important read-through in AI. All four said 'power and compute constrained' in Q1 2026 \u2014 that was a bullish read-through for VRT/GEV/ALAB. Any capex cut or 'pausing to digest' language is the biggest risk to the chain.",
+          "key_metrics": [
+            "Capex guidance ($ and YoY %)",
+            "Infrastructure commentary",
+            "Power/compute constraint language",
+            "AI revenue contribution"
+          ]
         },
         "AVGO_earnings": {
           "trigger": "Broadcom quarterly earnings",
-          "next_session_watch": ["MRVL", "ALAB", "CRDO"],
+          "next_session_watch": [
+            "MRVL",
+            "ALAB",
+            "CRDO"
+          ],
           "thesis": "AVGO's custom ASIC (XPU) commentary directly sets expectations for the custom silicon market. Strong XPU revenue = hyperscalers spending on non-NVDA AI chips = bullish for custom silicon ecosystem.",
-          "key_metrics": ["AI revenue segment", "Custom ASIC design win count", "Networking revenue"]
+          "key_metrics": [
+            "AI revenue segment",
+            "Custom ASIC design win count",
+            "Networking revenue"
+          ]
         },
         "MU_earnings": {
           "trigger": "Micron quarterly earnings",
-          "next_session_watch": ["SNDK", "AMAT", "LRCX"],
-          "thesis": "MU's HBM pricing and demand commentary sets the memory supply/demand narrative. HBM ASP trends are the key — rising ASPs = supply-constrained = bullish.",
-          "key_metrics": ["HBM revenue and ASP", "DRAM pricing", "Data center vs consumer mix", "Inventory levels"]
+          "next_session_watch": [
+            "SNDK",
+            "AMAT",
+            "LRCX"
+          ],
+          "thesis": "MU's HBM pricing and demand commentary sets the memory supply/demand narrative. HBM ASP trends are the key \u2014 rising ASPs = supply-constrained = bullish.",
+          "key_metrics": [
+            "HBM revenue and ASP",
+            "DRAM pricing",
+            "Data center vs consumer mix",
+            "Inventory levels"
+          ]
         },
         "ANET_earnings": {
           "trigger": "Arista Networks quarterly earnings",
-          "next_session_watch": ["DELL", "SMCI", "CRDO"],
+          "next_session_watch": [
+            "DELL",
+            "SMCI",
+            "CRDO"
+          ],
           "thesis": "ANET's AI cluster networking orders are the leading indicator for the rack integration build timeline. Product order book and backlog are the key metrics.",
-          "key_metrics": ["Cloud titan revenue %", "Product orders / backlog", "400G/800G mix", "AI vs enterprise split"]
+          "key_metrics": [
+            "Cloud titan revenue %",
+            "Product orders / backlog",
+            "400G/800G mix",
+            "AI vs enterprise split"
+          ]
         },
         "VRT_earnings": {
           "trigger": "Vertiv quarterly earnings",
-          "next_session_watch": ["GEV", "ETN", "EATON"],
+          "next_session_watch": [
+            "GEV",
+            "ETN",
+            "EATON"
+          ],
           "thesis": "VRT's backlog commentary confirms or denies the power infrastructure demand thesis. Book-to-bill > 1.0 = constrained, bullish for the power chain.",
-          "key_metrics": ["Backlog and book-to-bill", "AI/data center % of orders", "Gross margin", "2026 guidance"]
+          "key_metrics": [
+            "Backlog and book-to-bill",
+            "AI/data center % of orders",
+            "Gross margin",
+            "2026 guidance"
+          ]
         },
         "CRWD_earnings": {
           "trigger": "CrowdStrike quarterly earnings",
-          "next_session_watch": ["PANW", "CYBR", "NET", "RBRK"],
+          "next_session_watch": [
+            "PANW",
+            "CYBR",
+            "NET",
+            "RBRK"
+          ],
           "thesis": "CRWD is the cybersecurity RS leader. Its ARR growth and platform consolidation commentary sets the tone for the sector. Falcon platform expansion drives competitive displacement read-through.",
-          "key_metrics": ["ARR growth", "Net new ARR", "Falcon platform module adoption", "Customer count"]
+          "key_metrics": [
+            "ARR growth",
+            "Net new ARR",
+            "Falcon platform module adoption",
+            "Customer count"
+          ]
         }
       },
       "thesis": "Earnings read-throughs are the fastest way to get edge on positioning. Know which print moves which chain BEFORE the report, not after. The highest-alpha setup: if NVDA guides up strongly, buy ALAB/CRDO/MU pre-open the next day before consensus catches up. If hyperscalers cut capex, short VRT/GEV before the sector reprices.",
       "caveats": [
-        "Read-throughs are noisy — the market sometimes ignores them or reverses within 2-3 sessions.",
-        "Same-day options activity can front-run read-throughs — check unusual options flow in the chain names ahead of earnings.",
+        "Read-throughs are noisy \u2014 the market sometimes ignores them or reverses within 2-3 sessions.",
+        "Same-day options activity can front-run read-throughs \u2014 check unusual options flow in the chain names ahead of earnings.",
         "Macro selloffs (rate fears, tariff news) can override sector-specific read-throughs entirely."
       ],
-      "source": "ThemePulse value chain audit — May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
     },
     {
       "id": "ai-ecosystem-layer-map-2026-05",
       "date": "2026-05-07",
       "type": "value_chain_framework",
-      "headline": "AI Ecosystem Layer Map — 6-layer value chain from memory → chip → interconnect → cybersecurity → power, with tier rankings and lead-lag flow.",
-      "primary_tickers": ["NVDA", "AVGO", "MU", "ALAB", "CRDO", "VRT", "GEV", "CRWD"],
-      "derivative_tickers": ["MRVL", "SNDK", "LITE", "PANW", "NET", "RBRK", "CYBR", "VST", "BE", "CRWV", "NBIS", "IREN"],
+      "headline": "AI Ecosystem Layer Map \u2014 6-layer value chain from memory \u2192 chip \u2192 interconnect \u2192 cybersecurity \u2192 power, with tier rankings and lead-lag flow.",
+      "primary_tickers": [
+        "NVDA",
+        "AVGO",
+        "MU",
+        "ALAB",
+        "CRDO",
+        "VRT",
+        "GEV",
+        "CRWD"
+      ],
+      "derivative_tickers": [
+        "MRVL",
+        "SNDK",
+        "LITE",
+        "PANW",
+        "NET",
+        "RBRK",
+        "CYBR",
+        "VST",
+        "BE",
+        "CRWV",
+        "NBIS",
+        "IREN"
+      ],
       "themes_implicated": [
         "AI Infrastructure",
         "Memory / HBM",
@@ -199,77 +1016,161 @@
         "memory": {
           "label": "Memory Layer",
           "tier": 2,
-          "tickers": ["MU", "SNDK"],
-          "unlisted": ["SK Hynix", "Samsung", "Silicon Motion"],
-          "thesis": "HBM3e is the real story — NVDA H100/B200 racks are HBM-constrained. MU is the cleanest US-listed play. SNDK is fresh IPO with massive NAND backlog ($42B contractual revenue) but less price history. SK Hynix and Samsung not cleanly tradeable in US accounts.",
+          "tickers": [
+            "MU",
+            "SNDK"
+          ],
+          "unlisted": [
+            "SK Hynix",
+            "Samsung",
+            "Silicon Motion"
+          ],
+          "thesis": "HBM3e is the real story \u2014 NVDA H100/B200 racks are HBM-constrained. MU is the cleanest US-listed play. SNDK is fresh IPO with massive NAND backlog ($42B contractual revenue) but less price history. SK Hynix and Samsung not cleanly tradeable in US accounts.",
           "catalyst": "Any NVDA rack demand print lifts HBM suppliers directly."
         },
         "neocloud": {
           "label": "Neocloud Layer",
           "tier": 3,
-          "tickers": ["CRWV", "NBIS", "IREN"],
-          "speculative": ["CIPHER"],
-          "thesis": "CoreWeave (CRWV) is a real GPU cloud business but debt-heavy post-IPO. NBIS (Nebius) is European AI cloud, thin float. IREN and Cipher are crypto miners pivoting to AI HPC — narrative-driven, not fundamentals. Watch IREN for execution proof points.",
+          "tickers": [
+            "CRWV",
+            "NBIS",
+            "IREN"
+          ],
+          "speculative": [
+            "CIPHER"
+          ],
+          "thesis": "CoreWeave (CRWV) is a real GPU cloud business but debt-heavy post-IPO. NBIS (Nebius) is European AI cloud, thin float. IREN and Cipher are crypto miners pivoting to AI HPC \u2014 narrative-driven, not fundamentals. Watch IREN for execution proof points.",
           "catalyst": "Hyperscaler capacity constraints driving GPU cloud demand; any DC contract announcements."
         },
         "ai_chip": {
           "label": "AI Chip Layer",
           "tier": 1,
-          "tickers": ["NVDA", "AVGO", "MRVL"],
-          "avoid": ["INTC", "SMIC"],
-          "thesis": "NVDA is the irreplaceable GPU monopoly — the backbone of every layer below. AVGO owns custom ASIC (XPU) for hyperscalers (Google TPU, Meta MTIA, custom) — recurring revenue moat with 3-year design win visibility. MRVL recovering with custom silicon wins. INTC is a turnaround, not a momentum name. SMIC is geopolitically uninvestable for US accounts.",
+          "tickers": [
+            "NVDA",
+            "AVGO",
+            "MRVL"
+          ],
+          "avoid": [
+            "INTC",
+            "SMIC"
+          ],
+          "thesis": "NVDA is the irreplaceable GPU monopoly \u2014 the backbone of every layer below. AVGO owns custom ASIC (XPU) for hyperscalers (Google TPU, Meta MTIA, custom) \u2014 recurring revenue moat with 3-year design win visibility. MRVL recovering with custom silicon wins. INTC is a turnaround, not a momentum name. SMIC is geopolitically uninvestable for US accounts.",
           "catalyst": "NVDA Blackwell/Rubin ramp; hyperscaler capex prints confirming custom ASIC spend."
         },
         "cybersecurity": {
           "label": "Cybersecurity (Edge AI) Layer",
           "tier": 2,
-          "tickers": ["CRWD", "PANW", "NET", "RBRK", "CYBR"],
-          "thesis": "AI expanding the attack surface is the structural tailwind — more endpoints, more agentic processes, more LLM API exposure. CRWD is the RS leader with platform consolidation story. PANW is the enterprise incumbent with AI Copilot integration. NET (Cloudflare) bridges into AI gateway/inference. RBRK (data resilience) and CYBR (privileged access) are solid growers.",
+          "tickers": [
+            "CRWD",
+            "PANW",
+            "NET",
+            "RBRK",
+            "CYBR"
+          ],
+          "thesis": "AI expanding the attack surface is the structural tailwind \u2014 more endpoints, more agentic processes, more LLM API exposure. CRWD is the RS leader with platform consolidation story. PANW is the enterprise incumbent with AI Copilot integration. NET (Cloudflare) bridges into AI gateway/inference. RBRK (data resilience) and CYBR (privileged access) are solid growers.",
           "catalyst": "AI-driven breach headlines; platform consolidation deals; CRWD earnings prints."
         },
         "interconnects_optics": {
           "label": "AI Interconnects & Optics Layer",
           "tier": 2,
-          "tickers": ["ALAB", "CRDO", "LITE"],
-          "thesis": "Direct NVDA rack-scale beneficiaries. ALAB (Astera Labs) makes PCIe/CXL retimers — every GB200 NVL72 rack needs them. CRDO (Credo) makes high-speed SerDes for switch fabrics. LITE (Lumentum) is optical components — real business but lumpier demand. Goldman Sachs called optical networking TAM 9x to $154B with CPO alone at $91B (142% CAGR 2024-2030).",
+          "tickers": [
+            "ALAB",
+            "CRDO",
+            "LITE"
+          ],
+          "thesis": "Direct NVDA rack-scale beneficiaries. ALAB (Astera Labs) makes PCIe/CXL retimers \u2014 every GB200 NVL72 rack needs them. CRDO (Credo) makes high-speed SerDes for switch fabrics. LITE (Lumentum) is optical components \u2014 real business but lumpier demand. Goldman Sachs called optical networking TAM 9x to $154B with CPO alone at $91B (142% CAGR 2024-2030).",
           "catalyst": "Co-packaged optics (CPO) adoption timeline; NVDA rack shipment velocity; any hyperscaler optical spend disclosure."
         },
         "power_infra": {
           "label": "Power-Infra Layer",
           "tier": 1,
-          "tickers": ["VRT", "GEV", "VST"],
-          "avoid": ["BE"],
-          "thesis": "Every watt of AI compute needs power and cooling. VRT (thermal management / liquid cooling) and GEV (grid transformers / power equipment) are picks-and-shovels with multi-year backlogs — all four hyperscalers said 'power and compute constrained' in Q1 2026 earnings. VST is the nuclear/baseload angle. BE (Bloom Energy fuel cells) doesn't have the same demand clarity.",
+          "tickers": [
+            "VRT",
+            "GEV",
+            "VST"
+          ],
+          "avoid": [
+            "BE"
+          ],
+          "thesis": "Every watt of AI compute needs power and cooling. VRT (thermal management / liquid cooling) and GEV (grid transformers / power equipment) are picks-and-shovels with multi-year backlogs \u2014 all four hyperscalers said 'power and compute constrained' in Q1 2026 earnings. VST is the nuclear/baseload angle. BE (Bloom Energy fuel cells) doesn't have the same demand clarity.",
           "catalyst": "Hyperscaler data center build announcements; grid interconnection approvals; nuclear policy tailwinds."
         }
       },
       "lead_lag": {
-        "chain_flow": "NVDA demand signal → HBM constraint (MU) → custom ASIC ramp (AVGO/MRVL) → rack interconnects (ALAB/CRDO) → power/cooling bottleneck (VRT/GEV) → cybersecurity expansion (CRWD/PANW)",
-        "tier1_core": ["NVDA", "AVGO", "VRT", "GEV"],
-        "tier2_derivative": ["MU", "ALAB", "CRDO", "CRWD", "PANW", "MRVL", "SNDK", "LITE"],
-        "tier3_speculative": ["CRWV", "NBIS", "IREN", "VST", "NET", "RBRK", "CYBR"],
-        "avoid": ["INTC", "SMIC", "BE"],
-        "leading_indicators": ["NVDA earnings / guidance", "Hyperscaler capex prints (MSFT/META/AMZN/GOOGL)", "AVGO custom ASIC revenue commentary"],
-        "lagging_confirmations": ["MU HBM ASP trends", "VRT backlog updates", "ALAB design win announcements"],
+        "chain_flow": "NVDA demand signal \u2192 HBM constraint (MU) \u2192 custom ASIC ramp (AVGO/MRVL) \u2192 rack interconnects (ALAB/CRDO) \u2192 power/cooling bottleneck (VRT/GEV) \u2192 cybersecurity expansion (CRWD/PANW)",
+        "tier1_core": [
+          "NVDA",
+          "AVGO",
+          "VRT",
+          "GEV"
+        ],
+        "tier2_derivative": [
+          "MU",
+          "ALAB",
+          "CRDO",
+          "CRWD",
+          "PANW",
+          "MRVL",
+          "SNDK",
+          "LITE"
+        ],
+        "tier3_speculative": [
+          "CRWV",
+          "NBIS",
+          "IREN",
+          "VST",
+          "NET",
+          "RBRK",
+          "CYBR"
+        ],
+        "avoid": [
+          "INTC",
+          "SMIC",
+          "BE"
+        ],
+        "leading_indicators": [
+          "NVDA earnings / guidance",
+          "Hyperscaler capex prints (MSFT/META/AMZN/GOOGL)",
+          "AVGO custom ASIC revenue commentary"
+        ],
+        "lagging_confirmations": [
+          "MU HBM ASP trends",
+          "VRT backlog updates",
+          "ALAB design win announcements"
+        ],
         "horizon": "Structural 2-3 year buildout; momentum setups reset on each earnings cycle"
       },
-      "thesis": "The AI buildout is a 6-layer physical stack, not a software story. The highest-conviction chain is NVDA → AVGO → ALAB → VRT: GPU demand drives custom ASIC (AVGO), which demands rack-scale interconnects (ALAB), which requires massive power infrastructure (VRT). All four have clean fundamentals and price action. Memory (MU) is a parallel high-conviction play as HBM remains supply-constrained. Cybersecurity is a secular winner but one layer removed from the core capex cycle. Neocloud names (CRWV, IREN) are narrative-first — require earnings execution proof before sizing up.",
+      "thesis": "The AI buildout is a 6-layer physical stack, not a software story. The highest-conviction chain is NVDA \u2192 AVGO \u2192 ALAB \u2192 VRT: GPU demand drives custom ASIC (AVGO), which demands rack-scale interconnects (ALAB), which requires massive power infrastructure (VRT). All four have clean fundamentals and price action. Memory (MU) is a parallel high-conviction play as HBM remains supply-constrained. Cybersecurity is a secular winner but one layer removed from the core capex cycle. Neocloud names (CRWV, IREN) are narrative-first \u2014 require earnings execution proof before sizing up.",
       "caveats": [
-        "NVDA export restrictions (China) remain an overhang — any escalation hits the whole chain.",
-        "Custom ASIC (AVGO/MRVL) could displace NVDA share at the margin over 3-5 years — watch hyperscaler GPU mix commentary.",
-        "Power/grid buildout faces regulatory and interconnection queue delays — VRT/GEV are backlog stories, not near-term revenue surprises.",
-        "Cybersecurity layer is more correlated to software multiples than AI capex — different risk factor.",
-        "Neocloud names are high-beta crypto-adjacent — IREN/CRWV can gap down 20%+ on sentiment shifts."
+        "NVDA export restrictions (China) remain an overhang \u2014 any escalation hits the whole chain.",
+        "Custom ASIC (AVGO/MRVL) could displace NVDA share at the margin over 3-5 years \u2014 watch hyperscaler GPU mix commentary.",
+        "Power/grid buildout faces regulatory and interconnection queue delays \u2014 VRT/GEV are backlog stories, not near-term revenue surprises.",
+        "Cybersecurity layer is more correlated to software multiples than AI capex \u2014 different risk factor.",
+        "Neocloud names are high-beta crypto-adjacent \u2014 IREN/CRWV can gap down 20%+ on sentiment shifts."
       ],
-      "source": "@Sancompounding AI Ecosystem Layers framework — May 7, 2026 + ThemePulse value chain audit"
+      "source": "@Sancompounding AI Ecosystem Layers framework \u2014 May 7, 2026 + ThemePulse value chain audit"
     },
     {
       "id": "cifr-iren-uuuu-mp-earnings-catalyst-2026-05",
       "date": "2026-05-04",
       "type": "earnings_catalyst",
-      "headline": "CIFR/IREN/UUUU/MP — massive monthly bases + staggered earnings May 5-8. Compute, nuclear, rare earth — perfect catalysts for 1-2 year moves.",
-      "primary_tickers": ["CIFR", "IREN", "UUUU", "MP"],
-      "derivative_tickers": ["MARA", "RIOT", "CORZ", "WULF", "CCJ", "NXE", "USAR", "AAPL"],
+      "headline": "CIFR/IREN/UUUU/MP \u2014 massive monthly bases + staggered earnings May 5-8. Compute, nuclear, rare earth \u2014 perfect catalysts for 1-2 year moves.",
+      "primary_tickers": [
+        "CIFR",
+        "IREN",
+        "UUUU",
+        "MP"
+      ],
+      "derivative_tickers": [
+        "MARA",
+        "RIOT",
+        "CORZ",
+        "WULF",
+        "CCJ",
+        "NXE",
+        "USAR",
+        "AAPL"
+      ],
       "themes_implicated": [
         "Crypto Miners / AI Compute",
         "Uranium / Nuclear",
@@ -281,38 +1182,54 @@
         "MP": "May 8",
         "IREN": "May 8"
       },
-      "thesis": "Ted Zhang (TedHZhang) — monthly charts on CIFR, IREN, UUUU, MP are forming massive bases across three convergent themes: AI compute (crypto miners pivoting to HPC), nuclear baseload energy, and domestic rare earths. MP has both a government investment catalyst and AAPL partnership. Staggered earnings May 5-8 create a rolling catalyst window where a beat in one name could lift the entire basket. Each name has potential 1-2 year move if earnings confirm the thesis.",
+      "thesis": "Ted Zhang (TedHZhang) \u2014 monthly charts on CIFR, IREN, UUUU, MP are forming massive bases across three convergent themes: AI compute (crypto miners pivoting to HPC), nuclear baseload energy, and domestic rare earths. MP has both a government investment catalyst and AAPL partnership. Staggered earnings May 5-8 create a rolling catalyst window where a beat in one name could lift the entire basket. Each name has potential 1-2 year move if earnings confirm the thesis.",
       "lead_lag": {
-        "leading": ["CIFR"],
-        "lagging": ["IREN", "UUUU", "MP"],
+        "leading": [
+          "CIFR"
+        ],
+        "lagging": [
+          "IREN",
+          "UUUU",
+          "MP"
+        ],
         "horizon": "1-2 weeks (earnings catalyst), 1-2 years (base breakout)",
-        "rationale": "CIFR reports first (May 5 BMO) — sets tone for AI compute/miner earnings. IREN is the higher-quality neocloud name that benefits from same trend. UUUU and MP are independent catalysts but part of the same physical-world scarcity narrative as CGEH."
+        "rationale": "CIFR reports first (May 5 BMO) \u2014 sets tone for AI compute/miner earnings. IREN is the higher-quality neocloud name that benefits from same trend. UUUU and MP are independent catalysts but part of the same physical-world scarcity narrative as CGEH."
       },
       "caveats": [
-        "Monthly base setups require patience — earnings catalyst could fail and reset the base.",
-        "UUUU and MP are materials names — sensitive to spot uranium/rare earth prices independent of earnings.",
-        "MP AAPL partnership details not yet public — could be overhyped or underwhelming on disclosure.",
-        "CIFR/IREN high beta — crypto price action can override earnings fundamentals."
+        "Monthly base setups require patience \u2014 earnings catalyst could fail and reset the base.",
+        "UUUU and MP are materials names \u2014 sensitive to spot uranium/rare earth prices independent of earnings.",
+        "MP AAPL partnership details not yet public \u2014 could be overhyped or underwhelming on disclosure.",
+        "CIFR/IREN high beta \u2014 crypto price action can override earnings fundamentals."
       ],
-      "source": "Ted Zhang (@TedHZhang) Twitter/X — May 4, 2026"
+      "source": "Ted Zhang (@TedHZhang) Twitter/X \u2014 May 4, 2026"
     },
     {
       "id": "cgeh-dc-power-thesis-2026-05",
       "date": "2026-05-04",
       "type": "discovery_thesis",
-      "headline": "CGEH (Capstone Green Energy) — behind-the-meter microturbine for AI data centers; 2.8x P/S vs BE at 41x",
-      "primary_tickers": ["CGEH"],
-      "derivative_tickers": ["BE", "NBIS", "EOSE"],
+      "headline": "CGEH (Capstone Green Energy) \u2014 behind-the-meter microturbine for AI data centers; 2.8x P/S vs BE at 41x",
+      "primary_tickers": [
+        "CGEH"
+      ],
+      "derivative_tickers": [
+        "BE",
+        "NBIS",
+        "EOSE"
+      ],
       "themes_implicated": [
         "Behind-the-Meter Power",
         "AI Data Center Energy",
         "Microgrid / On-Site Generation",
         "DC Capacity Constraints"
       ],
-      "thesis": "Found via NBIS capacity concerns — 30-50% data center delay headlines are real, not FUD. Physical world scaling constraints are the bottleneck for the AI buildout. CGEH makes modular microturbines (65kW–20MW, CHP up to ~80% efficiency) deployable on-site at DCs, industrial, and edge locations — exactly the kind of fast, scalable, behind-the-meter solution that bypasses the grid interconnection queue. If they land meaningful DC contracts, it is transformative for the stock at $306M MCap.",
+      "thesis": "Found via NBIS capacity concerns \u2014 30-50% data center delay headlines are real, not FUD. Physical world scaling constraints are the bottleneck for the AI buildout. CGEH makes modular microturbines (65kW\u201320MW, CHP up to ~80% efficiency) deployable on-site at DCs, industrial, and edge locations \u2014 exactly the kind of fast, scalable, behind-the-meter solution that bypasses the grid interconnection queue. If they land meaningful DC contracts, it is transformative for the stock at $306M MCap.",
       "lead_lag": {
-        "leading": ["NBIS"],
-        "lagging": ["CGEH"],
+        "leading": [
+          "NBIS"
+        ],
+        "lagging": [
+          "CGEH"
+        ],
         "horizon": "2-4 quarters",
         "rationale": "NBIS delay headlines signal the broader DC capacity crunch is real. Companies with fast-deploy, off-grid power solutions (CGEH, BE) benefit as hyperscalers and neoclouds scramble for alternatives to delayed grid connections."
       },
@@ -328,21 +1245,21 @@
           "rev_growth_q3_fy26": "+33% YoY",
           "listing": "OTCQX (uplist target 12 months)",
           "beta": "3.16",
-          "technology": "Microturbine (combustion), 65kW–20MW modular"
+          "technology": "Microturbine (combustion), 65kW\u201320MW modular"
         },
         "BE": {
           "price": "~$292",
           "mcap": "~$83B",
           "ps_ttm": "~41x",
           "fwd_ps_fy26": "~22-24x",
-          "technology": "Solid Oxide Fuel Cell (electrochemical), 100kW–1GW hyperscale"
+          "technology": "Solid Oxide Fuel Cell (electrochemical), 100kW\u20131GW hyperscale"
         }
       },
       "caveats": [
-        "OTCQX listed — not in FMP live feed, won't surface in scanner. Manual tracking only until uplist.",
-        "No major DC contracts announced yet — thesis is pre-catalyst.",
-        "Combustion-based (microturbine) vs electrochemical (fuel cell) — regulatory/ESG risk in some jurisdictions.",
-        "Small cap ($306M) — illiquid, high beta (3.16), binary on contract wins."
+        "OTCQX listed \u2014 not in FMP live feed, won't surface in scanner. Manual tracking only until uplist.",
+        "No major DC contracts announced yet \u2014 thesis is pre-catalyst.",
+        "Combustion-based (microturbine) vs electrochemical (fuel cell) \u2014 regulatory/ESG risk in some jurisdictions.",
+        "Small cap ($306M) \u2014 illiquid, high beta (3.16), binary on contract wins."
       ],
       "source": "Nitin personal research / Discord thesis"
     },
@@ -350,10 +1267,18 @@
       "id": "viav-form-2026-q1",
       "date": "2026-04-29",
       "type": "earnings_thesis",
-      "headline": "VIAV + FORM beats → bullish capex read for HBM / advanced packaging / optical ramps",
-      "primary_tickers": ["VIAV", "FORM"],
+      "headline": "VIAV + FORM beats \u2192 bullish capex read for HBM / advanced packaging / optical ramps",
+      "primary_tickers": [
+        "VIAV",
+        "FORM"
+      ],
       "derivative_tickers": [
-        "ONTO", "CAMT", "KEYS", "COHR", "FN", "LITE",
+        "ONTO",
+        "CAMT",
+        "KEYS",
+        "COHR",
+        "FN",
+        "LITE",
         "TOWA"
       ],
       "themes_implicated": [
@@ -364,10 +1289,20 @@
         "HBM / Memory"
       ],
       "lead_lag": {
-        "leading": ["VIAV", "FORM", "ONTO", "CAMT", "KEYS"],
-        "lagging": ["COHR", "FN", "LITE"],
+        "leading": [
+          "VIAV",
+          "FORM",
+          "ONTO",
+          "CAMT",
+          "KEYS"
+        ],
+        "lagging": [
+          "COHR",
+          "FN",
+          "LITE"
+        ],
         "horizon": "1-2 quarters",
-        "rationale": "Capex on test/inspection equipment leads device-maker production ramps by 1-2Q. Test margin expansion (FORM 49% gross) implies capacity-constrained pricing power — i.e., real ramp incoming."
+        "rationale": "Capex on test/inspection equipment leads device-maker production ramps by 1-2Q. Test margin expansion (FORM 49% gross) implies capacity-constrained pricing power \u2014 i.e., real ramp incoming."
       },
       "key_numbers": {
         "VIAV": {
@@ -381,11 +1316,14 @@
           "eps": "$0.56 vs $0.45",
           "gross_margin": "49%",
           "guidance": "$0.61 EPS, ~$240M rev",
-          "callouts": ["Record HBM demand", "Foundry & Logic networking strong"]
+          "callouts": [
+            "Record HBM demand",
+            "Foundry & Logic networking strong"
+          ]
         }
       },
       "caveats": [
-        "TOWA is 6315.T (Tokyo) — not in FMP live feed, won't surface in SUBFLOW.",
+        "TOWA is 6315.T (Tokyo) \u2014 not in FMP live feed, won't surface in SUBFLOW.",
         "Test/inspection thesis assumes ramp follows; tariff or memory-pricing reversal could break the chain."
       ],
       "source": "Discord / personal note"
@@ -395,12 +1333,30 @@
       "date": "2026-04-29",
       "type": "earnings_thesis",
       "headline": "MSFT/META/AMZN Q1 capex print: upstream semi supply chain stays bullish through 2026",
-      "primary_tickers": ["META", "MSFT", "AMZN"],
+      "primary_tickers": [
+        "META",
+        "MSFT",
+        "AMZN"
+      ],
       "derivative_tickers": [
-        "TSM", "ASML", "AMAT", "LRCX", "KLAC",
-        "VIAV", "FORM", "ONTO", "CAMT", "KEYS",
-        "AVGO", "NVDA", "MRVL",
-        "COHR", "FN", "LITE", "AAOI", "CRDO"
+        "TSM",
+        "ASML",
+        "AMAT",
+        "LRCX",
+        "KLAC",
+        "VIAV",
+        "FORM",
+        "ONTO",
+        "CAMT",
+        "KEYS",
+        "AVGO",
+        "NVDA",
+        "MRVL",
+        "COHR",
+        "FN",
+        "LITE",
+        "AAOI",
+        "CRDO"
       ],
       "themes_implicated": [
         "Wafer Inspection / Process Control",
@@ -425,7 +1381,7 @@
         "MSFT": {
           "q1_capex_actual": "$31.9B vs $35.29B est",
           "miss_reason": "Supply chain bottlenecks, NOT demand pullback",
-          "read_through": "Bullish — capex constrained by upstream supply, demand intact"
+          "read_through": "Bullish \u2014 capex constrained by upstream supply, demand intact"
         },
         "AMZN": {
           "fy2026_capex_jassy_guide": "~$200B (early-year)",
@@ -433,30 +1389,54 @@
         }
       },
       "lead_lag": {
-        "leading": ["META", "MSFT", "AMZN"],
-        "lagging": ["TSM", "ASML", "AMAT", "LRCX", "KLAC", "VIAV", "FORM"],
+        "leading": [
+          "META",
+          "MSFT",
+          "AMZN"
+        ],
+        "lagging": [
+          "TSM",
+          "ASML",
+          "AMAT",
+          "LRCX",
+          "KLAC",
+          "VIAV",
+          "FORM"
+        ],
         "horizon": "next 2-4 quarters",
-        "rationale": "Hyperscaler capex commitments funnel directly into semi capex (foundry → equipment → test/inspection). MSFT capex 'miss' is on the supply side, which means equipment/test names absorb the unmet demand. Reinforces the VIAV/FORM/ONTO/CAMT thesis from earlier today."
+        "rationale": "Hyperscaler capex commitments funnel directly into semi capex (foundry \u2192 equipment \u2192 test/inspection). MSFT capex 'miss' is on the supply side, which means equipment/test names absorb the unmet demand. Reinforces the VIAV/FORM/ONTO/CAMT thesis from earlier today."
       },
       "caveats": [
-        "Capex guides can be revised down if AI ROI doesn't materialize — watch for hyperscaler deceleration in Q2/Q3 prints.",
-        "AMZN AWS margin compression risk if capex pace doesn't translate to revenue — different bull case than META/MSFT."
+        "Capex guides can be revised down if AI ROI doesn't materialize \u2014 watch for hyperscaler deceleration in Q2/Q3 prints.",
+        "AMZN AWS margin compression risk if capex pace doesn't translate to revenue \u2014 different bull case than META/MSFT."
       ],
-      "linked_notes": ["viav-form-2026-q1"],
+      "linked_notes": [
+        "viav-form-2026-q1"
+      ],
       "source": "Discord / personal note"
     },
     {
       "id": "amzn-memory-skyrocketed-2026-q1",
       "date": "2026-04-29",
       "type": "earnings_thesis",
-      "headline": "AMZN Jassy: memory/storage costs skyrocketed, capacity insufficient — accelerates custom silicon shift",
-      "primary_tickers": ["AMZN"],
+      "headline": "AMZN Jassy: memory/storage costs skyrocketed, capacity insufficient \u2014 accelerates custom silicon shift",
+      "primary_tickers": [
+        "AMZN"
+      ],
       "derivative_tickers": [
-        "MU", "WDC", "SNDK",
-        "AVGO", "MRVL",
+        "MU",
+        "WDC",
+        "SNDK",
+        "AVGO",
+        "MRVL",
         "TSM",
-        "FORM", "ONTO", "CAMT",
-        "COHR", "FN", "LITE", "CRDO"
+        "FORM",
+        "ONTO",
+        "CAMT",
+        "COHR",
+        "FN",
+        "LITE",
+        "CRDO"
       ],
       "themes_implicated": [
         "HBM / Memory",
@@ -475,22 +1455,37 @@
         }
       ],
       "implications": [
-        "Memory pricing: confirmed supply-constrained — bullish MU / SNDK / WDC.",
-        "Custom silicon acceleration: hyperscalers pushing toward in-house ASIC over off-the-shelf — bullish AVGO (Trainium/Google TPU) and MRVL (custom).",
-        "Cost-efficient infrastructure focus: optical interconnect ROI matters more — 1.6T pluggables / co-packaged optics still in the chain.",
-        "Confirms the upstream-semi-supply-chain thesis from META/MSFT prints — capacity, not demand, is the constraint."
+        "Memory pricing: confirmed supply-constrained \u2014 bullish MU / SNDK / WDC.",
+        "Custom silicon acceleration: hyperscalers pushing toward in-house ASIC over off-the-shelf \u2014 bullish AVGO (Trainium/Google TPU) and MRVL (custom).",
+        "Cost-efficient infrastructure focus: optical interconnect ROI matters more \u2014 1.6T pluggables / co-packaged optics still in the chain.",
+        "Confirms the upstream-semi-supply-chain thesis from META/MSFT prints \u2014 capacity, not demand, is the constraint."
       ],
       "lead_lag": {
-        "leading": ["AMZN", "META", "MSFT"],
-        "lagging": ["MU", "SNDK", "AVGO", "MRVL", "FORM", "ONTO", "CAMT"],
+        "leading": [
+          "AMZN",
+          "META",
+          "MSFT"
+        ],
+        "lagging": [
+          "MU",
+          "SNDK",
+          "AVGO",
+          "MRVL",
+          "FORM",
+          "ONTO",
+          "CAMT"
+        ],
         "horizon": "next 2-4 quarters",
         "rationale": "Memory capacity tightness + custom-silicon shift is a multi-quarter call. HBM probe-card demand (FORM) and inspection (ONTO/CAMT) tighten further as memory fab utilization climbs."
       },
       "caveats": [
-        "If memory pricing peaks and rolls (cycle behavior), MU/SNDK could top before equipment names — watch DRAM contract pricing trends.",
+        "If memory pricing peaks and rolls (cycle behavior), MU/SNDK could top before equipment names \u2014 watch DRAM contract pricing trends.",
         "Custom silicon shift hurts NVDA share-of-wallet at the margin, even if the overall pie grows."
       ],
-      "linked_notes": ["viav-form-2026-q1", "hyperscaler-capex-2026-q1"],
+      "linked_notes": [
+        "viav-form-2026-q1",
+        "hyperscaler-capex-2026-q1"
+      ],
       "source": "Discord / personal note"
     },
     {
@@ -498,12 +1493,32 @@
       "date": "2026-04-29",
       "type": "sector_rotation",
       "headline": "All four hyperscalers (MSFT/META/GOOGL/AMZN) said the same thing: 'power and compute constrained'",
-      "primary_tickers": ["MSFT", "META", "GOOGL", "AMZN"],
+      "primary_tickers": [
+        "MSFT",
+        "META",
+        "GOOGL",
+        "AMZN"
+      ],
       "derivative_tickers": [
-        "VST", "CEG", "TLN", "NRG",
-        "GEV", "ETN", "PWR", "PRIM", "MYRG",
-        "GE", "MIR", "BWXT", "OKLO", "SMR", "NNE",
-        "NVDA", "AVGO", "TSM", "ASML"
+        "VST",
+        "CEG",
+        "TLN",
+        "NRG",
+        "GEV",
+        "ETN",
+        "PWR",
+        "PRIM",
+        "MYRG",
+        "GE",
+        "MIR",
+        "BWXT",
+        "OKLO",
+        "SMR",
+        "NNE",
+        "NVDA",
+        "AVGO",
+        "TSM",
+        "ASML"
       ],
       "themes_implicated": [
         "Independent Power Producers (IPP)",
@@ -516,30 +1531,66 @@
         "Foundry"
       ],
       "key_quotes": [
-        { "speaker": "MSFT",  "quote": "We are power and compute constrained" },
-        { "speaker": "META",  "quote": "We are power and compute constrained" },
-        { "speaker": "GOOGL", "quote": "We are power and compute constrained" },
-        { "speaker": "AMZN",  "quote": "We are power and compute constrained" }
+        {
+          "speaker": "MSFT",
+          "quote": "We are power and compute constrained"
+        },
+        {
+          "speaker": "META",
+          "quote": "We are power and compute constrained"
+        },
+        {
+          "speaker": "GOOGL",
+          "quote": "We are power and compute constrained"
+        },
+        {
+          "speaker": "AMZN",
+          "quote": "We are power and compute constrained"
+        }
       ],
       "implications": [
         "Power side: every IPP / nuclear / grid / electrical-equipment name has multi-year visibility. Datacenter demand is hitting the grid faster than utilities can build.",
-        "Compute side: confirms the upstream semi thesis — bottleneck is supply, not demand. Capex flows into foundry/equipment/test, not Q-on-Q AI revenue.",
+        "Compute side: confirms the upstream semi thesis \u2014 bottleneck is supply, not demand. Capex flows into foundry/equipment/test, not Q-on-Q AI revenue.",
         "Stack ranking matters: companies that solve BOTH constraints (e.g., Coreweave-style power+compute combos, hyperscalers with PPA pipelines like MSFT/CEG) win. Pure-compute plays without power answer get capped.",
         "Power becomes the new capex line item. When all four say it in unison, that's when allocators start reweighting from semis toward power."
       ],
       "lead_lag": {
-        "leading": ["MSFT", "META", "GOOGL", "AMZN"],
-        "lagging_power": ["VST", "CEG", "TLN", "NRG", "GEV", "ETN", "PWR", "GE", "OKLO", "SMR"],
-        "lagging_compute": ["TSM", "ASML", "AMAT", "LRCX", "KLAC", "NVDA", "AVGO"],
+        "leading": [
+          "MSFT",
+          "META",
+          "GOOGL",
+          "AMZN"
+        ],
+        "lagging_power": [
+          "VST",
+          "CEG",
+          "TLN",
+          "NRG",
+          "GEV",
+          "ETN",
+          "PWR",
+          "GE",
+          "OKLO",
+          "SMR"
+        ],
+        "lagging_compute": [
+          "TSM",
+          "ASML",
+          "AMAT",
+          "LRCX",
+          "KLAC",
+          "NVDA",
+          "AVGO"
+        ],
         "horizon": "2-8 quarters (power side longer than compute)",
-        "rationale": "Power buildout is a 2-5 year cycle (permitting, transmission, generation). Hyperscalers acknowledging the constraint = signed PPAs and grid-equipment orders ramping. Compute side already in motion — confirms Q1 capex prints."
+        "rationale": "Power buildout is a 2-5 year cycle (permitting, transmission, generation). Hyperscalers acknowledging the constraint = signed PPAs and grid-equipment orders ramping. Compute side already in motion \u2014 confirms Q1 capex prints."
       },
       "trade_setup": [
-        "Watch SUBFLOW for IPP / nuclear / grid subthemes rotating into LEADING quadrant — that's the institutional money pivot.",
-        "Power-equipment names (GEV, ETN, PWR) often pre-front the IPPs — leading edge of the chain."
+        "Watch SUBFLOW for IPP / nuclear / grid subthemes rotating into LEADING quadrant \u2014 that's the institutional money pivot.",
+        "Power-equipment names (GEV, ETN, PWR) often pre-front the IPPs \u2014 leading edge of the chain."
       ],
       "caveats": [
-        "Power names already had a strong run — entry timing matters more than thesis confirmation.",
+        "Power names already had a strong run \u2014 entry timing matters more than thesis confirmation.",
         "Permitting / regulatory risk on nuclear/SMR is real; don't size them like compute names."
       ],
       "linked_notes": [
@@ -553,9 +1604,17 @@
       "id": "googl-vertical-ai-stack-2026-q1",
       "date": "2026-04-29",
       "type": "structural_thesis",
-      "headline": "GOOGL +7% — market rewarding the most vertically-integrated AI story in mega-cap",
-      "primary_tickers": ["GOOGL"],
-      "derivative_tickers": ["MSFT", "META", "AMZN", "AAPL", "NVDA"],
+      "headline": "GOOGL +7% \u2014 market rewarding the most vertically-integrated AI story in mega-cap",
+      "primary_tickers": [
+        "GOOGL"
+      ],
+      "derivative_tickers": [
+        "MSFT",
+        "META",
+        "AMZN",
+        "AAPL",
+        "NVDA"
+      ],
       "themes_implicated": [
         "AI Infrastructure",
         "Hyperscalers",
@@ -565,29 +1624,29 @@
         "Digital Advertising"
       ],
       "stack_layers_owned": {
-        "chips":      "TPU (Trillium / Axion)",
-        "cloud":      "GCP",
-        "models":     "Gemini",
-        "consumer":   "Search, YouTube, Android, Chrome, Maps",
+        "chips": "TPU (Trillium / Axion)",
+        "cloud": "GCP",
+        "models": "Gemini",
+        "consumer": "Search, YouTube, Android, Chrome, Maps",
         "ads_engine": "Google Ads (the cash engine still funding everything)",
         "enterprise": "Workspace, Vertex AI, BigQuery"
       },
       "implications": [
-        "Vertical integration premium: GOOGL monetizes inference at every layer (TPU economics → GCP margin → Gemini API → Search/YouTube ad surface). Few mega-caps own this many layers.",
+        "Vertical integration premium: GOOGL monetizes inference at every layer (TPU economics \u2192 GCP margin \u2192 Gemini API \u2192 Search/YouTube ad surface). Few mega-caps own this many layers.",
         "Margin compression risk for single-layer AI names: pure-play model labs and infra-only names get squeezed as integrated players capture spread across layers.",
         "Re-rating dynamic: market is now pricing the full-stack flywheel rather than discounting GOOGL on Search-cannibalization fears.",
-        "Implication for SUBFLOW: 'AI Infrastructure' is too coarse — the vertically-integrated mega-cap subset deserves its own signal vs single-layer AI names."
+        "Implication for SUBFLOW: 'AI Infrastructure' is too coarse \u2014 the vertically-integrated mega-cap subset deserves its own signal vs single-layer AI names."
       ],
       "comparison_table": {
-        "GOOGL": "Chips ✓ · Cloud ✓ · Models ✓ · Consumer ✓ · Ads ✓ · Enterprise ✓",
-        "MSFT":  "Chips ~ (Maia) · Cloud ✓ · Models ✓ (OpenAI partner) · Consumer ~ · Ads ~ · Enterprise ✓",
-        "META":  "Chips ~ (MTIA) · Cloud ✗ · Models ✓ (Llama) · Consumer ✓ · Ads ✓ · Enterprise ✗",
-        "AMZN":  "Chips ✓ (Trainium) · Cloud ✓ · Models ~ (Bedrock) · Consumer ~ · Ads ~ · Enterprise ~",
-        "AAPL":  "Chips ✓ · Cloud ✗ · Models ~ (on-device) · Consumer ✓ · Ads ✗ · Enterprise ✗",
-        "NVDA":  "Chips ✓ · Cloud ✗ · Models ✗ · Consumer ✗ · Ads ✗ · Enterprise ✗"
+        "GOOGL": "Chips \u2713 \u00b7 Cloud \u2713 \u00b7 Models \u2713 \u00b7 Consumer \u2713 \u00b7 Ads \u2713 \u00b7 Enterprise \u2713",
+        "MSFT": "Chips ~ (Maia) \u00b7 Cloud \u2713 \u00b7 Models \u2713 (OpenAI partner) \u00b7 Consumer ~ \u00b7 Ads ~ \u00b7 Enterprise \u2713",
+        "META": "Chips ~ (MTIA) \u00b7 Cloud \u2717 \u00b7 Models \u2713 (Llama) \u00b7 Consumer \u2713 \u00b7 Ads \u2713 \u00b7 Enterprise \u2717",
+        "AMZN": "Chips \u2713 (Trainium) \u00b7 Cloud \u2713 \u00b7 Models ~ (Bedrock) \u00b7 Consumer ~ \u00b7 Ads ~ \u00b7 Enterprise ~",
+        "AAPL": "Chips \u2713 \u00b7 Cloud \u2717 \u00b7 Models ~ (on-device) \u00b7 Consumer \u2713 \u00b7 Ads \u2717 \u00b7 Enterprise \u2717",
+        "NVDA": "Chips \u2713 \u00b7 Cloud \u2717 \u00b7 Models \u2717 \u00b7 Consumer \u2717 \u00b7 Ads \u2717 \u00b7 Enterprise \u2717"
       },
       "caveats": [
-        "Search ad cannibalization by AI overviews is still the bear case — Q1 print needs to show ad revenue intact for the re-rating to stick.",
+        "Search ad cannibalization by AI overviews is still the bear case \u2014 Q1 print needs to show ad revenue intact for the re-rating to stick.",
         "Antitrust overhang remains; vertical integration is a regulatory target.",
         "Vertical-integration premium can compress fast if a single layer underperforms (e.g., TPU misses a node, Gemini falls behind)."
       ],
@@ -602,14 +1661,25 @@
       "date": "2026-04-29",
       "type": "supply_demand_thesis",
       "headline": "Samsung: 2027 memory demand already pre-booked, supply-demand gap widening vs 2026",
-      "primary_tickers": ["005930.KS"],
+      "primary_tickers": [
+        "005930.KS"
+      ],
       "primary_label": "Samsung Electronics (Korea)",
       "derivative_tickers": [
-        "MU", "SNDK", "STX", "WDC",
+        "MU",
+        "SNDK",
+        "STX",
+        "WDC",
         "EWY",
-        "FORM", "ONTO", "CAMT",
-        "AMAT", "LRCX", "KLAC", "ASML",
-        "AVGO", "MRVL"
+        "FORM",
+        "ONTO",
+        "CAMT",
+        "AMAT",
+        "LRCX",
+        "KLAC",
+        "ASML",
+        "AVGO",
+        "MRVL"
       ],
       "themes_implicated": [
         "HBM / Memory",
@@ -626,17 +1696,29 @@
         }
       ],
       "implications": [
-        "Memory thesis horizon extends through 2027 — not a one-year cycle peak. Pricing power has multi-year visibility.",
-        "Confirms AMZN Jassy's 'memory under most pressure' comment from same day — supplier (Samsung) and buyer (AMZN) saying the same thing.",
+        "Memory thesis horizon extends through 2027 \u2014 not a one-year cycle peak. Pricing power has multi-year visibility.",
+        "Confirms AMZN Jassy's 'memory under most pressure' comment from same day \u2014 supplier (Samsung) and buyer (AMZN) saying the same thing.",
         "Bullish read for MU / SNDK / WDC / STX on multi-year basis. Korean equity (EWY) gets a structural bid since Samsung + Hynix dominate HBM.",
-        "Equipment/test/inspection (FORM/ONTO/CAMT/AMAT/LRCX/KLAC/ASML) absorb the capex required to close that widening gap — multi-year order book visibility.",
-        "Custom-silicon names (AVGO/MRVL) benefit indirectly — hyperscalers will design around tight memory by routing more compute to ASIC + co-packaged optical."
+        "Equipment/test/inspection (FORM/ONTO/CAMT/AMAT/LRCX/KLAC/ASML) absorb the capex required to close that widening gap \u2014 multi-year order book visibility.",
+        "Custom-silicon names (AVGO/MRVL) benefit indirectly \u2014 hyperscalers will design around tight memory by routing more compute to ASIC + co-packaged optical."
       ],
       "lead_lag": {
-        "leading": ["005930.KS", "MU", "SNDK"],
-        "lagging": ["FORM", "ONTO", "CAMT", "AMAT", "LRCX", "KLAC", "ASML"],
+        "leading": [
+          "005930.KS",
+          "MU",
+          "SNDK"
+        ],
+        "lagging": [
+          "FORM",
+          "ONTO",
+          "CAMT",
+          "AMAT",
+          "LRCX",
+          "KLAC",
+          "ASML"
+        ],
         "horizon": "2026-2027 (multi-year)",
-        "rationale": "Pre-booked demand is a forward indicator the equipment/test names will see Q4-26 → Q3-27 order ramps."
+        "rationale": "Pre-booked demand is a forward indicator the equipment/test names will see Q4-26 \u2192 Q3-27 order ramps."
       },
       "trade_setup": [
         "Memory cycle thesis is now a 'sell-the-rip-on-the-cycle-top' setup, not a 'fade-the-overshoot' setup. Hold leaders longer than typical.",
@@ -644,8 +1726,8 @@
       ],
       "caveats": [
         "Pre-booking can be unwound if buyers detect oversupply incoming or AI ROI disappoints. Watch for hyperscaler capex revisions in 2H 2026.",
-        "Samsung itself has a foundry catch-up problem — the read is best for HBM/memory specifically, less for foundry leadership.",
-        "$DRAM ticker likely refers to commentary tag, not a tradeable security — verify before treating as actionable."
+        "Samsung itself has a foundry catch-up problem \u2014 the read is best for HBM/memory specifically, less for foundry leadership.",
+        "$DRAM ticker likely refers to commentary tag, not a tradeable security \u2014 verify before treating as actionable."
       ],
       "linked_notes": [
         "amzn-memory-skyrocketed-2026-q1",
@@ -659,14 +1741,19 @@
       "date": "2026-04-29",
       "type": "structural_thesis",
       "headline": "Jassy: AWS + Trainium + Graviton = 'once-in-a-lifetime opportunity'",
-      "primary_tickers": ["AMZN"],
+      "primary_tickers": [
+        "AMZN"
+      ],
       "derivative_tickers": [
-        "AVGO", "MRVL",
+        "AVGO",
+        "MRVL",
         "TSM",
         "ARM",
-        "GOOGL", "MSFT",
+        "GOOGL",
+        "MSFT",
         "NVDA",
-        "MU", "SNDK"
+        "MU",
+        "SNDK"
       ],
       "themes_implicated": [
         "Custom Silicon / ASIC",
@@ -686,28 +1773,28 @@
         }
       ],
       "implications": [
-        "Jassy is publicly framing AWS as a multi-year, multi-decade compounder — not just a cyclical AI beneficiary. CEOs don't drop 'once-in-a-lifetime' language casually.",
-        "Custom-silicon thesis hardens: AWS using Trainium (training) + Graviton (general-purpose CPU) means more workload migrates off Intel/AMD/NVDA — bullish AVGO (Trainium silicon partner) and MRVL.",
+        "Jassy is publicly framing AWS as a multi-year, multi-decade compounder \u2014 not just a cyclical AI beneficiary. CEOs don't drop 'once-in-a-lifetime' language casually.",
+        "Custom-silicon thesis hardens: AWS using Trainium (training) + Graviton (general-purpose CPU) means more workload migrates off Intel/AMD/NVDA \u2014 bullish AVGO (Trainium silicon partner) and MRVL.",
         "Same vertical-integration premium as GOOGL but on a different axis: AMZN's edge is silicon-to-cloud cost stack, GOOGL's edge is silicon-to-consumer monetization.",
         "Hyperscalers are differentiating by *which layers they own deepest*: GOOGL = ad surface, AMZN = silicon cost stack, MSFT = enterprise software, META = ad-supported consumer apps. Single-thesis takes are obsolete.",
         "Reinforces the upstream supply-chain bull case: every hyperscaler going deeper into custom silicon = more foundry/test/inspection demand."
       ],
       "stack_advantage": {
         "silicon": "Trainium (training ASIC), Inferentia (inference ASIC), Graviton (Arm-based CPU)",
-        "cloud":   "AWS (still #1 by share)",
-        "models":  "Bedrock + Anthropic partnership + Olympus internal models",
-        "consumer":"Prime/Retail/Alexa (weaker AI hook than GOOGL)",
-        "ads":     "Sponsored Products (growing, smaller than GOOGL/META)",
+        "cloud": "AWS (still #1 by share)",
+        "models": "Bedrock + Anthropic partnership + Olympus internal models",
+        "consumer": "Prime/Retail/Alexa (weaker AI hook than GOOGL)",
+        "ads": "Sponsored Products (growing, smaller than GOOGL/META)",
         "moat_vs_GOOGL": "GOOGL captures via consumer ad surface; AMZN captures via cloud unit economics. Both vertically integrated, different P&L mechanics."
       },
       "trade_setup": [
         "AMZN itself: Jassy's tone shift suggests management priced for re-rating like GOOGL got. Watch for the AWS revenue line accelerating in Q2/Q3.",
-        "AVGO is the second-derivative play — they fab Trainium chips alongside GOOGL TPU and META MTIA. The custom-silicon TAM keeps expanding.",
+        "AVGO is the second-derivative play \u2014 they fab Trainium chips alongside GOOGL TPU and META MTIA. The custom-silicon TAM keeps expanding.",
         "MRVL benefits from custom-silicon TAM but smaller share than AVGO."
       ],
       "caveats": [
         "Tone-driven re-rating can fade if Q2 AWS growth disappoints. The thesis needs revenue confirmation, not just CEO framing.",
-        "AWS retail-vs-cloud margin disclosure is messy — be cautious extrapolating margin trends.",
+        "AWS retail-vs-cloud margin disclosure is messy \u2014 be cautious extrapolating margin trends.",
         "'Once-in-a-lifetime' language is a tone signal, not a fundamental signal. Treat as confidence indicator, not buy trigger."
       ],
       "linked_notes": [
@@ -722,18 +1809,46 @@
       "id": "sndk-q3-fy2026-2026-04-30",
       "date": "2026-04-30",
       "type": "earnings_thesis",
-      "headline": "SNDK Q3 FY26: 78% GM, $11B financial guarantees, $42B contractual revenue — NAND moves from spot commodity to strategic-input contracted market",
-      "primary_tickers": ["SNDK"],
+      "headline": "SNDK Q3 FY26: 78% GM, $11B financial guarantees, $42B contractual revenue \u2014 NAND moves from spot commodity to strategic-input contracted market",
+      "primary_tickers": [
+        "SNDK"
+      ],
       "derivative_tickers": [
-        "MU", "WDC", "STX",
-        "285A.T", "005930.KS", "000660.KS",
-        "AMZN", "MSFT", "GOOGL", "META", "ORCL",
-        "NVDA", "AVGO", "AMD", "ANET", "MRVL",
-        "PSTG", "NTAP", "DELL", "HPE",
-        "SMCI", "0992.HK", "2382.TW", "6669.TW", "2317.TW",
-        "AAPL", "HPQ", "1810.HK",
-        "8299.TW", "SIMO",
-        "LRCX", "AMAT", "8035.T", "KLAC", "ASML",
+        "MU",
+        "WDC",
+        "STX",
+        "285A.T",
+        "005930.KS",
+        "000660.KS",
+        "AMZN",
+        "MSFT",
+        "GOOGL",
+        "META",
+        "ORCL",
+        "NVDA",
+        "AVGO",
+        "AMD",
+        "ANET",
+        "MRVL",
+        "PSTG",
+        "NTAP",
+        "DELL",
+        "HPE",
+        "SMCI",
+        "0992.HK",
+        "2382.TW",
+        "6669.TW",
+        "2317.TW",
+        "AAPL",
+        "HPQ",
+        "1810.HK",
+        "8299.TW",
+        "SIMO",
+        "LRCX",
+        "AMAT",
+        "8035.T",
+        "KLAC",
+        "ASML",
         "2408.TW"
       ],
       "themes_implicated": [
@@ -754,12 +1869,12 @@
       "key_numbers": {
         "SNDK": {
           "q3_revenue": "$5.95B (+97% QoQ, +251% YoY)",
-          "bit_shipments": "flat YoY, down high-10s sequentially — pure price/mix",
+          "bit_shipments": "flat YoY, down high-10s sequentially \u2014 pure price/mix",
           "q3_gross_margin": "78.4% non-GAAP (up from 51.1% Q2)",
-          "fq4_guide_gross_margin": "79–81% non-GAAP",
+          "fq4_guide_gross_margin": "79\u201381% non-GAAP",
           "data_center_revenue": "$1.467B (+233% QoQ)",
           "edge_revenue": "$3.663B (+118% QoQ)",
-          "capex": "$240M gross / $83M net (4% of revenue — lean)",
+          "capex": "$240M gross / $83M net (4% of revenue \u2014 lean)",
           "contracts": {
             "signed_partnerships": 5,
             "minimum_contractual_revenue": "$42B (across 3 Q3 contracts)",
@@ -791,99 +1906,189 @@
         {
           "id": 1,
           "title": "NAND producer economics structurally upgraded",
-          "tickers": ["MU", "005930.KS", "000660.KS", "285A.T", "SNDK"],
+          "tickers": [
+            "MU",
+            "005930.KS",
+            "000660.KS",
+            "285A.T",
+            "SNDK"
+          ],
           "direction": "POSITIVE high",
           "rationale": "Multi-year commitments, financial guarantees, and 78%+ GM mean industry no longer operates as a spot/quarterly reset market in AI demand pools. Earnings-revision risk to upside; strongest for Sandisk and Kioxia."
         },
         {
           "id": 2,
           "title": "Kioxia strategic value reinforced",
-          "tickers": ["285A.T", "SNDK", "WDC"],
+          "tickers": [
+            "285A.T",
+            "SNDK",
+            "WDC"
+          ],
           "direction": "POSITIVE high (KIOX/SNDK), neutral-negative (WDC)",
           "rationale": "JV extension through Dec 2034 + multi-year contracts make the JV a strategically contracted asset. BiCS8 + QLC Stargate ramp validates roadmap. WDC may see relative rotation away as flash captures investor focus over HDD."
         },
         {
           "id": 3,
           "title": "Hyperscalers face AI storage cost inflation",
-          "tickers": ["AMZN", "MSFT", "GOOGL", "META", "ORCL"],
+          "tickers": [
+            "AMZN",
+            "MSFT",
+            "GOOGL",
+            "META",
+            "ORCL"
+          ],
           "direction": "NEGATIVE medium-high (capex/FCF), MIXED strategic",
           "rationale": "Buyers paying $11B in collateral + $0.4B prepayments to lock supply. Storage joins GPUs/power/networking as strategic procurement. FCF conversion compressed; supply-secured names get execution edge."
         },
         {
           "id": 4,
           "title": "AI accelerator/networking demand validated",
-          "tickers": ["NVDA", "AVGO", "AMD", "ANET", "MRVL"],
+          "tickers": [
+            "NVDA",
+            "AVGO",
+            "AMD",
+            "ANET",
+            "MRVL"
+          ],
           "direction": "POSITIVE medium",
           "rationale": "Customers don't sign multi-year guaranteed NAND contracts unless they're deploying at scale. SNDK's order book is derivative confirmation of accelerator/networking buildout durability. Mid-70% data center growth raise (vs 20% three quarters ago) is the headline."
         },
         {
           "id": 5,
           "title": "Enterprise SSD/all-flash demand up, but margin risk for system vendors",
-          "tickers": ["PSTG", "NTAP", "DELL", "HPE"],
+          "tickers": [
+            "PSTG",
+            "NTAP",
+            "DELL",
+            "HPE"
+          ],
           "direction": "POSITIVE demand / NEGATIVE GM",
-          "rationale": "AI workloads (KV cache, RAG, context retention) push to low-latency flash → larger TAM. But NAND captures most value (78% GM); system vendors with fixed contracts face pass-through pressure. PSTG best positioned (flash-native, premium pricing)."
+          "rationale": "AI workloads (KV cache, RAG, context retention) push to low-latency flash \u2192 larger TAM. But NAND captures most value (78% GM); system vendors with fixed contracts face pass-through pressure. PSTG best positioned (flash-native, premium pricing)."
         },
         {
           "id": 6,
           "title": "AI server OEM/ODM rack content tailwind",
-          "tickers": ["DELL", "SMCI", "HPE", "0992.HK", "2382.TW", "6669.TW", "2317.TW"],
+          "tickers": [
+            "DELL",
+            "SMCI",
+            "HPE",
+            "0992.HK",
+            "2382.TW",
+            "6669.TW",
+            "2317.TW"
+          ],
           "direction": "POSITIVE medium revenue / MIXED-NEG GM",
           "rationale": "AI racks become storage-heavier. Higher BOM content + ASPs. Vendors with secured NAND supply gain strategic value; those without face procurement inefficiency."
         },
         {
           "id": 7,
           "title": "PC/smartphone OEMs face NAND cost pressure",
-          "tickers": ["AAPL", "005930.KS", "0992.HK", "HPQ", "DELL", "1810.HK"],
+          "tickers": [
+            "AAPL",
+            "005930.KS",
+            "0992.HK",
+            "HPQ",
+            "DELL",
+            "1810.HK"
+          ],
           "direction": "NEGATIVE GM medium / POSITIVE mix low-medium",
           "rationale": "NAND cost inflation hits BOM. Apple + premium phones can pass through; price-sensitive PC vendors can't. On-device AI supports higher capacity/ASP but margin accrues to memory suppliers, not OEMs."
         },
         {
           "id": 8,
           "title": "Merchant SSD controller/module value capture at risk",
-          "tickers": ["8299.TW", "SIMO", "MRVL"],
+          "tickers": [
+            "8299.TW",
+            "SIMO",
+            "MRVL"
+          ],
           "direction": "NEGATIVE medium (Phison/SIMO), MIXED (MRVL)",
-          "rationale": "Vertically integrated NAND suppliers building own controllers/firmware (HBF roadmap). High-end AI enterprise SSD value pool consolidates with media owners. MRVL more diversified via custom silicon — partial offset."
+          "rationale": "Vertically integrated NAND suppliers building own controllers/firmware (HBF roadmap). High-end AI enterprise SSD value pool consolidates with media owners. MRVL more diversified via custom silicon \u2014 partial offset."
         },
         {
           "id": 9,
           "title": "WFE upside more limited than memory earnings imply",
-          "tickers": ["LRCX", "AMAT", "8035.T", "KLAC", "ASML"],
+          "tickers": [
+            "LRCX",
+            "AMAT",
+            "8035.T",
+            "KLAC",
+            "ASML"
+          ],
           "direction": "NEGATIVE low-medium (vs bull NAND CapEx)",
-          "rationale": "SNDK CapEx only 4% of revenue, supply growth via node transitions not greenfield. 'Not like other markets.' LRCX/TEL most directly NAND-exposed. Memory earnings expand without commensurate NAND tool boom — profits accrue to producers, not equipment."
+          "rationale": "SNDK CapEx only 4% of revenue, supply growth via node transitions not greenfield. 'Not like other markets.' LRCX/TEL most directly NAND-exposed. Memory earnings expand without commensurate NAND tool boom \u2014 profits accrue to producers, not equipment."
         },
         {
           "id": 10,
           "title": "HDD active-tier AI inference selectively negative",
-          "tickers": ["STX", "WDC"],
+          "tickers": [
+            "STX",
+            "WDC"
+          ],
           "direction": "NEGATIVE medium (active tier) / NEUTRAL-POS (cold/archive)",
           "rationale": "'NAND is the only economically viable solution' for KV cache, RAG, real-time inference. HDDs lose the active tier; remain in archive/cold storage. Caps HDD pricing power in highest-value AI use cases."
         },
         {
           "id": 11,
           "title": "Taiwan DRAM and broader memory benefit",
-          "tickers": ["2408.TW", "MU", "005930.KS", "000660.KS"],
+          "tickers": [
+            "2408.TW",
+            "MU",
+            "005930.KS",
+            "000660.KS"
+          ],
           "direction": "POSITIVE high (Nanya), POSITIVE medium (broader)",
-          "rationale": "$1B SNDK→Nanya investment for preferential DRAM access. Enterprise SSDs need DRAM beyond HBM. Memory cycle broadens from HBM-only to multi-product (HBM + DRAM + NAND in lockstep)."
+          "rationale": "$1B SNDK\u2192Nanya investment for preferential DRAM access. Enterprise SSDs need DRAM beyond HBM. Memory cycle broadens from HBM-only to multi-product (HBM + DRAM + NAND in lockstep)."
         }
       ],
       "lead_lag": {
-        "leading": ["SNDK", "MU", "005930.KS", "000660.KS", "285A.T"],
-        "lagging_winners": ["NVDA", "AVGO", "AMD", "ANET", "MRVL", "PSTG", "DELL", "SMCI", "2408.TW"],
-        "lagging_losers": ["AAPL", "HPQ", "1810.HK", "8299.TW", "SIMO", "LRCX", "AMAT", "STX", "WDC", "AMZN", "MSFT", "GOOGL", "META"],
+        "leading": [
+          "SNDK",
+          "MU",
+          "005930.KS",
+          "000660.KS",
+          "285A.T"
+        ],
+        "lagging_winners": [
+          "NVDA",
+          "AVGO",
+          "AMD",
+          "ANET",
+          "MRVL",
+          "PSTG",
+          "DELL",
+          "SMCI",
+          "2408.TW"
+        ],
+        "lagging_losers": [
+          "AAPL",
+          "HPQ",
+          "1810.HK",
+          "8299.TW",
+          "SIMO",
+          "LRCX",
+          "AMAT",
+          "STX",
+          "WDC",
+          "AMZN",
+          "MSFT",
+          "GOOGL",
+          "META"
+        ],
         "horizon": "2026-2027 multi-year (matches Samsung 2027 pre-booked thesis)",
         "rationale": "Customer financial guarantees lock supply through 2027. Confirms supplier-side what hyperscaler-side capex commitments and Samsung's pre-booking already signaled. NAND tightness is contractually durable, not cyclical."
       },
       "trade_setup": [
-        "Long the integrated NAND owners — SNDK on pullbacks, MU as the US scaled play, Korean memory pair (Samsung + Hynix) for multi-product memory exposure.",
+        "Long the integrated NAND owners \u2014 SNDK on pullbacks, MU as the US scaled play, Korean memory pair (Samsung + Hynix) for multi-product memory exposure.",
         "PSTG is the cleanest enterprise-SSD beneficiary among storage systems (less commodity exposure, premium pricing).",
-        "Watch for relative weakness in merchant-SSD controllers (Phison, SIMO) and HDD names (STX, WDC) — possible pair-trade short candidates against long-NAND.",
-        "WFE is NOT the next leg up — fade any thesis that says 'memory earnings = greenfield tool orders.' 4% capex/revenue is the tell."
+        "Watch for relative weakness in merchant-SSD controllers (Phison, SIMO) and HDD names (STX, WDC) \u2014 possible pair-trade short candidates against long-NAND.",
+        "WFE is NOT the next leg up \u2014 fade any thesis that says 'memory earnings = greenfield tool orders.' 4% capex/revenue is the tell."
       ],
       "caveats": [
         "78% GM is unsustainable if NAND tightness reverses; spot pricing reversal would compress margins fast even with contracts in place.",
-        "Customer concentration: $11B in guarantees implies 3-5 hyperscale customers — bilateral risk if any reduces capex.",
+        "Customer concentration: $11B in guarantees implies 3-5 hyperscale customers \u2014 bilateral risk if any reduces capex.",
         "Apple/premium OEM pricing power may surprise to the upside if AI-on-device tier supports storage upgrade revenue.",
-        "Foreign tickers (285A.T Kioxia, 005930.KS Samsung, 000660.KS Hynix, 2408.TW Nanya, 0992.HK Lenovo, 2382.TW Quanta, 6669.TW Wiwynn, 2317.TW Foxconn, 8035.T Tokyo Electron, 8299.TW Phison, 1810.HK Xiaomi) won't surface in SUBFLOW live polling — track via ADRs or local platforms."
+        "Foreign tickers (285A.T Kioxia, 005930.KS Samsung, 000660.KS Hynix, 2408.TW Nanya, 0992.HK Lenovo, 2382.TW Quanta, 6669.TW Wiwynn, 2317.TW Foxconn, 8035.T Tokyo Electron, 8299.TW Phison, 1810.HK Xiaomi) won't surface in SUBFLOW live polling \u2014 track via ADRs or local platforms."
       ],
       "linked_notes": [
         "samsung-2027-prebooked-2026-q1",
@@ -900,12 +2105,26 @@
       "id": "photonics-supply-chain-2026-04-30",
       "date": "2026-04-30",
       "type": "supply_chain_thesis",
-      "headline": "Photonics start-to-finish: bottlenecks are NOT raw materials — they're conversion, assembly, and test (low-fungibility, high-yield-curve steps)",
+      "headline": "Photonics start-to-finish: bottlenecks are NOT raw materials \u2014 they're conversion, assembly, and test (low-fungibility, high-yield-curve steps)",
       "primary_tickers": [
-        "AXTI", "COHR", "FN", "LITE", "AAOI", "CIEN", "CRDO",
-        "MTSI", "POET", "TSEM",
-        "AEHR", "COHU", "CAMT", "ONTO", "KEYS", "MKSI",
-        "GLW", "JBL"
+        "AXTI",
+        "COHR",
+        "FN",
+        "LITE",
+        "AAOI",
+        "CIEN",
+        "CRDO",
+        "MTSI",
+        "POET",
+        "TSEM",
+        "AEHR",
+        "COHU",
+        "CAMT",
+        "ONTO",
+        "KEYS",
+        "MKSI",
+        "GLW",
+        "JBL"
       ],
       "themes_implicated": [
         "Optical Components",
@@ -920,9 +2139,13 @@
         {
           "step": 0,
           "name": "Mining / smelting / refining (indium)",
-          "bottleneck": "BYPRODUCT COUPLING — indium recovered from zinc residues, not primary mining; many zinc producers lack indium circuits. China refines ~68% of global primary indium. Geopolitical/policy choke point at refining stage.",
+          "bottleneck": "BYPRODUCT COUPLING \u2014 indium recovered from zinc residues, not primary mining; many zinc producers lack indium circuits. China refines ~68% of global primary indium. Geopolitical/policy choke point at refining stage.",
           "tickers": [
-            { "ticker": "TECK", "role": "Zinc producer (indium-bearing residues)", "exposure": "indirect upstream" }
+            {
+              "ticker": "TECK",
+              "role": "Zinc producer (indium-bearing residues)",
+              "exposure": "indirect upstream"
+            }
           ],
           "key_caveat": "Geological abundance high; industrial recovery + purification is the limit. Optical-grade purity adds another tier."
         },
@@ -931,135 +2154,267 @@
           "name": "InP substrate (crystal growth + wafering)",
           "bottleneck": "WAFER-SIZE GAP vs Si CMOS. Historical 2-4 inch; transition to 6-inch is a multi-year qualification across the entire downstream stack (epi susceptors, lithography chucks, dicing). Brittleness + warp/TTV control. ",
           "tickers": [
-            { "ticker": "AXTI", "role": "InP/GaAs/Ge compound-semi substrates", "exposure": "DIRECT pure-play, smallest pure-play exposure" },
-            { "ticker": "COHR", "role": "6-inch InP scalable wafer fab announced (laser sources for AI transceivers)", "exposure": "vertically integrated lever" }
+            {
+              "ticker": "AXTI",
+              "role": "InP/GaAs/Ge compound-semi substrates",
+              "exposure": "DIRECT pure-play, smallest pure-play exposure"
+            },
+            {
+              "ticker": "COHR",
+              "role": "6-inch InP scalable wafer fab announced (laser sources for AI transceivers)",
+              "exposure": "vertically integrated lever"
+            }
           ],
-          "key_caveat": "Sumitomo Electric (5802.T) is the dominant InP substrate maker — not US-listed."
+          "key_caveat": "Sumitomo Electric (5802.T) is the dominant InP substrate maker \u2014 not US-listed."
         },
         {
           "step": 2,
           "name": "Epitaxial growth (MOCVD / MBE)",
-          "bottleneck": "ATOMIC-SCALE PROCESS IP — proprietary recipes, specialized tooling, hazardous precursor chemistries. Low fungibility; concentrated among captive fabs + a few specialty epi houses.",
+          "bottleneck": "ATOMIC-SCALE PROCESS IP \u2014 proprietary recipes, specialized tooling, hazardous precursor chemistries. Low fungibility; concentrated among captive fabs + a few specialty epi houses.",
           "tickers": [
-            { "ticker": "COHR", "role": "Captive epitaxy for laser/SOA stacks", "exposure": "vertically integrated" },
-            { "ticker": "LITE", "role": "Captive epi + InP PIC manufacturing", "exposure": "vertically integrated" }
+            {
+              "ticker": "COHR",
+              "role": "Captive epitaxy for laser/SOA stacks",
+              "exposure": "vertically integrated"
+            },
+            {
+              "ticker": "LITE",
+              "role": "Captive epi + InP PIC manufacturing",
+              "exposure": "vertically integrated"
+            }
           ],
           "key_caveat": "IQE plc (IQE.L) is the dominant external epi house but London-listed."
         },
         {
           "step": 3,
           "name": "Wafer fabrication (photonics front+back end)",
-          "bottleneck": "PROCESS COMPLEXITY — InP PIC flow can involve 243+ steps. Sidewall roughness, etch-depth precision, gold metallization (NOT shareable with Si CMOS lines). Defect density drives yield = cost-per-good-die.",
+          "bottleneck": "PROCESS COMPLEXITY \u2014 InP PIC flow can involve 243+ steps. Sidewall roughness, etch-depth precision, gold metallization (NOT shareable with Si CMOS lines). Defect density drives yield = cost-per-good-die.",
           "tickers": [
-            { "ticker": "LITE", "role": "InP PIC fab (Lumentum)", "exposure": "DIRECT" },
-            { "ticker": "COHR", "role": "InP PIC fab + telecom photonics", "exposure": "DIRECT" },
-            { "ticker": "POET", "role": "Silicon-photonics interposer (alternative architecture)", "exposure": "DIRECT alternative" },
-            { "ticker": "TSEM", "role": "Foundry-as-a-service for silicon photonics", "exposure": "alt architecture foundry" }
+            {
+              "ticker": "LITE",
+              "role": "InP PIC fab (Lumentum)",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "COHR",
+              "role": "InP PIC fab + telecom photonics",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "POET",
+              "role": "Silicon-photonics interposer (alternative architecture)",
+              "exposure": "DIRECT alternative"
+            },
+            {
+              "ticker": "TSEM",
+              "role": "Foundry-as-a-service for silicon photonics",
+              "exposure": "alt architecture foundry"
+            }
           ],
-          "key_caveat": "InP fab yields historically lag silicon CMOS — disclosed indirectly via gross margin trends."
+          "key_caveat": "InP fab yields historically lag silicon CMOS \u2014 disclosed indirectly via gross margin trends."
         },
         {
           "step": 4,
           "name": "Dicing, test, yield",
-          "bottleneck": "TEST THROUGHPUT — optical test slower than CMOS electrical probing (fiber alignment + power measurement). InP brittleness raises edge-defect risk. Test capacity gates shipments during demand surges.",
+          "bottleneck": "TEST THROUGHPUT \u2014 optical test slower than CMOS electrical probing (fiber alignment + power measurement). InP brittleness raises edge-defect risk. Test capacity gates shipments during demand surges.",
           "tickers": [
-            { "ticker": "AEHR", "role": "Optical burn-in test systems (FOX-NP for photonic ICs)", "exposure": "DIRECT pure-play on photonics test" },
-            { "ticker": "COHU", "role": "Compound-semi test + handlers", "exposure": "DIRECT" },
-            { "ticker": "CAMT", "role": "Inspection/metrology incl. compound-semi", "exposure": "DIRECT" },
-            { "ticker": "ONTO", "role": "Wafer/PIC metrology + advanced-packaging inspection", "exposure": "DIRECT" },
-            { "ticker": "KEYS", "role": "Optical/RF test instrumentation", "exposure": "DIRECT broadest" },
-            { "ticker": "MKSI", "role": "Plasma etch chemistry, vacuum, photonics process control", "exposure": "DIRECT process tools" }
+            {
+              "ticker": "AEHR",
+              "role": "Optical burn-in test systems (FOX-NP for photonic ICs)",
+              "exposure": "DIRECT pure-play on photonics test"
+            },
+            {
+              "ticker": "COHU",
+              "role": "Compound-semi test + handlers",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "CAMT",
+              "role": "Inspection/metrology incl. compound-semi",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "ONTO",
+              "role": "Wafer/PIC metrology + advanced-packaging inspection",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "KEYS",
+              "role": "Optical/RF test instrumentation",
+              "exposure": "DIRECT broadest"
+            },
+            {
+              "ticker": "MKSI",
+              "role": "Plasma etch chemistry, vacuum, photonics process control",
+              "exposure": "DIRECT process tools"
+            }
           ],
           "key_caveat": "AEHR is the most levered to AI-photonics test specifically (FOX-NP for VCSEL/PIC burn-in)."
         },
         {
           "step": 5,
           "name": "Component assembly + hermetic packaging",
-          "bottleneck": "PRECISION ALIGNMENT — single-mode fiber requires <1 µm tolerance with active alignment under live optical monitoring. Hermetic sealing (laser welding, He leak test) is throughput-limited. Hermetic package/Kovar/feedthrough supply gates final shipment AFTER most cost is incurred.",
+          "bottleneck": "PRECISION ALIGNMENT \u2014 single-mode fiber requires <1 \u00b5m tolerance with active alignment under live optical monitoring. Hermetic sealing (laser welding, He leak test) is throughput-limited. Hermetic package/Kovar/feedthrough supply gates final shipment AFTER most cost is incurred.",
           "tickers": [
-            { "ticker": "FN", "role": "Fabrinet — contract manufacturer for optical assembly + hermetic packaging at scale", "exposure": "DIRECT — captures per-unit assembly fee for most major OEMs (COHR/LITE/CIEN/NVDA optical engines)" },
-            { "ticker": "JBL", "role": "Jabil — high-volume electronics + optical module assembly", "exposure": "DIRECT volume play" }
+            {
+              "ticker": "FN",
+              "role": "Fabrinet \u2014 contract manufacturer for optical assembly + hermetic packaging at scale",
+              "exposure": "DIRECT \u2014 captures per-unit assembly fee for most major OEMs (COHR/LITE/CIEN/NVDA optical engines)"
+            },
+            {
+              "ticker": "JBL",
+              "role": "Jabil \u2014 high-volume electronics + optical module assembly",
+              "exposure": "DIRECT volume play"
+            }
           ],
-          "key_caveat": "Hermetic ceramic/Kovar housing supply is a hidden choke point — niche specialty suppliers, not publicly tracked."
+          "key_caveat": "Hermetic ceramic/Kovar housing supply is a hidden choke point \u2014 niche specialty suppliers, not publicly tracked."
         },
         {
           "step": 6,
           "name": "Transceiver module (optics + high-speed electronics)",
-          "bottleneck": "SYSTEM TEST + DSP integration — coherent test time + multi-temperature calibration. Module test capacity gates shipments even when die supply exists.",
+          "bottleneck": "SYSTEM TEST + DSP integration \u2014 coherent test time + multi-temperature calibration. Module test capacity gates shipments even when die supply exists.",
           "tickers": [
-            { "ticker": "COHR", "role": "Pluggable transceiver maker", "exposure": "DIRECT" },
-            { "ticker": "LITE", "role": "Pluggable transceiver maker", "exposure": "DIRECT" },
-            { "ticker": "AAOI", "role": "High-speed pluggable specialist", "exposure": "DIRECT pure-play" },
-            { "ticker": "CIEN", "role": "Coherent modules + line systems", "exposure": "DIRECT" },
-            { "ticker": "CRDO", "role": "SerDes/AECs (electronic side of high-speed interconnect)", "exposure": "DIRECT electronic"  }
+            {
+              "ticker": "COHR",
+              "role": "Pluggable transceiver maker",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "LITE",
+              "role": "Pluggable transceiver maker",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "AAOI",
+              "role": "High-speed pluggable specialist",
+              "exposure": "DIRECT pure-play"
+            },
+            {
+              "ticker": "CIEN",
+              "role": "Coherent modules + line systems",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "CRDO",
+              "role": "SerDes/AECs (electronic side of high-speed interconnect)",
+              "exposure": "DIRECT electronic"
+            }
           ],
-          "key_caveat": "Coherent (COHR) is the broadest single bet — substrates + epi + PIC + module all in-house."
+          "key_caveat": "Coherent (COHR) is the broadest single bet \u2014 substrates + epi + PIC + module all in-house."
         },
         {
           "step": "6A",
           "name": "Co-Packaged Optics (CPO)",
-          "bottleneck": "RELOCATION OF BOTTLENECKS — optical engines move into the same package as switch ASIC/GPU. Yield coupling: an optical fail scraps an expensive electronic package. Test access constrained, fiber attach must survive reflow profiles. Bottleneck migrates from module final test → wafer-level/package-level test + fiber attach.",
+          "bottleneck": "RELOCATION OF BOTTLENECKS \u2014 optical engines move into the same package as switch ASIC/GPU. Yield coupling: an optical fail scraps an expensive electronic package. Test access constrained, fiber attach must survive reflow profiles. Bottleneck migrates from module final test \u2192 wafer-level/package-level test + fiber attach.",
           "tickers": [
-            { "ticker": "MTSI", "role": "Compound-semi components for CPO", "exposure": "DIRECT" },
-            { "ticker": "POET", "role": "Silicon-photonics interposer designed for CPO", "exposure": "DIRECT pure-play" },
-            { "ticker": "TSEM", "role": "Silicon photonics foundry for CPO partners", "exposure": "DIRECT foundry" },
-            { "ticker": "AVGO", "role": "Switch ASIC + co-packaged optics (Tomahawk 5/6 + CPO variants)", "exposure": "INTEGRATED demand pull" },
-            { "ticker": "NVDA", "role": "Spectrum-X/NVLink CPO roadmap (silicon photonics inside switches)", "exposure": "INTEGRATED demand pull" }
+            {
+              "ticker": "MTSI",
+              "role": "Compound-semi components for CPO",
+              "exposure": "DIRECT"
+            },
+            {
+              "ticker": "POET",
+              "role": "Silicon-photonics interposer designed for CPO",
+              "exposure": "DIRECT pure-play"
+            },
+            {
+              "ticker": "TSEM",
+              "role": "Silicon photonics foundry for CPO partners",
+              "exposure": "DIRECT foundry"
+            },
+            {
+              "ticker": "AVGO",
+              "role": "Switch ASIC + co-packaged optics (Tomahawk 5/6 + CPO variants)",
+              "exposure": "INTEGRATED demand pull"
+            },
+            {
+              "ticker": "NVDA",
+              "role": "Spectrum-X/NVLink CPO roadmap (silicon photonics inside switches)",
+              "exposure": "INTEGRATED demand pull"
+            }
           ],
-          "key_caveat": "CPO doesn't shrink the supply chain — it shifts where the value/risk concentrates (advanced packaging, test, fiber attach)."
+          "key_caveat": "CPO doesn't shrink the supply chain \u2014 it shifts where the value/risk concentrates (advanced packaging, test, fiber attach)."
         },
         {
           "step": 7,
           "name": "Fiber + connector deployment",
-          "bottleneck": "FIBER PURITY + CONNECTOR PRECISION — preforms with ppb impurity levels, draw control. Single-mode fiber MFD ~9 µm with attenuation targets ≤0.4 dB/km. Connectorization, ferrule polishing, cleaning regimes scale with rack/row fiber count.",
+          "bottleneck": "FIBER PURITY + CONNECTOR PRECISION \u2014 preforms with ppb impurity levels, draw control. Single-mode fiber MFD ~9 \u00b5m with attenuation targets \u22640.4 dB/km. Connectorization, ferrule polishing, cleaning regimes scale with rack/row fiber count.",
           "tickers": [
-            { "ticker": "GLW", "role": "Corning — dominant single-mode fiber maker + bare fiber + connectors", "exposure": "DIRECT volume + price leverage" },
-            { "ticker": "COMM", "role": "CommScope — connectivity + cabling", "exposure": "DIRECT" }
+            {
+              "ticker": "GLW",
+              "role": "Corning \u2014 dominant single-mode fiber maker + bare fiber + connectors",
+              "exposure": "DIRECT volume + price leverage"
+            },
+            {
+              "ticker": "COMM",
+              "role": "CommScope \u2014 connectivity + cabling",
+              "exposure": "DIRECT"
+            }
           ],
-          "key_caveat": "AI rack architecture (GPU-scale fabrics) raises fiber count per rack — shifts value to bulk fiber/jumper supply."
+          "key_caveat": "AI rack architecture (GPU-scale fabrics) raises fiber count per rack \u2014 shifts value to bulk fiber/jumper supply."
         }
       ],
       "value_capture_map": {
         "highest_margin_choke_points": [
-          "Test capacity (AEHR / COHU / CAMT / ONTO / KEYS) — gates shipments, hard to scale fast",
-          "Hermetic packaging + alignment (FN as the scale player) — late-stage gate, high inventory cost if blocked",
-          "InP substrates at 6-inch (COHR / AXTI) — first-mover wins multi-year qualification cycle",
-          "Vertically integrated photonics (COHR) — captures end-to-end value from substrate to module"
+          "Test capacity (AEHR / COHU / CAMT / ONTO / KEYS) \u2014 gates shipments, hard to scale fast",
+          "Hermetic packaging + alignment (FN as the scale player) \u2014 late-stage gate, high inventory cost if blocked",
+          "InP substrates at 6-inch (COHR / AXTI) \u2014 first-mover wins multi-year qualification cycle",
+          "Vertically integrated photonics (COHR) \u2014 captures end-to-end value from substrate to module"
         ],
         "highest_demand_pull": [
           "AVGO + NVDA force CPO TAM into existence by integrating optics into their packages",
-          "Hyperscalers (per linked notes) commit multi-year contracts ⇒ supply gets pre-booked"
+          "Hyperscalers (per linked notes) commit multi-year contracts \u21d2 supply gets pre-booked"
         ],
         "structural_winners": [
-          "FN (Fabrinet) — every transceiver assembled at scale passes through them; pricing power as bottleneck",
-          "COHR — only US-listed name with substrate + epi + PIC + module all in-house",
-          "AEHR — only pure-play optical burn-in test maker; AI photonics ramp = direct revenue",
-          "GLW — fiber demand scales with rack fiber count; AI cluster builds raise per-rack fiber count materially"
+          "FN (Fabrinet) \u2014 every transceiver assembled at scale passes through them; pricing power as bottleneck",
+          "COHR \u2014 only US-listed name with substrate + epi + PIC + module all in-house",
+          "AEHR \u2014 only pure-play optical burn-in test maker; AI photonics ramp = direct revenue",
+          "GLW \u2014 fiber demand scales with rack fiber count; AI cluster builds raise per-rack fiber count materially"
         ],
         "structural_risks": [
-          "AAOI / pluggable specialists — CPO long-term threatens pluggable TAM",
-          "Pure-play silicon photonics (POET) — execution risk if heterogeneous integration timeline slips",
-          "Indium price-spike risk → all InP-dependent margins compress in unison"
+          "AAOI / pluggable specialists \u2014 CPO long-term threatens pluggable TAM",
+          "Pure-play silicon photonics (POET) \u2014 execution risk if heterogeneous integration timeline slips",
+          "Indium price-spike risk \u2192 all InP-dependent margins compress in unison"
         ]
       },
       "lead_lag": {
-        "leading": ["AVGO", "NVDA", "MSFT", "META", "GOOGL", "AMZN"],
-        "lagging": ["FN", "COHR", "LITE", "AEHR", "CAMT", "ONTO", "KEYS", "GLW", "AAOI", "CRDO", "MTSI", "AXTI"],
+        "leading": [
+          "AVGO",
+          "NVDA",
+          "MSFT",
+          "META",
+          "GOOGL",
+          "AMZN"
+        ],
+        "lagging": [
+          "FN",
+          "COHR",
+          "LITE",
+          "AEHR",
+          "CAMT",
+          "ONTO",
+          "KEYS",
+          "GLW",
+          "AAOI",
+          "CRDO",
+          "MTSI",
+          "AXTI"
+        ],
         "horizon": "2026-2028 multi-year",
         "rationale": "Hyperscaler/integrator capex commitments (per linked notes) flow downstream through multi-year photonics ramps. Substrate scaling alone is a 2-4 year cycle. Photonics suppliers benefit on a 1-4Q lag from each capex commitment milestone."
       },
       "trade_setup": [
-        "Pure-play test bench: AEHR + ONTO + CAMT — gate function for AI photonics ramp; LRCX/AMAT may not capture this since it's test/inspection not deposition.",
-        "Vertically integrated photonics: COHR — substrates + epi + PIC + module + 6-inch InP fab announced. Best single-name expression.",
-        "Fabrinet (FN) — the assembly bottleneck owner. Scales with whoever wins downstream module share.",
-        "GLW — fiber + connector volumes scale with rack fiber count, less cyclical than module ASPs.",
+        "Pure-play test bench: AEHR + ONTO + CAMT \u2014 gate function for AI photonics ramp; LRCX/AMAT may not capture this since it's test/inspection not deposition.",
+        "Vertically integrated photonics: COHR \u2014 substrates + epi + PIC + module + 6-inch InP fab announced. Best single-name expression.",
+        "Fabrinet (FN) \u2014 the assembly bottleneck owner. Scales with whoever wins downstream module share.",
+        "GLW \u2014 fiber + connector volumes scale with rack fiber count, less cyclical than module ASPs.",
         "Pair: long FN/COHR/AEHR vs short pluggable-only specialists (AAOI) on CPO transition risk."
       ],
       "caveats": [
-        "Foreign tickers (5802.T Sumitomo Electric, IQE.L IQE plc) are the dominant external substrate/epi suppliers — not in FMP live feed.",
-        "Hermetic packaging suppliers are mostly private/niche — opportunity but not directly tradeable.",
+        "Foreign tickers (5802.T Sumitomo Electric, IQE.L IQE plc) are the dominant external substrate/epi suppliers \u2014 not in FMP live feed.",
+        "Hermetic packaging suppliers are mostly private/niche \u2014 opportunity but not directly tradeable.",
         "InP yield trajectory rarely disclosed; infer from gross margin trends in COHR/LITE quarterlies.",
-        "CPO economics depend on advanced-packaging cost curves at TSMC/Intel — supply chain risk if packaging capacity slips.",
+        "CPO economics depend on advanced-packaging cost curves at TSMC/Intel \u2014 supply chain risk if packaging capacity slips.",
         "Indium price/supply shock would compress margins across all InP names simultaneously; consider as systemic risk, not idiosyncratic."
       ],
       "linked_notes": [
@@ -1076,15 +2431,21 @@
       "id": "sive-apple-silicon-photonics-2026-04-30",
       "date": "2026-04-30",
       "type": "speculative_thesis",
-      "headline": "SIVE (Sivers Semiconductors) likely Apple silicon-photonics supplier — undiscovered alpha on a foreign-listed name",
-      "primary_tickers": ["SIVE-B.ST"],
+      "headline": "SIVE (Sivers Semiconductors) likely Apple silicon-photonics supplier \u2014 undiscovered alpha on a foreign-listed name",
+      "primary_tickers": [
+        "SIVE-B.ST"
+      ],
       "primary_label": "Sivers Semiconductors (Stockholm)",
       "derivative_tickers": [
         "AAPL",
         "JBL",
         "AYAR_PRIVATE",
-        "COHR", "LITE", "AAOI",
-        "MTSI", "POET", "TSEM"
+        "COHR",
+        "LITE",
+        "AAOI",
+        "MTSI",
+        "POET",
+        "TSEM"
       ],
       "themes_implicated": [
         "Optical Components",
@@ -1103,7 +2464,7 @@
         {
           "data_point": "Customer category",
           "value": "'US Fortune 100' (per SIVE disclosure)",
-          "implication": "Narrows the suspect list dramatically — most US Fortune 100 names don't manufacture wearables at all, let alone 50M/yr."
+          "implication": "Narrows the suspect list dramatically \u2014 most US Fortune 100 names don't manufacture wearables at all, let alone 50M/yr."
         },
         {
           "data_point": "Comparable manufacturer scale",
@@ -1118,45 +2479,45 @@
         {
           "data_point": "Timeline",
           "value": "Ramp guidance points to H2 2027 / H1 2028",
-          "implication": "Matches Apple's typical 18-24 month silicon-to-product cycle — early 2027 RFQ → late 2027 design lock → 2028 launch."
+          "implication": "Matches Apple's typical 18-24 month silicon-to-product cycle \u2014 early 2027 RFQ \u2192 late 2027 design lock \u2192 2028 launch."
         }
       ],
       "alternative_explanations": [
         {
           "candidate": "Ayar Labs (private)",
-          "fit": "Possible — Ayar does silicon-photonics for compute interconnect, but volume profile (50M consumer units/yr) doesn't match Ayar's datacenter focus. Lower probability."
+          "fit": "Possible \u2014 Ayar does silicon-photonics for compute interconnect, but volume profile (50M consumer units/yr) doesn't match Ayar's datacenter focus. Lower probability."
         },
         {
           "candidate": "Jabil (JBL)",
-          "fit": "Possible — JBL is a contract manufacturer that consumes photonics components for various downstream customers. But JBL itself wouldn't issue an RFQ for consumer-wearable volumes; the end customer would. JBL might be an integration partner for the Apple → SIVE pipeline."
+          "fit": "Possible \u2014 JBL is a contract manufacturer that consumes photonics components for various downstream customers. But JBL itself wouldn't issue an RFQ for consumer-wearable volumes; the end customer would. JBL might be an integration partner for the Apple \u2192 SIVE pipeline."
         },
         {
           "candidate": "Other US Fortune 100 wearable",
-          "fit": "Low — Fitbit (Google), Garmin, etc. are well below the 50M/yr volume threshold."
+          "fit": "Low \u2014 Fitbit (Google), Garmin, etc. are well below the 50M/yr volume threshold."
         }
       ],
       "implications": [
         "If thesis is correct: SIVE re-rates significantly when ramp is publicly confirmed (likely 2026-2027 product event or supplier disclosure during AAPL keynote).",
-        "Apple's silicon-photonics adoption in consumer wearables is a structural validation of the broader CPO/silicon-photonics thesis — moves the story from 'AI datacenter only' to 'consumer scale economics.'",
+        "Apple's silicon-photonics adoption in consumer wearables is a structural validation of the broader CPO/silicon-photonics thesis \u2014 moves the story from 'AI datacenter only' to 'consumer scale economics.'",
         "Mass-market photonic IC volume drives down per-unit costs across the supply chain, indirectly benefiting datacenter photonics suppliers (COHR, LITE, AAOI) on shared learning curves.",
         "TSEM (Tower Semi) and POET could see demand pull from Sivers' wafer needs if Sivers chose them as foundry partners."
       ],
       "trade_setup": [
         "Direct: long SIVE-B.ST on Stockholm (Avanza/Nordnet via IBKR for US investors). Foreign-listing premium for early access.",
-        "Indirect: long the silicon-photonics foundry bench (TSEM, POET) as 'who fabs Sivers' wafers' speculation — second-derivative.",
-        "Hedge: AAPL itself as a partial hedge — if the SIVE thesis fails (different supplier picked), AAPL likely still ships the wearable, so direct exposure is offset."
+        "Indirect: long the silicon-photonics foundry bench (TSEM, POET) as 'who fabs Sivers' wafers' speculation \u2014 second-derivative.",
+        "Hedge: AAPL itself as a partial hedge \u2014 if the SIVE thesis fails (different supplier picked), AAPL likely still ships the wearable, so direct exposure is offset."
       ],
       "caveats": [
         "FOREIGN LISTING: SIVE-B.ST trades in Stockholm, won't surface in SUBFLOW or any US live-feed. Liquidity is thin; spreads can be wide.",
         "SPECULATIVE: customer identity has not been publicly confirmed by either Apple or Sivers. Pattern-match could be wrong.",
         "Timing risk: H2 2027 / H1 2028 is 18-24 months out. Capital tied up; opportunity cost matters.",
-        "Apple supplier risk: even with an RFQ, Apple is famous for second-sourcing or switching suppliers late in development. RFQ ≠ design win.",
+        "Apple supplier risk: even with an RFQ, Apple is famous for second-sourcing or switching suppliers late in development. RFQ \u2260 design win.",
         "If proven wrong (different Fortune 100 customer, e.g., Ayar/Jabil), thesis still has photonics-volume-validation value but stock-specific catalyst weakens."
       ],
       "monitoring_signals": [
         "Sivers public disclosures around customer identity, capacity expansion, design wins.",
         "AAPL component-supplier news (typically leaks via Bloomberg/Nikkei 6-12 months pre-launch).",
-        "Apple Watch teardown coverage (iFixit / Wccftech) post-launch — reveals optical sensor architecture.",
+        "Apple Watch teardown coverage (iFixit / Wccftech) post-launch \u2014 reveals optical sensor architecture.",
         "Carnegie/Pareto research updates on Sivers (Swedish broker coverage)."
       ],
       "linked_notes": [
@@ -1170,20 +2531,55 @@
       "id": "ai-infra-state-of-play-2026-05-02",
       "date": "2026-05-02",
       "type": "thesis_update",
-      "headline": "AI infra state of play: Energy = primary conviction · copper-to-optics = highest-conviction networking · Memory = secular not cyclical",
+      "headline": "AI infra state of play: Energy = primary conviction \u00b7 copper-to-optics = highest-conviction networking \u00b7 Memory = secular not cyclical",
       "primary_tickers": [
-        "BE", "GEV", "VRT", "IREN",
-        "LITE", "AAOI", "COHR", "FN", "AEHR",
-        "MU", "SNDK"
+        "BE",
+        "GEV",
+        "VRT",
+        "IREN",
+        "LITE",
+        "AAOI",
+        "COHR",
+        "FN",
+        "AEHR",
+        "MU",
+        "SNDK"
       ],
       "derivative_tickers": [
-        "VST", "CEG", "TLN", "NEE", "OKLO", "SMR", "NNE", "BWXT",
-        "ETN", "EME", "PWR", "MYRG", "PRIM",
-        "DLR", "EQIX", "MOD", "NVT", "CARR",
-        "MTSI", "POET", "TSEM", "CRDO", "MRVL", "ALAB",
-        "FORM", "AMKR", "ONTO", "CAMT", "KEYS",
-        "WDC", "STX",
-        "AVGO", "NVDA", "AMD"
+        "VST",
+        "CEG",
+        "TLN",
+        "NEE",
+        "OKLO",
+        "SMR",
+        "NNE",
+        "BWXT",
+        "ETN",
+        "EME",
+        "PWR",
+        "MYRG",
+        "PRIM",
+        "DLR",
+        "EQIX",
+        "MOD",
+        "NVT",
+        "CARR",
+        "MTSI",
+        "POET",
+        "TSEM",
+        "CRDO",
+        "MRVL",
+        "ALAB",
+        "FORM",
+        "AMKR",
+        "ONTO",
+        "CAMT",
+        "KEYS",
+        "WDC",
+        "STX",
+        "AVGO",
+        "NVDA",
+        "AMD"
       ],
       "themes_implicated": [
         "Independent Power Producers (IPP)",
@@ -1204,54 +2600,89 @@
           "id": "energy-primary-conviction",
           "title": "AI Energy is the primary conviction play",
           "argument": "Power is THE defining constraint of the AI buildout, not compute. Hyperscalers acknowledged 'power-and-compute constrained' in unison; compute side has visible relief paths (CoWoS expansion, foundry capex, custom silicon). Power side is structurally bounded by permitting + interconnect + grid construction cycles measured in YEARS not quarters. Allocations rotating beyond accelerators/networking into the energy stack.",
-          "primary_tickers": ["BE", "GEV", "VRT", "IREN"],
-          "trade_setup": [
-            "BE — on-site fuel cells bypass interconnect queue; relief-valve trade with shorter timeline than IPP/nuclear",
-            "GEV — grid equipment (transformers, switchgear) front-runs IPP capex",
-            "VRT — datacenter cooling + power conditioning; structural beneficiary of high-density AI racks",
-            "IREN — 'power-secured site' compute play (neocloud overlap with energy thesis — they own the substations)"
+          "primary_tickers": [
+            "BE",
+            "GEV",
+            "VRT",
+            "IREN"
           ],
-          "links_to": ["hyperscaler-power-compute-constrained-2026-q1"],
-          "extension_note": "Reframes the prior 'EARLY cycle phase' read on Power as structurally MORE important than compute — not just earlier in the cycle but a bigger pool of capital."
+          "trade_setup": [
+            "BE \u2014 on-site fuel cells bypass interconnect queue; relief-valve trade with shorter timeline than IPP/nuclear",
+            "GEV \u2014 grid equipment (transformers, switchgear) front-runs IPP capex",
+            "VRT \u2014 datacenter cooling + power conditioning; structural beneficiary of high-density AI racks",
+            "IREN \u2014 'power-secured site' compute play (neocloud overlap with energy thesis \u2014 they own the substations)"
+          ],
+          "links_to": [
+            "hyperscaler-power-compute-constrained-2026-q1"
+          ],
+          "extension_note": "Reframes the prior 'EARLY cycle phase' read on Power as structurally MORE important than compute \u2014 not just earlier in the cycle but a bigger pool of capital."
         },
         {
           "id": "copper-to-optics-transition",
           "title": "Copper-to-optics is the highest-conviction networking theme",
-          "argument": "At 800G+ lane rates, copper interconnect loss + retiming complexity hits a wall. Silicon photonics, EML (externally modulated laser) lasers, and co-packaged optics are the only path forward. Most investors can't name the names — that's where the alpha is. Multi-year transition because every hyperscaler design needs to qualify the new optical engines.",
-          "primary_tickers": ["LITE", "AAOI", "COHR", "FN", "AEHR"],
+          "argument": "At 800G+ lane rates, copper interconnect loss + retiming complexity hits a wall. Silicon photonics, EML (externally modulated laser) lasers, and co-packaged optics are the only path forward. Most investors can't name the names \u2014 that's where the alpha is. Multi-year transition because every hyperscaler design needs to qualify the new optical engines.",
+          "primary_tickers": [
+            "LITE",
+            "AAOI",
+            "COHR",
+            "FN",
+            "AEHR"
+          ],
           "speculative_picks": [
-            "SIVE-B.ST (Sivers Semiconductors) — Stockholm-listed silicon-photonics alpha, see sive-apple-silicon-photonics note",
-            "IQE.L (IQE plc) — London-listed dominant external epi house for compound semis; not US-tradeable but strategically critical"
+            "SIVE-B.ST (Sivers Semiconductors) \u2014 Stockholm-listed silicon-photonics alpha, see sive-apple-silicon-photonics note",
+            "IQE.L (IQE plc) \u2014 London-listed dominant external epi house for compound semis; not US-tradeable but strategically critical"
           ],
           "us_tradeable_substitutes": [
             "POET (silicon photonics interposer)",
-            "TSEM (silicon photonics foundry — Tower Semi)",
+            "TSEM (silicon photonics foundry \u2014 Tower Semi)",
             "MTSI (compound semis for CPO)"
           ],
-          "links_to": ["photonics-supply-chain-2026-04-30", "viav-form-2026-q1", "sive-apple-silicon-photonics-2026-04-30"],
-          "extension_note": "Sharpens the prior photonics thesis: the COPPER → OPTICS transition itself is the alpha, not just the test/inspection bottleneck. EML lasers + silicon photonics are the secular shift."
+          "links_to": [
+            "photonics-supply-chain-2026-04-30",
+            "viav-form-2026-q1",
+            "sive-apple-silicon-photonics-2026-04-30"
+          ],
+          "extension_note": "Sharpens the prior photonics thesis: the COPPER \u2192 OPTICS transition itself is the alpha, not just the test/inspection bottleneck. EML lasers + silicon photonics are the secular shift."
         },
         {
           "id": "memory-secular-not-cyclical",
-          "title": "AI Memory is no longer cyclical — it's secular",
-          "argument": "Samsung disclosed 2027 demand pre-booked. SNDK Q3 print: 78% GM, $11B in customer financial guarantees. Today's signal: supply constrained through 2028 (extending Samsung's 2027 read by another year). Demand accelerating faster than any model projected. The historical NAND/DRAM cycle (peak → reversion → trough → recovery) is broken because AI inference creates a permanent floor on demand that doesn't unwind on a price reset.",
-          "primary_tickers": ["MU", "SNDK"],
-          "derivative_winners": ["FORM", "AMKR", "ONTO", "CAMT", "KEYS", "LRCX", "AMAT"],
-          "losers_relative": ["WDC", "STX"],
-          "links_to": ["samsung-2027-prebooked-2026-q1", "sndk-q3-fy2026-2026-04-30", "amzn-memory-skyrocketed-2026-q1"],
-          "extension_note": "Updates the horizon from 'multi-year' to 'through 2028.' The structural reframing matters for valuation — secular memory deserves a tech-platform multiple, not a cyclical commodity multiple. MU/SNDK should re-rate higher when the market accepts this."
+          "title": "AI Memory is no longer cyclical \u2014 it's secular",
+          "argument": "Samsung disclosed 2027 demand pre-booked. SNDK Q3 print: 78% GM, $11B in customer financial guarantees. Today's signal: supply constrained through 2028 (extending Samsung's 2027 read by another year). Demand accelerating faster than any model projected. The historical NAND/DRAM cycle (peak \u2192 reversion \u2192 trough \u2192 recovery) is broken because AI inference creates a permanent floor on demand that doesn't unwind on a price reset.",
+          "primary_tickers": [
+            "MU",
+            "SNDK"
+          ],
+          "derivative_winners": [
+            "FORM",
+            "AMKR",
+            "ONTO",
+            "CAMT",
+            "KEYS",
+            "LRCX",
+            "AMAT"
+          ],
+          "losers_relative": [
+            "WDC",
+            "STX"
+          ],
+          "links_to": [
+            "samsung-2027-prebooked-2026-q1",
+            "sndk-q3-fy2026-2026-04-30",
+            "amzn-memory-skyrocketed-2026-q1"
+          ],
+          "extension_note": "Updates the horizon from 'multi-year' to 'through 2028.' The structural reframing matters for valuation \u2014 secular memory deserves a tech-platform multiple, not a cyclical commodity multiple. MU/SNDK should re-rate higher when the market accepts this."
         }
       ],
       "trade_setup_summary": [
         "REWEIGHT: shift conviction from compute-side (NVDA/AVGO/etc) toward energy-side (BE/GEV/VRT/IREN). Compute has relief paths; power is structurally bounded.",
-        "ADD: photonics secular winners (LITE/AAOI/COHR/FN/AEHR) on copper→optics transition. Sub-bench: POET/TSEM/MTSI as architectural alpha.",
-        "EXTEND HOLD: memory cohort (MU/SNDK) into 2027-2028. Don't trim on cycle-peak fears — the cycle is broken.",
+        "ADD: photonics secular winners (LITE/AAOI/COHR/FN/AEHR) on copper\u2192optics transition. Sub-bench: POET/TSEM/MTSI as architectural alpha.",
+        "EXTEND HOLD: memory cohort (MU/SNDK) into 2027-2028. Don't trim on cycle-peak fears \u2014 the cycle is broken.",
         "WATCH: SIVE (foreign) for silicon photonics confirmation; signs of widespread CPO adoption in 2026 H2."
       ],
       "caveats": [
-        "Energy thesis kill: AI ROI miss → hyperscaler capex pulled back → power demand assumptions cut. Watch META/MSFT capex guides.",
+        "Energy thesis kill: AI ROI miss \u2192 hyperscaler capex pulled back \u2192 power demand assumptions cut. Watch META/MSFT capex guides.",
         "Copper-to-optics kill: CPO timeline slips by 12+ months (qualification or yield issues). AAOI most exposed if pluggable TAM compresses faster than expected.",
-        "Memory secular kill: hyperscaler concentration risk — $11B in SNDK guarantees from 3-5 customers. Bilateral risk.",
+        "Memory secular kill: hyperscaler concentration risk \u2014 $11B in SNDK guarantees from 3-5 customers. Bilateral risk.",
         "All three theses share a common kill: AI infrastructure capex revision down."
       ],
       "linked_notes": [
@@ -1266,20 +2697,34 @@
         "googl-vertical-ai-stack-2026-q1",
         "sive-apple-silicon-photonics-2026-04-30"
       ],
-      "source": "Discord / personal note — thesis state-of-play update"
+      "source": "Discord / personal note \u2014 thesis state-of-play update"
     },
     {
       "id": "cpo-goldman-supercycle-2026-05-03",
       "date": "2026-05-03",
       "type": "macro_thesis",
-      "headline": "Goldman Sachs: optical networking TAM 9x to $154B — CPO alone $91B. 142% CAGR 2026–2030. Frontrunning the optical supercycle.",
-      "primary_tickers": ["LITE", "COHR", "AAOI", "CIEN", "VIAV", "AVGO", "NVDA"],
-      "derivative_tickers": ["TSEM", "MTSI", "FN", "CRDO", "POET"],
+      "headline": "Goldman Sachs: optical networking TAM 9x to $154B \u2014 CPO alone $91B. 142% CAGR 2026\u20132030. Frontrunning the optical supercycle.",
+      "primary_tickers": [
+        "LITE",
+        "COHR",
+        "AAOI",
+        "CIEN",
+        "VIAV",
+        "AVGO",
+        "NVDA"
+      ],
+      "derivative_tickers": [
+        "TSEM",
+        "MTSI",
+        "FN",
+        "CRDO",
+        "POET"
+      ],
       "speculative_pure_plays": [
-        "SIVE-B.ST (Sivers Semiconductors) — 2µm laser supplier, no 800G pluggable exposure, bleeding-edge CPO",
-        "MSSCorps — CPO yield play",
-        "Shunsin — CPO packaging play",
-        "Win Semi — CPO foundry (III-V on silicon)"
+        "SIVE-B.ST (Sivers Semiconductors) \u2014 2\u00b5m laser supplier, no 800G pluggable exposure, bleeding-edge CPO",
+        "MSSCorps \u2014 CPO yield play",
+        "Shunsin \u2014 CPO packaging play",
+        "Win Semi \u2014 CPO foundry (III-V on silicon)"
       ],
       "themes_implicated": [
         "Co-Packaged Optics",
@@ -1294,57 +2739,132 @@
         "total_optical_TAM_today": "$15B",
         "total_optical_TAM_target": "$154B (9x expansion)",
         "CPO_contribution": "$91B (59% of total TAM)",
-        "CPO_CAGR_2026_2030": "142% (excl. ELS — embedded laser source)",
+        "CPO_CAGR_2026_2030": "142% (excl. ELS \u2014 embedded laser source)",
         "scale_up_inflection": "Scale-up CPO surpasses scale-out before 2030 and becomes dominant market",
         "goldman_eps_callout": "Significant EPS upside expected across: (1) optical modules/engines, (2) CW lasers and EMLs, (3) PCB/CCL manufacturers"
       },
       "goldman_supply_chain_map": {
         "laser_light_sources_SiPh": {
-          "us_listed": ["LITE", "COHR", "AVGO", "AAOI"],
-          "foreign": ["Sumitomo (5802.T)", "Furukawa (5801.T)", "Landmark (3081.TWO)", "Etern (600105.SS)", "Everbright Photonics (688048.SS)", "Shijia Photons (688313.SS)", "Accelink (002281.SZ)", "Mitsubishi (6503.T)", "YJ Semi (688498.SS)"]
+          "us_listed": [
+            "LITE",
+            "COHR",
+            "AVGO",
+            "AAOI"
+          ],
+          "foreign": [
+            "Sumitomo (5802.T)",
+            "Furukawa (5801.T)",
+            "Landmark (3081.TWO)",
+            "Etern (600105.SS)",
+            "Everbright Photonics (688048.SS)",
+            "Shijia Photons (688313.SS)",
+            "Accelink (002281.SZ)",
+            "Mitsubishi (6503.T)",
+            "YJ Semi (688498.SS)"
+          ]
         },
         "laser_light_sources_EML": {
-          "us_listed": ["LITE", "COHR", "AVGO"],
-          "foreign": ["Sumitomo (5802.T)", "YJ Semi (688498.SS)", "Etern (600105.SS)", "Everbright Photonics (688048.SS)", "Shijia Photons (688313.SS)", "Accelink (002281.SZ)", "Furukawa (5801.T)", "Mitsubishi (6503.T)", "Source Photonics (Private)"]
+          "us_listed": [
+            "LITE",
+            "COHR",
+            "AVGO"
+          ],
+          "foreign": [
+            "Sumitomo (5802.T)",
+            "YJ Semi (688498.SS)",
+            "Etern (600105.SS)",
+            "Everbright Photonics (688048.SS)",
+            "Shijia Photons (688313.SS)",
+            "Accelink (002281.SZ)",
+            "Furukawa (5801.T)",
+            "Mitsubishi (6503.T)",
+            "Source Photonics (Private)"
+          ]
         },
         "passive_couplers_splitters": {
-          "us_listed": ["LITE", "COHR"],
-          "foreign": ["FOCI (3363.TWO)", "AFR (300620.SZ)", "Everprox (300548.SZ)", "Senko (Private)"]
+          "us_listed": [
+            "LITE",
+            "COHR"
+          ],
+          "foreign": [
+            "FOCI (3363.TWO)",
+            "AFR (300620.SZ)",
+            "Everprox (300548.SZ)",
+            "Senko (Private)"
+          ]
         },
         "passive_filters": {
-          "us_listed": ["LITE", "COHR", "VIAV"],
-          "foreign": ["Shijia Photons (688313.SS)", "Sumitomo (5802.T)", "FOCI (3363.TWO)"]
+          "us_listed": [
+            "LITE",
+            "COHR",
+            "VIAV"
+          ],
+          "foreign": [
+            "Shijia Photons (688313.SS)",
+            "Sumitomo (5802.T)",
+            "FOCI (3363.TWO)"
+          ]
         },
         "passive_WDM": {
-          "us_listed": ["CIEN", "LITE"],
-          "foreign": ["AFR (300620.SZ)", "Everprox (300548.SZ)", "Accelink (002281.SZ)", "TFC Optical (300394.SZ)", "FOCI (3363.TWO)"]
+          "us_listed": [
+            "CIEN",
+            "LITE"
+          ],
+          "foreign": [
+            "AFR (300620.SZ)",
+            "Everprox (300548.SZ)",
+            "Accelink (002281.SZ)",
+            "TFC Optical (300394.SZ)",
+            "FOCI (3363.TWO)"
+          ]
         },
         "passive_attenuators": {
-          "us_listed": ["LITE"],
-          "foreign": ["Everprox (300548.SZ)", "Accelink (002281.SZ)", "FOCI (3363.TWO)"]
+          "us_listed": [
+            "LITE"
+          ],
+          "foreign": [
+            "Everprox (300548.SZ)",
+            "Accelink (002281.SZ)",
+            "FOCI (3363.TWO)"
+          ]
         }
       },
       "lead_lag": {
-        "architecture_drivers": ["NVDA", "AVGO"],
-        "established_beneficiaries": ["LITE", "COHR", "AAOI", "CIEN", "VIAV"],
-        "pure_play_CPO_alpha": ["SIVE-B.ST", "MSSCorps", "Shunsin", "Win Semi", "TSEM"],
-        "horizon": "2026–2030 (inflection 2026 H2)",
-        "rationale": "NVDA/AVGO set the CPO architecture (NVLink, co-packaged switches). Institutional flows first hit the Goldman-named large caps (LITE/COHR/AAOI) as analysts upgrade on $91B TAM. Second wave hits undiscovered pure-plays (SIVE, MSSCorps, Shunsin) with no 800G pluggable baggage and highest CPO leverage. SIVE specifically is not on Goldman's list — that's where the alpha is.",
+        "architecture_drivers": [
+          "NVDA",
+          "AVGO"
+        ],
+        "established_beneficiaries": [
+          "LITE",
+          "COHR",
+          "AAOI",
+          "CIEN",
+          "VIAV"
+        ],
+        "pure_play_CPO_alpha": [
+          "SIVE-B.ST",
+          "MSSCorps",
+          "Shunsin",
+          "Win Semi",
+          "TSEM"
+        ],
+        "horizon": "2026\u20132030 (inflection 2026 H2)",
+        "rationale": "NVDA/AVGO set the CPO architecture (NVLink, co-packaged switches). Institutional flows first hit the Goldman-named large caps (LITE/COHR/AAOI) as analysts upgrade on $91B TAM. Second wave hits undiscovered pure-plays (SIVE, MSSCorps, Shunsin) with no 800G pluggable baggage and highest CPO leverage. SIVE specifically is not on Goldman's list \u2014 that's where the alpha is.",
         "sequencing": [
-          "1. Goldman report → analyst upgrades on LITE/COHR/AAOI",
+          "1. Goldman report \u2192 analyst upgrades on LITE/COHR/AAOI",
           "2. Institutional accumulation in established optical names",
-          "3. CPO becomes consensus → attention spreads to pure-play small caps",
+          "3. CPO becomes consensus \u2192 attention spreads to pure-play small caps",
           "4. SIVE / MSSCorps / Shunsin re-rated as next-leg highest-beta plays"
         ]
       },
-      "why_scale_up_matters": "Scale-out (800G pluggables) connects racks — maturing, commoditizing. Scale-up CPO connects GPUs within the compute cluster (NVLink / Ultra Ethernet). Pluggable physics cannot achieve the bandwidth density at these distances. Scale-up CPO is structurally protected, not a design cycle. Surpasses scale-out before 2030.",
-      "why_sive_specifically": "2µm laser wavelength has lower loss through silicon photonics waveguides vs. 1310nm — key differentiator for embedded laser sources. Zero 800G pluggable revenue means no legacy headwind. Not on Goldman's list yet, which is the setup. III-V on silicon foundry (TSEM/Win Semi) is the manufacturing bottleneck — SIVE bypasses it with purpose-built CPO laser tech.",
-      "key_risk": "ELS (embedded laser source) adoption timeline: if co-packaged laser integration slips on yield, external laser suppliers like SIVE get a longer runway but total CPO ramp may shift. Goldman's 142% CAGR excludes ELS — watch for ELS qualification news as a catalyst re-timer.",
+      "why_scale_up_matters": "Scale-out (800G pluggables) connects racks \u2014 maturing, commoditizing. Scale-up CPO connects GPUs within the compute cluster (NVLink / Ultra Ethernet). Pluggable physics cannot achieve the bandwidth density at these distances. Scale-up CPO is structurally protected, not a design cycle. Surpasses scale-out before 2030.",
+      "why_sive_specifically": "2\u00b5m laser wavelength has lower loss through silicon photonics waveguides vs. 1310nm \u2014 key differentiator for embedded laser sources. Zero 800G pluggable revenue means no legacy headwind. Not on Goldman's list yet, which is the setup. III-V on silicon foundry (TSEM/Win Semi) is the manufacturing bottleneck \u2014 SIVE bypasses it with purpose-built CPO laser tech.",
+      "key_risk": "ELS (embedded laser source) adoption timeline: if co-packaged laser integration slips on yield, external laser suppliers like SIVE get a longer runway but total CPO ramp may shift. Goldman's 142% CAGR excludes ELS \u2014 watch for ELS qualification news as a catalyst re-timer.",
       "caveats": [
-        "Most pure-play CPO names (Shunsin, MSSCorps, Win Semi) are not US-listed — no direct FMP data feed.",
-        "SIVE is Stockholm-listed (SIVE-B.ST) — won't surface in ThemePulse scan watch but track manually.",
-        "Goldman TAM assumes NVDA/AVGO architectural adoption holds — any shift back to copper-based retimers (e.g., new DSP generation) would compress the timeline.",
-        "LITE and COHR still have 800G pluggable revenue — near-term EPS could disappoint even if CPO thesis is intact."
+        "Most pure-play CPO names (Shunsin, MSSCorps, Win Semi) are not US-listed \u2014 no direct FMP data feed.",
+        "SIVE is Stockholm-listed (SIVE-B.ST) \u2014 won't surface in ThemePulse scan watch but track manually.",
+        "Goldman TAM assumes NVDA/AVGO architectural adoption holds \u2014 any shift back to copper-based retimers (e.g., new DSP generation) would compress the timeline.",
+        "LITE and COHR still have 800G pluggable revenue \u2014 near-term EPS could disappoint even if CPO thesis is intact."
       ],
       "linked_notes": [
         "ai-infra-state-of-play-2026-05-02",
