@@ -1436,6 +1436,12 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
     miss:    { icon: "▼", color: "#ef4444", bg: "rgba(239,68,68,0.16)",  border: "rgba(239,68,68,0.5)",   label: "MISS" },
   };
 
+  // Pull macro_context note for Macro Snapshot panel
+  const macro = useMemo(() => {
+    if (!notes) return null;
+    return notes.find(n => n.type === "macro_context") || null;
+  }, [notes]);
+
   const layerCount = frameworks.reduce((n, f) => n + Object.keys(f.layers).length, 0);
   const allTickers = useMemo(() => {
     const set = new Set();
@@ -1541,6 +1547,131 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
               </div>
             ))}
           </div>
+
+          {/* Macro Snapshot — hyperscaler capex + sovereign + analogue */}
+          {macro && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                <span style={{ fontSize: 8, color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>
+                  Macro Snapshot
+                </span>
+                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>2026 · hyperscaler capex · sovereign AI · historical analogue</span>
+                <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ARIA.border}, transparent)`, marginLeft: 4 }} />
+              </div>
+
+              {/* Capex KPI grid */}
+              {macro.hyperscaler_capex_2026 && (
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 2fr", gap: 6,
+                  marginBottom: 6, padding: "8px 10px", borderRadius: 6,
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(34,211,238,0.06) 100%)",
+                  border: "1px solid rgba(99,102,241,0.25)",
+                }}>
+                  <div>
+                    <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.8, fontWeight: 700, marginBottom: 2 }}>HYPERSCALER CAPEX 2026</div>
+                    <div style={{ fontSize: 22, fontFamily: "monospace", fontWeight: 800, color: "#a5b4fc", lineHeight: 1, textShadow: "0 0 12px rgba(165,180,252,0.45)" }}>
+                      ${macro.hyperscaler_capex_2026.total_billion}B
+                    </div>
+                    <div style={{ fontSize: 7, color: ARIA.textDim, fontFamily: "monospace", marginTop: 3 }}>
+                      total · {macro.hyperscaler_capex_2026.ai_allocation_pct}% AI
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.8, fontWeight: 700, marginBottom: 2 }}>YoY GROWTH</div>
+                    <div style={{ fontSize: 18, fontFamily: "monospace", fontWeight: 800, color: "#10b981", lineHeight: 1, textShadow: "0 0 10px rgba(16,185,129,0.45)" }}>
+                      +{macro.hyperscaler_capex_2026.yoy_growth_pct}%
+                    </div>
+                    <div style={{ fontSize: 7, color: ARIA.textDim, fontFamily: "monospace", marginTop: 3 }}>vs 2025</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.8, fontWeight: 700, marginBottom: 2 }}>% US GDP</div>
+                    <div style={{ fontSize: 18, fontFamily: "monospace", fontWeight: 800, color: "#22d3ee", lineHeight: 1, textShadow: "0 0 10px rgba(34,211,238,0.45)" }}>
+                      {macro.hyperscaler_capex_2026.us_gdp_share_pct}%
+                    </div>
+                    <div style={{ fontSize: 7, color: ARIA.textDim, fontFamily: "monospace", marginTop: 3 }}>of GDP</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.8, fontWeight: 700, marginBottom: 2 }}>HISTORICAL ANALOGUE</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", lineHeight: 1.1, textShadow: "0 0 8px rgba(251,191,36,0.35)" }}>
+                      Electrification 1920s
+                    </div>
+                    <div style={{ fontSize: 7, color: ARIA.textDim, fontFamily: "monospace", marginTop: 3, fontStyle: "italic" }}>
+                      {macro.hyperscaler_capex_2026.comparison}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Per-hyperscaler breakdown bars */}
+              {macro.hyperscaler_capex_2026?.breakdown && (
+                <div style={{ display: "flex", gap: 4, marginBottom: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, minWidth: 38 }}>BY CO →</span>
+                  {Object.entries(macro.hyperscaler_capex_2026.breakdown).map(([co, info]) => {
+                    const total = macro.hyperscaler_capex_2026.total_billion;
+                    const pct = (info.billion / total) * 100;
+                    const colors = { AMZN: "#f59e0b", GOOGL: "#22d3ee", META: "#6366f1", MSFT: "#10b981", other: "#6b7280" };
+                    const c = colors[co] || "#6b7280";
+                    return (
+                      <button
+                        key={co}
+                        onClick={() => co !== "other" && onTickerClick?.(co)}
+                        title={`${co}: $${info.billion}B (${pct.toFixed(0)}% of total)\n${info.note}`}
+                        style={{
+                          flex: pct, minWidth: 0,
+                          fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                          padding: "4px 6px", borderRadius: 3, cursor: co !== "other" ? "pointer" : "default",
+                          background: `linear-gradient(90deg, ${c}33 0%, ${c}11 100%)`,
+                          border: `1px solid ${c}66`,
+                          color: c,
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                          textAlign: "left",
+                        }}
+                      >
+                        {co} ${info.billion}B
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Sovereign AI tracker */}
+              {macro.sovereign_ai_programs && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                  <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, alignSelf: "center", minWidth: 38 }}>SOV AI →</span>
+                  {Object.entries(macro.sovereign_ai_programs).filter(([k]) => k !== "ticker_exposure").map(([country, info]) => (
+                    <span key={country} title={info} style={{
+                      fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                      padding: "2px 7px", borderRadius: 3,
+                      background: "rgba(168,85,247,0.10)",
+                      border: "1px solid rgba(168,85,247,0.4)",
+                      color: "#c084fc",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {country}
+                    </span>
+                  ))}
+                  {macro.sovereign_ai_programs.ticker_exposure?.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => onTickerClick?.(t)}
+                      title={`${t} · sovereign AI exposure`}
+                      className="tp-sc-pill"
+                      style={{
+                        fontSize: 10, fontFamily: "monospace", fontWeight: 700,
+                        padding: "2px 7px", borderRadius: 3, cursor: "pointer",
+                        background: "rgba(168,85,247,0.18)",
+                        border: "1px solid rgba(168,85,247,0.55)",
+                        color: "#c084fc",
+                        whiteSpace: "nowrap", lineHeight: 1.2,
+                      }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* This Week's Earnings strip */}
           {erHits.length > 0 && (
