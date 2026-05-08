@@ -3714,7 +3714,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
           <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: 7 }}>
             {/* Layer header — click to filter scan + expand chain in DrawerThemes */}
             <div
-              onClick={() => { onLayerClick && onLayerClick(r.layer, r.tickers); _drawerThemeControl.openChain?.(r.themeId); }}
+              onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
               title={`${r.theme} → ${r.layer} — click to filter scan`}
               style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
