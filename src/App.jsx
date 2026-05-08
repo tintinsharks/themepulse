@@ -3288,7 +3288,16 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName }) {
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "layers");
+  const containerRef = useRef(null);
   useEffect(() => { localStorage.setItem("tp-chain-view-mode", mode); }, [mode]);
+  // Auto-focus the active table so up/down arrows work without a click first
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const focusable = containerRef.current?.querySelector('[tabindex="0"]');
+      if (focusable && document.activeElement !== focusable) focusable.focus();
+    }, 50);
+    return () => clearTimeout(id);
+  }, [mode]);
   // Filter: Chg% > 0 — defaults ON. Stored as "1"/"0" in localStorage.
   const [posOnly, setPosOnly] = useState(() => localStorage.getItem("tp-chain-pos-only") !== "0");
   useEffect(() => { localStorage.setItem("tp-chain-pos-only", posOnly ? "1" : "0"); }, [posOnly]);
@@ -3307,7 +3316,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
     background: active ? "rgba(16,185,129,0.14)" : "transparent",
   });
   return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+    <div ref={containerRef} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", gap: 4, padding: "4px 6px", flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>VIEW</span>
         <button onClick={() => setMode("layers")} style={pillStyle(mode === "layers")}>Layers</button>
@@ -3317,6 +3326,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
           ▲ Chg{'>'}0%
         </button>
+        <span style={{ marginLeft: "auto", fontSize: 6, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4 }}>↑↓ nav · Enter</span>
       </div>
       {mode === "layers" ? (
         <ChainLayerTable
@@ -3344,6 +3354,8 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly }) {
   const ARIA = useAriaTheme();
+  const wrapRef = useRef(null);
+  const [selectedTicker, setSelectedTicker] = useState(null);
   // Build a ticker→{theme,layer} map; tickers can appear in multiple layers
   const tickerMeta = useMemo(() => {
     const map = {};
@@ -3445,8 +3457,33 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
   };
   const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
 
+  // Keyboard nav: ↑/↓ moves selection, loads chart, scrolls into table viewport
+  const visibleTickers = sorted.map(r => r.ticker);
+  useEffect(() => {
+    if (!visibleTickers.length) return;
+    if (!selectedTicker || !visibleTickers.includes(selectedTicker)) {
+      setSelectedTicker(visibleTickers[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleTickers.join(",")]);
+  const onKeyDown = useCallback((e) => {
+    if (!visibleTickers.length) return;
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const cur = selectedTicker ? visibleTickers.indexOf(selectedTicker) : -1;
+    let next = cur < 0 ? 0 : cur + (e.key === "ArrowDown" ? 1 : -1);
+    if (next < 0) next = 0;
+    if (next >= visibleTickers.length) next = visibleTickers.length - 1;
+    const t = visibleTickers[next];
+    setSelectedTicker(t);
+    suppressChainScrollOnce();
+    onTickerClick && onTickerClick(t);
+    scrollRowIntoScroller(wrapRef.current?.querySelector(`tr[data-ticker="${t}"]`));
+  }, [visibleTickers, selectedTicker, onTickerClick]);
+
   return (
-    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+    <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
+         style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto", fontFamily: "monospace" }}>
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
@@ -3468,13 +3505,15 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           {sorted.map((r) => {
             const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
             const sel = chartTicker === r.ticker;
+            const kbSel = selectedTicker === r.ticker;
             return (
               <tr
                 key={r.ticker}
-                onClick={() => { suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); }}
-                style={{ cursor: "pointer", background: sel ? `${c.color}26` : "transparent" }}
-                onMouseEnter={(e) => { if (!sel) e.currentTarget.style.background = ARIA.bgHover; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : "transparent"; }}
+                data-ticker={r.ticker}
+                onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus(); }}
+                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : "transparent", outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
+                onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = ARIA.bgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : "transparent"; }}
                 title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}`}
               >
                 <td style={{ ...cell, textAlign: "left", color: sel ? c.color : ARIA.text, fontWeight: sel ? 800 : 700 }}>
@@ -3620,6 +3659,32 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const rvColor = (v) => v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
 
+  // Keyboard nav: ↑/↓ moves selection through layer rows; Enter applies the
+  // layer filter. Each row is keyed by themeId|layer.
+  const wrapRef = useRef(null);
+  const [selIdx, setSelIdx] = useState(0);
+  const rowKeys = sorted.map(r => `${r.themeId}|${r.layer}`);
+  useEffect(() => {
+    if (selIdx >= rowKeys.length) setSelIdx(Math.max(0, rowKeys.length - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowKeys.join(",")]);
+  const onKeyDown = useCallback((e) => {
+    if (!sorted.length) return;
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "Enter") return;
+    e.preventDefault();
+    if (e.key === "Enter") {
+      const r = sorted[selIdx];
+      if (r) onLayerClick && onLayerClick(r.layer, r.tickers);
+      return;
+    }
+    let next = selIdx + (e.key === "ArrowDown" ? 1 : -1);
+    if (next < 0) next = 0;
+    if (next >= sorted.length) next = sorted.length - 1;
+    setSelIdx(next);
+    const k = `${sorted[next].themeId}|${sorted[next].layer}`;
+    scrollRowIntoScroller(wrapRef.current?.querySelector(`tr[data-rowkey="${k}"]`));
+  }, [sorted, selIdx, onLayerClick]);
+
   const Th = ({ k, label, align = "right" }) => {
     const on = sortKey === k;
     const arrow = on ? (sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -3638,7 +3703,8 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
   const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+    <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
+         style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto", fontFamily: "monospace" }}>
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
@@ -3656,14 +3722,16 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
           {sorted.map((r, i) => {
             const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
             const isActive = activeFilterName === r.layer;
+            const kbSel = selIdx === i;
             return (
               <tr
                 key={`${r.themeId}-${r.layer}-${i}`}
-                onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
-                style={{ cursor: "pointer", background: isActive ? `${c.color}26` : "transparent" }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = ARIA.bgHover; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? `${c.color}26` : "transparent"; }}
-                title={`${r.theme} → ${r.layer} — click to filter Scan to these ${r.nTickers} tickers`}
+                data-rowkey={`${r.themeId}|${r.layer}`}
+                onClick={() => { setSelIdx(i); onLayerClick && onLayerClick(r.layer, r.tickers); wrapRef.current?.focus(); }}
+                style={{ cursor: "pointer", background: isActive ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : "transparent", outline: kbSel && !isActive ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
+                onMouseEnter={(e) => { if (!isActive && !kbSel) e.currentTarget.style.background = ARIA.bgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : "transparent"; }}
+                title={`${r.theme} → ${r.layer} — click or press Enter to filter Scan to these ${r.nTickers} tickers`}
               >
                 <td style={{ ...cell, textAlign: "left" }}>
                   <span style={{
