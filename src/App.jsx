@@ -3387,6 +3387,10 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
+  const [focusTickers] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("themepulse-focus") || "[]")); }
+    catch { return new Set(); }
+  });
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
 
@@ -3584,14 +3588,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             const sel = chartTicker === r.ticker;
             const kbSel = selectedTicker === r.ticker;
             const tint = ownedTint(r.ticker, ARIA);
+            const isFocus = focusTickers.has(r.ticker);
+            const baseBg = isFocus ? "rgba(251,191,36,0.07)" : tint;
             return (
               <tr
                 key={r.ticker}
                 data-ticker={r.ticker}
                 onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus(); }}
-                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : tint, outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
-                onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = ARIA.bgHover; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : tint; }}
+                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg, borderLeft: isFocus ? "2px solid #fbbf24" : "2px solid transparent", outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
+                onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = isFocus ? "rgba(251,191,36,0.12)" : ARIA.bgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg; }}
                 title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}`}
               >
                 <td style={{ ...cell, textAlign: "left", color: sel ? c.color : ARIA.text, fontWeight: sel ? 800 : 700 }}>
