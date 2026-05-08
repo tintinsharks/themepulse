@@ -3387,10 +3387,13 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
-  const [focusTickers] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("themepulse-focus") || "[]")); }
-    catch { return new Set(); }
-  });
+  const [focusRaw, setFocusRaw] = useState(() => localStorage.getItem("themepulse-focus") || "[]");
+  useEffect(() => {
+    const onStorage = (e) => { if (e.key === "themepulse-focus") setFocusRaw(e.newValue || "[]"); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  const focusTickers = useMemo(() => { try { return new Set(JSON.parse(focusRaw)); } catch { return new Set(); } }, [focusRaw]);
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
 
@@ -3595,12 +3598,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 key={r.ticker}
                 data-ticker={r.ticker}
                 onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus(); }}
-                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg, borderLeft: isFocus ? "2px solid #fbbf24" : "2px solid transparent", outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
+                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg, outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
                 onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = isFocus ? "rgba(251,191,36,0.12)" : ARIA.bgHover; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg; }}
                 title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}`}
               >
-                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : ARIA.text, fontWeight: sel ? 800 : 700 }}>
+                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : isFocus ? "#fbbf24" : ARIA.text, fontWeight: sel || isFocus ? 800 : 700, borderLeft: isFocus ? "2px solid #fbbf24" : "2px solid transparent" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
