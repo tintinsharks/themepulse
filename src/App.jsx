@@ -2243,121 +2243,214 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   const totalTickers = DRAWER_TICKERS.size;
 
   return (
-    <div style={{ borderBottom: `1px solid ${ARIA.border}`, display: "flex", flexDirection: "column", maxHeight: expanded ? 260 : "none", minHeight: 0 }}>
+    <div style={{ borderBottom: `1px solid ${ARIA.border}`, display: "flex", flexDirection: "column", maxHeight: expanded ? 380 : "none", minHeight: 0 }}>
+      {/* Header — matches SupercycleMap aesthetic */}
       <div
         onClick={() => setExpanded(!expanded)}
-        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", flexShrink: 0 }}
+        style={{
+          padding: "8px 12px",
+          display: "flex", alignItems: "center", gap: 8,
+          cursor: "pointer", userSelect: "none", flexShrink: 0,
+          background: expanded
+            ? "linear-gradient(90deg, rgba(34,211,238,0.06) 0%, rgba(108,213,232,0.04) 50%, rgba(168,85,247,0.05) 100%)"
+            : "transparent",
+          borderBottom: expanded ? `1px solid ${ARIA.border}` : "none",
+        }}
       >
-        <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
-          Value Chains
+        <span style={{ fontSize: 11, color: ARIA.textMuted, transition: "transform 0.2s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>⛓</span>
+          <span style={{
+            fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.2,
+            background: "linear-gradient(90deg, #22d3ee 0%, #a855f7 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          }}>
+            Value Chains
+          </span>
+        </div>
+        <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
+          {grouped.length} themes · {totalTickers} tickers · live RS/RVol
         </span>
-        <span style={{ fontSize: 8, color: ARIA.textMuted }}>({totalTickers})</span>
       </div>
       {expanded && (
-        <div ref={scrollContainerRef} style={{ padding: "0 12px 6px", overflowY: "auto", flex: 1 }}>
+        <div ref={scrollContainerRef} style={{ padding: "10px 12px 14px", overflowY: "auto", flex: 1, background: "linear-gradient(180deg, rgba(13,17,23,0.4) 0%, transparent 60%)" }}>
           {grouped.map((theme) => {
             const c = DRAWER_COLORS[theme.id] || { bg: "rgba(255,255,255,0.06)", border: ARIA.border, color: ARIA.textDim };
             const isOpen = openTheme === theme.id;
+            const allTk = theme.layers.flatMap(l => l.tickers);
+            const { avgChg: tAvgChg, avgRvol: tAvgRvol, avgStr: tAvgStr, avgCr: tAvgCr } = layerAggs(allTk);
+            const tChgColor = tAvgChg == null ? ARIA.textMuted : tAvgChg > 0 ? "#10b981" : tAvgChg < 0 ? "#ef4444" : ARIA.textMuted;
+            const isFiltered = activeFilterName === theme.name;
+
             return (
-              <div key={theme.id} style={{ marginBottom: 3 }}>
+              <div key={theme.id} className="tp-sc-card" style={{
+                marginBottom: 7,
+                background: isOpen
+                  ? `linear-gradient(135deg, ${c.color}1a 0%, ${c.color}05 100%), linear-gradient(180deg, rgba(20,24,32,0.6) 0%, rgba(13,17,23,0.7) 100%)`
+                  : "linear-gradient(180deg, rgba(20,24,32,0.4) 0%, rgba(13,17,23,0.5) 100%)",
+                border: `1px solid ${isFiltered ? c.color : isOpen ? c.color + "55" : c.color + "22"}`,
+                borderRadius: 6,
+                position: "relative",
+                boxShadow: isFiltered ? `0 0 12px ${c.color}55` : "none",
+                overflow: "hidden",
+              }}>
+                {/* Tier-style left strip */}
+                <div style={{
+                  position: "absolute", left: 0, top: 0, bottom: 0, width: 3,
+                  background: `linear-gradient(180deg, ${c.color} 0%, ${c.color}66 100%)`,
+                  boxShadow: `0 0 6px ${c.color}66`,
+                }} />
+
+                {/* Theme header button */}
                 <button
                   onClick={() => {
                     setOpenTheme(isOpen ? null : theme.id);
-                    if (onLayerClick) onLayerClick(theme.name, theme.layers.flatMap(l => l.tickers));
+                    if (onLayerClick) onLayerClick(theme.name, allTk);
                   }}
                   style={{
-                    display: "flex", alignItems: "center", gap: 4, width: "100%",
-                    fontSize: 8, fontWeight: 700, padding: "3px 6px", borderRadius: 3,
+                    display: "flex", alignItems: "center", gap: 6, width: "100%",
+                    padding: "7px 10px 7px 13px",
                     cursor: "pointer", fontFamily: "monospace", textAlign: "left",
-                    background: activeFilterName === theme.name ? `${c.color}26` : (isOpen ? c.bg : "transparent"),
-                    border: `1px solid ${activeFilterName === theme.name ? c.color : (isOpen ? c.border : "transparent")}`,
-                    color: c.color, textTransform: "uppercase", letterSpacing: 0.5,
+                    background: "transparent", border: "none",
+                    color: c.color,
                   }}
                 >
-                  <span style={{ fontSize: 7, transition: "transform 0.15s", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
-                  {theme.name}
-                  {(() => {
-                    const allTk = theme.layers.flatMap(l => l.tickers);
-                    const { avgChg, avgRvol, avgStr, avgCr } = layerAggs(allTk);
-                    const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
-                    return (
-                      <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center", fontWeight: 400 }}>
-                        {avgStr != null && (
-                          <span style={{ color: strColor(avgStr), fontSize: 8, fontWeight: 700 }} title="Avg strength score">
-                            {Math.round(avgStr)}
-                          </span>
-                        )}
-                        {avgChg != null && (
-                          <span style={{ color: chgColor, fontSize: 8 }}>
-                            {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
-                          </span>
-                        )}
-                        {avgRvol != null && (
-                          <span style={{ color: avgRvol >= 1.5 ? ARIA.purple : ARIA.textMuted, fontSize: 8 }}>
-                            {avgRvol.toFixed(1) + "x"}
-                          </span>
-                        )}
-                        {avgCr != null && (
-                          <span style={{ color: crColor(avgCr), fontSize: 8 }} title="Avg closing range %">
-                            {Math.round(avgCr) + "%"}
-                          </span>
-                        )}
+                  <span style={{
+                    fontSize: 10, color: ARIA.textMuted,
+                    transition: "transform 0.15s",
+                    transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    display: "inline-block", width: 10,
+                  }}>▶</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, color: c.color }}>
+                    {theme.name}
+                  </span>
+                  <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 600 }}>
+                    {theme.layers.length}L · {allTk.length}T
+                  </span>
+
+                  {/* Inline metric chips */}
+                  <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center", fontWeight: 400 }}>
+                    {tAvgStr != null && (
+                      <span title="Avg strength score" style={{
+                        fontSize: 9, fontFamily: "monospace", fontWeight: 800,
+                        color: strColor(tAvgStr), padding: "1px 5px", borderRadius: 3,
+                        background: `${strColor(tAvgStr)}1a`, border: `1px solid ${strColor(tAvgStr)}55`,
+                      }}>
+                        STR {Math.round(tAvgStr)}
                       </span>
-                    );
-                  })()}
+                    )}
+                    {tAvgChg != null && (
+                      <span title="Avg % change" style={{
+                        fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                        color: tChgColor, padding: "1px 5px", borderRadius: 3,
+                        background: `${tChgColor}14`, border: `1px solid ${tChgColor}55`,
+                      }}>
+                        {(tAvgChg > 0 ? "+" : "") + tAvgChg.toFixed(1) + "%"}
+                      </span>
+                    )}
+                    {tAvgRvol != null && (
+                      <span title="Avg RVol" style={{
+                        fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                        color: tAvgRvol >= 1.5 ? "#a855f7" : ARIA.textMuted,
+                        padding: "1px 5px", borderRadius: 3,
+                        background: tAvgRvol >= 1.5 ? "rgba(168,85,247,0.14)" : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${tAvgRvol >= 1.5 ? "rgba(168,85,247,0.5)" : ARIA.border}`,
+                      }}>
+                        {tAvgRvol.toFixed(1) + "x"}
+                      </span>
+                    )}
+                    {tAvgCr != null && (
+                      <span title="Avg closing range %" style={{
+                        fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                        color: crColor(tAvgCr), padding: "1px 5px", borderRadius: 3,
+                        background: `${crColor(tAvgCr)}14`, border: `1px solid ${crColor(tAvgCr)}55`,
+                      }}>
+                        CR {Math.round(tAvgCr)}%
+                      </span>
+                    )}
+                  </span>
                 </button>
+
+                {/* Expanded layer body */}
                 {isOpen && (
-                  <div style={{ padding: "4px 0 2px 12px" }}>
+                  <div style={{ padding: "0 10px 9px 13px" }}>
                     {theme.layers.map((layer, li) => {
                       const { avgChg, avgRvol, avgStr, avgCr } = layerAggs(layer.tickers);
-                      const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? ARIA.green : avgChg < 0 ? ARIA.red : ARIA.textMuted;
+                      const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? "#10b981" : avgChg < 0 ? "#ef4444" : ARIA.textMuted;
+                      const isLayerFiltered = activeFilterName === layer.layer;
                       return (
-                      <div key={li} data-layer-has={layer.tickers.join(" ")} style={{ marginBottom: 4 }}>
+                      <div key={li} data-layer-has={layer.tickers.join(" ")} style={{
+                        marginBottom: 6, paddingTop: li === 0 ? 0 : 6,
+                        borderTop: li === 0 ? "none" : `1px dashed ${ARIA.border}`,
+                      }}>
+                        {/* Layer header */}
                         <div
                           onClick={() => onLayerClick && onLayerClick(layer.layer, layer.tickers)}
                           title={`Filter Scan to ${layer.layer}`}
-                          style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 2, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, cursor: onLayerClick ? "pointer" : "default", padding: "1px 3px", borderRadius: 2, background: activeFilterName === layer.layer ? `${c.color}26` : "transparent", border: activeFilterName === layer.layer ? `1px solid ${c.color}` : "1px solid transparent" }}
+                          style={{
+                            fontSize: 9, color: ARIA.text, fontFamily: "monospace",
+                            marginBottom: 4, fontWeight: 700,
+                            display: "flex", alignItems: "center", gap: 5,
+                            cursor: onLayerClick ? "pointer" : "default",
+                            padding: "3px 6px", borderRadius: 3,
+                            background: isLayerFiltered ? `${c.color}26` : "transparent",
+                            border: `1px solid ${isLayerFiltered ? c.color : "transparent"}`,
+                            textTransform: "uppercase", letterSpacing: 0.4,
+                          }}
                         >
+                          <span style={{ color: c.color, fontWeight: 800 }}>▸</span>
                           <span>{layer.layer}</span>
-                          {avgStr != null && (
-                            <span style={{ color: strColor(avgStr), fontWeight: 700 }} title="Avg strength score">
-                              {Math.round(avgStr)}
-                            </span>
-                          )}
-                          {avgChg != null && (
-                            <span style={{ color: chgColor, fontWeight: 700 }}>
-                              {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
-                            </span>
-                          )}
-                          {avgRvol != null && (
-                            <span style={{ color: avgRvol >= 1.5 ? ARIA.purple : ARIA.textDim, fontWeight: 700 }}>
-                              {avgRvol.toFixed(1) + "x"}
-                            </span>
-                          )}
-                          {avgCr != null && (
-                            <span style={{ color: crColor(avgCr), fontWeight: 700 }} title="Avg closing range %">
-                              {Math.round(avgCr) + "%"}
-                            </span>
-                          )}
+                          <span style={{ fontSize: 7, color: ARIA.textMuted, fontWeight: 600 }}>
+                            ({layer.tickers.length})
+                          </span>
+                          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 3 }}>
+                            {avgStr != null && (
+                              <span style={{ fontSize: 8, color: strColor(avgStr), fontWeight: 800, fontFamily: "monospace" }} title="Avg strength score">
+                                {Math.round(avgStr)}
+                              </span>
+                            )}
+                            {avgChg != null && (
+                              <span style={{ fontSize: 8, color: chgColor, fontWeight: 700, fontFamily: "monospace" }}>
+                                {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
+                              </span>
+                            )}
+                            {avgRvol != null && (
+                              <span style={{ fontSize: 8, color: avgRvol >= 1.5 ? "#a855f7" : ARIA.textDim, fontWeight: 700, fontFamily: "monospace" }}>
+                                {avgRvol.toFixed(1) + "x"}
+                              </span>
+                            )}
+                            {avgCr != null && (
+                              <span style={{ fontSize: 8, color: crColor(avgCr), fontWeight: 700, fontFamily: "monospace" }} title="Avg closing range %">
+                                {Math.round(avgCr) + "%"}
+                              </span>
+                            )}
+                          </span>
                         </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 2, paddingLeft: 4 }}>
+
+                        {/* Ticker pills — match SupercycleMap styling */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, paddingLeft: 4 }}>
                           {[...layer.tickers].sort((a, b) => (stockMap?.[b]?.rs_rank ?? 0) - (stockMap?.[a]?.rs_rank ?? 0)).map((tk) => {
                             const sel = chartTicker === tk;
+                            const tkRs = stockMap?.[tk]?.rs_rank;
                             return (
                               <button
                                 key={tk}
                                 onClick={() => { selfClickedTicker.current = tk; onTickerClick(tk); }}
+                                title={`${tk}${tkRs != null ? ` · RS ${Math.round(tkRs)}` : ""}`}
+                                className="tp-sc-pill"
                                 style={{
-                                  display: "inline-flex", alignItems: "center", gap: 3,
-                                  fontSize: 7, padding: "1px 4px", borderRadius: 3, cursor: "pointer",
-                                  fontFamily: "monospace", fontWeight: sel ? 800 : 600,
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                  fontSize: 11, padding: "3px 8px",
+                                  borderRadius: 4, cursor: "pointer",
+                                  fontFamily: "monospace", fontWeight: sel ? 800 : 700,
+                                  whiteSpace: "nowrap", lineHeight: 1.2,
                                   background: sel ? c.color : c.bg,
                                   border: `1px solid ${sel ? c.color : c.border}`,
-                                  color: sel ? ARIA.bg : ARIA.textMuted,
+                                  color: sel ? "#0a0a0e" : "#e8e8f4",
+                                  boxShadow: sel ? `0 0 10px ${c.color}66` : "none",
                                 }}
                               >
-                                <img src={ER_LOGO(tk)} alt="" style={{ width: 10, height: 10, borderRadius: 1 }} onError={(e) => { e.target.style.display = "none"; }} />
+                                <img src={ER_LOGO(tk)} alt="" style={{ width: 11, height: 11, borderRadius: 2, opacity: 0.85 }} onError={(e) => { e.target.style.display = "none"; }} />
                                 {tk}
                               </button>
                             );
