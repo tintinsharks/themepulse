@@ -3492,7 +3492,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
     });
   }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap]);
 
-  const [sortKey, setSortKey] = useState("chg");
+  const [sortKey, setSortKey] = useState("dvolRatio");
   const [sortDir, setSortDir] = useState("desc");
   const sorted = useMemo(() => {
     let arr = rows.slice();
