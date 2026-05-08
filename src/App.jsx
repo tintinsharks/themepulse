@@ -567,6 +567,25 @@ function usePicks(intervalMs = 60000) {
   return picks;
 }
 
+// Closing range %: where the last price sits within the day's range.
+// 100 = closed at high, 0 = closed at low. Tries live quote first
+// (q.dayHigh/dayLow with fallback to q.high/low), then pipeline cr_pct.
+// Always clamped to [0, 100] — rounding to integer.
+// Returns null only when no usable data exists.
+function computeCR(q, s) {
+  const price = q?.price ?? s?.price ?? s?.close ?? null;
+  const high = q?.dayHigh ?? q?.high ?? null;
+  const low = q?.dayLow ?? q?.low ?? null;
+  if (price != null && high != null && low != null && high > low && !isNaN(price)) {
+    const raw = ((price - low) / (high - low)) * 100;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  }
+  if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
+    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
+  }
+  return null;
+}
+
 // Fetches live quotes for a list of tickers via the existing /api/live endpoint.
 // Polls every `intervalMs` (default 60s). Returns a Map<ticker, quoteObj>.
 function useLiveQuotes(tickers, intervalMs = 60000) {
@@ -1039,12 +1058,9 @@ function ETFScanTable({ onTickerClick }) {
         const vol = q?.volume ?? 0;
         const avgVol = q?.avgVolume ?? e.avgVolume ?? 0;
         const rvol = vol && avgVol > 0 ? Math.round((vol / avgVol) * 10) / 10 : null;
+        const cr = computeCR(q, e);
         const dh = q?.dayHigh ?? q?.high ?? null;
         const dl = q?.dayLow ?? q?.low ?? null;
-        const cr =
-          dh && dl && price && dh !== dl
-            ? Math.round(((price - dl) / (dh - dl)) * 100)
-            : null;
         const prev = q?.previousClose;
         const adr =
           dh && dl && prev && prev > 0
@@ -2163,17 +2179,8 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
       if (rvol != null) rvols.push(rvol);
       const str = tickerStrengthMap?.[tk];
       if (str != null && !isNaN(str)) strs.push(str);
-      // CR% — closing range from live quote (price, high, low). Falls back
-      // to pipeline cr_pct if live not yet loaded.
-      const price = q?.price;
-      const high = q?.high;
-      const low = q?.low;
-      let cr = null;
-      if (price != null && high != null && low != null && high > low) {
-        cr = ((price - low) / (high - low)) * 100;
-      } else if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
-        cr = s.cr_pct;
-      }
+      // CR% — uses unified helper with live quote + pipeline fallback + clamp
+      const cr = computeCR(q, s);
       if (cr != null) crs.push(cr);
     });
     return {
@@ -2607,10 +2614,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           ? Math.round(((price - open) / open) * 10000) / 100
           : null;
       // CR% (closing range): how close to high of day. (close-low)/(high-low)*100
-      const cr =
-        high != null && low != null && high > low
-          ? Math.round(((price - low) / (high - low)) * 100)
-          : null;
+      // Helper falls back to pipeline cr_pct + clamps to 0-100.
+      const cr = computeCR(q, s);
 
       // Chg>0% filter — applies to either Open or Chg mode
       if (filters.greenOnly) {
@@ -3381,11 +3386,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
       let rvol = null;
       if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
       else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
-      const price = q?.price, high = q?.high, low = q?.low;
-      let cr = null;
-      if (price != null && high != null && low != null && high > low) {
-        cr = ((price - low) / (high - low)) * 100;
-      } else if (s?.cr_pct != null && !isNaN(s.cr_pct)) cr = s.cr_pct;
+      const cr = computeCR(q, s);
       const r1m = s?.return_1m, r3m = s?.return_3m;
       const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
       const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
@@ -3592,13 +3593,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
         if (rvol != null) rvols.push(rvol);
         const str = tickerStrengthMap?.[tk];
         if (str != null && !isNaN(str)) strs.push(str);
-        const price = q?.price, high = q?.high, low = q?.low;
-        let cr = null;
-        if (price != null && high != null && low != null && high > low) {
-          cr = ((price - low) / (high - low)) * 100;
-        } else if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
-          cr = s.cr_pct;
-        }
+        const cr = computeCR(q, s);
         if (cr != null) crs.push(cr);
         // 2nd-derivative ROC (Druckenmiller acceleration): recent monthly pace
         // vs implied monthly pace from the last 3 months. Positive = momentum
@@ -8218,10 +8213,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         open != null && open > 0
           ? Math.round(((price - open) / open) * 10000) / 100
           : null;
-      const cr =
-        high != null && low != null && high > low
-          ? Math.round(((price - low) / (high - low)) * 100)
-          : null;
+      const cr = computeCR(q, s);
       const rvol =
         liveVol && avgVol > 0
           ? Math.round((liveVol / avgVol) * 100) / 100
