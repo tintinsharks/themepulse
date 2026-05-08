@@ -2798,8 +2798,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       {/* ETF Scan view */}
       {swView === "etf" && <ETFScanTable onTickerClick={onTickerClick} />}
 
-      {/* Scan view — all original filters + table */}
-      {swView === "scan" && <>
+      {/* Filter rows — visible in Scan and Chain views */}
+      {(swView === "scan" || swView === "chain") && <>
 
       {/* Preset row */}
       <div
@@ -3039,6 +3039,11 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         />
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>M</span>
       </div>
+
+      </>}
+
+      {/* Scan-only: sort, +WL/+PF, active chips, results table */}
+      {swView === "scan" && <>
 
       {/* +WL / +PF row — acts on the currently-charted ticker */}
       {chartTicker && (
