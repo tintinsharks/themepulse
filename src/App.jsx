@@ -3331,6 +3331,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>VIEW</span>
         <button onClick={() => setMode("layers")} style={pillStyle(mode === "layers")}>Layers</button>
         <button onClick={() => setMode("tickers")} style={pillStyle(mode === "tickers")}>Tickers</button>
+        <button onClick={() => setMode("flow")} style={pillStyle(mode === "flow")}>Heat</button>
         <span style={{ color: ARIA.border, margin: "0 4px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>FILTER</span>
         <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
@@ -3338,7 +3339,14 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         </button>
         <span style={{ marginLeft: "auto", fontSize: 6, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4 }}>↑↓ nav · Enter</span>
       </div>
-      {mode === "layers" ? (
+      {mode === "flow" ? (
+        <ChainHeatView
+          stockMap={stockMap}
+          onLayerClick={onLayerClick}
+          onTickerClick={onTickerClick}
+          activeFilterName={activeFilterName}
+        />
+      ) : mode === "layers" ? (
         <ChainLayerTable
           stockMap={stockMap}
           tickerStrengthMap={tickerStrengthMap}
@@ -3574,16 +3582,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
 
 // ── ChainLayerTable: every value-chain sub-layer with live aggregates,
 // sortable. Replaces the iframe view in ScanWatch's "Chain" sub-tab.
-function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterName, posOnly }) {
-  const ARIA = useAriaTheme();
+// ── Shared hook: computes per-layer aggregates used by ChainLayerTable and
+// ChainFlowMap. Centralises useLiveQuotes so both views share one poll cycle.
+function useChainLayerRows(stockMap, tickerStrengthMap) {
   const allTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
     return [...s];
   }, []);
   const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
-
-  const rows = useMemo(() => {
+  return useMemo(() => {
     return DRAWER_SUBTHEMES.map((sub) => {
       const chgs = [], rvols = [], strs = [], crs = [], rocs = [];
       sub.tickers.forEach((tk) => {
@@ -3595,36 +3603,170 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
         let rvol = null;
         if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
-        else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
+        else if (s?.rel_volume != null && s.rel_volume > 0) rvol = s.rel_volume;
         if (rvol != null) rvols.push(rvol);
         const str = tickerStrengthMap?.[tk];
         if (str != null && !isNaN(str)) strs.push(str);
         const cr = computeCR(q, s);
         if (cr != null) crs.push(cr);
-        // 2nd-derivative ROC (Druckenmiller acceleration): recent monthly pace
-        // vs implied monthly pace from the last 3 months. Positive = momentum
-        // accelerating, negative = decelerating. Units: percentage points.
-        const r1m = s?.return_1m;
-        const r3m = s?.return_3m;
-        if (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) {
-          rocs.push(r1m - r3m / 3);
-        }
+        const r1m = s?.return_1m, r3m = s?.return_3m;
+        if (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) rocs.push(r1m - r3m / 3);
       });
       const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
       return {
-        themeId: sub.themeId,
-        theme: sub.theme,
-        layer: sub.layer,
-        tickers: sub.tickers,
-        nTickers: sub.tickers.length,
-        avgChg: avg(chgs),
-        avgRvol: avg(rvols),
-        avgStr: avg(strs),
-        avgCr: avg(crs),
-        avgRoc2: avg(rocs),
+        themeId: sub.themeId, theme: sub.theme, layer: sub.layer,
+        tickers: sub.tickers, nTickers: sub.tickers.length,
+        avgChg: avg(chgs), avgRvol: avg(rvols), avgStr: avg(strs),
+        avgCr: avg(crs), avgRoc2: avg(rocs),
       };
     });
   }, [liveQuotes, stockMap, tickerStrengthMap]);
+}
+
+// ── ChainFlowMap: horizontal lanes showing which layer within each value
+// chain is absorbing money. Each chip = one layer, colored by the chosen
+// signal (Str / Chg% / RV / ROC²). Click a chip → filter ScanWatch.
+// ── ChainHeatView: hot layers ranked by RVol×Chg% with driving tickers inline.
+// Replaces the need to cross-reference Flow + Tickers views separately.
+function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName }) {
+  const ARIA = useAriaTheme();
+
+  const allTickers = useMemo(() => {
+    const s = new Set();
+    DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    return [...s];
+  }, []);
+  const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
+
+  // Per-ticker metrics
+  const tkMx = useMemo(() => {
+    const m = {};
+    allTickers.forEach((tk) => {
+      const q = liveQuotes.get(tk);
+      const s = stockMap?.[tk];
+      const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
+      const liveVol = q?.volume;
+      const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+      let rvol = null;
+      if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+      else if (s?.rel_volume != null && s.rel_volume > 0) rvol = s.rel_volume;
+      m[tk] = { chg, rvol };
+    });
+    return m;
+  }, [allTickers, liveQuotes, stockMap]);
+
+  // Layer rows: aggregate heat + top tickers sorted by RVol.
+  // Heat = RVol × Chg% (positive only). Falls back to RVol-only sort when
+  // everything is negative (down day) so the view is always useful.
+  const layers = useMemo(() => {
+    const built = DRAWER_SUBTHEMES.map((sub) => {
+      const chgs = [], rvols = [];
+      const tickerRows = sub.tickers.map((tk) => {
+        const { chg, rvol } = tkMx[tk] || {};
+        if (chg != null && !isNaN(chg)) chgs.push(chg);
+        if (rvol != null) rvols.push(rvol);
+        return { ticker: tk, chg, rvol };
+      })
+        .filter((t) => t.rvol != null || t.chg != null)
+        .sort((a, b) => (b.rvol ?? 0) - (a.rvol ?? 0));
+      const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+      const avgChg = avg(chgs);
+      const avgRvol = avg(rvols);
+      const heat = (avgRvol ?? 0) * Math.max(avgChg ?? 0, 0);
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, heat, tickerRows };
+    }).filter((r) => r.avgRvol != null);
+
+    const anyHot = built.some((r) => r.heat > 0);
+    return anyHot
+      ? built.filter((r) => r.heat > 0).sort((a, b) => b.heat - a.heat)
+      : built.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
+  }, [tkMx]);
+
+  const allDown = layers.length > 0 && layers.every((r) => r.heat === 0);
+
+  const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const rvColor  = (v) => v == null ? ARIA.textMuted : v >= 2 ? ARIA.purple : v >= 1.5 ? ARIA.purple : ARIA.textDim;
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "4px 6px" }}>
+      {layers.length === 0 && (
+        <div style={{ color: ARIA.textMuted, fontSize: 9, fontFamily: "monospace", padding: "8px 4px" }}>
+          Waiting for live quotes…
+        </div>
+      )}
+      {allDown && (
+        <div style={{ color: ARIA.yellow, fontSize: 8, fontFamily: "monospace", padding: "2px 4px 6px", letterSpacing: 0.3 }}>
+          ↓ all chains negative — sorted by RVol
+        </div>
+      )}
+      {layers.map((r) => {
+        const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
+        const isActive = activeFilterName === r.layer;
+        return (
+          <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: 7 }}>
+            {/* Layer header — click to filter scan */}
+            <div
+              onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
+              title={`${r.theme} → ${r.layer} — click to filter scan`}
+              style={{
+                display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
+                padding: "3px 5px", borderRadius: 3, marginBottom: 3,
+                background: isActive ? `${c.color}26` : "rgba(255,255,255,0.03)",
+                border: `1px solid ${isActive ? c.color : ARIA.border}`,
+              }}
+            >
+              <span style={{
+                fontSize: 7, fontWeight: 800, fontFamily: "monospace", flexShrink: 0,
+                color: c.color, background: c.bg, border: `1px solid ${c.border}`,
+                borderRadius: 2, padding: "0 4px",
+              }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: isActive ? c.color : ARIA.text, fontFamily: "monospace", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {r.layer}
+              </span>
+              <span style={{ fontSize: 8, color: chgColor(r.avgChg), fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
+                {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
+              </span>
+              <span style={{ fontSize: 8, color: rvColor(r.avgRvol), fontFamily: "monospace", fontWeight: 700, flexShrink: 0, marginLeft: 4 }}>
+                {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
+              </span>
+            </div>
+            {/* Top tickers sorted by RVol */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
+              {r.tickerRows.slice(0, 7).map(({ ticker, chg, rvol }) => (
+                <button
+                  key={ticker}
+                  onClick={() => onTickerClick && onTickerClick(ticker)}
+                  style={{
+                    background: "rgba(255,255,255,0.05)", border: `1px solid ${ARIA.border}`,
+                    borderRadius: 3, padding: "2px 6px", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}
+                >
+                  <img src={`https://financialmodelingprep.com/image-stock/${ticker}.png`} alt=""
+                    style={{ width: 11, height: 11, borderRadius: 2 }}
+                    onError={(e) => { e.target.style.display = "none"; }} />
+                  <span style={{ fontSize: 8, fontWeight: 800, fontFamily: "monospace", color: ARIA.text }}>{ticker}</span>
+                  <span style={{ fontSize: 8, fontFamily: "monospace", color: chgColor(chg), fontWeight: 700 }}>
+                    {chg != null ? (chg > 0 ? "+" : "") + chg.toFixed(1) + "%" : "—"}
+                  </span>
+                  {rvol != null && rvol >= 1.5 && (
+                    <span style={{ fontSize: 7, fontFamily: "monospace", color: rvColor(rvol) }}>
+                      {rvol.toFixed(1)}x
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterName, posOnly }) {
+  const ARIA = useAriaTheme();
+  const rows = useChainLayerRows(stockMap, tickerStrengthMap);
 
   const [sortKey, setSortKey] = useState("avgStr");
   const [sortDir, setSortDir] = useState("desc");
