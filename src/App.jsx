@@ -2462,7 +2462,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   const [chainId, setChainId] = useState("leaderboard");
   const [chainPrev, setChainPrev] = useState(null);
   // Force scan view when an external chain/layer filter is applied
-  useEffect(() => { if (chainFilter) setSwView("scan"); }, [chainFilter?.name]);
+  useEffect(() => { if (chainFilter) setSwView("chain"); }, [chainFilter?.name]);
   const navigateChain = useCallback((id, fromSwitch = false) => {
     setChainPrev((prev) => fromSwitch ? null : (id !== chainId ? chainId : prev));
     setChainId(id);
