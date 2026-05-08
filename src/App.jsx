@@ -567,21 +567,26 @@ function usePicks(intervalMs = 60000) {
   return picks;
 }
 
-// Closing range %: where the last price sits within the day's range.
-// 100 = closed at high, 0 = closed at low. Tries live quote first
-// (q.dayHigh/dayLow with fallback to q.high/low), then pipeline cr_pct.
-// Always clamped to [0, 100] — rounding to integer.
-// Returns null only when no usable data exists.
+// Closing range %: where the last *completed* daily bar's CLOSE sits within
+// that bar's high-low range. 100 = closed at high (strong buyer demand),
+// 0 = closed at low (sellers in control), 50 = mid-range.
+//
+// During RTH the live quote's "price" is the current intraday quote, NOT a
+// close — using it would give "current range location," a different concept.
+// So we PREFER the pipeline's cr_pct (computed on the most recent completed
+// daily bar). Live calc is a fallback only for tickers the pipeline doesn't
+// cover, and is most meaningful after market close.
+// Always clamped to [0, 100], rounded to integer. Null when no usable data.
 function computeCR(q, s) {
+  if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
+    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
+  }
   const price = q?.price ?? s?.price ?? s?.close ?? null;
   const high = q?.dayHigh ?? q?.high ?? null;
   const low = q?.dayLow ?? q?.low ?? null;
   if (price != null && high != null && low != null && high > low && !isNaN(price)) {
     const raw = ((price - low) / (high - low)) * 100;
     return Math.max(0, Math.min(100, Math.round(raw)));
-  }
-  if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
-    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
   }
   return null;
 }
