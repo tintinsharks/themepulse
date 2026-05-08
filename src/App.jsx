@@ -1563,15 +1563,16 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                       title={`${e.ticker} · ${cfg.label} (${e.date})\n${e.note}`}
                       className="tp-sc-pill"
                       style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        fontSize: 9, padding: "3px 7px", borderRadius: 4, cursor: "pointer",
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        fontSize: 11, padding: "4px 9px", borderRadius: 5, cursor: "pointer",
                         fontFamily: "monospace", fontWeight: 700,
+                        whiteSpace: "nowrap", lineHeight: 1.2,
                         background: sel ? cfg.color : cfg.bg,
                         border: `1px solid ${cfg.border}`,
                         color: sel ? "#0a0a0e" : cfg.color,
                       }}
                     >
-                      <span style={{ fontSize: 8 }}>{cfg.icon}</span>
+                      <span style={{ fontSize: 10, lineHeight: 1 }}>{cfg.icon}</span>
                       {e.ticker}
                     </button>
                   );
@@ -1691,16 +1692,14 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                         {/* Thesis preview */}
                         {layer.thesis && (
                           <div style={{
-                            fontSize: 8, color: ARIA.textDim, lineHeight: 1.45, marginBottom: 6,
-                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }} title={layer.thesis}>
+                            fontSize: 9, color: ARIA.textDim, lineHeight: 1.5, marginBottom: 7,
+                          }}>
                             {layer.thesis}
                           </div>
                         )}
 
                         {/* Tickers */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {tickers.map((t) => {
                             const sel = chartTicker === t;
                             const er = SC_RECENT_ER[t];
@@ -1713,20 +1712,22 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                                 title={tooltip}
                                 className="tp-sc-pill"
                                 style={{
-                                  display: "inline-flex", alignItems: "center", gap: 3,
-                                  fontSize: 9.5,
-                                  padding: "2px 6px",
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                  fontSize: 11,
+                                  padding: "3px 8px",
                                   borderRadius: 4,
                                   cursor: "pointer",
                                   fontFamily: "monospace",
                                   fontWeight: sel ? 800 : 700,
+                                  whiteSpace: "nowrap",
+                                  lineHeight: 1.2,
                                   background: sel ? tier.color : (erCfg ? erCfg.bg : "rgba(255,255,255,0.04)"),
                                   border: `1px solid ${sel ? tier.color : (erCfg ? erCfg.border : tier.color + "55")}`,
                                   color: sel ? "#0a0a0e" : (erCfg ? erCfg.color : "#e8e8f4"),
                                   boxShadow: sel ? `0 0 10px ${tier.glow}` : "none",
                                 }}
                               >
-                                {erCfg && <span style={{ fontSize: 7 }}>{erCfg.icon}</span>}
+                                {erCfg && <span style={{ fontSize: 9, lineHeight: 1 }}>{erCfg.icon}</span>}
                                 {t}
                               </button>
                             );
@@ -1738,8 +1739,9 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                               title={`${t} · speculative`}
                               className="tp-sc-pill"
                               style={{
-                                fontSize: 9, padding: "2px 6px", borderRadius: 4, cursor: "pointer",
+                                fontSize: 11, padding: "3px 8px", borderRadius: 4, cursor: "pointer",
                                 fontFamily: "monospace", fontWeight: 600,
+                                whiteSpace: "nowrap", lineHeight: 1.2,
                                 background: "rgba(245,158,11,0.10)",
                                 border: "1px dashed rgba(245,158,11,0.55)",
                                 color: "#f59e0b",
@@ -1754,8 +1756,9 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                               key={t}
                               title={`${t} · AVOID`}
                               style={{
-                                fontSize: 9, padding: "2px 6px", borderRadius: 4,
+                                fontSize: 11, padding: "3px 8px", borderRadius: 4,
                                 fontFamily: "monospace", fontWeight: 500,
+                                whiteSpace: "nowrap", lineHeight: 1.2,
                                 background: "transparent",
                                 border: "1px dashed rgba(239,68,68,0.5)",
                                 color: "#ef4444",
@@ -1769,8 +1772,9 @@ function SupercycleMap({ chartTicker, onTickerClick }) {
                           ))}
                           {unlisted.map((name) => (
                             <span key={name} title={`${name} · not US-listed`} style={{
-                              fontSize: 8, padding: "1px 5px", borderRadius: 3,
+                              fontSize: 10, padding: "2px 6px", borderRadius: 3,
                               fontFamily: "monospace", fontStyle: "italic",
+                              whiteSpace: "nowrap", lineHeight: 1.2,
                               color: ARIA.textMuted,
                               border: `1px dotted ${ARIA.border}`,
                               opacity: 0.7,
