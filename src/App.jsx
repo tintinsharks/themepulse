@@ -1322,6 +1322,209 @@ function ETFScanTable({ onTickerClick }) {
   );
 }
 
+// ── Supercycle Map — collapsible visual map of value-chain layers ─────────
+// Reads value_chain_framework notes from /data/theme_notes.json and renders
+// each layer as a tier-colored panel with clickable ticker pills.
+const _supercycleNotesCache = { notes: null, loading: false };
+
+function SupercycleMap({ chartTicker, onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-supercycle-open") === "1");
+  const [notes, setNotes] = useState(() => _supercycleNotesCache.notes);
+
+  useEffect(() => { localStorage.setItem("tp-supercycle-open", expanded ? "1" : "0"); }, [expanded]);
+
+  useEffect(() => {
+    if (_supercycleNotesCache.notes) { setNotes(_supercycleNotesCache.notes); return; }
+    if (_supercycleNotesCache.loading) return;
+    _supercycleNotesCache.loading = true;
+    fetch("/data/theme_notes.json")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const arr = d?.notes || [];
+        _supercycleNotesCache.notes = arr;
+        _supercycleNotesCache.loading = false;
+        setNotes(arr);
+      })
+      .catch(() => { _supercycleNotesCache.loading = false; });
+  }, []);
+
+  // Pull all value_chain_framework notes that have a layers object
+  const frameworks = useMemo(() => {
+    if (!notes) return [];
+    return notes.filter(n =>
+      n.type === "value_chain_framework" && n.layers && typeof n.layers === "object"
+    );
+  }, [notes]);
+
+  // Tier color map
+  const TIER = {
+    1: { color: "#0d9163", label: "T1", desc: "Core / highest conviction" },
+    2: { color: "#22d3ee", label: "T2", desc: "Strong derivative" },
+    3: { color: "#f59e0b", label: "T3", desc: "Speculative / narrative" },
+  };
+
+  const layerCount = frameworks.reduce((n, f) => n + Object.keys(f.layers).length, 0);
+
+  if (!notes) return null;
+
+  return (
+    <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+      {/* Header */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+      >
+        <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
+          Supercycle Map
+        </span>
+        <span style={{ fontSize: 8, color: ARIA.textMuted }}>({frameworks.length} frameworks · {layerCount} layers)</span>
+        {expanded && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            {Object.entries(TIER).map(([t, info]) => (
+              <span key={t} title={info.desc} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: info.color, display: "inline-block" }} />
+                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{info.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Body */}
+      {expanded && (
+        <div style={{ padding: "2px 12px 10px" }}>
+          {frameworks.map((fw) => {
+            const headlineShort = (fw.headline || "").split("—")[0]?.trim() || fw.id;
+            return (
+              <div key={fw.id} style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4, paddingTop: 4, borderTop: `1px dashed ${ARIA.border}` }}>
+                  <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                    {headlineShort}
+                  </span>
+                  <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{fw.date}</span>
+                </div>
+
+                {/* Layer panels */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 5 }}>
+                  {Object.entries(fw.layers).map(([key, layer]) => {
+                    const tier = TIER[layer.tier] || { color: "#5a5a7a", label: "—", desc: "" };
+                    const tickers = layer.tickers || [];
+                    const avoid = layer.avoid || [];
+                    const speculative = layer.speculative || [];
+                    const unlisted = layer.unlisted || [];
+                    const label = layer.label || key.replace(/_/g, " ");
+                    return (
+                      <div
+                        key={key}
+                        title={layer.thesis || ""}
+                        style={{
+                          background: `${tier.color}0d`,
+                          border: `1px solid ${tier.color}33`,
+                          borderLeft: `3px solid ${tier.color}`,
+                          borderRadius: 4,
+                          padding: "5px 7px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                          {layer.tier && (
+                            <span style={{ fontSize: 7, fontWeight: 800, color: tier.color, fontFamily: "monospace", background: `${tier.color}1a`, padding: "0 4px", borderRadius: 2 }}>
+                              {tier.label}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.text }}>{label}</span>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                          {tickers.map((t) => {
+                            const sel = chartTicker === t;
+                            return (
+                              <button
+                                key={t}
+                                onClick={() => onTickerClick?.(t)}
+                                title={t}
+                                style={{
+                                  fontSize: 8.5,
+                                  padding: "1px 5px",
+                                  borderRadius: 3,
+                                  cursor: "pointer",
+                                  fontFamily: "monospace",
+                                  fontWeight: sel ? 800 : 700,
+                                  background: sel ? tier.color : "rgba(255,255,255,0.04)",
+                                  border: `1px solid ${sel ? tier.color : tier.color + "44"}`,
+                                  color: sel ? ARIA.bg : "#e0e0f0",
+                                }}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
+                          {speculative.map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => onTickerClick?.(t)}
+                              title={`${t} (speculative)`}
+                              style={{
+                                fontSize: 8.5, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                                fontFamily: "monospace", fontWeight: 600,
+                                background: "rgba(245,158,11,0.06)",
+                                border: `1px dashed #f59e0b66`,
+                                color: "#f59e0b",
+                              }}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                          {avoid.map((t) => (
+                            <span
+                              key={t}
+                              title={`${t} (avoid)`}
+                              style={{
+                                fontSize: 8.5, padding: "1px 5px", borderRadius: 3,
+                                fontFamily: "monospace", fontWeight: 500,
+                                background: "transparent",
+                                border: `1px dashed #ef444466`,
+                                color: "#ef4444",
+                                textDecoration: "line-through",
+                                textDecorationColor: "#ef444488",
+                              }}
+                            >
+                              {t}
+                            </span>
+                          ))}
+                          {unlisted.map((name) => (
+                            <span key={name} title={`${name} (not US-listed)`} style={{
+                              fontSize: 7.5, padding: "1px 4px", borderRadius: 3,
+                              fontFamily: "monospace", fontStyle: "italic",
+                              color: ARIA.textMuted, border: `1px dotted ${ARIA.border}`,
+                            }}>
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Lead-lag flow if present */}
+                {fw.lead_lag?.chain_flow && (
+                  <div style={{ fontSize: 7.5, color: ARIA.textMuted, fontFamily: "monospace", marginTop: 4, paddingLeft: 4, lineHeight: 1.4 }}>
+                    <span style={{ color: ARIA.textDim, fontWeight: 700 }}>Flow:</span> {fw.lead_lag.chain_flow}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div style={{ fontSize: 7, color: ARIA.textMuted, paddingTop: 4, borderTop: `1px dashed ${ARIA.border}`, fontStyle: "italic" }}>
+            Source: theme_notes.json · click a ticker to load chart
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Earnings Calendar — collapsible weekly ER schedule above Scan Watch ──
 // Replicates the leaderboard's renderEarningsCalendar logic:
 //   1. FMP /api/earnings-week as authoritative source, falls back to pipeline
@@ -8578,6 +8781,7 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
+        <SupercycleMap chartTicker={chartTicker} onTickerClick={handleTickerClick} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterName={chainFilter?.name} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilter={chainFilter} clearChainFilter={() => setChainFilter(null)} onLayerClick={handleLayerClick} />
