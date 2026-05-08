@@ -3295,6 +3295,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           onTickerClick={onTickerClick}
           chartTicker={chartTicker}
           activeFilterName={chainFilter?.name}
+          scanRows={rows}
         />
       )}
 
@@ -3303,7 +3304,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 }
 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
-function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName }) {
+function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName, scanRows }) {
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "layers");
   const containerRef = useRef(null);
@@ -3369,6 +3370,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           onTickerClick={onTickerClick}
           chartTicker={chartTicker}
           posOnly={posOnly}
+          scanRows={scanRows}
         />
       )}
     </div>
@@ -3378,27 +3380,70 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows }) {
   const ARIA = useAriaTheme();
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
-  // Build a ticker→{theme,layer} map; tickers can appear in multiple layers
-  const tickerMeta = useMemo(() => {
-    const map = {};
-    DRAWER_SUBTHEMES.forEach((sub) => {
-      sub.tickers.forEach((tk) => {
-        if (!map[tk]) map[tk] = { themeId: sub.themeId, theme: sub.theme, layers: [] };
-        if (!map[tk].layers.includes(sub.layer)) map[tk].layers.push(sub.layer);
-      });
-    });
-    return map;
+
+  // When scanRows provided, only poll those tickers; else poll all chain tickers.
+  const allChainTickers = useMemo(() => {
+    const s = new Set();
+    DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    return [...s];
   }, []);
-  const allTickers = useMemo(() => Object.keys(tickerMeta), [tickerMeta]);
-  const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
+  const scanTickers = useMemo(() => scanRows ? scanRows.map((r) => r.ticker) : null, [scanRows]);
+  const pollTickers = scanTickers ?? allChainTickers;
+  const { quotes: liveQuotes } = useLiveQuotes(pollTickers, 30000);
 
   const rows = useMemo(() => {
-    return allTickers.map((tk) => {
-      const meta = tickerMeta[tk];
+    if (scanRows) {
+      // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
+      return scanRows.map((sr) => {
+        const chains = TICKER_CHAIN_MAP.get(sr.ticker);
+        const firstChain = chains?.[0];
+        const themeId = firstChain?.themeId ?? null;
+        const theme = themeId
+          ? (DRAWER_SUBTHEMES.find((s) => s.themeId === themeId)?.theme ?? themeId)
+          : null;
+        const layers = chains ? [...new Set(chains.map((c) => c.layer))] : [];
+        const q = liveQuotes.get(sr.ticker);
+        const s = stockMap?.[sr.ticker];
+        const chg = q?.change != null ? q.change : sr.chg;
+        const liveVol = q?.volume;
+        const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+        let rvol = sr.rvol ?? null;
+        if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+        const price = q?.price ?? s?.price ?? s?.close ?? null;
+        const r1m = s?.return_1m, r3m = s?.return_3m;
+        const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
+        const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+        return {
+          ticker: sr.ticker,
+          themeId,
+          theme,
+          layer: layers[0] ?? null,
+          layerCount: layers.length,
+          chg,
+          rvol,
+          rs: sr.rs || s?.rs_rank || null,
+          str: tickerStrengthMap?.[sr.ticker] ?? null,
+          cr: sr.cr ?? computeCR(q, s),
+          roc2,
+          dvol,
+          mcap: s?.market_cap_raw ?? null,
+          erDays: s?.earnings_days ?? null,
+        };
+      });
+    }
+    // Default: all chain tickers
+    return allChainTickers.map((tk) => {
+      const chains = TICKER_CHAIN_MAP.get(tk) || [];
+      const firstChain = chains[0];
+      const themeId = firstChain?.themeId ?? null;
+      const theme = themeId
+        ? (DRAWER_SUBTHEMES.find((s) => s.themeId === themeId)?.theme ?? themeId)
+        : null;
+      const layers = [...new Set(chains.map((c) => c.layer))];
       const q = liveQuotes.get(tk);
       const s = stockMap?.[tk];
       const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
@@ -3406,7 +3451,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
       const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
       let rvol = null;
       if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
-      else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
+      else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
       const cr = computeCR(q, s);
       const price = q?.price ?? s?.price ?? s?.close ?? null;
       const r1m = s?.return_1m, r3m = s?.return_3m;
@@ -3414,10 +3459,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
       const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
       return {
         ticker: tk,
-        themeId: meta.themeId,
-        theme: meta.theme,
-        layer: meta.layers[0],
-        layerCount: meta.layers.length,
+        themeId,
+        theme,
+        layer: layers[0] ?? null,
+        layerCount: layers.length,
         chg,
         rvol,
         rs: s?.rs_rank ?? null,
@@ -3429,7 +3474,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [allTickers, tickerMeta, liveQuotes, stockMap, tickerStrengthMap]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap]);
 
   const [sortKey, setSortKey] = useState("chg");
   const [sortDir, setSortDir] = useState("desc");
