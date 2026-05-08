@@ -1348,6 +1348,8 @@ function ETFScanTable({ onTickerClick }) {
 // SupercycleMap and similar passive viewers set this so clicking a ticker only
 // loads the chart without yanking the right pane around.
 const _suppressChainScroll = { skip: false };
+// Lets ChainHeatView open a specific chain in DrawerThemes without prop drilling.
+const _drawerThemeControl = { openChain: null };
 function suppressChainScrollOnce() { _suppressChainScroll.skip = true; }
 
 // ── Supercycle Map — collapsible visual map of value-chain layers ─────────
@@ -2115,6 +2117,12 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   const selfClickedTicker = useRef(null);
 
   useEffect(() => { localStorage.setItem("tp-drawer-themes-open", expanded ? "1" : "0"); }, [expanded]);
+
+  // Register openChain so ChainHeatView can expand this drawer without prop drilling.
+  useEffect(() => {
+    _drawerThemeControl.openChain = (themeId) => { setExpanded(true); setOpenTheme(themeId); };
+    return () => { _drawerThemeControl.openChain = null; };
+  }, []);
 
   // Auto-expand or collapse based on whether the ticker is in a value chain.
   // Suppressed when the click originated from within this drawer, or when
@@ -3704,9 +3712,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
         const isActive = activeFilterName === r.layer;
         return (
           <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: 7 }}>
-            {/* Layer header — click to filter scan */}
+            {/* Layer header — click to filter scan + expand chain in DrawerThemes */}
             <div
-              onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
+              onClick={() => { onLayerClick && onLayerClick(r.layer, r.tickers); _drawerThemeControl.openChain?.(r.themeId); }}
               title={`${r.theme} → ${r.layer} — click to filter scan`}
               style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
@@ -3730,15 +3738,14 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                 {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
               </span>
             </div>
-            {/* Top tickers sorted by RVol */}
+            {/* Top tickers sorted by RVol — display only, no click */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
               {r.tickerRows.slice(0, 7).map(({ ticker, chg, rvol }) => (
-                <button
+                <div
                   key={ticker}
-                  onClick={() => onTickerClick && onTickerClick(ticker)}
                   style={{
                     background: "rgba(255,255,255,0.05)", border: `1px solid ${ARIA.border}`,
-                    borderRadius: 3, padding: "2px 6px", cursor: "pointer",
+                    borderRadius: 3, padding: "2px 6px",
                     display: "flex", alignItems: "center", gap: 4,
                   }}
                 >
@@ -3754,7 +3761,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                       {rvol.toFixed(1)}x
                     </span>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </div>
