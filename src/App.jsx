@@ -3289,6 +3289,9 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "layers");
   useEffect(() => { localStorage.setItem("tp-chain-view-mode", mode); }, [mode]);
+  // Filter: Chg% > 0 — defaults ON. Stored as "1"/"0" in localStorage.
+  const [posOnly, setPosOnly] = useState(() => localStorage.getItem("tp-chain-pos-only") !== "0");
+  useEffect(() => { localStorage.setItem("tp-chain-pos-only", posOnly ? "1" : "0"); }, [posOnly]);
   const pillStyle = (active) => ({
     fontSize: 8, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
     fontFamily: "monospace", fontWeight: active ? 800 : 600,
@@ -3296,12 +3299,24 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
     color: active ? "#6cd5e8" : ARIA.textMuted,
     background: active ? "rgba(108,213,232,0.14)" : "transparent",
   });
+  const tagStyle = (active) => ({
+    fontSize: 8, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
+    fontFamily: "monospace", fontWeight: active ? 800 : 600,
+    border: `1px solid ${active ? "#10b981" : ARIA.border}`,
+    color: active ? "#10b981" : ARIA.textMuted,
+    background: active ? "rgba(16,185,129,0.14)" : "transparent",
+  });
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", gap: 4, padding: "4px 6px", flexShrink: 0, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 4, padding: "4px 6px", flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>VIEW</span>
         <button onClick={() => setMode("layers")} style={pillStyle(mode === "layers")}>Layers</button>
         <button onClick={() => setMode("tickers")} style={pillStyle(mode === "tickers")}>Tickers</button>
+        <span style={{ color: ARIA.border, margin: "0 4px" }}>|</span>
+        <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>FILTER</span>
+        <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
+          ▲ Chg{'>'}0%
+        </button>
       </div>
       {mode === "layers" ? (
         <ChainLayerTable
@@ -3309,6 +3324,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           tickerStrengthMap={tickerStrengthMap}
           onLayerClick={onLayerClick}
           activeFilterName={activeFilterName}
+          posOnly={posOnly}
         />
       ) : (
         <ChainTickerTable
@@ -3316,6 +3332,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           tickerStrengthMap={tickerStrengthMap}
           onTickerClick={onTickerClick}
           chartTicker={chartTicker}
+          posOnly={posOnly}
         />
       )}
     </div>
@@ -3325,7 +3342,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly }) {
   const ARIA = useAriaTheme();
   // Build a ticker→{theme,layer} map; tickers can appear in multiple layers
   const tickerMeta = useMemo(() => {
@@ -3382,7 +3399,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
   const [sortKey, setSortKey] = useState("chg");
   const [sortDir, setSortDir] = useState("desc");
   const sorted = useMemo(() => {
-    const arr = rows.slice();
+    let arr = rows.slice();
+    if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     arr.sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
       if (sortKey === "ticker" || sortKey === "theme" || sortKey === "layer") {
@@ -3395,7 +3413,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, sortKey, sortDir]);
+  }, [rows, sortKey, sortDir, posOnly]);
   const toggleSort = (k) => {
     setSortKey((cur) => {
       if (cur === k) { setSortDir((d) => d === "asc" ? "desc" : "asc"); return cur; }
@@ -3510,7 +3528,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
 
 // ── ChainLayerTable: every value-chain sub-layer with live aggregates,
 // sortable. Replaces the iframe view in ScanWatch's "Chain" sub-tab.
-function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterName }) {
+function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterName, posOnly }) {
   const ARIA = useAriaTheme();
   const allTickers = useMemo(() => {
     const s = new Set();
@@ -3571,7 +3589,8 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
   const [sortKey, setSortKey] = useState("avgStr");
   const [sortDir, setSortDir] = useState("desc");
   const sorted = useMemo(() => {
-    const arr = rows.slice();
+    let arr = rows.slice();
+    if (posOnly) arr = arr.filter(r => r.avgChg != null && r.avgChg > 0);
     arr.sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
       if (sortKey === "layer" || sortKey === "theme") {
@@ -3584,7 +3603,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, sortKey, sortDir]);
+  }, [rows, sortKey, sortDir, posOnly]);
   const toggleSort = (k) => {
     setSortKey((cur) => {
       if (cur === k) {
