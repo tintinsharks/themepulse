@@ -2962,6 +2962,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         >
           Chg&gt;0%
         </button>
+        {swView !== "chain" && <>
         <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: 4 }}>Owned:</span>
         <button
           onClick={() => updateFilter({ ownedView: "all" })}
@@ -2984,6 +2985,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         >
           Hide
         </button>
+        </>}
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>Chg≥</span>
         <input
           type="range"
