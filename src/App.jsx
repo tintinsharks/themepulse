@@ -1322,6 +1322,13 @@ function ETFScanTable({ onTickerClick }) {
   );
 }
 
+// Module-level flag: when set, DrawerThemes (value-chain panel below) skips
+// its auto-expand-and-scroll-to-ticker behavior on the next chartTicker change.
+// SupercycleMap and similar passive viewers set this so clicking a ticker only
+// loads the chart without yanking the right pane around.
+const _suppressChainScroll = { skip: false };
+function suppressChainScrollOnce() { _suppressChainScroll.skip = true; }
+
 // ── Supercycle Map — collapsible visual map of value-chain layers ─────────
 // Reads value_chain_framework notes from /data/theme_notes.json and renders
 // each layer as a tier-colored panel with clickable ticker pills.
@@ -1392,8 +1399,16 @@ const SC_RECENT_ER = {
   "COIN": { status: "miss", date: "May 7", note: "Rev -31% YoY · crypto pullback · derivatives +169%" },
 };
 
-function SupercycleMap({ chartTicker, onTickerClick }) {
+function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
   const ARIA = useAriaTheme();
+  // Wrap the click handler so we suppress the value-chain auto-expand + scroll
+  // every time. The user explicitly wants ticker clicks here to be passive —
+  // load chart only, don't move the right pane around.
+  const onTickerClick = useCallback((t) => {
+    if (!t) return;
+    suppressChainScrollOnce();
+    onTickerClickRaw?.(t);
+  }, [onTickerClickRaw]);
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-supercycle-open") === "1");
   const [notes, setNotes] = useState(() => _supercycleNotesCache.notes);
 
@@ -2178,9 +2193,14 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   useEffect(() => { localStorage.setItem("tp-drawer-themes-open", expanded ? "1" : "0"); }, [expanded]);
 
   // Auto-expand or collapse based on whether the ticker is in a value chain.
-  // Suppressed when the click originated from within this drawer.
+  // Suppressed when the click originated from within this drawer, or when
+  // another component (e.g. SupercycleMap) explicitly opted out.
   useEffect(() => {
     if (!chartTicker) return;
+    if (_suppressChainScroll.skip) {
+      _suppressChainScroll.skip = false;
+      return;
+    }
     if (selfClickedTicker.current === chartTicker) {
       selfClickedTicker.current = null;
       return;
