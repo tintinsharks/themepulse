@@ -3397,9 +3397,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
 
   const rows = useMemo(() => {
     if (scanRows) {
-      // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
-      return scanRows.map((sr) => {
+      // Source from scan results — only tickers that belong to a value chain
+      return scanRows.flatMap((sr) => {
         const chains = TICKER_CHAIN_MAP.get(sr.ticker);
+        if (!chains || chains.length === 0) return [];
         const firstChain = chains?.[0];
         const themeId = firstChain?.themeId ?? null;
         const theme = themeId
@@ -3591,17 +3592,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left" }}>
-                  {r.themeId ? (
+                  {r.themeId && (
                     <span style={{
                       fontSize: 7, fontWeight: 700, color: c.color,
                       background: c.bg, border: `1px solid ${c.border}`,
                       padding: "0 4px", borderRadius: 2,
                     }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
-                  ) : <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>}
+                  )}
                 </td>
                 <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, fontSize: 8 }}>
-                  {r.layer ?? <span style={{ color: ARIA.textMuted }}>—</span>}
-                  {r.layer && r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
+                  {r.layer ?? "—"}{r.layer && r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
                 </td>
                 <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>
                   {r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) + "%" : "—"}
