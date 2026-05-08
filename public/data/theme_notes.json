@@ -1,8 +1,92 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary — manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-05-04",
+  "updated": "2026-05-07",
   "notes": [
+    {
+      "id": "ai-ecosystem-layer-map-2026-05",
+      "date": "2026-05-07",
+      "type": "value_chain_framework",
+      "headline": "AI Ecosystem Layer Map — 6-layer value chain from memory → chip → interconnect → cybersecurity → power, with tier rankings and lead-lag flow.",
+      "primary_tickers": ["NVDA", "AVGO", "MU", "ALAB", "CRDO", "VRT", "GEV", "CRWD"],
+      "derivative_tickers": ["MRVL", "SNDK", "LITE", "PANW", "NET", "RBRK", "CYBR", "VST", "BE", "CRWV", "NBIS", "IREN"],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Memory / HBM",
+        "AI Chips / Custom ASICs",
+        "AI Interconnects & Optics",
+        "Cybersecurity / Edge AI",
+        "Power & Grid Infrastructure",
+        "Neocloud / AI Compute"
+      ],
+      "layers": {
+        "memory": {
+          "label": "Memory Layer",
+          "tier": 2,
+          "tickers": ["MU", "SNDK"],
+          "unlisted": ["SK Hynix", "Samsung", "Silicon Motion"],
+          "thesis": "HBM3e is the real story — NVDA H100/B200 racks are HBM-constrained. MU is the cleanest US-listed play. SNDK is fresh IPO with massive NAND backlog ($42B contractual revenue) but less price history. SK Hynix and Samsung not cleanly tradeable in US accounts.",
+          "catalyst": "Any NVDA rack demand print lifts HBM suppliers directly."
+        },
+        "neocloud": {
+          "label": "Neocloud Layer",
+          "tier": 3,
+          "tickers": ["CRWV", "NBIS", "IREN"],
+          "speculative": ["CIPHER"],
+          "thesis": "CoreWeave (CRWV) is a real GPU cloud business but debt-heavy post-IPO. NBIS (Nebius) is European AI cloud, thin float. IREN and Cipher are crypto miners pivoting to AI HPC — narrative-driven, not fundamentals. Watch IREN for execution proof points.",
+          "catalyst": "Hyperscaler capacity constraints driving GPU cloud demand; any DC contract announcements."
+        },
+        "ai_chip": {
+          "label": "AI Chip Layer",
+          "tier": 1,
+          "tickers": ["NVDA", "AVGO", "MRVL"],
+          "avoid": ["INTC", "SMIC"],
+          "thesis": "NVDA is the irreplaceable GPU monopoly — the backbone of every layer below. AVGO owns custom ASIC (XPU) for hyperscalers (Google TPU, Meta MTIA, custom) — recurring revenue moat with 3-year design win visibility. MRVL recovering with custom silicon wins. INTC is a turnaround, not a momentum name. SMIC is geopolitically uninvestable for US accounts.",
+          "catalyst": "NVDA Blackwell/Rubin ramp; hyperscaler capex prints confirming custom ASIC spend."
+        },
+        "cybersecurity": {
+          "label": "Cybersecurity (Edge AI) Layer",
+          "tier": 2,
+          "tickers": ["CRWD", "PANW", "NET", "RBRK", "CYBR"],
+          "thesis": "AI expanding the attack surface is the structural tailwind — more endpoints, more agentic processes, more LLM API exposure. CRWD is the RS leader with platform consolidation story. PANW is the enterprise incumbent with AI Copilot integration. NET (Cloudflare) bridges into AI gateway/inference. RBRK (data resilience) and CYBR (privileged access) are solid growers.",
+          "catalyst": "AI-driven breach headlines; platform consolidation deals; CRWD earnings prints."
+        },
+        "interconnects_optics": {
+          "label": "AI Interconnects & Optics Layer",
+          "tier": 2,
+          "tickers": ["ALAB", "CRDO", "LITE"],
+          "thesis": "Direct NVDA rack-scale beneficiaries. ALAB (Astera Labs) makes PCIe/CXL retimers — every GB200 NVL72 rack needs them. CRDO (Credo) makes high-speed SerDes for switch fabrics. LITE (Lumentum) is optical components — real business but lumpier demand. Goldman Sachs called optical networking TAM 9x to $154B with CPO alone at $91B (142% CAGR 2024-2030).",
+          "catalyst": "Co-packaged optics (CPO) adoption timeline; NVDA rack shipment velocity; any hyperscaler optical spend disclosure."
+        },
+        "power_infra": {
+          "label": "Power-Infra Layer",
+          "tier": 1,
+          "tickers": ["VRT", "GEV", "VST"],
+          "avoid": ["BE"],
+          "thesis": "Every watt of AI compute needs power and cooling. VRT (thermal management / liquid cooling) and GEV (grid transformers / power equipment) are picks-and-shovels with multi-year backlogs — all four hyperscalers said 'power and compute constrained' in Q1 2026 earnings. VST is the nuclear/baseload angle. BE (Bloom Energy fuel cells) doesn't have the same demand clarity.",
+          "catalyst": "Hyperscaler data center build announcements; grid interconnection approvals; nuclear policy tailwinds."
+        }
+      },
+      "lead_lag": {
+        "chain_flow": "NVDA demand signal → HBM constraint (MU) → custom ASIC ramp (AVGO/MRVL) → rack interconnects (ALAB/CRDO) → power/cooling bottleneck (VRT/GEV) → cybersecurity expansion (CRWD/PANW)",
+        "tier1_core": ["NVDA", "AVGO", "VRT", "GEV"],
+        "tier2_derivative": ["MU", "ALAB", "CRDO", "CRWD", "PANW", "MRVL", "SNDK", "LITE"],
+        "tier3_speculative": ["CRWV", "NBIS", "IREN", "VST", "NET", "RBRK", "CYBR"],
+        "avoid": ["INTC", "SMIC", "BE"],
+        "leading_indicators": ["NVDA earnings / guidance", "Hyperscaler capex prints (MSFT/META/AMZN/GOOGL)", "AVGO custom ASIC revenue commentary"],
+        "lagging_confirmations": ["MU HBM ASP trends", "VRT backlog updates", "ALAB design win announcements"],
+        "horizon": "Structural 2-3 year buildout; momentum setups reset on each earnings cycle"
+      },
+      "thesis": "The AI buildout is a 6-layer physical stack, not a software story. The highest-conviction chain is NVDA → AVGO → ALAB → VRT: GPU demand drives custom ASIC (AVGO), which demands rack-scale interconnects (ALAB), which requires massive power infrastructure (VRT). All four have clean fundamentals and price action. Memory (MU) is a parallel high-conviction play as HBM remains supply-constrained. Cybersecurity is a secular winner but one layer removed from the core capex cycle. Neocloud names (CRWV, IREN) are narrative-first — require earnings execution proof before sizing up.",
+      "caveats": [
+        "NVDA export restrictions (China) remain an overhang — any escalation hits the whole chain.",
+        "Custom ASIC (AVGO/MRVL) could displace NVDA share at the margin over 3-5 years — watch hyperscaler GPU mix commentary.",
+        "Power/grid buildout faces regulatory and interconnection queue delays — VRT/GEV are backlog stories, not near-term revenue surprises.",
+        "Cybersecurity layer is more correlated to software multiples than AI capex — different risk factor.",
+        "Neocloud names are high-beta crypto-adjacent — IREN/CRWV can gap down 20%+ on sentiment shifts."
+      ],
+      "source": "@Sancompounding AI Ecosystem Layers framework — May 7, 2026 + ThemePulse value chain audit"
+    },
     {
       "id": "cifr-iren-uuuu-mp-earnings-catalyst-2026-05",
       "date": "2026-05-04",
