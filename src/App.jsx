@@ -3738,14 +3738,15 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                 {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
               </span>
             </div>
-            {/* Top tickers sorted by RVol — display only, no click */}
+            {/* Top tickers sorted by RVol — click to load chart */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
               {r.tickerRows.slice(0, 7).map(({ ticker, chg, rvol }) => (
-                <div
+                <button
                   key={ticker}
+                  onClick={() => { suppressChainScrollOnce(); onTickerClick && onTickerClick(ticker); }}
                   style={{
                     background: "rgba(255,255,255,0.05)", border: `1px solid ${ARIA.border}`,
-                    borderRadius: 3, padding: "2px 6px",
+                    borderRadius: 3, padding: "2px 6px", cursor: "pointer",
                     display: "flex", alignItems: "center", gap: 4,
                   }}
                 >
@@ -3761,7 +3762,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                       {rvol.toFixed(1)}x
                     </span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
           </div>
