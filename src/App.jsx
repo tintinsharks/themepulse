@@ -7931,12 +7931,12 @@ function ChartPanelInline({
             </div>
             <div style={{ display: "flex", gap: 14 }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                <MiniQBars quarters={series} accessor={(q) => q.net_margin} yoyAccessor={(q) => q._marginDelta} color={ARIA.cyan} labelFmt={(v) => v.toFixed(1) + "%"} title="Net Margin" ARIA={ARIA} passYoy={2} hotYoy={5} />
                 <MiniQBars quarters={series} accessor={(q) => q.eps} yoyAccessor={(q) => q.eps_yoy} color={ARIA.blue} labelFmt={(v) => v.toFixed(2)} title="EPS (Diluted)" ARIA={ARIA} passYoy={25} hotYoy={40} />
+                <MiniQBars quarters={series} accessor={(q) => q.net_margin} yoyAccessor={(q) => q._marginDelta} color={ARIA.cyan} labelFmt={(v) => v.toFixed(1) + "%"} title="Net Margin" ARIA={ARIA} passYoy={2} hotYoy={5} />
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                <MiniQBars quarters={series} accessor={(q) => q.ocf_ps} yoyAccessor={(q) => q.ocf_yoy} color={ARIA.yellow} labelFmt={(v) => v.toFixed(2)} title="Op Cash Flow/sh" ARIA={ARIA} passYoy={25} hotYoy={40} />
                 <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
+                <MiniQBars quarters={series} accessor={(q) => q.ocf_ps} yoyAccessor={(q) => q.ocf_yoy} color={ARIA.yellow} labelFmt={(v) => v.toFixed(2)} title="Op Cash Flow/sh" ARIA={ARIA} passYoy={25} hotYoy={40} />
               </div>
               <CanslimScorecard ticker={ticker} stockInfo={stockInfo} cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null} annuals={effectiveAnnuals} stockMap={stockMap} ARIA={ARIA} />
             </div>
