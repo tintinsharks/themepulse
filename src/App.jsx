@@ -1548,40 +1548,6 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
       {expanded && (
         <div className="tp-sc-fadein" style={{ padding: "10px 12px 14px", background: "linear-gradient(180deg, rgba(13,17,23,0.4) 0%, transparent 60%)" }}>
 
-          {/* Hero stats banner */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 6,
-            marginBottom: 12,
-            padding: "8px 10px",
-            borderRadius: 6,
-            background: "linear-gradient(135deg, rgba(16,185,129,0.10) 0%, rgba(34,211,238,0.08) 50%, rgba(245,158,11,0.06) 100%)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            position: "relative",
-            overflow: "hidden",
-          }}>
-            <div className="tp-sc-shimmer" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
-            {[
-              { k: "FRAMEWORKS", v: frameworks.length, sub: "value chains", color: "#10b981" },
-              { k: "LAYERS", v: layerCount, sub: "tracked", color: "#22d3ee" },
-              { k: "Q1 BEATS", v: beatCount, sub: `of ${erHits.length} prints`, color: "#10b981" },
-              { k: "STATUS", v: missCount === 0 ? "ON" : "MIXED", sub: "supercycle", color: missCount === 0 ? "#10b981" : "#fbbf24" },
-            ].map((stat) => (
-              <div key={stat.k} style={{ position: "relative" }}>
-                <div style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.8, fontWeight: 700, marginBottom: 2 }}>
-                  {stat.k}
-                </div>
-                <div style={{ fontSize: 18, fontFamily: "monospace", fontWeight: 800, color: stat.color, lineHeight: 1, textShadow: `0 0 10px ${stat.color}55` }}>
-                  {stat.v}
-                </div>
-                <div style={{ fontSize: 7, color: ARIA.textDim, fontFamily: "monospace", marginTop: 2 }}>
-                  {stat.sub}
-                </div>
-              </div>
-            ))}
-          </div>
-
 
           {/* This Week's Earnings strip */}
           {erHits.length > 0 && (
