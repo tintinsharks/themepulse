@@ -2389,25 +2389,43 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                           <span style={{ fontSize: 7, color: ARIA.textMuted, fontWeight: 600 }}>
                             ({layer.tickers.length})
                           </span>
-                          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 3 }}>
+                          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center" }}>
                             {avgStr != null && (
-                              <span style={{ fontSize: 8, color: strColor(avgStr), fontWeight: 800, fontFamily: "monospace" }} title="Avg strength score">
-                                {Math.round(avgStr)}
+                              <span title="Avg strength score" style={{
+                                fontSize: 9, fontFamily: "monospace", fontWeight: 800,
+                                color: strColor(avgStr), padding: "1px 5px", borderRadius: 3,
+                                background: `${strColor(avgStr)}1a`, border: `1px solid ${strColor(avgStr)}55`,
+                              }}>
+                                STR {Math.round(avgStr)}
                               </span>
                             )}
                             {avgChg != null && (
-                              <span style={{ fontSize: 8, color: chgColor, fontWeight: 700, fontFamily: "monospace" }}>
+                              <span title="Avg % change" style={{
+                                fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                                color: chgColor, padding: "1px 5px", borderRadius: 3,
+                                background: `${chgColor}14`, border: `1px solid ${chgColor}55`,
+                              }}>
                                 {(avgChg > 0 ? "+" : "") + avgChg.toFixed(1) + "%"}
                               </span>
                             )}
                             {avgRvol != null && (
-                              <span style={{ fontSize: 8, color: avgRvol >= 1.5 ? "#a855f7" : ARIA.textDim, fontWeight: 700, fontFamily: "monospace" }}>
+                              <span title="Avg RVol" style={{
+                                fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                                color: avgRvol >= 1.5 ? "#a855f7" : ARIA.textMuted,
+                                padding: "1px 5px", borderRadius: 3,
+                                background: avgRvol >= 1.5 ? "rgba(168,85,247,0.14)" : "rgba(255,255,255,0.04)",
+                                border: `1px solid ${avgRvol >= 1.5 ? "rgba(168,85,247,0.5)" : ARIA.border}`,
+                              }}>
                                 {avgRvol.toFixed(1) + "x"}
                               </span>
                             )}
                             {avgCr != null && (
-                              <span style={{ fontSize: 8, color: crColor(avgCr), fontWeight: 700, fontFamily: "monospace" }} title="Avg closing range %">
-                                {Math.round(avgCr) + "%"}
+                              <span title="Avg closing range %" style={{
+                                fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                                color: crColor(avgCr), padding: "1px 5px", borderRadius: 3,
+                                background: `${crColor(avgCr)}14`, border: `1px solid ${crColor(avgCr)}55`,
+                              }}>
+                                CR {Math.round(avgCr)}%
                               </span>
                             )}
                           </span>
