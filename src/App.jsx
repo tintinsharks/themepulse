@@ -3420,7 +3420,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         const price = q?.price ?? s?.price ?? s?.close ?? null;
         const r1m = s?.return_1m, r3m = s?.return_3m;
         const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
-        const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+        const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+        const avgDvol = s?.avg_dollar_vol_raw ?? null;
+        const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
         return {
           ticker: sr.ticker,
           themeId,
@@ -3433,8 +3435,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           roc2,
-          dvol,
-          mcap: s?.market_cap_raw ?? null,
+          dvol: dvolToday,
+          dvolRatio,
           erDays: s?.earnings_days ?? null,
         };
       });
@@ -3460,7 +3462,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
       const price = q?.price ?? s?.price ?? s?.close ?? null;
       const r1m = s?.return_1m, r3m = s?.return_3m;
       const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
-      const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+      const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+      const avgDvol = s?.avg_dollar_vol_raw ?? null;
+      const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
       return {
         ticker: tk,
         themeId,
@@ -3473,8 +3477,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         roc2,
-        dvol,
-        mcap: s?.market_cap_raw ?? null,
+        dvol: dvolToday,
+        dvolRatio,
         erDays: s?.earnings_days ?? null,
       };
     });
@@ -3569,7 +3573,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="cr" label="CR%" />
             <Th k="roc2" label="ROC²" />
             <Th k="dvol" label="$Vol" />
-            <Th k="mcap" label="Mcap" />
+            <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
           </tr>
         </thead>
@@ -3627,7 +3631,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                   {r.roc2 != null ? (r.roc2 > 0 ? "+" : "") + r.roc2.toFixed(1) : "—"}
                 </td>
                 <td style={{ ...cell, color: ARIA.textDim }}>{fmtDvol(r.dvol)}</td>
-                <td style={{ ...cell, color: ARIA.textDim }}>{fmtMcap(r.mcap)}</td>
+                <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
+                    title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
+                  {r.dvolRatio != null ? r.dvolRatio.toFixed(1) + "x" : "—"}
+                </td>
                 <td style={{ ...cell, color: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? ARIA.yellow : ARIA.textMuted, fontWeight: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? 700 : 400 }}>
                   {r.erDays != null ? (r.erDays >= 0 ? `${r.erDays}d` : `${-r.erDays}d ago`) : "—"}
                 </td>
