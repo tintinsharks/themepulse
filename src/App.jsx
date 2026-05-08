@@ -3270,14 +3270,240 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       )}
 
       {swView === "chain" && (
-        <ChainLayerTable
+        <ChainView
           stockMap={stockMap}
           tickerStrengthMap={tickerStrengthMap}
           onLayerClick={onLayerClick}
+          onTickerClick={onTickerClick}
+          chartTicker={chartTicker}
           activeFilterName={chainFilter?.name}
         />
       )}
 
+    </div>
+  );
+}
+
+// ── ChainView: switchable Layers / Tickers view of value-chain data.
+function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName }) {
+  const ARIA = useAriaTheme();
+  const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "layers");
+  useEffect(() => { localStorage.setItem("tp-chain-view-mode", mode); }, [mode]);
+  const pillStyle = (active) => ({
+    fontSize: 8, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
+    fontFamily: "monospace", fontWeight: active ? 800 : 600,
+    border: `1px solid ${active ? "#6cd5e8" : ARIA.border}`,
+    color: active ? "#6cd5e8" : ARIA.textMuted,
+    background: active ? "rgba(108,213,232,0.14)" : "transparent",
+  });
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", gap: 4, padding: "4px 6px", flexShrink: 0, alignItems: "center" }}>
+        <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>VIEW</span>
+        <button onClick={() => setMode("layers")} style={pillStyle(mode === "layers")}>Layers</button>
+        <button onClick={() => setMode("tickers")} style={pillStyle(mode === "tickers")}>Tickers</button>
+      </div>
+      {mode === "layers" ? (
+        <ChainLayerTable
+          stockMap={stockMap}
+          tickerStrengthMap={tickerStrengthMap}
+          onLayerClick={onLayerClick}
+          activeFilterName={activeFilterName}
+        />
+      ) : (
+        <ChainTickerTable
+          stockMap={stockMap}
+          tickerStrengthMap={tickerStrengthMap}
+          onTickerClick={onTickerClick}
+          chartTicker={chartTicker}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── ChainTickerTable: every ticker that lives in any value chain, with live
+// per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
+// Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker }) {
+  const ARIA = useAriaTheme();
+  // Build a ticker→{theme,layer} map; tickers can appear in multiple layers
+  const tickerMeta = useMemo(() => {
+    const map = {};
+    DRAWER_SUBTHEMES.forEach((sub) => {
+      sub.tickers.forEach((tk) => {
+        if (!map[tk]) map[tk] = { themeId: sub.themeId, theme: sub.theme, layers: [] };
+        if (!map[tk].layers.includes(sub.layer)) map[tk].layers.push(sub.layer);
+      });
+    });
+    return map;
+  }, []);
+  const allTickers = useMemo(() => Object.keys(tickerMeta), [tickerMeta]);
+  const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
+
+  const rows = useMemo(() => {
+    return allTickers.map((tk) => {
+      const meta = tickerMeta[tk];
+      const q = liveQuotes.get(tk);
+      const s = stockMap?.[tk];
+      const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
+      const liveVol = q?.volume;
+      const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+      let rvol = null;
+      if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+      else if (s?.rvol != null && !isNaN(s.rvol) && s.rvol > 0) rvol = s.rvol;
+      const price = q?.price, high = q?.high, low = q?.low;
+      let cr = null;
+      if (price != null && high != null && low != null && high > low) {
+        cr = ((price - low) / (high - low)) * 100;
+      } else if (s?.cr_pct != null && !isNaN(s.cr_pct)) cr = s.cr_pct;
+      const r1m = s?.return_1m, r3m = s?.return_3m;
+      const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
+      const dvol = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+      return {
+        ticker: tk,
+        themeId: meta.themeId,
+        theme: meta.theme,
+        layer: meta.layers[0],
+        layerCount: meta.layers.length,
+        chg,
+        rvol,
+        rs: s?.rs_rank ?? null,
+        str: tickerStrengthMap?.[tk] ?? null,
+        cr,
+        roc2,
+        dvol,
+        mcap: s?.market_cap_raw ?? null,
+        erDays: s?.earnings_days ?? null,
+      };
+    });
+  }, [allTickers, tickerMeta, liveQuotes, stockMap, tickerStrengthMap]);
+
+  const [sortKey, setSortKey] = useState("chg");
+  const [sortDir, setSortDir] = useState("desc");
+  const sorted = useMemo(() => {
+    const arr = rows.slice();
+    arr.sort((a, b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (sortKey === "ticker" || sortKey === "theme" || sortKey === "layer") {
+        av = (av || "").toString();
+        bv = (bv || "").toString();
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      av = av == null ? -Infinity : av;
+      bv = bv == null ? -Infinity : bv;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+    return arr;
+  }, [rows, sortKey, sortDir]);
+  const toggleSort = (k) => {
+    setSortKey((cur) => {
+      if (cur === k) { setSortDir((d) => d === "asc" ? "desc" : "asc"); return cur; }
+      setSortDir(k === "ticker" || k === "theme" || k === "layer" ? "asc" : "desc");
+      return k;
+    });
+  };
+
+  const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
+  const crColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
+  const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const rvColor = (v) => v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
+  const fmtMcap = (v) => v == null ? "—" : v >= 1e12 ? (v/1e12).toFixed(1)+"T" : v >= 1e9 ? (v/1e9).toFixed(1)+"B" : v >= 1e6 ? (v/1e6).toFixed(0)+"M" : v.toFixed(0);
+  const fmtDvol = (v) => v == null ? "—" : v >= 1e9 ? (v/1e9).toFixed(1)+"B" : v >= 1e6 ? (v/1e6).toFixed(0)+"M" : v.toFixed(0);
+
+  const Th = ({ k, label, align = "right" }) => {
+    const on = sortKey === k;
+    const arrow = on ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+    return (
+      <th onClick={() => toggleSort(k)}
+        style={{
+          padding: "3px 5px", fontSize: 7, fontWeight: 700,
+          color: on ? ARIA.green : ARIA.textMuted,
+          textTransform: "uppercase", letterSpacing: 0.3, textAlign: align,
+          borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap",
+          cursor: "pointer", background: ARIA.bgCard, userSelect: "none",
+        }}>{label}{arrow}</th>
+    );
+  };
+  const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto", fontFamily: "monospace" }}>
+        <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
+          <tr>
+            <Th k="ticker" label="Ticker" align="left" />
+            <Th k="theme" label="Chain" align="left" />
+            <Th k="layer" label="Layer" align="left" />
+            <Th k="chg" label="Chg%" />
+            <Th k="rvol" label="RV" />
+            <Th k="rs" label="RS" />
+            <Th k="str" label="Str" />
+            <Th k="cr" label="CR%" />
+            <Th k="roc2" label="ROC²" />
+            <Th k="dvol" label="$Vol" />
+            <Th k="mcap" label="Mcap" />
+            <Th k="erDays" label="ER" />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((r) => {
+            const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
+            const sel = chartTicker === r.ticker;
+            return (
+              <tr
+                key={r.ticker}
+                onClick={() => { suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); }}
+                style={{ cursor: "pointer", background: sel ? `${c.color}26` : "transparent" }}
+                onMouseEnter={(e) => { if (!sel) e.currentTarget.style.background = ARIA.bgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : "transparent"; }}
+                title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}`}
+              >
+                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : ARIA.text, fontWeight: sel ? 800 : 700 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
+                    {r.ticker}
+                  </span>
+                </td>
+                <td style={{ ...cell, textAlign: "left" }}>
+                  <span style={{
+                    fontSize: 7, fontWeight: 700, color: c.color,
+                    background: c.bg, border: `1px solid ${c.border}`,
+                    padding: "0 4px", borderRadius: 2,
+                  }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+                </td>
+                <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, fontSize: 8 }}>
+                  {r.layer}{r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
+                </td>
+                <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>
+                  {r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: rvColor(r.rvol), fontWeight: 700 }}>
+                  {r.rvol != null ? r.rvol.toFixed(1) + "x" : "—"}
+                </td>
+                <td style={{ ...cell, color: r.rs != null && r.rs >= 80 ? ARIA.green : r.rs != null && r.rs >= 60 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
+                  {r.rs != null ? Math.round(r.rs) : "—"}
+                </td>
+                <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
+                  {r.str != null ? Math.round(r.str) : "—"}
+                </td>
+                <td style={{ ...cell, color: crColor(r.cr) }}>
+                  {r.cr != null ? Math.round(r.cr) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: chgColor(r.roc2), fontWeight: 700 }}
+                    title="ROC² (Druckenmiller acceleration): 1M return − (3M return ÷ 3)">
+                  {r.roc2 != null ? (r.roc2 > 0 ? "+" : "") + r.roc2.toFixed(1) : "—"}
+                </td>
+                <td style={{ ...cell, color: ARIA.textDim }}>{fmtDvol(r.dvol)}</td>
+                <td style={{ ...cell, color: ARIA.textDim }}>{fmtMcap(r.mcap)}</td>
+                <td style={{ ...cell, color: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? ARIA.yellow : ARIA.textMuted, fontWeight: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? 700 : 400 }}>
+                  {r.erDays != null ? (r.erDays >= 0 ? `${r.erDays}d` : `${-r.erDays}d ago`) : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
