@@ -3485,7 +3485,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           roc2,
-          dvol: dvolToday,
+          epsYoy: s?.eps_yoy ?? null,
+          salesYoy: s?.sales_yoy ?? null,
           dvolRatio,
           erDays: s?.earnings_days ?? null,
         };
@@ -3527,7 +3528,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         roc2,
-        dvol: dvolToday,
+        epsYoy: s?.eps_yoy ?? null,
+        salesYoy: s?.sales_yoy ?? null,
         dvolRatio,
         erDays: s?.earnings_days ?? null,
       };
@@ -3621,7 +3623,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="rs" label="RS" />
             <Th k="str" label="Str" />
             <Th k="roc2" label="ROC²" />
-            <Th k="dvol" label="$Vol" />
+            <Th k="epsYoy" label="EPS/Rev" />
             <Th k="cr" label="CR%" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
@@ -3680,7 +3682,23 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                     title="ROC² (Druckenmiller acceleration): 1M return − (3M return ÷ 3)">
                   {r.roc2 != null ? (r.roc2 > 0 ? "+" : "") + r.roc2.toFixed(1) : "—"}
                 </td>
-                <td style={{ ...cell, color: ARIA.textDim }}>{fmtDvol(r.dvol)}</td>
+                <td style={{ ...cell, whiteSpace: "nowrap" }}>
+                  {r.epsYoy != null || r.salesYoy != null ? (
+                    <span style={{ fontFamily: "monospace", fontSize: 8 }}>
+                      {r.epsYoy != null && (
+                        <span style={{ color: r.epsYoy >= 25 ? ARIA.green : r.epsYoy >= 0 ? ARIA.textDim : ARIA.red, fontWeight: 700 }}>
+                          {(r.epsYoy > 0 ? "+" : "") + Math.round(r.epsYoy) + "%"}
+                        </span>
+                      )}
+                      {r.epsYoy != null && r.salesYoy != null && <span style={{ color: ARIA.textMuted }}> · </span>}
+                      {r.salesYoy != null && (
+                        <span style={{ color: r.salesYoy >= 20 ? ARIA.blue : r.salesYoy >= 0 ? ARIA.textDim : ARIA.red, fontWeight: 700 }}>
+                          {(r.salesYoy > 0 ? "+" : "") + Math.round(r.salesYoy) + "%"}
+                        </span>
+                      )}
+                    </span>
+                  ) : <span style={{ color: ARIA.textMuted }}>—</span>}
+                </td>
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
                 </td>
