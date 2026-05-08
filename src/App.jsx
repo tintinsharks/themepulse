@@ -3306,7 +3306,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
 function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName, scanRows }) {
   const ARIA = useAriaTheme();
-  const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "layers");
+  const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "tickers");
   const containerRef = useRef(null);
   useEffect(() => { localStorage.setItem("tp-chain-view-mode", mode); }, [mode]);
   // Auto-focus the active table so up/down arrows work without a click first
