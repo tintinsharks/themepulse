@@ -3591,14 +3591,17 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left" }}>
-                  <span style={{
-                    fontSize: 7, fontWeight: 700, color: c.color,
-                    background: c.bg, border: `1px solid ${c.border}`,
-                    padding: "0 4px", borderRadius: 2,
-                  }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+                  {r.themeId ? (
+                    <span style={{
+                      fontSize: 7, fontWeight: 700, color: c.color,
+                      background: c.bg, border: `1px solid ${c.border}`,
+                      padding: "0 4px", borderRadius: 2,
+                    }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+                  ) : <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>}
                 </td>
                 <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, fontSize: 8 }}>
-                  {r.layer}{r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
+                  {r.layer ?? <span style={{ color: ARIA.textMuted }}>—</span>}
+                  {r.layer && r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
                 </td>
                 <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>
                   {r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) + "%" : "—"}
