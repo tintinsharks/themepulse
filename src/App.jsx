@@ -2459,6 +2459,9 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
 function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilter, clearChainFilter, onLayerClick }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
+  const [panelH, setPanelH] = useState(() => parseInt(localStorage.getItem("tp-scan-panel-h") || "600"));
+  const panelHRef = useRef(600);
+  useEffect(() => { panelHRef.current = panelH; }, [panelH]);
   const [chainId, setChainId] = useState("leaderboard");
   const [chainPrev, setChainPrev] = useState(null);
   // Force scan view when an external chain/layer filter is applied
@@ -2748,8 +2751,29 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        height: panelH,
       }}
     >
+      {/* Drag handle — resize panel height */}
+      <div
+        title="Drag to resize"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          const startY = e.clientY;
+          const startH = panelHRef.current;
+          const onMove = (ev) => setPanelH(Math.max(200, startH + ev.clientY - startY));
+          const onUp = () => {
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+            localStorage.setItem("tp-scan-panel-h", String(panelHRef.current));
+          };
+          window.addEventListener("mousemove", onMove);
+          window.addEventListener("mouseup", onUp);
+        }}
+        style={{ height: 6, cursor: "ns-resize", background: ARIA.border, flexShrink: 0, opacity: 0.5, borderRadius: "3px 3px 0 0" }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.background = "#22d3ee88"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.5"; e.currentTarget.style.background = ARIA.border; }}
+      />
       {/* Panel header */}
       <div
         style={{
