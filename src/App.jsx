@@ -3485,8 +3485,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           roc2,
-          epsYoy: s?.quarters?.[0]?.eps ?? null,
-          salesYoy: s?.quarters?.[0]?.revenue ?? null,
+          mcap: s?.market_cap_raw ?? null,
           dvolRatio,
           erDays: s?.earnings_days ?? null,
         };
@@ -3623,7 +3622,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="rs" label="RS" />
             <Th k="str" label="Str" />
             <Th k="roc2" label="ROC²" />
-            <Th k="epsYoy" label="EPS · Rev" />
+            <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
@@ -3682,23 +3681,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                     title="ROC² (Druckenmiller acceleration): 1M return − (3M return ÷ 3)">
                   {r.roc2 != null ? (r.roc2 > 0 ? "+" : "") + r.roc2.toFixed(1) : "—"}
                 </td>
-                <td style={{ ...cell, whiteSpace: "nowrap" }} title="Most recent quarter: EPS · Revenue">
-                  {r.epsYoy != null || r.salesYoy != null ? (
-                    <span style={{ fontFamily: "monospace", fontSize: 8 }}>
-                      {r.epsYoy != null && (
-                        <span style={{ color: ARIA.blue, fontWeight: 700 }}>
-                          {r.epsYoy.toFixed(2)}
-                        </span>
-                      )}
-                      {r.epsYoy != null && r.salesYoy != null && <span style={{ color: ARIA.textMuted }}> · </span>}
-                      {r.salesYoy != null && (
-                        <span style={{ color: ARIA.textDim, fontWeight: 600 }}>
-                          {r.salesYoy >= 1e9 ? (r.salesYoy / 1e9).toFixed(1) + "B" : r.salesYoy >= 1e6 ? (r.salesYoy / 1e6).toFixed(0) + "M" : (r.salesYoy / 1e3).toFixed(0) + "K"}
-                        </span>
-                      )}
-                    </span>
-                  ) : <span style={{ color: ARIA.textMuted }}>—</span>}
-                </td>
+                <td style={{ ...cell, color: ARIA.textDim }}>{fmtMcap(r.mcap)}</td>
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
                 </td>
