@@ -3386,6 +3386,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows }) {
   const ARIA = useAriaTheme();
+  const ownedTint = useOwnedTint();
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
 
@@ -3582,14 +3583,15 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
             const sel = chartTicker === r.ticker;
             const kbSel = selectedTicker === r.ticker;
+            const tint = ownedTint(r.ticker, ARIA);
             return (
               <tr
                 key={r.ticker}
                 data-ticker={r.ticker}
                 onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus(); }}
-                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : "transparent", outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
+                style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : tint, outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
                 onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = ARIA.bgHover; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : "transparent"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : tint; }}
                 title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}`}
               >
                 <td style={{ ...cell, textAlign: "left", color: sel ? c.color : ARIA.text, fontWeight: sel ? 800 : 700 }}>
