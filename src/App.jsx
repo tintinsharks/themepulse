@@ -2105,7 +2105,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
 }
 
 // ── Drawer Themes — collapsible inline view of value-chain themes/subthemes ──
-function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap, onLayerClick, activeFilterName }) {
+function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap, onLayerClick, activeFilterNames }) {
   const ARIA = useAriaTheme();
   const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-drawer-themes-open") !== "0");
   const [openTheme, setOpenTheme] = useState(null);
@@ -2266,7 +2266,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
             const allTk = theme.layers.flatMap(l => l.tickers);
             const { avgChg: tAvgChg, avgRvol: tAvgRvol, avgStr: tAvgStr, avgCr: tAvgCr } = layerAggs(allTk);
             const tChgColor = tAvgChg == null ? ARIA.textMuted : tAvgChg > 0 ? "#10b981" : tAvgChg < 0 ? "#ef4444" : ARIA.textMuted;
-            const isFiltered = activeFilterName === theme.name;
+            const isFiltered = activeFilterNames?.includes(theme.name);
 
             return (
               <div key={theme.id} className="tp-sc-card" style={{
@@ -2363,7 +2363,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
                     {theme.layers.map((layer, li) => {
                       const { avgChg, avgRvol, avgStr, avgCr } = layerAggs(layer.tickers);
                       const chgColor = avgChg == null ? ARIA.textMuted : avgChg > 0 ? "#10b981" : avgChg < 0 ? "#ef4444" : ARIA.textMuted;
-                      const isLayerFiltered = activeFilterName === layer.layer;
+                      const isLayerFiltered = activeFilterNames?.includes(layer.layer);
                       return (
                       <div key={li} data-layer-has={layer.tickers.join(" ")} style={{
                         marginBottom: 6, paddingTop: li === 0 ? 0 : 6,
@@ -2474,7 +2474,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilter, clearChainFilter, onLayerClick }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilters, clearChainFilters, removeChainFilter, onLayerClick }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [panelH, setPanelH] = useState(() => parseInt(localStorage.getItem("tp-scan-panel-h") || "600"));
@@ -2483,7 +2483,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   const [chainId, setChainId] = useState("leaderboard");
   const [chainPrev, setChainPrev] = useState(null);
   // Force scan view when an external chain/layer filter is applied
-  useEffect(() => { if (chainFilter) setSwView("chain"); }, [chainFilter?.name]);
+  useEffect(() => { if (chainFilters?.length) setSwView("chain"); }, [chainFilters?.length]);
   const navigateChain = useCallback((id, fromSwitch = false) => {
     setChainPrev((prev) => fromSwitch ? null : (id !== chainId ? chainId : prev));
     setChainId(id);
@@ -2608,13 +2608,14 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
     // Chain filter active: include every chain ticker found in candidates
     // (still capped at 500 — but chain layers are ~10–30 tickers so this is
     // fine in practice).
-    if (chainFilter?.tickers?.size) {
-      const chainHits = sorted.filter((s) => chainFilter.tickers.has(s.ticker));
-      const others = sorted.filter((s) => !chainFilter.tickers.has(s.ticker));
+    const chainUnion = chainFilters?.length ? new Set(chainFilters.flatMap((f) => [...f.tickers])) : null;
+    if (chainUnion?.size) {
+      const chainHits = sorted.filter((s) => chainUnion.has(s.ticker));
+      const others = sorted.filter((s) => !chainUnion.has(s.ticker));
       return [...chainHits, ...others].slice(0, 500);
     }
     return sorted.slice(0, 500);
-  }, [candidates, chainFilter]);
+  }, [candidates, chainFilters]);
 
   // ── Step 3: live enrichment ─────────────────────────────────────────────
   const candidateTickers = useMemo(
@@ -2719,11 +2720,12 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       ? out.filter((r) => r.subtheme === activeSubtheme)
       : out;
     // Chain/layer filter from DrawerThemes click
-    if (chainFilter?.tickers) {
-      filtered = filtered.filter((r) => chainFilter.tickers.has(r.ticker));
+    if (chainFilters?.length) {
+      const union = new Set(chainFilters.flatMap((f) => [...f.tickers]));
+      filtered = filtered.filter((r) => union.has(r.ticker));
     }
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilter]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -3195,14 +3197,21 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         })}
       </div>
 
-      {/* Active chain/layer filter chip */}
-      {chainFilter && (
-        <div style={{ padding: "3px 12px", display: "flex", alignItems: "center", gap: 4, borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace" }}>
+      {/* Active chain/layer filter chips */}
+      {chainFilters?.length > 0 && (
+        <div style={{ padding: "3px 12px", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace" }}>
           <span style={{ fontSize: 7, color: ARIA.textMuted }}>CHAIN</span>
-          <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.purple, border: `1px solid ${ARIA.purple}`, background: `${ARIA.purple}20`, padding: "1px 6px", borderRadius: 3 }}>
-            {chainFilter.name} ({chainFilter.tickers.size})
-          </span>
-          <button onClick={clearChainFilter} title="Clear chain filter" style={{ fontSize: 10, background: "transparent", border: "none", color: ARIA.textMuted, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>×</button>
+          {chainFilters.map((f) => (
+            <span key={f.name} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.purple, border: `1px solid ${ARIA.purple}`, background: `${ARIA.purple}20`, padding: "1px 6px", borderRadius: 3 }}>
+                {f.name} ({f.tickers.size})
+              </span>
+              <button onClick={() => removeChainFilter(f.name)} title="Remove filter" style={{ fontSize: 10, background: "transparent", border: "none", color: ARIA.textMuted, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+          {chainFilters.length > 1 && (
+            <button onClick={clearChainFilters} title="Clear all chain filters" style={{ fontSize: 7, background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textMuted, cursor: "pointer", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace" }}>clear all</button>
+          )}
         </div>
       )}
 
@@ -3340,7 +3349,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           onLayerClick={onLayerClick}
           onTickerClick={onTickerClick}
           chartTicker={chartTicker}
-          activeFilterName={chainFilter?.name}
+          activeFilterNames={chainFilters?.map((f) => f.name) ?? []}
           scanRows={rows}
           filters={filters}
           activePresets={activePresets}
@@ -3353,7 +3362,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 }
 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
-function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName, scanRows, filters, activePresets, activeTags }) {
+function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterNames, scanRows, filters, activePresets, activeTags }) {
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "tickers");
   const containerRef = useRef(null);
@@ -3395,12 +3404,12 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
           ▲ Chg{'>'}0%
         </button>
-        {/* Active chain/layer filter chip */}
-        {activeFilterName && (
-          <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>
-            {activeFilterName}
+        {/* Active chain/layer filter chips */}
+        {activeFilterNames?.map((name) => (
+          <span key={name} style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>
+            {name}
           </span>
-        )}
+        ))}
         {/* Active scan filter chips — read-only indicators */}
         {filters && (() => {
           const chips = [];
@@ -3425,14 +3434,14 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           stockMap={stockMap}
           onLayerClick={onLayerClick}
           onTickerClick={onTickerClick}
-          activeFilterName={activeFilterName}
+          activeFilterNames={activeFilterNames}
         />
       ) : mode === "layers" ? (
         <ChainLayerTable
           stockMap={stockMap}
           tickerStrengthMap={tickerStrengthMap}
           onLayerClick={onLayerClick}
-          activeFilterName={activeFilterName}
+          activeFilterNames={activeFilterNames}
           posOnly={posOnly}
         />
       ) : (
@@ -3775,7 +3784,7 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
 // signal (Str / Chg% / RV / ROC²). Click a chip → filter ScanWatch.
 // ── ChainHeatView: hot layers ranked by RVol×Chg% with driving tickers inline.
 // Replaces the need to cross-reference Flow + Tickers views separately.
-function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName }) {
+function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterNames }) {
   const ARIA = useAriaTheme();
 
   const allTickers = useMemo(() => {
@@ -3848,7 +3857,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       )}
       {layers.map((r) => {
         const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
-        const isActive = activeFilterName === r.layer;
+        const isActive = activeFilterNames?.includes(r.layer);
         return (
           <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: 7 }}>
             {/* Layer header — click to filter scan + expand chain in DrawerThemes */}
@@ -3911,7 +3920,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   );
 }
 
-function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterName, posOnly }) {
+function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterNames, posOnly }) {
   const ARIA = useAriaTheme();
   const rows = useChainLayerRows(stockMap, tickerStrengthMap);
 
@@ -4011,7 +4020,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
         <tbody>
           {sorted.map((r, i) => {
             const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
-            const isActive = activeFilterName === r.layer;
+            const isActive = activeFilterNames?.includes(r.layer);
             const kbSel = selIdx === i;
             return (
               <tr
@@ -9780,9 +9789,12 @@ function ChartScanRow({
 
   // Chain filter — set when a layer/theme is clicked in DrawerThemes; restricts
   // the Scan tab to only those tickers. Click again on same to toggle off.
-  const [chainFilter, setChainFilter] = useState(null);
+  const [chainFilters, setChainFilters] = useState([]);
   const handleLayerClick = useCallback((name, tickers) => {
-    setChainFilter((prev) => prev?.name === name ? null : { name, tickers: new Set(tickers) });
+    setChainFilters((prev) => {
+      const exists = prev.some((f) => f.name === name);
+      return exists ? prev.filter((f) => f.name !== name) : [...prev, { name, tickers: new Set(tickers) }];
+    });
   }, []);
   return (
     <div
@@ -9827,8 +9839,8 @@ function ChartScanRow({
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <SupercycleMap chartTicker={chartTicker} onTickerClick={handleTickerClick} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
-        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterName={chainFilter?.name} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilter={chainFilter} clearChainFilter={() => setChainFilter(null)} onLayerClick={handleLayerClick} />
+        <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterNames={chainFilters.map((f) => f.name)} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
       </div>
     </div>
   );
