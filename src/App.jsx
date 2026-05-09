@@ -3458,12 +3458,50 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
   );
 }
 
+// ── useThesisMap: fetches theme_notes.json once (module-level cache) and
+// returns a Map<ticker, [{id, headline, type, role, thesis, layers, caveats}]>
+let _thesisMapCache = null;
+let _thesisMapFetching = false;
+const _thesisMapListeners = [];
+function useThesisMap() {
+  const [map, setMap] = useState(_thesisMapCache);
+  useEffect(() => {
+    if (_thesisMapCache) { setMap(_thesisMapCache); return; }
+    if (_thesisMapFetching) { _thesisMapListeners.push(setMap); return; }
+    _thesisMapFetching = true;
+    fetch("/data/theme_notes.json")
+      .then((r) => r.json())
+      .then((d) => {
+        const m = new Map();
+        for (const note of (d.notes || [])) {
+          const add = (tk, role) => {
+            const key = tk.toUpperCase();
+            const entry = { id: note.id, headline: note.headline, type: note.type || "", role, thesis: note.thesis || "", layers: note.layers || null, caveats: note.caveats || [], primary_tickers: note.primary_tickers || [], derivative_tickers: note.derivative_tickers || [] };
+            const arr = m.get(key) || [];
+            arr.push(entry);
+            m.set(key, arr);
+          };
+          (note.primary_tickers || []).forEach((tk) => add(tk, "primary"));
+          (note.derivative_tickers || []).forEach((tk) => add(tk, "derivative"));
+        }
+        _thesisMapCache = m;
+        _thesisMapFetching = false;
+        setMap(m);
+        _thesisMapListeners.forEach((fn) => fn(m));
+        _thesisMapListeners.length = 0;
+      })
+      .catch(() => { _thesisMapFetching = false; });
+  }, []);
+  return map;
+}
+
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
+  const thesisMap = useThesisMap();
   const [focusRaw, setFocusRaw] = useState(() => localStorage.getItem("themepulse-focus") || "[]");
   useEffect(() => {
     const onStorage = (e) => { if (e.key === "themepulse-focus") setFocusRaw(e.newValue || "[]"); };
@@ -3473,6 +3511,14 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
   const focusTickers = useMemo(() => { try { return new Set(JSON.parse(focusRaw)); } catch { return new Set(); } }, [focusRaw]);
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
+  const [thesisPopover, setThesisPopover] = useState(null); // {theses, x, y}
+  const popoverRef = useRef(null);
+  useEffect(() => {
+    if (!thesisPopover) return;
+    const onDown = (e) => { if (popoverRef.current && !popoverRef.current.contains(e.target)) setThesisPopover(null); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [thesisPopover]);
 
   // When scanRows provided, only poll those tickers; else poll all chain tickers.
   const allChainTickers = useMemo(() => {
@@ -3661,6 +3707,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="cr" label="CR%" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
+            <th style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "center", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard }}>💡</th>
           </tr>
         </thead>
         <tbody>
@@ -3727,11 +3774,75 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 <td style={{ ...cell, color: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? ARIA.yellow : ARIA.textMuted, fontWeight: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? 700 : 400 }}>
                   {r.erDays != null ? (r.erDays >= 0 ? `${r.erDays}d` : `${-r.erDays}d ago`) : "—"}
                 </td>
+                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
+                    onClick={(e) => e.stopPropagation()}>
+                  {(() => {
+                    const theses = thesisMap?.get(r.ticker);
+                    if (!theses?.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                    const hasPrimary = theses.some((t) => t.role === "primary");
+                    return (
+                      <button
+                        title={`${theses.length} thesis note${theses.length > 1 ? "s" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setThesisPopover((prev) => prev?.ticker === r.ticker ? null : { ticker: r.ticker, theses, x: rect.left, y: rect.bottom + 6 });
+                        }}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: hasPrimary ? 12 : 10, padding: 0, lineHeight: 1, opacity: hasPrimary ? 1 : 0.55, filter: hasPrimary ? "none" : "grayscale(0.4)" }}
+                      >💡</button>
+                    );
+                  })()}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+
+      {/* Thesis popover */}
+      {thesisPopover && (() => {
+        const vpW = window.innerWidth, vpH = window.innerHeight;
+        const popW = 340, popMaxH = 420;
+        const rawX = thesisPopover.x, rawY = thesisPopover.y;
+        const x = Math.min(rawX, vpW - popW - 12);
+        const y = rawY + popMaxH > vpH ? Math.max(8, rawY - popMaxH - 10) : rawY;
+        return (
+          <div ref={popoverRef} style={{
+            position: "fixed", left: x, top: y, width: popW, maxHeight: popMaxH,
+            background: "#1a1a28", border: "1px solid rgba(168,85,247,0.4)",
+            borderRadius: 6, boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+            zIndex: 9999, overflow: "auto", fontFamily: "monospace",
+          }}>
+            <div style={{ padding: "7px 10px 5px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 9, fontWeight: 800, color: "#a855f7", letterSpacing: 0.4 }}>{thesisPopover.ticker} · THESIS INTEL</span>
+              <button onClick={() => setThesisPopover(null)} style={{ background: "transparent", border: "none", color: "#666", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+            {thesisPopover.theses.map((t, i) => (
+              <div key={t.id} style={{ padding: "8px 10px", borderBottom: i < thesisPopover.theses.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: t.role === "primary" ? "rgba(168,85,247,0.2)" : "rgba(100,100,140,0.2)", border: `1px solid ${t.role === "primary" ? "rgba(168,85,247,0.5)" : "rgba(100,100,140,0.4)"}`, color: t.role === "primary" ? "#a855f7" : "#8888aa", textTransform: "uppercase" }}>{t.role}</span>
+                  {t.type && <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.3)", color: "#22d3ee", textTransform: "uppercase" }}>{t.type.replace(/_/g, " ")}</span>}
+                </div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#e2e8f0", lineHeight: 1.4, marginBottom: 6 }}>{t.headline}</div>
+                {t.thesis && <div style={{ fontSize: 8, color: "#94a3b8", lineHeight: 1.5, marginBottom: 5 }}>{t.thesis.length > 420 ? t.thesis.slice(0, 417) + "…" : t.thesis}</div>}
+                {t.layers && (
+                  <div style={{ marginBottom: 4 }}>
+                    {Object.values(t.layers).map((layer) => (
+                      <div key={layer.label} style={{ marginBottom: 3 }}>
+                        <span style={{ fontSize: 7, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{layer.label} </span>
+                        <span style={{ fontSize: 7, color: "#475569" }}>— {(layer.tickers || []).join(", ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {t.primary_tickers?.length > 0 && <div style={{ fontSize: 7, color: "#64748b" }}>Primary: {t.primary_tickers.join(", ")}</div>}
+                {t.derivative_tickers?.length > 0 && <div style={{ fontSize: 7, color: "#475569" }}>Derivatives: {t.derivative_tickers.join(", ")}</div>}
+                <div style={{ fontSize: 6, color: "#334155", marginTop: 4, letterSpacing: 0.3 }}>{t.id}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
