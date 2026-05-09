@@ -3342,6 +3342,9 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           chartTicker={chartTicker}
           activeFilterName={chainFilter?.name}
           scanRows={rows}
+          filters={filters}
+          activePresets={activePresets}
+          activeTags={activeTags}
         />
       )}
 
@@ -3350,7 +3353,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 }
 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
-function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName, scanRows }) {
+function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterName, scanRows, filters, activePresets, activeTags }) {
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "tickers");
   const containerRef = useRef(null);
@@ -3392,6 +3395,23 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
           ▲ Chg{'>'}0%
         </button>
+        {/* Active scan filter chips — read-only indicators */}
+        {filters && (() => {
+          const chips = [];
+          const chip = (label, key) => (
+            <span key={key} style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981" }}>{label}</span>
+          );
+          if (filters.noBio) chips.push(chip("NoBio", "nobio"));
+          if (filters.greenOnly) chips.push(chip("Chg>0%", "green"));
+          if (filters.minChg > 0) chips.push(chip(`Chg≥${filters.minChg}%`, "minchg"));
+          if (filters.minRvol > 0) chips.push(chip(`RV≥${filters.minRvol}x`, "minrv"));
+          if (filters.adrMin !== 1 || filters.adrMax !== 15) chips.push(chip(`ADR ${filters.adrMin}–${filters.adrMax}`, "adr"));
+          if (filters.minDvolM > 0) chips.push(chip(`$Vol≥${filters.minDvolM}M`, "dvol"));
+          if (filters.ownedView !== "all") chips.push(chip(filters.ownedView === "owned" ? "Owned Only" : "Hide Owned", "owned"));
+          if (activePresets) [...activePresets].forEach(k => { const p = PRESETS[k]; if (p) chips.push(chip(p.label, `preset-${k}`)); });
+          if (activeTags) [...activeTags].forEach(k => { const t = TAG_PREDICATES[k]; if (t) chips.push(chip(t.label, `tag-${k}`)); });
+          return chips.length > 0 ? <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>{chips}</span> : null;
+        })()}
         <span style={{ marginLeft: "auto", fontSize: 6, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4 }}>↑↓ nav · Enter</span>
       </div>
       {mode === "flow" ? (
