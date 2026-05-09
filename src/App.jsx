@@ -3395,6 +3395,12 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
           ▲ Chg{'>'}0%
         </button>
+        {/* Active chain/layer filter chip */}
+        {activeFilterName && (
+          <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>
+            {activeFilterName}
+          </span>
+        )}
         {/* Active scan filter chips — read-only indicators */}
         {filters && (() => {
           const chips = [];
