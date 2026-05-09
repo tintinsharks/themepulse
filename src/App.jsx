@@ -3696,6 +3696,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
             <Th k="ticker" label="Ticker" align="left" />
+            <th style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "center", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard }}>💡</th>
             <Th k="theme" label="Chain" align="left" />
             <Th k="layer" label="Layer" align="left" />
             <Th k="chg" label="Chg%" />
@@ -3707,7 +3708,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="cr" label="CR%" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
-            <th style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "center", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard }}>💡</th>
           </tr>
         </thead>
         <tbody>
@@ -3733,6 +3733,25 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
                   </span>
+                </td>
+                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
+                    onClick={(e) => e.stopPropagation()}>
+                  {(() => {
+                    const theses = thesisMap?.get(r.ticker);
+                    if (!theses?.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                    const hasPrimary = theses.some((t) => t.role === "primary");
+                    return (
+                      <button
+                        title={`${theses.length} thesis note${theses.length > 1 ? "s" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setThesisPopover((prev) => prev?.ticker === r.ticker ? null : { ticker: r.ticker, theses, x: rect.left, y: rect.bottom + 6 });
+                        }}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: hasPrimary ? 12 : 10, padding: 0, lineHeight: 1, opacity: hasPrimary ? 1 : 0.55, filter: hasPrimary ? "none" : "grayscale(0.4)" }}
+                      >💡</button>
+                    );
+                  })()}
                 </td>
                 <td style={{ ...cell, textAlign: "left" }}>
                   {r.themeId ? (
@@ -3773,25 +3792,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 </td>
                 <td style={{ ...cell, color: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? ARIA.yellow : ARIA.textMuted, fontWeight: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? 700 : 400 }}>
                   {r.erDays != null ? (r.erDays >= 0 ? `${r.erDays}d` : `${-r.erDays}d ago`) : "—"}
-                </td>
-                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
-                    onClick={(e) => e.stopPropagation()}>
-                  {(() => {
-                    const theses = thesisMap?.get(r.ticker);
-                    if (!theses?.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
-                    const hasPrimary = theses.some((t) => t.role === "primary");
-                    return (
-                      <button
-                        title={`${theses.length} thesis note${theses.length > 1 ? "s" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setThesisPopover((prev) => prev?.ticker === r.ticker ? null : { ticker: r.ticker, theses, x: rect.left, y: rect.bottom + 6 });
-                        }}
-                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: hasPrimary ? 12 : 10, padding: 0, lineHeight: 1, opacity: hasPrimary ? 1 : 0.55, filter: hasPrimary ? "none" : "grayscale(0.4)" }}
-                      >💡</button>
-                    );
-                  })()}
                 </td>
               </tr>
             );
