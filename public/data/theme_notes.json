@@ -260,13 +260,16 @@
       "derivative_tickers": [
         "GD",
         "AVAV",
-        "KTOS"
+        "KTOS",
+        "BKSY",
+        "SPIR"
       ],
       "themes_implicated": [
         "Defense",
         "Geopolitics",
         "AI/Autonomous Systems",
-        "Critical National Tech"
+        "Critical National Tech",
+        "Space ISR"
       ],
       "layers": {
         "primes": {
@@ -295,12 +298,23 @@
             "GD"
           ],
           "thesis": "Submarines, armored vehicles, combat systems integrating AI. More cyclical than primes."
+        },
+        "space_isr": {
+          "label": "Space ISR / Dual-Use Intelligence",
+          "tier": 2,
+          "tickers": [
+            "BKSY",
+            "SPIR"
+          ],
+          "thesis": "BlackSky (BKSY) and Spire Global (SPIR) represent the commercial space intelligence layer that DoD is actively scaling as a cost-efficient alternative to classified satellite programs. BKSY operates a constellation of high-revisit optical satellites \u2014 tasked by DoD/NGA for real-time ISR. SPIR provides RF/weather data from 100+ LEO satellites. Both operate on recurring government contracts and benefit directly from the Defense Supercycle: defense ISR budgets growing with autonomous battlefield awareness demand, and Ukraine proving the operational value of commercial satellite intelligence. Fastest-growing segment within defense ISR \u2014 higher beta than primes, episodic move potential on contract wins."
         }
       },
       "lead_lag": {
         "leading": [
           "AVAV",
-          "KTOS"
+          "KTOS",
+          "BKSY",
+          "SPIR"
         ],
         "lagging": [
           "LMT",
@@ -308,7 +322,7 @@
           "NOC"
         ],
         "horizon": "5-10 year defense cycle; bipartisan support guarantees budget through 2030",
-        "chain_flow": "Geopolitical escalation \u2192 bipartisan budget support \u2192 backlog accumulation \u2192 autonomous/AI segment outgrows legacy"
+        "chain_flow": "Geopolitical escalation \u2192 bipartisan budget support \u2192 backlog accumulation \u2192 autonomous/AI segment + space ISR outgrow legacy platforms"
       },
       "thesis": "Defense TAM $1T+ locked in with bipartisan support. Taiwan tensions and Ukraine validation drive autonomous systems specifically. Backlogs of $526B combined for the primes provide unprecedented visibility. AVAV/KTOS represent the AI-defense intersection growing fastest.",
       "caveats": [
