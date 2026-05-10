@@ -2046,7 +2046,7 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
 
 // ── Earnings Calendar — collapsible weekly ER schedule above Scan Watch ──
 // Replicates the leaderboard's renderEarningsCalendar logic:
-//   1. FMP /api/earnings-week as authoritative source, falls back to pipeline
+//   1. FMP /api/earnings as authoritative source, falls back to pipeline
 //   2. Drawer (theme-universe + WL/PF) vs All Universe ($100M dvol min) scope
 //   3. Prev/Next week navigation
 //   4. Logo tiles with BMO/AMC badges, drawer tickers sorted first

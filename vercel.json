@@ -54,10 +54,7 @@
       "maxDuration": 10
     },
     "api/earnings.js": {
-      "maxDuration": 10
-    },
-    "api/earnings-week.js": {
-      "maxDuration": 10
+      "maxDuration": 15
     }
   },
   "rewrites": [

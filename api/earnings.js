@@ -1,33 +1,26 @@
 // api/earnings.js — Vercel Serverless Function
-// Returns earnings detail for a single ticker:
-//   · last 4-8 quarters of beat/miss (EPS estimate, EPS actual, surprise %)
-//   · revenue actual + estimate (when available)
-//   · upcoming earnings date (next confirmed event)
 //
-// Usage:
-//   GET /api/earnings?ticker=NVDA
+// Routes by query params:
+//   GET /api/earnings?ticker=NVDA          → single-ticker earnings detail
+//   GET /api/earnings?from=YYYY-MM-DD&to=YYYY-MM-DD  → earnings calendar for date range
 //
-// Response:
-//   {
-//     ticker: "NVDA",
-//     next: { date, timing, days_until } | null,
-//     history: [
-//       { date, period, eps_actual, eps_estimate, eps_surprise_pct,
-//         revenue_actual, revenue_estimate, revenue_surprise_pct },
-//       ...
-//     ]
-//   }
+// Single-ticker response:
+//   { ticker, next: { date, timing, days_until, eps_estimate, revenue_estimate },
+//     history: [{ date, period, eps_actual, eps_estimate, eps_surprise_pct,
+//                 revenue_actual, revenue_estimate, revenue_surprise_pct }],
+//     news: [{ title, url, source, date }] }
+//
+// Date-range response:
+//   { from, to, events: [{ ticker, date, timing, eps_estimate, revenue_estimate,
+//                           eps_actual, revenue_actual }], count }
 
 export const config = { maxDuration: 15 };
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
-// In-memory cache so repeated clicks on the same ticker don't burn FMP calls.
-// 4-hour TTL: earnings data only changes when a stock reports.
-const _cache = new Map();
-const CACHE_MS = 4 * 60 * 60 * 1000;
+// ── shared helpers ────────────────────────────────────────────────────────────
 
-const fetchJson = async (url, timeoutMs = 6000) => {
+const fetchJson = async (url, timeoutMs = 8000) => {
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (!r.ok) return null;
@@ -37,34 +30,81 @@ const fetchJson = async (url, timeoutMs = 6000) => {
   }
 };
 
+// ── per-function caches (module-level, reused across warm invocations) ────────
+
+// Single-ticker: 4h TTL
+const _tickerCache = new Map();
+const TICKER_CACHE_MS = 4 * 60 * 60 * 1000;
+
+// Date-range: 1h TTL
+const _weekCache = new Map();
+const WEEK_CACHE_MS = 60 * 60 * 1000;
+
+// ── main handler ──────────────────────────────────────────────────────────────
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET");
-  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
-
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const ticker = (req.query.ticker || "").trim().toUpperCase();
-  if (!ticker || ticker.length > 10) {
-    return res.status(400).json({ error: "ticker param required" });
-  }
-
-  // Cache check
-  const cached = _cache.get(ticker);
-  if (cached && cached.expiry > Date.now()) {
-    return res.status(200).json(cached.data);
-  }
-
   const fmpKey = process.env.FMP_API_KEY;
-  if (!fmpKey) {
-    return res.status(500).json({ error: "FMP_API_KEY not configured" });
+  if (!fmpKey) return res.status(500).json({ error: "FMP_API_KEY not configured" });
+
+  const { ticker: tickerRaw, from, to } = req.query;
+
+  // ── Route: date range calendar ──────────────────────────────────────────────
+  if (from || to) {
+    res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=1800");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      return res.status(400).json({ error: "from + to required, YYYY-MM-DD" });
+    }
+
+    const cacheKey = `${from}_${to}`;
+    const cached = _weekCache.get(cacheKey);
+    if (cached && cached.expiry > Date.now()) return res.status(200).json(cached.data);
+
+    const url = `${FMP_BASE}/earnings-calendar?from=${from}&to=${to}&apikey=${fmpKey}`;
+    const raw = await fetchJson(url);
+    if (!Array.isArray(raw)) {
+      return res.status(502).json({ error: "FMP earnings-calendar returned no data", from, to });
+    }
+
+    const events = raw
+      .filter((e) => e?.symbol && e?.date)
+      .map((e) => ({
+        ticker: e.symbol.toUpperCase(),
+        date: e.date,
+        timing: (e.time || "").toLowerCase(),
+        eps_estimate: e.epsEstimated ?? null,
+        revenue_estimate: e.revenueEstimated ?? null,
+        eps_actual: e.eps ?? null,
+        revenue_actual: e.revenue ?? null,
+      }));
+
+    const seen = new Set();
+    const dedup = events.filter((e) => {
+      const k = `${e.ticker}|${e.date}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    const data = { from, to, events: dedup, count: dedup.length };
+    _weekCache.set(cacheKey, { expiry: Date.now() + WEEK_CACHE_MS, data });
+    return res.status(200).json(data);
   }
 
-  // 3 parallel fetches:
-  //   1. /stable/earnings-surprises  — quarterly EPS estimate + actual + date
-  //   2. /stable/income-statement    — quarterly revenue actuals
-  //   3. /stable/earnings-calendar   — next upcoming ER (filter by ticker)
-  // Plus optional /stable/analyst-estimates for revenue forecasts on history.
+  // ── Route: single ticker ────────────────────────────────────────────────────
+  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+
+  const ticker = (tickerRaw || "").trim().toUpperCase();
+  if (!ticker || ticker.length > 10) {
+    return res.status(400).json({ error: "ticker or from+to params required" });
+  }
+
+  const cached = _tickerCache.get(ticker);
+  if (cached && cached.expiry > Date.now()) return res.status(200).json(cached.data);
+
   const [surprises, income, calendar, analyst, newsRaw] = await Promise.all([
     fetchJson(`${FMP_BASE}/earnings-surprises?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=8&apikey=${fmpKey}`),
@@ -73,8 +113,7 @@ export default async function handler(req, res) {
     fetchJson(`${FMP_BASE}/news/stock?symbols=${ticker}&page=0&limit=10&apikey=${fmpKey}`),
   ]);
 
-  // Build history map by date so revenue + EPS can be merged
-  const byDate = {};   // dateStr → { eps_actual, eps_estimate, revenue_actual, revenue_estimate, period }
+  const byDate = {};
 
   if (Array.isArray(surprises)) {
     surprises.slice(0, 8).forEach((s) => {
@@ -98,28 +137,25 @@ export default async function handler(req, res) {
     analyst.slice(0, 12).forEach((a) => {
       const date = a.date || a.fiscalDateEnding;
       if (!date) return;
-      // Only enrich existing dates; don't add forecast-only future periods
       if (byDate[date]) {
         byDate[date].revenue_estimate = a.revenueAvg ?? a.estimatedRevenueAvg ?? null;
       }
     });
   }
 
-  // No reliable FMP endpoint for historical report dates — frontend uses
-  // gap-detection on OHLC bars to find the actual earnings day.
-
-  // Convert to sorted descending array, compute surprise %
   const history = Object.values(byDate)
     .filter((row) => row.eps_actual != null || row.revenue_actual != null)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 8)
     .map((row) => {
-      const epsSurprise = row.eps_estimate != null && row.eps_estimate !== 0
-        ? ((row.eps_actual - row.eps_estimate) / Math.abs(row.eps_estimate)) * 100
-        : null;
-      const revSurprise = row.revenue_estimate != null && row.revenue_estimate !== 0
-        ? ((row.revenue_actual - row.revenue_estimate) / Math.abs(row.revenue_estimate)) * 100
-        : null;
+      const epsSurprise =
+        row.eps_estimate != null && row.eps_estimate !== 0
+          ? ((row.eps_actual - row.eps_estimate) / Math.abs(row.eps_estimate)) * 100
+          : null;
+      const revSurprise =
+        row.revenue_estimate != null && row.revenue_estimate !== 0
+          ? ((row.revenue_actual - row.revenue_estimate) / Math.abs(row.revenue_estimate)) * 100
+          : null;
       return {
         date: row.date,
         period: row.period,
@@ -132,7 +168,6 @@ export default async function handler(req, res) {
       };
     });
 
-  // Next upcoming ER from calendar — pick the first future date
   let next = null;
   if (Array.isArray(calendar)) {
     const today = new Date();
@@ -146,7 +181,7 @@ export default async function handler(req, res) {
       const days = Math.round((dt - today) / 86400000);
       next = {
         date: f.date,
-        timing: f.time || null,            // FMP returns "amc"/"bmo" sometimes
+        timing: f.time || null,
         days_until: days,
         eps_estimate: f.epsEstimated ?? null,
         revenue_estimate: f.revenueEstimated ?? null,
@@ -154,14 +189,16 @@ export default async function handler(req, res) {
     }
   }
 
-  const news = Array.isArray(newsRaw) ? newsRaw.slice(0, 10).map((a) => ({
-    title: a.title || "",
-    url: a.url || "",
-    source: a.site || "",
-    date: a.publishedDate || a.date || "",
-  })) : [];
+  const news = Array.isArray(newsRaw)
+    ? newsRaw.slice(0, 10).map((a) => ({
+        title: a.title || "",
+        url: a.url || "",
+        source: a.site || "",
+        date: a.publishedDate || a.date || "",
+      }))
+    : [];
 
   const data = { ticker, next, history, news };
-  _cache.set(ticker, { expiry: Date.now() + CACHE_MS, data });
+  _tickerCache.set(ticker, { expiry: Date.now() + TICKER_CACHE_MS, data });
   return res.status(200).json(data);
 }
