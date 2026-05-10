@@ -1422,6 +1422,156 @@ const SC_RECENT_ER = {
   "COIN": { status: "miss", date: "May 7", note: "Rev -31% YoY · crypto pullback · derivatives +169%" },
 };
 
+// ── ThemeIntelPanel: displays the EOD theme analysis produced by the remote
+// Cowork agent and stored in Upstash via /api/theme-analysis.
+function ThemeIntelPanel({ onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(() => localStorage.getItem("tp-theme-intel-open") !== "0");
+  useEffect(() => { localStorage.setItem("tp-theme-intel-open", open ? "1" : "0"); }, [open]);
+
+  useEffect(() => {
+    fetch("/api/theme-analysis")
+      .then((r) => r.json())
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const cyan = "#22d3ee";
+  const purple = "#a855f7";
+  const headerStyle = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "7px 12px", cursor: "pointer", userSelect: "none",
+    borderBottom: open ? `1px solid ${ARIA.border}` : "none",
+  };
+  const signalColor = (s) => s === "BROAD" ? ARIA.green : s === "LEADER CONFIRMING" ? cyan : ARIA.textMuted;
+
+  return (
+    <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, marginBottom: 8, overflow: "hidden" }}>
+      <div style={headerStyle} onClick={() => setOpen(o => !o)}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: cyan, letterSpacing: 0.8, fontFamily: "monospace" }}>
+          ⚡ THEME INTEL
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {data?.saved_at && (
+            <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>
+              {new Date(data.saved_at).toLocaleDateString()} {new Date(data.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▲" : "▼"}</span>
+        </span>
+      </div>
+
+      {open && (
+        <div style={{ maxHeight: 520, overflowY: "auto" }}>
+          {loading && <div style={{ padding: "12px", fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>Loading…</div>}
+          {!loading && !data?.analysis && (
+            <div style={{ padding: "12px", fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
+              No analysis yet — runs weekdays at 4:30 PM PT.
+            </div>
+          )}
+          {!loading && data?.analysis && (() => {
+            const a = data.analysis;
+            return (
+              <div style={{ fontFamily: "monospace" }}>
+                {/* Market context */}
+                <div style={{ padding: "6px 12px", borderBottom: `1px solid ${ARIA.border}`, background: `${cyan}08` }}>
+                  <div style={{ fontSize: 8, color: cyan, fontWeight: 700, marginBottom: 2 }}>
+                    {a.date} · {a.time_pt}
+                  </div>
+                  {a.market && (
+                    <div style={{ fontSize: 8, color: ARIA.textDim, marginBottom: 2 }}>
+                      <span style={{ color: a.market.spy_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>SPY {a.market.spy_chg}</span>
+                      {" · "}
+                      <span style={{ color: a.market.qqq_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>QQQ {a.market.qqq_chg}</span>
+                      {" · "}
+                      <span style={{ color: a.market.iwm_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>IWM {a.market.iwm_chg}</span>
+                      {" · VIX "}<span style={{ color: ARIA.yellow }}>{a.market.vix}</span>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 7, color: ARIA.textMuted, lineHeight: 1.4 }}>{a.regime}</div>
+                </div>
+
+                {/* Active chains */}
+                {a.active_chains?.length > 0 && (
+                  <div style={{ padding: "6px 12px 4px", borderBottom: `1px solid ${ARIA.border}` }}>
+                    <div style={{ fontSize: 7, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 5, textTransform: "uppercase" }}>
+                      Active Thesis Chains ({a.active_chains.length})
+                    </div>
+                    {a.active_chains.map((chain, ci) => (
+                      <div key={ci} style={{ marginBottom: 8, paddingBottom: 7, borderBottom: ci < a.active_chains.length - 1 ? `1px dashed ${ARIA.border}` : "none" }}>
+                        <div style={{ fontSize: 8, fontWeight: 700, color: cyan, lineHeight: 1.3, marginBottom: 2 }}>🔥 {chain.headline}</div>
+                        <div style={{ fontSize: 6, color: ARIA.textMuted, marginBottom: 4 }}>{chain.id}</div>
+                        {chain.tickers?.map((t, ti) => (
+                          <div key={ti} style={{ marginBottom: 5 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginBottom: 2 }}>
+                              <button
+                                onClick={() => onTickerClick?.(t.ticker)}
+                                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: ARIA.green, fontWeight: 800, fontSize: 9, fontFamily: "monospace" }}
+                              >{t.ticker}</button>
+                              <span style={{ fontSize: 7, color: t.score >= 5 ? ARIA.green : ARIA.textDim }}>{t.score}/6</span>
+                              <span style={{ fontSize: 7, color: (t.chg >= 0 ? ARIA.green : ARIA.red), fontWeight: 700 }}>{t.chg > 0 ? "+" : ""}{t.chg?.toFixed?.(1) ?? t.chg}%</span>
+                              <span style={{ fontSize: 7, color: t.rvol >= 1.5 ? purple : ARIA.textMuted }}>{t.rvol?.toFixed?.(1) ?? t.rvol}x RVol</span>
+                              <span style={{ fontSize: 6, padding: "0 4px", borderRadius: 2, background: t.role === "primary" ? `${cyan}20` : `${purple}15`, border: `1px solid ${t.role === "primary" ? cyan + "50" : purple + "40"}`, color: t.role === "primary" ? cyan : purple, textTransform: "uppercase" }}>{t.role}</span>
+                              {t.lead_lag && <span style={{ fontSize: 6, color: t.lead_lag === "leading" ? ARIA.green : ARIA.textMuted, textTransform: "uppercase" }}>{t.lead_lag}</span>}
+                            </div>
+                            {t.layer && <div style={{ fontSize: 7, color: ARIA.textMuted, marginBottom: 2 }}>Layer: {t.layer}</div>}
+                            {t.analysis && <div style={{ fontSize: 7, color: ARIA.textDim, lineHeight: 1.45 }}>{t.analysis}</div>}
+                          </div>
+                        ))}
+                        {chain.chain_signal && (
+                          <div style={{ fontSize: 7, fontWeight: 700, color: signalColor(chain.chain_signal), marginTop: 2 }}>
+                            Signal: {chain.chain_signal}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Non-thesis leaders */}
+                {a.non_thesis_leaders?.length > 0 && (
+                  <div style={{ padding: "6px 12px 4px", borderBottom: `1px solid ${ARIA.border}` }}>
+                    <div style={{ fontSize: 7, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 4, textTransform: "uppercase" }}>Non-Thesis Leaders</div>
+                    {a.non_thesis_leaders.map((t, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3, flexWrap: "wrap" }}>
+                        <button onClick={() => onTickerClick?.(t.ticker)} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: ARIA.text, fontWeight: 700, fontSize: 9, fontFamily: "monospace" }}>{t.ticker}</button>
+                        <span style={{ fontSize: 7, color: ARIA.green }}>{t.chg > 0 ? "+" : ""}{t.chg?.toFixed?.(1) ?? t.chg}%</span>
+                        <span style={{ fontSize: 7, color: ARIA.textMuted }}>{t.rvol?.toFixed?.(1) ?? t.rvol}x RVol</span>
+                        <span style={{ fontSize: 7, color: ARIA.textMuted }}>{t.theme}</span>
+                        {t.note && <span style={{ fontSize: 7, color: ARIA.textDim, flexBasis: "100%" }}>{t.note}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Dormant chains */}
+                {a.dormant_chains?.length > 0 && (
+                  <div style={{ padding: "6px 12px 4px", borderBottom: `1px solid ${ARIA.border}` }}>
+                    <div style={{ fontSize: 7, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 4, textTransform: "uppercase" }}>Dormant Chains ({a.dormant_chains.length})</div>
+                    {a.dormant_chains.map((c, i) => (
+                      <div key={i} style={{ fontSize: 7, color: ARIA.textMuted, marginBottom: 2 }}>— {c.headline}</div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Synthesis */}
+                {a.synthesis && (
+                  <div style={{ padding: "7px 12px" }}>
+                    <div style={{ fontSize: 7, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 4, textTransform: "uppercase" }}>EOD Synthesis</div>
+                    <div style={{ fontSize: 8, color: ARIA.textDim, lineHeight: 1.55 }}>{a.synthesis}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
   const ARIA = useAriaTheme();
   // Wrap the click handler so we suppress the value-chain auto-expand + scroll
@@ -9958,6 +10108,7 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
+        <ThemeIntelPanel onTickerClick={handleTickerClick} />
         <SupercycleMap chartTicker={chartTicker} onTickerClick={handleTickerClick} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterNames={chainFilters.map((f) => f.name)} />
