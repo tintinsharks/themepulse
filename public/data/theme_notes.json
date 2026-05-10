@@ -3089,6 +3089,440 @@
         "Chinese battery competition (CATL, BYD) is a structural cost pressure across all non-Chinese players."
       ],
       "source": "Energy Storage Infrastructure thesis infographic \u2014 May 2026"
+    },
+    {
+      "id": "semiconductor-ai-supercycle-full-stack-2026-05-10",
+      "date": "2026-05-10",
+      "type": "value_chain_framework",
+      "headline": "Semiconductor AI Supercycle Full Stack \u2014 10-layer playbook: Memory/Optical/Power/Equipment/Edge to AI Infra.",
+      "primary_tickers": [
+        "MU",
+        "WDC",
+        "STX",
+        "AMAT",
+        "LRCX",
+        "KLAC",
+        "ASML",
+        "ONTO",
+        "AMKR",
+        "MRVL",
+        "AVGO",
+        "NVDA",
+        "ARM",
+        "QCOM",
+        "ADI",
+        "TXN",
+        "MPWR",
+        "COHR",
+        "CIEN",
+        "LITE",
+        "FN"
+      ],
+      "derivative_tickers": [
+        "SNDK",
+        "ACMR",
+        "FORM",
+        "CAMT",
+        "COHU",
+        "RMBS",
+        "SIMO",
+        "ATOM",
+        "MCHP",
+        "AAOI",
+        "MTSI",
+        "TSEM",
+        "POET",
+        "LWLG",
+        "GLW",
+        "MRAM",
+        "GSIT",
+        "NVEC",
+        "NLST",
+        "CEVA",
+        "QUIK",
+        "SYNA",
+        "INDI",
+        "VICR",
+        "GANX",
+        "AEHR",
+        "POWI",
+        "SKYT",
+        "SGH",
+        "CRDO",
+        "AXTI",
+        "GFS",
+        "IPGP",
+        "VLN",
+        "SMTC"
+      ],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Semiconductors",
+        "Memory",
+        "Advanced Packaging",
+        "Optical Interconnect",
+        "Edge AI",
+        "Power Infrastructure",
+        "Semiconductor Equipment"
+      ],
+      "layers": {
+        "memory": {
+          "label": "1 \u2014 Memory (HBM / NAND / DRAM)",
+          "tier": 1,
+          "tickers": [
+            "MU",
+            "WDC",
+            "STX",
+            "SNDK",
+            "AMAT",
+            "LRCX"
+          ],
+          "thesis": "HBM4 = the new oil. Not a commodity anymore \u2014 strategic infrastructure. MU is the only US HBM manufacturer, shipping HBM3E to NVDA, AMD, and hyperscalers. WDC/STX/SNDK capture NAND/HDD cold storage for AI training archives. AMAT and LRCX are the equipment picks-and-shovels for HBM stack deposition and etch. The memory supercycle is driven by AI training and inference workload growth \u2014 not the PC/smartphone cycle of the past."
+        },
+        "controllers": {
+          "label": "2 \u2014 Controllers",
+          "tier": 2,
+          "tickers": [
+            "RMBS",
+            "SIMO",
+            "ATOM",
+            "MCHP",
+            "ADI",
+            "TXN"
+          ],
+          "thesis": "The traffic cops of every AI system. Overlooked, undervalued, critical. RMBS: memory interface chips (DDR5, HBM controllers). SIMO: mixed-signal controllers for storage. ATOM: atomic/timing controllers for AI racks. MCHP: microcontrollers everywhere AI touches industrial. ADI and TXN: analog/mixed-signal workhorses \u2014 every power rail, sensor interface, and data converter in AI infra runs through them. Secular growth with lower volatility than pure-play AI names."
+        },
+        "packaging_testing": {
+          "label": "3 \u2014 Packaging & Testing (CoWoS / Chiplets)",
+          "tier": 1,
+          "tickers": [
+            "AMKR",
+            "FORM",
+            "CAMT",
+            "ONTO",
+            "COHU",
+            "ACMR"
+          ],
+          "thesis": "CoWoS. HBM stacking. Chiplets. This is where chips become systems. AMKR is the largest advanced packaging OSAT \u2014 primary beneficiary of TSMC's CoWoS capacity expansion. ONTO and CAMT provide inspection/metrology for advanced packaging nodes. FORM and ACMR supply the equipment for wafer cleaning and advanced substrate processing. COHU handles test handler equipment. The entire AI chip supply chain routes through this layer \u2014 no advanced packaging = no HBM-attached GPU."
+        },
+        "next_gen_memory": {
+          "label": "4 \u2014 Next-Gen Memory (MRAM / ReRAM / Beyond DRAM)",
+          "tier": 3,
+          "tickers": [
+            "MRAM",
+            "GSIT",
+            "NVEC",
+            "NLST",
+            "CEVA"
+          ],
+          "thesis": "Beyond DRAM. Early-stage. Asymmetric upside when the cycle arrives. MRAM (Everspin): embedded magnetoresistive RAM for edge/industrial AI. GSIT (GSI Technology): SRAM and AI accelerator memory. NVEC: spintronics R&D play. NLST: LRDIMM patent licensing. CEVA: DSP/NPU IP for on-device AI memory management. Higher risk, earlier stage \u2014 position sizing accordingly. Option value on the memory architecture shift that occurs when DRAM scaling hits physical limits."
+        },
+        "optical_interconnect": {
+          "label": "5 \u2014 Optical / Interconnect (CPO / 800G\u21921.6T)",
+          "tier": 1,
+          "tickers": [
+            "LITE",
+            "AAOI",
+            "COHR",
+            "CIEN",
+            "MRVL",
+            "GLW",
+            "MTSI",
+            "TSEM",
+            "POET",
+            "LWLG",
+            "FN"
+          ],
+          "thesis": "The hottest sub-sector in semis right now. 800G \u2192 1.6T upgrade cycle is underway. CPO (Co-Packaged Optics) is the next arms race \u2014 moves optics inside the switch package, eliminating pluggable transceivers. MRVL just paid $5.5B for Celestial AI to own this layer. LITE/AAOI/COHR: transceiver manufacturers. CIEN: optical networking systems. FN: precision fiber connectors. POET/LWLG: silicon photonics foundry capability (national strategic asset framing). MTSI/TSEM: compound semiconductor (GaAs/InP) foundry for optical chips. GLW: specialty fiber and glass for optical cables. Every GPU-to-GPU link in a hyperscaler DC is optical."
+        },
+        "edge_ai": {
+          "label": "6 \u2014 Edge AI (Devices / Autos / Factories)",
+          "tier": 2,
+          "tickers": [
+            "QUIK",
+            "CEVA",
+            "SYNA",
+            "QCOM",
+            "INDI",
+            "VLN",
+            "SMTC"
+          ],
+          "thesis": "AI leaves the data center. Devices. Cars. Factories. Multi-year secular trend just getting started. QCOM: Snapdragon X Elite leads on-device AI NPU. CEVA: DSP/NPU IP cores licensed across 200+ chip companies for edge inference. SYNA: touchscreen and display AI integration. INDI: automotive ethernet and in-vehicle networking for AI-enabled vehicles. QUIK (QuickLogic): ultra-low-power edge AI processors. VLN/SMTC: sensor interface ICs for factory and automotive AI. The edge AI TAM is larger than data center AI long-term \u2014 it just moves slower."
+        },
+        "ai_infra_systems": {
+          "label": "7 \u2014 AI Infra Systems (Full Stack)",
+          "tier": 1,
+          "tickers": [
+            "SGH",
+            "SKYT",
+            "AVGO",
+            "NVDA",
+            "ARM",
+            "CRDO",
+            "MRVL"
+          ],
+          "thesis": "The 'Nvidia-only' era is over. The full stack is getting priced in. NVDA remains the GPU compute anchor. AVGO: custom ASIC (XPU) for Google TPU/Meta MTIA/Apple \u2014 the anti-Nvidia trade within AI infra. ARM: CPU IP in every AI chip. MRVL: custom silicon + networking ASICs. CRDO: high-speed SerDes for rack-scale AI interconnect. SGH: specialty memory modules and DRAM for AI servers. SKYT (Skywater): US-based foundry services, increasing national security relevance. The insight: AVGO/MRVL custom silicon business is the most direct hedge against hyperscaler NVDA dependency."
+        },
+        "power": {
+          "label": "8 \u2014 Power (DC Power / GaN / SiC)",
+          "tier": 2,
+          "tickers": [
+            "POWI",
+            "TXN",
+            "MPWR",
+            "VICR",
+            "GANX",
+            "AEHR"
+          ],
+          "thesis": "AI data centers are power monsters. Unsexy. Essential. Increasingly scarce. MPWR: DC-DC converters for GPU power delivery \u2014 directly attached to every AI accelerator board. VICR: high-density power modules (48V bus architecture). POWI: power management ICs for data center PSUs. GANX (GaN Systems, now absorbed): GaN power conversion for efficiency gains. AEHR: burn-in test equipment for SiC/GaN power devices. TXN: broad analog/power management presence across all tiers. The power layer gets tighter as every hyperscaler runs out of grid allocation \u2014 equipment that extracts more performance per watt wins."
+        },
+        "equipment": {
+          "label": "9 \u2014 Equipment (Picks & Shovels Foundation)",
+          "tier": 1,
+          "tickers": [
+            "AMAT",
+            "LRCX",
+            "KLAC",
+            "ASML",
+            "ONTO",
+            "ACMR"
+          ],
+          "thesis": "$133B in equipment sales in 2025. Growing to $145B in 2026. Without these, nothing above gets built. ASML: EUV monopoly \u2014 the only company that can make the machines that make the chips. AMAT: broadest equipment portfolio (CVD, PVD, CMP, etch). LRCX: etch and deposition leader. KLAC: inspection and metrology \u2014 the quality control layer. ONTO: advanced packaging inspection. ACMR (ACM Research): wet cleaning equipment gaining share in China and leading-edge fabs. Equipment is the most durable layer of the AI supercycle \u2014 lead times of 12\u201318 months mean backlog visibility is exceptional."
+        },
+        "future_tech": {
+          "label": "10 \u2014 Future-Tech (Silicon Photonics / Compound Semi)",
+          "tier": 3,
+          "tickers": [
+            "LWLG",
+            "AXTI",
+            "POET",
+            "TSEM",
+            "GFS",
+            "IPGP"
+          ],
+          "thesis": "Silicon photonics foundry capacity = national strategic asset. LWLG (Lightwave Logic): electro-optic polymer modulators \u2014 potentially replacing lithium niobate in CPO applications. POET: optical interposer platform (InP on Si). AXTI (AXT): compound semiconductor substrates (InP, GaAs, Ge) \u2014 constrained supply for optical and RF chips. TSEM (Tower Semiconductor): analog/mixed-signal foundry with silicon photonics capability. GFS (GlobalFoundries): mature node foundry, defense and auto exposure. IPGP (IPG Photonics): high-power fiber lasers used in semiconductor manufacturing. These names carry the highest speculative premium and require longest holding horizon."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "AMAT",
+          "LRCX",
+          "KLAC",
+          "ASML",
+          "MU",
+          "LITE",
+          "AAOI",
+          "COHR"
+        ],
+        "lagging": [
+          "MRAM",
+          "GSIT",
+          "NVEC",
+          "LWLG",
+          "POET",
+          "GFS",
+          "IPGP"
+        ],
+        "horizon": "2026\u20132030 AI supercycle; equipment and memory lead, edge AI and future-tech lag by 18\u201336 months",
+        "chain_flow": "Power & Cooling \u2192 Equipment & Materials \u2192 Semiconductors \u2192 Connectivity \u2192 AI Infrastructure \u2192 Software \u2192 AI Systems. Design \u2192 FAB \u2192 Assembly & Packaging \u2192 Test \u2192 Deployment. The alpha is in mapping the full stack \u2014 not just owning the headline GPU name."
+      },
+      "thesis": "The AI trade is no longer one ticker. It's a full stack. The complete semiconductor playbook maps 10 distinct layers from Power & Cooling to AI Systems \u2014 each with its own set of picks-and-shovels beneficiaries. Key insight: the market is sequentially pricing in each layer as supply constraints become visible. Memory (HBM) got priced first. Optical/Interconnect is the hottest sub-sector right now (800G\u21921.6T, CPO arms race). Packaging/Testing (CoWoS, chiplets) is the supply bottleneck. Power is increasingly scarce and underappreciated. Edge AI is multi-year secular and just getting started. Map the full stack \u2014 that's where the alpha is.",
+      "caveats": [
+        "This is a 10-layer framework \u2014 position sizing across all layers creates concentration risk in 'AI' as a single macro factor.",
+        "Equipment (AMAT/LRCX/KLAC/ASML) is the most durable but has already re-rated significantly \u2014 entry timing matters.",
+        "Next-gen memory (Layer 4) and future-tech (Layer 10) are early-stage with binary outcome risk.",
+        "Edge AI adoption timeline is slower than data center \u2014 consumer/auto cycles add uncertainty.",
+        "China export controls create asymmetric risk for AMAT, LRCX, KLAC \u2014 monitor policy quarterly.",
+        "MRVL $5.5B Celestial AI acquisition must integrate successfully for optical layer thesis to compound.",
+        "The 'Nvidia-only era is over' claim depends on hyperscaler custom ASIC programs shipping at scale \u2014 unproven in volume."
+      ],
+      "source": "The Complete Semiconductor Playbook \u2014 AI Supercycle 2026 infographic, May 2026"
+    },
+    {
+      "id": "optical-communications-chain-map-2026-05-10",
+      "date": "2026-05-10",
+      "type": "value_chain_framework",
+      "headline": "Optical Communications Full Chain \u2014 IC Design/Materials/Components/Packaging: CPO + 800G\u21921.6T arms race.",
+      "primary_tickers": [
+        "LITE",
+        "COHR",
+        "AVGO",
+        "MRVL",
+        "NVDA",
+        "INTC",
+        "AMD",
+        "CSCO",
+        "NOK",
+        "AXTI",
+        "GLW",
+        "APH",
+        "CIEN",
+        "VIAV",
+        "FN",
+        "AMKR",
+        "TER",
+        "KEYS",
+        "FORM",
+        "TSM",
+        "GFS"
+      ],
+      "derivative_tickers": [
+        "AAOI",
+        "MTSI",
+        "TSEM",
+        "UMC",
+        "IQE",
+        "KLIC",
+        "JBL",
+        "ATEYY",
+        "ASX"
+      ],
+      "themes_implicated": [
+        "Optical Interconnect",
+        "AI Infrastructure",
+        "CPO (Co-Packaged Optics)",
+        "Semiconductors",
+        "Advanced Packaging"
+      ],
+      "layers": {
+        "ic_design_asic": {
+          "label": "IC Design \u2014 ASIC & xPU",
+          "tier": 1,
+          "tickers": [
+            "NVDA",
+            "MRVL",
+            "AVGO",
+            "INTC",
+            "AMD",
+            "CSCO"
+          ],
+          "thesis": "The ASIC/xPU design layer is where optical capability gets integrated at the chip level. NVDA and MRVL are designing optical DSPs and switch ASICs with embedded photonic interfaces. AVGO's custom ASIC business (Google TPU, Meta MTIA) integrates optical I/O. INTC (Intel) is building CPO into future Xeon and AI accelerators. AMD and CSCO are designing network ASICs that consume optical bandwidth. This is the demand-side anchor \u2014 every optical component downstream exists to serve these chips."
+        },
+        "ic_design_photonic": {
+          "label": "IC Design \u2014 Photonic IC",
+          "tier": 1,
+          "tickers": [
+            "NVDA",
+            "MRVL",
+            "AVGO",
+            "LITE",
+            "COHR"
+          ],
+          "thesis": "Photonic IC design is where silicon photonics and InP-based PICs get architected. MRVL paid $5.5B for Celestial AI specifically to own this layer \u2014 electro-optic modulator arrays, photodetectors, and driver ICs co-designed with the switch ASIC. LITE (Lumentum) and COHR (Coherent) design and fab their own photonic ICs for transceivers and CPO modules. This is the fastest-moving design layer as the industry transitions from pluggable to CPO."
+        },
+        "wafer_foundry": {
+          "label": "Wafer Foundry (Si Photonics / InP / GaAs)",
+          "tier": 1,
+          "tickers": [
+            "TSM",
+            "TSEM",
+            "GFS",
+            "UMC"
+          ],
+          "thesis": "TSMC (TSM) is the leading silicon photonics foundry \u2014 its SiPho process node is used by AVGO, MRVL, and NVDA for integrated photonic ICs. Tower Semiconductor (TSEM) is the analog/mixed-signal foundry with a dedicated silicon photonics platform (acquired from Mellanox/Nvidia). GlobalFoundries (GFS) has a silicon photonics process for datacom applications. UMC serves mature node optical driver ICs. Foundry allocation for silicon photonics is constrained \u2014 another supply bottleneck forming."
+        },
+        "materials_inp": {
+          "label": "Materials \u2014 InP Substrate & Epitaxy",
+          "tier": 2,
+          "tickers": [
+            "AXTI",
+            "IQE"
+          ],
+          "thesis": "Indium Phosphide (InP) is the substrate of choice for high-speed EML lasers, photodetectors, and direct-modulation lasers in optical transceivers. AXTI (AXT Inc) is the primary US-listed InP and GaAs substrate supplier \u2014 a critical chokepoint in the optical supply chain. IQE supplies InP and GaAs epitaxial wafers (grown layers) that define laser performance. Supply of InP substrates is constrained globally \u2014 AXTI is directly in the path of every optical ramp."
+        },
+        "materials_fiber_connectors": {
+          "label": "Materials \u2014 Optical Fiber / Connectors",
+          "tier": 2,
+          "tickers": [
+            "GLW",
+            "APH"
+          ],
+          "thesis": "Corning (GLW) is the dominant optical fiber manufacturer globally \u2014 every datacenter fiber run, MPO trunk cable, and WDM fiber uses Corning glass. Also makes VSFF connectors and MPO connector hardware. Amphenol (APH) supplies MPO connectors and VSFF connectors for high-density patch panels. Both are picks-and-shovels with durable pricing power \u2014 fiber and connector demand scales linearly with port count, and port count is exploding with 800G/1.6T upgrades."
+        },
+        "laser_vcsel_eml": {
+          "label": "Optical Components \u2014 Laser Sources (VCSEL + EML)",
+          "tier": 1,
+          "tickers": [
+            "LITE",
+            "COHR",
+            "AVGO",
+            "AAOI"
+          ],
+          "thesis": "The laser is the most critical component in any optical transceiver. Two dominant architectures: VCSEL (lower speed, shorter reach, cheaper \u2014 used in AOC and 100G/400G) and EML (higher speed, longer reach, dominant in 800G/1.6T). LITE (Lumentum) and COHR (Coherent) are the top two EML laser suppliers globally. AVGO makes VCSELs for its own transceivers (Apple, hyperscalers). AAOI (Applied Optoelectronics) is a smaller pure-play with high beta. EML supply is constrained for 800G \u2014 LITE and COHR benefit most from the 800G\u21921.6T transition."
+        },
+        "optical_module_assembly": {
+          "label": "Optical Components \u2014 Module Assembly & Integration",
+          "tier": 1,
+          "tickers": [
+            "COHR",
+            "LITE",
+            "CSCO",
+            "MRVL",
+            "FN",
+            "NOK"
+          ],
+          "thesis": "Optical module assembly integrates lasers, detectors, drivers, and fiber interfaces into pluggable or CPO modules. COHR and LITE are vertically integrated \u2014 they make lasers AND assemble modules. CSCO sources modules from the ecosystem and integrates them into switches. MRVL's Celestial AI acquisition brings CPO module integration in-house. FN (Fabrinet) is the contract manufacturer for nearly every optical module brand \u2014 LITE, COHR, CSCO, VIAV all outsource production to FN. NOK provides optical networking systems. FN is the most diversified optical picks-and-shovels."
+        },
+        "wdm_filter_splitter": {
+          "label": "Optical Components \u2014 WDM / Filter / Splitter",
+          "tier": 2,
+          "tickers": [
+            "LITE",
+            "CIEN",
+            "COHR",
+            "GLW",
+            "VIAV"
+          ],
+          "thesis": "Wavelength Division Multiplexing (WDM) multiplexes multiple wavelengths onto one fiber \u2014 the key technology enabling 800G/1.6T on existing fiber plant. LITE and COHR make the WDM filter components. CIEN (Ciena) is the systems-level WDM networking leader for carrier and datacenter interconnect. GLW supplies WDM fiber. VIAV (Viavi Solutions) makes optical filters and test instruments for WDM characterization. The WDM layer is both component supply AND network systems \u2014 CIEN captures the systems margin."
+        },
+        "packaging_testing": {
+          "label": "Packaging & Testing (OSATs + Test Equipment)",
+          "tier": 2,
+          "tickers": [
+            "AMKR",
+            "FN",
+            "JBL",
+            "ASX",
+            "TER",
+            "KEYS",
+            "FORM",
+            "KLIC",
+            "ATEYY"
+          ],
+          "thesis": "Optical module packaging requires precision alignment of laser-to-fiber and chip-to-chip interfaces \u2014 tighter tolerances than standard semiconductor packaging. AMKR and ASX (ASE Group) provide OSAT services for photonic ICs. KLIC (Kulicke & Soffa) provides die bonding equipment for photonic module assembly. Shibuya Corp provides specialized bonding systems. Test: TER (Teradyne) and KEYS (Keysight) supply optical signal analyzers and BER testers for 800G/1.6T validation. FORM (FormFactor) provides probe cards for photonic IC wafer-level testing. ATEYY (Advantest) covers high-speed digital test for optical driver ICs."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "AXTI",
+          "LITE",
+          "COHR",
+          "FN",
+          "GLW",
+          "APH"
+        ],
+        "lagging": [
+          "NVDA",
+          "MRVL",
+          "AVGO",
+          "CSCO",
+          "CIEN",
+          "NOK"
+        ],
+        "horizon": "2025\u20132028; 800G is HVM now, 1.6T ramp begins 2026\u20132027, CPO at scale 2027\u20132028",
+        "chain_flow": "InP substrate supply (AXTI) \u2192 laser epitaxy (IQE) \u2192 VCSEL/EML laser fab (LITE/COHR/AVGO) \u2192 photonic IC design+foundry (MRVL/TSEM/TSM) \u2192 module assembly (FN/AMKR) \u2192 fiber/connector (GLW/APH) \u2192 WDM systems (CIEN) \u2192 ASIC integration (MRVL/AVGO/NVDA) \u2192 hyperscaler deployment"
+      },
+      "thesis": "Optical communications is the next breakout in AI infrastructure \u2014 the full industry chain from InP substrate to switch ASIC integration. The 800G\u21921.6T upgrade cycle is underway now; CPO (Co-Packaged Optics) is the 2027+ architecture shift that moves transceivers inside the switch package. MRVL's $5.5B Celestial AI acquisition signals that the hyperscaler supply chain is vertically integrating the optical layer. Key supply bottlenecks: InP substrate (AXTI), EML lasers (LITE/COHR), silicon photonics foundry capacity (TSEM/TSM). FN (Fabrinet) is the most durable picks-and-shovels \u2014 every major optical brand outsources manufacturing to them. Map the full chain: InP \u2192 laser \u2192 photonic IC \u2192 module \u2192 fiber \u2192 WDM \u2192 ASIC.",
+      "caveats": [
+        "LITE and COHR have significant customer concentration \u2014 CSCO, hyperscalers. Any capex pause hits them hard.",
+        "CPO transition timeline could accelerate (bullish for photonic IC designers) or stall (bullish for pluggable module makers) \u2014 binary architecture bet.",
+        "InP substrate supply (AXTI) is constrained but AXTI is a small-cap with execution risk.",
+        "MRVL Celestial AI integration must succeed for their optical layer thesis to compound.",
+        "NOK and CSCO have legacy networking businesses that create margin drag.",
+        "Japanese material suppliers (Sumitomo, Furukawa, Fujikura) are not US-listed \u2014 indirect exposure only via AXTI and GLW.",
+        "China optical competition (HG Genuine, Accelink) is a pricing risk for lower-tier transceiver products."
+      ],
+      "source": "Optical Communications Full Industry Chain Map infographic \u2014 May 2026"
     }
   ]
 }
