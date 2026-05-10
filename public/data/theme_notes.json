@@ -2887,6 +2887,109 @@
         "hyperscaler-capex-2026-q1"
       ],
       "source": "Goldman Sachs optical networking report + Discord / personal note 2026-05-03"
+    },
+    {
+      "id": "glass-substrate-value-chain-2026-05-10",
+      "date": "2026-05-10",
+      "type": "value_chain_framework",
+      "headline": "Glass Substrate Value Chain \u2014 GLW/LRCX/ONTO/KLAC + Japanese specialists: AI packaging next frontier.",
+      "primary_tickers": [
+        "GLW",
+        "LRCX",
+        "ONTO",
+        "KLAC",
+        "LPK"
+      ],
+      "derivative_tickers": [
+        "ASGLY",
+        "NIDGY",
+        "DSCSY",
+        "SMHSF"
+      ],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Advanced Packaging",
+        "Semiconductors",
+        "Glass Substrate"
+      ],
+      "layers": {
+        "glass_materials": {
+          "label": "Glass Materials",
+          "tier": 1,
+          "tickers": [
+            "GLW",
+            "ASGLY",
+            "NIDGY"
+          ],
+          "thesis": "Corning (GLW) is the dominant US player in specialty glass \u2014 borosilicate glass for substrates is a natural extension of their Display and Optical Physics segments. ASGLY (Asahi Glass / AGC, 5201.T) and NIDGY (Nippon Electric Glass, 5214.T) are the Japanese incumbents already supplying prototype glass panels to Intel, AMD, and TSMC packaging lines. Glass substrates offer 50% lower signal loss, 40% better flatness, and near-zero moisture absorption vs organic \u2014 enabling denser interconnect pitch at scale."
+        },
+        "tgv_equipment": {
+          "label": "TGV Equipment (Through-Glass Via)",
+          "tier": 2,
+          "tickers": [
+            "LPK"
+          ],
+          "thesis": "Lpkf Laser (LPK) makes the laser systems that drill Through-Glass Vias \u2014 the critical enabling step that allows vertical signal routing through glass panels. No TGV drilling = no glass substrate chip integration. LPKF is the pick-and-shovel play with the most direct exposure; their LIDE (Laser Induced Deep Etching) process is the leading TGV formation technology."
+        },
+        "etching_systems": {
+          "label": "Etching & Patterning",
+          "tier": 2,
+          "tickers": [
+            "LRCX"
+          ],
+          "thesis": "Lam Research (LRCX) etching systems are required to pattern the fine-pitch redistribution layers on glass panels. Glass etching has tighter process windows than organic \u2014 favorable for Lam's high-selectivity etch tools. Incremental TAM expansion as glass substrate adoption scales into HVM."
+        },
+        "dicing_equipment": {
+          "label": "Dicing Equipment",
+          "tier": 2,
+          "tickers": [
+            "DSCSY"
+          ],
+          "thesis": "Disco Corp (DSCSY, 6146.T) is the world leader in dicing/grinding equipment. Glass panels are harder and more brittle than organic substrates \u2014 Disco's stealth dicing laser technology is the preferred singulation method. Direct beneficiary of glass substrate HVM ramp."
+        },
+        "bonding_systems": {
+          "label": "Bonding Systems",
+          "tier": 2,
+          "tickers": [
+            "SMHSF"
+          ],
+          "thesis": "Shibaura Mechatronics (SMHSF) supplies precision bonding equipment used in the chip-to-glass attach process. Glass substrate's coefficient of thermal expansion (CTE) mismatch with silicon requires tighter bonding tolerances \u2014 plays to Shibaura's high-precision equipment strengths."
+        },
+        "inspection_tools": {
+          "label": "Inspection & Metrology",
+          "tier": 3,
+          "tickers": [
+            "ONTO",
+            "KLAC"
+          ],
+          "thesis": "Onto Innovation (ONTO) and KLA (KLAC) provide the inspection and metrology systems required to qualify glass substrate lines. Glass introduces new defect modes (micro-cracks, via sidewall roughness, CTE-driven warpage) that require new inspection recipes. Both are already name-dropped by substrate players as key qualification partners. ONTO is the higher-beta play; KLAC has the broadest moat across all inspection nodes."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "LPK",
+          "ASGLY",
+          "NIDGY",
+          "GLW"
+        ],
+        "lagging": [
+          "LRCX",
+          "ONTO",
+          "KLAC"
+        ],
+        "horizon": "2026-2029 HVM ramp; Intel Glass Substrate roadmap targets 2028 volume production",
+        "chain_flow": "Glass materials qualification \u2192 TGV drilling (LPK) \u2192 etching/patterning (LRCX) \u2192 dicing (DSCSY) \u2192 bonding (SMHSF) \u2192 inspection/metrology (ONTO/KLAC) \u2192 chip integration \u2192 hyperscaler adoption"
+      },
+      "thesis": "Glass substrates are the leading candidate to replace organic substrates for next-gen AI chip packaging \u2014 enabling higher interconnect density, lower signal loss, and better thermal stability at the cost of new process complexity. Intel's Glass Substrate program (targeting 2028 HVM) and AMD/TSMC exploratory programs have triggered named equipment qualifications across TGV drilling, etching, dicing, bonding, and inspection. The entire value chain was explicitly named dropped by industry participants \u2014 each layer has a clear pick-and-shovel beneficiary. TAM impact: advanced packaging substrate market grows from ~$12B (2024) to $28B+ (2030); glass captures an estimated 20-30% of that by 2030.",
+      "caveats": [
+        "Glass substrate HVM is still 2028+ \u2014 near-term is qualification and prototype revenue, not volume.",
+        "CTE mismatch with silicon remains an unsolved yield challenge at scale.",
+        "Intel execution risk \u2014 their Glass Substrate program is the primary catalyst; delays push out the whole chain.",
+        "Japanese names (ASGLY, NIDGY, DSCSY, SMHSF) are thinly traded ADRs/OTC \u2014 illiquid, wide spreads.",
+        "Organic substrate incumbents (Ibiden, Shinko) are investing in glass as a hedge \u2014 competition risk.",
+        "LRCX and KLAC are large-cap diversified; glass substrate is incremental TAM, not a primary driver."
+      ],
+      "source": "Industry name-drops from glass substrate ecosystem participants \u2014 May 2026"
     }
   ]
 }
