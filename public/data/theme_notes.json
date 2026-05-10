@@ -2990,6 +2990,105 @@
         "LRCX and KLAC are large-cap diversified; glass substrate is incremental TAM, not a primary driver."
       ],
       "source": "Industry name-drops from glass substrate ecosystem participants \u2014 May 2026"
+    },
+    {
+      "id": "energy-storage-infrastructure-2026-05-10",
+      "date": "2026-05-10",
+      "type": "value_chain_framework",
+      "headline": "Energy Storage Infrastructure \u2014 EOSE/FLNC/QS + NRGV/AMPX/STEM/SES: AI demand + grid stress = storage gap.",
+      "primary_tickers": [
+        "EOSE",
+        "FLNC",
+        "QS",
+        "NRGV",
+        "STEM"
+      ],
+      "derivative_tickers": [
+        "AMPX",
+        "SES"
+      ],
+      "themes_implicated": [
+        "Energy Storage",
+        "Grid Infrastructure",
+        "AI Power Demand",
+        "Renewable Buildout",
+        "Battery Technology"
+      ],
+      "layers": {
+        "bess_integrator": {
+          "label": "BESS Integrator / Software OS",
+          "tier": 1,
+          "tickers": [
+            "FLNC",
+            "STEM"
+          ],
+          "thesis": "Fluence (FLNC) is the picks-and-shovels utility-scale BESS integrator backed by Siemens and AES. Record $1.4B in new quarterly orders, $5.3B total backlog, FY2026 revenue guide $3.2\u2013$3.6B (~85% already contracted). AI-powered Mosaic OS software layer is the margin expansion story. Risk: gross margin compressed to 5.6% (from 12.5% YoY), adj. EBITDA -$52M on discrete project costs \u2014 margin execution is the watchpoint. STEM provides AI-powered EMS software (PowerTrack) selected for utility-scale deployments in Germany 2026; transitioning to software-recurring revenue model \u2014 lower headline risk, higher multiple if transition completes."
+        },
+        "own_operate": {
+          "label": "Own-and-Operate / Recurring Revenue",
+          "tier": 1,
+          "tickers": [
+            "NRGV"
+          ],
+          "thesis": "Energy Vault (NRGV) pivoted to own-and-operate model \u2014 selling electrons, not hardware. FY2025 revenue $203.7M (+340% YoY), $1.3B backlog, 1+ GW under operation or construction. Entered Japan with 850 MW BESS pipeline. The recurring revenue shift is the key re-rating catalyst \u2014 underowned, misunderstood as a gravity battery company. Now a contracted infrastructure yield play."
+        },
+        "long_duration_zinc": {
+          "label": "Long Duration Storage \u2014 Zinc LDES",
+          "tier": 2,
+          "tickers": [
+            "EOSE"
+          ],
+          "thesis": "Eos Energy (EOSE) is the US-manufactured zinc-based LDES solution filling the 4\u201316 hour gap that lithium can't serve economically. Non-lithium, non-flammable. Record Q4 2025 revenue $58M (+90% QoQ, ~8x YoY). Indensity architecture delivers up to 1 GWh/acre (4x density). Pipeline: $22.6B (91 GWh). Talen Energy partnership for AI/data center power. DawnOS platform launched. Verdict: HIGH RISK / HIGH REWARD \u2014 pipeline is real, execution is the question. Dilution risk from convertible notes."
+        },
+        "solid_state_batteries": {
+          "label": "Long Duration \u2014 Solid-State Batteries",
+          "tier": 2,
+          "tickers": [
+            "QS"
+          ],
+          "thesis": "QuantumScape (QS) is the most credible solid-state lithium-metal program outside Toyota. Cobra process ceramic separator. Eagle Line inaugurated Feb 4 2026 in San Jose. Q1 FY2026 customer billings $11M (first ecosystem partner billings). $970.8M liquidity (runway through 2029). Net loss improved to $100.8M in Q1 FY2026 (vs. $114.4M YoY). Volkswagen PowerCo committed to $131M in milestone-based payments. Bear: adj. EBITDA $250\u2013275M loss expected FY2026, commercial mass production earliest 2027\u20132028. Licensing model = high margins if it works. Long-duration moonshot."
+        },
+        "next_gen_anode": {
+          "label": "Next-Gen Battery Chemistry \u2014 Silicon Anode",
+          "tier": 2,
+          "tickers": [
+            "AMPX"
+          ],
+          "thesis": "Amprius (AMPX) silicon-anode lithium-ion: SiCore & SiMaxx platforms up to 500 Wh/kg. Aerospace, defense, and high-performance mobility focus. $15M UAS contract. Pursuing licensing model alongside cell sales. Pure-play next-gen battery chemistry; pre-revenue scale but clear defense/aerospace pull-through."
+        },
+        "ai_battery_chemistry": {
+          "label": "AI Meets Battery Chemistry",
+          "tier": 3,
+          "tickers": [
+            "SES"
+          ],
+          "thesis": "SES AI \u2014 JV with Hisun New Energy Materials for novel electrolyte materials. Collaboration with Nvidia, SMCI, and Crusoe using LLM-based approaches to battery development. Early stage, highly intriguing intersection of AI and materials science. If AI-accelerated materials discovery proves out, SES is positioned across both trends."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "FLNC",
+          "NRGV",
+          "EOSE"
+        ],
+        "lagging": [
+          "QS",
+          "AMPX",
+          "SES"
+        ],
+        "horizon": "2026\u20132030; short-duration (2\u20134hr) is HVM now; long-duration (4\u201316hr) scales 2027\u20132030",
+        "chain_flow": "AI data center power demand surging \u2192 renewable buildout accelerating \u2192 grid stress + aging infrastructure \u2192 storage gap massive and growing \u2192 BESS integrators (FLNC) + own-operate (NRGV) capture near-term; zinc/solid-state/silicon-anode (EOSE/QS/AMPX) capture long-duration ramp"
+      },
+      "thesis": "Energy storage is framed as one of the biggest infrastructure trades of the decade \u2014 the direct downstream of the AI power supercycle. Logic chain: AI growth needs power \u2192 power needs stability \u2192 stability needs storage. Grid stress + renewable intermittency + data center load growth creates a structural storage gap that is massive and growing. Two duration buckets: Short Duration (2\u20134hr): FLNC integrator, NRGV own-operate, STEM software OS. Long Duration (4\u201316hr): EOSE zinc LDES, QS solid-state, AMPX silicon anode, SES electrolyte AI. Watch capital flows into the space as a leading indicator \u2014 early institutional positioning precedes the HVM ramp.",
+      "caveats": [
+        "FLNC margin execution risk \u2014 backlog is contracted but gross margin compression (5.6%) must resolve for re-rating.",
+        "EOSE dilution risk from convertible notes and equity financings is a persistent overhang.",
+        "QS is pre-HVM; 2027\u20132028 commercial production timeline carries execution risk.",
+        "NRGV still misunderstood \u2014 own-operate pivot needs multiple quarters of recurring revenue to re-rate.",
+        "Sector is volatile and news-flow driven \u2014 position sizing matters more than in established infrastructure.",
+        "Chinese battery competition (CATL, BYD) is a structural cost pressure across all non-Chinese players."
+      ],
+      "source": "Energy Storage Infrastructure thesis infographic \u2014 May 2026"
     }
   ]
 }
