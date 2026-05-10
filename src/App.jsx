@@ -7498,8 +7498,10 @@ function ChartPanelInline({
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focusList, setFocusList] = useLocalStorageList("themepulse-focus");
   const inPF = portfolio.includes(ticker);
   const inWL = watchlist.includes(ticker);
+  const inFocus = focusList.includes(ticker);
   const toggleWL = useCallback(() => {
     setWatchlist((prev) =>
       prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
@@ -7510,6 +7512,11 @@ function ChartPanelInline({
       prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
     );
   }, [ticker, setPortfolio]);
+  const toggleFocus = useCallback(() => {
+    setFocusList((prev) =>
+      prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
+    );
+  }, [ticker, setFocusList]);
 
   const submitTicker = () => {
     const t = tickerInput.trim().toUpperCase();
@@ -7588,6 +7595,9 @@ function ChartPanelInline({
           </button>
           <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
             {inPF ? "✓PF" : "+PF"}
+          </button>
+          <button onClick={toggleFocus} title={inFocus ? "Unstar" : "Star (highlight in chain table)"} style={{ fontSize: 12, padding: "0px 4px", borderRadius: 3, border: `1px solid ${inFocus ? "#fbbf24" : ARIA.border}`, background: inFocus ? "rgba(251,191,36,0.15)" : "transparent", cursor: "pointer", lineHeight: 1.4, flexShrink: 0 }}>
+            {inFocus ? "⭐" : "☆"}
           </button>
           <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
