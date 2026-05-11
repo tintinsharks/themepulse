@@ -1,8 +1,122 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary \u2014 manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-05-07",
+  "updated": "2026-05-11",
   "notes": [
+    {
+      "id": "hbm4-memory-sleepers-2026-05-11",
+      "date": "2026-05-11",
+      "type": "value_chain_framework",
+      "headline": "HBM4 Memory Supercycle Sleepers — VECO/PLAB/ADEA/ACLS/FORM/ONTO/AMKR/RMBS/MKSI: small-cap picks-and-shovels market hasn't priced in yet.",
+      "primary_tickers": [
+        "FORM",
+        "ONTO",
+        "AMKR",
+        "RMBS",
+        "MKSI"
+      ],
+      "derivative_tickers": [
+        "VECO",
+        "PLAB",
+        "ADEA",
+        "ACLS",
+        "SMTC",
+        "MTSI"
+      ],
+      "themes_implicated": [
+        "HBM / Memory",
+        "Advanced Packaging",
+        "Wafer Fab Equipment",
+        "Test & Measurement",
+        "Semiconductor IP"
+      ],
+      "layers": {
+        "laser_anneal": {
+          "label": "Laser Annealing",
+          "tier": 2,
+          "tickers": ["VECO"],
+          "mcap_b": 2.0,
+          "thesis": "Veeco laser annealing tools are critical for HBM4 junction formation. Sub-$2.5B mcap means minimal institutional ownership; any NVDA or MU HBM ramp commentary moves VECO disproportionately. Stealth picks-and-shovels."
+        },
+        "photomask": {
+          "label": "Lithography Photomask",
+          "tier": 2,
+          "tickers": ["PLAB"],
+          "mcap_b": 2.1,
+          "thesis": "Photronics makes the photomasks used in every lithography step of HBM4 production. Pure commodity-of-process play — every new memory node needs new masks. $2.1B mcap with direct HBM exposure."
+        },
+        "hybrid_bonding": {
+          "label": "Hybrid Bonding IP / Tooling",
+          "tier": 1,
+          "tickers": ["ADEA"],
+          "mcap_b": 2.18,
+          "thesis": "Adeia holds critical semiconductor IP for hybrid bonding — the stacking technology used in HBM4. IP licensing means high-margin, non-capital-intensive revenue that compounds with every HBM unit shipped. $2.18B mcap severely undervalued relative to RMBS ($13.5B) for comparable IP moat."
+        },
+        "ion_implantation": {
+          "label": "Ion Implantation",
+          "tier": 2,
+          "tickers": ["ACLS"],
+          "mcap_b": 2.9,
+          "thesis": "Axcelis ion implantation tools are used in DRAM and HBM doping steps. $2.9B mcap despite being the only independent pure-play ion implant company (Applied and Lam are diversified). Cyclical but deeply levered to HBM capex."
+        },
+        "hbm_wafer_test": {
+          "label": "HBM Wafer Testing",
+          "tier": 1,
+          "tickers": ["FORM"],
+          "mcap_b": 6.43,
+          "thesis": "FormFactor probe cards are the primary test infrastructure for HBM wafers. $6.4B mcap with record HBM demand confirmed (Q1 2026 beat). Every HBM wafer must be tested before stacking — FORM is the gating step that can't be skipped. Already confirmed in FORM Q1 earnings: record HBM demand, record gross margins (49%)."
+        },
+        "packaging_metrology": {
+          "label": "Advanced Packaging Metrology",
+          "tier": 1,
+          "tickers": ["ONTO"],
+          "mcap_b": 10.6,
+          "thesis": "Onto Innovation provides critical process control and metrology for HBM advanced packaging. As HBM stacks increase (HBM4 = 16-high stacks), yield management becomes the gating cost factor — ONTO's tools are mandatory. $10.6B mcap, already confirmed in our viav-form thesis."
+        },
+        "advanced_packaging_osat": {
+          "label": "Advanced Packaging / OSAT",
+          "tier": 1,
+          "tickers": ["AMKR"],
+          "mcap_b": 13.1,
+          "thesis": "Amkor is the largest US-listed OSAT (outsourced semiconductor assembly and test). Directly assembles and packages HBM stacks for SK Hynix and Samsung. $13.1B mcap with direct HBM revenue exposure. Often overlooked because it's assembly not design, but OSAT is the physical bottleneck in advanced packaging."
+        },
+        "memory_ip": {
+          "label": "Memory Interface IP",
+          "tier": 2,
+          "tickers": ["RMBS"],
+          "mcap_b": 13.55,
+          "thesis": "Rambus licenses memory interface IP — DDR5, HBM controller IP, and security IP. Every HBM controller must license Rambus IP or fight an infringement lawsuit. $13.5B mcap with royalty revenue that scales with memory unit volume, not capital intensity."
+        },
+        "laser_subsystems": {
+          "label": "Laser / Photonics Subsystems",
+          "tier": 2,
+          "tickers": ["MKSI"],
+          "mcap_b": 14.9,
+          "thesis": "MKS Instruments provides laser subsystems, power delivery, and process control used in HBM wafer processing. $14.9B mcap diversified across semi/industrial/photonics. Less pure-play than FORM/VECO but captures HBM capex across multiple process steps."
+        },
+        "indirect_beneficiaries": {
+          "label": "Indirect / Adjacency",
+          "tier": 3,
+          "tickers": ["SMTC", "MTSI"],
+          "thesis": "Semtech (SMTC) provides signal integrity ICs used in high-speed memory interfaces. MACOM (MTSI) makes RF/microwave components used in test systems and optical interconnects adjacent to HBM packaging. Both benefit from HBM ecosystem buildout indirectly."
+        }
+      },
+      "lead_lag": {
+        "leading": ["FORM", "ONTO"],
+        "lagging": ["VECO", "PLAB", "ACLS", "AMKR", "MKSI"],
+        "horizon": "HBM4 production ramp 2026-2028; multi-year capex cycle",
+        "chain_flow": "MU/SK Hynix HBM capex commitment → FORM wafer test → ONTO metrology → AMKR packaging → VECO/ACLS/PLAB process tools → RMBS/ADEA IP royalties compound per unit"
+      },
+      "thesis": "The HBM4 supercycle picks-and-shovels layer is dominated by small-cap names that have minimal institutional coverage relative to their direct exposure. MU and SK Hynix HBM capex flows directly to this chain. FORM and ONTO already confirmed in Q1 2026 earnings (record HBM demand). ADEA (hybrid bonding IP) and RMBS (memory interface IP) are pure royalty compounders — every HBM unit shipped pays them. VECO/PLAB/ACLS are process-tool sleepers at sub-$3B mcap. AMKR is the OSAT bottleneck — physically assembles the stacks.",
+      "caveats": [
+        "Small caps have wider bid/ask and less liquidity — size accordingly.",
+        "HBM cycle could peak if NVDA demand disappoints — all names correlate down sharply.",
+        "ADEA's IP position is hybrid bonding specific; if die-to-wafer bonding (alternative) scales, royalty base narrows.",
+        "AMKR has significant Samsung/Hynix customer concentration — any vendor shift is binary.",
+        "PLAB is purely cyclical on mask orders — no moat beyond process-node participation."
+      ],
+      "source": "Community research note — May 11, 2026 (via Discord)"
+    },
     {
       "id": "data-center-reits-2026-05",
       "date": "2026-05-07",
