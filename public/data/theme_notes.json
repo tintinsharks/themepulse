@@ -7,7 +7,7 @@
       "id": "hbm4-memory-sleepers-2026-05-11",
       "date": "2026-05-11",
       "type": "value_chain_framework",
-      "headline": "HBM4 Memory Supercycle Sleepers — VECO/PLAB/ADEA/ACLS/FORM/ONTO/AMKR/RMBS/MKSI: small-cap picks-and-shovels market hasn't priced in yet.",
+      "headline": "HBM4 Memory Supercycle Sleepers \u2014 VECO/PLAB/ADEA/ACLS/FORM/ONTO/AMKR/RMBS/MKSI: small-cap picks-and-shovels market hasn't priced in yet.",
       "primary_tickers": [
         "FORM",
         "ONTO",
@@ -34,88 +34,134 @@
         "laser_anneal": {
           "label": "Laser Annealing",
           "tier": 2,
-          "tickers": ["VECO"],
+          "tickers": [
+            "VECO"
+          ],
           "mcap_b": 2.0,
           "thesis": "Veeco laser annealing tools are critical for HBM4 junction formation. Sub-$2.5B mcap means minimal institutional ownership; any NVDA or MU HBM ramp commentary moves VECO disproportionately. Stealth picks-and-shovels."
         },
         "photomask": {
           "label": "Lithography Photomask",
           "tier": 2,
-          "tickers": ["PLAB"],
+          "tickers": [
+            "PLAB"
+          ],
           "mcap_b": 2.1,
-          "thesis": "Photronics makes the photomasks used in every lithography step of HBM4 production. Pure commodity-of-process play — every new memory node needs new masks. $2.1B mcap with direct HBM exposure."
+          "thesis": "Photronics makes the photomasks used in every lithography step of HBM4 production. Pure commodity-of-process play \u2014 every new memory node needs new masks. $2.1B mcap with direct HBM exposure."
         },
         "hybrid_bonding": {
           "label": "Hybrid Bonding IP / Tooling",
           "tier": 1,
-          "tickers": ["ADEA"],
+          "tickers": [
+            "ADEA"
+          ],
           "mcap_b": 2.18,
-          "thesis": "Adeia holds critical semiconductor IP for hybrid bonding — the stacking technology used in HBM4. IP licensing means high-margin, non-capital-intensive revenue that compounds with every HBM unit shipped. $2.18B mcap severely undervalued relative to RMBS ($13.5B) for comparable IP moat."
+          "thesis": "Adeia holds critical semiconductor IP for hybrid bonding \u2014 the stacking technology used in HBM4. IP licensing means high-margin, non-capital-intensive revenue that compounds with every HBM unit shipped. $2.18B mcap severely undervalued relative to RMBS ($13.5B) for comparable IP moat."
         },
         "ion_implantation": {
           "label": "Ion Implantation",
           "tier": 2,
-          "tickers": ["ACLS"],
+          "tickers": [
+            "ACLS"
+          ],
           "mcap_b": 2.9,
           "thesis": "Axcelis ion implantation tools are used in DRAM and HBM doping steps. $2.9B mcap despite being the only independent pure-play ion implant company (Applied and Lam are diversified). Cyclical but deeply levered to HBM capex."
         },
         "hbm_wafer_test": {
           "label": "HBM Wafer Testing",
           "tier": 1,
-          "tickers": ["FORM"],
+          "tickers": [
+            "FORM"
+          ],
           "mcap_b": 6.43,
-          "thesis": "FormFactor probe cards are the primary test infrastructure for HBM wafers. $6.4B mcap with record HBM demand confirmed (Q1 2026 beat). Every HBM wafer must be tested before stacking — FORM is the gating step that can't be skipped. Already confirmed in FORM Q1 earnings: record HBM demand, record gross margins (49%)."
+          "thesis": "FormFactor probe cards are the primary test infrastructure for HBM wafers. $6.4B mcap with record HBM demand confirmed (Q1 2026 beat). Every HBM wafer must be tested before stacking \u2014 FORM is the gating step that can't be skipped. Already confirmed in FORM Q1 earnings: record HBM demand, record gross margins (49%)."
         },
         "packaging_metrology": {
           "label": "Advanced Packaging Metrology",
           "tier": 1,
-          "tickers": ["ONTO"],
+          "tickers": [
+            "ONTO"
+          ],
           "mcap_b": 10.6,
-          "thesis": "Onto Innovation provides critical process control and metrology for HBM advanced packaging. As HBM stacks increase (HBM4 = 16-high stacks), yield management becomes the gating cost factor — ONTO's tools are mandatory. $10.6B mcap, already confirmed in our viav-form thesis."
+          "thesis": "Onto Innovation provides critical process control and metrology for HBM advanced packaging. As HBM stacks increase (HBM4 = 16-high stacks), yield management becomes the gating cost factor \u2014 ONTO's tools are mandatory. $10.6B mcap, already confirmed in our viav-form thesis."
         },
         "advanced_packaging_osat": {
           "label": "Advanced Packaging / OSAT",
           "tier": 1,
-          "tickers": ["AMKR"],
+          "tickers": [
+            "AMKR"
+          ],
           "mcap_b": 13.1,
           "thesis": "Amkor is the largest US-listed OSAT (outsourced semiconductor assembly and test). Directly assembles and packages HBM stacks for SK Hynix and Samsung. $13.1B mcap with direct HBM revenue exposure. Often overlooked because it's assembly not design, but OSAT is the physical bottleneck in advanced packaging."
         },
         "memory_ip": {
           "label": "Memory Interface IP",
           "tier": 2,
-          "tickers": ["RMBS"],
+          "tickers": [
+            "RMBS"
+          ],
           "mcap_b": 13.55,
-          "thesis": "Rambus licenses memory interface IP — DDR5, HBM controller IP, and security IP. Every HBM controller must license Rambus IP or fight an infringement lawsuit. $13.5B mcap with royalty revenue that scales with memory unit volume, not capital intensity."
+          "thesis": "Rambus licenses memory interface IP \u2014 DDR5, HBM controller IP, and security IP. Every HBM controller must license Rambus IP or fight an infringement lawsuit. $13.5B mcap with royalty revenue that scales with memory unit volume, not capital intensity."
         },
         "laser_subsystems": {
           "label": "Laser / Photonics Subsystems",
           "tier": 2,
-          "tickers": ["MKSI"],
+          "tickers": [
+            "MKSI"
+          ],
           "mcap_b": 14.9,
           "thesis": "MKS Instruments provides laser subsystems, power delivery, and process control used in HBM wafer processing. $14.9B mcap diversified across semi/industrial/photonics. Less pure-play than FORM/VECO but captures HBM capex across multiple process steps."
         },
         "indirect_beneficiaries": {
           "label": "Indirect / Adjacency",
           "tier": 3,
-          "tickers": ["SMTC", "MTSI"],
+          "tickers": [
+            "SMTC",
+            "MTSI"
+          ],
           "thesis": "Semtech (SMTC) provides signal integrity ICs used in high-speed memory interfaces. MACOM (MTSI) makes RF/microwave components used in test systems and optical interconnects adjacent to HBM packaging. Both benefit from HBM ecosystem buildout indirectly."
         }
       },
       "lead_lag": {
-        "leading": ["FORM", "ONTO"],
-        "lagging": ["VECO", "PLAB", "ACLS", "AMKR", "MKSI"],
+        "leading": [
+          "FORM",
+          "ONTO"
+        ],
+        "lagging": [
+          "VECO",
+          "PLAB",
+          "ACLS",
+          "AMKR",
+          "MKSI"
+        ],
         "horizon": "HBM4 production ramp 2026-2028; multi-year capex cycle",
-        "chain_flow": "MU/SK Hynix HBM capex commitment → FORM wafer test → ONTO metrology → AMKR packaging → VECO/ACLS/PLAB process tools → RMBS/ADEA IP royalties compound per unit"
+        "chain_flow": "MU/SK Hynix HBM capex commitment \u2192 FORM wafer test \u2192 ONTO metrology \u2192 AMKR packaging \u2192 VECO/ACLS/PLAB process tools \u2192 RMBS/ADEA IP royalties compound per unit"
       },
-      "thesis": "The HBM4 supercycle picks-and-shovels layer is dominated by small-cap names that have minimal institutional coverage relative to their direct exposure. MU and SK Hynix HBM capex flows directly to this chain. FORM and ONTO already confirmed in Q1 2026 earnings (record HBM demand). ADEA (hybrid bonding IP) and RMBS (memory interface IP) are pure royalty compounders — every HBM unit shipped pays them. VECO/PLAB/ACLS are process-tool sleepers at sub-$3B mcap. AMKR is the OSAT bottleneck — physically assembles the stacks.",
+      "thesis": "The HBM4 supercycle picks-and-shovels layer is dominated by small-cap names that have minimal institutional coverage relative to their direct exposure. MU and SK Hynix HBM capex flows directly to this chain. FORM and ONTO already confirmed in Q1 2026 earnings (record HBM demand). ADEA (hybrid bonding IP) and RMBS (memory interface IP) are pure royalty compounders \u2014 every HBM unit shipped pays them. VECO/PLAB/ACLS are process-tool sleepers at sub-$3B mcap. AMKR is the OSAT bottleneck \u2014 physically assembles the stacks.",
       "caveats": [
-        "Small caps have wider bid/ask and less liquidity — size accordingly.",
-        "HBM cycle could peak if NVDA demand disappoints — all names correlate down sharply.",
+        "Small caps have wider bid/ask and less liquidity \u2014 size accordingly.",
+        "HBM cycle could peak if NVDA demand disappoints \u2014 all names correlate down sharply.",
         "ADEA's IP position is hybrid bonding specific; if die-to-wafer bonding (alternative) scales, royalty base narrows.",
-        "AMKR has significant Samsung/Hynix customer concentration — any vendor shift is binary.",
-        "PLAB is purely cyclical on mask orders — no moat beyond process-node participation."
+        "AMKR has significant Samsung/Hynix customer concentration \u2014 any vendor shift is binary.",
+        "PLAB is purely cyclical on mask orders \u2014 no moat beyond process-node participation."
       ],
-      "source": "Community research note — May 11, 2026 (via Discord)"
+      "source": "Community research note \u2014 May 11, 2026 (via Discord)",
+      "quality_score": {
+        "moat": 70,
+        "mgmt_alignment": 75,
+        "execution_risk": 75,
+        "ceo_leadership": 75,
+        "financial_risk": 80,
+        "technology_risk": 70,
+        "exogenous_risk": 55,
+        "qrs": 73,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "MU or SK Hynix publicly delays HBM4 capex by >6 months",
+        "Alternative bonding technology renders hybrid bonding obsolete before 2028",
+        "US export controls expanded to block OSAT activity (AMKR) or advanced packaging tools"
+      ]
     },
     {
       "id": "data-center-reits-2026-05",
@@ -169,7 +215,23 @@
         "Power interconnection queue delays could push out new builds (5+ years in PJM).",
         "Hyperscalers building their own DCs (Microsoft) is the long-term competitive risk."
       ],
-      "source": "Research synthesis \u2014 May 2026 + Q1 2026 ER prints"
+      "source": "Research synthesis \u2014 May 2026 + Q1 2026 ER prints",
+      "quality_score": {
+        "moat": 85,
+        "mgmt_alignment": 70,
+        "execution_risk": 65,
+        "ceo_leadership": 70,
+        "financial_risk": 55,
+        "technology_risk": 60,
+        "exogenous_risk": 65,
+        "qrs": 71,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Hyperscaler announces major owned-build program bypassing colocation at scale",
+        "Permitting or power-availability crisis halts new DC construction in primary markets",
+        "Fed funds rate spikes >150bp in <6 months, compressing REIT cap rates"
+      ]
     },
     {
       "id": "cooling-thermal-layer-2026-05",
@@ -233,7 +295,23 @@
         "Hyperscalers may bring some cooling in-house long-term.",
         "Water scarcity could ironically slow adoption if regulators restrict water-cooled designs."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 80,
+        "mgmt_alignment": 75,
+        "execution_risk": 80,
+        "ceo_leadership": 80,
+        "financial_risk": 75,
+        "technology_risk": 65,
+        "exogenous_risk": 70,
+        "qrs": 77,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "NVIDIA changes GPU thermal design specification removing liquid cooling requirement",
+        "Major hyperscaler (>20% of VRT revenue) switches to competing cooling vendor",
+        "VRT misses revenue guidance by >10% in 2 consecutive quarters"
+      ]
     },
     {
       "id": "copper-electrification-2026-05",
@@ -292,7 +370,23 @@
         "Grasberg/Chilean political risk (resource nationalism).",
         "Copper trades on China sentiment \u2014 any Chinese stimulus disappointment hits the basket."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 65,
+        "mgmt_alignment": 65,
+        "execution_risk": 70,
+        "ceo_leadership": 65,
+        "financial_risk": 65,
+        "technology_risk": 50,
+        "exogenous_risk": 55,
+        "qrs": 65,
+        "sizing_tier": "reduced"
+      },
+      "red_card_triggers": [
+        "Global recession confirmed (PMI <45 for 3+ months across US/EU/China simultaneously)",
+        "Large new copper mine supply comes online >12 months ahead of schedule",
+        "Aluminum achieves cost and conductivity parity for EV wiring at production scale"
+      ]
     },
     {
       "id": "ai-software-apps-layer-2026-05",
@@ -359,7 +453,23 @@
         "Capex-to-revenue conversion is the make-or-break metric \u2014 watch quarterly AI revenue disclosures.",
         "PLTR valuation is rich; multiple compression risk if growth slows."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 95,
+        "mgmt_alignment": 80,
+        "execution_risk": 85,
+        "ceo_leadership": 85,
+        "financial_risk": 95,
+        "technology_risk": 70,
+        "exogenous_risk": 55,
+        "qrs": 86,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "Antitrust break-up order issued for MSFT, GOOGL, or META by US court",
+        "AI revenue growth decelerates below 20% YoY for 2 consecutive quarters across all four names",
+        "Binding AI regulation (EU/US) caps model deployment or data usage at scale"
+      ]
     },
     {
       "id": "defense-geopolitical-2026-05",
@@ -445,7 +555,23 @@
         "Drone names (AVAV) trade on news flow \u2014 high vol.",
         "Supply chain bottlenecks (semis for guidance, rare earths for magnets) create execution risk."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 90,
+        "mgmt_alignment": 70,
+        "execution_risk": 75,
+        "ceo_leadership": 70,
+        "financial_risk": 80,
+        "technology_risk": 60,
+        "exogenous_risk": 65,
+        "qrs": 77,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Comprehensive US-NATO ceasefire agreement with full drawdown removes primary geopolitical catalyst",
+        "US defense budget cut >10% in a single fiscal year via Congressional reconciliation",
+        "Primary program cancellation for LMT F-35 or RTX Patriot/LTAMDS at scale"
+      ]
     },
     {
       "id": "storage-enterprise-data-2026-05",
@@ -511,7 +637,23 @@
         "STX +210% in 2025 means significant gains already priced in.",
         "SNDK has limited price history as newly independent."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 70,
+        "mgmt_alignment": 75,
+        "execution_risk": 70,
+        "ceo_leadership": 70,
+        "financial_risk": 75,
+        "technology_risk": 65,
+        "exogenous_risk": 60,
+        "qrs": 71,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Hyperscaler announces proprietary storage technology replacing third-party enterprise arrays",
+        "NAND price collapse >30% makes flash-based enterprise storage margin-negative",
+        "AI training architecture shifts to streaming/in-memory model, eliminating persistent storage requirement"
+      ]
     },
     {
       "id": "robotics-embodied-ai-2026-05",
@@ -571,7 +713,23 @@
         "ISRG is more healthcare cycle than AI cycle.",
         "Multiples are already pricing in significant adoption \u2014 disappointment risk high."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 80,
+        "mgmt_alignment": 70,
+        "execution_risk": 60,
+        "ceo_leadership": 70,
+        "financial_risk": 75,
+        "technology_risk": 65,
+        "exogenous_risk": 60,
+        "qrs": 71,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Major public safety failure (Tesla Optimus, Figure, or BD) triggers regulatory freeze on deployment",
+        "Commercial deployment timeline pushed >3 years by technology gap or regulatory barrier",
+        "Key vertical (manufacturing, logistics) adoption blocked by labor regulation or union action"
+      ]
     },
     {
       "id": "hbm-advanced-packaging-2026-05",
@@ -656,7 +814,23 @@
         "ACMR is China-exposed \u2014 geopolitical risk.",
         "Hybrid bonding adoption timing affects ASML/AMAT incremental revenue."
       ],
-      "source": "Research synthesis \u2014 May 2026"
+      "source": "Research synthesis \u2014 May 2026",
+      "quality_score": {
+        "moat": 82,
+        "mgmt_alignment": 80,
+        "execution_risk": 80,
+        "ceo_leadership": 80,
+        "financial_risk": 85,
+        "technology_risk": 65,
+        "exogenous_risk": 55,
+        "qrs": 79,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "MU issues guidance cut citing HBM demand softening or pricing pressure",
+        "SK Hynix or Samsung announces HBM supply glut (inventory >12 weeks forward)",
+        "US export controls expanded to WFE tools (AMAT/LRCX/KLAC/ASML), blocking overseas sales"
+      ]
     },
     {
       "id": "macro-supercycle-context-2026-05",
@@ -740,7 +914,23 @@
         "Geopolitical disruption (Taiwan, US-China decoupling) could fragment the global supply chain rapidly.",
         "Open-source models (LLAMA, etc.) commoditize the model layer \u2014 winners shift from creators to deployers."
       ],
-      "source": "Deep research synthesis \u2014 May 7, 2026"
+      "source": "Deep research synthesis \u2014 May 7, 2026",
+      "quality_score": {
+        "moat": 92,
+        "mgmt_alignment": 82,
+        "execution_risk": 85,
+        "ceo_leadership": 82,
+        "financial_risk": 92,
+        "technology_risk": 65,
+        "exogenous_risk": 50,
+        "qrs": 84,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "2+ hyperscalers simultaneously announce AI capex pause in earnings calls",
+        "Fed pivots to rate hikes (>2 consecutive 25bp increases) compressing growth multiples",
+        "Generational valuation compression event (AI P/E de-rating >30% from peak)"
+      ]
     },
     {
       "id": "server-rack-integration-layer-2026-05",
@@ -779,7 +969,23 @@
         "ANET valuation is rich \u2014 trades at premium to software comps on hardware revenue. Multiple compression risk if hyperscaler capex guidance disappoints.",
         "DELL has PC/commercial business drag \u2014 only ~20% of revenue is ISG (AI servers). Blended multiple stays depressed."
       ],
-      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026",
+      "quality_score": {
+        "moat": 80,
+        "mgmt_alignment": 75,
+        "execution_risk": 75,
+        "ceo_leadership": 75,
+        "financial_risk": 80,
+        "technology_risk": 65,
+        "exogenous_risk": 65,
+        "qrs": 76,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "ANET loses >1 major hyperscaler spine-leaf contract to Cisco or Nokia",
+        "Merchant silicon displaces ANET's networking stack in next-gen AI cluster design",
+        "AI cluster architecture shifts to flat topology or InfiniBand dominance, removing Ethernet switching layer"
+      ]
     },
     {
       "id": "nuclear-sub-chain-2026-05",
@@ -851,7 +1057,23 @@
         "NRC licensing timelines are unpredictable \u2014 NNE already had one project cancellation.",
         "This chain trades differently from the chip/rack/optics chains \u2014 longer duration, higher vol, sentiment-driven."
       ],
-      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026",
+      "quality_score": {
+        "moat": 75,
+        "mgmt_alignment": 70,
+        "execution_risk": 55,
+        "ceo_leadership": 70,
+        "financial_risk": 65,
+        "technology_risk": 70,
+        "exogenous_risk": 60,
+        "qrs": 68,
+        "sizing_tier": "reduced"
+      },
+      "red_card_triggers": [
+        "NRC permanently revokes or indefinitely delays SMR licensing pathway",
+        "Major nuclear incident anywhere triggering global regulatory freeze on new nuclear permits",
+        "Grid-scale batteries achieve $50/kWh installed cost ahead of 2030, making nuclear economics unviable"
+      ]
     },
     {
       "id": "sovereign-ai-demand-2026-05",
@@ -901,7 +1123,23 @@
         "Geopolitical sensitivity: UAE/Saudi programs involve US government approval. Regime change or diplomatic friction could cancel deals.",
         "NBIS is a small-cap ($3-5B) with thin US float and European listing \u2014 vol is high."
       ],
-      "source": "ThemePulse value chain audit + public deal announcements \u2014 May 7, 2026"
+      "source": "ThemePulse value chain audit + public deal announcements \u2014 May 7, 2026",
+      "quality_score": {
+        "moat": 88,
+        "mgmt_alignment": 85,
+        "execution_risk": 80,
+        "ceo_leadership": 90,
+        "financial_risk": 92,
+        "technology_risk": 65,
+        "exogenous_risk": 50,
+        "qrs": 83,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "US government imposes export ban on H100/H200/B200 to UAE, Saudi Arabia, or India",
+        "NVDA GPU underperforms AMD custom silicon in sovereign benchmark, triggering procurement shift",
+        "Political change in UAE or Saudi Arabia reverses national AI investment program"
+      ]
     },
     {
       "id": "ai-inference-edge-layer-2026-05",
@@ -948,7 +1186,23 @@
         "NVDA is not standing still \u2014 Grace Blackwell (CPU+GPU) and Jetson Orin target edge inference directly.",
         "On-device inference is primarily a consumer story \u2014 different catalysts than enterprise AI capex cycle."
       ],
-      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026",
+      "quality_score": {
+        "moat": 85,
+        "mgmt_alignment": 78,
+        "execution_risk": 70,
+        "ceo_leadership": 78,
+        "financial_risk": 82,
+        "technology_risk": 65,
+        "exogenous_risk": 55,
+        "qrs": 77,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Training-to-inference shift stalls \u2014 cloud inference continues to win vs edge deployment at scale",
+        "RISC-V open-source architecture achieves commercial parity, disrupting ARM licensing model",
+        "QCOM loses Apple silicon partnership entirely, removing primary revenue anchor"
+      ]
     },
     {
       "id": "earnings-readthrough-map-2026-05",
@@ -1100,7 +1354,23 @@
         "Same-day options activity can front-run read-throughs \u2014 check unusual options flow in the chain names ahead of earnings.",
         "Macro selloffs (rate fears, tariff news) can override sector-specific read-throughs entirely."
       ],
-      "source": "ThemePulse value chain audit \u2014 May 7, 2026"
+      "source": "ThemePulse value chain audit \u2014 May 7, 2026",
+      "quality_score": {
+        "moat": 90,
+        "mgmt_alignment": 80,
+        "execution_risk": 83,
+        "ceo_leadership": 80,
+        "financial_risk": 90,
+        "technology_risk": 65,
+        "exogenous_risk": 52,
+        "qrs": 82,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "2+ hyperscalers guide for flat or declining AI capex in the same earnings quarter",
+        "AI monetization metrics (revenue per GPU) show structural deceleration confirmed by 2+ companies",
+        "Broad guidance cut across AI infrastructure supply chain in a single earnings season"
+      ]
     },
     {
       "id": "ai-ecosystem-layer-map-2026-05",
@@ -1276,7 +1546,23 @@
         "Cybersecurity layer is more correlated to software multiples than AI capex \u2014 different risk factor.",
         "Neocloud names are high-beta crypto-adjacent \u2014 IREN/CRWV can gap down 20%+ on sentiment shifts."
       ],
-      "source": "@Sancompounding AI Ecosystem Layers framework \u2014 May 7, 2026 + ThemePulse value chain audit"
+      "source": "@Sancompounding AI Ecosystem Layers framework \u2014 May 7, 2026 + ThemePulse value chain audit",
+      "quality_score": {
+        "moat": 82,
+        "mgmt_alignment": 78,
+        "execution_risk": 78,
+        "ceo_leadership": 78,
+        "financial_risk": 82,
+        "technology_risk": 68,
+        "exogenous_risk": 55,
+        "qrs": 78,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "AI capex pause confirmed by 2+ hyperscalers simultaneously",
+        "NVDA supply/demand balance shifts to oversupply (GPU lead times collapse to <4 weeks)",
+        "Regulatory moratorium on large GPU cluster deployment (>10,000 units) in US or EU"
+      ]
     },
     {
       "id": "cifr-iren-uuuu-mp-earnings-catalyst-2026-05",
@@ -1329,7 +1615,23 @@
         "MP AAPL partnership details not yet public \u2014 could be overhyped or underwhelming on disclosure.",
         "CIFR/IREN high beta \u2014 crypto price action can override earnings fundamentals."
       ],
-      "source": "Ted Zhang (@TedHZhang) Twitter/X \u2014 May 4, 2026"
+      "source": "Ted Zhang (@TedHZhang) Twitter/X \u2014 May 4, 2026",
+      "quality_score": {
+        "moat": 45,
+        "mgmt_alignment": 55,
+        "execution_risk": 50,
+        "ceo_leadership": 55,
+        "financial_risk": 40,
+        "technology_risk": 50,
+        "exogenous_risk": 45,
+        "qrs": 49,
+        "sizing_tier": "avoid"
+      },
+      "red_card_triggers": [
+        "Primary catalyst ticker misses earnings by >10% vs consensus on the announcement date",
+        "Bitcoin/crypto sector reversal (BTC drops >20% in 5 days) removes miner sentiment",
+        "Rare earth or uranium supply overhang announced, breaking commodity scarcity narrative"
+      ]
     },
     {
       "id": "cgeh-dc-power-thesis-2026-05",
@@ -1389,7 +1691,23 @@
         "Combustion-based (microturbine) vs electrochemical (fuel cell) \u2014 regulatory/ESG risk in some jurisdictions.",
         "Small cap ($306M) \u2014 illiquid, high beta (3.16), binary on contract wins."
       ],
-      "source": "Nitin personal research / Discord thesis"
+      "source": "Nitin personal research / Discord thesis",
+      "quality_score": {
+        "moat": 55,
+        "mgmt_alignment": 60,
+        "execution_risk": 50,
+        "ceo_leadership": 60,
+        "financial_risk": 40,
+        "technology_risk": 60,
+        "exogenous_risk": 65,
+        "qrs": 55,
+        "sizing_tier": "reduced"
+      },
+      "red_card_triggers": [
+        "Primary data center customer cancels or delays microturbine contract",
+        "Natural gas price spike >50% makes CGEH economics unviable vs battery or solar alternatives",
+        "CGEH announces dilutive capital raise (>15% share dilution) signaling cash crisis"
+      ]
     },
     {
       "id": "viav-form-2026-q1",
@@ -1454,7 +1772,23 @@
         "TOWA is 6315.T (Tokyo) \u2014 not in FMP live feed, won't surface in SUBFLOW.",
         "Test/inspection thesis assumes ramp follows; tariff or memory-pricing reversal could break the chain."
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 72,
+        "mgmt_alignment": 72,
+        "execution_risk": 78,
+        "ceo_leadership": 72,
+        "financial_risk": 78,
+        "technology_risk": 68,
+        "exogenous_risk": 58,
+        "qrs": 73,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "FORM loses primary HBM wafer test contract to KLA or Teradyne at renewal",
+        "Memory makers announce in-house wafer test capability, reducing merchant test TAM",
+        "HBM4 yield improvements above 85% at volume remove need for incremental test capacity investment"
+      ]
     },
     {
       "id": "hyperscaler-capex-2026-q1",
@@ -1541,7 +1875,23 @@
       "linked_notes": [
         "viav-form-2026-q1"
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 92,
+        "mgmt_alignment": 82,
+        "execution_risk": 85,
+        "ceo_leadership": 85,
+        "financial_risk": 92,
+        "technology_risk": 68,
+        "exogenous_risk": 52,
+        "qrs": 85,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "META, MSFT, and AMZN all cut capex guidance in the same earnings quarter",
+        "AI ROI narrative collapses \u2014 enterprise customers report <20% productivity improvement in surveys",
+        "Global recession triggers enterprise cloud spending freeze (AWS/Azure growth decelerates <10%)"
+      ]
     },
     {
       "id": "amzn-memory-skyrocketed-2026-q1",
@@ -1614,7 +1964,23 @@
         "viav-form-2026-q1",
         "hyperscaler-capex-2026-q1"
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 90,
+        "mgmt_alignment": 82,
+        "execution_risk": 83,
+        "ceo_leadership": 83,
+        "financial_risk": 92,
+        "technology_risk": 68,
+        "exogenous_risk": 55,
+        "qrs": 84,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "AWS memory procurement growth decelerates to <20% YoY in next earnings disclosure",
+        "AMZN announces proprietary memory architecture reducing third-party DRAM dependency",
+        "NAND/DRAM price spike forces AMZN to reduce AI training cluster density targets"
+      ]
     },
     {
       "id": "hyperscaler-power-compute-constrained-2026-q1",
@@ -1726,7 +2092,23 @@
         "hyperscaler-capex-2026-q1",
         "amzn-memory-skyrocketed-2026-q1"
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 80,
+        "mgmt_alignment": 78,
+        "execution_risk": 78,
+        "ceo_leadership": 78,
+        "financial_risk": 80,
+        "technology_risk": 65,
+        "exogenous_risk": 62,
+        "qrs": 77,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Hyperscalers announce power self-sufficiency via owned generation (nuclear/solar), bypassing grid infrastructure companies",
+        "AI model efficiency breakthrough (>50% compute reduction per workload) collapses power demand projections",
+        "US grid regulatory block prevents new data center power connections in primary markets (ERCOT, PJM, MISO)"
+      ]
     },
     {
       "id": "googl-vertical-ai-stack-2026-q1",
@@ -1782,7 +2164,23 @@
         "hyperscaler-capex-2026-q1",
         "hyperscaler-power-compute-constrained-2026-q1"
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 92,
+        "mgmt_alignment": 82,
+        "execution_risk": 82,
+        "ceo_leadership": 82,
+        "financial_risk": 92,
+        "technology_risk": 70,
+        "exogenous_risk": 52,
+        "qrs": 84,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "DOJ antitrust ruling forces GOOGL to divest search or Android business",
+        "TPU v6 benchmark shows >20% structural underperformance vs NVDA H200 for AI training workloads",
+        "EU AI Act imposes binding restrictions on Gemini deployment or data usage in European market"
+      ]
     },
     {
       "id": "samsung-2027-prebooked-2026-q1",
@@ -1862,7 +2260,23 @@
         "hyperscaler-capex-2026-q1",
         "viav-form-2026-q1"
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 82,
+        "mgmt_alignment": 65,
+        "execution_risk": 75,
+        "ceo_leadership": 60,
+        "financial_risk": 85,
+        "technology_risk": 70,
+        "exogenous_risk": 45,
+        "qrs": 73,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "US Commerce Department adds Samsung to restricted party list for advanced semiconductor exports",
+        "DRAM/NAND oversupply confirmed \u2014 Samsung guides for >20% ASP decline in next quarter",
+        "Korean political crisis triggers regulatory investigation or leadership change at Samsung Group"
+      ]
     },
     {
       "id": "amzn-aws-once-in-a-lifetime-2026-q1",
@@ -1931,7 +2345,23 @@
         "hyperscaler-power-compute-constrained-2026-q1",
         "googl-vertical-ai-stack-2026-q1"
       ],
-      "source": "Discord / personal note"
+      "source": "Discord / personal note",
+      "quality_score": {
+        "moat": 90,
+        "mgmt_alignment": 82,
+        "execution_risk": 83,
+        "ceo_leadership": 83,
+        "financial_risk": 92,
+        "technology_risk": 68,
+        "exogenous_risk": 55,
+        "qrs": 84,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "AWS loses >3 large enterprise accounts to Azure or GCP disclosed in a single quarterly earnings call",
+        "AWS operating margin compresses >300bp YoY (pricing war signal vs Azure/GCP)",
+        "AMZN AI revenue growth decelerates below 25% YoY for 2 consecutive quarters"
+      ]
     },
     {
       "id": "sndk-q3-fy2026-2026-04-30",
@@ -2227,7 +2657,23 @@
         "googl-vertical-ai-stack-2026-q1",
         "viav-form-2026-q1"
       ],
-      "source": "SNDK Q3 FY2026 earnings call read-through analysis"
+      "source": "SNDK Q3 FY2026 earnings call read-through analysis",
+      "quality_score": {
+        "moat": 80,
+        "mgmt_alignment": 72,
+        "execution_risk": 82,
+        "ceo_leadership": 72,
+        "financial_risk": 75,
+        "technology_risk": 70,
+        "exogenous_risk": 55,
+        "qrs": 76,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "NAND ASP reversal \u2014 spot prices soften >10% MoM for 2 consecutive months",
+        "YMTC gains meaningful enterprise SSD market share (>5%), pressuring SNDK margins",
+        "WDC/SNDK restructuring dissolves the $42B contractual NAND supply guarantees cited in earnings"
+      ]
     },
     {
       "id": "photonics-supply-chain-2026-04-30",
@@ -2553,7 +2999,23 @@
         "amzn-aws-once-in-a-lifetime-2026-q1",
         "sndk-q3-fy2026-2026-04-30"
       ],
-      "source": "Photonics start-to-finish supply chain analysis (USGS indium yearbook, Sumitomo CS ManTech, Infinera CS ManTech 2025, Coherent corporate, Eindhoven UoT InP PIC process docs, Corning fiber manufacturing, ITU-T G.652)"
+      "source": "Photonics start-to-finish supply chain analysis (USGS indium yearbook, Sumitomo CS ManTech, Infinera CS ManTech 2025, Coherent corporate, Eindhoven UoT InP PIC process docs, Corning fiber manufacturing, ITU-T G.652)",
+      "quality_score": {
+        "moat": 78,
+        "mgmt_alignment": 72,
+        "execution_risk": 78,
+        "ceo_leadership": 72,
+        "financial_risk": 75,
+        "technology_risk": 65,
+        "exogenous_risk": 60,
+        "qrs": 74,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Silicon photonics achieves cost parity with InP at transceiver scale, disrupting LITE/AXTI moat",
+        "Hyperscaler announces proprietary optical interconnect manufacturing, bypassing merchant supply chain",
+        "AXTI InP wafer supply constraint resolves (thesis was bottleneck scarcity \u2014 resolution is bearish for thesis)"
+      ]
     },
     {
       "id": "sive-apple-silicon-photonics-2026-04-30",
@@ -2653,7 +3115,23 @@
         "viav-form-2026-q1",
         "googl-vertical-ai-stack-2026-q1"
       ],
-      "source": "Speculative pattern-match thesis (SIVE corporate disclosures + Carnegie research + Apple Watch volume data + supplier triangulation)"
+      "source": "Speculative pattern-match thesis (SIVE corporate disclosures + Carnegie research + Apple Watch volume data + supplier triangulation)",
+      "quality_score": {
+        "moat": 60,
+        "mgmt_alignment": 60,
+        "execution_risk": 55,
+        "ceo_leadership": 60,
+        "financial_risk": 45,
+        "technology_risk": 65,
+        "exogenous_risk": 50,
+        "qrs": 57,
+        "sizing_tier": "reduced"
+      },
+      "red_card_triggers": [
+        "Apple announces alternative photonics supplier for next-generation Apple Silicon chip",
+        "Apple Silicon photonics specification changes remove SIVE-B's primary addressable component",
+        "SIVE announces capital raise or key partnership failure, signaling commercial timeline delay"
+      ]
     },
     {
       "id": "ai-infra-state-of-play-2026-05-02",
@@ -2825,7 +3303,23 @@
         "googl-vertical-ai-stack-2026-q1",
         "sive-apple-silicon-photonics-2026-04-30"
       ],
-      "source": "Discord / personal note \u2014 thesis state-of-play update"
+      "source": "Discord / personal note \u2014 thesis state-of-play update",
+      "quality_score": {
+        "moat": 72,
+        "mgmt_alignment": 72,
+        "execution_risk": 72,
+        "ceo_leadership": 72,
+        "financial_risk": 70,
+        "technology_risk": 65,
+        "exogenous_risk": 58,
+        "qrs": 71,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "AI capex pause confirmed by 2+ hyperscalers in same earnings cycle",
+        "Physical AI deployment (robotics, autonomous vehicles) timeline pushed >2 years across industry",
+        "Power or cooling supply chain bottleneck becomes multi-year structural constraint on AI cluster growth"
+      ]
     },
     {
       "id": "cpo-goldman-supercycle-2026-05-03",
@@ -3000,7 +3494,23 @@
         "viav-form-2026-q1",
         "hyperscaler-capex-2026-q1"
       ],
-      "source": "Goldman Sachs optical networking report + Discord / personal note 2026-05-03"
+      "source": "Goldman Sachs optical networking report + Discord / personal note 2026-05-03",
+      "quality_score": {
+        "moat": 82,
+        "mgmt_alignment": 78,
+        "execution_risk": 78,
+        "ceo_leadership": 78,
+        "financial_risk": 82,
+        "technology_risk": 68,
+        "exogenous_risk": 60,
+        "qrs": 78,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Goldman Sachs revises CPO TAM estimate down >30% citing slower hyperscaler adoption in research note",
+        "IEEE or OIF CPO standards fragmentation delays industry convergence >2 years beyond 2026",
+        "Competing interconnect technology (EIC, WDM, or Si-Ge hybrid) wins >2 hyperscaler design wins instead of CPO"
+      ]
     },
     {
       "id": "glass-substrate-value-chain-2026-05-10",
@@ -3103,7 +3613,23 @@
         "Organic substrate incumbents (Ibiden, Shinko) are investing in glass as a hedge \u2014 competition risk.",
         "LRCX and KLAC are large-cap diversified; glass substrate is incremental TAM, not a primary driver."
       ],
-      "source": "Industry name-drops from glass substrate ecosystem participants \u2014 May 2026"
+      "source": "Industry name-drops from glass substrate ecosystem participants \u2014 May 2026",
+      "quality_score": {
+        "moat": 75,
+        "mgmt_alignment": 73,
+        "execution_risk": 68,
+        "ceo_leadership": 73,
+        "financial_risk": 78,
+        "technology_risk": 65,
+        "exogenous_risk": 55,
+        "qrs": 72,
+        "sizing_tier": "standard"
+      },
+      "red_card_triggers": [
+        "Intel, AMD, and NVIDIA all publicly delay glass substrate transition >18 months in product roadmap updates",
+        "Organic substrate achieves equivalent electrical performance at lower cost, removing glass advantage",
+        "Production yield test reveals glass substrate failure rate above 40% at scale"
+      ]
     },
     {
       "id": "energy-storage-infrastructure-2026-05-10",
@@ -3202,7 +3728,23 @@
         "Sector is volatile and news-flow driven \u2014 position sizing matters more than in established infrastructure.",
         "Chinese battery competition (CATL, BYD) is a structural cost pressure across all non-Chinese players."
       ],
-      "source": "Energy Storage Infrastructure thesis infographic \u2014 May 2026"
+      "source": "Energy Storage Infrastructure thesis infographic \u2014 May 2026",
+      "quality_score": {
+        "moat": 55,
+        "mgmt_alignment": 62,
+        "execution_risk": 50,
+        "ceo_leadership": 62,
+        "financial_risk": 40,
+        "technology_risk": 55,
+        "exogenous_risk": 65,
+        "qrs": 55,
+        "sizing_tier": "reduced"
+      },
+      "red_card_triggers": [
+        "Grid-scale battery installed cost fails to reach $75/kWh by 2027 \u2014 technology not scaling as projected",
+        "Utility-scale battery safety incident (fire or explosion) triggers regulatory deployment freeze",
+        "Federal energy storage tax credit (IRA Section 48) cancelled or reduced >50% in budget reconciliation"
+      ]
     },
     {
       "id": "semiconductor-ai-supercycle-full-stack-2026-05-10",
@@ -3450,7 +3992,23 @@
         "MRVL $5.5B Celestial AI acquisition must integrate successfully for optical layer thesis to compound.",
         "The 'Nvidia-only era is over' claim depends on hyperscaler custom ASIC programs shipping at scale \u2014 unproven in volume."
       ],
-      "source": "The Complete Semiconductor Playbook \u2014 AI Supercycle 2026 infographic, May 2026"
+      "source": "The Complete Semiconductor Playbook \u2014 AI Supercycle 2026 infographic, May 2026",
+      "quality_score": {
+        "moat": 86,
+        "mgmt_alignment": 80,
+        "execution_risk": 82,
+        "ceo_leadership": 80,
+        "financial_risk": 85,
+        "technology_risk": 65,
+        "exogenous_risk": 52,
+        "qrs": 81,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "AI capex pause announced by 2+ hyperscalers simultaneously \u2014 single most important trigger for this chain",
+        "US-China comprehensive semiconductor export ban including equipment (AMAT/LRCX/KLAC/ASML) and advanced chips",
+        "Regulatory moratorium on GPU clusters >10,000 units in US or EU"
+      ]
     },
     {
       "id": "optical-communications-chain-map-2026-05-10",
@@ -3636,7 +4194,23 @@
         "Japanese material suppliers (Sumitomo, Furukawa, Fujikura) are not US-listed \u2014 indirect exposure only via AXTI and GLW.",
         "China optical competition (HG Genuine, Accelink) is a pricing risk for lower-tier transceiver products."
       ],
-      "source": "Optical Communications Full Industry Chain Map infographic \u2014 May 2026"
+      "source": "Optical Communications Full Industry Chain Map infographic \u2014 May 2026",
+      "quality_score": {
+        "moat": 83,
+        "mgmt_alignment": 80,
+        "execution_risk": 82,
+        "ceo_leadership": 80,
+        "financial_risk": 84,
+        "technology_risk": 65,
+        "exogenous_risk": 58,
+        "qrs": 80,
+        "sizing_tier": "full"
+      },
+      "red_card_triggers": [
+        "Hyperscaler announces proprietary optical transceiver manufacturing program, bypassing merchant supply chain",
+        "CPO adoption timeline delayed >2 years by IEEE/OIF standards fragmentation",
+        "AI cluster networking architecture shifts to InfiniBand dominance or flat topology, removing high-bandwidth optical requirement"
+      ]
     }
   ]
 }
