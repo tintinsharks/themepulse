@@ -2700,11 +2700,63 @@
         "NAND ASP reversal \u2014 spot prices soften >10% MoM for 2 consecutive months",
         "YMTC gains meaningful enterprise SSD market share (>5%), pressuring SNDK margins",
         "WDC/SNDK restructuring dissolves the $42B contractual NAND supply guarantees cited in earnings"
-      ]
+      ],
+      "koss_forward_model": {
+        "as_of": "2026-05-11",
+        "current_price": 1557.71,
+        "method": "P/E on peak-cycle earnings; cross-checked vs analyst consensus",
+        "fiscal_year_end": "June",
+        "diluted_shares_m": 158,
+        "revenue_trajectory": {
+          "q1_fy26": "$2.31B (Oct 2025)",
+          "q2_fy26": "$3.03B (Jan 2026)",
+          "q3_fy26": "$5.95B (Apr 2026) \u2014 +97% QoQ, +251% YoY",
+          "q4_fy26_guide": "$8.11B midpoint",
+          "fy26e_total": "$19.4B (run-rate)",
+          "fy27e_estimate": "$28-35B (anchored to $42B contractual backlog over ~3yr)"
+        },
+        "margins": {
+          "q3_non_gaap_gross_margin": "78.4%",
+          "q3_non_gaap_op_margin": "70.9%",
+          "fy27e_assumed_op_margin": "60% (normalized; below Q3 peak)"
+        },
+        "eps_estimates": {
+          "fy26e_eps_estimate": "$64.73 (single firm)",
+          "fy27e_eps_estimate": "$130 (mid; range $80-200 across firms)",
+          "fy27e_eps_calculation": "$32B rev \u00d7 60% op margin \u00d7 79% tax = $15.2B net / 158M shares = $96 EPS conservative; aggressive at $200+"
+        },
+        "price_targets": {
+          "base_12x_pe": "$1,560 (ER flat from current $1,557)",
+          "bull_15x_pe": "$1,950 (ER +25%)",
+          "very_bull_18x_pe": "$2,340 (ER +50%)",
+          "consensus_pt_avg": "$1,399 (analysts BEHIND current price)",
+          "consensus_pt_high": "$2,000"
+        },
+        "expected_return": {
+          "base": "0%",
+          "bull": "+25%",
+          "very_bull": "+50%"
+        },
+        "qay_calc": {
+          "qrs": 76,
+          "qrs_squared": 0.578,
+          "base_qay": "0%",
+          "bull_qay": "14.4%",
+          "very_bull_qay": "28.9%"
+        },
+        "verdict": "SNDK at $1,557 is fairly valued on base case (12x FY27E EPS $130 = $1,560). Bull case (+25%) at 15x P/E requires the market to assign growth-semi multiples to a memory cycle name \u2014 achievable IF the $42B contractual backlog is interpreted as multi-year recurring rather than one-time. Very bull (+50%) at 18x P/E matches Roth's $2,000 high target. QAY bull 14.4% vs META 67.8% / MSFT 58.5% \u2014 SNDK is in the MIDDLE of the leaderboard. Trim logic: at 60 shares \u00d7 $1,557 = $93K (22.2% of account), a partial trim of 15-20 shares ($23-31K) to fund META/MSFT deployment improves blended portfolio QAY without abandoning the thesis. Hold the remaining 40-45 shares through NVDA earnings May 20 for any sympathy gap to $1,700+. Full exit is premature \u2014 the $42B backlog is 12-18 months of visible revenue, and analyst PTs are still BELOW current price, meaning the street has to catch up before any peak signal appears.",
+        "trim_recommendation": {
+          "action": "PARTIAL TRIM",
+          "shares_to_sell": "15-20 of 60",
+          "rationale": "Lock in 25-33% of the +$29K gain, redeploy into higher-QAY names (META/MSFT). Keep 40-45 shares for NVDA May 20 + remaining backlog runway.",
+          "expected_proceeds": "$23,000-31,000",
+          "redeployment_target": "META + MSFT (combined QAY ~63%)"
+        }
+      }
     },
     {
       "id": "photonics-supply-chain-2026-04-30",
-      "date": "2026-04-30",
+      "date": "2026-05-11",
       "type": "supply_chain_thesis",
       "headline": "Photonics start-to-finish: bottlenecks are NOT raw materials \u2014 they're conversion, assembly, and test (low-fungibility, high-yield-curve steps)",
       "primary_tickers": [
@@ -2725,7 +2777,8 @@
         "KEYS",
         "MKSI",
         "GLW",
-        "JBL"
+        "JBL",
+        "LASR"
       ],
       "themes_implicated": [
         "Optical Components",
@@ -2782,6 +2835,11 @@
               "ticker": "LITE",
               "role": "Captive epi + InP PIC manufacturing",
               "exposure": "vertically integrated"
+            },
+            {
+              "ticker": "LASR",
+              "role": "nLight \u2014 GaAs/InP semiconductor laser fab + fiber laser specialist; high-power laser sources for industrial/defense + datacom diode pumps",
+              "exposure": "DIRECT pure-play on semiconductor laser sources (smaller scale than COHR/LITE but cleanest exposure to laser-diode demand ramp)"
             }
           ],
           "key_caveat": "IQE plc (IQE.L) is the dominant external epi house but London-listed."
@@ -4499,6 +4557,97 @@
         "Hyperscaler (Google/Amazon/Meta) announces in-house clock chip integration into custom AI ASIC, eliminating SITM from new design cycles",
         "Apple guides material reduction in SITM purchases for next iPhone/Apple Silicon generation (customer concentration risk realized)",
         "Quartz incumbent (Epson/Kyocera) announces MEMS-hybrid product with comparable specs at 30%+ price discount, triggering pricing pressure across SITM's portfolio"
+      ]
+    },
+    {
+      "id": "ai-rack-power-vicr-2026-05-11",
+      "date": "2026-05-11",
+      "type": "value_chain_framework",
+      "headline": "AI Rack Power Delivery \u2014 VICR: Vertical Power Delivery modules inside NVIDIA Blackwell + Cerebras; +22% gap today on backlog +70% QoQ to $300M and book-to-bill >2.0.",
+      "primary_tickers": [
+        "VICR"
+      ],
+      "derivative_tickers": [
+        "MPWR",
+        "AOSL",
+        "TXN",
+        "ADI",
+        "NVT"
+      ],
+      "themes_implicated": [
+        "AI Infrastructure",
+        "Power Delivery",
+        "Semiconductors",
+        "Data Center Power",
+        "AI Rack Design"
+      ],
+      "layers": {
+        "vertical_power_delivery_core": {
+          "label": "Vertical Power Delivery (VICR proprietary)",
+          "tier": 1,
+          "tickers": [
+            "VICR"
+          ],
+          "thesis": "Vicor's Factorized Power Architecture (FPA) and Vertical Power Delivery (VPD) modules deliver 48V-to-core-voltage conversion at 3A/mm\u00b2 density \u2014 a spec no silicon-based competitor currently matches. The VPD module sits PHYSICALLY UNDERNEATH the AI accelerator chip (not adjacent), eliminating the lateral PCB current path that limits density in Blackwell-class racks. Confirmed customers: NVIDIA Blackwell GPU rack designs use VICR modules; Cerebras wafer-scale engine ramping to volume production uses VICR modules. Q1 2026 revenue $113M (+20% YoY); FY26 guide $570M (+40% YoY); backlog $300M (+70% QoQ); book-to-bill >2.0. Forward model: FY27E ~$750M \u00d7 22x EV/Revenue = $349 PT vs $313 current = +12% ER base, +42% at 28x bull."
+        },
+        "competitive_dc_dc_derivatives": {
+          "label": "Competitive DC-DC Power (Indirect)",
+          "tier": 2,
+          "tickers": [
+            "MPWR",
+            "AOSL"
+          ],
+          "thesis": "Monolithic Power (MPWR) is the larger competitor \u2014 $20B+ market cap, broader power management portfolio. MPWR has been working on vertical power delivery but has NOT matched VICR's density spec at 3A/mm\u00b2. AOSL (Alpha & Omega Semiconductor) is a smaller MOSFET/power semi player \u2014 exposed to AI rack via downstream power FETs but not in the VPD module business. These are derivative beneficiaries when AI rack power capex accelerates broadly, but they don't capture the VICR moat margin."
+        },
+        "power_management_diversified": {
+          "label": "Diversified Power Mgmt (Lower-Tier Beneficiaries)",
+          "tier": 3,
+          "tickers": [
+            "TXN",
+            "ADI",
+            "NVT"
+          ],
+          "thesis": "Texas Instruments (TXN) and Analog Devices (ADI) make analog power management chips used throughout AI servers, but the power-mgmt revenue is <30% of either company \u2014 too diversified for a thesis-pure play. nVent Electric (NVT) is power infrastructure adjacent (enclosures, busbars) \u2014 beneficiary of AI datacenter spend but again diversified across industrial markets. Listed as derivatives because they catch sympathy bids when VICR runs, but don't drive the thesis."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "VICR"
+        ],
+        "lagging": [
+          "MPWR",
+          "AOSL",
+          "NVT"
+        ],
+        "horizon": "2025-2028 AI rack buildout; VPD module adoption accelerating as Blackwell + Rubin ramp",
+        "rationale": "VICR revenue leads because module orders precede rack deployment by 1-2Q. Backlog +70% QoQ in Q1 2026 = orders for H2 2026 rack builds (Blackwell ramp). When VICR books large orders, hyperscaler GPU rack capex is being committed. MPWR lags because their VPD offering is one product cycle behind; they'll catch sympathy bids but VICR captures the design-win economics for current Blackwell generation."
+      },
+      "thesis": "Vicor is the stealth picks-and-shovels play on AI rack physical density. The problem they solve: at 1kW+ per GPU, lateral copper traces on a PCB cannot deliver enough current at low enough impedance \u2014 voltage droop at the chip pins ruins compute reliability. VPD modules eliminate this by going vertical. Today's +22% on RVol 3.59x with 6/6 score is NOT a one-day pop \u2014 it's a re-rating event on the Q1 print: $300M backlog + book-to-bill >2.0 + FY26 guide $570M is a structural step-up from $407M FY25. ANALYST COVERAGE IS STALE \u2014 4 analysts total, 3 of 4 have not updated since Q4 2025. Consensus PT $208 vs current $313 = the street is 50% behind. Any new sell-side initiation OR PT raise is a forward catalyst. QRS 74 (standard sizing). QAY base ~7%, bull ~23%. Best entry: WAIT for consolidation back to $280-295 (the gap fill zone). At $290 entry: QAY bull improves to 30%+. Don't chase $313 after a +22% gap \u2014 the move is real but the entry is gone.",
+      "caveats": [
+        "Valuation is rich: $14.8B market cap on $570M FY26E revenue = 26x EV/Revenue. Even with bull-case multiple expansion, the cushion is thin.",
+        "CEO succession risk: founder Patrizio Vinciarelli is 80 years old, still CEO. No public succession plan disclosed.",
+        "Small float (47.3M diluted) creates volatility both directions \u2014 the +22% today could mirror in reverse on a Q2 miss.",
+        "Thin analyst coverage (4 names) means reflexive tape: any miss is brutal, any initiation/upgrade pours fuel on.",
+        "MPWR or other large power semi could announce competing VPD product \u2014 this is a 12-24 month risk window before VICR's moat is challenged.",
+        "Customer concentration: Cerebras and NVIDIA Blackwell are large but specific design-win cycles. Loss of a major customer = step-down in trajectory."
+      ],
+      "source": "ThemePulse scan capture \u2014 May 11, 2026. VICR 6/6 +22.03% RVol 3.59x; not previously in any thesis. Q1 2026 transcript from Motley Fool. Backlog/guide data from VICR 8-K. Roth Capital $285 PT update post-Q1.",
+      "quality_score": {
+        "moat": 80,
+        "mgmt_alignment": 72,
+        "execution_risk": 68,
+        "ceo_leadership": 70,
+        "financial_risk": 78,
+        "technology_risk": 75,
+        "exogenous_risk": 70,
+        "qrs": 74,
+        "sizing_tier": "standard",
+        "qrs_note": "Moat 80: VPD module density spec (3A/mm\u00b2) is currently unmatched; physical-layer integration creates real switching costs. CEO leadership 70 + mgmt alignment 72: founder Vinciarelli is brilliant but 80 years old \u2014 succession risk caps both scores. Exec risk 68: small company scaling capacity; manufacturing yield risk; backlog +70% means execution pressure intensifying. Financial risk 78: clean balance sheet, FCF positive, no debt \u2014 capacity expansion self-funded."
+      },
+      "red_card_triggers": [
+        "Hyperscaler (Microsoft/Google/Amazon/Meta) announces in-house VPD module program, replacing VICR in next-gen rack design",
+        "MPWR or competitor announces shipping VPD module matching 3A/mm\u00b2 spec at 30%+ price discount, triggering pricing pressure",
+        "CEO Patrizio Vinciarelli unexpected departure without succession plan in place \u2192 confirms execution continuity break risk"
       ]
     }
   ]
