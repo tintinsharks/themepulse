@@ -4649,6 +4649,131 @@
         "MPWR or competitor announces shipping VPD module matching 3A/mm\u00b2 spec at 30%+ price discount, triggering pricing pressure",
         "CEO Patrizio Vinciarelli unexpected departure without succession plan in place \u2192 confirms execution continuity break risk"
       ]
+    },
+    {
+      "id": "semi-testing-bench-2026-05-11",
+      "date": "2026-05-11",
+      "type": "value_chain_framework",
+      "headline": "Semi Testing Bench \u2014 FORM/AEHR/COHU: three layers of the test stack (probe / burn-in / handlers), three independent demand drivers (HBM / SiC+photonics / cyclical recovery).",
+      "primary_tickers": [
+        "FORM",
+        "AEHR",
+        "COHU"
+      ],
+      "derivative_tickers": [
+        "TER",
+        "KEYS",
+        "ONTO",
+        "KLAC",
+        "CAMT",
+        "ATEYY"
+      ],
+      "themes_implicated": [
+        "Semiconductor Test",
+        "HBM / Memory",
+        "Advanced Packaging",
+        "Silicon Photonics",
+        "SiC Power Devices",
+        "AI Infrastructure"
+      ],
+      "layers": {
+        "wafer_probe": {
+          "label": "Wafer Probe (Pre-Packaging Test)",
+          "tier": 1,
+          "tickers": [
+            "FORM"
+          ],
+          "demand_driver": "HBM4 ramp + memory wafer volume",
+          "thesis": "FormFactor (FORM) makes probe cards \u2014 the physical interface between test equipment and a wafer. Every wafer must be probed BEFORE packaging to identify which die are good. HBM specifically requires advanced probe cards because the stacks need known-good-die yields >95% before vertical assembly. FORM is the near-monopoly supplier of advanced probe cards for HBM. Q1 2026 record HBM demand + 49% gross margin. Forward model: FY27E $1.25B \u00d7 11x EV/Revenue = $176 base / $240 bull (15x). QRS 73, bull QAY 34.1% \u2014 highest of the testing bench."
+        },
+        "wafer_burn_in": {
+          "label": "Wafer-Level Burn-In (Reliability Test)",
+          "tier": 1,
+          "tickers": [
+            "AEHR"
+          ],
+          "demand_driver": "SiC power devices + AI processor reliability + silicon photonics ICs",
+          "thesis": "Aehr Test Systems (AEHR) provides wafer-level burn-in \u2014 stressing chips at elevated voltage/temperature for hours to identify infant-mortality failures BEFORE deployment. The FOX-NP system is the industry standard for photonic IC burn-in; FOX-XP is the new AI ASIC platform. Pivot story: EV/SiC market collapsed in 2025 \u2192 revenue dropped 44% YoY. Now pivoting to AI processor + silicon photonics burn-in. Q3 FY26 record bookings $37.2M with book-to-bill 3.6x; new hyperscaler silicon photonics customer win on FOX-XP; $41M follow-on order for package-level burn-in on custom AI ASICs. FY27E consensus $241M revenue is BINARY \u2014 depends entirely on the bookings translating to revenue. QRS 68 (below standard threshold). Bull QAY 12.5%, very bull 31.4% if FY27 $241M hits."
+        },
+        "final_test_handlers": {
+          "label": "Final Test + Handlers (Post-Packaging)",
+          "tier": 2,
+          "tickers": [
+            "COHU"
+          ],
+          "demand_driver": "Volume recovery + AI/HPC handler demand",
+          "thesis": "Cohu (COHU) makes test handlers \u2014 the mechanical systems that move chips through final test equipment after packaging. Also makes contactors, inspection systems, and thermal subsystems. Recovery + AI inflection: Q1 2026 revenue +29% YoY to $125M (Q1 beat by 2.4%); HPC segment guided to $80-100M (+57% YoY orders). Multiple analyst PT raises in May 2026: TD Cowen $35\u2192$60, Needham $33\u2192$54, B. Riley to $60, Jefferies to $60. Updated street consensus PT $58 vs current $49.54 = +17% upside. Forward model: FY27E $600M \u00d7 5x EV/Revenue = $57 base / $68 bull (6x). QRS 70. Bull QAY 18.1%."
+        },
+        "competitive_derivatives": {
+          "label": "Competitive Test Equipment (Indirect)",
+          "tier": 2,
+          "tickers": [
+            "TER",
+            "KEYS",
+            "ONTO",
+            "KLAC",
+            "CAMT",
+            "ATEYY"
+          ],
+          "demand_driver": "Adjacent test/metrology categories",
+          "thesis": "Teradyne (TER): ATE systems for memory + logic final test \u2014 competes adjacent to COHU on test, but TER sells the actual ATE box while COHU sells the handler. Keysight (KEYS): signal analyzers, high-speed validation. Onto (ONTO) + KLA (KLAC): wafer metrology + inspection (different from probe). Camtek (CAMT): advanced packaging inspection. Advantest (ATEYY): Japan-listed ADR, high-speed digital test for optical driver ICs. These are derivative beneficiaries \u2014 when FORM/AEHR/COHU run, the broader test complex catches sympathy bids but with lower beta to the specific test-layer catalyst."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "FORM",
+          "AEHR"
+        ],
+        "lagging": [
+          "COHU"
+        ],
+        "horizon": "2025-2028 AI infrastructure buildout cycle",
+        "rationale": "FORM leads because probe cards are the FIRST test step \u2014 wafer probe happens before any backend processing. When HBM wafers ramp, FORM revenue ramps 1Q ahead of AMKR/ONTO (packaging) and 2Q ahead of COHU (final test). AEHR leads on AI processor + photonics specifically because burn-in happens at the wafer level before package assembly \u2014 same lead position as FORM but for a different end-market. COHU lags because final test handlers process chips AFTER packaging \u2014 they ramp 2-3Q behind the wafer ramp. Reading the testing bench: if FORM and AEHR are both firing, expect COHU to follow in 2Q. Today's scan: FORM 3/6 +2.39% RV1.93x, AEHR not in scan, COHU not in scan. Pattern is consistent with FORM leading the bench."
+      },
+      "thesis": "The Semi Testing Bench captures three independent demand drivers that share a common 'test gating' role in the AI chip stack: (1) HBM4 ramp gates on FORM probe cards, (2) SiC + photonic IC + AI processor reliability gates on AEHR burn-in systems, (3) Volume recovery + AI/HPC handler demand drives COHU back-end equipment. Each layer captures different cyclical positions, different end-markets, and different geographic mixes (FORM US-centric memory, AEHR concentrated AI/photonics, COHU OSAT-heavy in Asia). Owning all three is a diversified bet on semi test demand without single-customer or single-application concentration. QAY ranking within the bench: FORM (34.1% bull) > COHU (18.1%) > AEHR (12.5% base / 31.4% very bull). FORM is the highest-conviction position by Koss methodology. COHU just had a meaningful re-rating event (PT raises from $33-35 to $54-60) that improves its QAY. AEHR is binary \u2014 bookings inflection is real ($37M Q3 record + 3.6x book-to-bill) but FY27 $241M consensus is aggressive (5x current revenue). Hold AEHR but don't size up; the QRS 68 falls below the 'standard' tier threshold.",
+      "caveats": [
+        "AEHR is heavily concentrated in 1-2 hyperscaler customers for the AI processor burn-in win \u2014 customer concentration is the biggest single risk in the bench.",
+        "AEHR booking-to-revenue lag has historically been 12-18 months \u2014 bookings inflection in Q3 FY26 means revenue inflection comes in FY27 (June 2026 onward). Patience required.",
+        "COHU consensus PT is fast-moving (recent raises from $33-35 to $54-60) \u2014 coverage is still thin (5 analysts) and the AI/HPC pivot is early. Stale data on aggregator sites underestimates the inflection.",
+        "FORM is the cleanest setup but the smallest market cap in the bench \u2014 single-product (probe card) concentration to HBM/memory is the structural risk if HBM4 ramp delays.",
+        "All three are cyclical at some level \u2014 a broad semi capex pause hits the entire bench simultaneously.",
+        "The competitive set is real: ATEYY (Advantest) competes with COHU/TER on ATE; KLAC/ONTO have probe-card adjacent metrology that could expand. None are imminent threats but the moats aren't impenetrable."
+      ],
+      "source": "ThemePulse thesis capture \u2014 May 11, 2026. Three-layer framing per user portfolio holdings (260 FORM @ $152.84 avg, 850 COHU @ $49.66 avg, 325 AEHR @ $103.54 avg). Q1 2026 earnings transcripts for all three companies. Updated street consensus reflecting May 2026 PT revisions on COHU.",
+      "quality_score": {
+        "moat": 75,
+        "mgmt_alignment": 72,
+        "execution_risk": 68,
+        "ceo_leadership": 72,
+        "financial_risk": 70,
+        "technology_risk": 72,
+        "exogenous_risk": 68,
+        "qrs": 72,
+        "sizing_tier": "standard",
+        "qrs_note": "Blended QRS reflects the three constituents: FORM 73, AEHR 68, COHU 70. Moat 75 averages the strong FORM probe-card position with AEHR FOX system + COHU handler relationships. Exec risk 68 weighted toward AEHR's binary FY27 ramp execution. Bench-level sizing tier 'standard' \u2014 for individual ticker sizing, use the per-ticker QRS: FORM full size, COHU standard, AEHR reduced (below 70 threshold).",
+        "per_ticker_qrs": {
+          "FORM": {
+            "qrs": 73,
+            "tier": "standard",
+            "bull_qay": "34.1%"
+          },
+          "COHU": {
+            "qrs": 70,
+            "tier": "standard",
+            "bull_qay": "18.1%"
+          },
+          "AEHR": {
+            "qrs": 68,
+            "tier": "reduced",
+            "bull_qay": "12.5% base / 31.4% very_bull"
+          }
+        }
+      },
+      "red_card_triggers": [
+        "AEHR loses the hyperscaler silicon photonics customer (single biggest customer concentration risk) OR Q4 FY26 bookings drop below $20M (book-to-bill collapses)",
+        "FORM loses HBM4 probe-card design win to ATEYY or new entrant \u2014 would be confirmed by SK Hynix or Micron disclosing alternative probe-card supplier",
+        "COHU AI/HPC pivot stalls: HPC segment revenue runs below $70M for FY26 (vs $80-100M guide), signaling the order surge was a single-customer push not a sustained ramp"
+      ]
     }
   ]
 }
