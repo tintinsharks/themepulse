@@ -1,7 +1,7 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary \u2014 manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-05-11",
+  "updated": "2026-05-12",
   "notes": [
     {
       "id": "hbm4-memory-sleepers-2026-05-11",
@@ -2778,7 +2778,8 @@
         "MKSI",
         "GLW",
         "JBL",
-        "LASR"
+        "LASR",
+        "HIMX"
       ],
       "themes_implicated": [
         "Optical Components",
@@ -2990,6 +2991,11 @@
               "ticker": "NVDA",
               "role": "Spectrum-X/NVLink CPO roadmap (silicon photonics inside switches)",
               "exposure": "INTEGRATED demand pull"
+            },
+            {
+              "ticker": "HIMX",
+              "role": "Wafer-level optics (WLO) \u2014 micro-lens arrays + assembly tech for CPO fiber coupling; ALSO automotive DDIC, AR LCoS microdisplays. WLO is small % of rev (~5-10%); main business is display driver ICs.",
+              "exposure": "INDIRECT \u2014 WLO is real CPO-adjacent tech but represents <10% of HIMX revenue. Equity moves on automotive DDIC + AI compute, not optical. Watch as CALL OPTION, not pure-play."
             }
           ],
           "key_caveat": "CPO doesn't shrink the supply chain \u2014 it shifts where the value/risk concentrates (advanced packaging, test, fiber attach)."
@@ -3599,7 +3605,7 @@
     },
     {
       "id": "glass-substrate-value-chain-2026-05-10",
-      "date": "2026-05-10",
+      "date": "2026-05-12",
       "type": "value_chain_framework",
       "headline": "Glass Substrate Value Chain \u2014 GLW/LRCX/ONTO/KLAC + Japanese specialists: AI packaging next frontier.",
       "primary_tickers": [
@@ -3702,19 +3708,73 @@
       "quality_score": {
         "moat": 75,
         "mgmt_alignment": 73,
-        "execution_risk": 68,
+        "execution_risk": 65,
         "ceo_leadership": 73,
-        "financial_risk": 78,
+        "financial_risk": 62,
         "technology_risk": 65,
         "exogenous_risk": 55,
-        "qrs": 72,
-        "sizing_tier": "standard"
+        "qrs": 68,
+        "sizing_tier": "reduced",
+        "qrs_note": "Downgraded from 72 \u2192 68 on May 12, 2026 after Q1 2026 print: LPK revenue -32% YoY, EBIT -\u20ac5.7M, Solar segment collapse. LIDE moat technology score unchanged (sole supplier) but financial + execution risk scores reduced. Below 70 standard tier = REDUCED sizing per Koss methodology."
       },
       "red_card_triggers": [
         "Intel, AMD, and NVIDIA all publicly delay glass substrate transition >18 months in product roadmap updates",
         "Organic substrate achieves equivalent electrical performance at lower cost, removing glass advantage",
         "Production yield test reveals glass substrate failure rate above 40% at scale"
-      ]
+      ],
+      "koss_forward_model_lpk": {
+        "as_of": "2026-05-12",
+        "ticker": "LPK (XETRA) / LPKFF (OTC)",
+        "current_price_eur": 23.0,
+        "current_price_usd_equiv": "\u2248$24.80 (1.08 EUR/USD)",
+        "data_quality": "German-listed, OTC ADR (LPKFF) is thinly traded \u2014 execution risk for US-based investor. Use limit orders only.",
+        "diluted_shares_m": 24.5,
+        "market_cap_eur": 656,
+        "market_cap_usd": 710,
+        "revenue_reality_check": {
+          "q1_2026_revenue": "\u20ac17.1M (-32% YoY) \u2014 Q1 was a MISS",
+          "q1_2026_ebit": "-\u20ac5.7M (deeply negative)",
+          "solar_collapse": "\u20ac9.3M decline YoY (perovskite transition wiped out the Solar segment)",
+          "fy25_revenue": "~\u20ac97M",
+          "fy26e_revenue": "Flat to down (LIDE not yet ramping at scale)",
+          "fy27e_revenue": "Management-guided inflection on LIDE production orders",
+          "comment": "The core business is BLEEDING while the LIDE narrative is being priced. Glass substrate revenue is still negligible in 2026."
+        },
+        "lide_moat_check": {
+          "is_real_monopoly": "YES \u2014 LPKF is sole supplier of the laser-induced glass-via etching tool for JWMT's licensed process",
+          "customers_confirmed_or_strongly_implied": [
+            "Intel (partnered ~2023)",
+            "Samsung",
+            "Absolics (SKC)",
+            "LG Innotek",
+            "Corning",
+            "Unimicron (AMD samples)"
+          ],
+          "no_credible_western_competitor": true,
+          "production_orders_status": "First production-system orders booked Q1 2026 \u2014 meaningful inflection signal but small absolute revenue"
+        },
+        "valuation_problem": {
+          "stock_price": "\u20ac23",
+          "analyst_consensus_pt_avg": "\u20ac9.50\u201310.70 (Berenberg \u20ac10 Buy, Warburg Buy, Hauck Buy)",
+          "price_vs_consensus": "Stock is trading >2x consensus PT \u2014 pricing in 2027-2028 LIDE ramp today",
+          "yr_to_date_move": "+246-365% (depending on entry point)",
+          "interpretation": "Classic 'ASML of X' narrative play where the equity has priced in the 2027 ramp 2 years early. Valuation cushion has evaporated."
+        },
+        "price_targets": {
+          "base_case": "\u20ac12-15 (mean reversion if LIDE ramp delayed 6+ months) \u2014 ER -35% to -47%",
+          "bull_case": "\u20ac30-35 (if LIDE orders accelerate ahead of schedule + Solar stabilizes) \u2014 ER +30% to +52%",
+          "very_bull": "\u20ac50+ (full 2028 LIDE consensus pulled forward) \u2014 ER +117%, requires perfect execution"
+        },
+        "qay_calc": {
+          "qrs": 68,
+          "qrs_squared": 0.4624,
+          "base_qay": "negative (mean reversion risk)",
+          "bull_qay": "+30% \u00d7 0.4624 = +13.9%",
+          "very_bull_qay": "+117% \u00d7 0.4624 = +54.1% (requires 2027 LIDE ramp acceleration)"
+        },
+        "qrs_reduction_rationale": "QRS lowered from 72 \u2192 68 based on Q1 2026 data: revenue -32% YoY, EBIT -\u20ac5.7M, Solar segment collapsed. Moat technology score remains strong (sole supplier LIDE), but financial_risk and execution_risk scores must drop given the bleeding core business while waiting for glass substrate inflection. QRS 68 = REDUCED tier sizing per Koss methodology. Below 70 threshold for standard.",
+        "verdict_for_nitin": "LPK is a REAL technology monopoly but the equity is priced for the 2027-2028 ramp 2 years ahead of revenue. mkfilko's 8.6% position works for his asymmetric thematic portfolio \u2014 for a Koss-style account, this is satellite-tier (2-3% max). DO NOT enter at \u20ac23 \u2014 wait for \u20ac15-17 pullback OR confirmation of LIDE production-order acceleration. If LIDE Q2 2026 production orders >\u20ac20M (vs Q1's first-orders status), the inflection is real and you can size up. Until then, this is a watch-list narrative play, not a Koss QAY-justified position."
+      }
     },
     {
       "id": "energy-storage-infrastructure-2026-05-10",
@@ -4773,6 +4833,101 @@
         "AEHR loses the hyperscaler silicon photonics customer (single biggest customer concentration risk) OR Q4 FY26 bookings drop below $20M (book-to-bill collapses)",
         "FORM loses HBM4 probe-card design win to ATEYY or new entrant \u2014 would be confirmed by SK Hynix or Micron disclosing alternative probe-card supplier",
         "COHU AI/HPC pivot stalls: HPC segment revenue runs below $70M for FY26 (vs $80-100M guide), signaling the order surge was a single-customer push not a sustained ramp"
+      ]
+    },
+    {
+      "id": "himx-display-driver-ai-2026-05-12",
+      "date": "2026-05-12",
+      "type": "value_chain_framework",
+      "headline": "HIMX \u2014 Automotive DDIC + AI server timing + WLO call option: Q1 beat + Q2 guide $236-243M crushed $209M consensus by 15%, analysts (ex Baird $15) badly stale at $8 PT avg.",
+      "primary_tickers": [
+        "HIMX"
+      ],
+      "derivative_tickers": [
+        "NVMI",
+        "MOMO",
+        "PI",
+        "IIVI"
+      ],
+      "themes_implicated": [
+        "Semiconductors",
+        "Display Driver ICs",
+        "Automotive Semi",
+        "AI Infrastructure",
+        "Wafer-Level Optics",
+        "AR/VR Displays"
+      ],
+      "layers": {
+        "core_display_driver_ic": {
+          "label": "Display Driver ICs (75-80% of revenue)",
+          "tier": 1,
+          "tickers": [
+            "HIMX"
+          ],
+          "demand_driver": "Automotive DDIC ramp (new programs 2H 2026 mass production)",
+          "thesis": "Himax DDIC business is split: large displays (TVs/monitors), small-medium (phone/tablet), and AUTOMOTIVE \u2014 the growth engine. Automotive DDIC ramping mass production in 2H 2026 with new program wins. This is what drove the Q2 2026 guide blowout ($236-243M vs $209M consensus). Not glamorous but real, profitable, and growing. Gross margin expanding 30.4% Q1 \u2192 ~32% Q2 = operating leverage kicking in."
+        },
+        "ai_server_timing_controllers": {
+          "label": "AI Server Timing Controllers (~10-15% of revenue, growing)",
+          "tier": 2,
+          "tickers": [
+            "HIMX"
+          ],
+          "demand_driver": "AI data center demand for timing/control silicon",
+          "thesis": "HIMX has timing controller exposure to AI servers \u2014 mentioned in Q1 transcript as growth area alongside automotive. Less differentiated than SITM precision timing but volume-leveraged to AI build-out. Part of the Q2 guide raise narrative."
+        },
+        "wafer_level_optics_call_option": {
+          "label": "Wafer-Level Optics (WLO) \u2014 Call Option (~5-10% of revenue)",
+          "tier": 2,
+          "tickers": [
+            "HIMX"
+          ],
+          "demand_driver": "CPO fiber coupling + AR/VR 3D sensing",
+          "thesis": "Himax has in-house WLO manufacturing capacity for micro-lens arrays \u2014 relevant to: (1) CPO fiber coupling at the photonic IC interface, (2) AR/VR 3D sensing modules (Apple Vision Pro tier products), (3) LCoS microdisplays for AR glasses (SID 2026 showcase). BUT: WLO is small % of revenue, not separately broken out, NOT what's driving the equity today. This is a real call option on photonics adoption but the multiple is being paid for DDIC + automotive, not WLO."
+        },
+        "ar_lcos_microdisplays": {
+          "label": "LCoS Microdisplays for AR Glasses (long-dated option)",
+          "tier": 3,
+          "tickers": [
+            "HIMX"
+          ],
+          "demand_driver": "AR/Meta/Apple AR glass program revenue",
+          "thesis": "HIMX's LCoS microdisplay tech (showcased SID 2026) positions them for next-gen AR glasses. Pre-revenue scale for AR glasses today; depends on Meta Ray-Ban / Apple AR glasses programs taking off in 2027-2028. Long-dated optionality, not modeled into current equity price."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "HIMX"
+        ],
+        "lagging": [],
+        "horizon": "FY26-FY28 automotive DDIC ramp + AI server timing growth; WLO/LCoS are 2027+ options",
+        "rationale": "HIMX leads on visible business (automotive DDIC + AI timing) \u2014 Q1 beat + Q2 guide raise is the catalyst. Optical/AR exposure is long-duration call option, not near-term revenue driver."
+      },
+      "thesis": "HIMX is THE classic 'real business + call option' setup. The visible bull case is automotive DDIC ramping with new mass-production programs in 2H 2026 (gross margin expanding 30% \u2192 32%+), plus AI server timing controllers as a growth leg. Q1 2026 print: revenue $199M beat $195M est, Q2 guide $236-243M crushed $209M consensus by 15%. Stock gapped +38% on May 7, added +16% on May 12 to $20.65. ANALYST COVERAGE IS BADLY STALE \u2014 consensus PT avg ~$8 vs current $20.65 = 158% above consensus. Baird raised to $15 post-print but the other 4-5 analysts haven't updated. Expect wave of upward revisions over next 2-3 weeks = forward catalyst. Forward Koss model: FY26E revenue $900-950M (+10-15% YoY from $830M FY25), op margin ~10-12%, EPS ~$0.50-0.65, P/E at $20.65 = 32-41x \u2014 full but not crazy for AI-adjacent semi. Bull target $24-28 (post analyst re-rate). QRS 72 (standard). QAY base ~10%, bull ~25%. Optical/CPO/WLO/AR exposure is REAL but represents <10% of revenue \u2014 don't buy HIMX as a CPO pure-play (you'd be wrong); buy it as automotive DDIC + AI compute with WLO/AR call options on top.",
+      "caveats": [
+        "WLO/CPO/AR are call options NOT the main revenue driver \u2014 don't size HIMX as if it were a photonics pure-play.",
+        "Display driver IC market is competitive (Novatek, MediaTek, etc.) \u2014 HIMX wins on automotive specialization but commodity risk is real.",
+        "Stock has run +60% in 5 days (~$13 \u2192 $20.65) \u2014 buying at $20+ is buying the post-print euphoria, not the entry zone.",
+        "Asian-listed competitors (Novatek, Sitronix) don't trade in US \u2014 relative valuation comp is limited.",
+        "Q2 guide blowout was driven by automotive program timing \u2014 if those programs slip 1-2Q, the entire FY26 trajectory resets."
+      ],
+      "source": "ThemePulse thesis capture \u2014 May 12, 2026. Triggered by mkfilko portfolio disclosure (HIMX in 'Others' tier). Q1 2026 earnings transcript via Motley Fool. Q1 release via GlobalNewswire.",
+      "quality_score": {
+        "moat": 70,
+        "mgmt_alignment": 72,
+        "execution_risk": 72,
+        "ceo_leadership": 72,
+        "financial_risk": 75,
+        "technology_risk": 70,
+        "exogenous_risk": 70,
+        "qrs": 72,
+        "sizing_tier": "standard",
+        "qrs_note": "Moat 70: automotive DDIC has design-win stickiness but commodity competition from Novatek/MediaTek. WLO and LCoS add IP differentiation but small revenue share. Financial 75: profitable, cash-positive, growing margins. QRS 72 standard tier = standard sizing ($1,125 risk per trade per Koss). Not the kind of name to size large; honest framing keeps this from being a CPO pure-play trade."
+      },
+      "red_card_triggers": [
+        "Automotive DDIC new program slip \u2014 Q2 2026 actual revenue comes in below $230M (low end of guide) signaling timing issue",
+        "Major customer loss (Tesla, BYD, or another auto OEM cancels HIMX DDIC program)",
+        "Display driver IC pricing collapse \u2014 Novatek or MediaTek triggers aggressive pricing reset, compressing HIMX margins back to <28%"
       ]
     }
   ]
