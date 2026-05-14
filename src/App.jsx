@@ -4047,6 +4047,14 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
 // Replaces the need to cross-reference Flow + Tickers views separately.
 function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterNames }) {
   const ARIA = useAriaTheme();
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("tp-chain-heat-collapsed") === "1"; } catch { return false; }
+  });
+  const toggleCollapsed = () => setCollapsed((v) => { const n = !v; try { localStorage.setItem("tp-chain-heat-collapsed", n ? "1" : "0"); } catch {} return n; });
+  const [sortBy, setSortBy] = useState(() => {
+    try { return localStorage.getItem("tp-chain-heat-sort") || "heat"; } catch { return "heat"; }
+  });
+  const cycleSortBy = (key) => setSortBy((prev) => { const v = prev === key ? "heat" : key; try { localStorage.setItem("tp-chain-heat-sort", v); } catch {} return v; });
 
   const allTickers = useMemo(() => {
     const s = new Set();
@@ -4075,8 +4083,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   // Layer rows: aggregate heat + top tickers sorted by RVol.
   // Heat = RVol × Chg% (positive only). Falls back to RVol-only sort when
   // everything is negative (down day) so the view is always useful.
-  const layers = useMemo(() => {
-    const built = DRAWER_SUBTHEMES.map((sub) => {
+  const builtLayers = useMemo(() => {
+    return DRAWER_SUBTHEMES.map((sub) => {
       const chgs = [], rvols = [];
       const tickerRows = sub.tickers.map((tk) => {
         const { chg, rvol } = tkMx[tk] || {};
@@ -4092,12 +4100,17 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const heat = (avgRvol ?? 0) * Math.max(avgChg ?? 0, 0);
       return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, heat, tickerRows };
     }).filter((r) => r.avgRvol != null);
-
-    const anyHot = built.some((r) => r.heat > 0);
-    return anyHot
-      ? built.filter((r) => r.heat > 0).sort((a, b) => b.heat - a.heat)
-      : built.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
   }, [tkMx]);
+
+  const layers = useMemo(() => {
+    const rows = [...builtLayers];
+    if (sortBy === "chg") return rows.sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
+    if (sortBy === "rvol") return rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
+    const anyHot = rows.some((r) => r.heat > 0);
+    return anyHot
+      ? rows.filter((r) => r.heat > 0).sort((a, b) => b.heat - a.heat)
+      : rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
+  }, [builtLayers, sortBy]);
 
   const allDown = layers.length > 0 && layers.every((r) => r.heat === 0);
 
@@ -4106,6 +4119,30 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "4px 6px" }}>
+      {layers.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 4px" }}>
+          <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4 }}>SORT</span>
+          {[["heat", "Heat"], ["chg", "Chg%"], ["rvol", "RVol"]].map(([key, label]) => (
+            <button key={key} onClick={() => cycleSortBy(key)} style={{
+              background: sortBy === key ? "rgba(108,213,232,0.14)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${sortBy === key ? "#6cd5e8" : ARIA.border}`,
+              borderRadius: 3, padding: "1px 6px", cursor: "pointer",
+              fontSize: 7, fontFamily: "monospace", fontWeight: sortBy === key ? 800 : 600,
+              color: sortBy === key ? "#6cd5e8" : ARIA.textDim, letterSpacing: 0.3,
+            }}>{label}</button>
+          ))}
+          <span style={{ flex: 1 }} />
+          <button
+            onClick={toggleCollapsed}
+            style={{
+              background: "rgba(255,255,255,0.06)", border: `1px solid ${ARIA.border}`,
+              borderRadius: 3, padding: "1px 7px", cursor: "pointer",
+              fontSize: 7, fontFamily: "monospace", fontWeight: 700,
+              color: ARIA.textDim, letterSpacing: 0.3,
+            }}
+          >{collapsed ? "▸ Expand" : "▾ Collapse"}</button>
+        </div>
+      )}
       {layers.length === 0 && (
         <div style={{ color: ARIA.textMuted, fontSize: 9, fontFamily: "monospace", padding: "8px 4px" }}>
           Waiting for live quotes…
@@ -4120,7 +4157,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
         const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
         const isActive = activeFilterNames?.includes(r.layer);
         return (
-          <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: 7 }}>
+          <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: collapsed ? 2 : 7 }}>
             {/* Layer header — click to filter scan + expand chain in DrawerThemes */}
             <div
               onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
@@ -4148,7 +4185,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               </span>
             </div>
             {/* Top tickers sorted by RVol — click to load chart */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
+            {!collapsed && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
               {r.tickerRows.slice(0, 7).map(({ ticker, chg, rvol }) => (
                 <button
                   key={ticker}
@@ -4173,7 +4210,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                   )}
                 </button>
               ))}
-            </div>
+            </div>}
           </div>
         );
       })}
