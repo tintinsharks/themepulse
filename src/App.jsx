@@ -4177,6 +4177,14 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
 
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const rvColor  = (v) => v == null ? ARIA.textMuted : v >= 2 ? ARIA.purple : v >= 1.5 ? ARIA.purple : ARIA.textDim;
+  const heatColor = (rank, total) => {
+    if (total <= 1) return "#0d9163";
+    const pct = rank / (total - 1);
+    if (pct < 0.25) return "#0d9163";
+    if (pct < 0.5) return "#6cd5e8";
+    if (pct < 0.75) return "#e2b866";
+    return "#ef4444";
+  };
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "4px 6px" }}>
@@ -4209,8 +4217,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
           Waiting for live quotes…
         </div>
       )}
-      {layers.map((r) => {
+      {layers.map((r, idx) => {
         const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
+        const hc = sortBy === "heat" ? heatColor(idx, layers.length) : null;
         const isActive = activeFilterNames?.includes(r.layer);
         const rowKey = `${r.themeId}-${r.layer}`;
         const open = isExpanded(rowKey);
@@ -4223,14 +4232,14 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
                 padding: "3px 5px", borderRadius: 3, marginBottom: open ? 3 : 0,
-                background: isActive ? `${c.color}26` : "rgba(255,255,255,0.03)",
-                border: `1px solid ${isActive ? c.color : ARIA.border}`,
+                background: isActive ? `${c.color}26` : hc ? `${hc}0a` : "rgba(255,255,255,0.03)",
+                border: `1px solid ${isActive ? c.color : hc ? `${hc}33` : ARIA.border}`,
               }}
             >
               <span style={{ fontSize: 7, color: ARIA.textMuted, flexShrink: 0, width: 6, textAlign: "center" }}>{open ? "▾" : "▸"}</span>
               <span style={{
                 fontSize: 7, fontWeight: 800, fontFamily: "monospace", flexShrink: 0,
-                color: c.color, background: c.bg, border: `1px solid ${c.border}`,
+                color: hc || c.color, background: hc ? `${hc}22` : c.bg, border: `1px solid ${hc ? `${hc}66` : c.border}`,
                 borderRadius: 2, padding: "0 4px",
               }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
               <span style={{ fontSize: 9, fontWeight: 700, color: isActive ? c.color : ARIA.text, fontFamily: "monospace", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
