@@ -4107,7 +4107,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
       const avgDvol = s?.avg_dollar_vol_raw ?? null;
       const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
-      m[tk] = { chg, rvol, cr, dvolRatio };
+      const r1m = s?.return_1m, r3m = s?.return_3m;
+      const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
+      m[tk] = { chg, rvol, cr, dvolRatio, roc2 };
     });
     return m;
   }, [allTickers, liveQuotes, stockMap]);
@@ -4117,13 +4119,14 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   // everything is negative (down day) so the view is always useful.
   const builtLayers = useMemo(() => {
     return DRAWER_SUBTHEMES.map((sub) => {
-      const chgs = [], rvols = [], crs = [], dvols = [];
+      const chgs = [], rvols = [], crs = [], dvols = [], rocs = [];
       const tickerRows = sub.tickers.map((tk) => {
-        const { chg, rvol, cr, dvolRatio } = tkMx[tk] || {};
+        const { chg, rvol, cr, dvolRatio, roc2 } = tkMx[tk] || {};
         if (chg != null && !isNaN(chg)) chgs.push(chg);
         if (rvol != null) rvols.push(rvol);
         if (cr != null) crs.push(cr);
         if (dvolRatio != null) dvols.push(dvolRatio);
+        if (roc2 != null) rocs.push(roc2);
         return { ticker: tk, chg, rvol };
       })
         .filter((t) => t.rvol != null || t.chg != null)
@@ -4133,8 +4136,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const avgRvol = avg(rvols);
       const avgCr = avg(crs);
       const avgDvol = avg(dvols);
+      const avgRoc2 = avg(rocs);
       const heat = (avgRvol ?? 0) * Math.max(avgChg ?? 0, 0);
-      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, heat, tickerRows };
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, heat, tickerRows };
     }).filter((r) => r.avgRvol != null);
   }, [tkMx]);
 
@@ -4144,6 +4148,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
     if (sortBy === "rvol") return rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
     if (sortBy === "cr") return rows.sort((a, b) => (b.avgCr ?? -1) - (a.avgCr ?? -1));
     if (sortBy === "dvol") return rows.sort((a, b) => (b.avgDvol ?? 0) - (a.avgDvol ?? 0));
+    if (sortBy === "roc2") return rows.sort((a, b) => (b.avgRoc2 ?? -999) - (a.avgRoc2 ?? -999));
     const anyHot = rows.some((r) => r.heat > 0);
     return anyHot
       ? rows.filter((r) => r.heat > 0).sort((a, b) => b.heat - a.heat)
@@ -4160,7 +4165,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 4px" }}>
           <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4 }}>SORT</span>
-          {[["heat", "Heat"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"]].map(([key, label]) => (
+          {[["heat", "Heat"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"]].map(([key, label]) => (
             <button key={key} onClick={() => cycleSortBy(key)} style={{
               background: sortBy === key ? "rgba(108,213,232,0.14)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${sortBy === key ? "#6cd5e8" : ARIA.border}`,
@@ -4230,6 +4235,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                 </span>
                 <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: r.avgDvol != null && r.avgDvol >= 2 ? ARIA.purple : ARIA.textDim }}>
                   {r.avgDvol != null ? r.avgDvol.toFixed(1) + "x" : "—"}
+                </span>
+                <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: chgColor(r.avgRoc2) }}>
+                  {r.avgRoc2 != null ? (r.avgRoc2 > 0 ? "+" : "") + r.avgRoc2.toFixed(1) : "—"}
                 </span>
               </span>
             </div>
