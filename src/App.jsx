@@ -4109,7 +4109,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
       const r1m = s?.return_1m, r3m = s?.return_3m;
       const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
-      m[tk] = { chg, rvol, cr, dvolRatio, roc2 };
+      const stealth = s?.dvol_accel ?? null;
+      m[tk] = { chg, rvol, cr, dvolRatio, roc2, stealth };
     });
     return m;
   }, [allTickers, liveQuotes, stockMap]);
@@ -4119,14 +4120,15 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   // everything is negative (down day) so the view is always useful.
   const builtLayers = useMemo(() => {
     return DRAWER_SUBTHEMES.map((sub) => {
-      const chgs = [], rvols = [], crs = [], dvols = [], rocs = [];
+      const chgs = [], rvols = [], crs = [], dvols = [], rocs = [], stealths = [];
       const tickerRows = sub.tickers.map((tk) => {
-        const { chg, rvol, cr, dvolRatio, roc2 } = tkMx[tk] || {};
+        const { chg, rvol, cr, dvolRatio, roc2, stealth } = tkMx[tk] || {};
         if (chg != null && !isNaN(chg)) chgs.push(chg);
         if (rvol != null) rvols.push(rvol);
         if (cr != null) crs.push(cr);
         if (dvolRatio != null) dvols.push(dvolRatio);
         if (roc2 != null) rocs.push(roc2);
+        if (stealth != null) stealths.push(stealth);
         return { ticker: tk, chg, rvol };
       })
         .filter((t) => t.rvol != null || t.chg != null)
@@ -4137,12 +4139,12 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const avgCr = avg(crs);
       const avgDvol = avg(dvols);
       const avgRoc2 = avg(rocs);
-      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, tickerRows };
+      const avgStealth = avg(stealths);
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, avgStealth, tickerRows };
     }).filter((r) => r.avgRvol != null);
   }, [tkMx]);
 
-  // Composite score: rank-normalized ROC² (50%) + $Inflow (30%) + CR% (20%).
-  // Each component is percentile-ranked within the current cohort so units don't matter.
+  // Composite score: percentile-ranked ROC² (35%) + Stealth (25%) + $Inflow (20%) + CR% (20%).
   const scoredLayers = useMemo(() => {
     const n = builtLayers.length;
     if (n === 0) return builtLayers;
@@ -4152,11 +4154,12 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       return vals.map((v) => v === -Infinity ? 0 : sorted.indexOf(v) / Math.max(n - 1, 1));
     };
     const rRoc = rankPct(builtLayers, "avgRoc2");
+    const rStealth = rankPct(builtLayers, "avgStealth");
     const rDvol = rankPct(builtLayers, "avgDvol");
     const rCr = rankPct(builtLayers, "avgCr");
     return builtLayers.map((r, i) => ({
       ...r,
-      composite: rRoc[i] * 50 + rDvol[i] * 30 + rCr[i] * 20,
+      composite: rRoc[i] * 35 + rStealth[i] * 25 + rDvol[i] * 20 + rCr[i] * 20,
     }));
   }, [builtLayers]);
 
@@ -4167,6 +4170,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
     if (sortBy === "cr") return rows.sort((a, b) => (b.avgCr ?? -1) - (a.avgCr ?? -1));
     if (sortBy === "dvol") return rows.sort((a, b) => (b.avgDvol ?? 0) - (a.avgDvol ?? 0));
     if (sortBy === "roc2") return rows.sort((a, b) => (b.avgRoc2 ?? -999) - (a.avgRoc2 ?? -999));
+    if (sortBy === "stealth") return rows.sort((a, b) => (b.avgStealth ?? -999) - (a.avgStealth ?? -999));
     // Default: composite score (ROC² 50% + $Inflow 30% + CR% 20%)
     return rows.sort((a, b) => (b.composite ?? 0) - (a.composite ?? 0));
   }, [scoredLayers, sortBy]);
@@ -4179,7 +4183,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 4px" }}>
           <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4 }}>SORT</span>
-          {[["heat", "Score"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"]].map(([key, label]) => (
+          {[["heat", "Score"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"], ["stealth", "Stealth"]].map(([key, label]) => (
             <button key={key} onClick={() => cycleSortBy(key)} style={{
               background: sortBy === key ? "rgba(108,213,232,0.14)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${sortBy === key ? "#6cd5e8" : ARIA.border}`,
@@ -4248,6 +4252,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                 <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: chgColor(r.avgRoc2) }}>
                   {r.avgRoc2 != null ? (r.avgRoc2 > 0 ? "+" : "") + r.avgRoc2.toFixed(1) : "—"}
                 </span>
+                {(sortBy === "stealth" || sortBy === "heat") && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: r.avgStealth != null && r.avgStealth >= 50 ? "#a78bfa" : ARIA.textDim }}>
+                  {r.avgStealth != null ? Math.round(r.avgStealth) : "—"}
+                </span>}
               </span>
             </div>
             {/* Top tickers sorted by RVol — click to load chart */}
