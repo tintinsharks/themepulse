@@ -4047,10 +4047,37 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
 // Replaces the need to cross-reference Flow + Tickers views separately.
 function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterNames }) {
   const ARIA = useAriaTheme();
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem("tp-chain-heat-collapsed") === "1"; } catch { return false; }
+  const [expandedSet, setExpandedSet] = useState(() => {
+    try {
+      const raw = localStorage.getItem("tp-chain-heat-expanded");
+      if (raw === null) return "all";
+      if (raw === "__all__") return "all";
+      if (raw === "__none__") return new Set();
+      return new Set(JSON.parse(raw));
+    } catch { return "all"; }
   });
-  const toggleCollapsed = () => setCollapsed((v) => { const n = !v; try { localStorage.setItem("tp-chain-heat-collapsed", n ? "1" : "0"); } catch {} return n; });
+  const persistExpanded = (v) => {
+    try {
+      if (v === "all") localStorage.setItem("tp-chain-heat-expanded", "__all__");
+      else if (v.size === 0) localStorage.setItem("tp-chain-heat-expanded", "__none__");
+      else localStorage.setItem("tp-chain-heat-expanded", JSON.stringify([...v]));
+    } catch {}
+  };
+  const isExpanded = (key) => expandedSet === "all" || expandedSet.has(key);
+  const allCollapsed = expandedSet !== "all" && expandedSet.size === 0;
+  const toggleOne = (key) => setExpandedSet((prev) => {
+    let next;
+    if (prev === "all") { next = new Set(layers.map((r) => `${r.themeId}-${r.layer}`)); next.delete(key); }
+    else if (prev.has(key)) { next = new Set(prev); next.delete(key); }
+    else { next = new Set(prev); next.add(key); }
+    persistExpanded(next);
+    return next;
+  });
+  const toggleAll = () => setExpandedSet((prev) => {
+    const next = (prev === "all" || (prev instanceof Set && prev.size > 0)) ? new Set() : "all";
+    persistExpanded(next);
+    return next;
+  });
   const [sortBy, setSortBy] = useState(() => {
     try { return localStorage.getItem("tp-chain-heat-sort") || "heat"; } catch { return "heat"; }
   });
@@ -4133,14 +4160,14 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
           ))}
           <span style={{ flex: 1 }} />
           <button
-            onClick={toggleCollapsed}
+            onClick={toggleAll}
             style={{
               background: "rgba(255,255,255,0.06)", border: `1px solid ${ARIA.border}`,
               borderRadius: 3, padding: "1px 7px", cursor: "pointer",
               fontSize: 7, fontFamily: "monospace", fontWeight: 700,
               color: ARIA.textDim, letterSpacing: 0.3,
             }}
-          >{collapsed ? "▸ Expand" : "▾ Collapse"}</button>
+          >{allCollapsed ? "▸ Expand All" : "▾ Collapse All"}</button>
         </div>
       )}
       {layers.length === 0 && (
@@ -4156,19 +4183,22 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.map((r) => {
         const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
         const isActive = activeFilterNames?.includes(r.layer);
+        const rowKey = `${r.themeId}-${r.layer}`;
+        const open = isExpanded(rowKey);
         return (
-          <div key={`${r.themeId}-${r.layer}`} style={{ marginBottom: collapsed ? 2 : 7 }}>
-            {/* Layer header — click to filter scan + expand chain in DrawerThemes */}
+          <div key={rowKey} style={{ marginBottom: open ? 7 : 2 }}>
+            {/* Layer header — click to expand/collapse, shift+click to filter scan */}
             <div
-              onClick={() => onLayerClick && onLayerClick(r.layer, r.tickers)}
-              title={`${r.theme} → ${r.layer} — click to filter scan`}
+              onClick={(e) => { if (e.shiftKey) { onLayerClick && onLayerClick(r.layer, r.tickers); } else { toggleOne(rowKey); } }}
+              title={`click to expand/collapse · shift+click to filter scan`}
               style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
-                padding: "3px 5px", borderRadius: 3, marginBottom: 3,
+                padding: "3px 5px", borderRadius: 3, marginBottom: open ? 3 : 0,
                 background: isActive ? `${c.color}26` : "rgba(255,255,255,0.03)",
                 border: `1px solid ${isActive ? c.color : ARIA.border}`,
               }}
             >
+              <span style={{ fontSize: 7, color: ARIA.textMuted, flexShrink: 0, width: 6, textAlign: "center" }}>{open ? "▾" : "▸"}</span>
               <span style={{
                 fontSize: 7, fontWeight: 800, fontFamily: "monospace", flexShrink: 0,
                 color: c.color, background: c.bg, border: `1px solid ${c.border}`,
@@ -4185,7 +4215,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               </span>
             </div>
             {/* Top tickers sorted by RVol — click to load chart */}
-            {!collapsed && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
+            {open && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
               {r.tickerRows.slice(0, 7).map(({ ticker, chg, rvol }) => (
                 <button
                   key={ticker}
