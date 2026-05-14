@@ -4102,7 +4102,12 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       let rvol = null;
       if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
       else if (s?.rel_volume != null && s.rel_volume > 0) rvol = s.rel_volume;
-      m[tk] = { chg, rvol };
+      const cr = computeCR(q, s);
+      const price = q?.price ?? s?.price ?? s?.close ?? null;
+      const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+      const avgDvol = s?.avg_dollar_vol_raw ?? null;
+      const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
+      m[tk] = { chg, rvol, cr, dvolRatio };
     });
     return m;
   }, [allTickers, liveQuotes, stockMap]);
@@ -4112,11 +4117,13 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   // everything is negative (down day) so the view is always useful.
   const builtLayers = useMemo(() => {
     return DRAWER_SUBTHEMES.map((sub) => {
-      const chgs = [], rvols = [];
+      const chgs = [], rvols = [], crs = [], dvols = [];
       const tickerRows = sub.tickers.map((tk) => {
-        const { chg, rvol } = tkMx[tk] || {};
+        const { chg, rvol, cr, dvolRatio } = tkMx[tk] || {};
         if (chg != null && !isNaN(chg)) chgs.push(chg);
         if (rvol != null) rvols.push(rvol);
+        if (cr != null) crs.push(cr);
+        if (dvolRatio != null) dvols.push(dvolRatio);
         return { ticker: tk, chg, rvol };
       })
         .filter((t) => t.rvol != null || t.chg != null)
@@ -4124,8 +4131,10 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
       const avgChg = avg(chgs);
       const avgRvol = avg(rvols);
+      const avgCr = avg(crs);
+      const avgDvol = avg(dvols);
       const heat = (avgRvol ?? 0) * Math.max(avgChg ?? 0, 0);
-      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, heat, tickerRows };
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, heat, tickerRows };
     }).filter((r) => r.avgRvol != null);
   }, [tkMx]);
 
@@ -4133,6 +4142,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
     const rows = [...builtLayers];
     if (sortBy === "chg") return rows.sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
     if (sortBy === "rvol") return rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
+    if (sortBy === "cr") return rows.sort((a, b) => (b.avgCr ?? -1) - (a.avgCr ?? -1));
+    if (sortBy === "dvol") return rows.sort((a, b) => (b.avgDvol ?? 0) - (a.avgDvol ?? 0));
     const anyHot = rows.some((r) => r.heat > 0);
     return anyHot
       ? rows.filter((r) => r.heat > 0).sort((a, b) => b.heat - a.heat)
@@ -4149,7 +4160,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 4px" }}>
           <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4 }}>SORT</span>
-          {[["heat", "Heat"], ["chg", "Chg%"], ["rvol", "RVol"]].map(([key, label]) => (
+          {[["heat", "Heat"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"]].map(([key, label]) => (
             <button key={key} onClick={() => cycleSortBy(key)} style={{
               background: sortBy === key ? "rgba(108,213,232,0.14)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${sortBy === key ? "#6cd5e8" : ARIA.border}`,
@@ -4213,6 +4224,11 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               <span style={{ fontSize: 8, color: rvColor(r.avgRvol), fontFamily: "monospace", fontWeight: 700, flexShrink: 0, marginLeft: 4 }}>
                 {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
               </span>
+              {(sortBy === "cr" || sortBy === "dvol") && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, flexShrink: 0, marginLeft: 4, color: sortBy === "cr" ? (r.avgCr != null && r.avgCr >= 70 ? ARIA.green : r.avgCr != null && r.avgCr <= 30 ? ARIA.red : ARIA.textDim) : (r.avgDvol != null && r.avgDvol >= 2 ? ARIA.purple : ARIA.textDim) }}>
+                {sortBy === "cr"
+                  ? (r.avgCr != null ? Math.round(r.avgCr) + "%" : "—")
+                  : (r.avgDvol != null ? r.avgDvol.toFixed(1) + "x" : "—")}
+              </span>}
             </div>
             {/* Top tickers sorted by RVol — click to load chart */}
             {open && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
