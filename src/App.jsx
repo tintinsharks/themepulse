@@ -4218,17 +4218,18 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               <span style={{ fontSize: 9, fontWeight: 700, color: isActive ? c.color : ARIA.text, fontFamily: "monospace", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {r.layer}
               </span>
-              <span style={{ fontSize: 8, color: chgColor(r.avgChg), fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-                {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
-              </span>
-              <span style={{ fontSize: 8, color: rvColor(r.avgRvol), fontFamily: "monospace", fontWeight: 700, flexShrink: 0, marginLeft: 4 }}>
-                {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
-              </span>
-              {(sortBy === "cr" || sortBy === "dvol") && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, flexShrink: 0, marginLeft: 4, color: sortBy === "cr" ? (r.avgCr != null && r.avgCr >= 70 ? ARIA.green : r.avgCr != null && r.avgCr <= 30 ? ARIA.red : ARIA.textDim) : (r.avgDvol != null && r.avgDvol >= 2 ? ARIA.purple : ARIA.textDim) }}>
-                {sortBy === "cr"
-                  ? (r.avgCr != null ? Math.round(r.avgCr) + "%" : "—")
-                  : (r.avgDvol != null ? r.avgDvol.toFixed(1) + "x" : "—")}
-              </span>}
+              {(() => {
+                const mChg = <span key="chg" style={{ fontSize: 8, color: chgColor(r.avgChg), fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>{r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}</span>;
+                const mRv = <span key="rv" style={{ fontSize: 8, color: rvColor(r.avgRvol), fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>{r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}</span>;
+                const crCol = r.avgCr != null && r.avgCr >= 70 ? ARIA.green : r.avgCr != null && r.avgCr <= 30 ? ARIA.red : ARIA.textDim;
+                const mCr = <span key="cr" style={{ fontSize: 8, color: crCol, fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>{r.avgCr != null ? Math.round(r.avgCr) + "%" : "—"}</span>;
+                const dvCol = r.avgDvol != null && r.avgDvol >= 2 ? ARIA.purple : ARIA.textDim;
+                const mDv = <span key="dv" style={{ fontSize: 8, color: dvCol, fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>{r.avgDvol != null ? r.avgDvol.toFixed(1) + "x" : "—"}</span>;
+                const metrics = sortBy === "cr" ? [mChg, mRv, mCr]
+                  : sortBy === "dvol" ? [mChg, mRv, mDv]
+                  : [mChg, mRv];
+                return <span style={{ display: "inline-flex", gap: 5, flexShrink: 0 }}>{metrics}</span>;
+              })()}
             </div>
             {/* Top tickers sorted by RVol — click to load chart */}
             {open && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
