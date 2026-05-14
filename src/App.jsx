@@ -4137,25 +4137,39 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const avgCr = avg(crs);
       const avgDvol = avg(dvols);
       const avgRoc2 = avg(rocs);
-      const heat = (avgRvol ?? 0) * Math.max(avgChg ?? 0, 0);
-      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, heat, tickerRows };
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, tickerRows };
     }).filter((r) => r.avgRvol != null);
   }, [tkMx]);
 
+  // Composite score: rank-normalized ROC² (50%) + $Inflow (30%) + CR% (20%).
+  // Each component is percentile-ranked within the current cohort so units don't matter.
+  const scoredLayers = useMemo(() => {
+    const n = builtLayers.length;
+    if (n === 0) return builtLayers;
+    const rankPct = (arr, key) => {
+      const vals = arr.map((r) => r[key] ?? -Infinity);
+      const sorted = [...vals].sort((a, b) => a - b);
+      return vals.map((v) => v === -Infinity ? 0 : sorted.indexOf(v) / Math.max(n - 1, 1));
+    };
+    const rRoc = rankPct(builtLayers, "avgRoc2");
+    const rDvol = rankPct(builtLayers, "avgDvol");
+    const rCr = rankPct(builtLayers, "avgCr");
+    return builtLayers.map((r, i) => ({
+      ...r,
+      composite: rRoc[i] * 50 + rDvol[i] * 30 + rCr[i] * 20,
+    }));
+  }, [builtLayers]);
+
   const layers = useMemo(() => {
-    const rows = [...builtLayers];
+    const rows = [...scoredLayers];
     if (sortBy === "chg") return rows.sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
     if (sortBy === "rvol") return rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
     if (sortBy === "cr") return rows.sort((a, b) => (b.avgCr ?? -1) - (a.avgCr ?? -1));
     if (sortBy === "dvol") return rows.sort((a, b) => (b.avgDvol ?? 0) - (a.avgDvol ?? 0));
     if (sortBy === "roc2") return rows.sort((a, b) => (b.avgRoc2 ?? -999) - (a.avgRoc2 ?? -999));
-    const anyHot = rows.some((r) => r.heat > 0);
-    return anyHot
-      ? rows.filter((r) => r.heat > 0).sort((a, b) => b.heat - a.heat)
-      : rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
-  }, [builtLayers, sortBy]);
-
-  const allDown = layers.length > 0 && layers.every((r) => r.heat === 0);
+    // Default: composite score (ROC² 50% + $Inflow 30% + CR% 20%)
+    return rows.sort((a, b) => (b.composite ?? 0) - (a.composite ?? 0));
+  }, [scoredLayers, sortBy]);
 
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const rvColor  = (v) => v == null ? ARIA.textMuted : v >= 2 ? ARIA.purple : v >= 1.5 ? ARIA.purple : ARIA.textDim;
@@ -4165,7 +4179,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 4px" }}>
           <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4 }}>SORT</span>
-          {[["heat", "Heat"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"]].map(([key, label]) => (
+          {[["heat", "Score"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"]].map(([key, label]) => (
             <button key={key} onClick={() => cycleSortBy(key)} style={{
               background: sortBy === key ? "rgba(108,213,232,0.14)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${sortBy === key ? "#6cd5e8" : ARIA.border}`,
@@ -4189,11 +4203,6 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.length === 0 && (
         <div style={{ color: ARIA.textMuted, fontSize: 9, fontFamily: "monospace", padding: "8px 4px" }}>
           Waiting for live quotes…
-        </div>
-      )}
-      {allDown && (
-        <div style={{ color: ARIA.yellow, fontSize: 8, fontFamily: "monospace", padding: "2px 4px 6px", letterSpacing: 0.3 }}>
-          ↓ all chains negative — sorted by RVol
         </div>
       )}
       {layers.map((r) => {
