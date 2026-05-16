@@ -7343,7 +7343,7 @@ function ChartPanelInline({
                         <div style={{ display: "flex", gap: 8, fontSize: 7.5, color: "#7a7a8a", marginTop: 2 }}>
                           <span style={{ color: "#0d9163" }}>+50% → +${(optionsTrade.profitAt50 || Math.round(optionsTrade.totalCost * 0.5)).toLocaleString()}</span>
                           <span>BE ${(optionsTrade.breakeven || optionsTrade.effectiveBasis).toFixed(0)}</span>
-                          <span style={{ color: "#e05252" }}>Max −${(optionsTrade.maxLoss || optionsTrade.totalCost).toLocaleString()}</span>
+                          <span style={{ color: "#e05252" }}>Max loss ${(optionsTrade.maxLoss || optionsTrade.totalCost).toLocaleString()}</span>
                         </div>
                         <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 2 }}>
                           Exit: sell {optionsTrade.sellHalf} @ +50%, exercise {optionsTrade.exerciseShares} shr @ ${optionsTrade.effectiveBasis} · hard exit {optionsTrade.hardExit}
