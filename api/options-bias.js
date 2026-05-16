@@ -287,7 +287,11 @@ function buildTrades(chain, bias, liquidity, maxRisk) {
     if (vol < 100) optionsWarnings.push(`low vol (${vol})`);
     if (price < 20) optionsWarnings.push("stock under $20");
 
-    const contracts = Math.max(1, Math.floor(maxRisk / (askPrice * 100)));
+    const contracts = Math.floor(maxRisk / (askPrice * 100));
+    if (contracts === 0) {
+      optionsWarnings.push(`1 contract costs $${Math.round(askPrice * 100).toLocaleString()} (exceeds $${maxRisk.toLocaleString()} risk)`);
+      return { optionsTrade: null, sharesTrade };
+    }
     const totalCost = Math.round(contracts * askPrice * 100);
     const halfContracts = Math.max(1, Math.floor(contracts / 2));
     const exerciseContracts = contracts - halfContracts;
