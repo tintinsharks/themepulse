@@ -7336,27 +7336,37 @@ function ChartPanelInline({
                         <span style={{ marginLeft: 6 }}>P/C<span style={{ color: bias.pcOI < 0.8 ? "#0d9163" : bias.pcOI > 1.2 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.pcOI}</span></span>
                       </div>
                     </div>
-                    {/* Options trade with P&L scenarios */}
-                    {hasOptions ? (
-                      <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.6, color: "#c8c8d8", marginBottom: 3 }}>
-                        <div>{optionsTrade.contracts}x <span style={{ color: "#fff", fontWeight: 700 }}>${optionsTrade.strike}C</span> {optionsTrade.expiration} <span style={{ color: "#5a5a7a" }}>δ{optionsTrade.delta} · {optionsTrade.dte}d</span></div>
-                        <div style={{ display: "flex", gap: 8, fontSize: 7.5, color: "#7a7a8a", marginTop: 2 }}>
-                          <span style={{ color: "#0d9163" }}>+50% → +${(optionsTrade.profitAt50 || Math.round(optionsTrade.totalCost * 0.5)).toLocaleString()}</span>
-                          <span>BE ${(optionsTrade.breakeven || optionsTrade.effectiveBasis).toFixed(0)}</span>
-                          <span style={{ color: "#e05252" }}>Max loss ${(optionsTrade.maxLoss || optionsTrade.totalCost).toLocaleString()}</span>
+                    {/* Preferred trade first, secondary below */}
+                    {(() => {
+                      const preferOptions = lightColor === "#0d9163" || lightColor === "#e0a050";
+                      const optionsBlock = hasOptions ? (
+                        <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.6, color: preferOptions ? "#c8c8d8" : "#8888a0", marginBottom: 3 }}>
+                          <div>{optionsTrade.contracts}x <span style={{ color: preferOptions ? "#fff" : "#b0b0c0", fontWeight: 700 }}>${optionsTrade.strike}C</span> {optionsTrade.expiration} <span style={{ color: "#5a5a7a" }}>δ{optionsTrade.delta} · {optionsTrade.dte}d</span></div>
+                          <div style={{ display: "flex", gap: 8, fontSize: 7.5, color: "#7a7a8a", marginTop: 2 }}>
+                            <span style={{ color: "#0d9163" }}>+50% → +${(optionsTrade.profitAt50 || Math.round(optionsTrade.totalCost * 0.5)).toLocaleString()}</span>
+                            <span>BE ${(optionsTrade.breakeven || optionsTrade.effectiveBasis).toFixed(0)}</span>
+                            <span style={{ color: "#e05252" }}>Max loss ${(optionsTrade.maxLoss || optionsTrade.totalCost).toLocaleString()}</span>
+                          </div>
+                          <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 2 }}>
+                            Exit: sell {optionsTrade.sellHalf} @ +50%, exercise {optionsTrade.exerciseShares} shr @ ${optionsTrade.effectiveBasis} · hard exit {optionsTrade.hardExit}
+                          </div>
+                          {hasWarnings && <div style={{ fontSize: 7, color: "#e0a050", marginTop: 1 }}>{optionsTrade.warnings.join(" · ")}</div>}
                         </div>
-                        <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 2 }}>
-                          Exit: sell {optionsTrade.sellHalf} @ +50%, exercise {optionsTrade.exerciseShares} shr @ ${optionsTrade.effectiveBasis} · hard exit {optionsTrade.hardExit}
+                      ) : (
+                        <div style={{ fontSize: 7.5, color: "#5a5a6a", fontStyle: "italic", marginBottom: 3 }}>No viable contracts</div>
+                      );
+                      const sharesBlock = (
+                        <div style={{ fontSize: 7.5, fontFamily: "monospace", color: preferOptions ? "#8888a0" : "#c8c8d8", marginBottom: preferOptions ? 0 : 3 }}>
+                          {!preferOptions && <div style={{ fontSize: 7, color: "#c8c8d8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>▶ Shares</div>}
+                          {preferOptions ? "Shares: " : ""}{sharesTrade.shares} @ ${bias.underlyingPrice.toFixed(2)} · stop ${sharesTrade.stopPrice} · risk ${sharesTrade.risk || Math.round(sharesTrade.shares * bias.underlyingPrice * 0.07).toLocaleString()}
                         </div>
-                        {hasWarnings && <div style={{ fontSize: 7, color: "#e0a050", marginTop: 1 }}>{optionsTrade.warnings.join(" · ")}</div>}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 7.5, color: "#5a5a6a", fontStyle: "italic", marginBottom: 3 }}>No viable contracts</div>
-                    )}
-                    {/* Shares fallback */}
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 2, fontSize: 7.5, fontFamily: "monospace", color: "#8888a0" }}>
-                      Shares: {sharesTrade.shares} @ ${bias.underlyingPrice.toFixed(2)} · stop ${sharesTrade.stopPrice} · risk ${sharesTrade.risk || Math.round(sharesTrade.shares * bias.underlyingPrice * 0.07).toLocaleString()}
-                    </div>
+                      );
+                      return preferOptions ? (
+                        <>{optionsBlock}<div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 2 }}>{sharesBlock}</div></>
+                      ) : (
+                        <>{sharesBlock}<div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 2 }}>{optionsBlock}</div></>
+                      );
+                    })()}
                   </div>
                 );
               })()}
