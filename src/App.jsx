@@ -7313,9 +7313,10 @@ function ChartPanelInline({
               ) : (() => {
                 if (optionsBiasLoading) return <div style={{ fontSize: 8, color: "#5a5a6a", marginTop: 2 }}>Loading options…</div>;
                 if (!optionsBias?.bias) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
-                const { bias, trade } = optionsBias;
+                const { bias, optionsTrade, sharesTrade } = optionsBias;
                 const dirColor = bias.direction === "BULLISH" ? "#0d9163" : bias.direction === "BEARISH" ? "#e05252" : "#8888a0";
-                const isOptions = trade.vehicle === "OPTIONS";
+                const hasOptions = !!optionsTrade;
+                const hasWarnings = optionsTrade?.warnings?.length > 0;
                 return (
                   <>
                     {/* Bias header */}
@@ -7330,27 +7331,30 @@ function ChartPanelInline({
                       <span title="Implied Volatility Rank — below 50% means options are cheap">IV<span style={{ color: bias.ivRank <= 50 ? "#0d9163" : bias.ivRank >= 70 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.ivRank}%</span></span>
                       <span title="Put/Call Open Interest Ratio — below 0.8 is bullish">P/C<span style={{ color: bias.pcOI < 0.8 ? "#0d9163" : bias.pcOI > 1.2 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.pcOI}</span></span>
                     </div>
-                    {/* Trade recommendation */}
-                    <div style={{ background: "#141420", border: `1px solid ${isOptions ? "rgba(13,145,99,0.25)" : "rgba(136,136,160,0.2)"}`, borderRadius: 3, padding: "3px 6px" }}>
-                      <div style={{ fontSize: 7, color: isOptions ? "#0d9163" : "#8888a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
-                        Play: {trade.vehicle}
-                      </div>
-                      {isOptions ? (
+                    {/* Options trade */}
+                    <div style={{ background: "#141420", border: `1px solid ${hasOptions && !hasWarnings ? "rgba(13,145,99,0.25)" : "rgba(136,136,160,0.15)"}`, borderRadius: 3, padding: "3px 6px", marginBottom: 3 }}>
+                      <div style={{ fontSize: 7, color: hasOptions ? "#0d9163" : "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Calls</div>
+                      {hasOptions ? (
                         <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.5, color: "#c8c8d8" }}>
-                          <div>{trade.contracts}x <span style={{ color: "#fff", fontWeight: 700 }}>${trade.strike}C</span> {trade.expiration} <span style={{ color: "#5a5a7a" }}>δ{trade.delta}</span></div>
-                          <div style={{ color: "#8888a0" }}>Cost ${trade.totalCost.toLocaleString()} · {trade.dte}d</div>
+                          <div>{optionsTrade.contracts}x <span style={{ color: "#fff", fontWeight: 700 }}>${optionsTrade.strike}C</span> {optionsTrade.expiration} <span style={{ color: "#5a5a7a" }}>δ{optionsTrade.delta}</span></div>
+                          <div style={{ color: "#8888a0" }}>${optionsTrade.totalCost.toLocaleString()} · {optionsTrade.dte}d</div>
                           <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 2, paddingTop: 2, fontSize: 7.5, color: "#7a7a8a" }}>
-                            +50%: sell {trade.sellHalf}, sell+buy {trade.exerciseShares} shr @ ${trade.effectiveBasis}
+                            +50%: sell {optionsTrade.sellHalf}, sell+buy {optionsTrade.exerciseShares} shr @ ${optionsTrade.effectiveBasis}
                           </div>
-                          <div style={{ fontSize: 7, color: "#5a5a6a" }}>Exit by {trade.hardExit}</div>
+                          <div style={{ fontSize: 7, color: "#5a5a6a" }}>Exit by {optionsTrade.hardExit}</div>
+                          {hasWarnings && <div style={{ fontSize: 7, color: "#e0a050", marginTop: 1 }}>{optionsTrade.warnings.join(" · ")}</div>}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.5, color: "#c8c8d8" }}>
-                          <div>{trade.shares} shares @ ${bias.underlyingPrice.toFixed(2)}</div>
-                          <div style={{ color: "#8888a0" }}>Cost ${trade.cost.toLocaleString()} · Stop ${trade.stopPrice}</div>
-                          <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 1 }}>{trade.reason}</div>
-                        </div>
+                        <div style={{ fontSize: 7.5, color: "#5a5a6a", fontStyle: "italic" }}>No viable contracts</div>
                       )}
+                    </div>
+                    {/* Shares trade */}
+                    <div style={{ background: "#141420", border: "1px solid rgba(136,136,160,0.1)", borderRadius: 3, padding: "3px 6px" }}>
+                      <div style={{ fontSize: 7, color: "#8888a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Shares</div>
+                      <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.4, color: "#9898a8" }}>
+                        <div>{sharesTrade.shares} shr @ ${bias.underlyingPrice.toFixed(2)} · ${sharesTrade.cost.toLocaleString()}</div>
+                        <div style={{ fontSize: 7, color: "#5a5a6a" }}>Stop ${sharesTrade.stopPrice}</div>
+                      </div>
                     </div>
                   </>
                 );

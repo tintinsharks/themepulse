@@ -225,26 +225,21 @@ function checkLiquidity(chain, underlyingPrice) {
   return { useOptions: true, bestContract: best };
 }
 
-// ── Build suggested trade ──
-function buildTrade(chain, bias, liquidity, maxRisk) {
+// ── Build both trades (always returns optionsTrade + sharesTrade) ──
+function buildTrades(chain, bias, liquidity, maxRisk) {
   const price = bias.underlyingPrice;
 
-  if (!liquidity.useOptions) {
-    const stopPct = 0.07;
-    const shares = Math.floor(maxRisk / price);
-    const cost = shares * price;
-    const stopPrice = Math.round(price * (1 - stopPct) * 100) / 100;
-    const risk = Math.round((price - stopPrice) * shares);
-    return {
-      vehicle: "SHARES",
-      reason: liquidity.reason,
-      shares,
-      cost: Math.round(cost),
-      stopPrice,
-      risk,
-    };
-  }
+  // Always build shares trade
+  const stopPct = 0.07;
+  const shareCount = Math.floor(maxRisk / price);
+  const sharesTrade = {
+    shares: shareCount,
+    cost: Math.round(shareCount * price),
+    stopPrice: Math.round(price * (1 - stopPct) * 100) / 100,
+    risk: Math.round(shareCount * price * stopPct),
+  };
 
+  // Try to build options trade
   const calls = [];
   for (const [, strikes] of Object.entries(chain.callExpDateMap || {})) {
     for (const [, contracts] of Object.entries(strikes)) {
@@ -259,72 +254,70 @@ function buildTrade(chain, bias, liquidity, maxRisk) {
       Math.abs(c.delta) >= 0.40 &&
       Math.abs(c.delta) <= 0.80 &&
       c.ask > 0 &&
-      c.openInterest >= 200
+      c.openInterest >= 50
   );
 
+  let optionsTrade = null;
+  let optionsWarnings = [];
+
   if (viable.length === 0) {
-    const shares = Math.floor(maxRisk / price);
-    return {
-      vehicle: "SHARES",
-      reason: "No viable call contracts found",
-      shares,
-      cost: Math.round(shares * price),
-      stopPrice: Math.round(price * 0.93 * 100) / 100,
-      risk: Math.round(shares * price * 0.07),
+    optionsWarnings.push("No viable contracts found");
+  } else {
+    viable.sort((a, b) => {
+      const aD = Math.abs(Math.abs(a.delta) - 0.62);
+      const bD = Math.abs(Math.abs(b.delta) - 0.62);
+      const aDTE = Math.abs(a.daysToExpiration - 67);
+      const bDTE = Math.abs(b.daysToExpiration - 67);
+      const aSpread = (a.ask - a.bid) / (a.mark || 1);
+      const bSpread = (b.ask - b.bid) / (b.mark || 1);
+      return aD + aDTE / 100 + aSpread - (bD + bDTE / 100 + bSpread);
+    });
+
+    const pick = viable[0];
+    const askPrice = pick.ask;
+    const spread = pick.ask - pick.bid;
+    const spreadPct = pick.mark > 0 ? (spread / pick.mark) * 100 : 100;
+    const oi = pick.openInterest || 0;
+    const vol = pick.totalVolume || 0;
+
+    if (spreadPct > 8) optionsWarnings.push(`wide spread (${spreadPct.toFixed(0)}%)`);
+    if (oi < 500) optionsWarnings.push(`low OI (${oi})`);
+    if (vol < 100) optionsWarnings.push(`low vol (${vol})`);
+    if (price < 20) optionsWarnings.push("stock under $20");
+
+    const contracts = Math.max(1, Math.floor(maxRisk / (askPrice * 100)));
+    const totalCost = Math.round(contracts * askPrice * 100);
+    const halfContracts = Math.max(1, Math.floor(contracts / 2));
+    const exerciseContracts = contracts - halfContracts;
+    const exerciseShares = exerciseContracts * 100;
+
+    const expDate = new Date();
+    expDate.setDate(expDate.getDate() + pick.daysToExpiration - 21);
+    const hardExit = expDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+    optionsTrade = {
+      symbol: pick.symbol || `${chain.symbol} $${pick.strikePrice}C`,
+      strike: pick.strikePrice,
+      expiration: (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + pick.daysToExpiration);
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      })(),
+      dte: pick.daysToExpiration,
+      ask: askPrice,
+      delta: Math.round(Math.abs(pick.delta) * 100) / 100,
+      iv: Math.round(pick.volatility * 100) / 100,
+      contracts,
+      totalCost,
+      sellHalf: halfContracts,
+      exerciseShares,
+      effectiveBasis: Math.round((pick.strikePrice + askPrice) * 100) / 100,
+      hardExit,
+      warnings: optionsWarnings.length > 0 ? optionsWarnings : null,
     };
   }
 
-  viable.sort((a, b) => {
-    const aD = Math.abs(Math.abs(a.delta) - 0.62);
-    const bD = Math.abs(Math.abs(b.delta) - 0.62);
-    const aDTE = Math.abs(a.daysToExpiration - 67);
-    const bDTE = Math.abs(b.daysToExpiration - 67);
-    const aSpread = (a.ask - a.bid) / (a.mark || 1);
-    const bSpread = (b.ask - b.bid) / (b.mark || 1);
-    return aD + aDTE / 100 + aSpread - (bD + bDTE / 100 + bSpread);
-  });
-
-  const pick = viable[0];
-  const askPrice = pick.ask;
-  const contracts = Math.max(1, Math.floor(maxRisk / (askPrice * 100)));
-  const totalCost = Math.round(contracts * askPrice * 100);
-
-  const halfContracts = Math.max(1, Math.floor(contracts / 2));
-  const exerciseContracts = contracts - halfContracts;
-  const sellValue = Math.round(halfContracts * askPrice * 1.5 * 100);
-  const exerciseShares = exerciseContracts * 100;
-
-  const targetStockPrice = Math.round((price + (askPrice * 0.5) / Math.abs(pick.delta)) * 100) / 100;
-  const stopStockPrice = Math.round((price - (askPrice * 0.4) / Math.abs(pick.delta)) * 100) / 100;
-
-  const expDate = new Date();
-  expDate.setDate(expDate.getDate() + pick.daysToExpiration - 21);
-  const hardExit = expDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-  return {
-    vehicle: "OPTIONS",
-    symbol: pick.symbol || `${chain.symbol} $${pick.strikePrice}C`,
-    strike: pick.strikePrice,
-    expiration: (() => {
-      const d = new Date();
-      d.setDate(d.getDate() + pick.daysToExpiration);
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    })(),
-    dte: pick.daysToExpiration,
-    ask: askPrice,
-    delta: Math.round(Math.abs(pick.delta) * 100) / 100,
-    iv: Math.round(pick.volatility * 100) / 100,
-    contracts,
-    totalCost,
-    sellHalf: halfContracts,
-    sellHalfValue: sellValue,
-    exerciseHalf: exerciseContracts,
-    exerciseShares,
-    effectiveBasis: Math.round((pick.strikePrice + askPrice) * 100) / 100,
-    targetStockPrice,
-    stopStockPrice,
-    hardExit,
-  };
+  return { optionsTrade, sharesTrade };
 }
 
 // ── Main handler ──
@@ -379,12 +372,13 @@ export default async function handler(req, res) {
     if (!bias) return res.status(404).json({ error: "Insufficient options data" });
 
     const liquidity = checkLiquidity(chain, underlyingPrice);
-    const trade = buildTrade(chain, bias, liquidity, MAX_RISK);
+    const { optionsTrade, sharesTrade } = buildTrades(chain, bias, liquidity, MAX_RISK);
 
     const result = {
       symbol: sym,
       bias,
-      trade,
+      optionsTrade,
+      sharesTrade,
       cached: false,
       ts: new Date().toISOString(),
     };
