@@ -303,6 +303,7 @@ function buildTrades(chain, bias, liquidity, maxRisk) {
 
     const breakeven = Math.round((pick.strikePrice + askPrice) * 100) / 100;
     const profitAt50 = Math.round(contracts * askPrice * 100 * 0.5);
+    const targetPrice = Math.round((price + (askPrice * 0.5) / Math.abs(pick.delta)) * 100) / 100;
     const maxLoss = totalCost;
 
     optionsTrade = {
@@ -323,6 +324,7 @@ function buildTrades(chain, bias, liquidity, maxRisk) {
       exerciseShares,
       effectiveBasis: breakeven,
       breakeven,
+      targetPrice,
       profitAt50,
       maxLoss,
       hardExit,
