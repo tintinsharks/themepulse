@@ -7313,7 +7313,9 @@ function ChartPanelInline({
               ) : (() => {
                 if (optionsBiasLoading) return <div style={{ fontSize: 8, color: "#5a5a6a", marginTop: 2 }}>Loading options…</div>;
                 if (!optionsBias?.bias) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
-                const { bias, optionsTrade, sharesTrade } = optionsBias;
+                const { bias, optionsTrade } = optionsBias;
+                const sharesTrade = optionsBias.sharesTrade || optionsBias.trade;
+                if (!sharesTrade) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
                 const dirColor = bias.direction === "BULLISH" ? "#0d9163" : bias.direction === "BEARISH" ? "#e05252" : "#8888a0";
                 const hasOptions = !!optionsTrade;
                 const hasWarnings = optionsTrade?.warnings?.length > 0;
