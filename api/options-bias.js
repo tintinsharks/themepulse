@@ -229,14 +229,16 @@ function checkLiquidity(chain, underlyingPrice) {
 function buildTrades(chain, bias, liquidity, maxRisk) {
   const price = bias.underlyingPrice;
 
-  // Always build shares trade
+  // Always build shares trade — size so max loss at stop = maxRisk
   const stopPct = 0.07;
-  const shareCount = Math.floor(maxRisk / price);
+  const stopPrice = Math.round(price * (1 - stopPct) * 100) / 100;
+  const riskPerShare = price - stopPrice;
+  const shareCount = riskPerShare > 0 ? Math.floor(maxRisk / riskPerShare) : 0;
   const sharesTrade = {
     shares: shareCount,
     cost: Math.round(shareCount * price),
-    stopPrice: Math.round(price * (1 - stopPct) * 100) / 100,
-    risk: Math.round(shareCount * price * stopPct),
+    stopPrice,
+    risk: Math.round(shareCount * riskPerShare),
   };
 
   // Try to build options trade
