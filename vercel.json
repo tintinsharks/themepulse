@@ -52,6 +52,9 @@
     },
     "api/earnings.js": {
       "maxDuration": 15
+    },
+    "api/growth-score.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
