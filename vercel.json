@@ -23,14 +23,11 @@
     "api/live.js": {
       "maxDuration": 30
     },
-    "api/agent-picks.js": {
-      "maxDuration": 10
+    "api/options-bias.js": {
+      "maxDuration": 15
     },
-    "api/pm-picks.js": {
-      "maxDuration": 10
-    },
-    "api/ah-picks.js": {
-      "maxDuration": 10
+    "api/schwab-callback.js": {
+      "maxDuration": 15
     },
 "api/ohlc.js": {
       "maxDuration": 15
