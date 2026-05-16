@@ -297,6 +297,10 @@ function buildTrades(chain, bias, liquidity, maxRisk) {
     expDate.setDate(expDate.getDate() + pick.daysToExpiration - 21);
     const hardExit = expDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+    const breakeven = Math.round((pick.strikePrice + askPrice) * 100) / 100;
+    const profitAt50 = Math.round(contracts * askPrice * 100 * 0.5);
+    const maxLoss = totalCost;
+
     optionsTrade = {
       symbol: pick.symbol || `${chain.symbol} $${pick.strikePrice}C`,
       strike: pick.strikePrice,
@@ -313,7 +317,10 @@ function buildTrades(chain, bias, liquidity, maxRisk) {
       totalCost,
       sellHalf: halfContracts,
       exerciseShares,
-      effectiveBasis: Math.round((pick.strikePrice + askPrice) * 100) / 100,
+      effectiveBasis: breakeven,
+      breakeven,
+      profitAt50,
+      maxLoss,
       hardExit,
       warnings: optionsWarnings.length > 0 ? optionsWarnings : null,
     };
