@@ -516,56 +516,6 @@ function useDvolHistory() {
 // Polls the three picks endpoints (Phase 4). Falls back to static JSON files
 // in /public/ if the live endpoints return empty/error — useful for local dev
 // before the Vercel KV env vars are set up.
-function usePicks(intervalMs = 60000) {
-  const [picks, setPicks] = useState({
-    rvolPicks: null,
-    pmPicks: null,
-    ahPicks: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchOne(apiUrl, fallbackUrl) {
-      try {
-        const r = await fetch(apiUrl, { cache: "no-store" });
-        if (r.ok) {
-          const d = await r.json();
-          // If KV returned an empty payload, prefer the static fallback
-          if (d && d.ok && (d.picks?.length || 0) > 0) return d;
-        }
-      } catch {
-        /* fall through */
-      }
-      try {
-        const r = await fetch(fallbackUrl, { cache: "no-store" });
-        if (r.ok) return await r.json();
-      } catch {
-        /* ignore */
-      }
-      return null;
-    }
-
-    async function loadAll() {
-      const [rvolPicks, pmPicks, ahPicks] = await Promise.all([
-        fetchOne("/api/agent-picks", "/rvol_picks.json"),
-        fetchOne("/api/pm-picks", "/pm_picks.json"),
-        fetchOne("/api/ah-picks", "/ah_picks.json"),
-      ]);
-      if (cancelled) return;
-      setPicks({ rvolPicks, pmPicks, ahPicks });
-    }
-
-    loadAll();
-    const timer = setInterval(loadAll, intervalMs);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [intervalMs]);
-
-  return picks;
-}
 
 // Closing range %: where the last *completed* daily bar's CLOSE sits within
 // that bar's high-low range. 100 = closed at high (strong buyer demand),
@@ -591,53 +541,146 @@ function computeCR(q, s) {
   return null;
 }
 
-// Fetches live quotes for a list of tickers via the existing /api/live endpoint.
-// Polls every `intervalMs` (default 60s). Returns a Map<ticker, quoteObj>.
-function useLiveQuotes(tickers, intervalMs = 60000) {
-  const [quotes, setQuotes] = useState(new Map());
-  const [updated, setUpdated] = useState(null);
+// ── Centralized live-quote manager ──
+// All useLiveQuotes() calls register their tickers here. One batched fetch
+// runs every 30s during market hours (9:30-4 ET weekdays), 120s in extended
+// hours (4AM-9:30 + 4-8PM ET), and pauses entirely on weekends and overnight.
+// This replaces 13 independent polling loops with a single API call.
+const _quoteManager = {
+  subscribers: new Map(),   // id → Set<ticker>
+  cache: new Map(),         // ticker → quoteObj
+  updated: null,
+  listeners: new Set(),     // () => void callbacks
+  timer: null,
+  nextId: 0,
+  fetching: false,
 
-  // Stabilize ticker list so effect doesn't re-fire on every render
-  const tickerKey = useMemo(
-    () => (tickers || []).slice().sort().join(","),
-    [tickers]
+  register(tickers) {
+    const id = ++this.nextId;
+    this.subscribers.set(id, new Set(tickers));
+    this._ensurePolling();
+    return id;
+  },
+
+  update(id, tickers) {
+    this.subscribers.set(id, new Set(tickers));
+  },
+
+  unregister(id) {
+    this.subscribers.delete(id);
+    if (this.subscribers.size === 0) this._stopPolling();
+  },
+
+  subscribe(fn) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  },
+
+  _notify() {
+    this.listeners.forEach((fn) => fn());
+  },
+
+  _getAllTickers() {
+    const all = new Set();
+    this.subscribers.forEach((set) => set.forEach((t) => all.add(t)));
+    return [...all];
+  },
+
+  _getInterval() {
+    const now = new Date();
+    const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const day = et.getDay();
+    if (day === 0 || day === 6) return 0; // weekend — don't poll
+    const mins = et.getHours() * 60 + et.getMinutes();
+    if (mins >= 570 && mins <= 960) return 30000;  // 9:30 AM - 4:00 PM ET → 30s
+    if (mins >= 240 && mins < 570) return 120000;   // 4:00 AM - 9:30 AM ET (pre-market) → 2min
+    if (mins > 960 && mins <= 1200) return 120000;   // 4:00 PM - 8:00 PM ET (after-hours) → 2min
+    return 0; // overnight — don't poll
+  },
+
+  async _fetch() {
+    if (this.fetching) return;
+    const tickers = this._getAllTickers();
+    if (tickers.length === 0) return;
+    this.fetching = true;
+    try {
+      // FMP batch-quote caps at 500; split if needed
+      const batches = [];
+      for (let i = 0; i < tickers.length; i += 500) {
+        batches.push(tickers.slice(i, i + 500).join(","));
+      }
+      for (const batch of batches) {
+        const r = await fetch(`/api/live?universe=${encodeURIComponent(batch)}`);
+        if (!r.ok) continue;
+        const d = await r.json();
+        const arr = d.theme_universe || d.universe || [];
+        arr.forEach((q) => { if (q?.ticker) this.cache.set(q.ticker, q); });
+      }
+      this.updated = new Date();
+      this._notify();
+    } catch { /* ignore */ }
+    this.fetching = false;
+  },
+
+  _ensurePolling() {
+    if (this.timer) return;
+    const tick = () => {
+      const interval = this._getInterval();
+      if (interval === 0) {
+        this.timer = setTimeout(tick, 60000); // re-check in 1 min
+        return;
+      }
+      this._fetch();
+      this.timer = setTimeout(tick, interval);
+    };
+    this._fetch(); // immediate first fetch
+    const interval = this._getInterval();
+    this.timer = setTimeout(tick, interval || 60000);
+  },
+
+  _stopPolling() {
+    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+  },
+};
+
+function useLiveQuotes(tickers, _intervalMs) {
+  // _intervalMs is ignored — the central manager controls timing
+  const [, forceUpdate] = useState(0);
+  const idRef = useRef(null);
+
+  const tickerList = useMemo(
+    () => (tickers || []).filter(Boolean),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [(tickers || []).slice().sort().join(",")]
   );
 
   useEffect(() => {
-    if (!tickerKey) return;
-    let cancelled = false;
-    let timer = null;
-
-    async function fetchQuotes() {
-      try {
-        const r = await fetch(
-          `/api/live?universe=${encodeURIComponent(tickerKey)}`
-        );
-        if (!r.ok) return;
-        const d = await r.json();
-        if (cancelled) return;
-        const m = new Map();
-        // /api/live returns { theme_universe: [...] } or { universe: [...] }
-        const arr = d.theme_universe || d.universe || [];
-        arr.forEach((q) => {
-          if (q && q.ticker) m.set(q.ticker, q);
-        });
-        setQuotes(m);
-        setUpdated(new Date());
-      } catch {
-        /* ignore */
-      }
+    if (tickerList.length === 0) return;
+    if (idRef.current == null) {
+      idRef.current = _quoteManager.register(tickerList);
+    } else {
+      _quoteManager.update(idRef.current, tickerList);
     }
-
-    fetchQuotes();
-    timer = setInterval(fetchQuotes, intervalMs);
+    const unsub = _quoteManager.subscribe(() => forceUpdate((n) => n + 1));
     return () => {
-      cancelled = true;
-      if (timer) clearInterval(timer);
+      unsub();
+      if (idRef.current != null) {
+        _quoteManager.unregister(idRef.current);
+        idRef.current = null;
+      }
     };
-  }, [tickerKey, intervalMs]);
+  }, [tickerList]);
 
-  return { quotes, updated };
+  const quotes = useMemo(() => {
+    const m = new Map();
+    tickerList.forEach((t) => {
+      const q = _quoteManager.cache.get(t);
+      if (q) m.set(t, q);
+    });
+    return m;
+  }, [tickerList, _quoteManager.updated]);
+
+  return { quotes, updated: _quoteManager.updated };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -4758,854 +4801,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// Agent Picks (Phase 2.3 — pixel-faithful port from Aria dashboard.html ~7530)
-// ──────────────────────────────────────────────────────────────────────────
-//
-// Tabs: All / PM / AH / RVol
-// Collapsible Commentary section: Market / Emerging Subthemes / Patterns
-// Per-pick row: rank, ticker, source badge, score, entry, OVERALL signal
-// Click row to expand: Catalyst box + 3-column agent breakdown
-//
-// Data sources: /rvol_picks.json, /pm_picks.json, /ah_picks.json (static
-// files served by Vercel CDN). All three are merged into one list with the
-// `source` field; commentary comes from /rvol_picks.json only.
-// ──────────────────────────────────────────────────────────────────────────
 
-const sigColor = (s) =>
-  s === "bullish" ? ARIA.green : s === "bearish" ? ARIA.red : ARIA.textMuted;
-const sigIcon = (s) =>
-  s === "bullish" ? "▲" : s === "bearish" ? "▼" : "◆";
-
-function AgentPicks({
-  rvolPicks,
-  pmPicks,
-  ahPicks,
-  analyzedPicks,
-  onAnalyzedRemove,
-  onTickerClick,
-}) {
-  const ARIA = useAriaTheme();
-  const ownedTint = useOwnedTint();
-  // ── State: tab, commentary collapse, expanded row ──────────────────────
-  const [tab, setTab] = useState(() => {
-    if (typeof window === "undefined") return "analyzed";
-    // Force-default to 'analyzed' since auto sources are disabled.
-    return "analyzed";
-  });
-  const [commOpen, setCommOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("aria-comm-open") === "1";
-  });
-  const [expanded, setExpanded] = useState(() => new Set());
-
-  const setTabPersist = useCallback((t) => {
-    setTab(t);
-    localStorage.setItem("aria-ap-tab", t);
-  }, []);
-  const toggleComm = useCallback(() => {
-    setCommOpen((prev) => {
-      const next = !prev;
-      localStorage.setItem("aria-comm-open", next ? "1" : "0");
-      return next;
-    });
-  }, []);
-  const toggleExpanded = useCallback((ticker) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(ticker)) next.delete(ticker);
-      else next.add(ticker);
-      return next;
-    });
-  }, []);
-
-  // Extract Chg% from a pick. Scanner picks have it embedded in reasoning
-  // ("[RVOL] Chg +12.3% | ..."); PM/AH picks have it as "+12.3%" or
-  // "-4.5%" inside their reasoning string. Returns 0 if not found.
-  const extractChg = (p) => {
-    if (!p) return 0;
-    if (typeof p.chg === "number") return p.chg;
-    const r = p.reasoning || "";
-    // Match "Chg +12.3%" or "+12.3%" or "-4.5%"
-    let m = r.match(/Chg\s*([+-]?\d+(?:\.\d+)?)%/i);
-    if (m) return parseFloat(m[1]);
-    m = r.match(/([+-]\d+(?:\.\d+)?)%/);
-    if (m) return parseFloat(m[1]);
-    return 0;
-  };
-
-  // ── Merge picks from the three sources ─────────────────────────────────
-  // Dedupe by ticker (PM > AH > RVol priority for the source label, but the
-  // ALL view sorts by Chg% descending — PM/AH are NOT auto-pinned to top).
-  // The PM/AH/RVol tabs preserve their original posted order.
-  const merged = useMemo(() => {
-    const seen = new Set();
-    const out = [];
-
-    function add(picks, source) {
-      if (!Array.isArray(picks)) return;
-      for (const p of picks) {
-        if (!p || !p.ticker || seen.has(p.ticker)) continue;
-        seen.add(p.ticker);
-        out.push({
-          ...p,
-          source: p.source || source,
-          _chg: extractChg(p),
-        });
-      }
-    }
-
-    add(pmPicks?.picks, "PM");
-    add(ahPicks?.picks, "AH");
-    add(rvolPicks?.picks, "RVOL");
-    // Analyzed picks (on-demand from /api/analyze-ticker)
-    if (Array.isArray(analyzedPicks)) {
-      for (const p of analyzedPicks) {
-        if (!p || !p.ticker || seen.has(p.ticker)) continue;
-        seen.add(p.ticker);
-        out.push({
-          ...p,
-          source: "ANALYZED",
-          _chg: extractChg(p),
-        });
-      }
-    }
-    return out;
-  }, [rvolPicks, pmPicks, ahPicks, analyzedPicks]);
-
-  // Filter and sort by tab
-  const visible = useMemo(() => {
-    let arr;
-    if (tab === "all") {
-      // Sort the entire combined list by Chg% descending — no source pinning
-      arr = merged.slice().sort((a, b) => (b._chg || 0) - (a._chg || 0));
-    } else if (tab === "pm") {
-      arr = merged.filter((p) => p.source === "PM");
-    } else if (tab === "ah") {
-      arr = merged.filter((p) => p.source === "AH");
-    } else if (tab === "rvol") {
-      arr = merged.filter((p) => p.source === "RVOL");
-    } else if (tab === "analyzed") {
-      // Rank by total directional score (highest first); fall back to Chg%
-      arr = (analyzedPicks || [])
-        .map((p) => ({
-          ...p,
-          source: "ANALYZED",
-          _chg: extractChg(p),
-        }))
-        .sort((a, b) => {
-          const sa = Number(a.score);
-          const sb = Number(b.score);
-          if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb)
-            return sb - sa;
-          return (b._chg || 0) - (a._chg || 0);
-        });
-    } else {
-      arr = merged;
-    }
-    // Renumber rank in the visible order so the displayed #1 matches the
-    // top of the current tab/sort
-    return arr.map((p, i) => ({ ...p, rank: i + 1 }));
-  }, [merged, tab, analyzedPicks]);
-
-  const commentary = rvolPicks?.commentary || {};
-
-  // Live "X seconds ago" refresh ticker — updates every 10s so the relative
-  // time stays accurate without spamming re-renders.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 10_000);
-    return () => clearInterval(t);
-  }, []);
-
-  // Refresh info: most-recent analyzed_at across the local Analyzed list.
-  // (Auto sources PM/AH/RVol are disabled so we don't include them here.)
-  const refreshInfo = useMemo(() => {
-    if (!Array.isArray(analyzedPicks) || analyzedPicks.length === 0) {
-      return { latest: null, sources: [] };
-    }
-    const parse = (s) => {
-      if (!s) return null;
-      const t = Date.parse(s);
-      return Number.isFinite(t) ? t : null;
-    };
-    const items = analyzedPicks
-      .map((p) => ({ label: p.ticker, ts: parse(p.analyzed_at) }))
-      .filter((x) => x.ts != null)
-      .sort((a, b) => b.ts - a.ts);
-    if (!items.length) return { latest: null, sources: [] };
-    return { latest: items[0], sources: items };
-  }, [analyzedPicks]);
-
-  const fmtRelative = (ts) => {
-    if (!ts) return "—";
-    const diffSec = Math.max(0, Math.round((now - ts) / 1000));
-    if (diffSec < 60) return `${diffSec}s ago`;
-    const diffMin = Math.round(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffH = Math.round(diffMin / 60);
-    if (diffH < 24) return `${diffH}h ago`;
-    const diffD = Math.round(diffH / 24);
-    return `${diffD}d ago`;
-  };
-  const fmtClock = (ts) => {
-    if (!ts) return "—";
-    const d = new Date(ts);
-    return d.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-  };
-
-  const refreshTooltip = refreshInfo.sources
-    .map((s) => `${s.label}: ${fmtClock(s.ts)} (${fmtRelative(s.ts)})`)
-    .join("\n");
-
-  // ── Render ──────────────────────────────────────────────────────────────
-  const tabBtn = (t, label) => {
-    const on = tab === t;
-    return (
-      <button
-        key={t}
-        onClick={() => setTabPersist(t)}
-        style={pillStyle(on, ARIA.green)}
-      >
-        {label}
-      </button>
-    );
-  };
-
-  // Directional score: 0-100 where 50 = neutral, >50 bullish, <50 bearish.
-  // Color tiers: 70+ strong bull (green), 55-70 mild bull (blue),
-  //              45-55 neutral (dim), 30-45 mild bear (yellow),
-  //              <30 strong bear (red).
-  const scoreColor = (score) =>
-    score >= 70
-      ? ARIA.green
-      : score >= 55
-      ? ARIA.blue
-      : score >= 45
-      ? ARIA.textDim
-      : score >= 30
-      ? ARIA.yellow
-      : ARIA.red;
-
-  return (
-    <div
-      style={{
-        background: ARIA.bgCard,
-        border: `1px solid ${ARIA.border}`,
-        borderRadius: 14,
-        marginBottom: 8,
-        overflow: "hidden",
-      }}
-    >
-      {/* Panel header */}
-      <div
-        style={{
-          padding: "5px 12px",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          borderBottom: `1px solid ${ARIA.border}`,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            color: ARIA.textDim,
-          }}
-        >
-          Agent Picks
-        </span>
-        <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
-          {/* Auto sources (PM/AH/RVol) disabled — manual Analyze only */}
-          {tabBtn("analyzed", "Analyzed")}
-        </div>
-        {/* Last refresh — clock + relative time, hover for per-source breakdown */}
-        <div
-          title={refreshTooltip || "No refresh data yet"}
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: 1,
-            lineHeight: 1.15,
-            cursor: "default",
-          }}
-        >
-          {refreshInfo.latest ? (
-            <>
-              <span
-                style={{
-                  fontSize: 9,
-                  fontFamily: "monospace",
-                  fontWeight: 700,
-                  color: ARIA.green,
-                }}
-              >
-                {fmtClock(refreshInfo.latest.ts)}
-              </span>
-              <span
-                style={{
-                  fontSize: 7,
-                  color: ARIA.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                }}
-              >
-                refreshed {fmtRelative(refreshInfo.latest.ts)} ·{" "}
-                {refreshInfo.latest.label}
-              </span>
-            </>
-          ) : (
-            <span style={{ fontSize: 7, color: ARIA.textMuted }}>
-              Waiting for picks…
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Commentary (collapsible) */}
-      {(commentary.market || commentary.subthemes || commentary.patterns) && (
-        <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
-          <div
-            onClick={toggleComm}
-            style={{
-              cursor: "pointer",
-              padding: "5px 10px",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 8,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              color: ARIA.textDim,
-              userSelect: "none",
-            }}
-          >
-            <span>{commOpen ? "▼" : "▶"}</span>
-            <span>Commentary</span>
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: 7,
-                color: ARIA.textMuted,
-                fontWeight: 400,
-                textTransform: "none",
-                letterSpacing: 0,
-              }}
-            >
-              market · subthemes · patterns
-            </span>
-          </div>
-          {commOpen && (
-            <div
-              style={{
-                padding: "6px 12px 10px",
-                fontSize: 9,
-                lineHeight: 1.5,
-                color: ARIA.textDim,
-              }}
-            >
-              {commentary.market && (
-                <div style={{ marginBottom: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 7,
-                      fontWeight: 700,
-                      color: ARIA.cyan,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    Market
-                  </span>
-                  <br />
-                  {commentary.market}
-                </div>
-              )}
-              {commentary.subthemes && (
-                <div style={{ marginBottom: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 7,
-                      fontWeight: 700,
-                      color: ARIA.green,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    Emerging Subthemes
-                  </span>
-                  <br />
-                  <div style={{ whiteSpace: "pre-wrap" }}>
-                    {commentary.subthemes}
-                  </div>
-                </div>
-              )}
-              {commentary.patterns && (
-                <div>
-                  <span
-                    style={{
-                      fontSize: 7,
-                      fontWeight: 700,
-                      color: ARIA.purple,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.5,
-                    }}
-                  >
-                    Patterns
-                  </span>
-                  <br />
-                  {commentary.patterns}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Picks list */}
-      <div
-        style={{
-          fontSize: 9,
-          fontFamily: "monospace",
-          maxHeight: 480,
-          overflowY: "auto",
-        }}
-      >
-        {visible.length === 0 && (
-          <div
-            style={{
-              padding: 12,
-              color: ARIA.textMuted,
-              fontSize: 9,
-              textAlign: "center",
-            }}
-          >
-            No picks yet. Hermes Agent will populate this when running.
-          </div>
-        )}
-        {visible.map((p) => {
-          const isOpen = expanded.has(p.ticker);
-          const sc = scoreColor(p.score || 0);
-          const hasAgents = p.agents && p.agents.overall;
-          const srcColor =
-            p.source === "PM"
-              ? ARIA.yellow
-              : p.source === "AH"
-              ? ARIA.purple
-              : null;
-          const ownedBg = ownedTint(p.ticker, ARIA);
-          // Owned tint wins over the #1-rank highlight so already-tracked
-          // picks stay visible at the top of the list.
-          const rowBg =
-            ownedBg !== "transparent"
-              ? ownedBg
-              : p.rank === 1
-              ? ARIA.bgHover
-              : "transparent";
-          return (
-            <div
-              key={p.ticker}
-              style={{
-                padding: "6px 10px",
-                borderBottom: `1px solid ${ARIA.border}`,
-                background: rowBg,
-              }}
-            >
-              <div
-                onClick={() => {
-                  toggleExpanded(p.ticker);
-                  onTickerClick && onTickerClick(p.ticker);
-                }}
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "flex-start",
-                  cursor: "pointer",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: sc,
-                    minWidth: 18,
-                  }}
-                >
-                  #{p.rank}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: 6,
-                      marginBottom: 2,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 10,
-                        color: ARIA.text,
-                      }}
-                    >
-                      {p.ticker}
-                    </span>
-                    {srcColor && (
-                      <span
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 800,
-                          color: srcColor,
-                          border: `1px solid ${srcColor}`,
-                          padding: "0 3px",
-                          borderRadius: 2,
-                        }}
-                      >
-                        {p.source}
-                      </span>
-                    )}
-                    <span
-                      style={{
-                        fontSize: 8,
-                        color: sc,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Score {p.score}
-                    </span>
-                    {p.entry_price != null && (
-                      <span
-                        style={{ fontSize: 8, color: ARIA.green }}
-                      >
-                        Entry ${p.entry_price}
-                      </span>
-                    )}
-                    {p.stop_price != null && (
-                      <span style={{ fontSize: 8, color: ARIA.red }}>
-                        Stop ${p.stop_price}
-                      </span>
-                    )}
-                    {p.shares != null && (
-                      <span
-                        style={{ fontSize: 8, color: ARIA.textMuted }}
-                      >
-                        {p.shares} shares
-                      </span>
-                    )}
-                    {hasAgents &&
-                      p.agents.attention &&
-                      ["HIGH", "EXTREME"].includes(
-                        p.agents.attention.tier ||
-                          (p.agents.attention.reasoning &&
-                            p.agents.attention.reasoning.tier) ||
-                          ""
-                      ) && (
-                        <span
-                          title={`Attention: ${
-                            p.agents.attention.tier ||
-                            p.agents.attention.reasoning?.tier
-                          } (${p.agents.attention.confidence}%)`}
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 800,
-                            color: ARIA.yellow,
-                            border: `1px solid ${ARIA.yellow}`,
-                            background: `${ARIA.yellow}26`,
-                            padding: "0 4px",
-                            borderRadius: 2,
-                            marginLeft: "auto",
-                          }}
-                        >
-                          🔥{p.agents.attention.confidence}
-                        </span>
-                      )}
-                    {hasAgents && (
-                      <span
-                        style={{
-                          fontSize: 7,
-                          color: sigColor(p.agents.overall),
-                          fontWeight: 700,
-                          marginLeft:
-                            p.agents.attention &&
-                            ["HIGH", "EXTREME"].includes(
-                              p.agents.attention.tier ||
-                                p.agents.attention.reasoning?.tier ||
-                                ""
-                            )
-                              ? 4
-                              : "auto",
-                        }}
-                      >
-                        {sigIcon(p.agents.overall)}{" "}
-                        {p.agents.overall.toUpperCase()}
-                      </span>
-                    )}
-                    {/* Analyzed-at timestamp on the right edge */}
-                    {p.analyzed_at && (
-                      <span
-                        title={`Analyzed at ${new Date(
-                          p.analyzed_at
-                        ).toLocaleString()}`}
-                        style={{
-                          fontSize: 7,
-                          color: ARIA.textMuted,
-                          fontFamily: "monospace",
-                          marginLeft: hasAgents ? 6 : "auto",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {fmtClock(Date.parse(p.analyzed_at))} ·{" "}
-                        {fmtRelative(Date.parse(p.analyzed_at))}
-                      </span>
-                    )}
-                  </div>
-                  {p.reasoning && (
-                    <div
-                      style={{
-                        fontSize: 8,
-                        color: ARIA.textDim,
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {p.reasoning}
-                    </div>
-                  )}
-                </div>
-                {/* Delete button — only for ANALYZED picks */}
-                {p.source === "ANALYZED" && onAnalyzedRemove && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAnalyzedRemove(p.ticker);
-                    }}
-                    title={`Remove ${p.ticker} from analyzed`}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: ARIA.textMuted,
-                      cursor: "pointer",
-                      fontSize: 14,
-                      lineHeight: 1,
-                      padding: "0 4px",
-                      flexShrink: 0,
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = ARIA.red)}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color = ARIA.textMuted)
-                    }
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              {/* Expanded panel: catalyst (always) + agent breakdown (RVol only) */}
-              {isOpen && (
-                <div
-                  style={{
-                    marginTop: 6,
-                    padding: 8,
-                    background: ARIA.bgRow,
-                    borderRadius: 4,
-                    borderLeft: `2px solid ${
-                      hasAgents ? sigColor(p.agents.overall) : ARIA.cyan
-                    }`,
-                    maxHeight: 360,
-                    overflowY: "auto",
-                  }}
-                >
-                  {hasAgents && (
-                    <div
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 700,
-                        color: sigColor(p.agents.overall),
-                        marginBottom: 6,
-                      }}
-                    >
-                      OVERALL: {(p.agents.overall || "").toUpperCase()} (
-                      {p.agents.confidence || 0}%)
-                    </div>
-                  )}
-                  {p.catalyst && p.catalyst.length > 5 && (
-                    <div
-                      style={{
-                        fontSize: 9,
-                        color: ARIA.text,
-                        lineHeight: 1.5,
-                        marginBottom: 8,
-                        padding: "6px 8px",
-                        background: ARIA.bg,
-                        borderRadius: 3,
-                        borderLeft: `2px solid ${ARIA.cyan}`,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 7,
-                          fontWeight: 700,
-                          color: ARIA.cyan,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        Catalyst
-                      </span>
-                      <br />
-                      {p.catalyst}
-                    </div>
-                  )}
-                  {hasAgents && (
-                    <>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr 1fr 1fr",
-                          gap: 8,
-                        }}
-                      >
-                        {["fundamentals", "technicals", "sentiment", "attention"].map((k) => {
-                          const sub = p.agents[k];
-                          if (!sub)
-                            return <div key={k} style={{ minWidth: 0 }} />;
-                          return (
-                            <div key={k} style={{ minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontSize: 8,
-                                  fontWeight: 700,
-                                  color: sigColor(sub.signal),
-                                  marginBottom: 3,
-                                }}
-                              >
-                                {sigIcon(sub.signal)} {k.toUpperCase()} —{" "}
-                                {sub.signal} ({sub.confidence}%)
-                              </div>
-                              {sub.reasoning &&
-                                Object.entries(sub.reasoning).map(([rk, rv]) => (
-                                  <div
-                                    key={rk}
-                                    style={{
-                                      fontSize: 8,
-                                      color: ARIA.textDim,
-                                      lineHeight: 1.4,
-                                      wordBreak: "break-word",
-                                    }}
-                                  >
-                                    • {rk}: {rv}
-                                  </div>
-                                ))}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {p.agents.subtheme && (
-                        <div
-                          style={{
-                            marginTop: 8,
-                            padding: 6,
-                            background: "#0d0d12",
-                            borderRadius: 3,
-                            borderLeft: `2px solid ${sigColor(p.agents.subtheme.signal)}`,
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontSize: 8,
-                              fontWeight: 700,
-                              color: sigColor(p.agents.subtheme.signal),
-                              marginBottom: 3,
-                            }}
-                          >
-                            {sigIcon(p.agents.subtheme.signal)} SUBTHEME —{" "}
-                            {p.agents.subtheme.signal} ({p.agents.subtheme.confidence}%)
-                          </div>
-                          {p.agents.subtheme.reasoning &&
-                            Object.entries(p.agents.subtheme.reasoning).map(([rk, rv]) => {
-                              const isNarr = rk === "narrative" && typeof rv === "string" && rv.length > 20;
-                              if (isNarr) {
-                                const paras = rv.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
-                                return (
-                                  <div key={rk} style={{ marginTop: 4 }}>
-                                    <div
-                                      style={{
-                                        fontSize: 8,
-                                        color: ARIA.textMuted,
-                                        textTransform: "uppercase",
-                                        letterSpacing: 0.4,
-                                        marginBottom: 3,
-                                      }}
-                                    >
-                                      • narrative
-                                    </div>
-                                    {paras.map((para, i) => (
-                                      <p
-                                        key={i}
-                                        style={{
-                                          fontSize: 9,
-                                          color: ARIA.text,
-                                          lineHeight: 1.5,
-                                          margin: "0 0 6px 8px",
-                                          wordBreak: "break-word",
-                                        }}
-                                      >
-                                        {para}
-                                      </p>
-                                    ))}
-                                  </div>
-                                );
-                              }
-                              return (
-                                <div
-                                  key={rk}
-                                  style={{
-                                    fontSize: 8,
-                                    color: ARIA.textDim,
-                                    lineHeight: 1.4,
-                                    wordBreak: "break-word",
-                                  }}
-                                >
-                                  • {rk}: {rv}
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {!hasAgents &&
-                    !(p.catalyst && p.catalyst.length > 5) && (
-                      <div
-                        style={{
-                          fontSize: 9,
-                          color: ARIA.textMuted,
-                          fontStyle: "italic",
-                        }}
-                      >
-                        No catalyst research available for this pick.
-                      </div>
-                    )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 // (LWChart loader removed in Phase 2.7 — the legacy LWChart in
 //  src/LWChartLegacy.jsx has its own loadLW() helper that we delegate to.)
@@ -7550,6 +6746,8 @@ function ChartPanelInline({
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
   const [peers, setPeers] = useState([]);
+  const [optionsBias, setOptionsBias] = useState(null);
+  const [optionsBiasLoading, setOptionsBiasLoading] = useState(false);
   const [etfHoldings, setEtfHoldings] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
@@ -7603,6 +6801,22 @@ function ChartPanelInline({
       }
     });
     return () => { cancelled = true; };
+  }, [ticker]);
+
+  // Fetch options bias from Schwab (debounced 600ms to avoid rapid-fire on ticker clicks)
+  useEffect(() => {
+    if (!ticker) return;
+    let cancelled = false;
+    setOptionsBias(null);
+    setOptionsBiasLoading(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/options-bias?symbol=${encodeURIComponent(ticker)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled) setOptionsBias(d); })
+        .catch(() => { if (!cancelled) setOptionsBias(null); })
+        .finally(() => { if (!cancelled) setOptionsBiasLoading(false); });
+    }, 600);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [ticker]);
 
   // Fetch Google Sheet notes once (cached across mounts)
@@ -8080,8 +7294,8 @@ function ChartPanelInline({
                 </a>
               )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
             </div>
-            {/* Right: ETF holdings (if ETF) or peers (if equity) */}
-            <div style={{ width: 220, flexShrink: 0, padding: "4px 10px 2px", overflowY: "auto" }}>
+            {/* Right: Options Bias (equities) or ETF holdings */}
+            <div style={{ width: 260, flexShrink: 0, padding: "4px 8px 2px", overflowY: "auto" }}>
               {etfHoldings.length > 0 ? (
                 <>
                   <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Top Holdings</div>
@@ -8096,21 +7310,51 @@ function ChartPanelInline({
                     ))}
                   </div>
                 </>
-              ) : peers.length > 0 ? (
-                <>
-                  <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Peers</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                    {peers.map(p => (
-                      <button key={p} onClick={() => onTickerChange?.(p)}
-                        style={{ background: "#141420", border: "1px solid #222230", borderRadius: 3, padding: "1px 5px", cursor: "pointer" }}>
-                        <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#c8c8d8" }}>{p}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>
-              )}
+              ) : (() => {
+                if (optionsBiasLoading) return <div style={{ fontSize: 8, color: "#5a5a6a", marginTop: 2 }}>Loading options…</div>;
+                if (!optionsBias?.bias) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
+                const { bias, trade } = optionsBias;
+                const dirColor = bias.direction === "BULLISH" ? "#0d9163" : bias.direction === "BEARISH" ? "#e05252" : "#8888a0";
+                const isOptions = trade.vehicle === "OPTIONS";
+                return (
+                  <>
+                    {/* Bias header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                      <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Options Bias</div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: dirColor, fontFamily: "monospace" }}>
+                        {bias.direction} {bias.score}
+                      </div>
+                    </div>
+                    {/* Metrics row */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 4, fontSize: 8, fontFamily: "monospace", color: "#8888a0" }}>
+                      <span title="Implied Volatility Rank — below 50% means options are cheap">IV<span style={{ color: bias.ivRank <= 50 ? "#0d9163" : bias.ivRank >= 70 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.ivRank}%</span></span>
+                      <span title="Put/Call Open Interest Ratio — below 0.8 is bullish">P/C<span style={{ color: bias.pcOI < 0.8 ? "#0d9163" : bias.pcOI > 1.2 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.pcOI}</span></span>
+                    </div>
+                    {/* Trade recommendation */}
+                    <div style={{ background: "#141420", border: `1px solid ${isOptions ? "rgba(13,145,99,0.25)" : "rgba(136,136,160,0.2)"}`, borderRadius: 3, padding: "3px 6px" }}>
+                      <div style={{ fontSize: 7, color: isOptions ? "#0d9163" : "#8888a0", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+                        Play: {trade.vehicle}
+                      </div>
+                      {isOptions ? (
+                        <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.5, color: "#c8c8d8" }}>
+                          <div>{trade.contracts}x <span style={{ color: "#fff", fontWeight: 700 }}>${trade.strike}C</span> {trade.expiration} <span style={{ color: "#5a5a7a" }}>δ{trade.delta}</span></div>
+                          <div style={{ color: "#8888a0" }}>Cost ${trade.totalCost.toLocaleString()} · {trade.dte}d</div>
+                          <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: 2, paddingTop: 2, fontSize: 7.5, color: "#7a7a8a" }}>
+                            +50%: sell {trade.sellHalf}, sell+buy {trade.exerciseShares} shr @ ${trade.effectiveBasis}
+                          </div>
+                          <div style={{ fontSize: 7, color: "#5a5a6a" }}>Exit by {trade.hardExit}</div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.5, color: "#c8c8d8" }}>
+                          <div>{trade.shares} shares @ ${bias.underlyingPrice.toFixed(2)}</div>
+                          <div style={{ color: "#8888a0" }}>Cost ${trade.cost.toLocaleString()} · Stop ${trade.stopPrice}</div>
+                          <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 1 }}>{trade.reason}</div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         );
