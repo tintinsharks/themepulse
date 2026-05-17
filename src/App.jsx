@@ -5698,32 +5698,32 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
           alignItems: "center",
         }}
       >
-        {criteria.map((c) => {
-          const clr = gradeColor(c.grade, ARIA);
-          return (
-            <React.Fragment key={c.key}>
-              <span style={{ color: ARIA.textMuted, fontWeight: 700 }}>{c.key}</span>
-              <span style={{ color: ARIA.textDim }}>{c.label}</span>
-              <span style={{ color: ARIA.text, textAlign: "right" }}>
-                {c.raw == null || !Number.isFinite(c.raw) ? "—" : c.fmt(c.raw)}
-              </span>
-              <span
-                style={{
-                  padding: "0 4px",
-                  borderRadius: 2,
-                  fontSize: 8,
-                  fontWeight: 700,
-                  background: c.grade === "—" ? "transparent" : clr + "22",
-                  color: clr,
-                  border: c.grade === "—" ? `1px solid ${ARIA.border}` : `1px solid ${clr}55`,
-                  textAlign: "center",
-                }}
-              >
-                {c.grade}
-              </span>
-            </React.Fragment>
-          );
-        })}
+        {/* Composite + percentile ranks at top */}
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            fontSize: 7,
+            color: ARIA.textMuted,
+            marginBottom: 4,
+            paddingBottom: 3,
+            borderBottom: `1px solid ${ARIA.border}`,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "center",
+            gap: 6,
+            lineHeight: 1,
+          }}
+        >
+          <span>CANSLIM</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: compColor, letterSpacing: 0, lineHeight: 1 }}>
+            {composite}
+          </span>
+          <span style={{ color: ARIA.textMuted }}>composite</span>
+        </div>
+        <PctileRanks ticker={ticker} stockMap={stockMap} ARIA={ARIA} />
         {(instFunds != null || instNetFlow != null) && (
           <React.Fragment>
             <span style={{ color: ARIA.textMuted }}>·</span>
@@ -5734,9 +5734,9 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
                 display: "flex",
                 gap: 8,
                 alignItems: "baseline",
-                borderTop: `1px solid ${ARIA.border}`,
-                paddingTop: 3,
-                marginTop: 2,
+                borderBottom: `1px solid ${ARIA.border}`,
+                paddingBottom: 3,
+                marginBottom: 2,
               }}
               title="Institutional fund count (13F filings) and net flow % vs prior quarter"
             >
@@ -5771,6 +5771,33 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
             </span>
           </React.Fragment>
         )}
+        {/* Criteria rows */}
+        {criteria.map((c) => {
+          const clr = gradeColor(c.grade, ARIA);
+          return (
+            <React.Fragment key={c.key}>
+              <span style={{ color: ARIA.textMuted, fontWeight: 700 }}>{c.key}</span>
+              <span style={{ color: ARIA.textDim }}>{c.label}</span>
+              <span style={{ color: ARIA.text, textAlign: "right" }}>
+                {c.raw == null || !Number.isFinite(c.raw) ? "—" : c.fmt(c.raw)}
+              </span>
+              <span
+                style={{
+                  padding: "0 4px",
+                  borderRadius: 2,
+                  fontSize: 8,
+                  fontWeight: 700,
+                  background: c.grade === "—" ? "transparent" : clr + "22",
+                  color: clr,
+                  border: c.grade === "—" ? `1px solid ${ARIA.border}` : `1px solid ${clr}55`,
+                  textAlign: "center",
+                }}
+              >
+                {c.grade}
+              </span>
+            </React.Fragment>
+          );
+        })}
         {naCriteria.map((l) => (
           <React.Fragment key={l}>
             <span style={{ color: ARIA.textMuted }}>·</span>
@@ -5786,34 +5813,6 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
             </span>
           </React.Fragment>
         ))}
-        {/* Composite header at the bottom — caption-style read of the
-            scorecard's overall grade after the sparkline. */}
-        <div
-          style={{
-            gridColumn: "1 / -1",
-            fontSize: 7,
-            color: ARIA.textMuted,
-            marginTop: 4,
-            paddingTop: 3,
-            borderTop: `1px solid ${ARIA.border}`,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "center",
-            gap: 6,
-            lineHeight: 1,
-          }}
-        >
-          <span>CANSLIM</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: compColor, letterSpacing: 0, lineHeight: 1 }}>
-            {composite}
-          </span>
-          <span style={{ color: ARIA.textMuted }}>composite</span>
-        </div>
-        {/* EPS + Revenue percentile ranks vs universe */}
-        <PctileRanks ticker={ticker} stockMap={stockMap} ARIA={ARIA} />
       </div>
     </div>
   );
