@@ -7353,6 +7353,7 @@ function ChartPanelInline({
                 const iTransPct = stockInfo?.inst_trans_pct ?? null;
                 const iNetFlow = stockInfo?.inst_net_change_pct ?? null;
                 const iOwn = stockInfo?.inst_own_pct ?? null;
+                const iFunds = stockInfo?.inst_holder_count ?? null;
                 if (iTransPct != null || iNetFlow != null) {
                   let s = 5;
                   const flow = iNetFlow ?? 0;
