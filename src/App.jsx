@@ -7808,6 +7808,16 @@ function WatchlistSectionTable({
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
   const [pinStars, setPinStars] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(`themepulse-${list}-collapsed`) === "1"; } catch { return false; }
+  });
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed(v => {
+      const next = !v;
+      try { localStorage.setItem(`themepulse-${list}-collapsed`, next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, [list]);
   const wrapRef = React.useRef(null);
 
   const colorChg = (v) =>
@@ -7901,15 +7911,18 @@ function WatchlistSectionTable({
     <div style={{ padding: "6px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
         <span
+          onClick={toggleCollapsed}
           style={{
             color: accent,
             fontSize: 9,
             fontWeight: 700,
             textTransform: "uppercase",
             letterSpacing: 0.5,
+            cursor: "pointer",
+            userSelect: "none",
           }}
         >
-          {list === "portfolio" ? "Portfolio" : "Watchlist"}
+          {collapsed ? "▶" : "▼"} {list === "portfolio" ? "Portfolio" : "Watchlist"}
         </span>
         <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
         {focusTickers?.size > 0 && (
@@ -7964,7 +7977,7 @@ function WatchlistSectionTable({
           +
         </button>
       </div>
-      {sortedRows.length === 0 ? (
+      {collapsed ? null : sortedRows.length === 0 ? (
         <div style={{ color: ARIA.textMuted, fontSize: 8, padding: "2px 0" }}>Empty</div>
       ) : (
         <div
