@@ -7355,7 +7355,7 @@ function ChartPanelInline({
                 const iFunds = stockInfo?.inst_holder_count ?? null;
                 if (iTransPct != null || iNetFlow != null) {
                   const flowVal = iNetFlow ?? iTransPct ?? 0;
-                  iScore = Math.max(0, Math.min(10, 5 + flowVal * 2));
+                  iScore = Math.max(0, Math.min(10, 5 + flowVal * 0.8));
                   iScore = Math.round(iScore * 10) / 10;
                   iLabel = iScore >= 7 ? "ACCUM" : iScore <= 3 ? "DISTRIB" : "NEUTRAL";
                 }
