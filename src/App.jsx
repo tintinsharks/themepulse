@@ -7359,16 +7359,33 @@ function ChartPanelInline({
                   iScore = Math.round(iScore * 10) / 10;
                   iLabel = iScore >= 7 ? "ACCUM" : iScore <= 3 ? "DISTRIB" : "NEUTRAL";
                 }
-                // Options flow score from bias data
-                let oScore = null, oLabel = "—";
-                const bias = optionsBias?.bias;
-                if (bias) {
-                  const pcRatio = bias.pcOI ?? 1;
-                  const dirMult = bias.direction === "BULLISH" ? 1 : bias.direction === "BEARISH" ? -1 : 0;
-                  const ivFactor = bias.ivRank <= 30 ? 1.2 : bias.ivRank >= 70 ? 0.8 : 1;
-                  oScore = Math.max(0, Math.min(10, 5 + (1 - pcRatio) * 3 * ivFactor + dirMult * (bias.score || 0) * 0.3));
-                  oScore = Math.round(oScore * 10) / 10;
-                  oLabel = oScore >= 7 ? "BULLISH" : oScore <= 3 ? "BEARISH" : "NEUTRAL";
+                // Insider trades score from pipeline data
+                let insScore = null, insLabel = "—";
+                const insBuys = stockInfo?.insider_buy_count_90d ?? 0;
+                const insNet = stockInfo?.insider_net_usd_90d ?? null;
+                const insCluster = stockInfo?.insider_cluster_buy ?? false;
+                const insUnique = stockInfo?.insider_unique_buyers_90d ?? 0;
+                const insOwn = stockInfo?.insider_own_pct ?? null;
+                const insTrans = stockInfo?.insider_trans_pct ?? null;
+                if (insNet != null) {
+                  // Score: start at 5 (neutral), adjust by buy activity and net flow direction
+                  let s = 5;
+                  // Net flow direction (negative = selling, positive = buying)
+                  if (insNet > 1000000) s += 3;
+                  else if (insNet > 100000) s += 2;
+                  else if (insNet > 0) s += 1;
+                  else if (insNet > -1000000) s -= 0.5;
+                  else if (insNet > -50000000) s -= 1.5;
+                  else if (insNet > -200000000) s -= 2.5;
+                  else s -= 3.5;
+                  // Cluster buys are very bullish
+                  if (insCluster) s += 2;
+                  // Multiple unique buyers = stronger signal
+                  if (insUnique >= 3) s += 1.5;
+                  else if (insUnique >= 2) s += 1;
+                  else if (insUnique >= 1) s += 0.5;
+                  insScore = Math.max(0, Math.min(10, Math.round(s * 10) / 10));
+                  insLabel = insScore >= 7 ? "BUYING" : insScore <= 3 ? "SELLING" : "NEUTRAL";
                 }
                 // Render bar helper
                 const renderBar = (label, score, subLabel, detail, detailColor) => {
@@ -7400,8 +7417,8 @@ function ChartPanelInline({
                       cScore != null ? `${cBuys}B/${cSells}S · ${cTrades} trades${cRecent > 0 ? ` · ${cRecent} last 30d` : ""}` : null)}
                     {renderBar("Institutions", iScore, iLabel,
                       iScore != null ? `${iFunds ? iFunds.toLocaleString() + " funds" : ""}${iOwn != null ? ` · ${(iOwn < 1 ? iOwn * 100 : iOwn).toFixed(0)}% owned` : ""}${iTransPct != null ? ` · Δ${iTransPct >= 0 ? "+" : ""}${iTransPct.toFixed(1)}%` : ""}` : null)}
-                    {renderBar("Options", oScore, oLabel,
-                      oScore != null ? `P/C ${bias.pcOI} · IV ${bias.ivRank}%${bias.score ? ` · str ${bias.score}` : ""}` : null)}
+                    {renderBar("Insiders", insScore, insLabel,
+                      insScore != null ? `${insBuys > 0 ? insBuys + " buys" : "no buys"} 90d${insUnique > 0 ? ` · ${insUnique} buyers` : ""}${insCluster ? " · CLUSTER" : ""}${insNet != null ? ` · net $${(insNet / 1e6).toFixed(1)}M` : ""}` : null)}
                   </>
                 );
               })()}
