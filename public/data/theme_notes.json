@@ -1,8 +1,40 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary \u2014 manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-05-12",
+  "updated": "2026-05-15",
   "notes": [
+    {
+      "id": "photonics-deep-supply-chain-sancet-2026-05-15",
+      "date": "2026-05-15",
+      "type": "value_chain_framework",
+      "headline": "Photonics Deep Supply Chain (Sancet thesis) \u2014 SIVE/LPK/AAOI/IQE: chokepoint holders in the $14B\u2192$154B optical supercycle, multi-year asymmetric holds.",
+      "primary_tickers": [
+        "SIVE",
+        "LPK",
+        "AAOI",
+        "IQE"
+      ],
+      "derivative_tickers": [
+        "LITE",
+        "COHR",
+        "MRVL",
+        "AMD",
+        "POET",
+        "JBL",
+        "MTSI",
+        "FN",
+        "PENG"
+      ],
+      "themes_implicated": [
+        "Photonics",
+        "Co-Packaged Optics",
+        "Advanced Packaging",
+        "Glass Substrates",
+        "Optical Components"
+      ],
+      "source": "@Million_Sancet portfolio thesis, May 2026",
+      "body": "Four chokepoint positions in the photonics value chain:\n\n1. SIVE \u2014 CW laser supplier for CPO + 1.6T/3.2T pluggable transceivers. Qualified with JBL, Ayar, Lightmatter, Lightelligence, POET, MRVL Celestial, AMD. Vertical integration path: lasers \u2192 full ELS \u2192 entire pluggable transceiver \u2192 laser fabs/substrates (COHR model). Risk: TAM capture rate, Win Semi volume ramp dependency.\n\n2. LPK \u2014 Purest glass substrate equipment exposure (~80% global share). 'ASML of glass substrates.' $650M MC vs $100-200M revenue potential per customer ramp. INTC + Samsung adopting. Equipment cycle risk but asymmetric at current MC.\n\n3. AAOI \u2014 Made-in-America photonics supply chain (CW laser fab + 800G/1.6T assembly). Only domestic full-chain alternative to Innolight/Eoptolink/FN. Sovereign DC + onshoring demand. Targeting $400M+/mo revenue H2 2026. Near-term overhang: $600M dilution.\n\n4. IQE \u2014 Critical Western epiwafer supplier. MTSI paid off IQE debt because upstream failure would cascade billions downstream. Financially messy but strategically irreplaceable. Point72 position.\n\nKey insight: These are venture-style public equities \u2014 correct supply chain calls but financially early-stage. Won't pass momentum filters until revenue inflects. AAOI closest to tradability on swing timeframe. Photonics TAM $14B\u2192$154B in 2 years (Goldman), architecture of choice by NVDA. Not going away."
+    },
     {
       "id": "hbm4-memory-sleepers-2026-05-11",
       "date": "2026-05-11",
