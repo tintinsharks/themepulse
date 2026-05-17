@@ -6824,7 +6824,7 @@ function ChartPanelInline({
     if (!ticker) { setCongressTrades([]); return; }
     let cancelled = false;
     setCongressTrades([]);
-    fetch(`/api/congress-trades?symbol=${encodeURIComponent(ticker)}`)
+    fetch(`/api/live?congress=${encodeURIComponent(ticker)}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setCongressTrades(d?.trades || []); })
       .catch(() => {});

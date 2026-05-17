@@ -52,14 +52,7 @@
     },
     "api/earnings.js": {
       "maxDuration": 15
-    },
-    "api/growth-score.js": {
-      "maxDuration": 15
-    },
-    "api/congress-trades.js": {
-      "maxDuration": 10
-    }
-  },
+    }  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/((?!api/).*)", "destination": "/" }
