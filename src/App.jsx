@@ -5814,10 +5814,6 @@ function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, AR
         </div>
         {/* EPS + Revenue percentile ranks vs universe */}
         <PctileRanks ticker={ticker} stockMap={stockMap} ARIA={ARIA} />
-        {/* FMP Growth Score — real-time financial growth grading */}
-        <div style={{ gridColumn: "1 / -1" }}>
-          <GrowthScore ticker={ticker} ARIA={ARIA} />
-        </div>
       </div>
     </div>
   );
@@ -5860,58 +5856,6 @@ function PctileRanks({ ticker, stockMap, ARIA }) {
     <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", gap: 4, marginTop: 3 }}>
       {badge("EPS", epsPct)}
       {badge("Rev", revPct)}
-    </div>
-  );
-}
-
-// FMP Growth Score — fetches real-time financial-growth data and renders
-// a compact grade grid below the CANSLIM scorecard.
-function GrowthScore({ ticker, ARIA }) {
-  const [data, setData] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  React.useEffect(() => {
-    if (!ticker) { setData(null); return; }
-    let cancelled = false;
-    setLoading(true);
-    fetch(`/api/growth-score?ticker=${encodeURIComponent(ticker)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch(() => { if (!cancelled) { setData(null); setLoading(false); } });
-    return () => { cancelled = true; };
-  }, [ticker]);
-
-  if (!data && !loading) return null;
-  if (loading) return (
-    <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", padding: "4px 0", textAlign: "center" }}>
-      loading growth…
-    </div>
-  );
-
-  const compColor = gradeColor(data.composite, ARIA);
-  return (
-    <div style={{ fontFamily: "monospace", marginTop: 6 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "28px 1fr auto 22px", columnGap: 4, rowGap: 1, fontSize: 8, alignItems: "center" }}>
-        {data.scores.map(s => {
-          const clr = gradeColor(s.grade, ARIA);
-          return (
-            <React.Fragment key={s.key}>
-              <span style={{ color: ARIA.textMuted, fontWeight: 700, fontSize: 7 }}>{s.key}</span>
-              <span style={{ color: ARIA.textDim }}>{s.label}</span>
-              <span style={{ color: ARIA.text, textAlign: "right" }}>
-                {s.value == null || !Number.isFinite(s.value) ? "—" : (s.value >= 0 ? "+" : "") + s.value.toFixed(1) + "%"}
-              </span>
-              <span style={{ padding: "0 3px", borderRadius: 2, fontSize: 7, fontWeight: 700, background: s.grade === "—" ? "transparent" : clr + "22", color: clr, border: s.grade === "—" ? `1px solid ${ARIA.border}` : `1px solid ${clr}55`, textAlign: "center" }}>
-                {s.grade}
-              </span>
-            </React.Fragment>
-          );
-        })}
-      </div>
-      <div style={{ fontSize: 7, color: ARIA.textMuted, marginTop: 3, paddingTop: 3, borderTop: `1px solid ${ARIA.border}`, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6 }}>
-        <span>GROWTH</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: compColor, letterSpacing: 0 }}>{data.composite}</span>
-        <span style={{ color: ARIA.textMuted }}>score</span>
-      </div>
     </div>
   );
 }
