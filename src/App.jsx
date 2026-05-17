@@ -7920,7 +7920,7 @@ function WatchlistSectionTable({
     { k: "liveVol", label: "Vol" },
     { k: "cr", label: "CR%" },
     { k: "adr", label: "ADR" },
-    { k: "rs", label: "RS" },
+    { k: "rs", label: "EIF" },
     { k: "chain", label: "Chain", align: "left" },
     { k: "subtheme", label: "Sub", align: "left" },
     { k: null, label: "" },
@@ -8343,7 +8343,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         qmagScore: s.qmag_score || 0,
         strScore: tickerStrengthMap?.[ticker] ?? null,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rs: s.rs_rank || 0,
+        rs: s.framework_score ?? s.rs_rank ?? 0,
         accel: s.accel || 0,
         grade: s.grade || "",
         theme: (s.themes && s.themes[0] && s.themes[0].theme) || s.sector || "",
@@ -9694,6 +9694,15 @@ function AppMain() {
     };
   }, [handleTickerClick]);
 
+  // Framework scores (Execution & Integrity Framework) — loaded from static JSON.
+  const [frameworkScoresRaw, setFrameworkScoresRaw] = useState({});
+  useEffect(() => {
+    fetch("/data/framework_scores.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.scores) setFrameworkScoresRaw(d.scores); })
+      .catch(() => {});
+  }, []);
+
   // stockMap depends on data.pipeline.stocks. Compute it BEFORE the early
   // returns so the hook count is stable across loading→loaded transitions.
   const stocks = data.pipeline?.stocks || [];
@@ -9702,8 +9711,11 @@ function AppMain() {
     stocks.forEach((s) => {
       if (s.ticker) m[s.ticker] = s;
     });
+    Object.entries(frameworkScoresRaw).forEach(([ticker, score]) => {
+      if (m[ticker]) m[ticker].framework_score = score;
+    });
     return m;
-  }, [stocks]);
+  }, [stocks, frameworkScoresRaw]);
 
   // Subtheme setup score per ticker — used in Scan Watch "Str" column.
   // Formula mirrors computeDailySetupScore in SubthemeRotation.jsx.
