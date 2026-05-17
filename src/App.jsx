@@ -7413,12 +7413,12 @@ function ChartPanelInline({
                 };
                 return (
                   <>
-                    {renderBar("Congress", cScore, cLabel,
-                      cScore != null ? `${cBuys}B/${cSells}S · ${cTrades} trades${cRecent > 0 ? ` · ${cRecent} last 30d` : ""}` : null)}
                     {renderBar("Institutions", iScore, iLabel,
                       iScore != null ? `${iFunds ? iFunds.toLocaleString() + " funds" : ""}${iOwn != null ? ` · ${(iOwn < 1 ? iOwn * 100 : iOwn).toFixed(0)}% owned` : ""}${iTransPct != null ? ` · Δ${iTransPct >= 0 ? "+" : ""}${iTransPct.toFixed(1)}%` : ""}` : null)}
                     {renderBar("Insiders", insScore, insLabel,
                       insScore != null ? `${insBuys > 0 ? insBuys + " buys" : "no buys"} 90d${insUnique > 0 ? ` · ${insUnique} buyers` : ""}${insCluster ? " · CLUSTER" : ""}${insNet != null ? ` · net $${(insNet / 1e6).toFixed(1)}M` : ""}` : null)}
+                    {renderBar("Congress", cScore, cLabel,
+                      cScore != null ? `${cBuys}B/${cSells}S · ${cTrades} trades${cRecent > 0 ? ` · ${cRecent} last 30d` : ""}` : null)}
                   </>
                 );
               })()}
