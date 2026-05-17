@@ -7473,6 +7473,7 @@ function ChartPanelInline({
                           <div>{optionsTrade.contracts}x <span style={{ color: preferOptions ? "#fff" : "#b0b0c0", fontWeight: 700 }}>${optionsTrade.strike}C</span> {optionsTrade.expiration} <span style={{ color: "#5a5a7a" }}>δ{optionsTrade.delta} · {optionsTrade.dte}d</span></div>
                           <div style={{ display: "flex", gap: 8, fontSize: 7.5, color: "#7a7a8a", marginTop: 2 }}>
                             <span style={{ color: "#0d9163" }}>${optionsTrade.targetPrice || Math.round((optionsBias.bias.underlyingPrice || 0) * 1.05)} → +${(optionsTrade.profitAt50 || Math.round(optionsTrade.totalCost * 0.5)).toLocaleString()}</span>
+                            <span style={{ color: "#22d3ee" }}>BE ${(optionsTrade.breakeven || optionsTrade.effectiveBasis).toFixed(0)} (exp)</span>
                             <span style={{ color: "#e05252" }}>Max loss ${(optionsTrade.maxLoss || optionsTrade.totalCost).toLocaleString()}</span>
                           </div>
                           {hasWarnings && <div style={{ fontSize: 7, color: "#e0a050", marginTop: 1 }}>{optionsTrade.warnings.join(" · ")}</div>}
