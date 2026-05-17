@@ -1507,7 +1507,7 @@ function ThemeIntelPanel({ onTickerClick }) {
       </div>
 
       {open && (
-        <div style={{ maxHeight: 600, overflowY: "auto" }}>
+        <div style={{ maxHeight: 1200, overflowY: "auto" }}>
           {loading && <div style={{ padding: "12px", fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>Loading…</div>}
           {!loading && !data?.analysis && (
             <div style={{ padding: "12px", fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
