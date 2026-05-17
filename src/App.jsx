@@ -2317,28 +2317,10 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
     return () => { _drawerThemeControl.openChain = null; };
   }, []);
 
-  // Auto-expand or collapse based on whether the ticker is in a value chain.
-  // Suppressed when the click originated from within this drawer, or when
-  // another component (e.g. SupercycleMap) explicitly opted out.
+  // Clear suppress flag on ticker change (no longer auto-expands).
   useEffect(() => {
-    if (!chartTicker) return;
-    if (_suppressChainScroll.skip) {
-      _suppressChainScroll.skip = false;
-      return;
-    }
-    if (selfClickedTicker.current === chartTicker) {
-      selfClickedTicker.current = null;
-      return;
-    }
-    const match = DRAWER_SUBTHEMES.find(s => s.tickers.includes(chartTicker));
-    if (match) {
-      setExpanded(true);
-      setOpenTheme(match.themeId);
-      pendingScrollTicker.current = chartTicker;
-    } else {
-      setOpenTheme(null);
-      pendingScrollTicker.current = null;
-    }
+    if (_suppressChainScroll.skip) _suppressChainScroll.skip = false;
+    if (selfClickedTicker.current === chartTicker) selfClickedTicker.current = null;
   }, [chartTicker]);
 
   // After the theme layers render, scroll to the layer containing the ticker
