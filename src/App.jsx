@@ -7313,35 +7313,62 @@ function ChartPanelInline({
                   if (days <= 180) return 0.4;
                   return 0.2;
                 };
-                // Congress score: weighted buy/sell ratio → 0-10
+                // Congress score: weighted ratio + trade-count conviction + disclosure-lag-adjusted recency
                 let cScore = null, cBuys = 0, cSells = 0, cLabel = "—", cTrades = 0, cRecent = 0;
                 if (congressTrades.length > 0) {
+                  // Recency adjusted for ~45-day disclosure lag: "recent" means disclosed trade date ≤75 days
+                  const cRecency = (dateStr) => {
+                    if (!dateStr) return 0.2;
+                    const days = (now - new Date(dateStr).getTime()) / 86400000;
+                    if (days <= 75) return 1.0;   // effectively ≤30 days old when disclosed
+                    if (days <= 135) return 0.7;  // ~90 days old
+                    if (days <= 225) return 0.4;  // ~180 days old
+                    return 0.15;
+                  };
                   let buyW = 0, sellW = 0;
                   congressTrades.forEach(t => {
-                    const w = amtWeight(t.amount) * recencyWeight(t.transactionDate);
+                    const w = amtWeight(t.amount) * cRecency(t.transactionDate);
                     if ((t.type || "").toLowerCase().includes("purchase")) { buyW += w; cBuys++; }
                     else { sellW += w; cSells++; }
                     const days = (now - new Date(t.transactionDate).getTime()) / 86400000;
-                    if (days <= 30) cRecent++;
+                    if (days <= 75) cRecent++;
                   });
                   cTrades = congressTrades.length;
                   const total = buyW + sellW;
-                  cScore = total > 0 ? Math.round((buyW / total) * 100) / 10 : 5;
+                  // Base ratio score (0-10)
+                  let baseScore = total > 0 ? (buyW / total) * 10 : 5;
+                  // Conviction multiplier: more trades = higher confidence in the signal direction
+                  // 1-2 trades: dampen toward 5 (low confidence), 5+: full signal, 10+: slight amplify
+                  let conviction;
+                  if (cTrades <= 2) conviction = 0.4;
+                  else if (cTrades <= 4) conviction = 0.7;
+                  else if (cTrades <= 9) conviction = 1.0;
+                  else conviction = 1.15;
+                  // Apply conviction: blend base score toward neutral (5) based on conviction
+                  cScore = Math.round(Math.max(0, Math.min(10, 5 + (baseScore - 5) * conviction)) * 10) / 10;
                   cLabel = cScore >= 7 ? "BUYING" : cScore <= 3 ? "SELLING" : "MIXED";
                 }
-                // Institutional score from pipeline data
+                // Institutional score: net flow direction + trans% confirmation + crowding penalty
                 let iScore = null, iLabel = "—";
                 const iTransPct = stockInfo?.inst_trans_pct ?? null;
                 const iNetFlow = stockInfo?.inst_net_change_pct ?? null;
                 const iOwn = stockInfo?.inst_own_pct ?? null;
-                const iFunds = stockInfo?.inst_holder_count ?? null;
                 if (iTransPct != null || iNetFlow != null) {
-                  const flowVal = iNetFlow ?? iTransPct ?? 0;
-                  iScore = Math.max(0, Math.min(10, 5 + flowVal * 0.8));
-                  iScore = Math.round(iScore * 10) / 10;
+                  let s = 5;
+                  const flow = iNetFlow ?? 0;
+                  // Primary: net flow direction (capped contribution ±3)
+                  s += Math.max(-3, Math.min(3, flow * 0.6));
+                  // Confirmation: trans% moving same direction as flow amplifies signal
+                  if (iTransPct != null && flow !== 0) {
+                    const sameDir = (flow > 0 && iTransPct > 0) || (flow < 0 && iTransPct < 0);
+                    s += sameDir ? Math.min(1.5, Math.abs(iTransPct) * 0.3) : -Math.min(0.5, Math.abs(iTransPct) * 0.1);
+                  }
+                  // Crowding penalty: >85% inst ownership = crowded, mild headwind
+                  if (iOwn != null && iOwn > 85) s -= Math.min(1, (iOwn - 85) * 0.07);
+                  iScore = Math.round(Math.max(0, Math.min(10, s)) * 10) / 10;
                   iLabel = iScore >= 7 ? "ACCUM" : iScore <= 3 ? "DISTRIB" : "NEUTRAL";
                 }
-                // Insider trades score from pipeline data
+                // Insider score: mcap-normalized net flow + cluster + unique buyers + trans% confirmation
                 let insScore = null, insLabel = "—";
                 const insBuys = stockInfo?.insider_buy_count_90d ?? 0;
                 const insNet = stockInfo?.insider_net_usd_90d ?? null;
@@ -7349,24 +7376,32 @@ function ChartPanelInline({
                 const insUnique = stockInfo?.insider_unique_buyers_90d ?? 0;
                 const insOwn = stockInfo?.insider_own_pct ?? null;
                 const insTrans = stockInfo?.insider_trans_pct ?? null;
+                const mcap = stockInfo?.market_cap_raw ?? null;
                 if (insNet != null) {
-                  // Score: start at 5 (neutral), adjust by buy activity and net flow direction
                   let s = 5;
-                  // Net flow direction (negative = selling, positive = buying)
-                  if (insNet > 1000000) s += 3;
-                  else if (insNet > 100000) s += 2;
-                  else if (insNet > 0) s += 1;
-                  else if (insNet > -1000000) s -= 0.5;
-                  else if (insNet > -50000000) s -= 1.5;
-                  else if (insNet > -200000000) s -= 2.5;
-                  else s -= 3.5;
-                  // Cluster buys are very bullish
-                  if (insCluster) s += 2;
-                  // Multiple unique buyers = stronger signal
+                  // Primary: net flow normalized by market cap (insider buying 0.1% of mcap is meaningful)
+                  if (mcap && mcap > 0) {
+                    const pctOfMcap = (insNet / mcap) * 100; // e.g. 0.05% = modest, 0.5% = huge
+                    s += Math.max(-3.5, Math.min(3.5, pctOfMcap * 20));
+                  } else {
+                    // Fallback: absolute thresholds if no mcap
+                    if (insNet > 1000000) s += 3;
+                    else if (insNet > 100000) s += 2;
+                    else if (insNet > 0) s += 1;
+                    else if (insNet > -1000000) s -= 0.5;
+                    else if (insNet > -50000000) s -= 1.5;
+                    else s -= 3;
+                  }
+                  // Cluster buys: multiple insiders buying within tight window
+                  if (insCluster) s += 1.5;
+                  // Unique buyers: breadth of conviction
                   if (insUnique >= 3) s += 1.5;
-                  else if (insUnique >= 2) s += 1;
-                  else if (insUnique >= 1) s += 0.5;
-                  insScore = Math.max(0, Math.min(10, Math.round(s * 10) / 10));
+                  else if (insUnique >= 2) s += 0.8;
+                  else if (insUnique >= 1) s += 0.3;
+                  // Trans% confirmation: rising insider ownership % amplifies
+                  if (insTrans != null && insTrans > 0) s += Math.min(1, insTrans * 0.3);
+                  else if (insTrans != null && insTrans < -5) s -= 0.5;
+                  insScore = Math.round(Math.max(0, Math.min(10, s)) * 10) / 10;
                   insLabel = insScore >= 7 ? "BUYING" : insScore <= 3 ? "SELLING" : "NEUTRAL";
                 }
                 // Render bar helper
