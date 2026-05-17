@@ -7306,37 +7306,105 @@ function ChartPanelInline({
                 </a>
               )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
             </div>
-            {/* Middle: Congressional Trades */}
-            <div style={{ width: 220, flexShrink: 0, padding: "4px 6px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
-              {congressTrades.length > 0 ? (
-                <>
-                  <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Congress Trades</div>
-                  {congressTrades.slice(0, 6).map((t, i) => {
-                    const isBuy = (t.type || "").toLowerCase().includes("purchase");
-                    const amt = (t.amount || "").replace(/\$/g, "").replace(/,/g, "");
-                    return (
-                      <div key={i} style={{ fontSize: 7.5, fontFamily: "monospace", lineHeight: 1.5, display: "flex", gap: 4, alignItems: "baseline", borderBottom: "1px solid rgba(255,255,255,0.03)", padding: "1px 0" }}>
-                        <span style={{ color: isBuy ? "#0d9163" : "#e05252", fontWeight: 700, width: 8, flexShrink: 0 }}>{isBuy ? "B" : "S"}</span>
-                        <span style={{ color: "#7a7a8a", width: 10, flexShrink: 0 }}>{t.chamber}</span>
-                        <span style={{ color: "#b0b0c0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.lastName}</span>
-                        <span style={{ color: "#5a5a6a", flexShrink: 0 }}>{(t.transactionDate || "").slice(5)}</span>
+            {/* Middle: Smart Money Signals */}
+            <div style={{ width: 220, flexShrink: 0, padding: "4px 6px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)", fontFamily: "monospace" }}>
+              {(() => {
+                // Dollar-amount midpoints for weighting congress trades
+                const amtWeight = (a) => {
+                  if (!a) return 1;
+                  if (a.includes("50,000,000")) return 50;
+                  if (a.includes("5,000,001") || a.includes("25,000,001")) return 20;
+                  if (a.includes("1,000,001") || a.includes("5,000,000")) return 10;
+                  if (a.includes("500,001") || a.includes("1,000,000")) return 5;
+                  if (a.includes("250,001") || a.includes("500,000")) return 3;
+                  if (a.includes("100,001") || a.includes("250,000")) return 2;
+                  if (a.includes("50,001") || a.includes("100,000")) return 1.5;
+                  if (a.includes("15,001") || a.includes("50,000")) return 1;
+                  return 0.5;
+                };
+                const now = Date.now();
+                const recencyWeight = (dateStr) => {
+                  if (!dateStr) return 0.3;
+                  const days = (now - new Date(dateStr).getTime()) / 86400000;
+                  if (days <= 30) return 1.0;
+                  if (days <= 90) return 0.7;
+                  if (days <= 180) return 0.4;
+                  return 0.2;
+                };
+                // Congress score: weighted buy/sell ratio → 0-10
+                let cScore = null, cBuys = 0, cSells = 0, cLabel = "—", cTrades = 0, cRecent = 0;
+                if (congressTrades.length > 0) {
+                  let buyW = 0, sellW = 0;
+                  congressTrades.forEach(t => {
+                    const w = amtWeight(t.amount) * recencyWeight(t.transactionDate);
+                    if ((t.type || "").toLowerCase().includes("purchase")) { buyW += w; cBuys++; }
+                    else { sellW += w; cSells++; }
+                    const days = (now - new Date(t.transactionDate).getTime()) / 86400000;
+                    if (days <= 30) cRecent++;
+                  });
+                  cTrades = congressTrades.length;
+                  const total = buyW + sellW;
+                  cScore = total > 0 ? Math.round((buyW / total) * 100) / 10 : 5;
+                  cLabel = cScore >= 7 ? "BUYING" : cScore <= 3 ? "SELLING" : "MIXED";
+                }
+                // Institutional score from pipeline data
+                let iScore = null, iLabel = "—";
+                const iTransPct = stockInfo?.inst_trans_pct ?? null;
+                const iNetFlow = stockInfo?.inst_net_change_pct ?? null;
+                const iOwn = stockInfo?.inst_own_pct ?? null;
+                const iFunds = stockInfo?.inst_holder_count ?? null;
+                if (iTransPct != null || iNetFlow != null) {
+                  const flowVal = iNetFlow ?? iTransPct ?? 0;
+                  iScore = Math.max(0, Math.min(10, 5 + flowVal * 2));
+                  iScore = Math.round(iScore * 10) / 10;
+                  iLabel = iScore >= 7 ? "ACCUM" : iScore <= 3 ? "DISTRIB" : "NEUTRAL";
+                }
+                // Options flow score from bias data
+                let oScore = null, oLabel = "—";
+                const bias = optionsBias?.bias;
+                if (bias) {
+                  const pcRatio = bias.pcOI ?? 1;
+                  const dirMult = bias.direction === "BULLISH" ? 1 : bias.direction === "BEARISH" ? -1 : 0;
+                  const ivFactor = bias.ivRank <= 30 ? 1.2 : bias.ivRank >= 70 ? 0.8 : 1;
+                  oScore = Math.max(0, Math.min(10, 5 + (1 - pcRatio) * 3 * ivFactor + dirMult * (bias.score || 0) * 0.3));
+                  oScore = Math.round(oScore * 10) / 10;
+                  oLabel = oScore >= 7 ? "BULLISH" : oScore <= 3 ? "BEARISH" : "NEUTRAL";
+                }
+                // Render bar helper
+                const renderBar = (label, score, subLabel, detail, detailColor) => {
+                  if (score == null) return (
+                    <div style={{ marginBottom: 4 }}>
+                      <div style={{ fontSize: 7, color: "#3a3a4a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+                      <div style={{ fontSize: 7, color: "#2a2a3a", fontStyle: "italic" }}>no data</div>
+                    </div>
+                  );
+                  const pct = score * 10;
+                  const barColor = score >= 7 ? "#0d9163" : score <= 3 ? "#e05252" : "#e0a050";
+                  const bgColor = score >= 7 ? "#0d916318" : score <= 3 ? "#e0525218" : "#e0a05018";
+                  return (
+                    <div style={{ marginBottom: 5 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 2 }}>
+                        <span style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+                        <span style={{ fontSize: 8, fontWeight: 700, color: barColor }}>{subLabel} {score.toFixed(1)}</span>
                       </div>
-                    );
-                  })}
-                  {(() => {
-                    const buys = congressTrades.filter(t => (t.type || "").toLowerCase().includes("purchase")).length;
-                    const sells = congressTrades.length - buys;
-                    return (
-                      <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 2, fontFamily: "monospace" }}>
-                        <span style={{ color: "#0d9163" }}>{buys}B</span> / <span style={{ color: "#e05252" }}>{sells}S</span>
-                        <span style={{ marginLeft: 4 }}>({congressTrades.length} total)</span>
+                      <div style={{ height: 6, background: "#1a1a24", borderRadius: 3, overflow: "hidden", position: "relative" }}>
+                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}44, ${barColor})`, borderRadius: 3, transition: "width 0.3s" }} />
                       </div>
-                    );
-                  })()}
-                </>
-              ) : (
-                <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>No congressional trades</div>
-              )}
+                      {detail && <div style={{ fontSize: 6.5, color: detailColor || "#4a4a5a", marginTop: 1 }}>{detail}</div>}
+                    </div>
+                  );
+                };
+                return (
+                  <>
+                    {renderBar("Congress", cScore, cLabel,
+                      cScore != null ? `${cBuys}B/${cSells}S · ${cTrades} trades${cRecent > 0 ? ` · ${cRecent} last 30d` : ""}` : null)}
+                    {renderBar("Institutions", iScore, iLabel,
+                      iScore != null ? `${iFunds ? iFunds.toLocaleString() + " funds" : ""}${iOwn != null ? ` · ${(iOwn < 1 ? iOwn * 100 : iOwn).toFixed(0)}% owned` : ""}${iTransPct != null ? ` · Δ${iTransPct >= 0 ? "+" : ""}${iTransPct.toFixed(1)}%` : ""}` : null)}
+                    {renderBar("Options", oScore, oLabel,
+                      oScore != null ? `P/C ${bias.pcOI} · IV ${bias.ivRank}%${bias.score ? ` · str ${bias.score}` : ""}` : null)}
+                  </>
+                );
+              })()}
             </div>
             {/* Right: Options Bias (equities) or ETF holdings */}
             <div style={{ width: 260, flexShrink: 0, padding: "4px 8px 2px", overflowY: "auto" }}>
