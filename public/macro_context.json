@@ -1,15 +1,15 @@
 {
-  "date": "2026-05-16",
-  "generated": "2026-05-16 05:58",
-  "vix": null,
+  "date": "2026-05-17",
+  "generated": "2026-05-17 22:20",
+  "vix": 18.43,
   "vixChg": null,
-  "tenYearYield": null,
-  "yieldBps": null,
-  "dxy": null,
-  "dxyChg": null,
+  "tenYearYield": 4.595,
+  "yieldBps": 14,
+  "dxy": 99.276,
+  "dxyChg": -0.008,
   "putCallRatio": null,
   "regime": "CAUTION",
-  "regimeReason": "Caution warranted: ",
+  "regimeReason": "Caution warranted: moderate vol, yields spiking",
   "t2108": null,
   "ratio5d": null
 }

@@ -1,6 +1,6 @@
 {
   "date": "2026-05-15",
-  "generated": "2026-05-16 06:04",
+  "generated": "2026-05-17 22:28",
   "total_stocks": 3439,
   "current": {
     "date": "2026-05-15",
@@ -458,16 +458,16 @@
         "breadth": 55.0
       }
     ],
-    "COMMODITIES": [
-      {
-        "date": "2026-05-15",
-        "breadth": 42.0
-      }
-    ],
     "TRANSPORT & LOGISTICS": [
       {
         "date": "2026-05-15",
         "breadth": 64.0
+      }
+    ],
+    "COMMODITIES": [
+      {
+        "date": "2026-05-15",
+        "breadth": 42.0
       }
     ],
     "QUANTUM": [
@@ -524,16 +524,16 @@
         "breadth": 71.0
       }
     ],
+    "HEALTHCARE": [
+      {
+        "date": "2026-05-15",
+        "breadth": 45.0
+      }
+    ],
     "INDUSTRIAL": [
       {
         "date": "2026-05-15",
         "breadth": 46.0
-      }
-    ],
-    "HEALTHCARE": [
-      {
-        "date": "2026-05-15",
-        "breadth": 44.0
       }
     ],
     "FINTECH": [
