@@ -906,7 +906,7 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
 // ──────────────────────────────────────────────────────────────────────────
 
 const SORT_BUTTONS = [
-  { key: "rs", label: "RS" },
+  { key: "rs", label: "EIF" },
   { key: "change", label: "Chg%" },
   { key: "rvol", label: "RVol" },
   { key: "accel", label: "Acc" },
@@ -2336,7 +2336,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   }, [openTheme]);
 
   const avgRS = (tickers) => {
-    const vals = tickers.map(tk => stockMap?.[tk]?.rs_rank ?? null).filter(v => v != null);
+    const vals = tickers.map(tk => stockMap?.[tk]?.framework_score ?? stockMap?.[tk]?.rs_rank ?? null).filter(v => v != null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   };
 
@@ -2608,14 +2608,14 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
 
                         {/* Ticker pills — match SupercycleMap styling */}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, paddingLeft: 4 }}>
-                          {[...layer.tickers].sort((a, b) => (stockMap?.[b]?.rs_rank ?? 0) - (stockMap?.[a]?.rs_rank ?? 0)).map((tk) => {
+                          {[...layer.tickers].sort((a, b) => (stockMap?.[b]?.framework_score ?? stockMap?.[b]?.rs_rank ?? 0) - (stockMap?.[a]?.framework_score ?? stockMap?.[a]?.rs_rank ?? 0)).map((tk) => {
                             const sel = chartTicker === tk;
-                            const tkRs = stockMap?.[tk]?.rs_rank;
+                            const tkRs = stockMap?.[tk]?.framework_score ?? stockMap?.[tk]?.rs_rank;
                             return (
                               <button
                                 key={tk}
                                 onClick={() => { selfClickedTicker.current = tk; onTickerClick(tk); }}
-                                title={`${tk}${tkRs != null ? ` · RS ${Math.round(tkRs)}` : ""}`}
+                                title={`${tk}${tkRs != null ? ` · EIF ${Math.round(tkRs)}` : ""}`}
                                 className="tp-sc-pill"
                                 style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
@@ -2861,7 +2861,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         magna: 0,
         qmagScore: s.qmag_score || 0,
         adr: s.adr_pct || 0,
-        rs: s.rs_rank || 0,
+        rs: s.framework_score ?? s.rs_rank ?? 0,
         grade: s.grade || "",
         industry: s.industry || "",
         subtheme:
@@ -3876,7 +3876,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="layer" label="Layer" align="left" />
             <Th k="chg" label="Chg%" />
             <Th k="rvol" label="RV" />
-            <Th k="rs" label="RS" />
+            <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
             <Th k="roc2" label="ROC²" />
             <Th k="mcap" label="Mcap" />
@@ -4617,7 +4617,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
           <Th k="liveVol" label="Vol" />
           <Th k="cr" label="CR%" />
           <Th k="adr" label="ADR" />
-          <Th k="rs" label="RS" />
+          <Th k="rs" label="EIF" />
           <Th k="chain" label="Chain" align="left" />
           <Th k="subtheme" label="Sub" align="left" />
         </tr>
@@ -5207,8 +5207,8 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
         const liveVol = q?.volume ?? null;
         const avgVol = s.avg_volume_raw || q?.avgVolume || 0;
         const rvol = liveVol && avgVol > 0 ? liveVol / avgVol : null;
-        d.tickers.push({ ticker: s.ticker, rs: s.rs_rank || 0 });
-        d.rs_sum += s.rs_rank || 0;
+        d.tickers.push({ ticker: s.ticker, rs: s.framework_score ?? s.rs_rank ?? 0 });
+        d.rs_sum += s.framework_score ?? s.rs_rank ?? 0;
         d.chg_sum += q?.change ?? s.change_pct ?? 0;
         if (rvol !== null && (d.rvol_max === null || rvol > d.rvol_max)) d.rvol_max = rvol;
         d.m1_sum += s.return_1m || 0;
@@ -5247,7 +5247,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
 
   // Column definitions — keep narrow so subtheme name has room
   const COLS = [
-    { key: "avg_rs",      label: "RS",    w: 26, align: "right" },
+    { key: "avg_rs",      label: "EIF",   w: 26, align: "right" },
     { key: "avg_chg",     label: "DAY",   w: 40, align: "right", live: true },
     { key: "avg_rvol",    label: "MaxRV", w: 38, align: "right", live: true },
     { key: "avg_1m",      label: "1M",   w: 40, align: "right" },
@@ -5426,7 +5426,7 @@ function SubthemePerformance({ stockMap, themeHealth, onTickerClick }) {
                     const avgVol = s.avg_volume_raw || q?.avgVolume || 0;
                     const rvol = liveVol && avgVol > 0 ? liveVol / avgVol : null;
                     const stockVals = {
-                      avg_rs:   s.rs_rank ?? 0,
+                      avg_rs:   s.framework_score ?? s.rs_rank ?? 0,
                       avg_chg:  q?.change ?? s.change_pct ?? 0,
                       avg_rvol: rvol,
                       avg_1m:   s.return_1m ?? 0,
@@ -7800,7 +7800,7 @@ function ChartPanelInline({
 const RANK_METRICS = [
   { key: "change", label: "Chg%" },
   { key: "rvol", label: "RVol" },
-  { key: "rs", label: "RS" },
+  { key: "rs", label: "EIF" },
   { key: "cr", label: "CR%" },
   { key: "chgOpen", label: "Open%" },
 ];
