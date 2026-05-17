@@ -7062,7 +7062,7 @@ function ChartPanelInline({
       {/* Header: Logo + Meta + Buttons */}
       <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${ARIA.border}` }}>
         {/* Logo */}
-        <div style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+        <div key={ticker} style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
           <img src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt={ticker} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} onError={e => { e.target.style.display = "none"; e.target.parentElement.style.background = "#2a2a40"; e.target.parentElement.style.color = "#c0c0d8"; e.target.parentElement.style.fontSize = "11px"; e.target.parentElement.style.fontWeight = "800"; e.target.parentElement.textContent = ticker; }} />
         </div>
         {/* Meta block */}
