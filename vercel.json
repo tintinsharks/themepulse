@@ -55,6 +55,9 @@
     },
     "api/growth-score.js": {
       "maxDuration": 15
+    },
+    "api/congress-trades.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [

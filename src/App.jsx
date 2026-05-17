@@ -6748,6 +6748,7 @@ function ChartPanelInline({
   const [optionsBias, setOptionsBias] = useState(null);
   const [optionsBiasLoading, setOptionsBiasLoading] = useState(false);
   const [etfHoldings, setEtfHoldings] = useState([]);
+  const [congressTrades, setCongressTrades] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
@@ -6816,6 +6817,18 @@ function ChartPanelInline({
         .finally(() => { if (!cancelled) setOptionsBiasLoading(false); });
     }, 600);
     return () => { cancelled = true; clearTimeout(timer); };
+  }, [ticker]);
+
+  // Fetch congressional trades (senate + house) for the active ticker
+  useEffect(() => {
+    if (!ticker) { setCongressTrades([]); return; }
+    let cancelled = false;
+    setCongressTrades([]);
+    fetch(`/api/congress-trades?symbol=${encodeURIComponent(ticker)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setCongressTrades(d?.trades || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [ticker]);
 
   // Fetch Google Sheet notes once (cached across mounts)
@@ -7279,7 +7292,7 @@ function ChartPanelInline({
         const hasNews = news.length > 0;
         if (!hasNews && !sheetLoaded) return null;
         return (
-          <div style={{ display: "flex", maxHeight: 90, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+          <div style={{ display: "flex", maxHeight: 110, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
             {/* Left: News */}
             <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
               {hasNews ? news.slice(0, 4).map((a, i) => (
@@ -7292,6 +7305,38 @@ function ChartPanelInline({
                   <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
                 </a>
               )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
+            </div>
+            {/* Middle: Congressional Trades */}
+            <div style={{ width: 220, flexShrink: 0, padding: "4px 6px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+              {congressTrades.length > 0 ? (
+                <>
+                  <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Congress Trades</div>
+                  {congressTrades.slice(0, 6).map((t, i) => {
+                    const isBuy = (t.type || "").toLowerCase().includes("purchase");
+                    const amt = (t.amount || "").replace(/\$/g, "").replace(/,/g, "");
+                    return (
+                      <div key={i} style={{ fontSize: 7.5, fontFamily: "monospace", lineHeight: 1.5, display: "flex", gap: 4, alignItems: "baseline", borderBottom: "1px solid rgba(255,255,255,0.03)", padding: "1px 0" }}>
+                        <span style={{ color: isBuy ? "#0d9163" : "#e05252", fontWeight: 700, width: 8, flexShrink: 0 }}>{isBuy ? "B" : "S"}</span>
+                        <span style={{ color: "#7a7a8a", width: 10, flexShrink: 0 }}>{t.chamber}</span>
+                        <span style={{ color: "#b0b0c0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.lastName}</span>
+                        <span style={{ color: "#5a5a6a", flexShrink: 0 }}>{(t.transactionDate || "").slice(5)}</span>
+                      </div>
+                    );
+                  })}
+                  {(() => {
+                    const buys = congressTrades.filter(t => (t.type || "").toLowerCase().includes("purchase")).length;
+                    const sells = congressTrades.length - buys;
+                    return (
+                      <div style={{ fontSize: 7, color: "#5a5a6a", marginTop: 2, fontFamily: "monospace" }}>
+                        <span style={{ color: "#0d9163" }}>{buys}B</span> / <span style={{ color: "#e05252" }}>{sells}S</span>
+                        <span style={{ marginLeft: 4 }}>({congressTrades.length} total)</span>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>No congressional trades</div>
+              )}
             </div>
             {/* Right: Options Bias (equities) or ETF holdings */}
             <div style={{ width: 260, flexShrink: 0, padding: "4px 8px 2px", overflowY: "auto" }}>
