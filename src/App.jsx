@@ -2849,6 +2849,17 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         !!(liveVol && liveVol >= 8_900_000 && avgVol < 8_900_000);
       if (want9m && !is9m) continue;
 
+      // MAGNA score: 0-100 composite of M(assive EPS accel), G(ap up), A(ccel in sales).
+      // Each component is 0-33, capped and scaled so the filter gate (≥60) requires
+      // strength in at least two of three dimensions.
+      const epsY = s.eps_yoy || 0;
+      const salY = s.sales_yoy || 0;
+      const gapPct = chg;
+      const mScore = Math.min(33, Math.max(0, epsY > 0 ? (epsY / 100) * 33 : 0));
+      const aScore = Math.min(33, Math.max(0, salY > 0 ? (salY / 100) * 33 : 0));
+      const gScore = Math.min(34, Math.max(0, gapPct > 0 ? (gapPct / 15) * 34 : 0));
+      const magna = Math.round(mScore + aScore + gScore);
+
       out.push({
         ticker: s.ticker,
         company: s.company || "",
@@ -2858,7 +2869,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         rvol,
         cr,
         accel: s.accel || 0,
-        magna: 0,
+        magna,
         qmagScore: s.qmag_score || 0,
         adr: s.adr_pct || 0,
         rs: s.framework_score ?? s.rs_rank ?? 0,
