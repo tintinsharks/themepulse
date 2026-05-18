@@ -1527,16 +1527,21 @@ function ThemeIntelPanel({ onTickerClick }) {
                   <div style={{ fontSize: 9, color: cyan, fontWeight: 700, marginBottom: 3 }}>
                     {a.date} · {a.time_pt}
                   </div>
-                  {a.market && (
-                    <div style={{ fontSize: 9, color: ARIA.textDim, marginBottom: 3 }}>
-                      <span style={{ color: a.market.spy_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>SPY {a.market.spy_chg}</span>
-                      {" · "}
-                      <span style={{ color: a.market.qqq_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>QQQ {a.market.qqq_chg}</span>
-                      {" · "}
-                      <span style={{ color: a.market.iwm_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>IWM {a.market.iwm_chg}</span>
-                      {" · VIX "}<span style={{ color: ARIA.yellow }}>{a.market.vix}</span>
-                    </div>
-                  )}
+                  {a.market && (() => {
+                    const items = [
+                      { label: "SPY", val: a.market.spy_chg },
+                      { label: "QQQ", val: a.market.qqq_chg },
+                      { label: "IWM", val: a.market.iwm_chg },
+                    ].filter(i => i.val && !i.val.includes("N/A"));
+                    const vix = a.market.vix && !String(a.market.vix).includes("N/A") ? a.market.vix : null;
+                    if (!items.length && !vix) return null;
+                    return (
+                      <div style={{ fontSize: 9, color: ARIA.textDim, marginBottom: 3 }}>
+                        {items.map((i, idx) => (<span key={i.label}>{idx > 0 && " · "}<span style={{ color: i.val.startsWith("+") ? ARIA.green : ARIA.red }}>{i.label} {i.val}</span></span>))}
+                        {vix && <>{items.length > 0 && " · "}VIX <span style={{ color: ARIA.yellow }}>{vix}</span></>}
+                      </div>
+                    );
+                  })()}
                   <div style={{ fontSize: 8, color: ARIA.textMuted, lineHeight: 1.4 }}>{a.regime}</div>
                 </div>
 
