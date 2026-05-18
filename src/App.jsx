@@ -1497,7 +1497,7 @@ function ThemeIntelPanel({ onTickerClick }) {
   return (
     <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, marginBottom: 8, overflow: "hidden" }}>
       <div style={headerStyle} onClick={() => setOpen(o => !o)}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: cyan, letterSpacing: 0.8, fontFamily: "monospace" }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: cyan, letterSpacing: 0.8, fontFamily: "monospace" }}>
           ⚡ THEME INTEL
         </span>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1523,12 +1523,12 @@ function ThemeIntelPanel({ onTickerClick }) {
             return (
               <div style={{ fontFamily: "monospace" }}>
                 {/* Market context */}
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${ARIA.border}`, background: `${cyan}08` }}>
-                  <div style={{ fontSize: 11, color: cyan, fontWeight: 700, marginBottom: 4 }}>
+                <div style={{ padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, background: `${cyan}08` }}>
+                  <div style={{ fontSize: 9, color: cyan, fontWeight: 700, marginBottom: 3 }}>
                     {a.date} · {a.time_pt}
                   </div>
                   {a.market && (
-                    <div style={{ fontSize: 11, color: ARIA.textDim, marginBottom: 4 }}>
+                    <div style={{ fontSize: 9, color: ARIA.textDim, marginBottom: 3 }}>
                       <span style={{ color: a.market.spy_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>SPY {a.market.spy_chg}</span>
                       {" · "}
                       <span style={{ color: a.market.qqq_chg?.startsWith("+") ? ARIA.green : ARIA.red }}>QQQ {a.market.qqq_chg}</span>
@@ -1537,38 +1537,38 @@ function ThemeIntelPanel({ onTickerClick }) {
                       {" · VIX "}<span style={{ color: ARIA.yellow }}>{a.market.vix}</span>
                     </div>
                   )}
-                  <div style={{ fontSize: 10, color: ARIA.textMuted, lineHeight: 1.5 }}>{a.regime}</div>
+                  <div style={{ fontSize: 8, color: ARIA.textMuted, lineHeight: 1.4 }}>{a.regime}</div>
                 </div>
 
                 {/* Active chains */}
                 {a.active_chains?.length > 0 && (
-                  <div style={{ padding: "10px 14px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 7, textTransform: "uppercase" }}>
+                  <div style={{ padding: "8px 12px 6px", borderBottom: `1px solid ${ARIA.border}` }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 5, textTransform: "uppercase" }}>
                       Active Thesis Chains ({a.active_chains.length})
                     </div>
                     {a.active_chains.map((chain, ci) => (
-                      <div key={ci} style={{ marginBottom: 12, paddingBottom: 10, borderBottom: ci < a.active_chains.length - 1 ? `1px dashed ${ARIA.border}` : "none" }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: cyan, lineHeight: 1.35, marginBottom: 3 }}>🔥 {chain.headline}</div>
-                        <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6 }}>{chain.id}</div>
+                      <div key={ci} style={{ marginBottom: 10, paddingBottom: 8, borderBottom: ci < a.active_chains.length - 1 ? `1px dashed ${ARIA.border}` : "none" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: cyan, lineHeight: 1.35, marginBottom: 2 }}>🔥 {chain.headline}</div>
+                        <div style={{ fontSize: 7, color: ARIA.textMuted, marginBottom: 4 }}>{chain.id}</div>
                         {chain.tickers?.map((t, ti) => (
-                          <div key={ti} style={{ marginBottom: 8 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
+                          <div key={ti} style={{ marginBottom: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginBottom: 2 }}>
                               <button
                                 onClick={() => onTickerClick?.(t.ticker)}
-                                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: ARIA.green, fontWeight: 800, fontSize: 12, fontFamily: "monospace" }}
+                                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: ARIA.green, fontWeight: 800, fontSize: 9, fontFamily: "monospace" }}
                               >{t.ticker}</button>
-                              <span style={{ fontSize: 10, color: t.score >= 5 ? ARIA.green : ARIA.textDim }}>{t.score}/6</span>
-                              <span style={{ fontSize: 10, color: (t.chg >= 0 ? ARIA.green : ARIA.red), fontWeight: 700 }}>{t.chg > 0 ? "+" : ""}{t.chg?.toFixed?.(1) ?? t.chg}%</span>
-                              <span style={{ fontSize: 10, color: t.rvol >= 1.5 ? purple : ARIA.textMuted }}>{t.rvol?.toFixed?.(1) ?? t.rvol}x RVol</span>
-                              <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 2, background: t.role === "primary" ? `${cyan}20` : `${purple}15`, border: `1px solid ${t.role === "primary" ? cyan + "50" : purple + "40"}`, color: t.role === "primary" ? cyan : purple, textTransform: "uppercase" }}>{t.role}</span>
-                              {t.lead_lag && <span style={{ fontSize: 8, color: t.lead_lag === "leading" ? ARIA.green : ARIA.textMuted, textTransform: "uppercase" }}>{t.lead_lag}</span>}
+                              <span style={{ fontSize: 8, color: t.score >= 5 ? ARIA.green : ARIA.textDim }}>{t.score}/6</span>
+                              <span style={{ fontSize: 8, color: (t.chg >= 0 ? ARIA.green : ARIA.red), fontWeight: 700 }}>{t.chg > 0 ? "+" : ""}{t.chg?.toFixed?.(1) ?? t.chg}%</span>
+                              <span style={{ fontSize: 8, color: t.rvol >= 1.5 ? purple : ARIA.textMuted }}>{t.rvol?.toFixed?.(1) ?? t.rvol}x RVol</span>
+                              <span style={{ fontSize: 7, padding: "1px 4px", borderRadius: 2, background: t.role === "primary" ? `${cyan}20` : `${purple}15`, border: `1px solid ${t.role === "primary" ? cyan + "50" : purple + "40"}`, color: t.role === "primary" ? cyan : purple, textTransform: "uppercase" }}>{t.role}</span>
+                              {t.lead_lag && <span style={{ fontSize: 7, color: t.lead_lag === "leading" ? ARIA.green : ARIA.textMuted, textTransform: "uppercase" }}>{t.lead_lag}</span>}
                             </div>
-                            {t.layer && <div style={{ fontSize: 10, color: ARIA.textMuted, marginBottom: 3 }}>Layer: {t.layer}</div>}
-                            {t.analysis && <div style={{ fontSize: 10, color: ARIA.textDim, lineHeight: 1.5 }}>{t.analysis}</div>}
+                            {t.layer && <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 2 }}>Layer: {t.layer}</div>}
+                            {t.analysis && <div style={{ fontSize: 8, color: ARIA.textDim, lineHeight: 1.4 }}>{t.analysis}</div>}
                           </div>
                         ))}
                         {chain.chain_signal && (
-                          <div style={{ fontSize: 10, fontWeight: 700, color: signalColor(chain.chain_signal), marginTop: 3 }}>
+                          <div style={{ fontSize: 8, fontWeight: 700, color: signalColor(chain.chain_signal), marginTop: 2 }}>
                             Signal: {chain.chain_signal}
                           </div>
                         )}
@@ -1579,15 +1579,15 @@ function ThemeIntelPanel({ onTickerClick }) {
 
                 {/* Non-thesis leaders */}
                 {a.non_thesis_leaders?.length > 0 && (
-                  <div style={{ padding: "10px 14px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Non-Thesis Leaders</div>
+                  <div style={{ padding: "8px 12px 6px", borderBottom: `1px solid ${ARIA.border}` }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 5, textTransform: "uppercase" }}>Non-Thesis Leaders</div>
                     {a.non_thesis_leaders.map((t, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5, flexWrap: "wrap" }}>
-                        <button onClick={() => onTickerClick?.(t.ticker)} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: ARIA.text, fontWeight: 700, fontSize: 12, fontFamily: "monospace" }}>{t.ticker}</button>
-                        <span style={{ fontSize: 10, color: ARIA.green }}>{t.chg > 0 ? "+" : ""}{t.chg?.toFixed?.(1) ?? t.chg}%</span>
-                        <span style={{ fontSize: 10, color: ARIA.textMuted }}>{t.rvol?.toFixed?.(1) ?? t.rvol}x RVol</span>
-                        <span style={{ fontSize: 10, color: ARIA.textMuted }}>{t.theme}</span>
-                        {t.note && <span style={{ fontSize: 10, color: ARIA.textDim, flexBasis: "100%" }}>{t.note}</span>}
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4, flexWrap: "wrap" }}>
+                        <button onClick={() => onTickerClick?.(t.ticker)} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: ARIA.text, fontWeight: 700, fontSize: 9, fontFamily: "monospace" }}>{t.ticker}</button>
+                        <span style={{ fontSize: 8, color: ARIA.green }}>{t.chg > 0 ? "+" : ""}{t.chg?.toFixed?.(1) ?? t.chg}%</span>
+                        <span style={{ fontSize: 8, color: ARIA.textMuted }}>{t.rvol?.toFixed?.(1) ?? t.rvol}x RVol</span>
+                        <span style={{ fontSize: 8, color: ARIA.textMuted }}>{t.theme}</span>
+                        {t.note && <span style={{ fontSize: 8, color: ARIA.textDim, flexBasis: "100%" }}>{t.note}</span>}
                       </div>
                     ))}
                   </div>
@@ -1595,19 +1595,19 @@ function ThemeIntelPanel({ onTickerClick }) {
 
                 {/* Dormant chains */}
                 {a.dormant_chains?.length > 0 && (
-                  <div style={{ padding: "10px 14px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Dormant Chains ({a.dormant_chains.length})</div>
+                  <div style={{ padding: "8px 12px 6px", borderBottom: `1px solid ${ARIA.border}` }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 5, textTransform: "uppercase" }}>Dormant Chains ({a.dormant_chains.length})</div>
                     {a.dormant_chains.map((c, i) => (
-                      <div key={i} style={{ fontSize: 10, color: ARIA.textMuted, marginBottom: 3 }}>— {c.headline}</div>
+                      <div key={i} style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 2 }}>— {c.headline}</div>
                     ))}
                   </div>
                 )}
 
                 {/* Synthesis */}
                 {a.synthesis && (
-                  <div style={{ padding: "10px 14px" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>EOD Synthesis</div>
-                    <div style={{ fontSize: 11, color: ARIA.textDim, lineHeight: 1.55 }}>{a.synthesis}</div>
+                  <div style={{ padding: "8px 12px" }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.5, marginBottom: 5, textTransform: "uppercase" }}>EOD Synthesis</div>
+                    <div style={{ fontSize: 9, color: ARIA.textDim, lineHeight: 1.45 }}>{a.synthesis}</div>
                   </div>
                 )}
               </div>
