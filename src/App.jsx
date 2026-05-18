@@ -1033,11 +1033,15 @@ const TAG_PREDICATES = {
     label: "MAG",
     desc:
       "MAGNA — Nitin's Episodic Pivot qualifier. MAGNA score ≥ 60 + EPS YoY ≥ 25% + Sales YoY ≥ 25% + gap ≥ 4%. Composite of Massive accel (M), Gap up (G), Acceleration in sales (A).",
-    test: (s) =>
-      (s.magna || 0) >= 60 &&
-      (s.eps_yoy || 0) >= 25 &&
-      (s.sales_yoy || 0) >= 25 &&
-      (s.change_pct || 0) >= 4,
+    test: (s) => {
+      const epsY = s.eps_yoy || 0;
+      const salY = s.sales_yoy || 0;
+      const gap = s.change_pct || 0;
+      const m = Math.min(33, Math.max(0, epsY > 0 ? (epsY / 100) * 33 : 0));
+      const a = Math.min(33, Math.max(0, salY > 0 ? (salY / 100) * 33 : 0));
+      const g = Math.min(34, Math.max(0, gap > 0 ? (gap / 15) * 34 : 0));
+      return (m + a + g) >= 60 && epsY >= 25 && salY >= 25 && gap >= 4;
+    },
   },
   "33": {
     label: "33",
