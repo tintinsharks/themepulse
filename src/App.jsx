@@ -6714,7 +6714,7 @@ function ChartPanelInline({
   tickerStrengthMap,
 }) {
   const ARIA = useAriaTheme();
-  const tf = "D";
+  const [tf, setTf] = useState(() => localStorage.getItem("themepulse-chart-tf") || "D");
   const [tickerInput, setTickerInput] = useState("");
   // EPS + Revenue bars below the CANSLIM stats row. Fetches the same
   // /api/live?news=X payload TickerInfoBox uses — browser coalesces the
@@ -7643,6 +7643,21 @@ function ChartPanelInline({
           </>
         )}
         <span style={{ color: ARIA.border }}>|</span>
+        {["D", "W"].map(t => (
+          <button
+            key={t}
+            onClick={() => { setTf(t); localStorage.setItem("themepulse-chart-tf", t); }}
+            style={{
+              fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+              background: tf === t ? "#0d9163" : "transparent",
+              border: "1px solid #0d9163",
+              color: tf === t ? "#fff" : "#0d9163",
+              fontFamily: "monospace", fontWeight: 700, minWidth: 18,
+            }}
+          >
+            {t}
+          </button>
+        ))}
         <button
           onClick={() => setShowTrade(t => !t)}
           style={{
@@ -7681,7 +7696,7 @@ function ChartPanelInline({
       </div>
 
 
-      {/* SVG Daily Chart */}
+      {/* SVG D/W Chart */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <ErrorBoundary>
           <DailyChartSVG
