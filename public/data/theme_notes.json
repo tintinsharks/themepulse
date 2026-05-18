@@ -1,8 +1,87 @@
 {
   "version": 1,
   "description": "Curated theme/subtheme commentary \u2014 manually-captured trader theses, lead-lag relationships, and ticker linkages. Read by SUBFLOW (eventually) for context overlays.",
-  "updated": "2026-05-15",
+  "updated": "2026-05-18",
   "notes": [
+    {
+      "id": "software-rotation-from-semis-2026-05-18",
+      "date": "2026-05-18",
+      "type": "discovery_thesis",
+      "headline": "Software Rotation from Semis \u2014 NOW/MNDY/QLYS +8% on sector rotation day; beaten-down enterprise SaaS catching a bid as semis cool.",
+      "primary_tickers": [
+        "NOW",
+        "MNDY",
+        "QLYS"
+      ],
+      "derivative_tickers": [
+        "CRM",
+        "SNOW",
+        "PLTR",
+        "DDOG",
+        "NET"
+      ],
+      "themes_implicated": [
+        "Software",
+        "Sector Rotation",
+        "Enterprise SaaS",
+        "Cybersecurity"
+      ],
+      "layers": {
+        "enterprise_workflow": {
+          "label": "Enterprise Workflow / Collaboration",
+          "tier": 1,
+          "tickers": [
+            "NOW",
+            "MNDY"
+          ],
+          "thesis": "NOW (ServiceNow) +8.26% on 4.7x RVol, projected 132M shares vs 22.8M avg \u2014 institutional-scale volume on a daily chart trend reversal candle. Reclaimed 20 and 50 day MAs in one session. MNDY (Monday.com) +8.43% but only 0.75x RVol \u2014 price moved on light volume, less conviction. Both are beaten-down enterprise SaaS names (NOW -9% from highs post-split, MNDY -77% from ATH) catching rotation from overextended semis."
+        },
+        "cybersecurity_recovery": {
+          "label": "Cybersecurity Recovery Bounce",
+          "tier": 2,
+          "tickers": [
+            "QLYS"
+          ],
+          "thesis": "QLYS (Qualys) +8.84% on 1.61x RVol confirmed. RS 16, MS 24 \u2014 deeply oversold (CR 95% = strong base). Threat Ops / vulnerability management is structural demand but the stock has been punished. This is a recovery bounce, not momentum \u2014 needs follow-through to confirm."
+        }
+      },
+      "lead_lag": {
+        "leading": [
+          "NOW"
+        ],
+        "lagging": [
+          "MNDY",
+          "QLYS"
+        ],
+        "horizon": "Days to weeks \u2014 sector rotation trades are shorter-duration than structural thesis chains",
+        "chain_flow": "Semi overextension \u2192 fund rebalancing out of NVDA/AVGO basket \u2192 beaten-down SaaS gets re-rated \u2192 enterprise software catches up to AI infra"
+      },
+      "thesis": "On 2026-05-18, a clear sector rotation emerged: DIA +0.33% while QQQ -0.43% and IWM -0.58%. Within tech, capital rotated OUT of semis and INTO beaten-down enterprise software. NOW was the standout \u2014 4.7x RVol is institutional repositioning, not retail noise. The daily chart shows a potential trend reversal: gap up through 20/50 MAs on the highest volume day in months. The rotation thesis: AI infrastructure capex has been the dominant trade for 18+ months, and funds are now rebalancing into the software layer that monetizes AI (workflow automation, cybersecurity, collaboration). NOW is already captured as a derivative in the AI Software/Apps thesis \u2014 this rotation day validates that the enterprise AI apps layer may be the next leg. Key distinction: NOW/MNDY/QLYS all have low RS scores (single digits to teens), meaning this is a RECOVERY trade, not momentum continuation. Size accordingly \u2014 these are not breakout entries, they're mean-reversion plays until RS confirms.",
+      "caveats": [
+        "Low RS scores across the board \u2014 these are beaten-down bounces, not momentum leaders. Recovery trades have lower win rates than breakout entries.",
+        "MNDY moved on 0.75x RVol \u2014 no volume confirmation. Could easily reverse.",
+        "One-day rotation doesn't confirm a trend. Need 2-3 days of follow-through with sustained volume.",
+        "If semis resume leadership (NVDA earnings catalyst May 28), this rotation unwinds fast.",
+        "NOW options (Jun 5 $93 calls) have only 18 days to expiration \u2014 theta decay is the enemy if follow-through stalls."
+      ],
+      "source": "ThemePulse live scan + chart analysis \u2014 May 18, 2026",
+      "quality_score": {
+        "moat": 65,
+        "mgmt_alignment": 70,
+        "execution_risk": 60,
+        "ceo_leadership": 70,
+        "financial_risk": 70,
+        "technology_risk": 55,
+        "exogenous_risk": 50,
+        "qrs": 63,
+        "sizing_tier": "reduced"
+      },
+      "red_card_triggers": [
+        "NOW fails to hold $99.50 (today's gap fill / ORH) within 2 sessions \u2014 rotation was a one-day event",
+        "NVDA earnings (May 28) re-ignites semi leadership, pulling capital back out of software",
+        "Broad market selloff compresses all multiples \u2014 beaten-down software gets hit hardest on low RS"
+      ]
+    },
     {
       "id": "photonics-deep-supply-chain-sancet-2026-05-15",
       "date": "2026-05-15",
