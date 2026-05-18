@@ -7643,23 +7643,23 @@ function ChartPanelInline({
           </>
         )}
         <span style={{ color: ARIA.border }}>|</span>
-        {["D", "W"].map(t => (
+        {["D", "W"].map(tfOpt => (
           <button
-            key={t}
-            onClick={() => { setTf(t); localStorage.setItem("themepulse-chart-tf", t); }}
+            key={tfOpt}
+            onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
             style={{
               fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-              background: tf === t ? "#0d9163" : "transparent",
+              background: tf === tfOpt ? "#0d9163" : "transparent",
               border: "1px solid #0d9163",
-              color: tf === t ? "#fff" : "#0d9163",
+              color: tf === tfOpt ? "#fff" : "#0d9163",
               fontFamily: "monospace", fontWeight: 700, minWidth: 18,
             }}
           >
-            {t}
+            {tfOpt}
           </button>
         ))}
         <button
-          onClick={() => setShowTrade(t => !t)}
+          onClick={() => setShowTrade(prev => !prev)}
           style={{
             fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
             background: showTrade ? "#0d9163" : "transparent",
