@@ -6961,7 +6961,7 @@ function ChartPanelInline({
 
   // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
   const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
-  const riskEntry = c > 0 ? c : null;
+  const riskEntry = c > 0 ? c : (ohlcBars[ohlcBars.length - 1]?.close ?? null);
   const riskDayLow = l > 0 ? l : (ohlcBars[ohlcBars.length - 1]?.low ?? null);
   const riskPDL = ohlcBars[ohlcBars.length - 1]?.low ?? null;
   const riskScenarios = useMemo(() => {
