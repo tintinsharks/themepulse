@@ -43,7 +43,8 @@ export default async function handler(req, res) {
 
   const intraSpec = interval && INTRADAY[interval];
   const isIntraday = Boolean(intraSpec);
-  const ival = isIntraday ? interval : "1d";
+  const isWeekly = interval === "1wk";
+  const ival = isIntraday ? interval : isWeekly ? "1wk" : "1d";
 
   try {
     let ohlc;
@@ -69,7 +70,8 @@ export default async function handler(req, res) {
         .filter((c) => c.time != null && c.open != null && c.close != null);
     } else {
       const now = new Date();
-      const fromDate = new Date(now.getTime() - 900 * 24 * 3600 * 1000);
+      const lookbackDays = isWeekly ? 1825 : 900;
+      const fromDate = new Date(now.getTime() - lookbackDays * 24 * 3600 * 1000);
       const fromStr = fromDate.toISOString().split("T")[0];
       const toStr = now.toISOString().split("T")[0];
       const url = `${FMP_BASE}/historical-price-eod/full?symbol=${encodeURIComponent(ticker)}&from=${fromStr}&to=${toStr}&apikey=${apiKey}`;
@@ -91,6 +93,29 @@ export default async function handler(req, res) {
           volume: Number(c.volume) || 0,
         }))
         .filter((c) => c.open != null && c.close != null);
+    }
+
+    if (isWeekly && ohlc.length) {
+      const weeks = [];
+      let cur = null;
+      for (const bar of ohlc) {
+        const d = new Date(bar.date + "T00:00:00Z");
+        const day = d.getUTCDay();
+        const mon = d.getTime() - day * 86400000;
+        if (!cur || cur._mon !== mon) {
+          if (cur) weeks.push(cur);
+          cur = { ...bar, _mon: mon };
+        } else {
+          cur.high = Math.max(cur.high, bar.high);
+          cur.low = Math.min(cur.low, bar.low);
+          cur.close = bar.close;
+          cur.volume += bar.volume;
+          cur.date = bar.date;
+          cur.time = bar.time;
+        }
+      }
+      if (cur) weeks.push(cur);
+      ohlc = weeks.map(({ _mon, ...rest }) => rest);
     }
 
     const cacheMaxAge = isIntraday ? 30 : 300;
