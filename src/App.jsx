@@ -1495,7 +1495,7 @@ function ThemeIntelPanel({ onTickerClick }) {
   const signalColor = (s) => s === "BROAD" ? ARIA.green : s === "LEADER CONFIRMING" ? cyan : ARIA.textMuted;
 
   return (
-    <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, marginBottom: 8, maxHeight: open ? 2400 : "auto", overflowY: open ? "auto" : "hidden" }}>
+    <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, marginBottom: 8, maxHeight: open ? 2400 : "auto", overflowY: open ? "auto" : "hidden", flexShrink: 0 }}>
       <div style={headerStyle} onClick={() => setOpen(o => !o)}>
         <span style={{ fontSize: 10, fontWeight: 800, color: cyan, letterSpacing: 0.8, fontFamily: "monospace" }}>
           ⚡ THEME INTEL
