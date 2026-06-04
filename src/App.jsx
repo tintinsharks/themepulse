@@ -157,6 +157,8 @@ const DEFAULT_FILTERS = {
   minDvolM: 20,        // dollar volume floor in millions
   minChg: 0,           // Chg≥ slider (%)
   minRvol: 0,          // RV≥ slider (×)
+  minCrp: 0,           // CRP≥ slider (%) — closing range persistence
+  minEif: 0,           // EIF≥ slider (percentile)
   chgMode: "chg",      // "open" or "chg" — which column the gain filter & sort apply to (default chg per user request)
 };
 
@@ -909,6 +911,7 @@ const SORT_BUTTONS = [
   { key: "rs", label: "EIF" },
   { key: "change", label: "Chg%" },
   { key: "rvol", label: "RVol" },
+  { key: "crp", label: "CRP" },
   { key: "accel", label: "Acc" },
   { key: "magna", label: "MAG" },
   { key: "qm_bo", label: "BO" },
@@ -925,6 +928,8 @@ function rowSortValue(r, key) {
       return r.chg || 0;
     case "rvol":
       return r.rvol || 0;
+    case "crp":
+      return r.crp ?? -1;
     case "accel":
       return r.accel || 0;
     case "magna":
@@ -1211,6 +1216,7 @@ function ETFScanTable({ onTickerClick }) {
     { k: "rvol", label: "RV" },
     { k: "volume", label: "Vol" },
     { k: "cr", label: "CR%" },
+    { k: "crp", label: "CRP" },
     { k: "adr", label: "ADR" },
     { k: "leverage", label: "Lev", align: "left" },
     { k: "subtheme", label: "Theme", align: "left" },
@@ -1371,6 +1377,9 @@ function ETFScanTable({ onTickerClick }) {
                   <td style={{ ...cell, color: colorCr(r.cr) }}>
                     {r.cr != null ? r.cr + "%" : "—"}
                   </td>
+                  <td style={{ ...cell, color: r.crp != null ? (r.crp >= 0.8 ? "#0ea5e9" : r.crp >= 0.5 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted }}>
+                    {r.crp != null ? Math.round(r.crp * 100) + "%" : "—"}
+                  </td>
                   <td style={{ ...cell, color: ARIA.textMuted }}>
                     {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
                   </td>
@@ -1442,31 +1451,24 @@ function injectSupercycleStyles() {
 
 // Recent earnings results — May 5-7, 2026 — embedded for live status badges
 const SC_RECENT_ER = {
-  // May 5
-  "ANET": { status: "beat", date: "May 5", note: "Rev +35% YoY · record backlog · stock -13% on cautious guide" },
-  "ALAB": { status: "beat", date: "May 5", note: "Rev +93% YoY · Q2 guide raised to $355-365M · PCIe Gen6 = 33% rev" },
-  "AMD":  { status: "beat", date: "May 5", note: "DC rev +57% to $5.8B · MI300X premium ASPs · Q2 +46% YoY" },
-  "ETN":  { status: "beat", date: "May 5", note: "DC orders +240% · 228GW backlog (12yr) · 70% AI-related" },
-  "CCJ":  { status: "beat", date: "May 5", note: "EPS +30% surprise · U volumes +13% · realized prices rising" },
-  "SMCI": { status: "mixed", date: "May 5", note: "EPS beat · Rev -19% QoQ on shortages · $13B backlog" },
-  "LITE": { status: "beat", date: "May 5", note: "Record $808M · datacom +90% YoY · demand>supply 25-30%" },
-  "KBR":  { status: "beat", date: "May 5", note: "EPC backlog growing — gov AI infra read" },
-  "HII":  { status: "beat", date: "May 5", note: "Defense shipbuilding — separate cycle" },
-  "SWKS": { status: "mixed", date: "May 5", note: "RF semis — handset cycle weak" },
-  // May 6
-  "ARM":  { status: "mixed", date: "May 6", note: "Royalty miss $671M vs $697M · AGI CPU launched · stock vol" },
-  "COHR": { status: "beat", date: "May 6", note: "Record $1.81B · 1.6T ramp · orders to 2028 · InP-constrained" },
-  "FTNT": { status: "beat", date: "May 6", note: "Billings +31% · AI security ops +23% · guide raised" },
-  "UUUU": { status: "miss", date: "May 6", note: "EPS -$0.03 · early-stage US uranium production" },
-  "UBER": { status: "beat", date: "May 6", note: "Rev +13B · less direct AI infra read" },
-  // May 7
-  "VST":  { status: "beat", date: "May 7", note: "Record EBITDA $1.49B · Meta PJM nuclear PPAs · IG upgrade" },
-  "CRWV": { status: "mixed", date: "May 7", note: "Rev beat $2.08B · $99B backlog · 3.5GW contracted · Q2 light" },
-  "NET":  { status: "beat", date: "May 7", note: "Rev +34% · 1100 layoffs for AI pivot · DBNRR 118%" },
-  "MP":   { status: "beat", date: "May 7", note: "Triple beat · NdPr +63% YoY · magnet facility groundbreaking" },
-  "MCHP": { status: "beat", date: "May 7", note: "Rev +35% YoY · broad recovery · contra-AI-pull positive" },
-  "IREN": { status: "miss", date: "May 7", note: "Miss · no AI HPC % disclosed · pivot still narrative" },
-  "COIN": { status: "miss", date: "May 7", note: "Rev -31% YoY · crypto pullback · derivatives +169%" },
+  // May 26
+  "ZS":   { status: "beat", date: "May 26", note: "Rev $850M +25% YoY · ARR $3.5B · zero-trust demand resilient" },
+  // May 27
+  "MRVL": { status: "beat", date: "May 27", note: "Record $2.42B +28% YoY · DC 76% of rev · NVDA $2B investment · Celestial AI $3.5B acq" },
+  "CRM":  { status: "beat", date: "May 27", note: "EPS $3.88 +50% YoY · Rev $11.1B +13% · raised FY30 to $63B" },
+  "PSTG": { status: "beat", date: "May 27", note: "Flash-native AI storage · SK hynix partnership · hyperscaler demand" },
+  "DKS":  { status: "mixed", date: "May 27", note: "Rev $5.17B +63% w/ FL acq · EPS slight miss · comps +6%" },
+  // May 28
+  "DELL": { status: "beat", date: "May 28", note: "Record $43.8B +88% YoY · AI servers $16.1B +757% · $51.3B backlog" },
+  "MDB":  { status: "beat", date: "May 28", note: "Rev $688M +25% YoY · Atlas +29% · AI workloads driving reacceleration" },
+  "OKTA": { status: "beat", date: "May 28", note: "Rev $765M +11% · RPO +16% · FCF $271M · identity security steady" },
+  "NTAP": { status: "beat", date: "May 28", note: "Record Q4 $1.95B +12% · all-flash $1.2B +18% · AI data pipelines" },
+  "BURL": { status: "beat", date: "May 28", note: "EPS $2.10 +26% · comps +6% · 14th straight DDE growth · raised guide" },
+  "LULU": { status: "beat", date: "May 28", note: "Double beat · China +25-30% · tariff mitigation $160M target" },
+  "BBY":  { status: "beat", date: "May 28", note: "EPS $1.31 +38% · comps +2% · AI PC refresh cycle" },
+  "ADSK": { status: "beat", date: "May 28", note: "EPS $2.99 vs $2.70 est · Rev $1.93B +18% · AI design tools" },
+  // May 29
+  "COST": { status: "beat", date: "May 29", note: "EPS $4.93 · Rev $70.5B +12% · comps +6.6% · e-comm +21%" },
 };
 
 // ── ThemeIntelPanel: displays the EOD theme analysis produced by the remote
@@ -1781,7 +1783,7 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
                 <span style={{ fontSize: 8, color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1 }}>
                   This Week's Prints
                 </span>
-                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>May 5-7 · Q1 2026</span>
+                <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>May 26-29 · Q1 2026</span>
                 <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ARIA.border}, transparent)`, marginLeft: 4 }} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -2658,7 +2660,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilters, clearChainFilters, removeChainFilter, onLayerClick }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilters, clearChainFilters, removeChainFilter, onLayerClick, crpScores }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [panelH, setPanelH] = useState(() => parseInt(localStorage.getItem("tp-scan-panel-h") || "600"));
@@ -2680,6 +2682,12 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
     window.addEventListener("message", onMsg);
     return () => { window.removeEventListener("tp-open-drawer", onDrawer); window.removeEventListener("message", onMsg); };
   }, [chainId]);
+  // ── CRP lookup map (closing range persistence from pipeline scanner) ──
+  const crpMap = useMemo(() => {
+    const m = new Map();
+    if (crpScores) for (const s of crpScores) m.set(s.ticker, s.crp);
+    return m;
+  }, [crpScores]);
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   // Owned-ticker set for the Hide Owned filter (reads the same cross-component
@@ -2835,7 +2843,10 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       // CR% (closing range): how close to high of day. (close-low)/(high-low)*100
       // Helper falls back to pipeline cr_pct + clamps to 0-100.
       const cr = computeCR(q, s);
+      const crp = crpMap.get(s.ticker) ?? null;
 
+      // CRP≥ slider
+      if (filters.minCrp > 0 && (crp == null || crp * 100 < filters.minCrp)) continue;
       // Chg>0% filter — applies to either Open or Chg mode
       if (filters.greenOnly) {
         const gainKey =
@@ -2850,6 +2861,9 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       if (filters.minChg > 0 && chg < filters.minChg) continue;
       // RV≥ slider
       if (filters.minRvol > 0 && rvol < filters.minRvol) continue;
+      // EIF≥ slider
+      const eifVal = s.framework_score ?? s.rs_rank ?? 0;
+      if (filters.minEif > 0 && eifVal < filters.minEif) continue;
       // 9M flag: today's vol >= 8.9M shares but avg < 8.9M (unusual institutional).
       // Computed for EVERY row so the badge can render even when the 9M
       // tag filter isn't active. The filter still drops non-matching rows
@@ -2877,6 +2891,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         chgOpen,
         rvol,
         cr,
+        crp,
         accel: s.accel || 0,
         magna,
         qmagScore: s.qmag_score || 0,
@@ -2920,7 +2935,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       filtered = filtered.filter((r) => union.has(r.ticker));
     }
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters, crpMap]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -3267,6 +3282,50 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           {filters.minRvol}x
         </span>
         <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
+        <span style={{ fontSize: 7, color: ARIA.textMuted }}>CRP≥</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={10}
+          value={filters.minCrp}
+          onChange={(e) =>
+            updateFilter({ minCrp: parseFloat(e.target.value) })
+          }
+          style={{ width: 50, accentColor: "#0ea5e9", cursor: "pointer" }}
+        />
+        <span
+          style={{
+            fontSize: 8,
+            color: "#0ea5e9",
+            minWidth: 22,
+          }}
+        >
+          {filters.minCrp}%
+        </span>
+        <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
+        <span style={{ fontSize: 7, color: ARIA.textMuted }}>EIF≥</span>
+        <input
+          type="range"
+          min={0}
+          max={99}
+          step={5}
+          value={filters.minEif}
+          onChange={(e) =>
+            updateFilter({ minEif: parseFloat(e.target.value) })
+          }
+          style={{ width: 50, accentColor: "#f59e0b", cursor: "pointer" }}
+        />
+        <span
+          style={{
+            fontSize: 8,
+            color: "#f59e0b",
+            minWidth: 22,
+          }}
+        >
+          {filters.minEif}
+        </span>
+        <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>$Vol≥</span>
         <input
           type="number"
@@ -3549,6 +3608,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           filters={filters}
           activePresets={activePresets}
           activeTags={activeTags}
+          crpScores={crpScores}
         />
       )}
 
@@ -3557,7 +3617,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 }
 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
-function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterNames, scanRows, filters, activePresets, activeTags }) {
+function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterNames, scanRows, filters, activePresets, activeTags, crpScores }) {
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "tickers");
   const containerRef = useRef(null);
@@ -3615,6 +3675,8 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           if (filters.greenOnly) chips.push(chip("Chg>0%", "green"));
           if (filters.minChg > 0) chips.push(chip(`Chg≥${filters.minChg}%`, "minchg"));
           if (filters.minRvol > 0) chips.push(chip(`RV≥${filters.minRvol}x`, "minrv"));
+          if (filters.minCrp > 0) chips.push(chip(`CRP≥${filters.minCrp}%`, "mincrp"));
+          if (filters.minEif > 0) chips.push(chip(`EIF≥${filters.minEif}`, "mineif"));
           if (filters.adrMin !== 1 || filters.adrMax !== 15) chips.push(chip(`ADR ${filters.adrMin}–${filters.adrMax}`, "adr"));
           if (filters.minDvolM > 0) chips.push(chip(`$Vol≥${filters.minDvolM}M`, "dvol"));
           if (filters.ownedView !== "all") chips.push(chip(filters.ownedView === "owned" ? "Owned Only" : "Hide Owned", "owned"));
@@ -3647,6 +3709,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           chartTicker={chartTicker}
           posOnly={posOnly}
           scanRows={scanRows}
+          crpScores={crpScores}
         />
       )}
     </div>
@@ -3693,7 +3756,7 @@ function useThesisMap() {
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows, crpScores }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const thesisMap = useThesisMap();
@@ -3715,6 +3778,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
     return () => document.removeEventListener("mousedown", onDown);
   }, [thesisPopover]);
 
+  const crpMap = useMemo(() => {
+    const m = new Map();
+    if (crpScores) for (const s of crpScores) m.set(s.ticker, s.crp);
+    return m;
+  }, [crpScores]);
   // When scanRows provided, only poll those tickers; else poll all chain tickers.
   const allChainTickers = useMemo(() => {
     const s = new Set();
@@ -3760,6 +3828,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           rs: sr.rs || s?.rs_rank || null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
+          crp: crpMap.get(sr.ticker) ?? null,
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -3802,6 +3871,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         rs: s?.rs_rank ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
+        crp: crpMap.get(tk) ?? null,
         roc2,
         epsYoy: s?.eps_yoy ?? null,
         salesYoy: s?.sales_yoy ?? null,
@@ -3809,7 +3879,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap]);
 
   const [sortKey, setSortKey] = useState("dvolRatio");
   const [sortDir, setSortDir] = useState("desc");
@@ -3901,6 +3971,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="roc2" label="ROC²" />
             <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
+            <Th k="crp" label="CRP" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
           </tr>
@@ -3980,6 +4051,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 <td style={{ ...cell, color: ARIA.textDim }}>{fmtMcap(r.mcap)}</td>
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: r.crp != null ? (r.crp >= 0.8 ? "#0ea5e9" : r.crp >= 0.5 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted, fontWeight: r.crp != null && r.crp >= 0.5 ? 700 : 400 }}
+                    title="CRP: % of today's session spent in top 1/3 of range">
+                  {r.crp != null ? Math.round(r.crp * 100) + "%" : "—"}
                 </td>
                 <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
                     title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
@@ -9602,6 +9677,7 @@ function ChartScanRow({
   stocks,
   pipelineMeta,
   tickerStrengthMap,
+  crpScores,
 }) {
   // Default 320px to match Aria's #sw-column initial width.
   const [scanW, setScanW] = useState(() => {
@@ -9684,7 +9760,7 @@ function ChartScanRow({
         <SupercycleMap chartTicker={chartTicker} onTickerClick={handleTickerClick} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterNames={chainFilters.map((f) => f.name)} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} crpScores={crpScores} />
       </div>
     </div>
   );
@@ -9976,6 +10052,7 @@ function AppMain() {
           stocks={stocks}
           pipelineMeta={data.pipeline?.pipeline_meta}
           tickerStrengthMap={tickerStrengthMap}
+          crpScores={data.pipeline?.crp_scores}
         />
 
       </div>
