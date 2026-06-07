@@ -309,29 +309,23 @@ const PRESETS = {
       return (insiderCluster || beatStreak || topRS) && dv >= 20e6 && mc >= 300e6;
     },
   },
-  tightness: {
-    label: "Tightness",
+  dryup: {
+    label: "Dry-Up",
     desc:
-      "Daily tightness swing setups: float ≤ 50M, flat week (1W < 5%), Qullamaggie VCP score ≥ 5, price above SMA20, ADR ≥ 3.5%, above 52W low by 50%+, MCap ≥ $300M. Low-float stocks coiling for a move.",
+      "Volume dry-up setups: 5-day dollar volume < 80% of 20-day avg (dvol_ratio ≤ 0.8), flat week (1W < 5%), price above SMA20, above 52W low by 30%+, MCap ≥ $300M. Stocks consolidating on declining volume — classic pre-breakout pattern.",
     color: "#f59e0b",
     test: (s) => {
-      const fl = s.shares_float_raw;
-      if (!fl || fl > 50e6) return false;
-      const aboveLow = s.above_52w_low || 0;
+      const dvolRatio = s.dvol_ratio_5_20;
+      if (dvolRatio == null || dvolRatio > 0.8) return false;
       const mc = s.market_cap_raw || 0;
-      const avgVol = s.avg_volume_raw || 0;
-      const r1w = s.return_1w || 0;
-      const adr = s.adr_pct || 0;
-      const qmag = s.qmag_score || 0;
+      const r1w = Math.abs(s.return_1w || 0);
       const sma20 = s.sma20_pct || 0;
+      const aboveLow = s.above_52w_low || 0;
       return (
-        aboveLow >= 50 &&
         mc >= 300e6 &&
-        avgVol >= 300_000 &&
         r1w < 5 &&
-        adr >= 3.5 &&
-        qmag >= 5 &&
-        sma20 >= 0
+        sma20 >= 0 &&
+        aboveLow >= 30
       );
     },
   },
