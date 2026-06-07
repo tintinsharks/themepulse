@@ -1,15 +1,15 @@
 {
-  "date": "2026-06-06",
-  "generated": "2026-06-06 06:20",
+  "date": "2026-06-07",
+  "generated": "2026-06-07 22:26",
   "vix": 21.51,
   "vixChg": null,
   "tenYearYield": 4.536,
   "yieldBps": 6,
-  "dxy": 100.071,
-  "dxyChg": 0.658,
+  "dxy": 100.113,
+  "dxyChg": 0.044,
   "putCallRatio": null,
   "regime": "RISK-OFF",
-  "regimeReason": "Risk-off environment: elevated vol, yields rising, dollar strong",
+  "regimeReason": "Risk-off environment: elevated vol, yields rising",
   "t2108": null,
   "ratio5d": null
 }
