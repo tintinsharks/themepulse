@@ -687,6 +687,38 @@ function useLiveQuotes(tickers, _intervalMs) {
   return { quotes, updated: _quoteManager.updated };
 }
 
+// ── SPY period returns (1W / 1M / 3M) from OHLC — cached, one fetch ────
+const _spyReturnsCache = { data: null, promise: null };
+function useSpyReturns() {
+  const [returns, setReturns] = useState(_spyReturnsCache.data);
+  useEffect(() => {
+    if (_spyReturnsCache.data) { setReturns(_spyReturnsCache.data); return; }
+    if (!_spyReturnsCache.promise) {
+      _spyReturnsCache.promise = fetch("/api/ohlc?ticker=SPY")
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => {
+          const bars = d?.ohlc;
+          if (!bars?.length) return null;
+          const last = bars[bars.length - 1];
+          const pct = (idx) => {
+            const bar = bars[idx];
+            return bar ? Math.round((last.close - bar.close) / bar.close * 10000) / 100 : null;
+          };
+          const ret = {
+            "1w": pct(Math.max(0, bars.length - 6)),
+            "1m": pct(Math.max(0, bars.length - 22)),
+            "3m": pct(Math.max(0, bars.length - 64)),
+          };
+          _spyReturnsCache.data = ret;
+          return ret;
+        })
+        .catch(() => null);
+    }
+    _spyReturnsCache.promise.then((r) => { if (r) setReturns(r); });
+  }, []);
+  return returns;
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Market Breadth Bar
 // ──────────────────────────────────────────────────────────────────────────
@@ -4223,6 +4255,16 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
     try { return localStorage.getItem("tp-chain-heat-sort") || "heat"; } catch { return "heat"; }
   });
   const cycleSortBy = (key) => setSortBy((prev) => { const v = prev === key ? "heat" : key; try { localStorage.setItem("tp-chain-heat-sort", v); } catch {} return v; });
+  const [alphaMode, setAlphaMode] = useState(() => {
+    try { return localStorage.getItem("tp-chain-heat-alpha") || "1d"; } catch { return "1d"; }
+  });
+  const cycleAlphaMode = () => setAlphaMode((prev) => {
+    const next = prev === "1d" ? "1w" : prev === "1w" ? "1m" : "1d";
+    try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {}
+    return next;
+  });
+
+  const spyReturns = useSpyReturns();
 
   const allTickers = useMemo(() => {
     const s = new Set();
@@ -4232,11 +4274,12 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   }, []);
   const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
 
-  // Per-ticker metrics
+  // Per-ticker metrics — alpha adapts to alphaMode (1d/1w/1m)
   const tkMx = useMemo(() => {
     const m = {};
     const spyQ = liveQuotes.get("SPY");
     const spyChg = spyQ?.change ?? 0;
+    const spyPeriod = alphaMode === "1w" ? spyReturns?.["1w"] : alphaMode === "1m" ? spyReturns?.["1m"] : null;
     allTickers.forEach((tk) => {
       const q = liveQuotes.get(tk);
       const s = stockMap?.[tk];
@@ -4254,11 +4297,17 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const r1m = s?.return_1m, r3m = s?.return_3m;
       const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
       const stealth = s?.dvol_accel ?? null;
-      const alpha = chg != null ? Math.round((chg - spyChg) * 100) / 100 : null;
+      let alpha = null;
+      if (alphaMode === "1d") {
+        alpha = chg != null ? Math.round((chg - spyChg) * 100) / 100 : null;
+      } else {
+        const stockRet = alphaMode === "1w" ? s?.return_1w : s?.return_1m;
+        if (stockRet != null && spyPeriod != null) alpha = Math.round((stockRet - spyPeriod) * 100) / 100;
+      }
       m[tk] = { chg, rvol, cr, dvolRatio, roc2, stealth, alpha };
     });
     return m;
-  }, [allTickers, liveQuotes, stockMap]);
+  }, [allTickers, liveQuotes, stockMap, alphaMode, spyReturns]);
 
   // Layer rows: aggregate heat + top tickers sorted by RVol.
   // Heat = RVol × Chg% (positive only). Falls back to RVol-only sort when
@@ -4346,8 +4395,16 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               borderRadius: 3, padding: "1px 6px", cursor: "pointer",
               fontSize: 7, fontFamily: "monospace", fontWeight: sortBy === key ? 800 : 600,
               color: sortBy === key ? "#6cd5e8" : ARIA.textDim, letterSpacing: 0.3,
-            }}>{label}</button>
+            }}>{label}{key === "alpha" && sortBy === "alpha" ? ` ${alphaMode}` : ""}</button>
           ))}
+          {sortBy === "alpha" && (
+            <button onClick={cycleAlphaMode} title="Cycle alpha window: 1d → 1w → 1m" style={{
+              background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.4)",
+              borderRadius: 3, padding: "1px 5px", cursor: "pointer",
+              fontSize: 7, fontFamily: "monospace", fontWeight: 800,
+              color: "#fbbf24", letterSpacing: 0.3,
+            }}>{alphaMode === "1d" ? "→1w" : alphaMode === "1w" ? "→1m" : "→1d"}</button>
+          )}
           <span style={{ flex: 1 }} />
           <button
             onClick={toggleAll}
