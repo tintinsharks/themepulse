@@ -10384,23 +10384,84 @@ const DRAWER_SUBTHEMES = [
   { theme: "Internet", themeId: "internet", layer: "Gaming", tickers: ["TTWO","EA","RBLX","NTES","U"] },
   { theme: "Internet", themeId: "internet", layer: "Adtech", tickers: ["TTD","APP","MGNI","CRTO","PUBM","DV"] },
   { theme: "Internet", themeId: "internet", layer: "Sports Betting", tickers: ["DKNG","FLUT","MGM","CZR","PENN","RSI"] },
+  // ── Shipping & Maritime ──
+  { theme: "Shipping", themeId: "shipping", layer: "Tankers", tickers: ["INSW","FRO","STNG","TNK","TRMD","DHT","NAT","HAFN","ASC","TEN","NGL"] },
+  { theme: "Shipping", themeId: "shipping", layer: "Dry Bulk", tickers: ["SBLK","GNK","GOGL","EGLE","NMM","BWLP","HSHP","SB"] },
+  { theme: "Shipping", themeId: "shipping", layer: "Containers + Mixed", tickers: ["ZIM","MATX","DAC","GSL","CMRE"] },
+  // ── Transport & Logistics ──
+  { theme: "Transport", themeId: "transport", layer: "Trucking", tickers: ["XPO","ODFL","SAIA","KNX","TFII","ARCB","CVLG","ULH","HTLD","SNDR"] },
+  { theme: "Transport", themeId: "transport", layer: "Rail", tickers: ["WAB","CSX","UNP","NSC","CP","TRN","GBX"] },
+  { theme: "Transport", themeId: "transport", layer: "Freight + Logistics", tickers: ["FDX","UPS","JBHT","LSTR","CHRW","RLGT","ZTO","EXPD"] },
+  { theme: "Transport", themeId: "transport", layer: "Airlines", tickers: ["DAL","UAL","LUV","AAL","ALK","ALGT","JBLU","SNCY","LTM"] },
+  // ── Infrastructure & Construction ──
+  { theme: "Infra Build", themeId: "infrabuild", layer: "E&C / Heavy Civil", tickers: ["MTZ","STRL","IESC","ECG","TPC","PRIM","ORN","GLDD","APG","GVA","FLR"] },
+  { theme: "Infra Build", themeId: "infrabuild", layer: "Electrical + Fire/Safety", tickers: ["HUBB","AEIS","ENS","PLPC","ATKR","NVT"] },
+  { theme: "Infra Build", themeId: "infrabuild", layer: "Specialty Metals", tickers: ["ATI","CRS","HAYN","HWM","MLI","AZZ","NWPX","MEC"] },
+  { theme: "Infra Build", themeId: "infrabuild", layer: "Waste + Environment", tickers: ["WM","RSG","WCN","NVRI","CLH","CECO","ATMU","GFL"] },
+  { theme: "Infra Build", themeId: "infrabuild", layer: "Heavy Equipment", tickers: ["CAT","DE","CMI","TEX","ASTE","PCAR","URI","HEES"] },
+  // ── Telecom & Connectivity ──
+  { theme: "Telecom", themeId: "telecom", layer: "Carriers", tickers: ["T","VZ","TMUS","AMX","SKM","LUMN","TIGO","VIV"] },
+  { theme: "Telecom", themeId: "telecom", layer: "Comm Equipment", tickers: ["NOK","ERIC","UI","SATS","VIAV","CALX","ADTN","COMM","INFN"] },
+  { theme: "Telecom", themeId: "telecom", layer: "Towers + Infra", tickers: ["AMT","CCI","SBAC","UNIT"] },
+  { theme: "Telecom", themeId: "telecom", layer: "Satellite Broadband", tickers: ["ASTS","GSAT","IRDM","VSAT"] },
+  // ── Financials ──
+  { theme: "Financials", themeId: "financials", layer: "Mega Banks", tickers: ["JPM","BAC","WFC","C","GS","MS","USB","PNC"] },
+  { theme: "Financials", themeId: "financials", layer: "Regional Banks", tickers: ["CFG","KEY","MTB","FITB","RF","HBAN","TFC","CMA","ZION","FHN","WAL","EWBC","FNB"] },
+  { theme: "Financials", themeId: "financials", layer: "Insurance", tickers: ["PGR","ALL","TRV","MET","AIG","CB","AFL","PRU","ACGL","RNR","AJG"] },
+  { theme: "Financials", themeId: "financials", layer: "Capital Markets + Exchanges", tickers: ["ICE","CME","NDAQ","CBOE","MKTX","VIRT","OPY","BGC","PIPR","EVR"] },
+  { theme: "Financials", themeId: "financials", layer: "Alt Asset Mgrs + PE", tickers: ["BX","KKR","APO","ARES","CG","OWL","BAM","BN"] },
+  // ── Consumer ──
+  { theme: "Consumer", themeId: "consumer", layer: "Retail", tickers: ["WMT","COST","TGT","FIVE","DG","DLTR","HD","LOW","ULTA","TJX","ROST","BURL"] },
+  { theme: "Consumer", themeId: "consumer", layer: "Restaurants + QSR", tickers: ["MCD","SBUX","CMG","WING","CAVA","SHAK","DPZ","YUM","QSR","TXRH","EAT","LOCO"] },
+  { theme: "Consumer", themeId: "consumer", layer: "Travel + Leisure", tickers: ["BKNG","EXPE","ABNB","MAR","HLT","HTHT","RCL","CCL","NCLH","VIK","TNL","LIND"] },
+  { theme: "Consumer", themeId: "consumer", layer: "Consumer Electronics", tickers: ["AAPL","SONO","HEAR","KOSS","GPRO"] },
+  { theme: "Consumer", themeId: "consumer", layer: "Luxury + Apparel", tickers: ["RL","TPR","PVH","LEVI","VFC","ELA","FIGS","NKE","DECK","ON","CROX"] },
+  // ── Biotech (expanded) ──
+  { theme: "Healthcare", themeId: "health", layer: "Biotech Leaders", tickers: ["VRTX","REGN","GILD","BIIB","IONS","ALNY","BMRN","NBIX","UTHR","SRPT"] },
+  { theme: "Healthcare", themeId: "health", layer: "Biotech Momentum", tickers: ["KOD","VTYX","RLMD","CELC","ANRO","TNGX","PRAX","ABVX","MRNA","IONS"] },
+  { theme: "Healthcare", themeId: "health", layer: "Pharma Majors", tickers: ["LLY","JNJ","MRK","PFE","AZN","GSK","TEVA","ELAN","VTRS"] },
+  { theme: "Healthcare", themeId: "health", layer: "Managed Care + Payers", tickers: ["UNH","CI","ELV","HUM","CNC","MOH","OSCR"] },
+  { theme: "Healthcare", themeId: "health", layer: "CRO + Services", tickers: ["ICLR","CRL","MEDP","IQV","DOCS","VEEV"] },
+  // ── Oil & Gas (expanded) ──
+  { theme: "Energy", themeId: "energy", layer: "E&P International", tickers: ["PBR","E","CVE","EQNR","TTE","SU","IMO","YPF","VIST","EC"] },
+  { theme: "Energy", themeId: "energy", layer: "Oil Field Equipment", tickers: ["FET","VAL","OIS","SEI","PUMP","NESR","TTI","EFXT","RIG","NE","NBR"] },
+  { theme: "Energy", themeId: "energy", layer: "Midstream + Pipelines", tickers: ["ET","EPD","WMB","KMI","OKE","TRGP","MPLX","PAA","AM"] },
+  // ── Agriculture + Food ──
+  { theme: "Agriculture", themeId: "agriculture", layer: "Ag Commodities + Trade", tickers: ["ADM","BG","ANDE","AGRO","INGR","DAR"] },
+  { theme: "Agriculture", themeId: "agriculture", layer: "Farm Equipment", tickers: ["DE","CAT","AGCO","CNHI","ASTE","TITN"] },
+  { theme: "Agriculture", themeId: "agriculture", layer: "Fertilizers + Crop", tickers: ["MOS","NTR","CF","FMC","CTVA","IPI","UAN"] },
+  { theme: "Agriculture", themeId: "agriculture", layer: "Animal Health + Food Tech", tickers: ["IDXX","ZTS","CORT","HAIN","BYND","TTCF"] },
+  // ── Industrials ──
+  { theme: "Industrials", themeId: "industrials", layer: "Conglomerates", tickers: ["HON","MMM","GE","ITW","EMR","DHR","PH","ETN","ROK","IR"] },
+  { theme: "Industrials", themeId: "industrials", layer: "Machinery", tickers: ["CMI","GNRC","SWK","MIDD","TTC","NDSN","RRX","GRC","THR"] },
+  { theme: "Industrials", themeId: "industrials", layer: "Tools + Testing", tickers: ["KEYS","TDY","GRMN","FTV","A","BR","TER","ONTO"] },
+  { theme: "Industrials", themeId: "industrials", layer: "Rental + Leasing", tickers: ["URI","HEES","CAR","HTZ","R","WLFC","CTOS","VSTS"] },
+  { theme: "Industrials", themeId: "industrials", layer: "Security + Services", tickers: ["AXON","REZI","MG","NSSC","BCO","ALLE","JCI"] },
 ];
 
 const DRAWER_COLORS = {
-  ai:        { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
-  defense:   { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
-  robotics:  { bg: "rgba(34,211,238,0.12)",  border: "#1a8aa4", color: "#22d3ee" },
-  ev:        { bg: "rgba(109,222,142,0.12)", border: "#2c5e3e", color: "#6dde8e" },
-  quantum:   { bg: "rgba(184,106,252,0.12)", border: "#5a3e8e", color: "#b86afc" },
-  space:     { bg: "rgba(106,158,255,0.12)", border: "#3a5a8a", color: "#6a9eff" },
-  software:  { bg: "rgba(167,139,250,0.12)", border: "#5a3e8e", color: "#a78bfa" },
-  cyber:     { bg: "rgba(239,68,68,0.12)",   border: "#7e2828", color: "#ef4444" },
-  fintech:   { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
-  materials: { bg: "rgba(163,230,53,0.12)",  border: "#4a6e1a", color: "#a3e635" },
-  semis:     { bg: "rgba(251,146,60,0.12)",  border: "#9a4e1a", color: "#fb923c" },
-  health:    { bg: "rgba(236,72,153,0.12)",  border: "#7e2860", color: "#ec4899" },
-  energy:    { bg: "rgba(250,204,21,0.12)",  border: "#7e6a14", color: "#facc15" },
-  internet:  { bg: "rgba(20,184,166,0.12)",  border: "#0d6e62", color: "#14b8a6" },
+  ai:          { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
+  defense:     { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
+  robotics:    { bg: "rgba(34,211,238,0.12)",  border: "#1a8aa4", color: "#22d3ee" },
+  ev:          { bg: "rgba(109,222,142,0.12)", border: "#2c5e3e", color: "#6dde8e" },
+  quantum:     { bg: "rgba(184,106,252,0.12)", border: "#5a3e8e", color: "#b86afc" },
+  space:       { bg: "rgba(106,158,255,0.12)", border: "#3a5a8a", color: "#6a9eff" },
+  software:    { bg: "rgba(167,139,250,0.12)", border: "#5a3e8e", color: "#a78bfa" },
+  cyber:       { bg: "rgba(239,68,68,0.12)",   border: "#7e2828", color: "#ef4444" },
+  fintech:     { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
+  materials:   { bg: "rgba(163,230,53,0.12)",  border: "#4a6e1a", color: "#a3e635" },
+  semis:       { bg: "rgba(251,146,60,0.12)",  border: "#9a4e1a", color: "#fb923c" },
+  health:      { bg: "rgba(236,72,153,0.12)",  border: "#7e2860", color: "#ec4899" },
+  energy:      { bg: "rgba(250,204,21,0.12)",  border: "#7e6a14", color: "#facc15" },
+  internet:    { bg: "rgba(20,184,166,0.12)",  border: "#0d6e62", color: "#14b8a6" },
+  shipping:    { bg: "rgba(56,189,248,0.12)",  border: "#1e6a8e", color: "#38bdf8" },
+  transport:   { bg: "rgba(148,163,184,0.12)", border: "#4a5568", color: "#94a3b8" },
+  infrabuild:  { bg: "rgba(245,158,11,0.12)",  border: "#7e5a0a", color: "#f59e0b" },
+  telecom:     { bg: "rgba(129,140,248,0.12)", border: "#4338ca", color: "#818cf8" },
+  financials:  { bg: "rgba(52,211,153,0.12)",  border: "#1a6e4e", color: "#34d399" },
+  consumer:    { bg: "rgba(244,114,182,0.12)", border: "#8e2860", color: "#f472b6" },
+  agriculture: { bg: "rgba(132,204,22,0.12)",  border: "#4a6e14", color: "#84cc16" },
+  industrials: { bg: "rgba(209,213,219,0.12)", border: "#4a5568", color: "#d1d5db" },
 };
 
 const CHAIN_ABBR = {
@@ -10408,6 +10469,9 @@ const CHAIN_ABBR = {
   defense: "DEF", robotics: "ROB", ev: "EV", quantum: "QTM",
   space: "SPC", materials: "MAT", semis: "SEM",
   health: "HLT", energy: "ENG", internet: "WEB",
+  shipping: "SHIP", transport: "TRN", infrabuild: "BLD",
+  telecom: "TEL", financials: "FIN", consumer: "CON",
+  agriculture: "AGR", industrials: "IND",
 };
 
 // Ticker → array of { themeId, layer } entries (unique layers across all DRAWER_SUBTHEMES)
