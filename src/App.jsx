@@ -3966,6 +3966,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
             <Th k="crp" label="CRP" />
+            <Th k="qm_bo" label="QM" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
           </tr>
@@ -4049,6 +4050,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 <td style={{ ...cell, color: r.crp != null ? (r.crp >= 0.8 ? "#0ea5e9" : r.crp >= 0.5 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted, fontWeight: r.crp != null && r.crp >= 0.5 ? 700 : 400 }}
                     title="CRP: % of today's session spent in top 1/3 of range">
                   {r.crp != null ? Math.round(r.crp * 100) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: r.qmagScore >= 7 ? "#fbbf24" : r.qmagScore >= 5 ? ARIA.green : ARIA.textMuted, fontWeight: r.qmagScore >= 5 ? 700 : 400 }}
+                    title="QMag VCP score (0–10). ≥5 = tight base. ≥7 = T-bar territory">
+                  {r.qmagScore > 0 ? r.qmagScore : "—"}
                 </td>
                 <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
                     title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
