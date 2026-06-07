@@ -4026,7 +4026,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="theme" label="Chain" align="left" />
             <Th k="layer" label="Layer" align="left" />
             <Th k="chg" label="Chg%" />
-            <Th k="alpha" label="α" />
+            <th onClick={() => toggleSort("alpha")} onContextMenu={(e) => { e.preventDefault(); const next = alphaMode === "1d" ? "1w" : alphaMode === "1w" ? "1m" : "1d"; setAlphaMode(next); try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {} }}
+                title="Left-click to sort · Right-click to cycle α window (1d/1w/1m)"
+                style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === "alpha" ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+              α<span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800, marginLeft: 2 }}>{alphaMode}</span>{sortKey === "alpha" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+            </th>
             <Th k="rvol" label="RV" />
             <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
