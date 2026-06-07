@@ -4227,6 +4227,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   const allTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    s.add("SPY");
     return [...s];
   }, []);
   const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
@@ -4234,6 +4235,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   // Per-ticker metrics
   const tkMx = useMemo(() => {
     const m = {};
+    const spyQ = liveQuotes.get("SPY");
+    const spyChg = spyQ?.change ?? 0;
     allTickers.forEach((tk) => {
       const q = liveQuotes.get(tk);
       const s = stockMap?.[tk];
@@ -4251,7 +4254,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const r1m = s?.return_1m, r3m = s?.return_3m;
       const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
       const stealth = s?.dvol_accel ?? null;
-      m[tk] = { chg, rvol, cr, dvolRatio, roc2, stealth };
+      const alpha = chg != null ? Math.round((chg - spyChg) * 100) / 100 : null;
+      m[tk] = { chg, rvol, cr, dvolRatio, roc2, stealth, alpha };
     });
     return m;
   }, [allTickers, liveQuotes, stockMap]);
@@ -4261,10 +4265,11 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   // everything is negative (down day) so the view is always useful.
   const builtLayers = useMemo(() => {
     return DRAWER_SUBTHEMES.map((sub) => {
-      const chgs = [], rvols = [], crs = [], dvols = [], rocs = [], stealths = [];
+      const chgs = [], rvols = [], crs = [], dvols = [], rocs = [], stealths = [], alphas = [];
       const tickerRows = sub.tickers.map((tk) => {
-        const { chg, rvol, cr, dvolRatio, roc2, stealth } = tkMx[tk] || {};
+        const { chg, rvol, cr, dvolRatio, roc2, stealth, alpha } = tkMx[tk] || {};
         if (chg != null && !isNaN(chg)) chgs.push(chg);
+        if (alpha != null) alphas.push(alpha);
         if (rvol != null) rvols.push(rvol);
         if (cr != null) crs.push(cr);
         if (dvolRatio != null) dvols.push(dvolRatio);
@@ -4281,7 +4286,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const avgDvol = avg(dvols);
       const avgRoc2 = avg(rocs);
       const avgStealth = avg(stealths);
-      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, avgStealth, tickerRows };
+      const avgAlpha = avg(alphas);
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, avgStealth, avgAlpha, tickerRows };
     }).filter((r) => r.avgRvol != null);
   }, [tkMx]);
 
@@ -4389,6 +4395,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               <span style={{ display: "inline-flex", gap: 5, flexShrink: 0 }}>
                 <span style={{ fontSize: 8, color: chgColor(r.avgChg), fontFamily: "monospace", fontWeight: 700 }}>
                   {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
+                </span>
+                <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: r.avgAlpha != null && Math.abs(r.avgAlpha) >= 2 ? 700 : 400, color: r.avgAlpha != null && r.avgAlpha >= 2 ? "#fbbf24" : r.avgAlpha != null && r.avgAlpha > 0 ? ARIA.green : r.avgAlpha != null && r.avgAlpha < -2 ? ARIA.red : ARIA.textMuted }}>
+                  {r.avgAlpha != null ? (r.avgAlpha > 0 ? "+" : "") + r.avgAlpha.toFixed(1) : "—"}
                 </span>
                 <span style={{ fontSize: 8, color: rvColor(r.avgRvol), fontFamily: "monospace", fontWeight: 700 }}>
                   {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
