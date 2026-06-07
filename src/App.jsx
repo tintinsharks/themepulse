@@ -909,6 +909,7 @@ const SORT_BUTTONS = [
   { key: "accel", label: "Acc" },
   { key: "magna", label: "MAG" },
   { key: "qm_bo", label: "BO" },
+  { key: "alpha", label: "α" },
 ];
 
 // Get the comparable value for a row given a sort key
@@ -930,6 +931,8 @@ function rowSortValue(r, key) {
       return r.magna || 0;
     case "qm_bo":
       return r.qmagScore || 0;
+    case "alpha":
+      return r.alpha || 0;
     case "strScore":
       return r.strScore ?? 0;
     case "chgOpen":
@@ -2805,7 +2808,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 
   // ── Step 3: live enrichment ─────────────────────────────────────────────
   const candidateTickers = useMemo(
-    () => topCandidates.map((s) => s.ticker),
+    () => [...topCandidates.map((s) => s.ticker), "SPY"],
     [topCandidates]
   );
   const { quotes: liveQuotes, updated: liveUpdated } = useLiveQuotes(
@@ -2817,6 +2820,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   const rows = useMemo(() => {
     const out = [];
     const want9m = activeTags.has("9M");
+    const spyQ = liveQuotes.get("SPY");
+    const spyChg = spyQ?.change ?? 0;
     for (const s of topCandidates) {
       const q = liveQuotes.get(s.ticker);
       const price = q?.price ?? s.price ?? s.close ?? 0;
@@ -2900,6 +2905,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         liveVol: liveVol || 0,
         is9m,
         strScore: tickerStrengthMap?.[s.ticker] ?? null,
+        alpha: Math.round((chg - spyChg) * 100) / 100,
       });
     }
     // Sort: primary DESC, secondary DESC tiebreaker. String values use locale.
@@ -3959,6 +3965,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
             <Th k="theme" label="Chain" align="left" />
             <Th k="layer" label="Layer" align="left" />
             <Th k="chg" label="Chg%" />
+            <Th k="alpha" label="α" />
             <Th k="rvol" label="RV" />
             <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
@@ -4029,6 +4036,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 </td>
                 <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>
                   {r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: r.alpha >= 2 ? "#fbbf24" : r.alpha > 0 ? ARIA.green : r.alpha < -2 ? ARIA.red : ARIA.textMuted, fontWeight: Math.abs(r.alpha) >= 2 ? 700 : 400 }}
+                    title={`Alpha vs SPY: stock ${r.chg?.toFixed(1)}% − SPY ${(r.chg - r.alpha).toFixed(1)}%`}>
+                  {r.alpha != null ? (r.alpha > 0 ? "+" : "") + r.alpha.toFixed(1) : "—"}
                 </td>
                 <td style={{ ...cell, color: rvColor(r.rvol), fontWeight: 700 }}>
                   {r.rvol != null ? r.rvol.toFixed(1) + "x" : "—"}
