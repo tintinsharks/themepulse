@@ -4313,6 +4313,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   const layers = useMemo(() => {
     const rows = [...scoredLayers];
     if (sortBy === "chg") return rows.sort((a, b) => (b.avgChg ?? -999) - (a.avgChg ?? -999));
+    if (sortBy === "alpha") return rows.sort((a, b) => (b.avgAlpha ?? -999) - (a.avgAlpha ?? -999));
     if (sortBy === "rvol") return rows.sort((a, b) => (b.avgRvol ?? 0) - (a.avgRvol ?? 0));
     if (sortBy === "cr") return rows.sort((a, b) => (b.avgCr ?? -1) - (a.avgCr ?? -1));
     if (sortBy === "dvol") return rows.sort((a, b) => (b.avgDvol ?? 0) - (a.avgDvol ?? 0));
@@ -4338,7 +4339,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       {layers.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 4px" }}>
           <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4 }}>SORT</span>
-          {[["heat", "Score"], ["chg", "Chg%"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"], ["stealth", "Stealth"]].map(([key, label]) => (
+          {[["heat", "Score"], ["chg", "Chg%"], ["alpha", "α"], ["rvol", "RVol"], ["cr", "CR%"], ["dvol", "$Inflow"], ["roc2", "ROC²"], ["stealth", "Stealth"]].map(([key, label]) => (
             <button key={key} onClick={() => cycleSortBy(key)} style={{
               background: sortBy === key ? "rgba(108,213,232,0.14)" : "rgba(255,255,255,0.04)",
               border: `1px solid ${sortBy === key ? "#6cd5e8" : ARIA.border}`,
