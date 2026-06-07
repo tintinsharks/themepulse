@@ -3824,13 +3824,21 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
     return m;
   }, [crpScores]);
   // When scanRows provided, only poll those tickers; else poll all chain tickers.
+  // Always include all chain tickers so we can inject high-alpha ones missing from scan.
   const allChainTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
     s.add("SPY");
     return [...s];
   }, []);
-  const scanTickers = useMemo(() => scanRows ? [...scanRows.map((r) => r.ticker), "SPY"] : null, [scanRows]);
+  const scanTickers = useMemo(() => {
+    if (!scanRows) return null;
+    const s = new Set(scanRows.map((r) => r.ticker));
+    // Also poll ALL chain tickers — needed to calc alpha for chain-only injections
+    DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    s.add("SPY");
+    return [...s];
+  }, [scanRows]);
   const pollTickers = scanTickers ?? allChainTickers;
   const { quotes: liveQuotes } = useLiveQuotes(pollTickers, 30000);
   const spyReturns = useSpyReturns();
@@ -3855,7 +3863,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
     };
     if (scanRows) {
       // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
-      return scanRows.map((sr) => {
+      const scanSet = new Set(scanRows.map((sr) => sr.ticker));
+      const base = scanRows.map((sr) => {
         const chains = TICKER_CHAIN_MAP.get(sr.ticker);
         const firstChain = chains?.[0];
         const themeId = firstChain?.themeId ?? null;
@@ -3895,6 +3904,56 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           erDays: s?.earnings_days ?? null,
         };
       });
+      // Inject high-alpha chain tickers that didn't pass scan filters
+      // (α ≥ 2 = meaningfully outperforming SPY — worth surfacing)
+      const injected = [];
+      for (const tk of allChainTickers) {
+        if (tk === "SPY" || scanSet.has(tk)) continue;
+        const chains = TICKER_CHAIN_MAP.get(tk);
+        if (!chains?.length) continue;
+        const firstChain = chains[0];
+        const themeId = firstChain?.themeId ?? null;
+        const theme = themeId
+          ? (DRAWER_SUBTHEMES.find((s) => s.themeId === themeId)?.theme ?? themeId)
+          : null;
+        const layers = [...new Set(chains.map((c) => c.layer))];
+        const q = liveQuotes.get(tk);
+        const s = stockMap?.[tk];
+        const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
+        const alpha = calcAlpha(chg, s);
+        if (alpha == null || alpha < 2) continue; // only inject if α ≥ 2
+        const liveVol = q?.volume;
+        const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+        let rvol = null;
+        if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+        else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
+        const price = q?.price ?? s?.price ?? s?.close ?? null;
+        const r1m = s?.return_1m, r3m = s?.return_3m;
+        const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
+        const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
+        const avgDvol = s?.avg_dollar_vol_raw ?? null;
+        const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
+        injected.push({
+          ticker: tk,
+          themeId,
+          theme,
+          layer: layers[0] ?? null,
+          layerCount: layers.length,
+          chg,
+          alpha,
+          rvol,
+          rs: s?.rs_rank ?? null,
+          str: tickerStrengthMap?.[tk] ?? null,
+          cr: computeCR(q, s),
+          crp: crpMap.get(tk) ?? null,
+          roc2,
+          mcap: s?.market_cap_raw ?? null,
+          dvolRatio,
+          erDays: s?.earnings_days ?? null,
+          chainOnly: true, // visual marker — didn't pass scan filters
+        });
+      }
+      return [...base, ...injected];
     }
     // Default: all chain tickers
     return allChainTickers.map((tk) => {
@@ -4059,12 +4118,13 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                 style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg, outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
                 onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = isFocus ? "rgba(251,191,36,0.12)" : ARIA.bgHover; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg; }}
-                title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}`}
+                title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}${r.chainOnly ? " · chain-only (α≥2, below scan filters)" : ""}`}
               >
-                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : isFocus ? "#fbbf24" : ARIA.text, fontWeight: sel || isFocus ? 800 : 700, borderLeft: isFocus ? "2px solid #fbbf24" : "2px solid transparent" }}>
+                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : isFocus ? "#fbbf24" : r.chainOnly ? "rgba(251,191,36,0.85)" : ARIA.text, fontWeight: sel || isFocus ? 800 : 700, borderLeft: isFocus ? "2px solid #fbbf24" : r.chainOnly ? "2px solid rgba(251,191,36,0.4)" : "2px solid transparent" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
+                    {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
