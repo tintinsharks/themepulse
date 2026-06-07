@@ -555,11 +555,19 @@ const _quoteManager = {
     const id = ++this.nextId;
     this.subscribers.set(id, new Set(tickers));
     this._ensurePolling();
+    // If any newly registered tickers aren't cached yet, schedule a
+    // one-time fetch so weekend/overnight pages still get data.
+    if (tickers.some((t) => !this.cache.has(t))) {
+      setTimeout(() => this._fetch(), 300);
+    }
     return id;
   },
 
   update(id, tickers) {
     this.subscribers.set(id, new Set(tickers));
+    if (tickers.some((t) => !this.cache.has(t))) {
+      setTimeout(() => this._fetch(), 300);
+    }
   },
 
   unregister(id) {
