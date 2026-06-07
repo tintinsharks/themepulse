@@ -3827,13 +3827,32 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
   const allChainTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    s.add("SPY");
     return [...s];
   }, []);
-  const scanTickers = useMemo(() => scanRows ? scanRows.map((r) => r.ticker) : null, [scanRows]);
+  const scanTickers = useMemo(() => scanRows ? [...scanRows.map((r) => r.ticker), "SPY"] : null, [scanRows]);
   const pollTickers = scanTickers ?? allChainTickers;
   const { quotes: liveQuotes } = useLiveQuotes(pollTickers, 30000);
+  const spyReturns = useSpyReturns();
+  const [alphaMode, setAlphaMode] = useState(() => {
+    try { return localStorage.getItem("tp-chain-heat-alpha") || "1d"; } catch { return "1d"; }
+  });
+  // Sync alphaMode when Heat view changes it (same localStorage key)
+  useEffect(() => {
+    const onStorage = (e) => { if (e.key === "tp-chain-heat-alpha") setAlphaMode(e.newValue || "1d"); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const rows = useMemo(() => {
+    const spyQ = liveQuotes.get("SPY");
+    const spyChg = spyQ?.change ?? 0;
+    const spyPeriod = alphaMode === "1w" ? spyReturns?.["1w"] : alphaMode === "1m" ? spyReturns?.["1m"] : null;
+    const calcAlpha = (chg, s) => {
+      if (alphaMode === "1d") return chg != null ? Math.round((chg - spyChg) * 100) / 100 : null;
+      const stockRet = alphaMode === "1w" ? s?.return_1w : s?.return_1m;
+      return (stockRet != null && spyPeriod != null) ? Math.round((stockRet - spyPeriod) * 100) / 100 : null;
+    };
     if (scanRows) {
       // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
       return scanRows.map((sr) => {
@@ -3864,6 +3883,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
           layer: layers[0] ?? null,
           layerCount: layers.length,
           chg,
+          alpha: calcAlpha(chg, s),
           rvol,
           rs: sr.rs || s?.rs_rank || null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
@@ -3907,6 +3927,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         layer: layers[0] ?? null,
         layerCount: layers.length,
         chg,
+        alpha: calcAlpha(chg, s),
         rvol,
         rs: s?.rs_rank ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
@@ -3919,7 +3940,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns]);
 
   const [sortKey, setSortKey] = useState("dvolRatio");
   const [sortDir, setSortDir] = useState("desc");
@@ -4171,7 +4192,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
 // sortable. Replaces the iframe view in ScanWatch's "Chain" sub-tab.
 // ── Shared hook: computes per-layer aggregates used by ChainLayerTable and
 // ChainFlowMap. Centralises useLiveQuotes so both views share one poll cycle.
-function useChainLayerRows(stockMap, tickerStrengthMap) {
+function useChainLayerRows(stockMap, tickerStrengthMap, alphaMode) {
+  const spyReturns = useSpyReturns();
   const allTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
@@ -4182,13 +4204,20 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
   return useMemo(() => {
     const spyQ = liveQuotes.get("SPY");
     const spyChg = spyQ?.change ?? 0;
+    const spyPeriod = alphaMode === "1w" ? spyReturns?.["1w"] : alphaMode === "1m" ? spyReturns?.["1m"] : null;
     return DRAWER_SUBTHEMES.map((sub) => {
       const chgs = [], rvols = [], strs = [], crs = [], rocs = [], alphas = [];
       sub.tickers.forEach((tk) => {
         const q = liveQuotes.get(tk);
         const s = stockMap?.[tk];
         const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
-        if (chg != null && !isNaN(chg)) { chgs.push(chg); alphas.push(chg - spyChg); }
+        if (chg != null && !isNaN(chg)) chgs.push(chg);
+        if (alphaMode === "1d") {
+          if (chg != null && !isNaN(chg)) alphas.push(chg - spyChg);
+        } else {
+          const stockRet = alphaMode === "1w" ? s?.return_1w : s?.return_1m;
+          if (stockRet != null && spyPeriod != null) alphas.push(stockRet - spyPeriod);
+        }
         const liveVol = q?.volume;
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
         let rvol = null;
@@ -4210,7 +4239,7 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
         avgCr: avg(crs), avgRoc2: avg(rocs), avgAlpha: avg(alphas),
       };
     });
-  }, [liveQuotes, stockMap, tickerStrengthMap]);
+  }, [liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns]);
 }
 
 // ── ChainFlowMap: horizontal lanes showing which layer within each value
@@ -4515,7 +4544,15 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
 
 function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterNames, posOnly }) {
   const ARIA = useAriaTheme();
-  const rows = useChainLayerRows(stockMap, tickerStrengthMap);
+  const [alphaMode, setAlphaMode] = useState(() => {
+    try { return localStorage.getItem("tp-chain-heat-alpha") || "1d"; } catch { return "1d"; }
+  });
+  useEffect(() => {
+    const onStorage = (e) => { if (e.key === "tp-chain-heat-alpha") setAlphaMode(e.newValue || "1d"); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  const rows = useChainLayerRows(stockMap, tickerStrengthMap, alphaMode);
 
   const [sortKey, setSortKey] = useState("avgStr");
   const [sortDir, setSortDir] = useState("desc");
