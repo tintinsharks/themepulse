@@ -3843,7 +3843,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
   const { quotes: liveQuotes } = useLiveQuotes(pollTickers, 30000);
   const spyReturns = useSpyReturns();
   const [alphaMode, setAlphaMode] = useState(() => {
-    try { return localStorage.getItem("tp-chain-heat-alpha") || "1d"; } catch { return "1d"; }
+    try { return localStorage.getItem("tp-chain-heat-alpha") || "1w"; } catch { return "1d"; }
   });
   // Sync alphaMode when Heat view changes it (same localStorage key)
   useEffect(() => {
@@ -4349,7 +4349,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
   });
   const cycleSortBy = (key) => setSortBy((prev) => { const v = prev === key ? "heat" : key; try { localStorage.setItem("tp-chain-heat-sort", v); } catch {} return v; });
   const [alphaMode, setAlphaMode] = useState(() => {
-    try { return localStorage.getItem("tp-chain-heat-alpha") || "1d"; } catch { return "1d"; }
+    try { return localStorage.getItem("tp-chain-heat-alpha") || "1w"; } catch { return "1d"; }
   });
   const cycleAlphaMode = () => setAlphaMode((prev) => {
     const next = prev === "1d" ? "1w" : prev === "1w" ? "1m" : "1d";
@@ -4609,7 +4609,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
 function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, activeFilterNames, posOnly }) {
   const ARIA = useAriaTheme();
   const [alphaMode, setAlphaMode] = useState(() => {
-    try { return localStorage.getItem("tp-chain-heat-alpha") || "1d"; } catch { return "1d"; }
+    try { return localStorage.getItem("tp-chain-heat-alpha") || "1w"; } catch { return "1d"; }
   });
   useEffect(() => {
     const onStorage = (e) => { if (e.key === "tp-chain-heat-alpha") setAlphaMode(e.newValue || "1d"); };
