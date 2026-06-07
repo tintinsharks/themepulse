@@ -4275,7 +4275,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
         if (dvolRatio != null) dvols.push(dvolRatio);
         if (roc2 != null) rocs.push(roc2);
         if (stealth != null) stealths.push(stealth);
-        return { ticker: tk, chg, rvol };
+        return { ticker: tk, chg, rvol, alpha };
       })
         .filter((t) => t.rvol != null || t.chg != null)
         .sort((a, b) => (b.rvol ?? 0) - (a.rvol ?? 0));
@@ -4417,9 +4417,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                 </span>}
               </span>
             </div>
-            {/* Top tickers sorted by RVol — click to load chart */}
+            {/* Top tickers — sorted by alpha when α sort active, else by RVol */}
             {open && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 6 }}>
-              {r.tickerRows.slice(0, 7).map(({ ticker, chg, rvol }) => (
+              {(sortBy === "alpha" ? [...r.tickerRows].sort((a, b) => (b.alpha ?? -999) - (a.alpha ?? -999)) : r.tickerRows).slice(0, 7).map(({ ticker, chg, rvol, alpha }) => (
                 <button
                   key={ticker}
                   onClick={() => { suppressChainScrollOnce(); onTickerClick && onTickerClick(ticker); }}
@@ -4436,7 +4436,12 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
                   <span style={{ fontSize: 8, fontFamily: "monospace", color: chgColor(chg), fontWeight: 700 }}>
                     {chg != null ? (chg > 0 ? "+" : "") + chg.toFixed(1) + "%" : "—"}
                   </span>
-                  {rvol != null && rvol >= 1.5 && (
+                  {sortBy === "alpha" && alpha != null && (
+                    <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: Math.abs(alpha) >= 2 ? 700 : 400, color: alpha >= 2 ? "#fbbf24" : alpha > 0 ? ARIA.green : alpha < -2 ? ARIA.red : ARIA.textMuted }}>
+                      α{alpha > 0 ? "+" : ""}{alpha.toFixed(1)}
+                    </span>
+                  )}
+                  {rvol != null && rvol >= 1.5 && sortBy !== "alpha" && (
                     <span style={{ fontSize: 7, fontFamily: "monospace", color: rvColor(rvol) }}>
                       {rvol.toFixed(1)}x
                     </span>
