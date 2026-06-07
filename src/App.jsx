@@ -4135,17 +4135,20 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
   const allTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
+    s.add("SPY");
     return [...s];
   }, []);
   const { quotes: liveQuotes } = useLiveQuotes(allTickers, 30000);
   return useMemo(() => {
+    const spyQ = liveQuotes.get("SPY");
+    const spyChg = spyQ?.change ?? 0;
     return DRAWER_SUBTHEMES.map((sub) => {
-      const chgs = [], rvols = [], strs = [], crs = [], rocs = [];
+      const chgs = [], rvols = [], strs = [], crs = [], rocs = [], alphas = [];
       sub.tickers.forEach((tk) => {
         const q = liveQuotes.get(tk);
         const s = stockMap?.[tk];
         const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
-        if (chg != null && !isNaN(chg)) chgs.push(chg);
+        if (chg != null && !isNaN(chg)) { chgs.push(chg); alphas.push(chg - spyChg); }
         const liveVol = q?.volume;
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
         let rvol = null;
@@ -4164,7 +4167,7 @@ function useChainLayerRows(stockMap, tickerStrengthMap) {
         themeId: sub.themeId, theme: sub.theme, layer: sub.layer,
         tickers: sub.tickers, nTickers: sub.tickers.length,
         avgChg: avg(chgs), avgRvol: avg(rvols), avgStr: avg(strs),
-        avgCr: avg(crs), avgRoc2: avg(rocs),
+        avgCr: avg(crs), avgRoc2: avg(rocs), avgAlpha: avg(alphas),
       };
     });
   }, [liveQuotes, stockMap, tickerStrengthMap]);
@@ -4521,6 +4524,7 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
             <Th k="layer" label="Layer" align="left" />
             <Th k="avgStr" label="Str" />
             <Th k="avgChg" label="Chg%" />
+            <Th k="avgAlpha" label="α" />
             <Th k="avgRvol" label="RV" />
             <Th k="avgCr" label="CR%" />
             <Th k="avgRoc2" label="ROC²" />
@@ -4555,6 +4559,10 @@ function ChainLayerTable({ stockMap, tickerStrengthMap, onLayerClick, onTickerCl
                 </td>
                 <td style={{ ...cell, color: chgColor(r.avgChg) }}>
                   {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: r.avgAlpha != null && r.avgAlpha >= 2 ? "#fbbf24" : r.avgAlpha != null && r.avgAlpha > 0 ? ARIA.green : r.avgAlpha != null && r.avgAlpha < -2 ? ARIA.red : ARIA.textMuted, fontWeight: r.avgAlpha != null && Math.abs(r.avgAlpha) >= 2 ? 700 : 400 }}
+                    title="Avg alpha vs SPY across layer tickers">
+                  {r.avgAlpha != null ? (r.avgAlpha > 0 ? "+" : "") + r.avgAlpha.toFixed(1) : "—"}
                 </td>
                 <td style={{ ...cell, color: rvColor(r.avgRvol) }}>
                   {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
