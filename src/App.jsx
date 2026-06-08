@@ -3746,6 +3746,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           stockMap={stockMap}
           tickerStrengthMap={tickerStrengthMap}
           onTickerClick={onTickerClick}
+          onLayerClick={onLayerClick}
           chartTicker={chartTicker}
           posOnly={posOnly}
           scanRows={scanRows}
@@ -3796,7 +3797,7 @@ function useThesisMap() {
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTicker, posOnly, scanRows, crpScores }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, crpScores }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const thesisMap = useThesisMap();
@@ -4155,8 +4156,20 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, chartTic
                     }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
                   ) : <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>}
                 </td>
-                <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, fontSize: 8 }}>
-                  {r.layer ?? <span style={{ color: ARIA.textMuted }}>—</span>}
+                <td style={{ ...cell, textAlign: "left", fontSize: 8 }}
+                    onClick={(e) => {
+                      if (!r.layer || !onLayerClick) return;
+                      e.stopPropagation();
+                      const sub = DRAWER_SUBTHEMES.find((s) => s.layer === r.layer);
+                      if (sub) onLayerClick(r.layer, sub.tickers);
+                    }}
+                    title={r.layer ? `Click to filter → ${r.layer}` : ""}
+                >
+                  {r.layer ? (
+                    <span style={{ color: ARIA.textDim, cursor: onLayerClick ? "pointer" : "default", borderBottom: onLayerClick ? "1px dashed rgba(255,255,255,0.15)" : "none" }}>
+                      {r.layer}
+                    </span>
+                  ) : <span style={{ color: ARIA.textMuted }}>—</span>}
                   {r.layer && r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
                 </td>
                 <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>
