@@ -3801,6 +3801,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const thesisMap = useThesisMap();
+  const [layerFilter, setLayerFilter] = useState(null); // local layer filter — click layer to toggle
   const [focusRaw, setFocusRaw] = useState(() => localStorage.getItem("themepulse-focus") || "[]");
   useEffect(() => {
     const onStorage = (e) => { if (e.key === "themepulse-focus") setFocusRaw(e.newValue || "[]"); };
@@ -4007,6 +4008,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
+    if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
     arr.sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
       if (sortKey === "ticker" || sortKey === "theme" || sortKey === "layer") {
@@ -4019,7 +4021,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, sortKey, sortDir, posOnly]);
+  }, [rows, sortKey, sortDir, posOnly, layerFilter]);
   const toggleSort = (k) => {
     setSortKey((cur) => {
       if (cur === k) { setSortDir((d) => d === "asc" ? "desc" : "asc"); return cur; }
@@ -4078,6 +4080,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   return (
     <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
          style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }}>
+      {layerFilter && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", background: "rgba(168,85,247,0.08)", borderBottom: `1px solid rgba(168,85,247,0.25)`, flexShrink: 0 }}>
+          <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, color: "#a855f7", letterSpacing: 0.4 }}>LAYER</span>
+          <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: "#a855f7", padding: "1px 6px", borderRadius: 3, background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)" }}>
+            {layerFilter}
+          </span>
+          <button onClick={() => setLayerFilter(null)} style={{ fontSize: 8, fontFamily: "monospace", color: ARIA.textMuted, background: "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 5px", cursor: "pointer" }}>✕ clear</button>
+          <span style={{ fontSize: 7, fontFamily: "monospace", color: ARIA.textMuted, marginLeft: "auto" }}>{sorted.length} tickers</span>
+        </div>
+      )}
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto", fontFamily: "monospace" }}>
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
@@ -4158,15 +4170,14 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8 }}
                     onClick={(e) => {
-                      if (!r.layer || !onLayerClick) return;
+                      if (!r.layer) return;
                       e.stopPropagation();
-                      const sub = DRAWER_SUBTHEMES.find((s) => s.layer === r.layer);
-                      if (sub) onLayerClick(r.layer, sub.tickers);
+                      setLayerFilter((prev) => prev === r.layer ? null : r.layer);
                     }}
-                    title={r.layer ? `Click to filter → ${r.layer}` : ""}
+                    title={r.layer ? (layerFilter === r.layer ? `Click to clear filter` : `Click to filter → ${r.layer}`) : ""}
                 >
                   {r.layer ? (
-                    <span style={{ color: ARIA.textDim, cursor: onLayerClick ? "pointer" : "default", borderBottom: onLayerClick ? "1px dashed rgba(255,255,255,0.15)" : "none" }}>
+                    <span style={{ color: layerFilter === r.layer ? "#a855f7" : ARIA.textDim, cursor: "pointer", fontWeight: layerFilter === r.layer ? 700 : 400, borderBottom: "1px dashed rgba(255,255,255,0.15)" }}>
                       {r.layer}
                     </span>
                   ) : <span style={{ color: ARIA.textMuted }}>—</span>}
