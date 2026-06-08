@@ -4172,6 +4172,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     onClick={(e) => {
                       if (!r.layer) return;
                       e.stopPropagation();
+                      e.preventDefault();
+                      console.log("[LAYER CLICK]", r.layer, r.ticker);
                       setLayerFilter((prev) => prev === r.layer ? null : r.layer);
                     }}
                     title={r.layer ? (layerFilter === r.layer ? `Click to clear filter` : `Click to filter → ${r.layer}`) : ""}
