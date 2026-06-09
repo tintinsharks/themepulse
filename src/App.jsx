@@ -3916,19 +3916,20 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     const etMins = et.getHours() * 60 + et.getMinutes();
     const isRTH = etMins >= 570 && etMins < 960;
     const elapsedFrac = isRTH ? Math.max(0.01, (etMins - 570) / 390) : 1.0;
-    const calcZVR = (ticker, liveVol, avgVol, pipelineRelVol) => {
+    const calcZVR = (ticker, liveVol, avgVol, pipelineRelVol, chg) => {
       // 1. True Zanger: API-sourced (20-day intraday cumulative comparison)
-      const apiVal = apiZvrMap.get(ticker);
-      if (apiVal != null) return apiVal;
+      let raw = apiZvrMap.get(ticker) ?? null;
       // 2. Linear estimate: live_vol / (avg_vol × elapsed_fraction)
-      if (liveVol && avgVol > 0) {
-        return Math.round((liveVol / (avgVol * elapsedFrac)) * 100);
+      if (raw == null && liveVol && avgVol > 0) {
+        raw = Math.round((liveVol / (avgVol * elapsedFrac)) * 100);
       }
       // 3. Pipeline fallback: last session's final volume / avg
-      if (pipelineRelVol != null && !isNaN(pipelineRelVol) && pipelineRelVol > 0) {
-        return Math.round(pipelineRelVol * 100);
+      if (raw == null && pipelineRelVol != null && !isNaN(pipelineRelVol) && pipelineRelVol > 0) {
+        raw = Math.round(pipelineRelVol * 100);
       }
-      return null;
+      if (raw == null) return null;
+      // Sign by price direction: negative chg → negative ZVR (distribution)
+      return chg != null && chg < 0 ? -raw : raw;
     };
     if (scanRows) {
       // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
@@ -3966,7 +3967,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: sr.rs || s?.rs_rank || null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
-          zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume),
+          zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume, chg),
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -4026,7 +4027,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? s?.rs_rank ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
           cr: computeCR(q, s),
-          zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume),
+          zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -4072,7 +4073,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         rs: s?.rs_rank ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
-        zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume),
+        zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
         roc2,
         epsYoy: s?.eps_yoy ?? null,
         salesYoy: s?.sales_yoy ?? null,
@@ -4285,9 +4286,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
                 </td>
-                <td style={{ ...cell, color: r.zvr != null ? (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted, fontWeight: r.zvr != null && r.zvr >= 150 ? 700 : 400 }}
-                    title="Zanger Volume Ratio: projected EOD volume as % of avg daily volume. ≥150% = above-average pace, ≥200% = breakout confirmation">
-                  {r.zvr != null ? r.zvr + "%" : "—"}
+                <td style={{ ...cell, color: r.zvr != null ? (r.zvr < 0 ? (Math.abs(r.zvr) >= 200 ? "#ef4444" : Math.abs(r.zvr) >= 150 ? ARIA.red : ARIA.textMuted) : (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted)) : ARIA.textMuted, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 150 ? 700 : 400 }}
+                    title="Zanger Volume Ratio: projected EOD volume as % of avg daily volume. Positive = accumulation, negative = distribution. ≥200% = breakout confirmation">
+                  {r.zvr != null ? (r.zvr < 0 ? "-" : "") + Math.abs(r.zvr) + "%" : "—"}
                 </td>
                 <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
                     title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
