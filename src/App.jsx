@@ -965,6 +965,8 @@ function rowSortValue(r, key) {
       return r.rvol || 0;
     case "crp":
       return r.crp ?? -1;
+    case "zvr":
+      return r.zvr ?? -1;
     case "accel":
       return r.accel || 0;
     case "magna":
@@ -2884,8 +2886,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       const cr = computeCR(q, s);
       const crp = crpMap.get(s.ticker) ?? null;
 
-      // CRP≥ slider
-      if (filters.minCrp > 0 && (crp == null || crp * 100 < filters.minCrp)) continue;
+      // CRP≥ slider — only filter if CRP data exists in pipeline
+      if (filters.minCrp > 0 && crpMap.size > 0 && (crp == null || crp * 100 < filters.minCrp)) continue;
       // Chg>0% filter — applies to either Open or Chg mode
       if (filters.greenOnly) {
         const gainKey =
@@ -3256,7 +3258,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         >
           Chg&gt;0%
         </button>
-        <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: 4 }}>Owned:</span>
         <button
           onClick={() => updateFilter({ ownedView: "all" })}
           style={pillStyle(filters.ownedView === "all", ARIA.textDim)}
@@ -3267,16 +3268,16 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         <button
           onClick={() => updateFilter({ ownedView: "owned" })}
           style={pillStyle(filters.ownedView === "owned", ARIA.yellow)}
-          title="Show only tickers already in portfolio or watchlist"
+          title="Show only tickers in portfolio or watchlist"
         >
-          Only
+          Owned
         </button>
         <button
           onClick={() => updateFilter({ ownedView: "hide" })}
           style={pillStyle(filters.ownedView === "hide", ARIA.yellow)}
-          title="Hide tickers already in portfolio or watchlist"
+          title="Show only tickers NOT in portfolio or watchlist"
         >
-          Hide
+          None
         </button>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>Chg≥</span>
         <input
@@ -3322,26 +3323,28 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           {filters.minRvol}x
         </span>
         <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
-        <span style={{ fontSize: 7, color: ARIA.textMuted }}>CRP≥</span>
+        <span style={{ fontSize: 7, color: crpScores?.length ? ARIA.textMuted : ARIA.textMuted + "60" }}>CRP≥</span>
         <input
           type="range"
           min={0}
           max={100}
           step={10}
           value={filters.minCrp}
+          disabled={!crpScores?.length}
           onChange={(e) =>
             updateFilter({ minCrp: parseFloat(e.target.value) })
           }
-          style={{ width: 50, accentColor: "#0ea5e9", cursor: "pointer" }}
+          style={{ width: 50, accentColor: "#0ea5e9", cursor: crpScores?.length ? "pointer" : "not-allowed", opacity: crpScores?.length ? 1 : 0.3 }}
+          title={crpScores?.length ? "Filter by Closing Range Persistence" : "CRP data not available in current pipeline"}
         />
         <span
           style={{
             fontSize: 8,
-            color: "#0ea5e9",
+            color: crpScores?.length ? "#0ea5e9" : ARIA.textMuted,
             minWidth: 22,
           }}
         >
-          {filters.minCrp}%
+          {crpScores?.length ? `${filters.minCrp}%` : "—"}
         </span>
         <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>EIF≥</span>
@@ -3715,11 +3718,11 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           if (filters.greenOnly) chips.push(chip("Chg>0%", "green"));
           if (filters.minChg > 0) chips.push(chip(`Chg≥${filters.minChg}%`, "minchg"));
           if (filters.minRvol > 0) chips.push(chip(`RV≥${filters.minRvol}x`, "minrv"));
-          if (filters.minCrp > 0) chips.push(chip(`CRP≥${filters.minCrp}%`, "mincrp"));
+          if (filters.minCrp > 0 && crpScores?.length > 0) chips.push(chip(`CRP≥${filters.minCrp}%`, "mincrp"));
           if (filters.minEif > 0) chips.push(chip(`EIF≥${filters.minEif}`, "mineif"));
           if (filters.adrMin !== 1 || filters.adrMax !== 15) chips.push(chip(`ADR ${filters.adrMin}–${filters.adrMax}`, "adr"));
           if (filters.minDvolM > 0) chips.push(chip(`$Vol≥${filters.minDvolM}M`, "dvol"));
-          if (filters.ownedView !== "all") chips.push(chip(filters.ownedView === "owned" ? "Owned Only" : "Hide Owned", "owned"));
+          if (filters.ownedView !== "all") chips.push(chip(filters.ownedView === "owned" ? "Owned" : "None", "owned"));
           if (activePresets) [...activePresets].forEach(k => { const p = PRESETS[k]; if (p) chips.push(chip(p.label, `preset-${k}`)); });
           if (activeTags) [...activeTags].forEach(k => { const t = TAG_PREDICATES[k]; if (t) chips.push(chip(t.label, `tag-${k}`)); });
           return chips.length > 0 ? <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>{chips}</span> : null;
@@ -3751,6 +3754,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           posOnly={posOnly}
           scanRows={scanRows}
           crpScores={crpScores}
+          scanFilters={filters}
         />
       )}
     </div>
@@ -3794,12 +3798,52 @@ function useThesisMap() {
   return map;
 }
 
+// ── useZVR: polls /api/zvr for Zanger Volume Ratio (true intraday comparison) ──
+// Returns Map<ticker, zvrPct> where zvrPct is an integer % (e.g. 245 = 2.45x avg).
+// Polls every 60s during RTH, 5min outside. Only fetches when tickers array is non-empty.
+function useZVR(tickers) {
+  const [zvrMap, setZvrMap] = useState(() => new Map());
+  const tickerKey = useMemo(() => tickers?.slice(0, 50).sort().join(",") || "", [tickers]);
+
+  useEffect(() => {
+    if (!tickerKey) return;
+    let cancelled = false;
+    let timer = null;
+
+    const fetchZVR = async () => {
+      try {
+        const resp = await fetch(`/api/zvr?tickers=${encodeURIComponent(tickerKey)}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (cancelled || !data.ok || !data.zvr) return;
+        const m = new Map();
+        for (const [tk, val] of Object.entries(data.zvr)) m.set(tk, val);
+        setZvrMap(m);
+        // Schedule next poll: 60s during RTH, 300s outside
+        const interval = data.meta?.isRTH ? 60000 : 300000;
+        timer = setTimeout(fetchZVR, interval);
+      } catch {
+        // Retry in 2min on error
+        timer = setTimeout(fetchZVR, 120000);
+      }
+    };
+
+    fetchZVR();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [tickerKey]);
+
+  return zvrMap;
+}
+
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, crpScores }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, crpScores, scanFilters }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
+  const [portfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist] = useLocalStorageList("themepulse-watchlist");
+  const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
   const thesisMap = useThesisMap();
   const [layerFilter, setLayerFilter] = useState(null); // local layer filter — click layer to toggle
   const [focusRaw, setFocusRaw] = useState(() => localStorage.getItem("themepulse-focus") || "[]");
@@ -3833,6 +3877,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     s.add("SPY");
     return [...s];
   }, []);
+  // Poll /api/zvr for true Zanger Volume Ratio (intraday comparison across 20-day lookback)
+  const apiZvrMap = useZVR(allChainTickers);
   const scanTickers = useMemo(() => {
     if (!scanRows) return null;
     const s = new Set(scanRows.map((r) => r.ticker));
@@ -3862,6 +3908,27 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       if (alphaMode === "1d") return chg != null ? Math.round((chg - spyChg) * 100) / 100 : null;
       const stockRet = alphaMode === "1w" ? s?.return_1w : s?.return_1m;
       return (stockRet != null && spyPeriod != null) ? Math.round((stockRet - spyPeriod) * 100) / 100 : null;
+    };
+    // Zanger Volume Ratio: prefer API-sourced ZVR (true 20-day intraday comparison).
+    // Fallback chain: apiZvrMap → linear estimate → pipeline rel_volume.
+    const now = new Date();
+    const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const etMins = et.getHours() * 60 + et.getMinutes();
+    const isRTH = etMins >= 570 && etMins < 960;
+    const elapsedFrac = isRTH ? Math.max(0.01, (etMins - 570) / 390) : 1.0;
+    const calcZVR = (ticker, liveVol, avgVol, pipelineRelVol) => {
+      // 1. True Zanger: API-sourced (20-day intraday cumulative comparison)
+      const apiVal = apiZvrMap.get(ticker);
+      if (apiVal != null) return apiVal;
+      // 2. Linear estimate: live_vol / (avg_vol × elapsed_fraction)
+      if (liveVol && avgVol > 0) {
+        return Math.round((liveVol / (avgVol * elapsedFrac)) * 100);
+      }
+      // 3. Pipeline fallback: last session's final volume / avg
+      if (pipelineRelVol != null && !isNaN(pipelineRelVol) && pipelineRelVol > 0) {
+        return Math.round(pipelineRelVol * 100);
+      }
+      return null;
     };
     if (scanRows) {
       // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
@@ -3899,7 +3966,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: sr.rs || s?.rs_rank || null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
-          crp: crpMap.get(sr.ticker) ?? null,
+          zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume),
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -3924,11 +3991,23 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
         const alpha = calcAlpha(chg, s);
         if (alpha == null || alpha < 2) continue; // only inject if α ≥ 2
+        // Respect scan-level filters so chain-only tickers don't bypass EIF/RV/Chg/CRP/Owned/Green
+        if (scanFilters) {
+          if (scanFilters.ownedView === "hide" && ownedSet.has(tk)) continue;
+          if (scanFilters.ownedView === "owned" && !ownedSet.has(tk)) continue;
+          if (scanFilters.greenOnly && (chg == null || chg <= 0)) continue;
+          const eifVal = s?.framework_score ?? s?.rs_rank ?? 0;
+          if (scanFilters.minEif > 0 && eifVal < scanFilters.minEif) continue;
+          if (scanFilters.minChg > 0 && (chg == null || chg < scanFilters.minChg)) continue;
+          const crp = crpMap.get(tk) ?? null;
+          if (scanFilters.minCrp > 0 && crpMap.size > 0 && (crp == null || crp * 100 < scanFilters.minCrp)) continue;
+        }
         const liveVol = q?.volume;
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
         let rvol = null;
         if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
         else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
+        if (scanFilters?.minRvol > 0 && (rvol == null || rvol < scanFilters.minRvol)) continue;
         const price = q?.price ?? s?.price ?? s?.close ?? null;
         const r1m = s?.return_1m, r3m = s?.return_3m;
         const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
@@ -3944,10 +4023,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           chg,
           alpha,
           rvol,
-          rs: s?.rs_rank ?? null,
+          rs: s?.framework_score ?? s?.rs_rank ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
           cr: computeCR(q, s),
-          crp: crpMap.get(tk) ?? null,
+          zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume),
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -3993,7 +4072,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         rs: s?.rs_rank ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
-        crp: crpMap.get(tk) ?? null,
+        zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume),
         roc2,
         epsYoy: s?.eps_yoy ?? null,
         salesYoy: s?.sales_yoy ?? null,
@@ -4001,7 +4080,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap]);
 
   const [sortKey, setSortKey] = useState("dvolRatio");
   const [sortDir, setSortDir] = useState("desc");
@@ -4109,8 +4188,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             <Th k="roc2" label="ROC²" />
             <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
-            <Th k="crp" label="CRP" />
-            <Th k="qm_bo" label="QM" />
+            <Th k="zvr" label="ZVR" />
             <Th k="dvolRatio" label="$Inflow" />
             <Th k="erDays" label="ER" />
           </tr>
@@ -4207,13 +4285,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
                 </td>
-                <td style={{ ...cell, color: r.crp != null ? (r.crp >= 0.8 ? "#0ea5e9" : r.crp >= 0.5 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted, fontWeight: r.crp != null && r.crp >= 0.5 ? 700 : 400 }}
-                    title="CRP: % of today's session spent in top 1/3 of range">
-                  {r.crp != null ? Math.round(r.crp * 100) + "%" : "—"}
-                </td>
-                <td style={{ ...cell, color: r.qmagScore >= 7 ? "#fbbf24" : r.qmagScore >= 5 ? ARIA.green : ARIA.textMuted, fontWeight: r.qmagScore >= 5 ? 700 : 400 }}
-                    title="QMag VCP score (0–10). ≥5 = tight base. ≥7 = T-bar territory">
-                  {r.qmagScore > 0 ? r.qmagScore : "—"}
+                <td style={{ ...cell, color: r.zvr != null ? (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted, fontWeight: r.zvr != null && r.zvr >= 150 ? 700 : 400 }}
+                    title="Zanger Volume Ratio: projected EOD volume as % of avg daily volume. ≥150% = above-average pace, ≥200% = breakout confirmation">
+                  {r.zvr != null ? r.zvr + "%" : "—"}
                 </td>
                 <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
                     title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
