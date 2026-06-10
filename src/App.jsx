@@ -4630,7 +4630,8 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
       const avgRoc2 = avg(rocs);
       const avgStealth = avg(stealths);
       const avgAlpha = avg(alphas);
-      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, avgStealth, avgAlpha, tickerRows };
+      const greenN = chgs.filter((x) => x > 0).length;
+      return { themeId: sub.themeId, theme: sub.theme, layer: sub.layer, tickers: sub.tickers, avgChg, avgRvol, avgCr, avgDvol, avgRoc2, avgStealth, avgAlpha, greenN, totalN: chgs.length, tickerRows };
     }).filter((r) => r.avgRvol != null);
   }, [tkMx]);
 
@@ -4665,6 +4666,9 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
     // Default: composite score (ROC² 50% + $Inflow 30% + CR% 20%)
     return rows.sort((a, b) => (b.composite ?? 0) - (a.composite ?? 0));
   }, [scoredLayers, sortBy]);
+  // Top-20 trim — the actionable shortlist; toggle to see the full universe
+  const [topOnly, setTopOnly] = useState(() => { try { return localStorage.getItem("tp-chain-heat-top") !== "0"; } catch { return true; } });
+  const visibleLayers = topOnly ? layers.slice(0, 20) : layers;
 
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const rvColor  = (v) => v == null ? ARIA.textMuted : v >= 2 ? ARIA.purple : v >= 1.5 ? ARIA.purple : ARIA.textDim;
@@ -4701,6 +4705,16 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
           )}
           <span style={{ flex: 1 }} />
           <button
+            onClick={() => setTopOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-heat-top", n ? "1" : "0"); } catch {} return n; })}
+            title={topOnly ? "Showing top 20 layers by current sort — click for all" : "Showing all layers — click for top 20"}
+            style={{
+              background: topOnly ? "rgba(251,191,36,0.1)" : "rgba(255,255,255,0.06)", border: `1px solid ${topOnly ? "rgba(251,191,36,0.4)" : ARIA.border}`,
+              borderRadius: 3, padding: "1px 7px", cursor: "pointer",
+              fontSize: 7, fontFamily: "monospace", fontWeight: 700,
+              color: topOnly ? "#fbbf24" : ARIA.textDim, letterSpacing: 0.3,
+            }}
+          >{topOnly ? "TOP 20" : `ALL ${layers.length}`}</button>
+          <button
             onClick={toggleAll}
             style={{
               background: "rgba(255,255,255,0.06)", border: `1px solid ${ARIA.border}`,
@@ -4711,17 +4725,28 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
           >{allCollapsed ? "▸ Expand All" : "▾ Collapse All"}</button>
         </div>
       )}
+      {layers.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 6px 2px" }}>
+          <span style={{ flex: 1 }} />
+          {[["SCORE", 30, "Composite: ROC² 35% + Stealth 25% + $Inflow 20% + CR% 20 (percentile-ranked)"], ["BR", 28, "Breadth: green tickers / total in layer"], ["CHG%", 36, "Avg day change"], ["α", 30, "Avg alpha vs SPY"], ["RV", 30, "Avg relative volume"], ["CR%", 28, "Avg closing range"], ["$IN", 30, "Avg dollar-volume inflow vs 30d"], ["ROC²", 34, "Avg Druckenmiller acceleration"]].map(([lb, w, tip]) => (
+            <span key={lb} title={tip} style={{ width: w, textAlign: "right", fontSize: 6, fontFamily: "monospace", fontWeight: 700, color: ARIA.textMuted, letterSpacing: 0.3, flexShrink: 0, cursor: "default" }}>{lb}</span>
+          ))}
+        </div>
+      )}
       {layers.length === 0 && (
         <div style={{ color: ARIA.textMuted, fontSize: 9, fontFamily: "monospace", padding: "8px 4px" }}>
           Waiting for live quotes…
         </div>
       )}
-      {layers.map((r, idx) => {
+      {visibleLayers.map((r, idx) => {
         const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim, bg: "transparent", border: ARIA.border };
-        const hc = sortBy === "heat" ? heatColor(idx, layers.length) : null;
+        const hc = heatColor(idx, visibleLayers.length);
         const isActive = activeFilterNames?.includes(r.layer);
         const rowKey = `${r.themeId}-${r.layer}`;
         const open = isExpanded(rowKey);
+        const brRatio = r.totalN > 0 ? r.greenN / r.totalN : null;
+        const leaders = r.tickerRows.filter((t) => t.chg != null).sort((a, b) => b.chg - a.chg).slice(0, 2);
+        const mono8 = { fontSize: 8, fontFamily: "monospace", fontWeight: 700, textAlign: "right", flexShrink: 0 };
         return (
           <div key={rowKey} style={{ marginBottom: open ? 7 : 2 }}>
             {/* Layer header — click to expand/collapse, shift+click to filter scan */}
@@ -4731,41 +4756,49 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
                 padding: "3px 5px", borderRadius: 3, marginBottom: open ? 3 : 0,
-                background: isActive ? `${c.color}26` : hc ? `${hc}0a` : "rgba(255,255,255,0.03)",
-                border: `1px solid ${isActive ? c.color : hc ? `${hc}33` : ARIA.border}`,
+                background: isActive ? `${c.color}26` : `${hc}0a`,
+                border: `1px solid ${isActive ? c.color : `${hc}33`}`,
               }}
             >
               <span style={{ fontSize: 7, color: ARIA.textMuted, flexShrink: 0, width: 6, textAlign: "center" }}>{open ? "▾" : "▸"}</span>
               <span style={{
                 fontSize: 7, fontWeight: 800, fontFamily: "monospace", flexShrink: 0,
-                color: hc || c.color, background: hc ? `${hc}22` : c.bg, border: `1px solid ${hc ? `${hc}66` : c.border}`,
+                color: c.color, background: c.bg, border: `1px solid ${c.border}`,
                 borderRadius: 2, padding: "0 4px",
               }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
               <span style={{ fontSize: 9, fontWeight: 700, color: isActive ? c.color : ARIA.text, fontFamily: "monospace", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {r.layer}
+                {!open && leaders.length > 0 && (
+                  <span style={{ fontSize: 7, fontWeight: 400, color: ARIA.textMuted, marginLeft: 6 }}>
+                    {leaders.map((t) => `${t.ticker} ${t.chg > 0 ? "+" : ""}${t.chg.toFixed(1)}`).join(" · ")}
+                  </span>
+                )}
               </span>
-              <span style={{ display: "inline-flex", gap: 5, flexShrink: 0 }}>
-                <span style={{ fontSize: 8, color: chgColor(r.avgChg), fontFamily: "monospace", fontWeight: 700 }}>
-                  {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
-                </span>
-                <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: r.avgAlpha != null && Math.abs(r.avgAlpha) >= 2 ? 700 : 400, color: r.avgAlpha != null && r.avgAlpha >= 2 ? "#fbbf24" : r.avgAlpha != null && r.avgAlpha > 0 ? ARIA.green : r.avgAlpha != null && r.avgAlpha < -2 ? ARIA.red : ARIA.textMuted }}>
-                  {r.avgAlpha != null ? (r.avgAlpha > 0 ? "+" : "") + r.avgAlpha.toFixed(1) : "—"}
-                </span>
-                <span style={{ fontSize: 8, color: rvColor(r.avgRvol), fontFamily: "monospace", fontWeight: 700 }}>
-                  {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
-                </span>
-                <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: r.avgCr != null && r.avgCr >= 70 ? ARIA.green : r.avgCr != null && r.avgCr <= 30 ? ARIA.red : ARIA.textDim }}>
-                  {r.avgCr != null ? Math.round(r.avgCr) + "%" : "—"}
-                </span>
-                <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: r.avgDvol != null && r.avgDvol >= 2 ? ARIA.purple : ARIA.textDim }}>
-                  {r.avgDvol != null ? r.avgDvol.toFixed(1) + "x" : "—"}
-                </span>
-                <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: chgColor(r.avgRoc2) }}>
-                  {r.avgRoc2 != null ? (r.avgRoc2 > 0 ? "+" : "") + r.avgRoc2.toFixed(1) : "—"}
-                </span>
-                {(sortBy === "stealth" || sortBy === "heat") && <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: r.avgStealth != null && r.avgStealth >= 50 ? "#a78bfa" : ARIA.textDim }}>
-                  {r.avgStealth != null ? Math.round(r.avgStealth) : "—"}
-                </span>}
+              <span style={{ ...mono8, width: 30, color: hc, background: `${hc}1a`, borderRadius: 2, padding: "0 2px" }}
+                    title="Composite score (0-100): ROC² 35% + Stealth 25% + $Inflow 20% + CR% 20">
+                {r.composite != null ? Math.round(r.composite) : "—"}
+              </span>
+              <span style={{ ...mono8, width: 28, color: brRatio == null ? ARIA.textMuted : brRatio >= 0.6 ? ARIA.green : brRatio <= 0.4 ? ARIA.red : ARIA.textDim }}
+                    title={`Breadth: ${r.greenN} of ${r.totalN} tickers green`}>
+                {r.totalN > 0 ? `${r.greenN}/${r.totalN}` : "—"}
+              </span>
+              <span style={{ ...mono8, width: 36, color: chgColor(r.avgChg) }}>
+                {r.avgChg != null ? (r.avgChg > 0 ? "+" : "") + r.avgChg.toFixed(1) + "%" : "—"}
+              </span>
+              <span style={{ ...mono8, width: 30, fontWeight: r.avgAlpha != null && Math.abs(r.avgAlpha) >= 2 ? 700 : 400, color: r.avgAlpha != null && r.avgAlpha >= 2 ? "#fbbf24" : r.avgAlpha != null && r.avgAlpha > 0 ? ARIA.green : r.avgAlpha != null && r.avgAlpha < -2 ? ARIA.red : ARIA.textMuted }}>
+                {r.avgAlpha != null ? (r.avgAlpha > 0 ? "+" : "") + r.avgAlpha.toFixed(1) : "—"}
+              </span>
+              <span style={{ ...mono8, width: 30, color: rvColor(r.avgRvol) }}>
+                {r.avgRvol != null ? r.avgRvol.toFixed(1) + "x" : "—"}
+              </span>
+              <span style={{ ...mono8, width: 28, color: r.avgCr != null && r.avgCr >= 70 ? ARIA.green : r.avgCr != null && r.avgCr <= 30 ? ARIA.red : ARIA.textDim }}>
+                {r.avgCr != null ? Math.round(r.avgCr) + "%" : "—"}
+              </span>
+              <span style={{ ...mono8, width: 30, color: r.avgDvol != null && r.avgDvol >= 2 ? ARIA.purple : ARIA.textDim }}>
+                {r.avgDvol != null ? r.avgDvol.toFixed(1) + "x" : "—"}
+              </span>
+              <span style={{ ...mono8, width: 34, color: chgColor(r.avgRoc2) }}>
+                {r.avgRoc2 != null ? (r.avgRoc2 > 0 ? "+" : "") + r.avgRoc2.toFixed(1) : "—"}
               </span>
             </div>
             {/* Top tickers — sorted by alpha when α sort active, else by RVol */}
