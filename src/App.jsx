@@ -4121,34 +4121,64 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
   }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap]);
 
-  const [sortKey, setSortKey] = useState("zvr");
-  const [sortDir, setSortDir] = useState("desc");
+  // Multi-column sort: ordered array of {key, dir}. Click = set primary,
+  // Shift+click = add/toggle as secondary/tertiary. Persisted.
+  const STRING_SORT_KEYS = ["ticker", "theme", "layer"];
+  const [sortSpec, setSortSpec] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem("tp-chain-sort"));
+      if (Array.isArray(s) && s.length && s.every((x) => x && x.key && (x.dir === "asc" || x.dir === "desc"))) return s;
+    } catch {}
+    return [{ key: "zvr", dir: "desc" }];
+  });
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
     if (setupsOnly) arr = arr.filter(r => chainSetup(r));
+    const sortVal = (r, key) => {
+      if (key === "setup") return chainSetup(r)?.rank ?? 0;
+      if (key === "is33") return r.is33 ? 1 : 0;
+      return r[key];
+    };
     arr.sort((a, b) => {
-      let av = a[sortKey], bv = b[sortKey];
-      if (sortKey === "ticker" || sortKey === "theme" || sortKey === "layer") {
-        av = (av || "").toString();
-        bv = (bv || "").toString();
-        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      for (const { key, dir } of sortSpec) {
+        let av = sortVal(a, key), bv = sortVal(b, key);
+        let cmp;
+        if (STRING_SORT_KEYS.includes(key)) {
+          cmp = (av || "").toString().localeCompare((bv || "").toString());
+        } else {
+          av = av == null ? -Infinity : av;
+          bv = bv == null ? -Infinity : bv;
+          cmp = av - bv;
+        }
+        if (cmp !== 0) return dir === "asc" ? cmp : -cmp;
       }
-      if (sortKey === "setup") { av = chainSetup(a)?.rank ?? 0; bv = chainSetup(b)?.rank ?? 0; }
-      if (sortKey === "is33") { av = a.is33 ? 1 : 0; bv = b.is33 ? 1 : 0; }
-      av = av == null ? -Infinity : av;
-      bv = bv == null ? -Infinity : bv;
-      return sortDir === "asc" ? av - bv : bv - av;
+      return 0;
     });
     return arr;
-  }, [rows, sortKey, sortDir, posOnly, layerFilter, setupsOnly]);
-  const toggleSort = (k) => {
-    setSortKey((cur) => {
-      if (cur === k) { setSortDir((d) => d === "asc" ? "desc" : "asc"); return cur; }
-      setSortDir(k === "ticker" || k === "theme" || k === "layer" ? "asc" : "desc");
-      return k;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly]);
+  const toggleSort = (k, additive) => {
+    setSortSpec((prev) => {
+      const idx = prev.findIndex((s) => s.key === k);
+      const defaultDir = STRING_SORT_KEYS.includes(k) ? "asc" : "desc";
+      let next;
+      if (additive) {
+        // Shift+click: add as next sort level, or flip direction if already present
+        next = idx >= 0
+          ? prev.map((s, i) => (i === idx ? { ...s, dir: s.dir === "asc" ? "desc" : "asc" } : s))
+          : [...prev, { key: k, dir: defaultDir }];
+      } else if (idx === 0) {
+        // Plain click on current primary: flip direction, keep secondaries
+        next = [{ key: k, dir: prev[0].dir === "asc" ? "desc" : "asc" }, ...prev.slice(1)];
+      } else {
+        // Plain click on a new column: reset to single sort
+        next = [{ key: k, dir: defaultDir }];
+      }
+      try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
+      return next;
     });
   };
 
@@ -4160,17 +4190,19 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const fmtDvol = (v) => v == null ? "—" : v >= 1e9 ? (v/1e9).toFixed(1)+"B" : v >= 1e6 ? (v/1e6).toFixed(0)+"M" : v.toFixed(0);
 
   const Th = ({ k, label, align = "right" }) => {
-    const on = sortKey === k;
-    const arrow = on ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+    const idx = sortSpec.findIndex((s) => s.key === k);
+    const on = idx >= 0;
+    const arrow = on ? (sortSpec[idx].dir === "asc" ? " ▲" : " ▼") : "";
     return (
-      <th onClick={() => toggleSort(k)}
+      <th onClick={(e) => toggleSort(k, e.shiftKey)}
+        title="Click to sort · Shift+click to add as secondary sort"
         style={{
           padding: "3px 5px", fontSize: 7, fontWeight: 700,
           color: on ? ARIA.green : ARIA.textMuted,
           textTransform: "uppercase", letterSpacing: 0.3, textAlign: align,
           borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap",
           cursor: "pointer", background: ARIA.bgCard, userSelect: "none",
-        }}>{label}{arrow}</th>
+        }}>{label}{arrow}{on && sortSpec.length > 1 && <sup style={{ fontSize: 5, color: "#fbbf24", fontWeight: 800 }}>{idx + 1}</sup>}</th>
     );
   };
   const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
@@ -4229,11 +4261,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             <Th k="is33" label="33" />
             <Th k="theme" label="Chain · Layer" align="left" />
             <Th k="chg" label="Chg%" />
-            <th onClick={() => toggleSort("alpha")} onContextMenu={(e) => { e.preventDefault(); const next = alphaMode === "1d" ? "1w" : alphaMode === "1w" ? "1m" : "1d"; setAlphaMode(next); try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {} }}
-                title="Left-click to sort · Right-click to cycle α window (1d/1w/1m)"
-                style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === "alpha" ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
-              α<span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800, marginLeft: 2 }}>{alphaMode}</span>{sortKey === "alpha" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
-            </th>
+            {(() => {
+              const aIdx = sortSpec.findIndex((s) => s.key === "alpha");
+              return (
+                <th onClick={(e) => toggleSort("alpha", e.shiftKey)} onContextMenu={(e) => { e.preventDefault(); const next = alphaMode === "1d" ? "1w" : alphaMode === "1w" ? "1m" : "1d"; setAlphaMode(next); try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {} }}
+                    title="Click to sort · Shift+click to add as secondary sort · Right-click to cycle α window (1d/1w/1m)"
+                    style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: aIdx >= 0 ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                  α<span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800, marginLeft: 2 }}>{alphaMode}</span>{aIdx >= 0 ? (sortSpec[aIdx].dir === "asc" ? " ▲" : " ▼") : ""}{aIdx >= 0 && sortSpec.length > 1 && <sup style={{ fontSize: 5, color: "#fbbf24", fontWeight: 800 }}>{aIdx + 1}</sup>}
+                </th>
+              );
+            })()}
             <Th k="adr" label="ADR" />
             <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
