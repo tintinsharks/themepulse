@@ -157,7 +157,6 @@ const DEFAULT_FILTERS = {
   minDvolM: 20,        // dollar volume floor in millions
   minChg: 0,           // Chg≥ slider (%)
   minRvol: 0,          // RV≥ slider (×)
-  minCrp: 0,           // CRP≥ slider (%) — closing range persistence
   minEif: 0,           // EIF≥ slider (percentile)
   chgMode: "chg",      // "open" or "chg" — which column the gain filter & sort apply to (default chg per user request)
 };
@@ -945,7 +944,6 @@ const SORT_BUTTONS = [
   { key: "rs", label: "EIF" },
   { key: "change", label: "Chg%" },
   { key: "rvol", label: "RVol" },
-  { key: "crp", label: "CRP" },
   { key: "accel", label: "Acc" },
   { key: "magna", label: "MAG" },
   { key: "qm_bo", label: "BO" },
@@ -982,8 +980,6 @@ function rowSortValue(r, key) {
       return r.chg || 0;
     case "rvol":
       return r.rvol || 0;
-    case "crp":
-      return r.crp ?? -1;
     case "zvr":
       return r.zvr ?? -1;
     case "setup":
@@ -1278,7 +1274,6 @@ function ETFScanTable({ onTickerClick }) {
     { k: "rvol", label: "RV" },
     { k: "volume", label: "Vol" },
     { k: "cr", label: "CR%" },
-    { k: "crp", label: "CRP" },
     { k: "adr", label: "ADR" },
     { k: "leverage", label: "Lev", align: "left" },
     { k: "subtheme", label: "Theme", align: "left" },
@@ -1438,9 +1433,6 @@ function ETFScanTable({ onTickerClick }) {
                   <td style={{ ...cell, color: ARIA.textDim, fontSize: 8 }}>{fmtVol(r.volume)}</td>
                   <td style={{ ...cell, color: colorCr(r.cr) }}>
                     {r.cr != null ? r.cr + "%" : "—"}
-                  </td>
-                  <td style={{ ...cell, color: r.crp != null ? (r.crp >= 0.8 ? "#0ea5e9" : r.crp >= 0.5 ? ARIA.green : ARIA.textMuted) : ARIA.textMuted }}>
-                    {r.crp != null ? Math.round(r.crp * 100) + "%" : "—"}
                   </td>
                   <td style={{ ...cell, color: ARIA.textMuted }}>
                     {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
@@ -2722,7 +2714,7 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
   );
 }
 
-function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilters, clearChainFilters, removeChainFilter, onLayerClick, crpScores }) {
+function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilters, clearChainFilters, removeChainFilter, onLayerClick }) {
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [panelH, setPanelH] = useState(() => parseInt(localStorage.getItem("tp-scan-panel-h") || "600"));
@@ -2744,12 +2736,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
     window.addEventListener("message", onMsg);
     return () => { window.removeEventListener("tp-open-drawer", onDrawer); window.removeEventListener("message", onMsg); };
   }, [chainId]);
-  // ── CRP lookup map (closing range persistence from pipeline scanner) ──
-  const crpMap = useMemo(() => {
-    const m = new Map();
-    if (crpScores) for (const s of crpScores) m.set(s.ticker, s.crp);
-    return m;
-  }, [crpScores]);
   // ── State: filters + sort + tags + preset ──────────────────────────────
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   // Owned-ticker set for the Hide Owned filter (reads the same cross-component
@@ -2907,10 +2893,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       // CR% (closing range): how close to high of day. (close-low)/(high-low)*100
       // Helper falls back to pipeline cr_pct + clamps to 0-100.
       const cr = computeCR(q, s);
-      const crp = crpMap.get(s.ticker) ?? null;
 
-      // CRP≥ slider — only filter if CRP data exists in pipeline
-      if (filters.minCrp > 0 && crpMap.size > 0 && (crp == null || crp * 100 < filters.minCrp)) continue;
       // Chg>0% filter — applies to either Open or Chg mode
       if (filters.greenOnly) {
         const gainKey =
@@ -2955,7 +2938,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         chgOpen,
         rvol,
         cr,
-        crp,
         accel: s.accel || 0,
         magna,
         qmagScore: s.qmag_score || 0,
@@ -3000,7 +2982,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       filtered = filtered.filter((r) => union.has(r.ticker));
     }
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters, crpMap]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -3346,30 +3328,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           {filters.minRvol}x
         </span>
         <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
-        <span style={{ fontSize: 7, color: crpScores?.length ? ARIA.textMuted : ARIA.textMuted + "60" }}>CRP≥</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={10}
-          value={filters.minCrp}
-          disabled={!crpScores?.length}
-          onChange={(e) =>
-            updateFilter({ minCrp: parseFloat(e.target.value) })
-          }
-          style={{ width: 50, accentColor: "#0ea5e9", cursor: crpScores?.length ? "pointer" : "not-allowed", opacity: crpScores?.length ? 1 : 0.3 }}
-          title={crpScores?.length ? "Filter by Closing Range Persistence" : "CRP data not available in current pipeline"}
-        />
-        <span
-          style={{
-            fontSize: 8,
-            color: crpScores?.length ? "#0ea5e9" : ARIA.textMuted,
-            minWidth: 22,
-          }}
-        >
-          {crpScores?.length ? `${filters.minCrp}%` : "—"}
-        </span>
-        <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>EIF≥</span>
         <input
           type="range"
@@ -3674,7 +3632,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           filters={filters}
           activePresets={activePresets}
           activeTags={activeTags}
-          crpScores={crpScores}
         />
       )}
 
@@ -3683,7 +3640,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 }
 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
-function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterNames, scanRows, filters, activePresets, activeTags, crpScores }) {
+function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterNames, scanRows, filters, activePresets, activeTags }) {
   const ARIA = useAriaTheme();
   const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "tickers");
   const containerRef = useRef(null);
@@ -3741,7 +3698,6 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           if (filters.greenOnly) chips.push(chip("Chg>0%", "green"));
           if (filters.minChg > 0) chips.push(chip(`Chg≥${filters.minChg}%`, "minchg"));
           if (filters.minRvol > 0) chips.push(chip(`RV≥${filters.minRvol}x`, "minrv"));
-          if (filters.minCrp > 0 && crpScores?.length > 0) chips.push(chip(`CRP≥${filters.minCrp}%`, "mincrp"));
           if (filters.minEif > 0) chips.push(chip(`EIF≥${filters.minEif}`, "mineif"));
           if (filters.adrMin !== 1 || filters.adrMax !== 15) chips.push(chip(`ADR ${filters.adrMin}–${filters.adrMax}`, "adr"));
           if (filters.minDvolM > 0) chips.push(chip(`$Vol≥${filters.minDvolM}M`, "dvol"));
@@ -3776,49 +3732,11 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
           chartTicker={chartTicker}
           posOnly={posOnly}
           scanRows={scanRows}
-          crpScores={crpScores}
           scanFilters={filters}
         />
       )}
     </div>
   );
-}
-
-// ── useThesisMap: fetches theme_notes.json once (module-level cache) and
-// returns a Map<ticker, [{id, headline, type, role, thesis, layers, caveats}]>
-let _thesisMapCache = null;
-let _thesisMapFetching = false;
-const _thesisMapListeners = [];
-function useThesisMap() {
-  const [map, setMap] = useState(_thesisMapCache);
-  useEffect(() => {
-    if (_thesisMapCache) { setMap(_thesisMapCache); return; }
-    if (_thesisMapFetching) { _thesisMapListeners.push(setMap); return; }
-    _thesisMapFetching = true;
-    fetch("/data/theme_notes.json")
-      .then((r) => r.json())
-      .then((d) => {
-        const m = new Map();
-        for (const note of (d.notes || [])) {
-          const add = (tk, role) => {
-            const key = tk.toUpperCase();
-            const entry = { id: note.id, headline: note.headline, type: note.type || "", role, thesis: note.thesis || "", layers: note.layers || null, caveats: note.caveats || [], primary_tickers: note.primary_tickers || [], derivative_tickers: note.derivative_tickers || [] };
-            const arr = m.get(key) || [];
-            arr.push(entry);
-            m.set(key, arr);
-          };
-          (note.primary_tickers || []).forEach((tk) => add(tk, "primary"));
-          (note.derivative_tickers || []).forEach((tk) => add(tk, "derivative"));
-        }
-        _thesisMapCache = m;
-        _thesisMapFetching = false;
-        setMap(m);
-        _thesisMapListeners.forEach((fn) => fn(m));
-        _thesisMapListeners.length = 0;
-      })
-      .catch(() => { _thesisMapFetching = false; });
-  }, []);
-  return map;
 }
 
 // ── useZVR: polls /api/zvr for Zanger Volume Ratio (true intraday comparison) ──
@@ -3871,13 +3789,12 @@ function useZVR(tickers) {
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, crpScores, scanFilters }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, scanFilters }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
   const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
-  const thesisMap = useThesisMap();
   const [layerFilter, setLayerFilter] = useState(null); // local layer filter — click layer to toggle
   const [focusRaw, setFocusRaw] = useState(() => localStorage.getItem("themepulse-focus") || "[]");
   useEffect(() => {
@@ -3888,20 +3805,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const focusTickers = useMemo(() => { try { return new Set(JSON.parse(focusRaw)); } catch { return new Set(); } }, [focusRaw]);
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
-  const [thesisPopover, setThesisPopover] = useState(null); // {theses, x, y}
-  const popoverRef = useRef(null);
-  useEffect(() => {
-    if (!thesisPopover) return;
-    const onDown = (e) => { if (popoverRef.current && !popoverRef.current.contains(e.target)) setThesisPopover(null); };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [thesisPopover]);
 
-  const crpMap = useMemo(() => {
-    const m = new Map();
-    if (crpScores) for (const s of crpScores) m.set(s.ticker, s.crp);
-    return m;
-  }, [crpScores]);
   // When scanRows provided, only poll those tickers; else poll all chain tickers.
   // Always include all chain tickers so we can inject high-alpha ones missing from scan.
   const allChainTickers = useMemo(() => {
@@ -3987,10 +3891,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
         let rvol = sr.rvol ?? null;
         if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
-        const price = q?.price ?? s?.price ?? s?.close ?? null;
-        const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
-        const avgDvol = s?.avg_dollar_vol_raw ?? null;
-        const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
         return {
           ticker: sr.ticker,
           themeId,
@@ -4008,7 +3908,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
           mcap: s?.market_cap_raw ?? null,
-          dvolRatio,
           erDays: s?.earnings_days ?? null,
         };
       });
@@ -4030,7 +3929,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
         const alpha = calcAlpha(chg, s);
         if (alpha == null || alpha < 2) continue; // only inject if α ≥ 2
-        // Respect scan-level filters so chain-only tickers don't bypass EIF/RV/Chg/CRP/Owned/Green
+        // Respect scan-level filters so chain-only tickers don't bypass EIF/RV/Chg/Owned/Green
         if (scanFilters) {
           if (scanFilters.ownedView === "hide" && ownedSet.has(tk)) continue;
           if (scanFilters.ownedView === "owned" && !ownedSet.has(tk)) continue;
@@ -4038,8 +3937,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           const eifVal = s?.framework_score ?? s?.rs_rank ?? 0;
           if (scanFilters.minEif > 0 && eifVal < scanFilters.minEif) continue;
           if (scanFilters.minChg > 0 && (chg == null || chg < scanFilters.minChg)) continue;
-          const crp = crpMap.get(tk) ?? null;
-          if (scanFilters.minCrp > 0 && crpMap.size > 0 && (crp == null || crp * 100 < scanFilters.minCrp)) continue;
         }
         const liveVol = q?.volume;
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
@@ -4047,10 +3944,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
         else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
         if (scanFilters?.minRvol > 0 && (rvol == null || rvol < scanFilters.minRvol)) continue;
-        const price = q?.price ?? s?.price ?? s?.close ?? null;
-        const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
-        const avgDvol = s?.avg_dollar_vol_raw ?? null;
-        const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
         injected.push({
           ticker: tk,
           themeId,
@@ -4068,7 +3961,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
           mcap: s?.market_cap_raw ?? null,
-          dvolRatio,
           erDays: s?.earnings_days ?? null,
           chainOnly: true, // visual marker — didn't pass scan filters
         });
@@ -4093,10 +3985,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
       else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
       const cr = computeCR(q, s);
-      const price = q?.price ?? s?.price ?? s?.close ?? null;
-      const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
-      const avgDvol = s?.avg_dollar_vol_raw ?? null;
-      const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
       return {
         ticker: tk,
         themeId,
@@ -4115,11 +4003,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         is33: s ? TAG_PREDICATES["33"].test(s) : false,
         epsYoy: s?.eps_yoy ?? null,
         salesYoy: s?.sales_yoy ?? null,
-        dvolRatio,
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap]);
 
   // Multi-column sort: ordered array of {key, dir}. Click = set primary,
   // Shift+click = add/toggle as secondary/tertiary. Persisted.
@@ -4196,9 +4083,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
   const crColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
-  const rvColor = (v) => v == null ? ARIA.textMuted : v >= 1.5 ? ARIA.purple : ARIA.textMuted;
   const fmtMcap = (v) => v == null ? "—" : v >= 1e12 ? (v/1e12).toFixed(1)+"T" : v >= 1e9 ? (v/1e9).toFixed(1)+"B" : v >= 1e6 ? (v/1e6).toFixed(0)+"M" : v.toFixed(0);
-  const fmtDvol = (v) => v == null ? "—" : v >= 1e9 ? (v/1e9).toFixed(1)+"B" : v >= 1e6 ? (v/1e6).toFixed(0)+"M" : v.toFixed(0);
 
   const Th = ({ k, label, align = "right" }) => {
     const idx = sortSpec.findIndex((s) => s.key === k);
@@ -4406,50 +4291,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         </tbody>
       </table>
 
-      {/* Thesis popover */}
-      {thesisPopover && (() => {
-        const vpW = window.innerWidth, vpH = window.innerHeight;
-        const popW = 340, popMaxH = 420;
-        const rawX = thesisPopover.x, rawY = thesisPopover.y;
-        const x = Math.min(rawX, vpW - popW - 12);
-        const y = rawY + popMaxH > vpH ? Math.max(8, rawY - popMaxH - 10) : rawY;
-        return (
-          <div ref={popoverRef} style={{
-            position: "fixed", left: x, top: y, width: popW, maxHeight: popMaxH,
-            background: "#1a1a28", border: "1px solid rgba(168,85,247,0.4)",
-            borderRadius: 6, boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
-            zIndex: 9999, overflow: "auto", fontFamily: "monospace",
-          }}>
-            <div style={{ padding: "7px 10px 5px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 9, fontWeight: 800, color: "#a855f7", letterSpacing: 0.4 }}>{thesisPopover.ticker} · THESIS INTEL</span>
-              <button onClick={() => setThesisPopover(null)} style={{ background: "transparent", border: "none", color: "#666", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-            </div>
-            {thesisPopover.theses.map((t, i) => (
-              <div key={t.id} style={{ padding: "8px 10px", borderBottom: i < thesisPopover.theses.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: t.role === "primary" ? "rgba(168,85,247,0.2)" : "rgba(100,100,140,0.2)", border: `1px solid ${t.role === "primary" ? "rgba(168,85,247,0.5)" : "rgba(100,100,140,0.4)"}`, color: t.role === "primary" ? "#a855f7" : "#8888aa", textTransform: "uppercase" }}>{t.role}</span>
-                  {t.type && <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.3)", color: "#22d3ee", textTransform: "uppercase" }}>{t.type.replace(/_/g, " ")}</span>}
-                </div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "#e2e8f0", lineHeight: 1.4, marginBottom: 6 }}>{t.headline}</div>
-                {t.thesis && <div style={{ fontSize: 8, color: "#94a3b8", lineHeight: 1.5, marginBottom: 5 }}>{t.thesis.length > 420 ? t.thesis.slice(0, 417) + "…" : t.thesis}</div>}
-                {t.layers && (
-                  <div style={{ marginBottom: 4 }}>
-                    {Object.values(t.layers).map((layer) => (
-                      <div key={layer.label} style={{ marginBottom: 3 }}>
-                        <span style={{ fontSize: 7, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>{layer.label} </span>
-                        <span style={{ fontSize: 7, color: "#475569" }}>— {(layer.tickers || []).join(", ")}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {t.primary_tickers?.length > 0 && <div style={{ fontSize: 7, color: "#64748b" }}>Primary: {t.primary_tickers.join(", ")}</div>}
-                {t.derivative_tickers?.length > 0 && <div style={{ fontSize: 7, color: "#475569" }}>Derivatives: {t.derivative_tickers.join(", ")}</div>}
-                <div style={{ fontSize: 6, color: "#334155", marginTop: 4, letterSpacing: 0.3 }}>{t.id}</div>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
       </div>
     </div>
   );
@@ -10130,7 +9971,6 @@ function ChartScanRow({
   stocks,
   pipelineMeta,
   tickerStrengthMap,
-  crpScores,
 }) {
   // Default 320px to match Aria's #sw-column initial width.
   const [scanW, setScanW] = useState(() => {
@@ -10213,7 +10053,7 @@ function ChartScanRow({
         <SupercycleMap chartTicker={chartTicker} onTickerClick={handleTickerClick} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterNames={chainFilters.map((f) => f.name)} />
-        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} crpScores={crpScores} />
+        <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
       </div>
     </div>
   );
@@ -10505,7 +10345,6 @@ function AppMain() {
           stocks={stocks}
           pipelineMeta={data.pipeline?.pipeline_meta}
           tickerStrengthMap={tickerStrengthMap}
-          crpScores={data.pipeline?.crp_scores}
         />
 
       </div>
