@@ -3779,19 +3779,9 @@ function useZVR(tickers) {
         if (data.meta?.isRTH) isRTH = true;
         for (const [tk, val] of Object.entries(data.zvr)) m.set(tk, val);
       }
-      if (gotAny) {
-        // Append to rolling history (only during RTH — off-hours values are static)
-        if (isRTH) {
-          const now = Date.now();
-          for (const [tk, val] of m) {
-            const arr = _zvrHistory.get(tk) || [];
-            arr.push({ t: now, v: val });
-            if (arr.length > 40) arr.shift();
-            _zvrHistory.set(tk, arr);
-          }
-        }
-        setMaps((old) => ({ cur: m, prev: old.cur }));
-      }
+      // History sampling happens at the row level in ChainTickerTable so
+      // linear/rel_volume-fallback tickers get sparklines too.
+      if (gotAny) setMaps((old) => ({ cur: m, prev: old.cur }));
       // Next poll: 60s during RTH, 5min outside, 2min if everything errored
       timer = setTimeout(fetchZVR, !gotAny ? 120000 : isRTH ? 60000 : 300000);
     };
@@ -4037,20 +4027,25 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     } catch {}
     return DEFAULT_CHAIN_SORT;
   });
-  // ── CR% history: sample each ticker's closing range every ~50s during RTH
-  // for the inline sparkline (mirrors the ZVR history pattern).
+  // ── CR% + ZVR history: sample each row's displayed values every ~50s during
+  // RTH for the inline sparklines. Sampling the displayed value (rather than
+  // only API ZVR) means linear/rel_volume-fallback tickers get sparklines too.
   useEffect(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const mins = et.getHours() * 60 + et.getMinutes();
     if (mins < 570 || mins >= 960) return;
     const now = Date.now();
-    for (const r of rows) {
-      if (r.cr == null) continue;
-      const arr = _crHistory.get(r.ticker) || [];
-      if (arr.length && now - arr[arr.length - 1].t < 50000) continue;
-      arr.push({ t: now, v: r.cr });
+    const sample = (map, ticker, v) => {
+      if (v == null) return;
+      const arr = map.get(ticker) || [];
+      if (arr.length && now - arr[arr.length - 1].t < 50000) return;
+      arr.push({ t: now, v });
       if (arr.length > 40) arr.shift();
-      _crHistory.set(r.ticker, arr);
+      map.set(ticker, arr);
+    };
+    for (const r of rows) {
+      sample(_crHistory, r.ticker, r.cr);
+      sample(_zvrHistory, r.ticker, r.zvr);
     }
   }, [rows]);
 
