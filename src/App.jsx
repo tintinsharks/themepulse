@@ -10113,6 +10113,218 @@ function ChartScanRow({
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// SetupJournal — full-page view of logged setup-badge firings (ACC/EP/VCP/DIST)
+// Data: GET /api/zvr?journal=N (Upstash-backed, deduped per ticker+badge+day).
+// Shows entry conditions at fire time + live "since fire" return.
+// ──────────────────────────────────────────────────────────────────────────
+const JOURNAL_BADGE_COLORS = { ACC: "#34d399", EP: "#22d3ee", VCP: "#fbbf24", DIST: "#ef4444" };
+const JOURNAL_BADGE_DESC = {
+  ACC: "Accumulation: α>0, ZVR≥150%, CR%≥70, EIF≥70",
+  EP: "Episodic Pivot: ER ≤3d ago, ZVR≥200%, green",
+  VCP: "Volume dry-up: |ZVR|<80%, EIF≥80, Str≥70",
+  DIST: "Distribution: ZVR≤−150%, EIF≥70",
+};
+
+function SetupJournal({ stockMap, onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [days, setDays] = useState(() => { try { return parseInt(localStorage.getItem("tp-journal-days")) || 7; } catch { return 7; } });
+  const [badgeFilter, setBadgeFilter] = useState("ALL");
+  const [journal, setJournal] = useState(null); // { "YYYY-MM-DD": [events] }
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/zvr?journal=${days}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setJournal(d.days || {}); else setError(d.error || "load failed"); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [days]);
+  useEffect(load, [load]);
+
+  const eventTickers = useMemo(
+    () => [...new Set(Object.values(journal || {}).flat().map((e) => e.ticker))],
+    [journal]
+  );
+  const { quotes: liveQuotes } = useLiveQuotes(eventTickers, 30000);
+
+  const nowPrice = (tk) => liveQuotes.get(tk)?.price ?? stockMap?.[tk]?.price ?? stockMap?.[tk]?.close ?? null;
+  const sincePct = (ev) => {
+    const now = nowPrice(ev.ticker);
+    return (now != null && ev.price > 0) ? ((now - ev.price) / ev.price) * 100 : null;
+  };
+
+  const dayEntries = useMemo(() => {
+    const entries = Object.entries(journal || {}).sort((a, b) => b[0].localeCompare(a[0]));
+    if (badgeFilter === "ALL") return entries;
+    return entries
+      .map(([d, evs]) => [d, evs.filter((e) => e.badge === badgeFilter)])
+      .filter(([, evs]) => evs.length > 0);
+  }, [journal, badgeFilter]);
+
+  // Per-badge summary: count + avg since-fire return
+  const summary = useMemo(() => {
+    const acc = {};
+    for (const evs of Object.values(journal || {})) {
+      for (const ev of evs) {
+        const s = sincePct(ev);
+        const b = acc[ev.badge] || { n: 0, sum: 0, withRet: 0 };
+        b.n++;
+        if (s != null) { b.sum += s; b.withRet++; }
+        acc[ev.badge] = b;
+      }
+    }
+    return acc;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [journal, liveQuotes]);
+
+  const etTime = (ts) => {
+    try { return new Date(ts).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" }); }
+    catch { return "—"; }
+  };
+  const fmtDay = (d) => {
+    try { return new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
+    catch { return d; }
+  };
+  const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+
+  const totalEvents = Object.values(journal || {}).flat().length;
+
+  return (
+    <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
+      {/* Controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, fontFamily: "monospace", letterSpacing: 0.5 }}>⚡ SETUP JOURNAL</span>
+        <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
+          {totalEvents} firings · {dayEntries.length} day{dayEntries.length === 1 ? "" : "s"}
+        </span>
+        <span style={{ flex: 1 }} />
+        {["ALL", "ACC", "EP", "VCP", "DIST"].map((b) => (
+          <button key={b} onClick={() => setBadgeFilter(b)}
+            title={JOURNAL_BADGE_DESC[b] || "Show all badge types"}
+            style={{
+              fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "2px 8px", borderRadius: 3, cursor: "pointer", letterSpacing: 0.3,
+              color: badgeFilter === b ? (JOURNAL_BADGE_COLORS[b] || ARIA.text) : ARIA.textDim,
+              background: badgeFilter === b ? `${JOURNAL_BADGE_COLORS[b] || "#888888"}1f` : "transparent",
+              border: `1px solid ${badgeFilter === b ? (JOURNAL_BADGE_COLORS[b] || ARIA.border) : ARIA.border}`,
+            }}>{b}</button>
+        ))}
+        <span style={{ color: ARIA.border }}>|</span>
+        {[7, 30, 90].map((d) => (
+          <button key={d} onClick={() => { setDays(d); try { localStorage.setItem("tp-journal-days", String(d)); } catch {} }}
+            style={{
+              fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "2px 8px", borderRadius: 3, cursor: "pointer",
+              color: days === d ? ARIA.green : ARIA.textDim, background: days === d ? "rgba(13,145,99,0.12)" : "transparent",
+              border: `1px solid ${days === d ? ARIA.green : ARIA.border}`,
+            }}>{d}d</button>
+        ))}
+        <button onClick={load} title="Refresh"
+          style={{ fontSize: 9, fontFamily: "monospace", padding: "2px 8px", borderRadius: 3, cursor: "pointer", color: ARIA.textDim, background: "transparent", border: `1px solid ${ARIA.border}` }}>
+          {loading ? "…" : "↻"}
+        </button>
+      </div>
+
+      {/* Per-badge summary strip */}
+      {Object.keys(summary).length > 0 && (
+        <div style={{ display: "flex", gap: 16, padding: "6px 12px", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+          {["ACC", "EP", "VCP", "DIST"].filter((b) => summary[b]).map((b) => {
+            const s = summary[b];
+            const avg = s.withRet > 0 ? s.sum / s.withRet : null;
+            return (
+              <span key={b} style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.textDim }}>
+                <span style={{ color: JOURNAL_BADGE_COLORS[b], fontWeight: 800 }}>{b}</span>
+                {" "}{s.n} fired
+                {avg != null && (
+                  <span> · avg since <span style={{ color: chgColor(avg), fontWeight: 700 }}>{avg > 0 ? "+" : ""}{avg.toFixed(1)}%</span></span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Body */}
+      <div style={{ maxHeight: "calc(100vh - 220px)", overflow: "auto" }}>
+        {error && <div style={{ padding: 16, fontSize: 10, fontFamily: "monospace", color: ARIA.red }}>Error: {error}</div>}
+        {!error && !loading && dayEntries.length === 0 && (
+          <div style={{ padding: 24, fontSize: 11, fontFamily: "monospace", color: ARIA.textMuted, textAlign: "center" }}>
+            No setup firings logged yet. Badges are journaled automatically while the
+            Scan Watch → Chain → Tickers view is open during market hours.
+          </div>
+        )}
+        {dayEntries.map(([day, events]) => (
+          <div key={day}>
+            <div style={{ padding: "5px 12px", fontSize: 9, fontWeight: 800, fontFamily: "monospace", color: ARIA.textDim, letterSpacing: 0.6, background: "rgba(255,255,255,0.03)", borderBottom: `1px solid ${ARIA.border}` }}>
+              {fmtDay(day)} <span style={{ color: ARIA.textMuted, fontWeight: 400 }}>· {events.length} firing{events.length === 1 ? "" : "s"}</span>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...th, textAlign: "left" }}>Time ET</th>
+                  <th style={{ ...th, textAlign: "left" }}>Ticker</th>
+                  <th style={{ ...th, textAlign: "left" }}>Setup</th>
+                  <th style={th}>ZVR</th>
+                  <th style={th}>EIF</th>
+                  <th style={th}>CR%</th>
+                  <th style={th}>Chg% @fire</th>
+                  <th style={th}>Price @fire</th>
+                  <th style={th}>Now</th>
+                  <th style={th}>Since</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((ev, i) => {
+                  const since = sincePct(ev);
+                  const now = nowPrice(ev.ticker);
+                  const bc = JOURNAL_BADGE_COLORS[ev.badge] || ARIA.textDim;
+                  return (
+                    <tr key={`${ev.ticker}-${ev.badge}-${i}`}
+                        onClick={() => onTickerClick && onTickerClick(ev.ticker)}
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                      <td style={{ ...cell, textAlign: "left", color: ARIA.textMuted }}>{etTime(ev.ts)}</td>
+                      <td style={{ ...cell, textAlign: "left", fontWeight: 800, color: ARIA.text }}>
+                        <img src={ER_LOGO(ev.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2, marginRight: 4, verticalAlign: "middle" }} onError={(e) => { e.target.style.display = "none"; }} />
+                        {ev.ticker}
+                      </td>
+                      <td style={{ ...cell, textAlign: "left" }}>
+                        <span title={JOURNAL_BADGE_DESC[ev.badge]} style={{ fontSize: 8, fontWeight: 800, color: bc, background: `${bc}1f`, border: `1px solid ${bc}55`, borderRadius: 2, padding: "1px 5px", letterSpacing: 0.3 }}>{ev.badge}</span>
+                      </td>
+                      <td style={{ ...cell, color: ev.zvr != null && ev.zvr < 0 ? ARIA.red : ev.zvr >= 200 ? "#fbbf24" : ev.zvr >= 150 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>
+                        {ev.zvr != null ? `${ev.zvr}%` : "—"}
+                      </td>
+                      <td style={{ ...cell, color: ev.eif != null && ev.eif >= 80 ? ARIA.green : ev.eif != null && ev.eif >= 60 ? ARIA.blue : ARIA.textDim }}>
+                        {ev.eif != null ? Math.round(ev.eif) : "—"}
+                      </td>
+                      <td style={{ ...cell, color: ev.cr != null && ev.cr >= 70 ? ARIA.green : ARIA.textDim }}>
+                        {ev.cr != null ? `${Math.round(ev.cr)}%` : "—"}
+                      </td>
+                      <td style={{ ...cell, color: chgColor(ev.chg), fontWeight: 700 }}>
+                        {ev.chg != null ? `${ev.chg > 0 ? "+" : ""}${ev.chg.toFixed(1)}%` : "—"}
+                      </td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{ev.price != null ? `$${Number(ev.price).toFixed(2)}` : "—"}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{now != null ? `$${Number(now).toFixed(2)}` : "—"}</td>
+                      <td style={{ ...cell, color: chgColor(since), fontWeight: 700 }}>
+                        {since != null ? `${since > 0 ? "+" : ""}${since.toFixed(1)}%` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -10126,6 +10338,12 @@ function AppMain() {
   const [chartTicker, setChartTicker] = useState(() => {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
+  // Top-level view: dashboard or setup journal
+  const [mainView, setMainView] = useState(() => localStorage.getItem("themepulse-view") || "dash");
+  const switchView = useCallback((v) => {
+    setMainView(v);
+    try { localStorage.setItem("themepulse-view", v); } catch {}
+  }, []);
   const handleTickerClick = useCallback((ticker) => {
     if (!ticker) return;
     setChartTicker(ticker);
@@ -10296,6 +10514,19 @@ function AppMain() {
             Trading Dashboard
           </span>
         </div>
+        {/* View switcher */}
+        <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
+          {[["dash", "DASH"], ["journal", "⚡ JOURNAL"]].map(([v, label]) => (
+            <button key={v} onClick={() => switchView(v)}
+              style={{
+                background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
+                border: `1px solid ${mainView === v ? ARIA.green : ARIA.border}`,
+                color: mainView === v ? ARIA.green : ARIA.textDim,
+                padding: "3px 10px", borderRadius: 4, cursor: "pointer",
+                fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6,
+              }}>{label}</button>
+          ))}
+        </div>
         <div
           style={{
             marginLeft: "auto",
@@ -10387,20 +10618,28 @@ function AppMain() {
           zoom: zoom,
         }}
       >
-        {/* Top: Market Breadth Bar (full width) */}
-        <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
+        {mainView === "journal" ? (
+          <SetupJournal
+            stockMap={stockMap}
+            onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
+          />
+        ) : (
+          <>
+            {/* Top: Market Breadth Bar (full width) */}
+            <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
 
-        {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
-        <ChartScanRow
-          chartTicker={chartTicker}
-          handleTickerClick={handleTickerClick}
-          stockMap={stockMap}
-          themeHealth={data.pipeline?.theme_health || []}
-          stocks={stocks}
-          pipelineMeta={data.pipeline?.pipeline_meta}
-          tickerStrengthMap={tickerStrengthMap}
-        />
-
+            {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
+            <ChartScanRow
+              chartTicker={chartTicker}
+              handleTickerClick={handleTickerClick}
+              stockMap={stockMap}
+              themeHealth={data.pipeline?.theme_health || []}
+              stocks={stocks}
+              pipelineMeta={data.pipeline?.pipeline_meta}
+              tickerStrengthMap={tickerStrengthMap}
+            />
+          </>
+        )}
       </div>
     </div>
   );
