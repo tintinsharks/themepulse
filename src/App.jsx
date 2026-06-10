@@ -4052,7 +4052,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       fresh.push({ ticker: r.ticker, badge: su.key, zvr: r.zvr, eif: r.rs, cr: r.cr, chg: r.chg, price: liveQuotes.get(r.ticker)?.price ?? null, ts: new Date().toISOString() });
     }
     if (fresh.length) {
-      fetch("/api/setup-log", {
+      fetch("/api/zvr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ events: fresh.slice(0, 100) }),

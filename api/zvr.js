@@ -17,8 +17,85 @@ const SLOTS_PER_DAY = 78; // 390 min / 5 min = 78 five-minute slots
 const profileCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — profile only changes once per day
 
+// ── Setup-badge journal (folded in here to stay under Vercel's 12-function limit) ──
+// POST /api/zvr  { events: [{ ticker, badge, zvr, eif, cr, chg, price, ts }] }
+//   → dedupe-logs badge firings (one per ticker+badge per ET day), 90d TTL
+// GET  /api/zvr?journal=7  → { ok, days: { date: [events...] } }
+const JOURNAL_TTL = 90 * 24 * 3600;
+const JOURNAL_BADGES = new Set(["ACC", "EP", "VCP", "DIST"]);
+
+const redisCmd = async (...args) => {
+  const resp = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  const result = await resp.json();
+  if (result.error) throw new Error(result.error);
+  return result.result;
+};
+
+const etDateStr = (d = new Date()) =>
+  new Date(d.toLocaleString("en-US", { timeZone: "America/New_York" })).toISOString().split("T")[0];
+
+async function handleJournalPost(req, res) {
+  const events = req.body?.events;
+  if (!Array.isArray(events) || events.length === 0) {
+    return res.status(400).json({ ok: false, error: "events array required" });
+  }
+  const day = etDateStr();
+  const key = `setuplog:${day}`;
+  let logged = 0, skipped = 0;
+  for (const ev of events.slice(0, 100)) {
+    const ticker = (ev.ticker || "").toUpperCase();
+    const badge = (ev.badge || "").toUpperCase();
+    if (!ticker || !JOURNAL_BADGES.has(badge)) { skipped++; continue; }
+    const payload = JSON.stringify({
+      ticker, badge,
+      zvr: ev.zvr ?? null, eif: ev.eif ?? null, cr: ev.cr ?? null,
+      chg: ev.chg ?? null, price: ev.price ?? null,
+      ts: ev.ts || new Date().toISOString(),
+    });
+    const wasSet = await redisCmd("HSETNX", key, `${ticker}:${badge}`, payload);
+    if (wasSet === 1) logged++; else skipped++;
+  }
+  if (logged > 0) await redisCmd("EXPIRE", key, String(JOURNAL_TTL));
+  return res.json({ ok: true, logged, skipped, day });
+}
+
+async function handleJournalGet(req, res) {
+  const days = Math.min(parseInt(req.query.journal || "7", 10) || 7, 90);
+  const out = {};
+  const now = new Date();
+  for (let i = 0; i < days; i++) {
+    const d = etDateStr(new Date(now.getTime() - i * 86400000));
+    const flat = await redisCmd("HGETALL", `setuplog:${d}`);
+    if (Array.isArray(flat) && flat.length > 0) {
+      const events = [];
+      for (let j = 1; j < flat.length; j += 2) {
+        try { events.push(JSON.parse(flat[j])); } catch {}
+      }
+      if (events.length) out[d] = events.sort((a, b) => (a.ts || "").localeCompare(b.ts || ""));
+    }
+  }
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
+  return res.json({ ok: true, days: out });
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+
+  // Journal routes (need Upstash)
+  if (req.method === "POST" || req.query.journal != null) {
+    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+      return res.status(500).json({ ok: false, error: "Upstash not configured" });
+    }
+    try {
+      return req.method === "POST" ? await handleJournalPost(req, res) : await handleJournalGet(req, res);
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
 
   const { tickers } = req.query;
   if (!tickers) return res.status(400).json({ ok: false, error: "Missing tickers param" });
