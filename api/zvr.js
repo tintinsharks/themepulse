@@ -60,6 +60,19 @@ export default async function handler(req, res) {
     );
   }
 
+  // Best-effort intraday snapshot to Upstash every 30 min (slot % 6 === 0)
+  // for EOD review — key zvrhist:{date}, field "TICKER:slot", 14-day TTL.
+  if (isRTH && currentSlot % 6 === 0 && process.env.UPSTASH_REDIS_REST_URL && Object.keys(results).length) {
+    try {
+      const key = `zvrhist:${todayStr}`;
+      const args = ["HSET", key];
+      for (const [tk, val] of Object.entries(results)) args.push(`${tk}:${currentSlot}`, String(val));
+      const hdrs = { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`, "Content-Type": "application/json" };
+      await fetch(process.env.UPSTASH_REDIS_REST_URL, { method: "POST", headers: hdrs, body: JSON.stringify(args) });
+      await fetch(process.env.UPSTASH_REDIS_REST_URL, { method: "POST", headers: hdrs, body: JSON.stringify(["EXPIRE", key, String(14 * 24 * 3600)]) });
+    } catch { /* snapshot is best-effort */ }
+  }
+
   // Cache for 30s during RTH, 5min outside
   const maxAge = isRTH ? 30 : 300;
   res.setHeader("Cache-Control", `s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 2}`);

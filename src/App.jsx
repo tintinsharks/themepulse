@@ -3742,6 +3742,9 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // ── useZVR: polls /api/zvr for Zanger Volume Ratio (true intraday comparison) ──
 // Returns Map<ticker, zvrPct> where zvrPct is an integer % (e.g. 245 = 2.45x avg).
 // Polls every 60s during RTH, 5min outside. Only fetches when tickers array is non-empty.
+// Rolling intraday ZVR history per ticker (session-scoped, last ~40 polls)
+const _zvrHistory = new Map();
+
 function useZVR(tickers) {
   // cur = latest poll, prev = poll before it (for intraday trend arrows)
   const [maps, setMaps] = useState(() => ({ cur: new Map(), prev: new Map() }));
@@ -3774,7 +3777,19 @@ function useZVR(tickers) {
         if (data.meta?.isRTH) isRTH = true;
         for (const [tk, val] of Object.entries(data.zvr)) m.set(tk, val);
       }
-      if (gotAny) setMaps((old) => ({ cur: m, prev: old.cur }));
+      if (gotAny) {
+        // Append to rolling history (only during RTH — off-hours values are static)
+        if (isRTH) {
+          const now = Date.now();
+          for (const [tk, val] of m) {
+            const arr = _zvrHistory.get(tk) || [];
+            arr.push({ t: now, v: val });
+            if (arr.length > 40) arr.shift();
+            _zvrHistory.set(tk, arr);
+          }
+        }
+        setMaps((old) => ({ cur: m, prev: old.cur }));
+      }
       // Next poll: 60s during RTH, 5min outside, 2min if everything errored
       timer = setTimeout(fetchZVR, !gotAny ? 120000 : isRTH ? 60000 : 300000);
     };
@@ -3783,7 +3798,7 @@ function useZVR(tickers) {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [tickerKey]);
 
-  return maps;
+  return { ...maps, history: _zvrHistory };
 }
 
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
@@ -3815,7 +3830,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     return [...s];
   }, []);
   // Poll /api/zvr for true Zanger Volume Ratio (intraday comparison across 20-day lookback)
-  const { cur: apiZvrMap, prev: prevZvrMap } = useZVR(allChainTickers);
+  const { cur: apiZvrMap, prev: prevZvrMap, history: zvrHistory } = useZVR(allChainTickers);
   const scanTickers = useMemo(() => {
     if (!scanRows) return null;
     const s = new Set(scanRows.map((r) => r.ticker));
@@ -4020,6 +4035,31 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     } catch {}
     return DEFAULT_CHAIN_SORT;
   });
+  // ── Setup journal: POST new badge firings to /api/setup-log during RTH.
+  // Session-level dedupe here; the server dedupes per ticker+badge per day.
+  const loggedSetups = useRef(new Set());
+  useEffect(() => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const mins = et.getHours() * 60 + et.getMinutes();
+    if (mins < 570 || mins >= 960) return; // RTH only
+    const fresh = [];
+    for (const r of rows) {
+      const su = chainSetup(r);
+      if (!su) continue;
+      const k = `${r.ticker}:${su.key}`;
+      if (loggedSetups.current.has(k)) continue;
+      loggedSetups.current.add(k);
+      fresh.push({ ticker: r.ticker, badge: su.key, zvr: r.zvr, eif: r.rs, cr: r.cr, chg: r.chg, price: liveQuotes.get(r.ticker)?.price ?? null, ts: new Date().toISOString() });
+    }
+    if (fresh.length) {
+      fetch("/api/setup-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ events: fresh.slice(0, 100) }),
+      }).catch(() => {});
+    }
+  }, [rows, liveQuotes]);
+
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const sorted = useMemo(() => {
     let arr = rows.slice();
@@ -4270,6 +4310,20 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                       {r.zvrTrend > 0 ? "▲" : "▼"}
                     </span>
                   )}
+                  {(() => {
+                    const h = zvrHistory.get(r.ticker);
+                    if (!h || h.length < 3) return null;
+                    const vals = h.map((p) => p.v);
+                    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1;
+                    const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * 23 + 1).toFixed(1)},${(9 - ((v - min) / rng) * 7).toFixed(1)}`).join(" ");
+                    const up = vals[vals.length - 1] >= vals[0];
+                    return (
+                      <svg width="25" height="10" style={{ marginLeft: 3, verticalAlign: "middle", opacity: 0.85 }}
+                           aria-hidden="true">
+                        <polyline points={pts} fill="none" stroke={up ? "#34d399" : "#ef4444"} strokeWidth="1" />
+                      </svg>
+                    );
+                  })()}
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 3px" }}>
                   {(() => {
@@ -10740,169 +10794,6 @@ function chainsForStock(ticker, s) {
   if (curated?.length) return curated;
   const e = s?.industry && INDUSTRY_CHAIN_MAP[s.industry];
   return e ? [{ themeId: e[0], layer: e[1] }] : null;
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Theme Value-Chain Drawers — multiple slide-out drawers, one per theme
-// ──────────────────────────────────────────────────────────────────────────
-// Each theme has its own right-edge handle (stacked vertically). Click any
-// handle to slide in a drawer with the iframe visualization for that theme.
-// ESC or click outside to close.
-const VALUE_CHAIN_THEMES = [
-  { id: "leaderboard", label: "📊 RANK", src: "/theme-leaderboard.html",            gradient: "linear-gradient(135deg, #ffffff 0%, #fbbf24 100%)", title: "Subtheme Leaderboard — Composite Strength Ranking" },
-  { id: "ai",       label: "⛓ AI INFRA",  src: "/ai-infrastructure.html",          gradient: "linear-gradient(135deg, #ec4899 0%, #6cd5e8 100%)", title: "AI INFRASTRUCTURE — Data Centre Value Chain" },
-  { id: "software", label: "💻 SOFTWARE", src: "/theme-chain.html?id=software",    gradient: "linear-gradient(135deg, #a78bfa 0%, #6cd5e8 100%)", title: "SOFTWARE + AI APPS Value Chain" },
-  { id: "cyber",    label: "🛡 CYBER",    src: "/theme-chain.html?id=cyber",       gradient: "linear-gradient(135deg, #ef4444 0%, #fbbf24 100%)", title: "CYBER SECURITY Value Chain" },
-  { id: "fintech",  label: "₿ FINTECH",   src: "/theme-chain.html?id=fintech",     gradient: "linear-gradient(135deg, #fbbf24 0%, #6dde8e 100%)", title: "FINTECH + CRYPTO Value Chain" },
-  { id: "defense",  label: "✈ DEFENSE",   src: "/theme-chain.html?id=defense",     gradient: "linear-gradient(135deg, #fbbf24 0%, #f97316 100%)", title: "DEFENSE Value Chain" },
-  { id: "robotics", label: "🤖 ROBOTICS", src: "/theme-chain.html?id=robotics",    gradient: "linear-gradient(135deg, #22d3ee 0%, #6dde8e 100%)", title: "ROBOTICS + AUTONOMOUS Value Chain" },
-  { id: "ev",       label: "🚗 EV",       src: "/theme-chain.html?id=ev",          gradient: "linear-gradient(135deg, #6dde8e 0%, #fbbf24 100%)", title: "EV + BATTERY Value Chain" },
-  { id: "quantum",  label: "⚛ QUANTUM",   src: "/theme-chain.html?id=quantum",     gradient: "linear-gradient(135deg, #b86afc 0%, #6a9eff 100%)", title: "QUANTUM COMPUTING Value Chain" },
-  { id: "space",     label: "🚀 SPACE",     src: "/theme-chain.html?id=space",       gradient: "linear-gradient(135deg, #6a9eff 0%, #22d3ee 100%)", title: "SPACE ECOSYSTEM Value Chain" },
-  { id: "materials", label: "⛏ MATERIALS", src: "/theme-chain.html?id=materials",  gradient: "linear-gradient(135deg, #a3e635 0%, #84cc16 100%)", title: "CRITICAL MATERIALS — Rare Earths, Uranium, Lithium, Copper" },
-  { id: "semis",    label: "🔬 SEMIS",     src: "/theme-chain.html?id=semis",       gradient: "linear-gradient(135deg, #fb923c 0%, #f59e0b 100%)", title: "SEMICONDUCTORS — Analog, Compute, Memory, Packaging, Foundries, Equipment" },
-];
-
-function AIInfraDrawer() {
-  const [openId, setOpenId] = useState(null);
-  useEffect(() => {
-    if (!openId) return;
-    const onKey = (e) => { if (e.key === "Escape") setOpenId(null); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [openId]);
-  useEffect(() => {
-    // External components (e.g., TickerInfoBox theme pills) can request a
-    // drawer open via window.dispatchEvent(new CustomEvent('tp-open-drawer', { detail: 'ai' }))
-    const onOpen = (e) => { if (e?.detail) setOpenId(e.detail); };
-    window.addEventListener("tp-open-drawer", onOpen);
-    // The leaderboard iframe posts messages back to switch drawers
-    // when a row is clicked.
-    const onMsg = (e) => {
-      if (e?.data?.type === "tp-open-drawer" && e.data.id) {
-        setOpenId(e.data.id);
-      }
-    };
-    window.addEventListener("message", onMsg);
-    return () => {
-      window.removeEventListener("tp-open-drawer", onOpen);
-      window.removeEventListener("message", onMsg);
-    };
-  }, []);
-  const open = openId != null;
-  const active = VALUE_CHAIN_THEMES.find((t) => t.id === openId);
-  return (
-    <>
-      {/* Stacked left-edge handles — one per theme. Sized so all 9 fit
-          comfortably on a typical 900-1080px viewport. */}
-      <div style={{
-        position: "fixed",
-        left: 0,
-        top: "50%",
-        transform: "translateY(-50%)",
-        zIndex: 998,
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        opacity: open ? 0 : 1,
-        pointerEvents: open ? "none" : "auto",
-        transition: "opacity 0.2s",
-      }}>
-        {VALUE_CHAIN_THEMES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setOpenId(t.id)}
-            title={`Open ${t.title}`}
-            style={{
-              padding: "5px 3px",
-              background: t.gradient,
-              color: "#0a0a14",
-              border: "none",
-              borderRadius: "0 5px 5px 0",
-              cursor: "pointer",
-              fontFamily: "monospace",
-              fontSize: 7,
-              fontWeight: 800,
-              letterSpacing: 1.2,
-              writingMode: "vertical-rl",
-              textOrientation: "mixed",
-              boxShadow: "2px 3px 8px rgba(0,0,0,0.35)",
-              opacity: 0.92,
-              minHeight: 60,
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {/* Backdrop */}
-      <div
-        onClick={() => setOpenId(null)}
-        style={{
-          position: "fixed", inset: 0, zIndex: 999,
-          background: "rgba(0,0,0,0.55)",
-          opacity: open ? 1 : 0,
-          pointerEvents: open ? "auto" : "none",
-          transition: "opacity 0.25s",
-        }}
-      />
-      {/* Drawer */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0, left: 0, bottom: 0,
-          width: "min(1320px, 92vw)",
-          zIndex: 1000,
-          background: "#0a0a14",
-          boxShadow: "12px 0 40px rgba(0,0,0,0.6)",
-          transform: open ? "translateX(0)" : "translateX(-100%)",
-          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "8px 14px", borderBottom: "1px solid #1f1f2e",
-          background: "#0d0d1a", flexShrink: 0,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#c0c0d8", letterSpacing: 1 }}>
-            {active ? active.title : ""}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {active && (
-              <a href={active.src} target="_blank" rel="noopener noreferrer"
-                 title="Open in new tab"
-                 style={{
-                   fontSize: 9, color: "#7a7a8a", textDecoration: "none",
-                   padding: "3px 8px", border: "1px solid #2a2a40", borderRadius: 3,
-                   fontFamily: "monospace",
-                 }}>
-                ↗ NEW TAB
-              </a>
-            )}
-            <button onClick={() => setOpenId(null)}
-              title="Close (ESC)"
-              style={{
-                fontSize: 11, color: "#c0c0d8", background: "transparent",
-                border: "1px solid #2a2a40", borderRadius: 3,
-                padding: "2px 8px", cursor: "pointer", fontFamily: "monospace",
-              }}>
-              ✕
-            </button>
-          </div>
-        </div>
-        {active && (
-          <iframe
-            key={active.id}
-            src={active.src}
-            title={active.title}
-            style={{ flex: 1, width: "100%", border: "none", background: "#0a0a14" }}
-          />
-        )}
-      </div>
-    </>
-  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────
