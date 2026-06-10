@@ -952,6 +952,25 @@ const SORT_BUTTONS = [
   { key: "alpha", label: "α" },
 ];
 
+// ── Chain Setup badge: synthesizes ZVR/EIF/CR%/α/Str/ER into a named pattern ──
+// Returns { key, color, rank, desc } or null. Checked in priority order.
+function chainSetup(r) {
+  const { zvr, rs: eif, cr, str, alpha, erDays, chg } = r;
+  // DIST: heavy volume selling in a quality name — exit/avoid warning
+  if (zvr != null && zvr <= -150 && eif != null && eif >= 70)
+    return { key: "DIST", color: "#ef4444", rank: 2, desc: "Distribution: ZVR ≤ −150% in a leader (EIF ≥ 70). Institutions selling — exit/avoid." };
+  // EP: post-earnings accumulation (Qullamaggie episodic pivot follow-through)
+  if (erDays != null && erDays >= -3 && erDays <= 0 && zvr != null && zvr >= 200 && chg != null && chg > 0)
+    return { key: "EP", color: "#22d3ee", rank: 4, desc: "Episodic Pivot: earnings ≤ 3d ago + ZVR ≥ 200% + green. Post-ER accumulation." };
+  // ACC: institutional accumulation in a leader — strongest long signal
+  if (alpha != null && alpha > 0 && zvr != null && zvr >= 150 && cr != null && cr >= 70 && eif != null && eif >= 70)
+    return { key: "ACC", color: "#34d399", rank: 5, desc: "Accumulation: α > 0, ZVR ≥ 150%, CR% ≥ 70, EIF ≥ 70. Buyers in control of a leader." };
+  // VCP: volume dry-up in a strong name — quiet before the breakout
+  if (zvr != null && Math.abs(zvr) < 80 && eif != null && eif >= 80 && str != null && str >= 70)
+    return { key: "VCP", color: "#fbbf24", rank: 3, desc: "Volume dry-up: |ZVR| < 80% with EIF ≥ 80 + Str ≥ 70. Watch for breakout on volume return." };
+  return null;
+}
+
 // Get the comparable value for a row given a sort key
 function rowSortValue(r, key) {
   switch (key) {
@@ -967,6 +986,8 @@ function rowSortValue(r, key) {
       return r.crp ?? -1;
     case "zvr":
       return r.zvr ?? -1;
+    case "setup":
+      return chainSetup(r)?.rank ?? 0;
     case "accel":
       return r.accel || 0;
     case "magna":
@@ -4083,7 +4104,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
   }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap]);
 
-  const [sortKey, setSortKey] = useState("dvolRatio");
+  const [sortKey, setSortKey] = useState("zvr");
   const [sortDir, setSortDir] = useState("desc");
   const sorted = useMemo(() => {
     let arr = rows.slice();
@@ -4190,7 +4211,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
             <Th k="zvr" label="ZVR" />
-            <Th k="dvolRatio" label="$Inflow" />
+            <Th k="setup" label="Setup" />
             <Th k="erDays" label="ER" />
           </tr>
         </thead>
@@ -4290,9 +4311,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     title="Zanger Volume Ratio: projected EOD volume as % of avg daily volume. Positive = accumulation, negative = distribution. ≥200% = breakout confirmation">
                   {r.zvr != null ? (r.zvr < 0 ? "-" : "") + Math.abs(r.zvr) + "%" : "—"}
                 </td>
-                <td style={{ ...cell, color: r.dvolRatio != null && r.dvolRatio >= 2 ? ARIA.green : r.dvolRatio != null && r.dvolRatio >= 1 ? ARIA.textDim : ARIA.textMuted, fontWeight: r.dvolRatio != null && r.dvolRatio >= 2 ? 700 : 400 }}
-                    title="$Vol Inflow: today's dollar volume ÷ 30-day avg dollar volume">
-                  {r.dvolRatio != null ? r.dvolRatio.toFixed(1) + "x" : "—"}
+                <td style={{ ...cell, textAlign: "center", padding: "2px 3px" }}>
+                  {(() => {
+                    const su = chainSetup(r);
+                    if (!su) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                    return (
+                      <span title={su.desc} style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>
+                        {su.key}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td style={{ ...cell, color: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? ARIA.yellow : ARIA.textMuted, fontWeight: r.erDays != null && r.erDays >= 0 && r.erDays <= 7 ? 700 : 400 }}>
                   {r.erDays != null ? (r.erDays >= 0 ? `${r.erDays}d` : `${-r.erDays}d ago`) : "—"}
