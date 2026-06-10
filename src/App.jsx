@@ -4123,13 +4123,15 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
 
   // Multi-column sort: ordered array of {key, dir}. Click = set primary,
   // Shift+click = add/toggle as secondary/tertiary. Persisted.
+  // Default chain: ZVR → CR% → EIF, all descending.
   const STRING_SORT_KEYS = ["ticker", "theme", "layer"];
+  const DEFAULT_CHAIN_SORT = [{ key: "zvr", dir: "desc" }, { key: "cr", dir: "desc" }, { key: "rs", dir: "desc" }];
   const [sortSpec, setSortSpec] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem("tp-chain-sort"));
       if (Array.isArray(s) && s.every((x) => x && x.key && (x.dir === "asc" || x.dir === "desc"))) return s;
     } catch {}
-    return [{ key: "zvr", dir: "desc" }];
+    return DEFAULT_CHAIN_SORT;
   });
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const sorted = useMemo(() => {
@@ -4189,7 +4191,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
   };
   const SORT_LABELS = { zvr: "ZVR", setup: "SETUP", rs: "EIF", chg: "CHG%", alpha: "α", adr: "ADR", str: "STR", mcap: "MCAP", cr: "CR%", erDays: "ER", is33: "33", ticker: "TICKER", theme: "CHAIN", layer: "LAYER", rvol: "RV" };
-  const isDefaultSort = sortSpec.length === 1 && sortSpec[0].key === "zvr" && sortSpec[0].dir === "desc";
+  const isDefaultSort = sortSpec.length === DEFAULT_CHAIN_SORT.length && sortSpec.every((s, i) => s.key === DEFAULT_CHAIN_SORT[i].key && s.dir === DEFAULT_CHAIN_SORT[i].dir);
 
   const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
   const crColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
@@ -4251,8 +4253,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         </button>
         {!isDefaultSort && (
           <button
-            onClick={() => saveSortSpec([{ key: "zvr", dir: "desc" }])}
-            title="Active sort chain — click to reset to default (ZVR descending)"
+            onClick={() => saveSortSpec(DEFAULT_CHAIN_SORT)}
+            title="Active sort chain — click to reset to default (ZVR → CR% → EIF)"
             style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.3, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)" }}>
             {sortSpec.length
               ? sortSpec.map((s) => `${SORT_LABELS[s.key] || s.key.toUpperCase()}${s.dir === "asc" ? "↑" : "↓"}`).join(" · ")
