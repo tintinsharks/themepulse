@@ -3827,29 +3827,38 @@ function useThesisMap() {
 function useZVR(tickers) {
   // cur = latest poll, prev = poll before it (for intraday trend arrows)
   const [maps, setMaps] = useState(() => ({ cur: new Map(), prev: new Map() }));
-  const tickerKey = useMemo(() => tickers?.slice(0, 50).sort().join(",") || "", [tickers]);
+  const tickerKey = useMemo(() => tickers?.slice().sort().join(",") || "", [tickers]);
 
   useEffect(() => {
     if (!tickerKey) return;
     let cancelled = false;
     let timer = null;
+    const all = tickerKey.split(",");
 
     const fetchZVR = async () => {
-      try {
-        const resp = await fetch(`/api/zvr?tickers=${encodeURIComponent(tickerKey)}`);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (cancelled || !data.ok || !data.zvr) return;
-        const m = new Map();
+      // API caps at 50 tickers per call — fan out in parallel and merge,
+      // so the whole chain universe gets true ZVR (not just the first 50)
+      const chunks = [];
+      for (let i = 0; i < all.length; i += 50) chunks.push(all.slice(i, i + 50));
+      const results = await Promise.all(chunks.map(async (chunk) => {
+        try {
+          const resp = await fetch(`/api/zvr?tickers=${encodeURIComponent(chunk.join(","))}`);
+          if (!resp.ok) return null;
+          return await resp.json();
+        } catch { return null; }
+      }));
+      if (cancelled) return;
+      const m = new Map();
+      let isRTH = false, gotAny = false;
+      for (const data of results) {
+        if (!data?.ok || !data.zvr) continue;
+        gotAny = true;
+        if (data.meta?.isRTH) isRTH = true;
         for (const [tk, val] of Object.entries(data.zvr)) m.set(tk, val);
-        setMaps((old) => ({ cur: m, prev: old.cur }));
-        // Schedule next poll: 60s during RTH, 300s outside
-        const interval = data.meta?.isRTH ? 60000 : 300000;
-        timer = setTimeout(fetchZVR, interval);
-      } catch {
-        // Retry in 2min on error
-        timer = setTimeout(fetchZVR, 120000);
       }
+      if (gotAny) setMaps((old) => ({ cur: m, prev: old.cur }));
+      // Next poll: 60s during RTH, 5min outside, 2min if everything errored
+      timer = setTimeout(fetchZVR, !gotAny ? 120000 : isRTH ? 60000 : 300000);
     };
 
     fetchZVR();
@@ -4114,10 +4123,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
 
   const [sortKey, setSortKey] = useState("zvr");
   const [sortDir, setSortDir] = useState("desc");
+  const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
+    if (setupsOnly) arr = arr.filter(r => chainSetup(r));
     arr.sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
       if (sortKey === "ticker" || sortKey === "theme" || sortKey === "layer") {
@@ -4125,12 +4136,14 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         bv = (bv || "").toString();
         return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       }
+      if (sortKey === "setup") { av = chainSetup(a)?.rank ?? 0; bv = chainSetup(b)?.rank ?? 0; }
+      if (sortKey === "is33") { av = a.is33 ? 1 : 0; bv = b.is33 ? 1 : 0; }
       av = av == null ? -Infinity : av;
       bv = bv == null ? -Infinity : bv;
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, sortKey, sortDir, posOnly, layerFilter]);
+  }, [rows, sortKey, sortDir, posOnly, layerFilter, setupsOnly]);
   const toggleSort = (k) => {
     setSortKey((cur) => {
       if (cur === k) { setSortDir((d) => d === "asc" ? "desc" : "asc"); return cur; }
@@ -4189,6 +4202,15 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   return (
     <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
          style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
+        <button
+          onClick={() => setSetupsOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-setups-only", n ? "1" : "0"); } catch {} return n; })}
+          title="Show only rows with an active Setup badge (ACC / EP / VCP / DIST)"
+          style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: setupsOnly ? "#34d399" : ARIA.textMuted, background: setupsOnly ? "rgba(52,211,153,0.12)" : "transparent", border: `1px solid ${setupsOnly ? "rgba(52,211,153,0.45)" : ARIA.border}` }}>
+          ⚡ SETUPS
+        </button>
+        <span style={{ fontSize: 7, fontFamily: "monospace", color: ARIA.textMuted, marginLeft: "auto" }}>{sorted.length} tickers</span>
+      </div>
       {layerFilter && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", background: "rgba(168,85,247,0.08)", borderBottom: `1px solid rgba(168,85,247,0.25)`, flexShrink: 0 }}>
           <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, color: "#a855f7", letterSpacing: 0.4 }}>LAYER</span>
