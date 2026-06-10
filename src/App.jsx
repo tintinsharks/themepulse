@@ -4248,7 +4248,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
                     title={r.is33 ? "Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin" : undefined}>
                   {r.is33
-                    ? <span style={{ fontSize: 7, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 2, padding: "0 3px" }}>33</span>
+                    ? <span style={{ fontSize: 8, color: "#fbbf24" }}>33</span>
                     : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
                 </td>
                 <td style={{ ...cell, textAlign: "left" }}>
