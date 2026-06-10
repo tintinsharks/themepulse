@@ -4127,7 +4127,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const [sortSpec, setSortSpec] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem("tp-chain-sort"));
-      if (Array.isArray(s) && s.length && s.every((x) => x && x.key && (x.dir === "asc" || x.dir === "desc"))) return s;
+      if (Array.isArray(s) && s.every((x) => x && x.key && (x.dir === "asc" || x.dir === "desc"))) return s;
     } catch {}
     return [{ key: "zvr", dir: "desc" }];
   });
@@ -4160,18 +4160,25 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, sortSpec, posOnly, layerFilter, setupsOnly]);
+  const saveSortSpec = (next) => {
+    setSortSpec(next);
+    try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
+  };
   const toggleSort = (k, additive) => {
     setSortSpec((prev) => {
       const idx = prev.findIndex((s) => s.key === k);
       const defaultDir = STRING_SORT_KEYS.includes(k) ? "asc" : "desc";
       let next;
       if (additive) {
-        // Shift+click: add as next sort level, or flip direction if already present
-        next = idx >= 0
-          ? prev.map((s, i) => (i === idx ? { ...s, dir: s.dir === "asc" ? "desc" : "asc" } : s))
-          : [...prev, { key: k, dir: defaultDir }];
+        // Shift+click cycles: not present → add (default dir) → flipped → removed
+        if (idx < 0) next = [...prev, { key: k, dir: defaultDir }];
+        else if (prev[idx].dir === defaultDir) next = prev.map((s, i) => (i === idx ? { ...s, dir: s.dir === "asc" ? "desc" : "asc" } : s));
+        else next = prev.filter((_, i) => i !== idx);
+      } else if (idx === 0 && prev.length === 1) {
+        // Plain click on the sole sort: flip direction
+        next = [{ key: k, dir: prev[0].dir === "asc" ? "desc" : "asc" }];
       } else if (idx === 0) {
-        // Plain click on current primary: flip direction, keep secondaries
+        // Plain click on current primary (with secondaries): flip direction, keep secondaries
         next = [{ key: k, dir: prev[0].dir === "asc" ? "desc" : "asc" }, ...prev.slice(1)];
       } else {
         // Plain click on a new column: reset to single sort
@@ -4181,6 +4188,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       return next;
     });
   };
+  const SORT_LABELS = { zvr: "ZVR", setup: "SETUP", rs: "EIF", chg: "CHG%", alpha: "α", adr: "ADR", str: "STR", mcap: "MCAP", cr: "CR%", erDays: "ER", is33: "33", ticker: "TICKER", theme: "CHAIN", layer: "LAYER", rvol: "RV" };
+  const isDefaultSort = sortSpec.length === 1 && sortSpec[0].key === "zvr" && sortSpec[0].dir === "desc";
 
   const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
   const crColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
@@ -4240,6 +4249,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: setupsOnly ? "#34d399" : ARIA.textMuted, background: setupsOnly ? "rgba(52,211,153,0.12)" : "transparent", border: `1px solid ${setupsOnly ? "rgba(52,211,153,0.45)" : ARIA.border}` }}>
           ⚡ SETUPS
         </button>
+        {!isDefaultSort && (
+          <button
+            onClick={() => saveSortSpec([{ key: "zvr", dir: "desc" }])}
+            title="Active sort chain — click to reset to default (ZVR descending)"
+            style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.3, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)" }}>
+            {sortSpec.length
+              ? sortSpec.map((s) => `${SORT_LABELS[s.key] || s.key.toUpperCase()}${s.dir === "asc" ? "↑" : "↓"}`).join(" · ")
+              : "NO SORT"} ✕
+          </button>
+        )}
         <span style={{ fontSize: 7, fontFamily: "monospace", color: ARIA.textMuted, marginLeft: "auto" }}>{sorted.length} tickers</span>
       </div>
       <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
