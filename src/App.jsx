@@ -988,6 +988,8 @@ function rowSortValue(r, key) {
       return r.zvr ?? -1;
     case "setup":
       return chainSetup(r)?.rank ?? 0;
+    case "is33":
+      return r.is33 ? 1 : 0;
     case "accel":
       return r.accel || 0;
     case "magna":
@@ -3989,6 +3991,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume, chg),
+          is33: s ? TAG_PREDICATES["33"].test(s) : false,
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -4049,6 +4052,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           str: tickerStrengthMap?.[tk] ?? null,
           cr: computeCR(q, s),
           zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
+          is33: s ? TAG_PREDICATES["33"].test(s) : false,
           roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
@@ -4095,6 +4099,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
+        is33: s ? TAG_PREDICATES["33"].test(s) : false,
         roc2,
         epsYoy: s?.eps_yoy ?? null,
         salesYoy: s?.sales_yoy ?? null,
@@ -4195,7 +4200,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
             <Th k="ticker" label="Ticker" align="left" />
-            <th style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "center", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard }}>💡</th>
+            <Th k="is33" label="33" />
             <Th k="theme" label="Chain" align="left" />
             <Th k="layer" label="Layer" align="left" />
             <Th k="chg" label="Chg%" />
@@ -4241,23 +4246,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
-                    onClick={(e) => e.stopPropagation()}>
-                  {(() => {
-                    const theses = thesisMap?.get(r.ticker);
-                    if (!theses?.length) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
-                    const hasPrimary = theses.some((t) => t.role === "primary");
-                    return (
-                      <button
-                        title={`${theses.length} thesis note${theses.length > 1 ? "s" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setThesisPopover((prev) => prev?.ticker === r.ticker ? null : { ticker: r.ticker, theses, x: rect.left, y: rect.bottom + 6 });
-                        }}
-                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: hasPrimary ? 12 : 10, padding: 0, lineHeight: 1, opacity: hasPrimary ? 1 : 0.55, filter: hasPrimary ? "none" : "grayscale(0.4)" }}
-                      >💡</button>
-                    );
-                  })()}
+                    title={r.is33 ? "Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin" : undefined}>
+                  {r.is33
+                    ? <span style={{ fontSize: 7, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 2, padding: "0 3px" }}>33</span>
+                    : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
                 </td>
                 <td style={{ ...cell, textAlign: "left" }}>
                   {r.themeId ? (
