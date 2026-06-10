@@ -4201,8 +4201,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           <tr>
             <Th k="ticker" label="Ticker" align="left" />
             <Th k="is33" label="33" />
-            <Th k="theme" label="Chain" align="left" />
-            <Th k="layer" label="Layer" align="left" />
+            <Th k="theme" label="Chain · Layer" align="left" />
             <Th k="chg" label="Chg%" />
             <th onClick={() => toggleSort("alpha")} onContextMenu={(e) => { e.preventDefault(); const next = alphaMode === "1d" ? "1w" : alphaMode === "1w" ? "1m" : "1d"; setAlphaMode(next); try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {} }}
                 title="Left-click to sort · Right-click to cycle α window (1d/1w/1m)"
@@ -4251,28 +4250,25 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     ? <span style={{ fontSize: 8, color: "#fbbf24" }}>33</span>
                     : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
                 </td>
-                <td style={{ ...cell, textAlign: "left" }}>
+                <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
                   {r.themeId ? (
                     <span style={{
                       fontSize: 7, fontWeight: 700, color: c.color,
                       background: c.bg, border: `1px solid ${c.border}`,
-                      padding: "0 4px", borderRadius: 2,
+                      padding: "0 4px", borderRadius: 2, marginRight: 5,
                     }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
-                  ) : <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>}
-                </td>
-                <td style={{ ...cell, textAlign: "left", fontSize: 8 }}
-                    onClick={(e) => {
-                      if (!r.layer) return;
-                      e.stopPropagation();
-                      setLayerFilter((prev) => prev === r.layer ? null : r.layer);
-                    }}
-                    title={r.layer ? (layerFilter === r.layer ? `Click to clear filter` : `Click to filter → ${r.layer}`) : ""}
-                >
+                  ) : null}
                   {r.layer ? (
-                    <span style={{ color: layerFilter === r.layer ? "#a855f7" : ARIA.textDim, cursor: "pointer", fontWeight: layerFilter === r.layer ? 700 : 400, borderBottom: "1px dashed rgba(255,255,255,0.15)" }}>
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLayerFilter((prev) => prev === r.layer ? null : r.layer);
+                      }}
+                      title={layerFilter === r.layer ? "Click to clear filter" : `Click to filter → ${r.layer}`}
+                      style={{ color: layerFilter === r.layer ? "#a855f7" : ARIA.textDim, cursor: "pointer", fontWeight: layerFilter === r.layer ? 700 : 400, borderBottom: "1px dashed rgba(255,255,255,0.15)" }}>
                       {r.layer}
                     </span>
-                  ) : <span style={{ color: ARIA.textMuted }}>—</span>}
+                  ) : (!r.themeId ? <span style={{ color: ARIA.textMuted }}>—</span> : null)}
                   {r.layer && r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
                 </td>
                 <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>
