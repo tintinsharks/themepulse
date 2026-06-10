@@ -3973,15 +3973,15 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
       const scanSet = new Set(scanRows.map((sr) => sr.ticker));
       const base = scanRows.map((sr) => {
-        const chains = TICKER_CHAIN_MAP.get(sr.ticker);
+        const q = liveQuotes.get(sr.ticker);
+        const s = stockMap?.[sr.ticker];
+        const chains = chainsForStock(sr.ticker, s);
         const firstChain = chains?.[0];
         const themeId = firstChain?.themeId ?? null;
         const theme = themeId
-          ? (DRAWER_SUBTHEMES.find((s) => s.themeId === themeId)?.theme ?? themeId)
+          ? (DRAWER_SUBTHEMES.find((d) => d.themeId === themeId)?.theme ?? (themeId === "realestate" ? "Real Estate" : themeId === "utilities" ? "Utilities" : themeId))
           : null;
         const layers = chains ? [...new Set(chains.map((c) => c.layer))] : [];
-        const q = liveQuotes.get(sr.ticker);
-        const s = stockMap?.[sr.ticker];
         const chg = q?.change != null ? q.change : sr.chg;
         const liveVol = q?.volume;
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
@@ -10663,6 +10663,8 @@ const DRAWER_COLORS = {
   consumer:    { bg: "rgba(244,114,182,0.12)", border: "#8e2860", color: "#f472b6" },
   agriculture: { bg: "rgba(132,204,22,0.12)",  border: "#4a6e14", color: "#84cc16" },
   industrials: { bg: "rgba(209,213,219,0.12)", border: "#4a5568", color: "#d1d5db" },
+  realestate:  { bg: "rgba(217,119,87,0.12)",  border: "#8e4a2e", color: "#d97757" },
+  utilities:   { bg: "rgba(94,234,212,0.12)",  border: "#2e7e6e", color: "#5eead4" },
 };
 
 const CHAIN_ABBR = {
@@ -10673,6 +10675,7 @@ const CHAIN_ABBR = {
   shipping: "SHIP", transport: "TRN", infrabuild: "BLD",
   telecom: "TEL", financials: "FIN", consumer: "CON",
   agriculture: "AGR", industrials: "IND",
+  realestate: "RE", utilities: "UTL",
 };
 
 // Ticker → array of { themeId, layer } entries (unique layers across all DRAWER_SUBTHEMES)
@@ -10689,6 +10692,163 @@ const TICKER_CHAIN_MAP = (() => {
   });
   return m;
 })();
+
+// ── Industry → chain/layer fallback for tickers not in any curated chain ──
+// Covers every FMP industry in the pipeline universe. Keys must match
+// dashboard_data.json `industry` strings exactly.
+const INDUSTRY_CHAIN_MAP = {
+  "Advertising Agencies": ["internet", "Adtech"],
+  "Aerospace & Defense": ["defense", "Aerospace & Defense"],
+  "Agricultural - Machinery": ["agriculture", "Farm Equipment"],
+  "Agricultural Farm Products": ["agriculture", "Ag Commodities + Trade"],
+  "Agricultural Inputs": ["agriculture", "Fertilizers + Crop"],
+  "Airlines, Airports & Air Services": ["transport", "Airlines"],
+  "Aluminum": ["materials", "Aluminum"],
+  "Apparel - Footwear & Accessories": ["consumer", "Luxury + Apparel"],
+  "Apparel - Manufacturers": ["consumer", "Luxury + Apparel"],
+  "Apparel - Retail": ["consumer", "Luxury + Apparel"],
+  "Asset Management": ["financials", "Asset Management"],
+  "Asset Management - Global": ["financials", "Asset Management"],
+  "Auto - Dealerships": ["consumer", "Autos + Dealers"],
+  "Auto - Manufacturers": ["ev", "Makers"],
+  "Auto - Parts": ["ev", "Auto Parts + Suppliers"],
+  "Auto - Recreational Vehicles": ["consumer", "Autos + Dealers"],
+  "Banks": ["financials", "Regional Banks"],
+  "Banks - Diversified": ["financials", "Mega Banks"],
+  "Banks - Regional": ["financials", "Regional Banks"],
+  "Beverages - Alcoholic": ["consumer", "Food + Beverages"],
+  "Beverages - Non-Alcoholic": ["consumer", "Food + Beverages"],
+  "Beverages - Wineries & Distilleries": ["consumer", "Food + Beverages"],
+  "Biotechnology": ["health", "Biotech"],
+  "Broadcasting": ["internet", "Streaming / Media"],
+  "Business Equipment & Supplies": ["industrials", "Business Products + Services"],
+  "Chemicals": ["materials", "Specialty Chemicals"],
+  "Chemicals - Specialty": ["materials", "Specialty Chemicals"],
+  "Coal": ["energy", "Coal"],
+  "Communication Equipment": ["telecom", "Comm Equipment"],
+  "Computer Hardware": ["ai", "Compute Hardware"],
+  "Conglomerates": ["industrials", "Conglomerates"],
+  "Construction": ["infrabuild", "Construction"],
+  "Construction Materials": ["infrabuild", "Construction Materials"],
+  "Consulting Services": ["industrials", "Business Products + Services"],
+  "Consumer Electronics": ["consumer", "Consumer Electronics"],
+  "Copper": ["materials", "Copper"],
+  "Department Stores": ["consumer", "Retail"],
+  "Discount Stores": ["consumer", "Retail"],
+  "Diversified Utilities": ["utilities", "Diversified Utilities"],
+  "Drug Manufacturers - General": ["health", "Pharma Majors"],
+  "Drug Manufacturers - Specialty & Generic": ["health", "Specialty Pharma"],
+  "Education & Training Services": ["consumer", "Education"],
+  "Electrical Equipment & Parts": ["infrabuild", "Electrical + Fire/Safety"],
+  "Electronic Gaming & Multimedia": ["internet", "Gaming"],
+  "Engineering & Construction": ["infrabuild", "E&C / Heavy Civil"],
+  "Entertainment": ["internet", "Streaming / Media"],
+  "Financial - Capital Markets": ["financials", "Capital Markets + Exchanges"],
+  "Financial - Conglomerates": ["financials", "Diversified Financials"],
+  "Financial - Credit Services": ["fintech", "Credit + Lending"],
+  "Financial - Data & Stock Exchanges": ["financials", "Capital Markets + Exchanges"],
+  "Financial - Diversified": ["financials", "Diversified Financials"],
+  "Financial - Mortgages": ["fintech", "Credit + Lending"],
+  "Food Confectioners": ["consumer", "Food + Beverages"],
+  "Food Distribution": ["consumer", "Food + Beverages"],
+  "Furnishings, Fixtures & Appliances": ["consumer", "Home + Furnishings"],
+  "Gambling, Resorts & Casinos": ["internet", "Sports Betting"],
+  "General Transportation": ["transport", "Freight + Logistics"],
+  "Gold": ["materials", "Precious Metals"],
+  "Grocery Stores": ["consumer", "Retail"],
+  "Hardware, Equipment & Parts": ["ai", "Networking + Components"],
+  "Home Improvement": ["consumer", "Retail"],
+  "Household & Personal Products": ["consumer", "Staples + Personal Care"],
+  "Independent Power Producers": ["ai", "Power Generation (IPPs)"],
+  "Industrial - Distribution": ["industrials", "Distribution"],
+  "Industrial - Infrastructure Operations": ["infrabuild", "Infrastructure Ops"],
+  "Industrial - Machinery": ["industrials", "Machinery"],
+  "Industrial - Pollution & Treatment Controls": ["infrabuild", "Waste + Environment"],
+  "Industrial Materials": ["materials", "Industrial Materials"],
+  "Information Technology Services": ["software", "IT Services"],
+  "Insurance - Brokers": ["financials", "Insurance"],
+  "Insurance - Diversified": ["financials", "Insurance"],
+  "Insurance - Life": ["financials", "Insurance"],
+  "Insurance - Property & Casualty": ["financials", "Insurance"],
+  "Insurance - Reinsurance": ["financials", "Insurance"],
+  "Insurance - Specialty": ["financials", "Insurance"],
+  "Integrated Freight & Logistics": ["transport", "Freight + Logistics"],
+  "Internet Content & Information": ["internet", "Internet Content"],
+  "Investment - Banking & Investment Services": ["fintech", "Asset Mgmt + Trading"],
+  "Leisure": ["consumer", "Travel + Leisure"],
+  "Luxury Goods": ["consumer", "Luxury + Apparel"],
+  "Manufacturing - Metal Fabrication": ["infrabuild", "Specialty Metals"],
+  "Manufacturing - Textiles": ["consumer", "Luxury + Apparel"],
+  "Manufacturing - Tools & Accessories": ["industrials", "Tools + Testing"],
+  "Marine Shipping": ["shipping", "Containers + Mixed"],
+  "Medical - Care Facilities": ["health", "Providers + Facilities"],
+  "Medical - Devices": ["health", "Devices"],
+  "Medical - Diagnostics & Research": ["health", "Diagnostics"],
+  "Medical - Distribution": ["health", "Distribution + Supplies"],
+  "Medical - Equipment & Services": ["health", "Devices"],
+  "Medical - Healthcare Information Services": ["health", "Telemedicine / Health IT"],
+  "Medical - Healthcare Plans": ["health", "Managed Care + Payers"],
+  "Medical - Instruments & Supplies": ["health", "Devices"],
+  "Medical - Pharmaceuticals": ["health", "Pharma Majors"],
+  "Oil & Gas Drilling": ["energy", "Oil Field Equipment"],
+  "Oil & Gas Energy": ["energy", "Oil Majors"],
+  "Oil & Gas Equipment & Services": ["energy", "Oil Services"],
+  "Oil & Gas Exploration & Production": ["energy", "E&P"],
+  "Oil & Gas Integrated": ["energy", "Oil Majors"],
+  "Oil & Gas Midstream": ["energy", "Midstream + Pipelines"],
+  "Oil & Gas Refining & Marketing": ["energy", "Refining"],
+  "Other Precious Metals": ["materials", "Precious Metals"],
+  "Silver": ["materials", "Precious Metals"],
+  "Packaged Foods": ["consumer", "Food + Beverages"],
+  "Packaging & Containers": ["materials", "Packaging"],
+  "Paper, Lumber & Forest Products": ["materials", "Paper + Forest"],
+  "Personal Products & Services": ["consumer", "Staples + Personal Care"],
+  "Publishing": ["internet", "Streaming / Media"],
+  "REIT - Diversified": ["realestate", "Equity REITs"],
+  "REIT - Healthcare Facilities": ["realestate", "Equity REITs"],
+  "REIT - Hotel & Motel": ["realestate", "Equity REITs"],
+  "REIT - Industrial": ["realestate", "Industrial REITs"],
+  "REIT - Mortgage": ["realestate", "Mortgage REITs"],
+  "REIT - Office": ["realestate", "Equity REITs"],
+  "REIT - Residential": ["realestate", "Equity REITs"],
+  "REIT - Retail": ["realestate", "Equity REITs"],
+  "REIT - Specialty": ["realestate", "Specialty REITs"],
+  "Railroads": ["transport", "Rail"],
+  "Real Estate - Services": ["realestate", "RE Services"],
+  "Regulated Electric": ["utilities", "Electric"],
+  "Regulated Gas": ["utilities", "Gas"],
+  "Regulated Water": ["utilities", "Water"],
+  "Renewable Utilities": ["utilities", "Renewables"],
+  "Rental & Leasing Services": ["industrials", "Rental + Leasing"],
+  "Residential Construction": ["infrabuild", "Homebuilders"],
+  "Restaurants": ["consumer", "Restaurants + QSR"],
+  "Security & Protection Services": ["industrials", "Security + Services"],
+  "Semiconductors": ["semis", "Semiconductors"],
+  "Software - Application": ["software", "Application Software"],
+  "Software - Infrastructure": ["software", "Infrastructure Software"],
+  "Software - Services": ["software", "IT Services"],
+  "Solar": ["energy", "Solar"],
+  "Specialty Business Services": ["industrials", "Business Products + Services"],
+  "Specialty Retail": ["consumer", "Retail"],
+  "Staffing & Employment Services": ["industrials", "Staffing + HR"],
+  "Steel": ["materials", "Steel & Iron"],
+  "Technology Distributors": ["industrials", "Distribution"],
+  "Telecommunications Services": ["telecom", "Carriers"],
+  "Tobacco": ["consumer", "Staples + Personal Care"],
+  "Travel Lodging": ["consumer", "Travel + Leisure"],
+  "Travel Services": ["consumer", "Travel + Leisure"],
+  "Trucking": ["transport", "Trucking"],
+  "Uranium": ["materials", "Uranium"],
+  "Waste Management": ["infrabuild", "Waste + Environment"],
+};
+
+// Resolve chains for a ticker: curated map first, industry fallback second.
+function chainsForStock(ticker, s) {
+  const curated = TICKER_CHAIN_MAP.get(ticker);
+  if (curated?.length) return curated;
+  const e = s?.industry && INDUSTRY_CHAIN_MAP[s.industry];
+  return e ? [{ themeId: e[0], layer: e[1] }] : null;
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // Theme Value-Chain Drawers — multiple slide-out drawers, one per theme
