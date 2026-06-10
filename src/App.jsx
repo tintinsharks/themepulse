@@ -3979,8 +3979,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         let rvol = sr.rvol ?? null;
         if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
         const price = q?.price ?? s?.price ?? s?.close ?? null;
-        const r1m = s?.return_1m, r3m = s?.return_3m;
-        const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
         const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
         const avgDvol = s?.avg_dollar_vol_raw ?? null;
         const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
@@ -4000,7 +3998,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           zvrTrend: calcZvrTrend(sr.ticker),
           adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
-          roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
           erDays: s?.earnings_days ?? null,
@@ -4042,8 +4039,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
         if (scanFilters?.minRvol > 0 && (rvol == null || rvol < scanFilters.minRvol)) continue;
         const price = q?.price ?? s?.price ?? s?.close ?? null;
-        const r1m = s?.return_1m, r3m = s?.return_3m;
-        const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
         const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
         const avgDvol = s?.avg_dollar_vol_raw ?? null;
         const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
@@ -4063,7 +4058,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           zvrTrend: calcZvrTrend(tk),
           adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
-          roc2,
           mcap: s?.market_cap_raw ?? null,
           dvolRatio,
           erDays: s?.earnings_days ?? null,
@@ -4091,8 +4085,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       else if (s?.rel_volume != null && !isNaN(s.rel_volume) && s.rel_volume > 0) rvol = s.rel_volume;
       const cr = computeCR(q, s);
       const price = q?.price ?? s?.price ?? s?.close ?? null;
-      const r1m = s?.return_1m, r3m = s?.return_3m;
-      const roc2 = (r1m != null && r3m != null && !isNaN(r1m) && !isNaN(r3m)) ? r1m - r3m / 3 : null;
       const dvolToday = (price && liveVol) ? price * liveVol : (s?.dollar_vol_raw ?? null);
       const avgDvol = s?.avg_dollar_vol_raw ?? null;
       const dvolRatio = (dvolToday && avgDvol > 0) ? dvolToday / avgDvol : null;
@@ -4112,7 +4104,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         zvrTrend: calcZvrTrend(tk),
         adr: s?.adr_pct ?? null,
         is33: s ? TAG_PREDICATES["33"].test(s) : false,
-        roc2,
         epsYoy: s?.eps_yoy ?? null,
         salesYoy: s?.sales_yoy ?? null,
         dvolRatio,
@@ -4223,7 +4214,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             <Th k="adr" label="ADR" />
             <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
-            <Th k="roc2" label="ROC²" />
             <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
             <Th k="zvr" label="ZVR" />
@@ -4301,10 +4291,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 </td>
                 <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
                   {r.str != null ? Math.round(r.str) : "—"}
-                </td>
-                <td style={{ ...cell, color: chgColor(r.roc2), fontWeight: 700 }}
-                    title="ROC² (Druckenmiller acceleration): 1M return − (3M return ÷ 3)">
-                  {r.roc2 != null ? (r.roc2 > 0 ? "+" : "") + r.roc2.toFixed(1) : "—"}
                 </td>
                 <td style={{ ...cell, color: ARIA.textDim }}>{fmtMcap(r.mcap)}</td>
                 <td style={{ ...cell, color: crColor(r.cr) }}>
