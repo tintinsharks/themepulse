@@ -3825,7 +3825,8 @@ function useThesisMap() {
 // Returns Map<ticker, zvrPct> where zvrPct is an integer % (e.g. 245 = 2.45x avg).
 // Polls every 60s during RTH, 5min outside. Only fetches when tickers array is non-empty.
 function useZVR(tickers) {
-  const [zvrMap, setZvrMap] = useState(() => new Map());
+  // cur = latest poll, prev = poll before it (for intraday trend arrows)
+  const [maps, setMaps] = useState(() => ({ cur: new Map(), prev: new Map() }));
   const tickerKey = useMemo(() => tickers?.slice(0, 50).sort().join(",") || "", [tickers]);
 
   useEffect(() => {
@@ -3841,7 +3842,7 @@ function useZVR(tickers) {
         if (cancelled || !data.ok || !data.zvr) return;
         const m = new Map();
         for (const [tk, val] of Object.entries(data.zvr)) m.set(tk, val);
-        setZvrMap(m);
+        setMaps((old) => ({ cur: m, prev: old.cur }));
         // Schedule next poll: 60s during RTH, 300s outside
         const interval = data.meta?.isRTH ? 60000 : 300000;
         timer = setTimeout(fetchZVR, interval);
@@ -3855,7 +3856,7 @@ function useZVR(tickers) {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [tickerKey]);
 
-  return zvrMap;
+  return maps;
 }
 
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
@@ -3901,7 +3902,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     return [...s];
   }, []);
   // Poll /api/zvr for true Zanger Volume Ratio (intraday comparison across 20-day lookback)
-  const apiZvrMap = useZVR(allChainTickers);
+  const { cur: apiZvrMap, prev: prevZvrMap } = useZVR(allChainTickers);
   const scanTickers = useMemo(() => {
     if (!scanRows) return null;
     const s = new Set(scanRows.map((r) => r.ticker));
@@ -3954,6 +3955,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       // Sign by price direction: negative chg → negative ZVR (distribution)
       return chg != null && chg < 0 ? -raw : raw;
     };
+    // ZVR delta vs previous poll (~60s ago) — is volume pace accelerating or fading?
+    const calcZvrTrend = (ticker) => {
+      const cur = apiZvrMap.get(ticker), prev = prevZvrMap.get(ticker);
+      return (cur != null && prev != null) ? cur - prev : null;
+    };
     if (scanRows) {
       // Source from scan results — annotate with chain/layer from TICKER_CHAIN_MAP
       const scanSet = new Set(scanRows.map((sr) => sr.ticker));
@@ -3991,6 +3997,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume, chg),
+          zvrTrend: calcZvrTrend(sr.ticker),
+          adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
           roc2,
           mcap: s?.market_cap_raw ?? null,
@@ -4052,6 +4060,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           str: tickerStrengthMap?.[tk] ?? null,
           cr: computeCR(q, s),
           zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
+          zvrTrend: calcZvrTrend(tk),
+          adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
           roc2,
           mcap: s?.market_cap_raw ?? null,
@@ -4099,6 +4109,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
+        zvrTrend: calcZvrTrend(tk),
+        adr: s?.adr_pct ?? null,
         is33: s ? TAG_PREDICATES["33"].test(s) : false,
         roc2,
         epsYoy: s?.eps_yoy ?? null,
@@ -4107,7 +4119,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, crpMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap]);
 
   const [sortKey, setSortKey] = useState("zvr");
   const [sortDir, setSortDir] = useState("desc");
@@ -4208,7 +4220,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === "alpha" ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
               α<span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800, marginLeft: 2 }}>{alphaMode}</span>{sortKey === "alpha" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
             </th>
-            <Th k="rvol" label="RV" />
+            <Th k="adr" label="ADR" />
             <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
             <Th k="roc2" label="ROC²" />
@@ -4245,9 +4257,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
-                    title={r.is33 ? "Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin" : undefined}>
+                    title={r.is33 ? `Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin${r.rs >= 90 ? ". EIF ≥ 90 — elite leader with accelerating fundamentals" : ""}` : undefined}>
                   {r.is33
-                    ? <span style={{ fontSize: 8, color: "#fbbf24" }}>33</span>
+                    ? (r.rs != null && r.rs >= 90
+                        ? <span style={{ fontSize: 7, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 2, padding: "0 3px" }}>33</span>
+                        : <span style={{ fontSize: 8, color: "#fbbf24" }}>33</span>)
                     : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
@@ -4278,8 +4292,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     title={`Alpha vs SPY: stock ${r.chg?.toFixed(1)}% − SPY ${(r.chg - r.alpha).toFixed(1)}%`}>
                   {r.alpha != null ? (r.alpha > 0 ? "+" : "") + r.alpha.toFixed(1) : "—"}
                 </td>
-                <td style={{ ...cell, color: rvColor(r.rvol), fontWeight: 700 }}>
-                  {r.rvol != null ? r.rvol.toFixed(1) + "x" : "—"}
+                <td style={{ ...cell, color: r.adr != null && r.adr >= 5 ? "#fbbf24" : r.adr != null && r.adr >= 3 ? ARIA.green : ARIA.textDim, fontWeight: r.adr != null && r.adr >= 3 ? 700 : 400 }}
+                    title="Average Daily Range %. ≥3% = tradeable swing range, ≥5% = high volatility">
+                  {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
                 </td>
                 <td style={{ ...cell, color: r.rs != null && r.rs >= 80 ? ARIA.green : r.rs != null && r.rs >= 60 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
                   {r.rs != null ? Math.round(r.rs) : "—"}
@@ -4295,9 +4310,14 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
                 </td>
-                <td style={{ ...cell, color: r.zvr != null ? (r.zvr < 0 ? (Math.abs(r.zvr) >= 200 ? "#ef4444" : Math.abs(r.zvr) >= 150 ? ARIA.red : ARIA.textMuted) : (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted)) : ARIA.textMuted, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 150 ? 700 : 400 }}
-                    title="Zanger Volume Ratio: projected EOD volume as % of avg daily volume. Positive = accumulation, negative = distribution. ≥200% = breakout confirmation">
+                <td style={{ ...cell, color: r.zvr != null ? (r.zvr < 0 ? (Math.abs(r.zvr) >= 200 ? "#ef4444" : Math.abs(r.zvr) >= 150 ? ARIA.red : ARIA.textMuted) : (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted)) : ARIA.textMuted, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 150 ? 700 : 400, whiteSpace: "nowrap" }}
+                    title={`Zanger Volume Ratio: projected EOD volume as % of avg daily volume. Positive = accumulation, negative = distribution. ≥200% = breakout confirmation${r.zvrTrend != null ? ` · ${r.zvrTrend > 0 ? "+" : ""}${r.zvrTrend} pts vs last poll` : ""}`}>
                   {r.zvr != null ? (r.zvr < 0 ? "-" : "") + Math.abs(r.zvr) + "%" : "—"}
+                  {r.zvrTrend != null && Math.abs(r.zvrTrend) >= 5 && (
+                    <span style={{ fontSize: 6, marginLeft: 1, color: r.zvrTrend > 0 ? "#34d399" : "#ef4444" }}>
+                      {r.zvrTrend > 0 ? "▲" : "▼"}
+                    </span>
+                  )}
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 3px" }}>
                   {(() => {
