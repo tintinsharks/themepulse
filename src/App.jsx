@@ -4200,8 +4200,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   }, [visibleTickers, selectedTicker, onTickerClick]);
 
   return (
-    <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
-         style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
         <button
           onClick={() => setSetupsOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-setups-only", n ? "1" : "0"); } catch {} return n; })}
@@ -4211,6 +4210,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         </button>
         <span style={{ fontSize: 7, fontFamily: "monospace", color: ARIA.textMuted, marginLeft: "auto" }}>{sorted.length} tickers</span>
       </div>
+      <div ref={wrapRef} tabIndex={0} onKeyDown={onKeyDown}
+           style={{ flex: 1, minHeight: 0, overflow: "auto", outline: "none" }}>
       {layerFilter && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", background: "rgba(168,85,247,0.08)", borderBottom: `1px solid rgba(168,85,247,0.25)`, flexShrink: 0 }}>
           <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, color: "#a855f7", letterSpacing: 0.4 }}>LAYER</span>
@@ -4391,6 +4392,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }
