@@ -3744,6 +3744,8 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // Polls every 60s during RTH, 5min outside. Only fetches when tickers array is non-empty.
 // Rolling intraday ZVR history per ticker (session-scoped, last ~40 polls)
 const _zvrHistory = new Map();
+// Rolling intraday CR% history per ticker (session-scoped, ~last 40 samples)
+const _crHistory = new Map();
 
 function useZVR(tickers) {
   // cur = latest poll, prev = poll before it (for intraday trend arrows)
@@ -4035,6 +4037,23 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     } catch {}
     return DEFAULT_CHAIN_SORT;
   });
+  // ── CR% history: sample each ticker's closing range every ~50s during RTH
+  // for the inline sparkline (mirrors the ZVR history pattern).
+  useEffect(() => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const mins = et.getHours() * 60 + et.getMinutes();
+    if (mins < 570 || mins >= 960) return;
+    const now = Date.now();
+    for (const r of rows) {
+      if (r.cr == null) continue;
+      const arr = _crHistory.get(r.ticker) || [];
+      if (arr.length && now - arr[arr.length - 1].t < 50000) continue;
+      arr.push({ t: now, v: r.cr });
+      if (arr.length > 40) arr.shift();
+      _crHistory.set(r.ticker, arr);
+    }
+  }, [rows]);
+
   // ── Setup journal: POST new badge firings to /api/setup-log during RTH.
   // Session-level dedupe here; the server dedupes per ticker+badge per day.
   const loggedSetups = useRef(new Set());
@@ -4123,7 +4142,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 35 ? ARIA.yellow : ARIA.textDim;
   const crColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.red;
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
-  const fmtMcap = (v) => v == null ? "—" : v >= 1e12 ? (v/1e12).toFixed(1)+"T" : v >= 1e9 ? (v/1e9).toFixed(1)+"B" : v >= 1e6 ? (v/1e6).toFixed(0)+"M" : v.toFixed(0);
 
   const Th = ({ k, label, align = "right" }) => {
     const idx = sortSpec.findIndex((s) => s.key === k);
@@ -4220,7 +4238,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             <Th k="adr" label="ADR" />
             <Th k="rs" label="EIF" />
             <Th k="str" label="Str" />
-            <Th k="mcap" label="Mcap" />
             <Th k="cr" label="CR%" />
             <Th k="zvr" label="ZVR" />
             <Th k="setup" label="Setup" />
@@ -4298,9 +4315,21 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
                   {r.str != null ? Math.round(r.str) : "—"}
                 </td>
-                <td style={{ ...cell, color: ARIA.textDim }}>{fmtMcap(r.mcap)}</td>
                 <td style={{ ...cell, color: crColor(r.cr) }}>
                   {r.cr != null ? Math.round(r.cr) + "%" : "—"}
+                  {(() => {
+                    const h = _crHistory.get(r.ticker);
+                    if (!h || h.length < 3) return null;
+                    const vals = h.map((p) => p.v);
+                    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1;
+                    const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * 23 + 1).toFixed(1)},${(9 - ((v - min) / rng) * 7).toFixed(1)}`).join(" ");
+                    const up = vals[vals.length - 1] >= vals[0];
+                    return (
+                      <svg width="25" height="10" style={{ marginLeft: 3, verticalAlign: "middle", opacity: 0.85 }} aria-hidden="true">
+                        <polyline points={pts} fill="none" stroke={up ? "#34d399" : "#ef4444"} strokeWidth="1" />
+                      </svg>
+                    );
+                  })()}
                 </td>
                 <td style={{ ...cell, color: r.zvr != null ? (r.zvr < 0 ? (Math.abs(r.zvr) >= 200 ? "#ef4444" : Math.abs(r.zvr) >= 150 ? ARIA.red : ARIA.textMuted) : (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted)) : ARIA.textMuted, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 150 ? 700 : 400, whiteSpace: "nowrap" }}
                     title={`Zanger Volume Ratio: projected EOD volume as % of avg daily volume. Positive = accumulation, negative = distribution. ≥200% = breakout confirmation${r.zvrTrend != null ? ` · ${r.zvrTrend > 0 ? "+" : ""}${r.zvrTrend} pts vs last poll` : ""}`}>
