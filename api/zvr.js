@@ -60,6 +60,32 @@ async function handleJournalPost(req, res) {
     }
     return res.json({ ok: true, purged: toDelete.length, remaining: flat.length / 2 - toDelete.length });
   }
+  // Maintenance: { stampClose: { day: "YYYY-MM-DD", closes: { TICKER: px } } }
+  // writes each event's closing price + close-to-fire return (for forward-
+  // returns analytics). Idempotent — events already stamped are skipped.
+  if (req.body?.stampClose) {
+    const { day, closes } = req.body.stampClose;
+    if (!day || !closes) return res.status(400).json({ ok: false, error: "stampClose.day and .closes required" });
+    const key = `setuplog:${day}`;
+    const flat = await redisCmd("HGETALL", key);
+    if (!Array.isArray(flat) || flat.length === 0) return res.json({ ok: true, stamped: 0 });
+    const updates = [];
+    for (let i = 0; i < flat.length; i += 2) {
+      try {
+        const ev = JSON.parse(flat[i + 1]);
+        const c = closes[ev.ticker];
+        if (c != null && ev.close == null) {
+          ev.close = c;
+          ev.retClose = (ev.price > 0) ? Math.round(((c - ev.price) / ev.price) * 10000) / 100 : null;
+          updates.push(flat[i], JSON.stringify(ev));
+        }
+      } catch {}
+    }
+    for (let i = 0; i < updates.length; i += 200) {
+      await redisCmd("HSET", key, ...updates.slice(i, i + 200));
+    }
+    return res.json({ ok: true, stamped: updates.length / 2 });
+  }
   const events = req.body?.events;
   if (!Array.isArray(events) || events.length === 0) {
     return res.status(400).json({ ok: false, error: "events array required" });
