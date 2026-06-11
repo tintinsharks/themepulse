@@ -39,6 +39,27 @@ const etDateStr = (d = new Date()) =>
   new Date(d.toLocaleString("en-US", { timeZone: "America/New_York" })).toISOString().split("T")[0];
 
 async function handleJournalPost(req, res) {
+  // Maintenance: { purge: { day: "YYYY-MM-DD", beforeUtc: "HH:MM" } }
+  // removes that day's entries whose ts is before the cutoff (or all, if no cutoff)
+  if (req.body?.purge) {
+    const { day, beforeUtc } = req.body.purge;
+    if (!day) return res.status(400).json({ ok: false, error: "purge.day required" });
+    const key = `setuplog:${day}`;
+    const flat = await redisCmd("HGETALL", key);
+    if (!Array.isArray(flat) || flat.length === 0) return res.json({ ok: true, purged: 0 });
+    const toDelete = [];
+    for (let i = 0; i < flat.length; i += 2) {
+      try {
+        const ev = JSON.parse(flat[i + 1]);
+        const t = (ev.ts || "").slice(11, 16);
+        if (!beforeUtc || t < beforeUtc) toDelete.push(flat[i]);
+      } catch { toDelete.push(flat[i]); }
+    }
+    for (let i = 0; i < toDelete.length; i += 100) {
+      await redisCmd("HDEL", key, ...toDelete.slice(i, i + 100));
+    }
+    return res.json({ ok: true, purged: toDelete.length, remaining: flat.length / 2 - toDelete.length });
+  }
   const events = req.body?.events;
   if (!Array.isArray(events) || events.length === 0) {
     return res.status(400).json({ ok: false, error: "events array required" });

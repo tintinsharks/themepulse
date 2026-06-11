@@ -4055,7 +4055,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   useEffect(() => {
     const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const mins = et.getHours() * 60 + et.getMinutes();
-    if (mins < 570 || mins >= 960) return; // RTH only
+    if (mins < 600 || mins >= 960) return; // 10:00 ET+ only — first 30 min is ZVR/CR noise
     const fresh = [];
     for (const r of rows) {
       const su = chainSetup(r);
