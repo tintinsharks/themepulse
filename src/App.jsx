@@ -3742,6 +3742,21 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
 // ── useZVR: polls /api/zvr for Zanger Volume Ratio (true intraday comparison) ──
 // Returns Map<ticker, zvrPct> where zvrPct is an integer % (e.g. 245 = 2.45x avg).
 // Polls every 60s during RTH, 5min outside. Only fetches when tickers array is non-empty.
+// ── Intraday cumulative volume profile (U-shaped) ──
+// Expected fraction of a typical day's volume traded N minutes after the
+// open. Linear elapsed time badly overstates early-session ZVR (the first
+// hour carries ~21% of daily volume in 15% of session time). Used by the
+// linear ZVR fallback; the API ZVR is inherently profile-aware.
+const VOL_PROFILE = [[0, 0], [5, 0.04], [15, 0.08], [30, 0.13], [60, 0.21], [90, 0.27], [120, 0.33], [150, 0.38], [180, 0.43], [210, 0.48], [240, 0.53], [270, 0.59], [300, 0.66], [330, 0.74], [360, 0.84], [375, 0.91], [390, 1]];
+function sessionVolFraction(minsSinceOpen) {
+  const m = Math.max(0, Math.min(390, minsSinceOpen));
+  for (let i = 1; i < VOL_PROFILE.length; i++) {
+    const [m1, f1] = VOL_PROFILE[i - 1], [m2, f2] = VOL_PROFILE[i];
+    if (m <= m2) return f1 + (f2 - f1) * (m - m1) / (m2 - m1);
+  }
+  return 1;
+}
+
 // Rolling intraday ZVR history per ticker (session-scoped, last ~40 polls)
 const _zvrHistory = new Map();
 // Rolling intraday CR% history per ticker (session-scoped, ~last 40 samples)
@@ -3859,7 +3874,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
     const etMins = et.getHours() * 60 + et.getMinutes();
     const isRTH = etMins >= 570 && etMins < 960;
-    const elapsedFrac = isRTH ? Math.max(0.01, (etMins - 570) / 390) : 1.0;
+    const elapsedFrac = isRTH ? Math.max(0.02, sessionVolFraction(etMins - 570)) : 1.0;
     const calcZVR = (ticker, liveVol, avgVol, pipelineRelVol, chg) => {
       // 1. True Zanger: API-sourced (20-day intraday cumulative comparison)
       let raw = apiZvrMap.get(ticker) ?? null;
@@ -4498,7 +4513,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
     const spyPeriod = alphaMode === "1w" ? spyReturns?.["1w"] : alphaMode === "1m" ? spyReturns?.["1m"] : null;
     const nowEt = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const etMins = nowEt.getHours() * 60 + nowEt.getMinutes();
-    const elapsedFrac = (etMins >= 570 && etMins < 960) ? Math.max(0.01, (etMins - 570) / 390) : 1.0;
+    const elapsedFrac = (etMins >= 570 && etMins < 960) ? Math.max(0.02, sessionVolFraction(etMins - 570)) : 1.0;
     allTickers.forEach((tk) => {
       const q = liveQuotes.get(tk);
       const s = stockMap?.[tk];
