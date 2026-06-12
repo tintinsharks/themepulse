@@ -964,8 +964,10 @@ function chainSetup(r) {
   if (alpha != null && alpha > 0 && zvr != null && zvr >= 150 && cr != null && cr >= 70 && eif != null && eif >= 70)
     return { key: "ACC", color: "#34d399", rank: 5, desc: "Accumulation: α > 0, ZVR ≥ 150%, CR% ≥ 70, EIF ≥ 70. Buyers in control of a leader." };
   // VCP: volume dry-up in a strong name — quiet before the breakout
-  if (zvr != null && Math.abs(zvr) < 80 && eif != null && eif >= 80 && str != null && str >= 70)
-    return { key: "VCP", color: "#fbbf24", rank: 3, desc: "Volume dry-up: |ZVR| < 80% with EIF ≥ 80 + Str ≥ 70. Watch for breakout on volume return." };
+  // |chg| < 2 keeps VCP semantically honest: a big price day on light volume
+  // is a conviction warning, not a tight-base consolidation
+  if (zvr != null && Math.abs(zvr) < 80 && eif != null && eif >= 80 && str != null && str >= 70 && chg != null && Math.abs(chg) < 2)
+    return { key: "VCP", color: "#fbbf24", rank: 3, desc: "Volume dry-up: |ZVR| < 80%, |Chg| < 2%, EIF ≥ 80, Str ≥ 70. Quiet tight day in a leader — watch for breakout on volume return." };
   return null;
 }
 
@@ -10165,7 +10167,7 @@ const JOURNAL_BADGE_COLORS = { ACC: "#34d399", EP: "#22d3ee", VCP: "#fbbf24", DI
 const JOURNAL_BADGE_DESC = {
   ACC: "Accumulation: α>0, ZVR≥150%, CR%≥70, EIF≥70",
   EP: "Episodic Pivot: ER ≤3d ago, ZVR≥200%, green",
-  VCP: "Volume dry-up: |ZVR|<80%, EIF≥80, Str≥70",
+  VCP: "Volume dry-up: |ZVR|<80%, |Chg|<2%, EIF≥80, Str≥70",
   DIST: "Distribution: ZVR≤−150%, EIF≥70",
 };
 
