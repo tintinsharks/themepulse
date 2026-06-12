@@ -42,9 +42,13 @@ async function handleJournalPost(req, res) {
   // Maintenance: { purge: { day: "YYYY-MM-DD", beforeUtc: "HH:MM" } }
   // removes that day's entries whose ts is before the cutoff (or all, if no cutoff)
   if (req.body?.purge) {
-    const { day, beforeUtc } = req.body.purge;
+    const { day, beforeUtc, fields } = req.body.purge;
     if (!day) return res.status(400).json({ ok: false, error: "purge.day required" });
     const key = `setuplog:${day}`;
+    if (Array.isArray(fields) && fields.length) {
+      const n = await redisCmd("HDEL", key, ...fields.slice(0, 100));
+      return res.json({ ok: true, purged: n });
+    }
     const flat = await redisCmd("HGETALL", key);
     if (!Array.isArray(flat) || flat.length === 0) return res.json({ ok: true, purged: 0 });
     const toDelete = [];
