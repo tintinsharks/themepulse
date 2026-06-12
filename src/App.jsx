@@ -4075,6 +4075,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     for (const r of rows) {
       const su = chainSetup(r);
       if (!su) continue;
+      // Only journal badges computed from live API ZVR — fallback values
+      // (linear estimate / yesterday's rel_volume) produce bogus entries
+      // when a tab's quote loop stalls.
+      if (!apiZvrMap.has(r.ticker)) continue;
       const k = `${r.ticker}:${su.key}`;
       if (loggedSetups.current.has(k)) continue;
       loggedSetups.current.add(k);
