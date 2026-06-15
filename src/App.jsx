@@ -3822,13 +3822,45 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const eifReasons = useEifReasons();
-  const [starPopover, setStarPopover] = useState(null); // { ticker, x, y }
+  const [starPopover, setStarPopover] = useState(null); // { ticker, x, y, row }
   useEffect(() => {
     if (!starPopover) return;
     const onDown = (e) => { if (!e.target.closest?.("[data-star-pop]")) setStarPopover(null); };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [starPopover]);
+  // Per-curated-theme stats (avg EIF, avg 3M return) for Jensen mode classification.
+  const groupStats = useMemo(() => {
+    const by = new Map();
+    DRAWER_SUBTHEMES.forEach((sub) => {
+      const e = by.get(sub.themeId) || { eifs: [], rets: [] };
+      sub.tickers.forEach((t) => {
+        const s = stockMap?.[t];
+        if (s?.framework_score != null) e.eifs.push(s.framework_score);
+        if (s?.return_3m != null) e.rets.push(s.return_3m);
+      });
+      by.set(sub.themeId, e);
+    });
+    const avg = (a) => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+    const out = {};
+    for (const [tid, e] of by) out[tid] = { avgEif: avg(e.eifs), avgRet: avg(e.rets) };
+    return out;
+  }, [stockMap]);
+  // Classify a row into Jensen modes (Leader / Catch-Up / Dip).
+  const classifyModes = (row) => {
+    if (!row) return [];
+    const s = stockMap?.[row.ticker];
+    const out = [];
+    const su = chainSetup(row);
+    if (su?.key === "ACC" || su?.key === "EP" || (row.zvr != null && row.zvr >= 130) || (row.cr != null && row.cr >= 70 && row.chg > 0)) out.push("LEADER");
+    const g = groupStats[row.themeId];
+    const thrust = (row.zvr != null && row.zvr >= 130) || (row.cr != null && row.cr >= 60 && row.chg > 0);
+    if (g && g.avgEif >= 55 && g.avgRet != null && s?.return_3m != null && s.return_3m < g.avgRet - 10 && thrust) out.push("CATCH-UP");
+    const band = dipBand(s?.price ?? s?.close);
+    const off = s?.off_52w_high != null ? Math.abs(s.off_52w_high) : null;
+    if (band && off != null && off >= band[0] && off <= band[1] * 1.15 && (row.chg == null || row.chg > -4)) out.push("DIP");
+    return out;
+  };
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
   const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
@@ -4304,7 +4336,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     ? <span data-star-pop onClick={(e) => {
                         e.stopPropagation();
                         const rect = e.currentTarget.getBoundingClientRect();
-                        setStarPopover((p) => p?.ticker === r.ticker ? null : { ticker: r.ticker, x: rect.left, y: rect.bottom + 4 });
+                        setStarPopover((p) => p?.ticker === r.ticker ? null : { ticker: r.ticker, x: rect.left, y: rect.bottom + 4, row: r });
                       }}
                       title="EIF leader — click for the reasoning"
                       style={{ cursor: "pointer", fontSize: 9, color: r.rs >= 65 ? "#fbbf24" : "#d4a017" }}>★</span>
@@ -4417,11 +4449,22 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         const y = Math.min(starPopover.y, window.innerHeight - 200);
         return (
           <div data-star-pop style={{ position: "fixed", left: x, top: y, width: 260, zIndex: 9999, background: "#1a1a28", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, boxShadow: "0 8px 32px rgba(0,0,0,0.7)", padding: "7px 9px", fontFamily: "monospace" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
-              <span style={{ fontSize: 8, color: "#5a5a6a", fontWeight: 700, letterSpacing: 0.4 }}>★ {starPopover.ticker} · WHY EIF</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+              <span style={{ fontSize: 8, color: "#5a5a6a", fontWeight: 700, letterSpacing: 0.4 }}>★ {starPopover.ticker}</span>
               <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: "#fbbf24" }}>{r.eif}</span>
               <span style={{ fontSize: 6.5, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 2, padding: "0 3px" }}>{r.verdict}</span>
               <button onClick={() => setStarPopover(null)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: "#666", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+            {/* Jensen mode classification */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 5, flexWrap: "wrap" }}>
+              {(() => {
+                const modes = classifyModes(starPopover.row);
+                const MC = { "LEADER": "#0d9163", "CATCH-UP": "#22d3ee", "DIP": "#60a5fa" };
+                if (!modes.length) return <span style={{ fontSize: 7, color: "#5a5a6a", fontStyle: "italic" }}>EIF leader — no live trigger now</span>;
+                return modes.map((m) => (
+                  <span key={m} style={{ fontSize: 7, fontWeight: 800, color: MC[m], background: MC[m] + "1f", border: `1px solid ${MC[m]}55`, borderRadius: 2, padding: "0 4px", letterSpacing: 0.3 }}>{m}</span>
+                ));
+              })()}
             </div>
             {(r.drivers || []).map((d, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
