@@ -3826,7 +3826,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const eifReasons = useEifReasons();
-  const crpScores = useCrpScores();
   const [starPopover, setStarPopover] = useState(null); // { ticker, x, y, row }
   useEffect(() => {
     if (!starPopover) return;
@@ -4168,11 +4167,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     if (setupsOnly) arr = arr.filter(r => chainSetup(r));
     if (leadersOnly) arr = arr.filter(r => r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length);
     if (crpOnly) arr = arr.filter(r => {
-      // Intraday: held top 1/3 of range on ≥60% of session samples (min 5 samples).
+      // Must still be in/near the top third RIGHT NOW (not just historically).
+      if (r.cr == null || r.cr < 60) return false;
       const p = _crPersist.get(r.ticker);
-      if (p && p.n >= 5) return p.strong / p.n >= 0.6;
-      // After-hours / pre-accumulation fallback: multi-day daily CRP.
-      return (crpScores[r.ticker]?.crp ?? 0) >= 60;
+      // With enough intraday samples, also require it held the top 1/3 on ≥60%
+      // of the session. Before samples accumulate, current top-third is enough.
+      return !p || p.n < 5 || (p.strong / p.n) >= 0.6;
     });
     if (minZvr > 0) arr = arr.filter(r => r.zvr != null && r.zvr >= minZvr);
     const sortVal = (r, key) => {
@@ -4198,7 +4198,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons, crpOnly, crpScores]);
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons, crpOnly]);
   const saveSortSpec = (next) => {
     setSortSpec(next);
     try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
