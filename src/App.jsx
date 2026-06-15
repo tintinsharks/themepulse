@@ -3768,6 +3768,10 @@ function sessionVolFraction(minsSinceOpen) {
 const _zvrHistory = new Map();
 // Rolling intraday CR% history per ticker (session-scoped, ~last 40 samples)
 const _crHistory = new Map();
+// Intraday CR-persistence accumulator: per ticker, how many session samples
+// closed in the top 1/3 of range (cr ≥ 67) vs total. Whole-session, reset daily.
+const _crPersist = new Map(); // ticker -> { n, strong }
+let _crPersistDay = null;
 
 function useZVR(tickers) {
   // cur = latest poll, prev = poll before it (for intraday trend arrows)
@@ -3822,6 +3826,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const eifReasons = useEifReasons();
+  const crpScores = useCrpScores();
   const [starPopover, setStarPopover] = useState(null); // { ticker, x, y, row }
   useEffect(() => {
     if (!starPopover) return;
@@ -4097,6 +4102,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     const mins = et.getHours() * 60 + et.getMinutes();
     if (mins < 570 || mins >= 960) return;
     const now = Date.now();
+    const day = et.toISOString().slice(0, 10);
+    if (_crPersistDay !== day) { _crPersist.clear(); _crPersistDay = day; }
     const sample = (map, ticker, v) => {
       if (v == null) return;
       const arr = map.get(ticker) || [];
@@ -4106,6 +4113,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       map.set(ticker, arr);
     };
     for (const r of rows) {
+      // Whole-session CR persistence (only count one sample per ~50s per ticker)
+      if (r.cr != null) {
+        const p = _crPersist.get(r.ticker) || { n: 0, strong: 0, last: 0 };
+        if (now - p.last >= 50000) {
+          p.n += 1;
+          if (r.cr >= 67) p.strong += 1;
+          p.last = now;
+          _crPersist.set(r.ticker, p);
+        }
+      }
       sample(_crHistory, r.ticker, r.cr);
       sample(_zvrHistory, r.ticker, r.zvr);
     }
@@ -4143,12 +4160,20 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const [minZvr, setMinZvr] = useState(() => { try { return parseInt(localStorage.getItem("tp-chain-min-zvr")) || 0; } catch { return 0; } });
   const [leadersOnly, setLeadersOnly] = useState(() => { try { return localStorage.getItem("tp-chain-leaders-only") === "1"; } catch { return false; } });
+  const [crpOnly, setCrpOnly] = useState(() => { try { return localStorage.getItem("tp-chain-crp-only") === "1"; } catch { return false; } });
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
     if (setupsOnly) arr = arr.filter(r => chainSetup(r));
     if (leadersOnly) arr = arr.filter(r => r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length);
+    if (crpOnly) arr = arr.filter(r => {
+      // Intraday: held top 1/3 of range on ≥60% of session samples (min 5 samples).
+      const p = _crPersist.get(r.ticker);
+      if (p && p.n >= 5) return p.strong / p.n >= 0.6;
+      // After-hours / pre-accumulation fallback: multi-day daily CRP.
+      return (crpScores[r.ticker]?.crp ?? 0) >= 60;
+    });
     if (minZvr > 0) arr = arr.filter(r => r.zvr != null && r.zvr >= minZvr);
     const sortVal = (r, key) => {
       if (key === "setup") return chainSetup(r)?.rank ?? 0;
@@ -4173,7 +4198,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons]);
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons, crpOnly, crpScores]);
   const saveSortSpec = (next) => {
     setSortSpec(next);
     try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
@@ -4265,6 +4290,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           title="Show only EIF leaders (starred — EIF ≥ 55, cross-referenced in Leaders)"
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: leadersOnly ? "#fbbf24" : ARIA.textMuted, background: leadersOnly ? "rgba(251,191,36,0.12)" : "transparent", border: `1px solid ${leadersOnly ? "rgba(251,191,36,0.45)" : ARIA.border}` }}>
           ★ LEADERS
+        </button>
+        <button
+          onClick={() => setCrpOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-crp-only", n ? "1" : "0"); } catch {} return n; })}
+          title="Intraday CR persistence — held the top 1/3 of its range on 60%+ of the session (sustained buying through the day). Falls back to multi-day daily CRP after hours."
+          style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: crpOnly ? "#0ea5e9" : ARIA.textMuted, background: crpOnly ? "rgba(14,165,233,0.12)" : "transparent", border: `1px solid ${crpOnly ? "rgba(14,165,233,0.45)" : ARIA.border}` }}>
+          ↑ CR PERSIST
         </button>
         <span style={{ display: "flex", alignItems: "center", gap: 3 }} title="Minimum ZVR (volume pace %) — filters the table to volume-confirmed names">
           <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, color: minZvr > 0 ? "#34d399" : ARIA.textMuted, letterSpacing: 0.3 }}>ZVR≥</span>
@@ -7309,6 +7340,22 @@ function useEifReasons() {
       .then((r) => (r.ok ? r.json() : {}))
       .then((d) => { _eifReasonsCache = d || {}; setMap(_eifReasonsCache); _eifReasonsListeners.forEach((fn) => fn(_eifReasonsCache)); _eifReasonsListeners.length = 0; })
       .catch(() => { _eifReasonsFetching = false; });
+  }, []);
+  return map || {};
+}
+
+// ── useCrpScores: per-ticker Closing Range Persistence (multi-day finishes-strong)
+let _crpCache = null, _crpFetching = false; const _crpListeners = [];
+function useCrpScores() {
+  const [map, setMap] = useState(_crpCache);
+  useEffect(() => {
+    if (_crpCache) { setMap(_crpCache); return; }
+    if (_crpFetching) { _crpListeners.push(setMap); return; }
+    _crpFetching = true;
+    fetch("/data/crp_scores.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => { _crpCache = d?.scores || {}; setMap(_crpCache); _crpListeners.forEach((fn) => fn(_crpCache)); _crpListeners.length = 0; })
+      .catch(() => { _crpFetching = false; });
   }, []);
   return map || {};
 }
