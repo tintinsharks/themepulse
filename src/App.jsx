@@ -10221,30 +10221,49 @@ const JOURNAL_BADGE_DESC = {
 // are ALSO flashing a technical trigger (setup badge / ZVR building / strong
 // close). This is "leading stocks in leading themes, with timing."
 // ──────────────────────────────────────────────────────────────────────────
-// Shared data engine for the LEADERS views (full-page + Scan Watch panel).
-function useLeadersData(stockMap, themeFilter) {
-  // Theme aggregation (#3): avg EIF across all members of each curated theme.
+// Jensen's normal-dip band by price bracket — [minDip%, maxDip%] off recent high.
+function dipBand(price) {
+  if (price == null) return null;
+  if (price < 10) return [25, 55];
+  if (price < 20) return [18, 32];
+  if (price < 40) return [13, 22];
+  if (price < 80) return [9, 17];
+  return [6, 14];
+}
+
+// Shared data engine for the LEADERS views. mode: "leaders" | "catchup" | "dips".
+function useLeadersData(stockMap, themeFilter, mode = "leaders") {
+  // Theme aggregation: avg EIF + avg 3M return + Jensen archetypes per group.
   const themes = useMemo(() => {
     const byTheme = new Map();
     DRAWER_SUBTHEMES.forEach((sub) => {
-      const e = byTheme.get(sub.themeId) || { themeId: sub.themeId, theme: sub.theme, eifs: [], tickers: new Set() };
+      const e = byTheme.get(sub.themeId) || { themeId: sub.themeId, theme: sub.theme, mem: [] };
       sub.tickers.forEach((t) => {
-        e.tickers.add(t);
-        const eif = stockMap?.[t]?.framework_score;
-        if (eif != null) e.eifs.push({ t, eif });
+        const s = stockMap?.[t];
+        if (s?.framework_score != null) e.mem.push({ t, eif: s.framework_score, ret3m: s.return_3m ?? null });
       });
       byTheme.set(sub.themeId, e);
     });
     const rows = [];
     for (const e of byTheme.values()) {
-      if (!e.eifs.length) continue;
-      const avg = e.eifs.reduce((a, b) => a + b.eif, 0) / e.eifs.length;
-      const leaders = e.eifs.filter((x) => x.eif >= 60).length;
-      const top = e.eifs.sort((a, b) => b.eif - a.eif).slice(0, 3);
-      rows.push({ themeId: e.themeId, theme: e.theme, avgEif: avg, n: e.eifs.length, leaders, top });
+      if (!e.mem.length) continue;
+      const avg = e.mem.reduce((a, b) => a + b.eif, 0) / e.mem.length;
+      const rets = e.mem.filter((x) => x.ret3m != null);
+      const avgRet = rets.length ? rets.reduce((a, b) => a + b.ret3m, 0) / rets.length : null;
+      const leaders = e.mem.filter((x) => x.eif >= 60).length;
+      const byEif = [...e.mem].sort((a, b) => b.eif - a.eif);
+      const byRet = rets.length ? [...rets].sort((a, b) => b.ret3m - a.ret3m) : [];
+      rows.push({
+        themeId: e.themeId, theme: e.theme, avgEif: avg, avgRet3m: avgRet, n: e.mem.length, leaders,
+        top: byEif.slice(0, 3),
+        qualityLeader: byEif[0]?.t,          // highest EIF
+        rsLeader: byRet[0]?.t,               // best 3M return
+      });
     }
     return rows.sort((a, b) => b.avgEif - a.avgEif);
   }, [stockMap]);
+  const groupAvgRet = useMemo(() => Object.fromEntries(themes.map((t) => [t.themeId, t.avgRet3m])), [themes]);
+  const groupAvgEif = useMemo(() => Object.fromEntries(themes.map((t) => [t.themeId, t.avgEif])), [themes]);
 
   // Candidate leaders: EIF ≥ 55, in a theme. Poll live ZVR + quotes on these.
   const candidates = useMemo(() => {
@@ -10256,7 +10275,8 @@ function useLeadersData(stockMap, themeFilter) {
       if (!chains?.length) continue;
       const themeId = chains[0].themeId;
       const theme = DRAWER_SUBTHEMES.find((d) => d.themeId === themeId)?.theme ?? themeId;
-      out.push({ ticker: t, eif, themeId, theme, layer: chains[0].layer });
+      out.push({ ticker: t, eif, themeId, theme, layer: chains[0].layer,
+                 ret3m: s.return_3m ?? null, offHigh: s.off_52w_high ?? null, price: s.price ?? s.close ?? null });
     }
     return out;
   }, [stockMap]);
@@ -10264,7 +10284,7 @@ function useLeadersData(stockMap, themeFilter) {
   const { cur: zvrMap } = useZVR(candTickers);
   const { quotes: liveQuotes } = useLiveQuotes(candTickers, 30000);
 
-  // Tradeable rows (#1): candidate + live data, keep only those with a trigger.
+  // Tradeable rows — content depends on mode (leaders / catch-up / dips).
   const rows = useMemo(() => {
     const spyChg = liveQuotes.get("SPY")?.change ?? 0;
     const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -10277,7 +10297,7 @@ function useLeadersData(stockMap, themeFilter) {
       const q = liveQuotes.get(c.ticker);
       const s = stockMap[c.ticker];
       const chg = q?.change ?? s?.change_pct ?? null;
-      const hi = q?.dayHigh, lo = q?.dayLow, px = q?.price ?? s?.price ?? s?.close;
+      const hi = q?.dayHigh, lo = q?.dayLow, px = q?.price ?? c.price;
       const cr = (px && hi && lo && hi > lo) ? Math.round((px - lo) / (hi - lo) * 100) : null;
       let zvr = zvrMap.get(c.ticker) ?? null;
       if (zvr == null) {
@@ -10289,17 +10309,40 @@ function useLeadersData(stockMap, themeFilter) {
       const row = { ...c, rs: c.eif, chg, cr, zvr, alpha: chg != null ? Math.round((chg - spyChg) * 10) / 10 : null,
                     str: null, erDays: s?.earnings_days ?? null };
       const setup = chainSetup(row);
-      // Trigger = a setup badge, or volume building (ZVR≥130), or strong close (CR≥70)
-      const triggered = setup?.key === "ACC" || setup?.key === "EP" ||
-                        (zvr != null && zvr >= 130) || (cr != null && cr >= 70 && chg != null && chg > 0);
-      if (!triggered) continue;
-      // Actionability score: EIF leadership + volume confirmation + close strength, setup bonus
-      const score = c.eif * 0.5 + Math.min(Math.max(zvr ?? 0, 0), 300) / 3 * 0.3 + (cr ?? 0) * 0.2
-                    + (setup?.key === "EP" ? 12 : setup?.key === "ACC" ? 10 : 0);
-      out.push({ ...row, setup, score });
+      const thrust = (zvr != null && zvr >= 130) || (cr != null && cr >= 60 && chg != null && chg > 0);
+
+      if (mode === "catchup") {
+        // Laggard in a leading group, now showing first thrust (Jensen catch-up).
+        const inLeadingGroup = (groupAvgEif[c.themeId] ?? 0) >= 55;
+        const gRet = groupAvgRet[c.themeId];
+        const lagged = c.ret3m != null && gRet != null && c.ret3m < gRet - 10;
+        if (!inLeadingGroup || !lagged || !thrust) continue;
+        const lagGap = (gRet ?? 0) - (c.ret3m ?? 0);
+        const score = lagGap * 0.4 + Math.min(Math.max(zvr ?? 0, 0), 300) / 3 * 0.4 + c.eif * 0.2;
+        out.push({ ...row, setup, score, lagGap: Math.round(lagGap), groupRet: Math.round(gRet) });
+      } else if (mode === "dips") {
+        // Leader pulled back into its normal dip band, holding (buyable pullback).
+        const band = dipBand(c.price);
+        const off = c.offHigh != null ? Math.abs(c.offHigh) : null;
+        if (!band || off == null) continue;
+        const inBand = off >= band[0] && off <= band[1] * 1.15;
+        const holding = chg == null || chg > -4;
+        if (!inBand || !holding) continue;
+        const caution = off > band[1]; // exceeded normal band
+        const score = c.eif * 0.6 + (caution ? 0 : 15) + Math.min(Math.max(zvr ?? 0, 0), 200) / 200 * 10;
+        out.push({ ...row, setup, score, offHighPct: Math.round(c.offHigh), caution, band });
+      } else {
+        // Default leaders: high-EIF with a breakout/volume trigger.
+        const triggered = setup?.key === "ACC" || setup?.key === "EP" ||
+                          (zvr != null && zvr >= 130) || (cr != null && cr >= 70 && chg != null && chg > 0);
+        if (!triggered) continue;
+        const score = c.eif * 0.5 + Math.min(Math.max(zvr ?? 0, 0), 300) / 3 * 0.3 + (cr ?? 0) * 0.2
+                      + (setup?.key === "EP" ? 12 : setup?.key === "ACC" ? 10 : 0);
+        out.push({ ...row, setup, score });
+      }
     }
     return out.sort((a, b) => b.score - a.score).slice(0, 40);
-  }, [candidates, zvrMap, liveQuotes, stockMap, themeFilter]);
+  }, [candidates, zvrMap, liveQuotes, stockMap, themeFilter, mode, groupAvgRet, groupAvgEif]);
 
   return { themes, rows };
 }
@@ -10411,10 +10454,18 @@ function LeadersView({ stockMap, onTickerClick }) {
 
 // Compact LEADERS panel for the Scan Watch box — theme chips + tradeable
 // shortlist, single column, clicking loads the chart on the left.
+const LEADER_MODES = [
+  ["leaders", "Leaders", "Strong stocks breaking out — momentum continuation"],
+  ["catchup", "Catch-Up", "Laggards in a leading group starting to thrust (Jensen rotation)"],
+  ["dips", "Dips", "Leaders pulled back into a normal dip band — buyable pullback"],
+];
+
 function LeadersPanel({ stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
   const [themeFilter, setThemeFilter] = useState(null);
-  const { themes, rows } = useLeadersData(stockMap, themeFilter);
+  const [mode, setMode] = useState(() => { try { return localStorage.getItem("tp-leaders-mode") || "leaders"; } catch { return "leaders"; } });
+  const { themes, rows } = useLeadersData(stockMap, themeFilter, mode);
+  const activeTheme = themeFilter ? themes.find((t) => t.themeId === themeFilter) : null;
   // null sortKey = default actionability ranking (score, already applied by the hook)
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState("desc");
@@ -10435,9 +10486,29 @@ function LeadersPanel({ stockMap, onTickerClick }) {
   const eifColor = (v) => eifTierColor(ARIA, v);
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+  // 3rd column changes by mode: Leaders→Setup badge, Catch-Up→Lag vs group, Dips→% off high
+  const col3 = mode === "catchup" ? ["Lag", "lagGap"] : mode === "dips" ? ["OffHi", "offHighPct"] : ["Setup", "setup"];
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {/* Mode toggle — three Jensen entry styles */}
+      <div style={{ display: "flex", gap: 3, padding: "3px 4px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
+        {LEADER_MODES.map(([m, label, desc]) => (
+          <button key={m} onClick={() => { setMode(m); try { localStorage.setItem("tp-leaders-mode", m); } catch {} }}
+            title={desc}
+            style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.3, padding: "1px 7px", borderRadius: 3, cursor: "pointer",
+              color: mode === m ? "#fbbf24" : ARIA.textDim, background: mode === m ? "rgba(251,191,36,0.12)" : "transparent",
+              border: `1px solid ${mode === m ? "rgba(251,191,36,0.45)" : ARIA.border}` }}>{label}</button>
+        ))}
+      </div>
+      {/* Archetype picks for the selected theme (Jensen's per-group decision) */}
+      {activeTheme && (
+        <div style={{ display: "flex", gap: 8, padding: "3px 6px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 7, fontFamily: "monospace", flexWrap: "wrap" }}>
+          {activeTheme.qualityLeader && <span style={{ color: ARIA.textDim }}>Quality: <button onClick={() => onTickerClick?.(activeTheme.qualityLeader)} style={{ color: "#fbbf24", fontWeight: 800, background: "none", border: "none", cursor: "pointer", padding: 0 }}>{activeTheme.qualityLeader}</button></span>}
+          {activeTheme.rsLeader && <span style={{ color: ARIA.textDim }}>RS Leader: <button onClick={() => onTickerClick?.(activeTheme.rsLeader)} style={{ color: ARIA.green, fontWeight: 800, background: "none", border: "none", cursor: "pointer", padding: 0 }}>{activeTheme.rsLeader}</button></span>}
+          <span style={{ color: ARIA.textMuted, marginLeft: "auto" }}>grp ret {activeTheme.avgRet3m != null ? Math.round(activeTheme.avgRet3m) + "%" : "—"}</span>
+        </div>
+      )}
       {/* Theme chips — top themes by EIF, click to filter */}
       <div style={{ display: "flex", gap: 3, padding: "3px 4px", overflowX: "auto", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
         {themes.slice(0, 10).map((tm) => {
@@ -10458,7 +10529,7 @@ function LeadersPanel({ stockMap, onTickerClick }) {
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace" }}>
           <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}><tr>
-            {[["Ticker", "ticker"], ["EIF", "eif"], ["Setup", "setup"], ["ZVR", "zvr"], ["CR", "cr"], ["Chg", "chg"]].map(([h, k], i) => (
+            {[["Ticker", "ticker"], ["EIF", "eif"], col3, ["ZVR", "zvr"], ["CR", "cr"], ["Chg", "chg"]].map(([h, k], i) => (
               <th key={h} onClick={() => clickSort(k)} title="Click to sort"
                 style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === k ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: i === 0 ? "left" : i === 2 ? "center" : "right", borderBottom: `1px solid ${ARIA.border}`, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
                 {h}{sortKey === k ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
@@ -10468,7 +10539,7 @@ function LeadersPanel({ stockMap, onTickerClick }) {
           <tbody>
             {sortedRows.length === 0 && (
               <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", fontSize: 9, fontFamily: "monospace", color: ARIA.textMuted }}>
-                No leaders with a live trigger{themeFilter ? " in this theme" : ""}. Triggers populate during market hours.
+                {mode === "catchup" ? "No catch-up candidates (laggard in a leading group, now thrusting)" : mode === "dips" ? "No leaders in a buyable dip right now" : "No leaders with a live trigger"}{themeFilter ? " in this theme" : ""}. {mode === "dips" ? "Dips use off-52w-high — visible anytime." : "Populates during market hours."}
               </td></tr>
             )}
             {sortedRows.map((r) => {
@@ -10484,9 +10555,15 @@ function LeadersPanel({ stockMap, onTickerClick }) {
                     {r.ticker}
                   </td>
                   <td style={{ ...cell, color: eifColor(r.eif), fontWeight: 800 }}>{r.eif}</td>
-                  <td style={{ ...cell, textAlign: "center" }}>
-                    {su ? <span style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px" }}>{su.key}</span> : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
-                  </td>
+                  {mode === "catchup" ? (
+                    <td style={{ ...cell, color: ARIA.red, fontWeight: 700 }} title={`Lagging group by ${r.lagGap}pts (group 3M ${r.groupRet}%)`}>−{r.lagGap}</td>
+                  ) : mode === "dips" ? (
+                    <td style={{ ...cell, color: r.caution ? "#fbbf24" : ARIA.blue, fontWeight: 700 }} title={r.caution ? `Off high ${r.offHighPct}% — exceeds normal band ${r.band[0]}-${r.band[1]}%, caution` : `Off high ${r.offHighPct}% — within normal dip band ${r.band[0]}-${r.band[1]}%`}>{r.offHighPct}%</td>
+                  ) : (
+                    <td style={{ ...cell, textAlign: "center" }}>
+                      {su ? <span style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px" }}>{su.key}</span> : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
+                    </td>
+                  )}
                   <td style={{ ...cell, color: r.zvr == null ? ARIA.textMuted : r.zvr >= 200 ? "#fbbf24" : r.zvr >= 130 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>{r.zvr != null ? r.zvr + "%" : "—"}</td>
                   <td style={{ ...cell, color: r.cr != null && r.cr >= 70 ? ARIA.green : ARIA.textDim }}>{r.cr != null ? r.cr : "—"}</td>
                   <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>{r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) : "—"}</td>
