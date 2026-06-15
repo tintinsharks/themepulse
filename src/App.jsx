@@ -7965,15 +7965,17 @@ function ChartPanelInline({
                     ))}
                   </div>
                 </>
-              ) : (eifReason && eifReason.eif >= 65 && eifReason.drivers?.length) ? (() => {
+              ) : (eifReason && eifReason.drivers?.length) ? (() => {
                 const BUCKET_C = { theme: "#a855f7", accel: "#0d9163", quality: "#5a7a9a" };
                 const BUCKET_L = { theme: "THEME", accel: "ACCEL", quality: "QUAL" };
+                // EIF number color tracks the recalibrated v10 tier
+                const eifC = eifReason.eif >= 65 ? "#fbbf24" : eifReason.eif >= 55 ? "#34d399" : eifReason.eif >= 45 ? "#60a5fa" : "#8888a0";
                 return (
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
                       <span style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Why EIF</span>
-                      <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: "#fbbf24" }}>{eifReason.eif}</span>
-                      <span style={{ fontSize: 6.5, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 2, padding: "0 3px", letterSpacing: 0.4 }}>{eifReason.verdict}</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: eifC }}>{eifReason.eif}</span>
+                      <span style={{ fontSize: 6.5, fontWeight: 700, color: eifC, background: eifC + "1f", border: `1px solid ${eifC}59`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.4 }}>{eifReason.verdict}</span>
                     </div>
                     {eifReason.drivers.map((d, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
