@@ -7193,6 +7193,24 @@ function parseSheetCSVRow(line) {
   return result;
 }
 
+// ── useEifReasons: fetch the compact per-ticker EIF driver breakdown once ──
+let _eifReasonsCache = null;
+let _eifReasonsFetching = false;
+const _eifReasonsListeners = [];
+function useEifReasons() {
+  const [map, setMap] = useState(_eifReasonsCache);
+  useEffect(() => {
+    if (_eifReasonsCache) { setMap(_eifReasonsCache); return; }
+    if (_eifReasonsFetching) { _eifReasonsListeners.push(setMap); return; }
+    _eifReasonsFetching = true;
+    fetch("/data/framework_reasons.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => { _eifReasonsCache = d || {}; setMap(_eifReasonsCache); _eifReasonsListeners.forEach((fn) => fn(_eifReasonsCache)); _eifReasonsListeners.length = 0; })
+      .catch(() => { _eifReasonsFetching = false; });
+  }, []);
+  return map || {};
+}
+
 function ChartPanelInline({
   ticker,
   onTickerChange,
@@ -7202,6 +7220,8 @@ function ChartPanelInline({
   tickerStrengthMap,
 }) {
   const ARIA = useAriaTheme();
+  const eifReasons = useEifReasons();
+  const eifReason = eifReasons[ticker];
   const [tf, setTf] = useState(() => localStorage.getItem("themepulse-chart-tf") || "D");
   const [tickerInput, setTickerInput] = useState("");
   // EPS + Revenue bars below the CANSLIM stats row. Fetches the same
@@ -7929,7 +7949,7 @@ function ChartPanelInline({
                 );
               })()}
             </div>
-            {/* Right: Options Bias (equities) or ETF holdings */}
+            {/* Right: EIF reasoning (outstanding tier) · Options Bias (equities) · ETF holdings */}
             <div style={{ width: 260, flexShrink: 0, padding: "4px 8px 2px", overflowY: "auto" }}>
               {etfHoldings.length > 0 ? (
                 <>
@@ -7945,7 +7965,26 @@ function ChartPanelInline({
                     ))}
                   </div>
                 </>
-              ) : (() => {
+              ) : (eifReason && eifReason.eif >= 65 && eifReason.drivers?.length) ? (() => {
+                const BUCKET_C = { theme: "#a855f7", accel: "#0d9163", quality: "#5a7a9a" };
+                const BUCKET_L = { theme: "THEME", accel: "ACCEL", quality: "QUAL" };
+                return (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                      <span style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Why EIF</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: "#fbbf24" }}>{eifReason.eif}</span>
+                      <span style={{ fontSize: 6.5, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 2, padding: "0 3px", letterSpacing: 0.4 }}>{eifReason.verdict}</span>
+                    </div>
+                    {eifReason.drivers.map((d, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
+                        <span style={{ fontSize: 6, fontWeight: 800, color: BUCKET_C[d.bucket] || "#888", background: (BUCKET_C[d.bucket] || "#888") + "18", border: `1px solid ${(BUCKET_C[d.bucket] || "#888")}44`, borderRadius: 2, padding: "0 2px", letterSpacing: 0.3, flexShrink: 0, marginTop: 1, minWidth: 28, textAlign: "center" }}>{BUCKET_L[d.bucket] || "—"}</span>
+                        <span style={{ fontSize: 8, color: "#b8b8c8", lineHeight: 1.35, flex: 1 }}>{d.text}</span>
+                        <span style={{ fontSize: 7, fontFamily: "monospace", color: "#5a5a6a", flexShrink: 0, marginTop: 1 }}>+{d.pts}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })() : (() => {
                 if (optionsBiasLoading) return <div style={{ fontSize: 8, color: "#5a5a6a", marginTop: 2 }}>Loading options…</div>;
                 if (!optionsBias?.bias) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
                 const { bias, optionsTrade } = optionsBias;
