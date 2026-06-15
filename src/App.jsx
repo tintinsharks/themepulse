@@ -10212,6 +10212,192 @@ const JOURNAL_BADGE_DESC = {
   DIST: "Distribution: ZVR≤−150%, EIF≥70",
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// LeadersView — the EIF × Setup synthesis: top themes by fundamental
+// leadership (avg EIF), and the tradeable shortlist of high-EIF leaders that
+// are ALSO flashing a technical trigger (setup badge / ZVR building / strong
+// close). This is "leading stocks in leading themes, with timing."
+// ──────────────────────────────────────────────────────────────────────────
+function LeadersView({ stockMap, onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const eifReasons = useEifReasons();
+  const [themeFilter, setThemeFilter] = useState(null);
+
+  // Theme aggregation (#3): avg EIF across all members of each curated theme.
+  const themes = useMemo(() => {
+    const byTheme = new Map();
+    DRAWER_SUBTHEMES.forEach((sub) => {
+      const e = byTheme.get(sub.themeId) || { themeId: sub.themeId, theme: sub.theme, eifs: [], tickers: new Set() };
+      sub.tickers.forEach((t) => {
+        e.tickers.add(t);
+        const eif = stockMap?.[t]?.framework_score;
+        if (eif != null) e.eifs.push({ t, eif });
+      });
+      byTheme.set(sub.themeId, e);
+    });
+    const rows = [];
+    for (const e of byTheme.values()) {
+      if (!e.eifs.length) continue;
+      const avg = e.eifs.reduce((a, b) => a + b.eif, 0) / e.eifs.length;
+      const leaders = e.eifs.filter((x) => x.eif >= 60).length;
+      const top = e.eifs.sort((a, b) => b.eif - a.eif).slice(0, 3);
+      rows.push({ themeId: e.themeId, theme: e.theme, avgEif: avg, n: e.eifs.length, leaders, top });
+    }
+    return rows.sort((a, b) => b.avgEif - a.avgEif);
+  }, [stockMap]);
+
+  // Candidate leaders: EIF ≥ 55, in a theme. Poll live ZVR + quotes on these.
+  const candidates = useMemo(() => {
+    const out = [];
+    for (const [t, s] of Object.entries(stockMap || {})) {
+      const eif = s?.framework_score;
+      if (eif == null || eif < 55) continue;
+      const chains = chainsForStock(t, s);
+      if (!chains?.length) continue;
+      const themeId = chains[0].themeId;
+      const theme = DRAWER_SUBTHEMES.find((d) => d.themeId === themeId)?.theme ?? themeId;
+      out.push({ ticker: t, eif, themeId, theme, layer: chains[0].layer });
+    }
+    return out;
+  }, [stockMap]);
+  const candTickers = useMemo(() => candidates.map((c) => c.ticker).concat("SPY"), [candidates]);
+  const { cur: zvrMap } = useZVR(candTickers);
+  const { quotes: liveQuotes } = useLiveQuotes(candTickers, 30000);
+
+  // Tradeable rows (#1): candidate + live data, keep only those with a trigger.
+  const rows = useMemo(() => {
+    const spyChg = liveQuotes.get("SPY")?.change ?? 0;
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const isRTH = mins >= 570 && mins < 960;
+    const elapsed = isRTH ? Math.max(0.02, (mins - 570) / 390) : 1.0;
+    const out = [];
+    for (const c of candidates) {
+      if (themeFilter && c.themeId !== themeFilter) continue;
+      const q = liveQuotes.get(c.ticker);
+      const s = stockMap[c.ticker];
+      const chg = q?.change ?? s?.change_pct ?? null;
+      const hi = q?.dayHigh, lo = q?.dayLow, px = q?.price ?? s?.price ?? s?.close;
+      const cr = (px && hi && lo && hi > lo) ? Math.round((px - lo) / (hi - lo) * 100) : null;
+      let zvr = zvrMap.get(c.ticker) ?? null;
+      if (zvr == null) {
+        const lv = q?.volume, av = s?.avg_volume_raw || q?.avgVolume || 0;
+        if (lv && av > 0) zvr = Math.round((lv / (av * elapsed)) * 100);
+        else if (s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+      }
+      if (zvr != null && chg != null && chg < 0) zvr = -zvr;
+      const row = { ...c, rs: c.eif, chg, cr, zvr, alpha: chg != null ? Math.round((chg - spyChg) * 10) / 10 : null,
+                    str: null, erDays: s?.earnings_days ?? null };
+      const setup = chainSetup(row);
+      // Trigger = a setup badge, or volume building (ZVR≥130), or strong close (CR≥70)
+      const triggered = setup?.key === "ACC" || setup?.key === "EP" ||
+                        (zvr != null && zvr >= 130) || (cr != null && cr >= 70 && chg != null && chg > 0);
+      if (!triggered) continue;
+      // Actionability score: EIF leadership + volume confirmation + close strength, setup bonus
+      const score = c.eif * 0.5 + Math.min(Math.max(zvr ?? 0, 0), 300) / 3 * 0.3 + (cr ?? 0) * 0.2
+                    + (setup?.key === "EP" ? 12 : setup?.key === "ACC" ? 10 : 0);
+      out.push({ ...row, setup, score });
+    }
+    return out.sort((a, b) => b.score - a.score).slice(0, 40);
+  }, [candidates, zvrMap, liveQuotes, stockMap, themeFilter]);
+
+  const eifColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? "#fbbf24" : v >= 55 ? ARIA.green : v >= 45 ? ARIA.blue : ARIA.textDim;
+  const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace" };
+
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+      {/* Left: Top Themes by EIF (#3) */}
+      <div style={{ width: 320, flexShrink: 0, background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 12, fontWeight: 800, fontFamily: "monospace", letterSpacing: 0.5, color: ARIA.text }}>
+          🎯 TOP THEMES BY EIF
+          {themeFilter && <button onClick={() => setThemeFilter(null)} style={{ marginLeft: 8, fontSize: 8, color: ARIA.textMuted, background: "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 6px", cursor: "pointer" }}>✕ clear</button>}
+        </div>
+        <div style={{ maxHeight: "calc(100vh - 180px)", overflow: "auto" }}>
+          {themes.map((tm) => {
+            const c = DRAWER_COLORS[tm.themeId] || { color: ARIA.textDim };
+            const active = themeFilter === tm.themeId;
+            return (
+              <div key={tm.themeId} onClick={() => setThemeFilter(active ? null : tm.themeId)}
+                style={{ padding: "5px 10px", borderBottom: `1px solid ${ARIA.border}`, cursor: "pointer", background: active ? `${c.color}1f` : "transparent" }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = ARIA.bgHover; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = active ? `${c.color}1f` : "transparent"; }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: eifColor(tm.avgEif), width: 26, textAlign: "right" }}>{Math.round(tm.avgEif)}</span>
+                  <span style={{ fontSize: 7, fontWeight: 700, color: c.color, flexShrink: 0 }}>{(CHAIN_ABBR[tm.themeId] || tm.themeId).toUpperCase()}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tm.theme}</span>
+                  <span style={{ fontSize: 7, color: ARIA.textMuted }}>{tm.leaders}/{tm.n} lead</span>
+                </div>
+                <div style={{ fontSize: 7.5, color: ARIA.textDim, marginLeft: 32, marginTop: 1 }}>
+                  {tm.top.map((x) => `${x.t} ${x.eif}`).join(" · ")}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Right: Tradeable Leaders (#1) */}
+      <div style={{ flex: 1, background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 800, fontFamily: "monospace", letterSpacing: 0.5, color: ARIA.text }}>⚡ TRADEABLE LEADERS</span>
+          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>EIF ≥ 55 · in a theme · with a live trigger (setup / ZVR≥130 / strong close)</span>
+          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: "auto" }}>{rows.length} candidates</span>
+        </div>
+        <div style={{ maxHeight: "calc(100vh - 180px)", overflow: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              <th style={{ ...th, textAlign: "left" }}>Ticker</th>
+              <th style={{ ...th, textAlign: "left" }}>Theme · Layer</th>
+              <th style={th}>EIF</th>
+              <th style={{ ...th, textAlign: "center" }}>Setup</th>
+              <th style={th}>ZVR</th>
+              <th style={th}>CR%</th>
+              <th style={th}>Chg%</th>
+              <th style={{ ...th, textAlign: "left" }}>Why (top driver)</th>
+            </tr></thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", fontSize: 11, fontFamily: "monospace", color: ARIA.textMuted }}>
+                  No leaders with a live trigger right now{themeFilter ? " in this theme" : ""}. Triggers populate during market hours.
+                </td></tr>
+              )}
+              {rows.map((r) => {
+                const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim };
+                const su = r.setup;
+                const driver = eifReasons[r.ticker]?.drivers?.[0]?.text;
+                return (
+                  <tr key={r.ticker} onClick={() => onTickerClick && onTickerClick(r.ticker)} style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                    <td style={{ ...cell, textAlign: "left", fontWeight: 800, color: ARIA.text }}>
+                      <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2, marginRight: 4, verticalAlign: "middle" }} onError={(e) => { e.target.style.display = "none"; }} />
+                      {r.ticker}
+                    </td>
+                    <td style={{ ...cell, textAlign: "left", fontSize: 8 }}>
+                      <span style={{ color: c.color, fontWeight: 700 }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+                      <span style={{ color: ARIA.textDim, marginLeft: 4 }}>{r.layer}</span>
+                    </td>
+                    <td style={{ ...cell, color: eifColor(r.eif), fontWeight: 800 }}>{r.eif}</td>
+                    <td style={{ ...cell, textAlign: "center" }}>
+                      {su ? <span style={{ fontSize: 8, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 4px" }}>{su.key}</span> : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
+                    </td>
+                    <td style={{ ...cell, color: r.zvr == null ? ARIA.textMuted : r.zvr >= 200 ? "#fbbf24" : r.zvr >= 130 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>{r.zvr != null ? r.zvr + "%" : "—"}</td>
+                    <td style={{ ...cell, color: r.cr != null && r.cr >= 70 ? ARIA.green : ARIA.textDim }}>{r.cr != null ? r.cr + "%" : "—"}</td>
+                    <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>{r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) + "%" : "—"}</td>
+                    <td style={{ ...cell, textAlign: "left", fontSize: 8, color: ARIA.textDim, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{driver || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SetupJournal({ stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
   const [days, setDays] = useState(() => { try { return parseInt(localStorage.getItem("tp-journal-days")) || 7; } catch { return 7; } });
@@ -10602,7 +10788,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["dash", "DASH"], ["journal", "⚡ JOURNAL"]].map(([v, label]) => (
+          {[["dash", "DASH"], ["leaders", "🎯 LEADERS"], ["journal", "⚡ JOURNAL"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
@@ -10706,6 +10892,11 @@ function AppMain() {
       >
         {mainView === "journal" ? (
           <SetupJournal
+            stockMap={stockMap}
+            onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
+          />
+        ) : mainView === "leaders" ? (
+          <LeadersView
             stockMap={stockMap}
             onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
           />
