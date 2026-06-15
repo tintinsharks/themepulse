@@ -955,18 +955,18 @@ const SORT_BUTTONS = [
 function chainSetup(r) {
   const { zvr, rs: eif, cr, str, alpha, erDays, chg } = r;
   // DIST: heavy volume selling in a quality name — exit/avoid warning
-  if (zvr != null && zvr <= -150 && eif != null && eif >= 70)
+  if (zvr != null && zvr <= -150 && eif != null && eif >= 52)
     return { key: "DIST", color: "#ef4444", rank: 2, desc: "Distribution: ZVR ≤ −150% in a leader (EIF ≥ 70). Institutions selling — exit/avoid." };
   // EP: post-earnings accumulation (Qullamaggie episodic pivot follow-through)
   if (erDays != null && erDays >= -3 && erDays <= 0 && zvr != null && zvr >= 200 && chg != null && chg > 0)
     return { key: "EP", color: "#22d3ee", rank: 4, desc: "Episodic Pivot: earnings ≤ 3d ago + ZVR ≥ 200% + green. Post-ER accumulation." };
   // ACC: institutional accumulation in a leader — strongest long signal
-  if (alpha != null && alpha > 0 && zvr != null && zvr >= 150 && cr != null && cr >= 70 && eif != null && eif >= 70)
+  if (alpha != null && alpha > 0 && zvr != null && zvr >= 150 && cr != null && cr >= 70 && eif != null && eif >= 52)
     return { key: "ACC", color: "#34d399", rank: 5, desc: "Accumulation: α > 0, ZVR ≥ 150%, CR% ≥ 70, EIF ≥ 70. Buyers in control of a leader." };
   // VCP: volume dry-up in a strong name — quiet before the breakout
   // |chg| < 2 keeps VCP semantically honest: a big price day on light volume
   // is a conviction warning, not a tight-base consolidation
-  if (zvr != null && Math.abs(zvr) < 80 && eif != null && eif >= 80 && str != null && str >= 70 && chg != null && Math.abs(chg) < 2)
+  if (zvr != null && Math.abs(zvr) < 80 && eif != null && eif >= 60 && str != null && str >= 70 && chg != null && Math.abs(chg) < 2)
     return { key: "VCP", color: "#fbbf24", rank: 3, desc: "Volume dry-up: |ZVR| < 80%, |Chg| < 2%, EIF ≥ 80, Str ≥ 70. Quiet tight day in a leader — watch for breakout on volume return." };
   return null;
 }
@@ -4286,9 +4286,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
-                    title={r.is33 ? `Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin${r.rs >= 90 ? ". EIF ≥ 90 — elite leader with accelerating fundamentals" : ""}` : undefined}>
+                    title={r.is33 ? `Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin${r.rs >= 65 ? ". EIF ≥ 65 — elite leader with accelerating fundamentals" : ""}` : undefined}>
                   {r.is33
-                    ? (r.rs != null && r.rs >= 90
+                    ? (r.rs != null && r.rs >= 65
                         ? <span style={{ fontSize: 7, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 2, padding: "0 3px" }}>33</span>
                         : <span style={{ fontSize: 8, color: "#fbbf24" }}>33</span>)
                     : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
@@ -4325,7 +4325,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     title="Average Daily Range %. ≥3% = tradeable swing range, ≥5% = high volatility">
                   {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
                 </td>
-                <td style={{ ...cell, color: r.rs != null && r.rs >= 80 ? ARIA.green : r.rs != null && r.rs >= 60 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
+                <td style={{ ...cell, color: r.rs != null && r.rs >= 60 ? ARIA.green : r.rs != null && r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
                   {r.rs != null ? Math.round(r.rs) : "—"}
                 </td>
                 <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
@@ -4754,7 +4754,7 @@ function ChainHeatView({ stockMap, onLayerClick, onTickerClick, activeFilterName
               <span style={{ ...mono8, width: 28, color: r.avgCr != null && r.avgCr >= 70 ? ARIA.green : r.avgCr != null && r.avgCr <= 30 ? ARIA.red : ARIA.textDim }}>
                 {r.avgCr != null ? Math.round(r.avgCr) + "%" : "—"}
               </span>
-              <span style={{ ...mono8, width: 26, color: r.avgEif != null && r.avgEif >= 80 ? ARIA.green : r.avgEif != null && r.avgEif >= 60 ? ARIA.blue : ARIA.textDim }}>
+              <span style={{ ...mono8, width: 26, color: r.avgEif != null && r.avgEif >= 60 ? ARIA.green : r.avgEif != null && r.avgEif >= 46 ? ARIA.blue : ARIA.textDim }}>
                 {r.avgEif != null ? Math.round(r.avgEif) : "—"}
               </span>
               <span style={{ ...mono8, width: 34, color: chgColor(r.avgRoc2) }}>
@@ -5203,7 +5203,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
                 style={{
                   ...bodyCell,
                   color:
-                    r.rs >= 80 ? ARIA.green : r.rs >= 60 ? ARIA.blue : ARIA.textMuted,
+                    r.rs >= 60 ? ARIA.green : r.rs >= 46 ? ARIA.blue : ARIA.textMuted,
                 }}
               >
                 {r.rs || "—"}
@@ -8637,7 +8637,7 @@ function WatchlistSectionTable({
                       style={{
                         ...cell,
                         color:
-                          r.rs >= 80 ? ARIA.green : r.rs >= 60 ? ARIA.blue : ARIA.textMuted,
+                          r.rs >= 60 ? ARIA.green : r.rs >= 46 ? ARIA.blue : ARIA.textMuted,
                       }}
                     >
                       {r.rs || "—"}
@@ -10344,7 +10344,7 @@ function SetupJournal({ stockMap, onTickerClick }) {
                       <td style={{ ...cell, color: ev.zvr != null && ev.zvr < 0 ? ARIA.red : ev.zvr >= 200 ? "#fbbf24" : ev.zvr >= 150 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>
                         {ev.zvr != null ? `${ev.zvr}%` : "—"}
                       </td>
-                      <td style={{ ...cell, color: ev.eif != null && ev.eif >= 80 ? ARIA.green : ev.eif != null && ev.eif >= 60 ? ARIA.blue : ARIA.textDim }}>
+                      <td style={{ ...cell, color: ev.eif != null && ev.eif >= 60 ? ARIA.green : ev.eif != null && ev.eif >= 46 ? ARIA.blue : ARIA.textDim }}>
                         {ev.eif != null ? Math.round(ev.eif) : "—"}
                       </td>
                       <td style={{ ...cell, color: ev.cr != null && ev.cr >= 70 ? ARIA.green : ARIA.textDim }}>
