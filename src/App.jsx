@@ -988,6 +988,8 @@ function rowSortValue(r, key) {
       return chainSetup(r)?.rank ?? 0;
     case "is33":
       return r.is33 ? 1 : 0;
+    case "star":
+      return (r.rs != null && r.rs >= 55) ? r.rs : -1;
     case "accel":
       return r.accel || 0;
     case "magna":
@@ -3819,6 +3821,14 @@ function useZVR(tickers) {
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, scanFilters }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
+  const eifReasons = useEifReasons();
+  const [starPopover, setStarPopover] = useState(null); // { ticker, x, y }
+  useEffect(() => {
+    if (!starPopover) return;
+    const onDown = (e) => { if (!e.target.closest?.("[data-star-pop]")) setStarPopover(null); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [starPopover]);
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
   const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
@@ -4107,6 +4117,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     const sortVal = (r, key) => {
       if (key === "setup") return chainSetup(r)?.rank ?? 0;
       if (key === "is33") return r.is33 ? 1 : 0;
+      if (key === "star") return (r.rs != null && r.rs >= 55) ? r.rs : -1;
       return r[key];
     };
     arr.sort((a, b) => {
@@ -4241,7 +4252,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
             <Th k="ticker" label="Ticker" align="left" />
-            <Th k="is33" label="33" />
+            <Th k="star" label="★" />
             <Th k="theme" label="Chain · Layer" align="left" />
             <Th k="chg" label="Chg%" />
             {(() => {
@@ -4288,13 +4299,16 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                   </span>
                 </td>
-                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}
-                    title={r.is33 ? `Code 33 — EPS YoY and Sales YoY both accelerated vs prior quarter, with positive net margin${r.rs >= 65 ? ". EIF ≥ 65 — elite leader with accelerating fundamentals" : ""}` : undefined}>
-                  {r.is33
-                    ? (r.rs != null && r.rs >= 65
-                        ? <span style={{ fontSize: 7, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 2, padding: "0 3px" }}>33</span>
-                        : <span style={{ fontSize: 8, color: "#fbbf24" }}>33</span>)
-                    : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
+                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}>
+                  {(r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length)
+                    ? <span data-star-pop onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setStarPopover((p) => p?.ticker === r.ticker ? null : { ticker: r.ticker, x: rect.left, y: rect.bottom + 4 });
+                      }}
+                      title="EIF leader — click for the reasoning"
+                      style={{ cursor: "pointer", fontSize: 9, color: r.rs >= 65 ? "#fbbf24" : "#d4a017" }}>★</span>
+                    : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>·</span>}
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
                   {r.themeId ? (
@@ -4394,6 +4408,31 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       </table>
 
       </div>
+      {/* Star → EIF reasoning popover */}
+      {starPopover && (() => {
+        const r = eifReasons[starPopover.ticker];
+        if (!r) return null;
+        const BUCKET_C = { theme: "#a855f7", accel: "#0d9163", quality: "#5a7a9a" };
+        const x = Math.min(starPopover.x, window.innerWidth - 280);
+        const y = Math.min(starPopover.y, window.innerHeight - 200);
+        return (
+          <div data-star-pop style={{ position: "fixed", left: x, top: y, width: 260, zIndex: 9999, background: "#1a1a28", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 6, boxShadow: "0 8px 32px rgba(0,0,0,0.7)", padding: "7px 9px", fontFamily: "monospace" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+              <span style={{ fontSize: 8, color: "#5a5a6a", fontWeight: 700, letterSpacing: 0.4 }}>★ {starPopover.ticker} · WHY EIF</span>
+              <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: "#fbbf24" }}>{r.eif}</span>
+              <span style={{ fontSize: 6.5, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 2, padding: "0 3px" }}>{r.verdict}</span>
+              <button onClick={() => setStarPopover(null)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: "#666", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+            {(r.drivers || []).map((d, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
+                <span style={{ fontSize: 6, fontWeight: 800, color: BUCKET_C[d.bucket] || "#888", background: (BUCKET_C[d.bucket] || "#888") + "18", border: `1px solid ${(BUCKET_C[d.bucket] || "#888")}44`, borderRadius: 2, padding: "0 2px", flexShrink: 0, marginTop: 1, minWidth: 28, textAlign: "center" }}>{({ theme: "THEME", accel: "ACCEL", quality: "QUAL" })[d.bucket] || "—"}</span>
+                <span style={{ fontSize: 8, color: "#b8b8c8", lineHeight: 1.35, flex: 1 }}>{d.text}</span>
+                <span style={{ fontSize: 7, color: "#5a5a6a", flexShrink: 0, marginTop: 1 }}>+{d.pts}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
