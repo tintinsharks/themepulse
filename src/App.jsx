@@ -3083,6 +3083,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           <button onClick={() => setSwView(swView === "themes" ? "scan" : "themes")} style={pillStyle(swView === "themes", ARIA.green)}>Themes</button>
           <button onClick={() => setSwView(swView === "subflow" ? "scan" : "subflow")} style={pillStyle(swView === "subflow", ARIA.green)}>Subflow</button>
           <button onClick={() => setSwView(swView === "leaderboard" ? "scan" : "leaderboard")} style={pillStyle(swView === "leaderboard", "#fbbf24")}>Rank</button>
+          <button onClick={() => setSwView(swView === "leaders" ? "scan" : "leaders")} style={pillStyle(swView === "leaders", "#fbbf24")}>🎯 Lead</button>
           <button onClick={() => setSwView(swView === "chain" ? "scan" : "chain")} style={pillStyle(swView === "chain", "#6cd5e8")}>Chain</button>
         </div>
         <div
@@ -3100,6 +3101,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 
       {/* ETF Scan view */}
       {swView === "etf" && <ETFScanTable onTickerClick={onTickerClick} />}
+
+      {swView === "leaders" && <LeadersPanel stockMap={stockMap} onTickerClick={onTickerClick} />}
 
       {/* Filter rows — visible in Scan and Chain views */}
       {(swView === "scan" || swView === "chain") && <>
@@ -10218,11 +10221,8 @@ const JOURNAL_BADGE_DESC = {
 // are ALSO flashing a technical trigger (setup badge / ZVR building / strong
 // close). This is "leading stocks in leading themes, with timing."
 // ──────────────────────────────────────────────────────────────────────────
-function LeadersView({ stockMap, onTickerClick }) {
-  const ARIA = useAriaTheme();
-  const eifReasons = useEifReasons();
-  const [themeFilter, setThemeFilter] = useState(null);
-
+// Shared data engine for the LEADERS views (full-page + Scan Watch panel).
+function useLeadersData(stockMap, themeFilter) {
   // Theme aggregation (#3): avg EIF across all members of each curated theme.
   const themes = useMemo(() => {
     const byTheme = new Map();
@@ -10301,7 +10301,18 @@ function LeadersView({ stockMap, onTickerClick }) {
     return out.sort((a, b) => b.score - a.score).slice(0, 40);
   }, [candidates, zvrMap, liveQuotes, stockMap, themeFilter]);
 
-  const eifColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? "#fbbf24" : v >= 55 ? ARIA.green : v >= 45 ? ARIA.blue : ARIA.textDim;
+  return { themes, rows };
+}
+
+const eifTierColor = (ARIA, v) => v == null ? ARIA.textMuted : v >= 65 ? "#fbbf24" : v >= 55 ? ARIA.green : v >= 45 ? ARIA.blue : ARIA.textDim;
+
+function LeadersView({ stockMap, onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const eifReasons = useEifReasons();
+  const [themeFilter, setThemeFilter] = useState(null);
+  const { themes, rows } = useLeadersData(stockMap, themeFilter);
+
+  const eifColor = (v) => eifTierColor(ARIA, v);
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
   const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace" };
@@ -10393,6 +10404,77 @@ function LeadersView({ stockMap, onTickerClick }) {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Compact LEADERS panel for the Scan Watch box — theme chips + tradeable
+// shortlist, single column, clicking loads the chart on the left.
+function LeadersPanel({ stockMap, onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [themeFilter, setThemeFilter] = useState(null);
+  const { themes, rows } = useLeadersData(stockMap, themeFilter);
+  const eifColor = (v) => eifTierColor(ARIA, v);
+  const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+  const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {/* Theme chips — top themes by EIF, click to filter */}
+      <div style={{ display: "flex", gap: 3, padding: "3px 4px", overflowX: "auto", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
+        {themes.slice(0, 10).map((tm) => {
+          const c = DRAWER_COLORS[tm.themeId] || { color: ARIA.textDim };
+          const active = themeFilter === tm.themeId;
+          return (
+            <button key={tm.themeId} onClick={() => setThemeFilter(active ? null : tm.themeId)}
+              title={`${tm.theme} — avg EIF ${Math.round(tm.avgEif)}, ${tm.leaders}/${tm.n} leaders`}
+              style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 3, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                background: active ? `${c.color}26` : "rgba(255,255,255,0.04)", border: `1px solid ${active ? c.color : ARIA.border}` }}>
+              <span style={{ fontSize: 7, fontWeight: 800, color: c.color }}>{(CHAIN_ABBR[tm.themeId] || tm.themeId).toUpperCase()}</span>
+              <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", color: eifColor(tm.avgEif) }}>{Math.round(tm.avgEif)}</span>
+            </button>
+          );
+        })}
+      </div>
+      {/* Tradeable leaders list */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace" }}>
+          <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}><tr>
+            {["Ticker", "EIF", "Setup", "ZVR", "CR", "Chg"].map((h, i) => (
+              <th key={h} style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: i === 0 ? "left" : i === 2 ? "center" : "right", borderBottom: `1px solid ${ARIA.border}` }}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", fontSize: 9, fontFamily: "monospace", color: ARIA.textMuted }}>
+                No leaders with a live trigger{themeFilter ? " in this theme" : ""}. Triggers populate during market hours.
+              </td></tr>
+            )}
+            {rows.map((r) => {
+              const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim };
+              const su = r.setup;
+              return (
+                <tr key={r.ticker} onClick={() => onTickerClick && onTickerClick(r.ticker)} style={{ cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  title={`${r.ticker} · ${r.theme} → ${r.layer}`}>
+                  <td style={{ ...cell, textAlign: "left", fontWeight: 800, color: ARIA.text }}>
+                    <span style={{ fontSize: 6, fontWeight: 800, color: c.color, marginRight: 3 }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
+                    {r.ticker}
+                  </td>
+                  <td style={{ ...cell, color: eifColor(r.eif), fontWeight: 800 }}>{r.eif}</td>
+                  <td style={{ ...cell, textAlign: "center" }}>
+                    {su ? <span style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px" }}>{su.key}</span> : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
+                  </td>
+                  <td style={{ ...cell, color: r.zvr == null ? ARIA.textMuted : r.zvr >= 200 ? "#fbbf24" : r.zvr >= 130 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>{r.zvr != null ? r.zvr + "%" : "—"}</td>
+                  <td style={{ ...cell, color: r.cr != null && r.cr >= 70 ? ARIA.green : ARIA.textDim }}>{r.cr != null ? r.cr : "—"}</td>
+                  <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>{r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
