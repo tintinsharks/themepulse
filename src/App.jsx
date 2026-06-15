@@ -10415,6 +10415,23 @@ function LeadersPanel({ stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
   const [themeFilter, setThemeFilter] = useState(null);
   const { themes, rows } = useLeadersData(stockMap, themeFilter);
+  // null sortKey = default actionability ranking (score, already applied by the hook)
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState("desc");
+  const clickSort = (k) => {
+    if (sortKey === k) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(k); setSortDir(k === "ticker" ? "asc" : "desc"); }
+  };
+  const sortedRows = useMemo(() => {
+    if (!sortKey) return rows;
+    const sv = (r) => sortKey === "setup" ? (chainSetup(r)?.rank ?? 0) : sortKey === "ticker" ? r.ticker : r[sortKey];
+    return [...rows].sort((a, b) => {
+      let av = sv(a), bv = sv(b);
+      if (sortKey === "ticker") return sortDir === "asc" ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+      av = av == null ? -Infinity : av; bv = bv == null ? -Infinity : bv;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [rows, sortKey, sortDir]);
   const eifColor = (v) => eifTierColor(ARIA, v);
   const chgColor = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
   const cell = { padding: "2px 5px", fontSize: 9, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
@@ -10441,17 +10458,20 @@ function LeadersPanel({ stockMap, onTickerClick }) {
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace" }}>
           <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}><tr>
-            {["Ticker", "EIF", "Setup", "ZVR", "CR", "Chg"].map((h, i) => (
-              <th key={h} style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: i === 0 ? "left" : i === 2 ? "center" : "right", borderBottom: `1px solid ${ARIA.border}` }}>{h}</th>
+            {[["Ticker", "ticker"], ["EIF", "eif"], ["Setup", "setup"], ["ZVR", "zvr"], ["CR", "cr"], ["Chg", "chg"]].map(([h, k], i) => (
+              <th key={h} onClick={() => clickSort(k)} title="Click to sort"
+                style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === k ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: i === 0 ? "left" : i === 2 ? "center" : "right", borderBottom: `1px solid ${ARIA.border}`, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                {h}{sortKey === k ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+              </th>
             ))}
           </tr></thead>
           <tbody>
-            {rows.length === 0 && (
+            {sortedRows.length === 0 && (
               <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", fontSize: 9, fontFamily: "monospace", color: ARIA.textMuted }}>
                 No leaders with a live trigger{themeFilter ? " in this theme" : ""}. Triggers populate during market hours.
               </td></tr>
             )}
-            {rows.map((r) => {
+            {sortedRows.map((r) => {
               const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim };
               const su = r.setup;
               return (
