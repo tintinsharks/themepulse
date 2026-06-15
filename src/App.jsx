@@ -10462,6 +10462,7 @@ const LEADER_MODES = [
 
 function LeadersPanel({ stockMap, onTickerClick }) {
   const ARIA = useAriaTheme();
+  const eifReasons = useEifReasons();
   const [themeFilter, setThemeFilter] = useState(null);
   const [mode, setMode] = useState(() => { try { return localStorage.getItem("tp-leaders-mode") || "leaders"; } catch { return "leaders"; } });
   const { themes, rows } = useLeadersData(stockMap, themeFilter, mode);
@@ -10529,16 +10530,16 @@ function LeadersPanel({ stockMap, onTickerClick }) {
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace" }}>
           <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}><tr>
-            {[["Ticker", "ticker"], ["EIF", "eif"], col3, ["ZVR", "zvr"], ["CR", "cr"], ["Chg", "chg"]].map(([h, k], i) => (
-              <th key={h} onClick={() => clickSort(k)} title="Click to sort"
-                style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === k ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: i === 0 ? "left" : i === 2 ? "center" : "right", borderBottom: `1px solid ${ARIA.border}`, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+            {[["Ticker", "ticker"], ["EIF", "eif"], col3, ["ZVR", "zvr"], ["CR", "cr"], ["Chg", "chg"], ["Why", null]].map(([h, k], i) => (
+              <th key={h} onClick={() => k && clickSort(k)} title={k ? "Click to sort" : "Top EIF driver"}
+                style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: sortKey === k ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: i === 0 || i === 6 ? "left" : i === 2 ? "center" : "right", borderBottom: `1px solid ${ARIA.border}`, cursor: k ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}>
                 {h}{sortKey === k ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
               </th>
             ))}
           </tr></thead>
           <tbody>
             {sortedRows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 16, textAlign: "center", fontSize: 9, fontFamily: "monospace", color: ARIA.textMuted }}>
+              <tr><td colSpan={7} style={{ padding: 16, textAlign: "center", fontSize: 9, fontFamily: "monospace", color: ARIA.textMuted }}>
                 {mode === "catchup" ? "No catch-up candidates (laggard in a leading group, now thrusting)" : mode === "dips" ? "No leaders in a buyable dip right now" : "No leaders with a live trigger"}{themeFilter ? " in this theme" : ""}. {mode === "dips" ? "Dips use off-52w-high — visible anytime." : "Populates during market hours."}
               </td></tr>
             )}
@@ -10567,6 +10568,10 @@ function LeadersPanel({ stockMap, onTickerClick }) {
                   <td style={{ ...cell, color: r.zvr == null ? ARIA.textMuted : r.zvr >= 200 ? "#fbbf24" : r.zvr >= 130 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>{r.zvr != null ? r.zvr + "%" : "—"}</td>
                   <td style={{ ...cell, color: r.cr != null && r.cr >= 70 ? ARIA.green : ARIA.textDim }}>{r.cr != null ? r.cr : "—"}</td>
                   <td style={{ ...cell, color: chgColor(r.chg), fontWeight: 700 }}>{r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) : "—"}</td>
+                  <td style={{ ...cell, textAlign: "left", fontSize: 7.5, color: ARIA.textDim, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}
+                      title={eifReasons[r.ticker]?.drivers?.[0]?.text || ""}>
+                    {eifReasons[r.ticker]?.drivers?.[0]?.text || "—"}
+                  </td>
                 </tr>
               );
             })}
