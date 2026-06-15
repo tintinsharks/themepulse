@@ -4142,11 +4142,13 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
 
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const [minZvr, setMinZvr] = useState(() => { try { return parseInt(localStorage.getItem("tp-chain-min-zvr")) || 0; } catch { return 0; } });
+  const [leadersOnly, setLeadersOnly] = useState(() => { try { return localStorage.getItem("tp-chain-leaders-only") === "1"; } catch { return false; } });
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
     if (setupsOnly) arr = arr.filter(r => chainSetup(r));
+    if (leadersOnly) arr = arr.filter(r => r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length);
     if (minZvr > 0) arr = arr.filter(r => r.zvr != null && r.zvr >= minZvr);
     const sortVal = (r, key) => {
       if (key === "setup") return chainSetup(r)?.rank ?? 0;
@@ -4171,7 +4173,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr]);
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons]);
   const saveSortSpec = (next) => {
     setSortSpec(next);
     try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
@@ -4257,6 +4259,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           title="Show only rows with an active Setup badge (ACC / EP / VCP / DIST)"
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: setupsOnly ? "#34d399" : ARIA.textMuted, background: setupsOnly ? "rgba(52,211,153,0.12)" : "transparent", border: `1px solid ${setupsOnly ? "rgba(52,211,153,0.45)" : ARIA.border}` }}>
           ⚡ SETUPS
+        </button>
+        <button
+          onClick={() => setLeadersOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-leaders-only", n ? "1" : "0"); } catch {} return n; })}
+          title="Show only EIF leaders (starred — EIF ≥ 55, cross-referenced in Leaders)"
+          style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: leadersOnly ? "#fbbf24" : ARIA.textMuted, background: leadersOnly ? "rgba(251,191,36,0.12)" : "transparent", border: `1px solid ${leadersOnly ? "rgba(251,191,36,0.45)" : ARIA.border}` }}>
+          ★ LEADERS
         </button>
         <span style={{ display: "flex", alignItems: "center", gap: 3 }} title="Minimum ZVR (volume pace %) — filters the table to volume-confirmed names">
           <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, color: minZvr > 0 ? "#34d399" : ARIA.textMuted, letterSpacing: 0.3 }}>ZVR≥</span>
