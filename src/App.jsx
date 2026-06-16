@@ -4160,8 +4160,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const [minZvr, setMinZvr] = useState(() => { try { return parseInt(localStorage.getItem("tp-chain-min-zvr")) || 0; } catch { return 0; } });
   const [leadersOnly, setLeadersOnly] = useState(() => { try { return localStorage.getItem("tp-chain-leaders-only") === "1"; } catch { return false; } });
   const [crpOnly, setCrpOnly] = useState(() => { try { return localStorage.getItem("tp-chain-crp-only") === "1"; } catch { return false; } });
+  const [pfOnly, setPfOnly] = useState(() => { try { return localStorage.getItem("tp-chain-pf-only") === "1"; } catch { return false; } });
+  const portfolioSet = useMemo(() => new Set(portfolio), [portfolio]);
   const sorted = useMemo(() => {
     let arr = rows.slice();
+    if (pfOnly) arr = arr.filter(r => portfolioSet.has(r.ticker));
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
     if (setupsOnly) arr = arr.filter(r => chainSetup(r));
@@ -4198,7 +4201,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons, crpOnly]);
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons, crpOnly, pfOnly, portfolioSet]);
   const saveSortSpec = (next) => {
     setSortSpec(next);
     try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
@@ -4279,6 +4282,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
+        <button
+          onClick={() => setPfOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-pf-only", n ? "1" : "0"); } catch {} return n; })}
+          title="Show only tickers in your portfolio"
+          style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: pfOnly ? "#f472b6" : ARIA.textMuted, background: pfOnly ? "rgba(244,114,182,0.12)" : "transparent", border: `1px solid ${pfOnly ? "rgba(244,114,182,0.45)" : ARIA.border}` }}>
+          ◆ PF
+        </button>
         <button
           onClick={() => setSetupsOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-setups-only", n ? "1" : "0"); } catch {} return n; })}
           title="Show only rows with an active Setup badge (ACC / EP / VCP / DIST)"
