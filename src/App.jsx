@@ -7369,117 +7369,6 @@ function useCrpScores() {
   return map || {};
 }
 
-// ── useKpiSegments: on-demand operating-segment vs EPS-surprise overlay ──────
-// Lazy per-ticker fetch from /api/kpi (FMP segments + earnings surprise),
-// module-cached by "ticker|view" so re-opening a name is instant.
-const _kpiCache = new Map();
-function useKpiSegments(ticker, view = "product") {
-  const key = ticker ? `${ticker}|${view}` : null;
-  const [state, setState] = useState(() => (key && _kpiCache.has(key) ? { data: _kpiCache.get(key), loading: false } : { data: null, loading: !!ticker }));
-  useEffect(() => {
-    if (!key) { setState({ data: null, loading: false }); return; }
-    if (_kpiCache.has(key)) { setState({ data: _kpiCache.get(key), loading: false }); return; }
-    let alive = true;
-    setState({ data: null, loading: true });
-    fetch(`/api/kpi?ticker=${encodeURIComponent(ticker)}&view=${view}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) _kpiCache.set(key, d); if (alive) setState({ data: d, loading: false }); })
-      .catch(() => { if (alive) setState({ data: null, loading: false }); });
-    return () => { alive = false; };
-  }, [key]);
-  return state;
-}
-
-// ── KpiSegmentOverlay: operating segments lined up against the EPS surprise ──
-// Answers "does the KPI confirm the headline?" — each segment's revenue across
-// the last ~8 quarters (MiniQBars idiom) with YoY coloring, plus a surprise
-// strip (EPS / Rev beat-miss per quarter) and a one-line synthesis read.
-function KpiSegmentOverlay({ ticker, stockInfo, ARIA }) {
-  const [view, setView] = useState("product");
-  const { data, loading } = useKpiSegments(ticker, view);
-
-  // segment is "outstanding-tier" content; only the chart panel renders it
-  if (loading) {
-    return (
-      <div style={{ padding: "6px 14px 10px", borderTop: `1px solid ${ARIA.border}`, fontFamily: "monospace" }}>
-        <span style={{ fontSize: 8, color: ARIA.textMuted }}>Loading segment KPIs…</span>
-      </div>
-    );
-  }
-  if (!data) return null;
-
-  const quarters = Array.isArray(data.quarters) ? data.quarters : [];
-  // oldest-first for left→right display, last 8
-  const disp = quarters.slice(0, 8).reverse();
-  if (disp.length === 0) return null;
-
-  const surpriseColor = (v) => (v == null ? ARIA.textMuted : v >= 0 ? ARIA.green : ARIA.red);
-  const fmtRev = (v) => (v == null ? "—" : v >= 1e9 ? `${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `${(v / 1e6).toFixed(0)}M` : `${v}`);
-  const segNames = (data.segNames || []).slice(0, 5);
-
-  // build a MiniQBars-friendly series per segment: { label, rev, yoy }
-  const segSeries = (name) =>
-    disp.map((q) => ({ label: q.label, rev: q.segs?.[name]?.rev ?? null, yoy: q.segs?.[name]?.yoy ?? null }));
-
-  const SEG_COLORS = [ARIA.purple, ARIA.cyan, ARIA.blue, ARIA.yellow, "#f472b6"];
-
-  return (
-    <div style={{ padding: "6px 14px 12px", borderTop: `1px solid ${ARIA.border}`, fontFamily: "monospace" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
-          KPI vs EPS · Segments
-        </span>
-        {data.read && (
-          <span style={{ fontSize: 8, color: ARIA.text, fontStyle: "italic" }}>{data.read}</span>
-        )}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
-          <button onClick={() => setView("product")} style={pillStyle(view === "product", ARIA.blue)}>Product</button>
-          <button onClick={() => setView("geo")} style={pillStyle(view === "geo", ARIA.blue)}>Geo</button>
-        </div>
-      </div>
-
-      {/* Surprise strip — EPS / Rev beat-miss aligned over the same quarters */}
-      <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
-        {disp.map((q, i) => (
-          <div key={i} style={{ flex: 1, minWidth: 0, textAlign: "center", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "2px 1px", background: ARIA.glass || "transparent" }}>
-            <div style={{ fontSize: 7, color: ARIA.textMuted, marginBottom: 1 }}>{q.label}</div>
-            <div style={{ fontSize: 8, fontWeight: 700, color: surpriseColor(q.epsSurprisePct) }}>
-              EPS {q.epsSurprisePct == null ? "—" : `${q.epsSurprisePct >= 0 ? "+" : ""}${q.epsSurprisePct.toFixed(0)}%`}
-            </div>
-            <div style={{ fontSize: 7, color: surpriseColor(q.revSurprisePct) }}>
-              Rev {q.revSurprisePct == null ? "—" : `${q.revSurprisePct >= 0 ? "+" : ""}${q.revSurprisePct.toFixed(0)}%`}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Per-segment revenue bars (YoY-colored), top segments by latest size */}
-      {segNames.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {segNames.map((name, idx) => (
-            <MiniQBars
-              key={name}
-              quarters={segSeries(name)}
-              accessor={(q) => q.rev}
-              yoyAccessor={(q) => q.yoy}
-              color={SEG_COLORS[idx % SEG_COLORS.length]}
-              labelFmt={fmtRev}
-              title={`${name} · ${disp[disp.length - 1]?.segs?.[name]?.share != null ? Math.round(disp[disp.length - 1].segs[name].share) + "% of mix" : ""}`}
-              ARIA={ARIA}
-              passYoy={20}
-              hotYoy={40}
-            />
-          ))}
-        </div>
-      ) : (
-        <div style={{ fontSize: 8, color: ARIA.textMuted, fontStyle: "italic" }}>
-          No {view === "geo" ? "geographic" : "product"} segment breakdown reported — surprise history shown above.
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ChartPanelInline({
   ticker,
   onTickerChange,
@@ -8587,11 +8476,6 @@ function ChartPanelInline({
           </div>
         );
       })()}
-
-      {/* KPI vs EPS — operating segments cross-referenced against the surprise */}
-      <ErrorBoundary>
-        <KpiSegmentOverlay ticker={ticker} stockInfo={stockInfo} ARIA={ARIA} />
-      </ErrorBoundary>
     </div>
   );
 }
