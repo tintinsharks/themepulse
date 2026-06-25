@@ -1,15 +1,15 @@
 {
   "date": "2026-06-25",
-  "generated": "2026-06-25 06:14",
-  "vix": 18.63,
+  "generated": "2026-06-25 15:35",
+  "vix": 19.05,
   "vixChg": null,
-  "tenYearYield": 4.403,
-  "yieldBps": -9,
-  "dxy": 101.315,
-  "dxyChg": -0.093,
+  "tenYearYield": 4.383,
+  "yieldBps": -2,
+  "dxy": 101.127,
+  "dxyChg": -0.281,
   "putCallRatio": null,
   "regime": "MIXED",
-  "regimeReason": "Leaning bullish but mixed: moderate vol, yields falling",
+  "regimeReason": "Leaning bullish but mixed: moderate vol",
   "t2108": null,
   "ratio5d": null
 }
