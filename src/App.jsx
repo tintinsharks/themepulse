@@ -925,6 +925,189 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Market Breadth Monitor — compact regime strip + slide-out SPY regime chart
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Mirrors the nvst.ing/breadth monitor: PRIMARY/SECONDARY regime badges, the
+// %-above-MA breadth thermometers (computed live from the snapshot's
+// dist_NNdma_atrx sign), and a slide-out SPY line colored by trend regime
+// (green = price ≥ weekly-20 & daily-10 ≥ daily-20; yellow = daily-10 < daily-20;
+// red = price < weekly-20). Lazy-fetches SPY OHLC only when expanded.
+function emaSeries(values, period) {
+  if (!values.length) return [];
+  const k = 2 / (period + 1);
+  const out = [values[0]];
+  for (let i = 1; i < values.length; i++) out.push(values[i] * k + out[i - 1] * (1 - k));
+  return out;
+}
+
+function MarketBreadthMonitor() {
+  const ARIA = useAriaTheme();
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("tp-breadth-monitor-open") === "1"; } catch { return false; }
+  });
+  const [mm, setMm] = useState(null);       // market_monitor.json
+  const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime}], wk20: [...] }
+  const [spyLoading, setSpyLoading] = useState(false);
+
+  // Pull the Stockbee breadth engine (pipeline-computed, reconciles with nvst).
+  useEffect(() => {
+    fetch("/market_monitor.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setMm)
+      .catch(() => setMm(null));
+  }, []);
+
+  // Classify a metric green/yellow/red using its own gauge band; a band is
+  // [lo,hi] and a value falls in it when lo ≤ v < hi. Returns +1/0/-1.
+  const classify = (val, gauge) => {
+    if (gauge == null || val == null) return 0;
+    const inB = (band) => band && val >= band[0] && val < band[1];
+    if (inB(gauge.green)) return 1;
+    if (inB(gauge.red)) return -1;
+    return 0;
+  };
+
+  // Regime: net (green − red) across PRIMARY gauges → RISK ON/NEUTRAL/RISK OFF;
+  // across SECONDARY gauges → CLEAR/CAUTION/DEFENSIVE. Skip ratio gauges that
+  // read exactly 0 (means "not computed", not a real zero).
+  const { regime, b } = useMemo(() => {
+    if (!mm?.current || !mm?.gauges) return { regime: null, b: null };
+    const cur = mm.current, g = mm.gauges;
+    const score = (type) => {
+      let s = 0;
+      for (const [k, gauge] of Object.entries(g)) {
+        if (gauge.type !== type) continue;
+        if (k.startsWith("ratio_") && (cur[k] === 0 || cur[k] == null)) continue;
+        s += classify(cur[k], gauge);
+      }
+      return s;
+    };
+    const ps = score("primary"), ss = score("secondary");
+    const primary = ps >= 2 ? "RISK ON" : ps <= -2 ? "RISK OFF" : "NEUTRAL";
+    const secondary = primary === "RISK OFF" ? "DEFENSIVE" : ss >= 2 ? "CLEAR" : ss >= 0 ? "CAUTION" : "DEFENSIVE";
+    return {
+      regime: { primary, secondary, ps, ss },
+      b: { t2108: cur.t2108, up4: cur.up_4pct, down4: cur.down_4pct, up25q: cur.up_25q, down25q: cur.down_25q, date: mm.date, gen: mm.generated, total: cur.total_stocks },
+    };
+  }, [mm]);
+
+  // Lazy-load SPY daily on first expand; compute regime coloring client-side.
+  useEffect(() => {
+    if (!open || spy || spyLoading) return;
+    setSpyLoading(true);
+    fetch("/api/ohlc?ticker=SPY")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const bars = (d?.ohlc || []).filter((x) => x.close != null);
+        if (!bars.length) { setSpy({ regimeBars: [], wk20: [] }); return; }
+        const closes = bars.map((x) => x.close);
+        const e10 = emaSeries(closes, 10);
+        const e20 = emaSeries(closes, 20);
+        const wk20 = emaSeries(closes, 100); // ~20 weeks ≈ weekly-20 on daily
+        const regimeBars = closes.map((c, i) => {
+          const regime = c < wk20[i] ? "red" : e10[i] < e20[i] ? "yellow" : "green";
+          return { close: c, regime };
+        });
+        setSpy({ regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
+      })
+      .catch(() => setSpy({ regimeBars: [], wk20: [] }))
+      .finally(() => setSpyLoading(false));
+  }, [open, spy, spyLoading]);
+
+  if (!b || !regime) return null;
+
+  const REG_C = { "RISK ON": ARIA.green, "NEUTRAL": ARIA.yellow, "RISK OFF": ARIA.red };
+  const SEC_C = { CLEAR: ARIA.green, CAUTION: ARIA.yellow, DEFENSIVE: ARIA.red };
+  const badge = (label, val, color) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontSize: 9, fontWeight: 800, color, background: color + "1c", border: `1px solid ${color}55`, borderRadius: 3, padding: "1px 6px", letterSpacing: 0.4 }}>{val}</span>
+    </div>
+  );
+  // %>40DMA thermometer (t2108) — the headline breadth gauge.
+  const therm = (label, pct, tip) => {
+    if (pct == null) return null;
+    const c = pct >= 50 ? ARIA.green : pct >= 35 ? ARIA.yellow : ARIA.red;
+    return (
+      <div title={tip} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "help" }}>
+        <span style={{ fontSize: 8, color: ARIA.textMuted }}>{label}</span>
+        <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: c }}>{pct.toFixed(1)}%</span>
+        <div style={{ width: 34, height: 3, borderRadius: 2, background: ARIA.border, overflow: "hidden" }}>
+          <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: c }} />
+        </div>
+      </div>
+    );
+  };
+  // Up/Down breadth pair (e.g. 4%-movers, 25%-in-a-quarter) — green vs red counts.
+  const pair = (label, up, down, tip) => (
+    <div title={tip} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "help", fontFamily: "monospace", fontSize: 10 }}>
+      <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "inherit" }}>{label}</span>
+      <span style={{ color: ARIA.green, fontWeight: 700 }}>{up}</span>
+      <span style={{ color: ARIA.textMuted }}>/</span>
+      <span style={{ color: ARIA.red, fontWeight: 700 }}>{down}</span>
+    </div>
+  );
+
+  // SPY regime SVG — colored polyline segments + dashed weekly-20.
+  const Chart = () => {
+    if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading SPY regime…</div>;
+    if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>SPY data unavailable</div>;
+    const W = 640, H = 150, padX = 4, padY = 8;
+    const bars = spy.regimeBars, wk = spy.wk20;
+    const lo = Math.min(...bars.map((x) => x.close), ...wk);
+    const hi = Math.max(...bars.map((x) => x.close), ...wk);
+    const rng = hi - lo || 1;
+    const x = (i) => padX + (i / (bars.length - 1)) * (W - padX * 2);
+    const y = (v) => padY + (1 - (v - lo) / rng) * (H - padY * 2);
+    const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+    const segs = [];
+    for (let i = 1; i < bars.length; i++) {
+      segs.push(<line key={i} x1={x(i - 1)} y1={y(bars[i - 1].close)} x2={x(i)} y2={y(bars[i].close)}
+        stroke={CMAP[bars[i].regime]} strokeWidth={2} strokeLinecap="round" />);
+    }
+    const wkPath = wk.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 150, display: "block" }}>
+        <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
+        {segs}
+        <text x={W - 4} y={y(bars[bars.length - 1].close) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">SPY {bars[bars.length - 1].close.toFixed(0)}</text>
+      </svg>
+    );
+  };
+
+  return (
+    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "6px 12px", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700 }} title={`Breadth as of ${b.date}${b.gen ? " · scan " + b.gen : ""} · ${b.total} stocks`}>Breadth Monitor</span>
+        {badge("Primary", regime.primary, REG_C[regime.primary])}
+        {badge("Secondary", regime.secondary, SEC_C[regime.secondary])}
+        <div style={{ display: "flex", gap: 14, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
+          {therm(">40DMA", b.t2108, `T2108 — % of stocks above their 40-day MA (headline breadth thermometer). ${b.date}`)}
+          {pair("U4/D4", b.up4, b.down4, "Stocks up vs down 4%+ today — daily buying pressure (Stockbee primary)")}
+          {pair("25Q", b.up25q, b.down25q, "Stocks up vs down 25%+ in a quarter — intermediate momentum (Stockbee primary)")}
+          <button onClick={() => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-breadth-monitor-open", n ? "1" : "0"); } catch {} return n; })}
+            title="Toggle SPY regime chart"
+            style={{ fontSize: 9, fontWeight: 700, color: open ? ARIA.text : ARIA.textMuted, background: open ? ARIA.glass || "transparent" : "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 7px", cursor: "pointer" }}>
+            {open ? "▾ SPY" : "▸ SPY"}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "4px 8px 6px" }}>
+          <Chart />
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", fontSize: 7.5, color: ARIA.textMuted, marginTop: 2 }}>
+            <span><span style={{ color: "#16a34a" }}>■</span> Price ≥ Wk-20 & D10≥D20</span>
+            <span><span style={{ color: "#d9a441" }}>■</span> D10 &lt; D20</span>
+            <span><span style={{ color: "#b1374a" }}>■</span> Price &lt; Wk-20</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Scan Watch (Scan view — Phase 2.2)
 // ──────────────────────────────────────────────────────────────────────────
 //
@@ -11243,6 +11426,11 @@ function AppMain() {
           <>
             {/* Top: Market Breadth Bar (full width) */}
             <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
+
+            {/* Breadth regime monitor — compact, slide-out SPY regime chart */}
+            <ErrorBoundary>
+              <MarketBreadthMonitor />
+            </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
             <ChartScanRow
