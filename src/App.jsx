@@ -1451,7 +1451,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
   const hdr = (key, label) => (
     <th key={key} title={TITLES[key]} onClick={sortable ? () => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" })) : undefined}
-      style={{ textAlign: key === "ticker" || key === "name" ? "left" : "right", padding: "2px 6px", color: sortable && sort.key === key ? ARIA.text : ARIA.textMuted, fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3, cursor: sortable ? "pointer" : "default", whiteSpace: "nowrap" }}>
+      style={{ position: "sticky", top: 0, zIndex: 1, background: ARIA.bgRow || ARIA.bg || "#15151c", textAlign: key === "ticker" || key === "name" ? "left" : "right", padding: "2px 6px", color: sortable && sort.key === key ? ARIA.text : ARIA.textMuted, fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3, cursor: sortable ? "pointer" : "default", whiteSpace: "nowrap", boxShadow: `inset 0 -1px 0 ${ARIA.border}` }}>
       {label}{sortable && sort.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
   );
