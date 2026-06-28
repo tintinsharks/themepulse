@@ -1394,7 +1394,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
       <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>{cols.map(([k, l]) => hdr(k, l))}</tr></thead>
       <tbody>
         {sorted.map((r) => (
-          <tr key={r.ticker} style={{ borderBottom: `1px solid ${ARIA.border}40` }}>
+          <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} style={{ borderBottom: `1px solid ${ARIA.border}40` }}>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
