@@ -1597,6 +1597,22 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     applyLayer(best, false); // don't re-chart — avoids a feedback loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
+  // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
+  // regime chart shows a layer basket instead of SPY. Doesn't open the board or
+  // change the main chart; user clicks still take over.
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || basketMode || layerHolds) return;
+    if (!d?.layers?.length) return;
+    autoSelectedRef.current = true;
+    const acc = (l) => (l.rsWk != null && l.rsMth != null ? l.rsWk * 4.2 - l.rsMth : -Infinity);
+    const top = d.layers.reduce((a, b) => (acc(b) > acc(a) ? b : a));
+    setLayerHolds(top.holds || []);
+    setBasketLabel(top.name || ""); setBasketMode(true);
+    setSelectedLayerKey(`${top.themeId}|${top.name}`);
+    setSymPersist(top.ticker);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d]);
   if (!d) return null; // all hooks run above this guard
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
