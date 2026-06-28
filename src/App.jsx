@@ -1113,7 +1113,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
             <>
               <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Layer · RS</div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: holdingsOverride.length > 7 ? "flex-start" : "space-between", overflowY: "auto" }}>
-                {holdingsOverride.map((h) => {
+                {holdingsOverride.slice(0, 30).map((h) => {
                   const c = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                   return (
                     <div key={h.t} onClick={() => setSym(h.t)} title={`${h.t} — RS ${h.s ?? "—"} (click to chart)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0" }}>
