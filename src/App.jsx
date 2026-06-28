@@ -1280,7 +1280,7 @@ function MarketConditionsPanel() {
   const ARIA = useAriaTheme();
   const bd = useBreadthData();
   const [open, setOpen] = useState(() => {
-    try { return localStorage.getItem("tp-conditions-open") !== "0"; } catch { return true; }
+    try { return localStorage.getItem("tp-conditions-open") === "1"; } catch { return false; }
   });
   if (!bd?.conditions) return null;
   const c = bd.conditions;
@@ -1335,16 +1335,34 @@ function MarketConditionsPanel() {
 
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
-      <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
+      <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
         <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Market Conditions</span>
         <span style={{ fontSize: 9, fontWeight: 800, color: verdictC, background: verdictC + "1c", border: `1px solid ${verdictC}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>{c.verdict}</span>
-        {c.dist_days?.SPY && (
-          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>
-            Dist: SPY <b style={{ color: c.dist_days.SPY.today >= 5 ? ARIA.red : ARIA.textDim }}>{c.dist_days.SPY.today}</b> · QQQ <b style={{ color: c.dist_days.QQQ.today >= 5 ? ARIA.red : ARIA.textDim }}>{c.dist_days.QQQ.today}</b>
-          </span>
-        )}
-        <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>as of {bd.date}</span>
+        {/* broad-glance chips */}
+        {(() => {
+          const chip = (label, val, color) => (
+            <span style={{ fontSize: 8, color: ARIA.textMuted }}>{label} <b style={{ color: color || ARIA.textDim, fontFamily: "monospace" }}>{val}</b></span>
+          );
+          const dd = c.dist_days || {};
+          const distC = (dd.SPY?.today ?? 0) >= 5 || (dd.QQQ?.today ?? 0) >= 5 ? ARIA.red : (dd.SPY?.today ?? 0) >= 3 ? ARIA.yellow : ARIA.green;
+          const g = c.sma_grid || {}, pf = c.perf || {};
+          const trendC = (v) => v == null ? ARIA.textDim : v >= 60 ? ARIA.green : v < 40 ? ARIA.red : ARIA.yellow;
+          const m1c = pf.m1 == null ? ARIA.textDim : pf.m1 > 0 ? ARIA.green : pf.m1 < 0 ? ARIA.red : ARIA.textDim;
+          return (
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              {dd.SPY && chip("Dist", `SPY ${dd.SPY.today} · QQQ ${dd.QQQ.today}`, distC)}
+              {dd.SPY?.label && <span style={{ fontSize: 8, fontWeight: 700, color: distC }}>{dd.SPY.label}</span>}
+              <span style={{ color: ARIA.border }}>|</span>
+              {chip(">50", g.sma50 == null ? "—" : g.sma50.toFixed(0) + "%", trendC(g.sma50))}
+              {chip(">200", g.sma200 == null ? "—" : g.sma200.toFixed(0) + "%", trendC(g.sma200))}
+              <span style={{ color: ARIA.border }}>|</span>
+              {chip("1M", pf.m1 == null ? "—" : (pf.m1 > 0 ? "+" : "") + pf.m1.toFixed(1) + "%", m1c)}
+              {chip("VIX", pf.vix == null ? "—" : pf.vix.toFixed(1), pf.vix == null ? ARIA.textDim : pf.vix > 25 ? ARIA.red : pf.vix < 16 ? ARIA.green : ARIA.textDim)}
+            </div>
+          );
+        })()}
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>{open ? "" : "click to expand"} · as of {bd.date}</span>
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1486,7 +1504,7 @@ function RsRotationBoard({ onTickerClick }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
-    try { return localStorage.getItem("tp-rs-board-open") !== "0"; } catch { return true; }
+    try { return localStorage.getItem("tp-rs-board-open") === "1"; } catch { return false; }
   });
   if (!d) return null;
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
@@ -1501,14 +1519,15 @@ function RsRotationBoard({ onTickerClick }) {
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
-        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700 }}>RS Rotation</span>
-        <span style={{ fontSize: 8, color: ARIA.textDim }}>sector & industry relative strength · {d.universe} ETFs</span>
+        <span style={{ fontSize: 8, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
+        <span style={{ fontSize: 8, color: ARIA.textDim }}>what's rotating in / out · {d.universe} ETFs</span>
         {!open && d.rankUpDaily?.[0] && (
           <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>
-            ↑ {d.rankUpDaily.slice(0, 3).map((m) => m.ticker).join(" ")} · ↓ {d.rankDownDaily.slice(0, 3).map((m) => m.ticker).join(" ")}
+            <span style={{ color: ARIA.green }}>in ↑ {d.rankUpDaily.slice(0, 3).map((m) => m.ticker).join(" ")}</span>
+            {"  "}<span style={{ color: ARIA.red }}>out ↓ {d.rankDownDaily.slice(0, 3).map((m) => m.ticker).join(" ")}</span>
           </span>
         )}
-        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0 }}>as of {d.date}</span>
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0 }}>{open ? "" : "click to expand"} · {d.date}</span>
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
