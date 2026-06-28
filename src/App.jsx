@@ -955,40 +955,88 @@ function emaSeries(values, period) {
   return out;
 }
 
+// Cached daily OHLC fetch (shared across chart selections).
+const _ohlcCache = new Map();
+async function fetchOhlcBars(ticker) {
+  if (_ohlcCache.has(ticker)) return _ohlcCache.get(ticker);
+  try {
+    const r = await fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`);
+    const d = r.ok ? await r.json() : null;
+    const bars = (d?.ohlc || []).filter((x) => x.close != null);
+    _ohlcCache.set(ticker, bars);
+    return bars;
+  } catch {
+    _ohlcCache.set(ticker, []);
+    return [];
+  }
+}
+
+// Equal-weight basket index from constituent tickers: normalize each to 100 at
+// its first day in the window, average across available names per date.
+async function buildBasketSeries(tickers) {
+  const lists = await Promise.all(tickers.slice(0, 15).map(fetchOhlcBars));
+  const maps = lists.map((bars) => {
+    const m = new Map();
+    bars.slice(-160).forEach((b) => m.set(b.date, b.close));
+    return m;
+  });
+  const dateSet = new Set();
+  maps.forEach((m) => m.forEach((_, d) => dateSet.add(d)));
+  const dates = [...dateSet].sort();
+  const bases = maps.map((m) => {
+    for (const d of dates) if (m.has(d)) return m.get(d);
+    return null;
+  });
+  const out = [];
+  for (const d of dates) {
+    let sum = 0, n = 0;
+    maps.forEach((m, i) => { if (m.has(d) && bases[i]) { sum += (m.get(d) / bases[i]) * 100; n++; } });
+    if (n) out.push({ date: d, close: sum / n });
+  }
+  return out;
+}
+
 // IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
 // holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
 // rotation board (which embeds it) and Market Conditions can drive the symbol.
-function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
+function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, basketLabel, onPickConstituent }) {
   const ARIA = useAriaTheme();
-  const [spy, setSpy] = useState(null);     // { sym, regimeBars: [{close, regime, date}], wk20: [...] }
+  const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
   const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
+  // What's plotted: an equal-weight basket of the layer's constituents, or a
+  // single ticker/ETF. The basket is the honest picture of a layer.
+  const isBasket = Array.isArray(basket) && basket.length > 0;
+  const label = isBasket ? (basketLabel || "Layer") : sym;
 
-  // Load the selected index on symbol change; compute regime coloring.
+  // Load the chart series (basket or single ticker); compute regime coloring.
+  const basketKey = isBasket ? basket.join(",") : "";
   useEffect(() => {
-    if (spyLoading) return;
-    if (spy && spy.sym === sym) return;
+    let alive = true;
     setSpyLoading(true);
     setHoverIdx(null);
-    fetch(`/api/ohlc?ticker=${encodeURIComponent(sym)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const bars = (d?.ohlc || []).filter((x) => x.close != null);
-        if (!bars.length) { setSpy({ sym, regimeBars: [], wk20: [] }); return; }
-        const closes = bars.map((x) => x.close);
+    const load = isBasket ? buildBasketSeries(basket) : fetchOhlcBars(sym);
+    Promise.resolve(load)
+      .then((bars) => {
+        if (!alive) return;
+        const arr = bars || [];
+        if (!arr.length) { setSpy({ regimeBars: [], wk20: [] }); return; }
+        const closes = arr.map((x) => x.close);
         const e10 = emaSeries(closes, 10);
         const e20 = emaSeries(closes, 20);
         const wk20 = emaSeries(closes, 100); // ~20 weeks ≈ weekly-20 on daily
         const regimeBars = closes.map((c, i) => {
           const regime = c < wk20[i] ? "red" : e10[i] < e20[i] ? "yellow" : "green";
-          return { close: c, regime, date: bars[i].date || null };
+          return { close: c, regime, date: arr[i].date || null };
         });
-        setSpy({ sym, regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
+        setSpy({ regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
       })
-      .catch(() => setSpy({ sym, regimeBars: [], wk20: [] }))
-      .finally(() => setSpyLoading(false));
-  }, [sym, spy, spyLoading]);
+      .catch(() => { if (alive) setSpy({ regimeBars: [], wk20: [] }); })
+      .finally(() => { if (alive) setSpyLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sym, basketKey, isBasket]);
 
   // Top holdings by weight for the selected index (skipped when a layer's
   // constituents are supplied via holdingsOverride).
@@ -1004,8 +1052,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
   // regime SVG — colored polyline segments + dashed weekly-20.
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const Chart = () => {
-    if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading {sym} regime…</div>;
-    if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>{sym} data unavailable</div>;
+    if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading {label} regime…</div>;
+    if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>{label} data unavailable</div>;
     const W = 640, H = 158, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
     const bars = spy.regimeBars, wk = spy.wk20;
     const lo = Math.min(...bars.map((x) => x.close), ...wk);
@@ -1076,12 +1124,12 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
             <circle cx={x(hoverIdx)} cy={y(h.close)} r={3} fill={CMAP[h.regime]} stroke={ARIA.bg} strokeWidth={1} />
             <text x={x(hoverIdx) <= W / 2 ? x(hoverIdx) + 6 : x(hoverIdx) - 6} y={padT + 9}
               textAnchor={x(hoverIdx) <= W / 2 ? "start" : "end"} fontSize="9" fontWeight="700" fill={ARIA.text} fontFamily="monospace">
-              {h.date} · {sym} {h.close.toFixed(2)}
+              {h.date} · {label} {h.close.toFixed(isBasket ? 1 : 2)}
             </text>
           </g>
         )}
         {!h && (
-          <text x={W - 4} y={y(lastClose) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">{sym} {lastClose.toFixed(0)}</text>
+          <text x={W - 4} y={y(lastClose) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">{label} {lastClose.toFixed(0)}</text>
         )}
       </svg>
     );
@@ -1092,19 +1140,23 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
     <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
         <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
-        <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Index Regime</span>
-        <select value={sym}
-          onChange={(e) => setSym(e.target.value)}
-          title="Index for the regime chart"
-          style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
-          {!KNOWN.includes(sym) && <option value={sym}>{sym}</option>}
-          <optgroup label="Risk-on"><option value="SPY">SPY</option><option value="QQQ">QQQ</option><option value="IWM">IWM</option></optgroup>
-          <optgroup label="Defensive">
-            <option value="XLV">XLV · health</option><option value="XLU">XLU · utils</option><option value="XLP">XLP · staples</option>
-            <option value="GLD">GLD · gold</option><option value="GDX">GDX · miners</option><option value="SH">SH · inv SPY</option><option value="PSQ">PSQ · inv QQQ</option>
-          </optgroup>
-        </select>
-        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>click a ticker above to chart it</span>
+        <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{isBasket ? "Layer Regime" : "Index Regime"}</span>
+        {isBasket ? (
+          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }} title={`Equal-weight basket of ${basket.length} constituents (top 15 by RS)`}>{label} · EW basket ({Math.min(15, basket.length)})</span>
+        ) : (
+          <select value={sym}
+            onChange={(e) => setSym(e.target.value)}
+            title="Index for the regime chart"
+            style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
+            {!KNOWN.includes(sym) && <option value={sym}>{sym}</option>}
+            <optgroup label="Risk-on"><option value="SPY">SPY</option><option value="QQQ">QQQ</option><option value="IWM">IWM</option></optgroup>
+            <optgroup label="Defensive">
+              <option value="XLV">XLV · health</option><option value="XLU">XLU · utils</option><option value="XLP">XLP · staples</option>
+              <option value="GLD">GLD · gold</option><option value="GDX">GDX · miners</option><option value="SH">SH · inv SPY</option><option value="PSQ">PSQ · inv QQQ</option>
+            </optgroup>
+          </select>
+        )}
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>{isBasket ? "click a constituent (left) to drill in" : "click a ticker above to chart it"}</span>
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
         {/* Left: ETF top-10 by weight, OR layer constituents by RS strength */}
@@ -1116,7 +1168,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
                 {holdingsOverride.slice(0, 30).map((h) => {
                   const c = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                   return (
-                    <div key={h.t} onClick={() => setSym(h.t)} title={`${h.t} — RS ${h.s ?? "—"} (click to chart)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0" }}>
+                    <div key={h.t} onClick={() => (onPickConstituent || setSym)(h.t)} title={`${h.t} — RS ${h.s ?? "—"} (click to chart)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0" }}>
                       <span style={{ fontWeight: 700, color: h.t === sym ? ARIA.text : ARIA.blue, width: 40, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                       <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
                         <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: c }} />
@@ -1466,6 +1518,8 @@ function RsRotationBoard({ onTickerClick }) {
   });
   const [rsTab, setRsTab] = useState("sectors"); // right-panel tab: sectors | industries | layers
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
+  const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
+  const [basketLabel, setBasketLabel] = useState("");
   const setSymPersist = useCallback((s) => {
     setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {}
   }, []);
@@ -1474,6 +1528,7 @@ function RsRotationBoard({ onTickerClick }) {
     const onSym = (e) => {
       const t = (e?.detail || "").toUpperCase();
       if (!t) return;
+      setLayerHolds(null); setBasketMode(false);
       setSymPersist(t);
       setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     };
@@ -1482,21 +1537,30 @@ function RsRotationBoard({ onTickerClick }) {
   }, [setSymPersist]);
   if (!d) return null;
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
-  // Click an ETF ticker → chart it + ETF holdings (clears any layer override).
+  // Click an ETF ticker (table / mover / dropdown) → chart it + ETF holdings.
   const openTicker = (t) => {
     if (!t) return;
-    setLayerHolds(null);
+    setLayerHolds(null); setBasketMode(false);
     setSymPersist(t);
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(t);
   };
-  // Click a layer → chart its lead + show its constituents (by RS) on the left.
+  // Click a layer → chart its EW basket + show its constituents on the left.
   const openLayer = (r) => {
     if (!r?.ticker) return;
     setLayerHolds(r.holds || []);
+    setBasketLabel(r.name || ""); setBasketMode(true);
     setSymPersist(r.ticker);
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(r.ticker);
+  };
+  // Click a constituent inside the layer panel → drill into that single ticker
+  // but KEEP the constituents panel (exit basket mode only).
+  const pickConstituent = (t) => {
+    if (!t) return;
+    setBasketMode(false);
+    setSymPersist(t);
+    onTickerClick?.(t);
   };
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
@@ -1523,7 +1587,10 @@ function RsRotationBoard({ onTickerClick }) {
                   borderBottom: `2px solid ${rsTab === key ? ARIA.blue : "transparent"}` }}>{label}</button>
             );
             return (
-              <IndexRegimeChart sym={sym} setSym={setSymPersist} holdingsOverride={layerHolds} rightPanel={
+              <IndexRegimeChart sym={sym} setSym={openTicker} onPickConstituent={pickConstituent}
+                holdingsOverride={layerHolds}
+                basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
+                rightPanel={
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                     {tabBtn("sectors", "Sector Leaders")}
