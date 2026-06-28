@@ -11122,8 +11122,6 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
-        <ThemeIntelPanel onTickerClick={handleTickerClick} />
-        <SupercycleMap chartTicker={chartTicker} onTickerClick={handleTickerClick} />
         <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <DrawerThemes onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} onLayerClick={handleLayerClick} activeFilterNames={chainFilters.map((f) => f.name)} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
