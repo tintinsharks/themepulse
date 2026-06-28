@@ -1167,7 +1167,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
           {holdingsOverride ? (
             <>
               <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Layer · RS</div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
+              <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
                 {holdingsOverride.slice(0, 30).map((h) => {
                   const c = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                   return (
@@ -1191,7 +1191,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
               ) : holdings.list.length === 0 ? (
                 <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
               ) : (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
+                <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
                   {holdings.list.map((h) => (
                     <div key={h.ticker} onClick={() => onChartTicker?.(h.ticker)} title={`${h.name} — ${h.weight}% (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
