@@ -1567,7 +1567,6 @@ function RsRotationBoard({ onTickerClick, chartTicker }) {
     window.addEventListener("tp-breadth-sym", onSym);
     return () => window.removeEventListener("tp-breadth-sym", onSym);
   }, [setSymPersist]);
-  if (!d) return null;
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
   // Click an ETF ticker (table / mover / dropdown) → chart it + ETF holdings.
   const openTicker = (t) => {
@@ -1604,6 +1603,7 @@ function RsRotationBoard({ onTickerClick, chartTicker }) {
     applyLayer(best, false); // don't re-chart — avoids a feedback loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, layerIndex]);
+  if (!d) return null; // all hooks run above this guard
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
