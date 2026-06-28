@@ -1242,6 +1242,160 @@ function MarketBreadthMonitor() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// RS Rotation Board — sector/industry relative-strength rank rotation
+// ──────────────────────────────────────────────────────────────────────────
+// Reads /data/rs_rotation.json (pipeline 10c_rs_rotation.py). Collapsible.
+let _rsRotCache = null, _rsRotFetching = false; const _rsRotListeners = [];
+function useRsRotation() {
+  const [d, setD] = useState(_rsRotCache);
+  useEffect(() => {
+    if (_rsRotCache) { setD(_rsRotCache); return; }
+    if (_rsRotFetching) { _rsRotListeners.push(setD); return; }
+    _rsRotFetching = true;
+    fetch("/data/rs_rotation.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { _rsRotCache = j; setD(j); _rsRotListeners.forEach((fn) => fn(j)); _rsRotListeners.length = 0; })
+      .catch(() => { _rsRotFetching = false; });
+  }, []);
+  return d;
+}
+
+// colored 0-100 rank pill — green high, red low
+function RsRankBox({ v, ARIA }) {
+  if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
+  const c = v >= 67 ? "#16a34a" : v <= 33 ? "#b1374a" : ARIA.textMuted;
+  const bg = v >= 67 ? "rgba(22,163,74,0.16)" : v <= 33 ? "rgba(177,55,74,0.14)" : "transparent";
+  return (
+    <span style={{ display: "inline-block", minWidth: 22, textAlign: "center", fontWeight: 700, fontSize: 9, color: c, background: bg, border: `1px solid ${c}40`, borderRadius: 3, padding: "0 3px" }}>{v}</span>
+  );
+}
+
+function RsTable({ rows, sortable, onTicker, ARIA }) {
+  const [sort, setSort] = useState({ key: "now", dir: "desc" });
+  const sorted = useMemo(() => {
+    if (!sortable) return rows;
+    const arr = rows.slice();
+    arr.sort((a, b) => {
+      if (sort.key === "ticker" || sort.key === "name") {
+        const av = (a[sort.key] || ""), bv = (b[sort.key] || "");
+        return sort.dir === "desc" ? bv.localeCompare(av) : av.localeCompare(bv);
+      }
+      const av = a[sort.key] ?? -9999, bv = b[sort.key] ?? -9999;
+      return sort.dir === "desc" ? bv - av : av - bv;
+    });
+    return arr;
+  }, [rows, sort, sortable]);
+  const cols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", "Ticker"], ["name", "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["off52", "52W High"]];
+  const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
+    : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
+  const hdr = (key, label) => (
+    <th key={key} onClick={sortable ? () => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" })) : undefined}
+      style={{ textAlign: key === "ticker" || key === "name" ? "left" : "right", padding: "2px 6px", color: sortable && sort.key === key ? ARIA.text : ARIA.textMuted, fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3, cursor: sortable ? "pointer" : "default", whiteSpace: "nowrap" }}>
+      {label}{sortable && sort.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+    </th>
+  );
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 9 }}>
+      <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>{cols.map(([k, l]) => hdr(k, l))}</tr></thead>
+      <tbody>
+        {sorted.map((r) => (
+          <tr key={r.ticker} style={{ borderBottom: `1px solid ${ARIA.border}40` }}>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.m1} ARIA={ARIA} /></td>
+            <td style={{ padding: "2px 6px" }}><button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button></td>
+            <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsDay)}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
+  return (
+    <div style={{ flex: 1, minWidth: 150, border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden", fontFamily: "monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 7px", borderBottom: `1px solid ${ARIA.border}` }}>
+        <span style={{ width: 3, height: 11, background: accent, borderRadius: 2 }} />
+        <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{title}</span>
+      </div>
+      {(rows || []).map((m) => (
+        <div key={m.ticker} style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 7px", borderBottom: `1px solid ${ARIA.border}30` }}>
+          <RsRankBox v={m.now} ARIA={ARIA} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <button onClick={() => onTicker?.(m.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 10, cursor: "pointer", padding: 0 }}>{m.ticker}</button>
+            <div style={{ fontSize: 7.5, color: ARIA.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 9, color: ARIA.textDim }}>${m.price?.toFixed(2)}</div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: m.pts >= 0 ? ARIA.green : ARIA.red }}>{m.pts >= 0 ? "+" : ""}{m.pts} pts</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RsRotationBoard({ onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const d = useRsRotation();
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("tp-rs-board-open") !== "0"; } catch { return true; }
+  });
+  if (!d) return null;
+  const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
+  return (
+    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
+      <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
+        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700 }}>RS Rotation</span>
+        <span style={{ fontSize: 8, color: ARIA.textDim }}>sector & industry relative strength · {d.universe} ETFs</span>
+        {!open && d.rankUpDaily?.[0] && (
+          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>
+            ↑ {d.rankUpDaily.slice(0, 3).map((m) => m.ticker).join(" ")} · ↓ {d.rankDownDaily.slice(0, 3).map((m) => m.ticker).join(" ")}
+          </span>
+        )}
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0 }}>as of {d.date}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Movers + Sector Leaders */}
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: "1 1 360px", minWidth: 300 }}>
+              <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={onTickerClick} ARIA={ARIA} />
+              <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={onTickerClick} ARIA={ARIA} />
+              <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={onTickerClick} ARIA={ARIA} />
+              <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={onTickerClick} ARIA={ARIA} />
+            </div>
+            <div style={{ flex: "1 1 420px", minWidth: 340, border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden" }}>
+              <div style={{ padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
+                <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Sector Leaders</span>
+              </div>
+              <div style={{ padding: "0 4px 2px" }}><RsTable rows={d.sectors} sortable={false} onTicker={onTickerClick} ARIA={ARIA} /></div>
+            </div>
+          </div>
+          {/* Industry RS Rank — sortable */}
+          <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden" }}>
+            <div style={{ padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
+              <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Industry RS Rank</span>
+              <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>click a header to sort · click a ticker to chart it</span>
+            </div>
+            <div style={{ padding: "0 4px 2px", maxHeight: 360, overflowY: "auto" }}><RsTable rows={d.industries} sortable onTicker={onTickerClick} ARIA={ARIA} /></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Scan Watch (Scan view — Phase 2.2)
 // ──────────────────────────────────────────────────────────────────────────
 //
@@ -11564,6 +11718,11 @@ function AppMain() {
             {/* Breadth regime monitor — compact, slide-out SPY regime chart */}
             <ErrorBoundary>
               <MarketBreadthMonitor />
+            </ErrorBoundary>
+
+            {/* RS rotation board — sector/industry relative strength (collapsible) */}
+            <ErrorBoundary>
+              <RsRotationBoard onTickerClick={handleTickerClick} />
             </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
