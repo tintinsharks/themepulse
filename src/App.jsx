@@ -1210,7 +1210,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
         <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
         {/* Right: caller-provided panel (Sectors/Industries tabs) */}
         {rightPanel && (
-          <div style={{ width: 520, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column", minWidth: 480 }}>
+          <div style={{ width: 640, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column", minWidth: 600 }}>
             {rightPanel}
           </div>
         )}
