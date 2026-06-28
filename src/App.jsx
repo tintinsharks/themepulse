@@ -953,6 +953,7 @@ function MarketBreadthMonitor() {
   const [sym, setSym] = useState(() => {
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
+  const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
 
   // True EMA breadth on the top liquid universe — fresh, validated against
   // ground truth (not the lagging Stockbee counts / broken ATR-dist signs).
@@ -997,6 +998,15 @@ function MarketBreadthMonitor() {
       .catch(() => setSpy({ sym, regimeBars: [], wk20: [] }))
       .finally(() => setSpyLoading(false));
   }, [open, sym, spy, spyLoading]);
+
+  // Top holdings by weight for the selected index (lazy, refetch on sym change).
+  useEffect(() => {
+    if (!open || (holdings && holdings.sym === sym)) return;
+    fetch(`/api/live?etf=${encodeURIComponent(sym)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setHoldings({ sym, list: (d?.holdings || []).slice(0, 10) }))
+      .catch(() => setHoldings({ sym, list: [] }));
+  }, [open, sym, holdings]);
 
   if (!b || !regime) return null;
 
@@ -1140,6 +1150,27 @@ function MarketBreadthMonitor() {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch" }}>
+          {/* Left: top-10 index constituents by weight */}
+          <div style={{ width: 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>{sym} Top 10 · wt</div>
+            {!holdings || holdings.sym !== sym ? (
+              <div style={{ fontSize: 8, color: ARIA.textMuted }}>Loading…</div>
+            ) : holdings.list.length === 0 ? (
+              <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
+            ) : (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                {holdings.list.map((h) => (
+                  <div key={h.ticker} title={`${h.name} — ${h.weight}%`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9 }}>
+                    <span style={{ fontWeight: 700, color: ARIA.text, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
+                    <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
+                      <div style={{ width: `${Math.min(100, (h.weight / (holdings.list[0].weight || 1)) * 100)}%`, height: "100%", background: ARIA.blue }} />
+                    </div>
+                    <span style={{ color: ARIA.textDim, width: 26, textAlign: "right", flexShrink: 0 }}>{h.weight}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>{Chart()}</div>
           {/* Right-side legend / explanation of the SPY regime line — two columns
               so its height tracks the chart's. */}

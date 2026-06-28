@@ -1448,7 +1448,8 @@ export default async function handler(req, res) {
       const fmpKey = process.env.FMP_API_KEY;
       if (!fmpKey) return res.status(200).json({ holdings: [] });
       try {
-        const r = await fetch(`https://financialmodelingprep.com/api/v3/etf-holder/${encodeURIComponent(etfTicker)}?apikey=${fmpKey}`);
+        // /stable/etf/holdings (v3 etf-holder is 403 with the current key)
+        const r = await fetch(`https://financialmodelingprep.com/stable/etf/holdings?symbol=${encodeURIComponent(etfTicker)}&apikey=${fmpKey}`);
         const raw = r.ok ? await r.json() : [];
         if (req.query.debug) return res.status(200).json({ status: r.status, raw: JSON.stringify(raw).slice(0, 2000) });
         const arr = Array.isArray(raw) ? raw : (raw?.holdings || []);
@@ -1457,6 +1458,7 @@ export default async function handler(req, res) {
           .sort((a, b) => b.weightPercentage - a.weightPercentage)
           .slice(0, 15)
           .map(h => ({ ticker: h.asset, name: h.name || h.asset, weight: Math.round(h.weightPercentage * 10) / 10 }));
+        res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=43200");
         return res.status(200).json({ holdings });
       } catch (e) {
         return res.status(200).json({ holdings: [], error: e.message });
