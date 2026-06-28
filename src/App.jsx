@@ -1497,7 +1497,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   );
 }
 
-function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
+function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
   return (
     <div style={{ flex: 1, minWidth: 150, border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden", fontFamily: "monospace" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 7px", borderBottom: `1px solid ${ARIA.border}` }}>
@@ -1507,12 +1507,20 @@ function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
       {/* Single-line rows — height for ~6 visible, 7th scrolls. */}
       <div style={{ maxHeight: 150, overflowY: "auto" }}>
         {(rows || []).map((m) => (
-          <div key={m.ticker} title={`${m.ticker} · ${m.name} — $${m.price?.toFixed(2)} · ${m.pts >= 0 ? "+" : ""}${m.pts} pts`}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 7px", borderBottom: `1px solid ${ARIA.border}25` }}>
+          <div key={isLayer ? `${m.themeId}|${m.name}` : m.ticker}
+            title={isLayer ? `${m.theme} · ${m.name} — ${m.pts >= 0 ? "+" : ""}${m.pts} pts (click to load layer)` : `${m.ticker} · ${m.name} — $${m.price?.toFixed(2)} · ${m.pts >= 0 ? "+" : ""}${m.pts} pts`}
+            onClick={() => onRow?.(m)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 7px", borderBottom: `1px solid ${ARIA.border}25`, cursor: "pointer" }}>
             <RsRankBox v={m.now} ARIA={ARIA} />
-            <button onClick={() => onTicker?.(m.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0, flexShrink: 0 }}>{m.ticker}</button>
-            <span style={{ fontSize: 7.5, color: ARIA.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}</span>
-            <span style={{ fontSize: 8, color: ARIA.textDim, flexShrink: 0 }}>${m.price?.toFixed(2)}</span>
+            {isLayer ? (
+              <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.blue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}<span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{m.n}</span></span>
+            ) : (
+              <>
+                <span style={{ color: ARIA.blue, fontWeight: 700, fontSize: 9, flexShrink: 0 }}>{m.ticker}</span>
+                <span style={{ fontSize: 7.5, color: ARIA.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}</span>
+                <span style={{ fontSize: 8, color: ARIA.textDim, flexShrink: 0 }}>${m.price?.toFixed(2)}</span>
+              </>
+            )}
             <span style={{ fontSize: 8, fontWeight: 700, color: m.pts >= 0 ? ARIA.green : ARIA.red, flexShrink: 0, width: 42, textAlign: "right" }}>{m.pts >= 0 ? "+" : ""}{m.pts}</span>
           </div>
         ))}
@@ -1596,12 +1604,19 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
         <span style={{ fontSize: 8, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
         <span style={{ fontSize: 8, color: ARIA.textDim }}>what's rotating in / out · {d.universe} ETFs</span>
-        {!open && d.rankUpDaily?.[0] && (
-          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>
-            <span style={{ color: ARIA.green }}>in ↑ {d.rankUpDaily.slice(0, 3).map((m) => m.ticker).join(" ")}</span>
-            {"  "}<span style={{ color: ARIA.red }}>out ↓ {d.rankDownDaily.slice(0, 3).map((m) => m.ticker).join(" ")}</span>
-          </span>
-        )}
+        {!open && (() => {
+          const ar = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
+          const sc = ar.filter((r) => r.d1 != null).map((r) => ({ ...r, pts: r.now - r.d1 }));
+          const up = [...sc].sort((a, b) => b.pts - a.pts).slice(0, 3);
+          const dn = [...sc].sort((a, b) => a.pts - b.pts).slice(0, 3);
+          if (!up.length) return null;
+          return (
+            <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>
+              <span style={{ color: ARIA.green }}>in ↑ {up.map((m) => m.ticker).join(" ")}</span>
+              {"  "}<span style={{ color: ARIA.red }}>out ↓ {dn.map((m) => m.ticker).join(" ")}</span>
+            </span>
+          );
+        })()}
         <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0 }}>{open ? "" : "click to expand"} · {d.date}</span>
       </div>
       {open && (
@@ -1639,13 +1654,25 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               } />
             );
           })()}
-          {/* Movers — full width */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-            <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={openTicker} ARIA={ARIA} />
-            <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={openTicker} ARIA={ARIA} />
-            <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={openTicker} ARIA={ARIA} />
-            <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={openTicker} ARIA={ARIA} />
-          </div>
+          {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
+          {(() => {
+            const activeRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
+            const isLayer = rsTab === "layers";
+            const mv = (prevKey, dir) => {
+              const scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
+              scored.sort((a, b) => (dir === "up" ? b.pts - a.pts : a.pts - b.pts));
+              return scored.slice(0, 7);
+            };
+            const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
