@@ -1359,9 +1359,16 @@ function RsRankBox({ v, ARIA }) {
 
 function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect }) {
   const [sort, setSort] = useState({ key: "now", dir: "desc" });
+  // RS acceleration (2nd derivative), weekly→monthly: project last week's
+  // relative pace to a month (×21/5) and subtract the actual monthly relative
+  // return. +ve = relative strength accelerating. Derived from rsWk / rsMth.
+  const augmented = useMemo(() => rows.map((r) => ({
+    ...r,
+    rsRoc2: (r.rsWk != null && r.rsMth != null) ? +(r.rsWk * 4.2 - r.rsMth).toFixed(2) : null,
+  })), [rows]);
   const sorted = useMemo(() => {
-    if (!sortable) return rows;
-    const arr = rows.slice();
+    if (!sortable) return augmented;
+    const arr = augmented.slice();
     arr.sort((a, b) => {
       if (sort.key === "ticker" || sort.key === "name") {
         const av = (a[sort.key] || ""), bv = (b[sort.key] || "");
@@ -1371,12 +1378,13 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
       return sort.dir === "desc" ? bv - av : av - bv;
     });
     return arr;
-  }, [rows, sort, sortable]);
-  const cols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["off52", "52W High"]];
+  }, [augmented, sort, sortable]);
+  const cols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
+  const TITLES = { rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over." };
   const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
   const hdr = (key, label) => (
-    <th key={key} onClick={sortable ? () => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" })) : undefined}
+    <th key={key} title={TITLES[key]} onClick={sortable ? () => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" })) : undefined}
       style={{ textAlign: key === "ticker" || key === "name" ? "left" : "right", padding: "2px 6px", color: sortable && sort.key === key ? ARIA.text : ARIA.textMuted, fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3, cursor: sortable ? "pointer" : "default", whiteSpace: "nowrap" }}>
       {label}{sortable && sort.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
@@ -1403,6 +1411,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.rsRoc2 > 0 ? ARIA.green : r.rsRoc2 < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>
           </tr>
         ))}
