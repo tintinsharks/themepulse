@@ -1136,9 +1136,20 @@ function MarketBreadthMonitor() {
               onChange={(e) => { const s = e.target.value; setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {} if (!open) { setOpen(true); try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {} } }}
               title="Index for the regime chart"
               style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
-              <option value="SPY">SPY</option>
-              <option value="QQQ">QQQ</option>
-              <option value="IWM">IWM</option>
+              <optgroup label="Risk-on">
+                <option value="SPY">SPY</option>
+                <option value="QQQ">QQQ</option>
+                <option value="IWM">IWM</option>
+              </optgroup>
+              <optgroup label="Defensive">
+                <option value="XLV">XLV · health</option>
+                <option value="XLU">XLU · utils</option>
+                <option value="XLP">XLP · staples</option>
+                <option value="GLD">GLD · gold</option>
+                <option value="GDX">GDX · miners</option>
+                <option value="SH">SH · inv SPY</option>
+                <option value="PSQ">PSQ · inv QQQ</option>
+              </optgroup>
             </select>
             <button onClick={() => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-breadth-monitor-open", n ? "1" : "0"); } catch {} return n; })}
               title="Toggle regime chart"
@@ -1148,6 +1159,28 @@ function MarketBreadthMonitor() {
           </div>
         </div>
       </div>
+      {/* Rotation strip — risk-on vs defensive regime at a glance (always visible) */}
+      {bd?.rotation && (() => {
+        const DOT = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+        const cell = (r) => (
+          <button key={r.sym} onClick={() => { setSym(r.sym); try { localStorage.setItem("tp-breadth-sym", r.sym); } catch {} if (!open) { setOpen(true); try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {} } }}
+            title={`${r.sym} — ${r.regime.toUpperCase()} · 1mo ${r.ret1m >= 0 ? "+" : ""}${r.ret1m}%  (click to chart)`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: DOT[r.regime] || ARIA.textMuted, flexShrink: 0 }} />
+            <span style={{ fontSize: 9, fontWeight: 700, color: r.sym === sym ? ARIA.text : ARIA.textDim }}>{r.sym}</span>
+          </button>
+        );
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "3px 12px 5px", borderTop: `1px solid ${ARIA.border}`, fontFamily: "monospace", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Rotation</span>
+            <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>RISK-ON</span>
+            <div style={{ display: "flex", gap: 9, alignItems: "center" }}>{bd.rotation.risk_on.map(cell)}</div>
+            <span style={{ color: ARIA.border }}>·</span>
+            <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>DEFENSIVE</span>
+            <div style={{ display: "flex", gap: 9, alignItems: "center" }}>{bd.rotation.defensive.map(cell)}</div>
+          </div>
+        );
+      })()}
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch" }}>
           {/* Left: top-10 index constituents by weight */}
