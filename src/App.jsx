@@ -1439,8 +1439,10 @@ function RsRankBox({ v, ARIA }) {
   );
 }
 
-function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect }) {
+function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey }) {
   const [sort, setSort] = useState({ key: "now", dir: "desc" });
+  const rowKeyOf = (r) => (getTag ? `${r.theme}|${r.name}` : r.ticker);
+  const activeRowRef = useRef(null);
   // RS acceleration (2nd derivative), weekly→monthly: project last week's
   // relative pace to a month (×21/5) and subtract the actual monthly relative
   // return. +ve = relative strength accelerating. Derived from rsWk / rsMth.
@@ -1461,6 +1463,10 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     });
     return arr;
   }, [augmented, sort, sortable]);
+  // Autoscroll the active row into view when it changes (reverse sync / select).
+  useEffect(() => {
+    if (activeKey && activeRowRef.current) activeRowRef.current.scrollIntoView({ block: "nearest" });
+  }, [activeKey, sorted]);
   // Layers (getTag) drop the Theme/identity column; the layer name itself is the
   // clickable, fixed-width title so the numeric columns get more room.
   const allCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
@@ -1478,8 +1484,11 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 9 }}>
       <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>{cols.map(([k, l]) => hdr(k, l))}</tr></thead>
       <tbody>
-        {sorted.map((r) => (
-          <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} style={{ borderBottom: `1px solid ${ARIA.border}40` }}>
+        {sorted.map((r) => {
+          const isActive = activeKey && rowKeyOf(r) === activeKey;
+          return (
+          <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
+            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : "transparent", boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
@@ -1506,7 +1515,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.rsRoc2 > 0 ? ARIA.green : r.rsRoc2 < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );
@@ -1646,7 +1656,8 @@ function RsRotationBoard({ onTickerClick, chartTicker }) {
                       sortable onTicker={openTicker} ARIA={ARIA}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
-                      onLayerSelect={rsTab === "layers" ? openLayer : undefined} />
+                      onLayerSelect={rsTab === "layers" ? openLayer : undefined}
+                      activeKey={rsTab === "layers" ? selectedLayerKey : sym} />
                   </div>
                 </>
               } />
