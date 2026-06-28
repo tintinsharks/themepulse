@@ -955,56 +955,19 @@ function emaSeries(values, period) {
   return out;
 }
 
-function MarketBreadthMonitor() {
+// IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
+// holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
+// rotation board (which embeds it) and Market Conditions can drive the symbol.
+function IndexRegimeChart({ sym, setSym }) {
   const ARIA = useAriaTheme();
-  const [open, setOpen] = useState(() => {
-    try { return localStorage.getItem("tp-breadth-monitor-open") === "1"; } catch { return false; }
-  });
-  const [bd, setBd] = useState(null);       // breadth.json (true EMA breadth)
   const [spy, setSpy] = useState(null);     // { sym, regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
-  const [hoverIdx, setHoverIdx] = useState(null); // regime chart crosshair index
-  const [sym, setSym] = useState(() => {
-    try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
-  });
+  const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
 
-  // True EMA breadth on the top liquid universe — fresh, validated against
-  // ground truth (not the lagging Stockbee counts / broken ATR-dist signs).
+  // Load the selected index on symbol change; compute regime coloring.
   useEffect(() => {
-    fetch("/data/breadth.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setBd)
-      .catch(() => setBd(null));
-  }, []);
-
-  // Let other panels (e.g. the RS rotation board) drive this chart's symbol.
-  useEffect(() => {
-    const onSym = (e) => {
-      const t = (e?.detail || "").toUpperCase();
-      if (!t) return;
-      setSym(t);
-      try { localStorage.setItem("tp-breadth-sym", t); } catch {}
-      setOpen(true);
-      try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {}
-    };
-    window.addEventListener("tp-breadth-sym", onSym);
-    return () => window.removeEventListener("tp-breadth-sym", onSym);
-  }, []);
-
-  const { regime, b } = useMemo(() => {
-    if (!bd?.current || !bd?.regime) return { regime: null, b: null };
-    const c = bd.current;
-    return {
-      regime: bd.regime,
-      b: { p20: c.pct_above_20ema, p50: c.pct_above_50ema, p200: c.pct_above_200ema, p1020: c.pct_10_over_20, n: c.n, date: bd.date, gen: bd.generated },
-    };
-  }, [bd]);
-
-  // Lazy-load the selected index on expand / symbol change; compute regime
-  // coloring client-side. Refetches whenever sym changes.
-  useEffect(() => {
-    if (!open || spyLoading) return;
+    if (spyLoading) return;
     if (spy && spy.sym === sym) return;
     setSpyLoading(true);
     setHoverIdx(null);
@@ -1025,48 +988,22 @@ function MarketBreadthMonitor() {
       })
       .catch(() => setSpy({ sym, regimeBars: [], wk20: [] }))
       .finally(() => setSpyLoading(false));
-  }, [open, sym, spy, spyLoading]);
+  }, [sym, spy, spyLoading]);
 
-  // Top holdings by weight for the selected index (lazy, refetch on sym change).
+  // Top holdings by weight for the selected index.
   useEffect(() => {
-    if (!open || (holdings && holdings.sym === sym)) return;
+    if (holdings && holdings.sym === sym) return;
     fetch(`/api/live?etf=${encodeURIComponent(sym)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setHoldings({ sym, list: (d?.holdings || []).slice(0, 10) }))
       .catch(() => setHoldings({ sym, list: [] }));
-  }, [open, sym, holdings]);
+  }, [sym, holdings]);
 
-  if (!b || !regime) return null;
-
-  const REG_C = { "RISK ON": ARIA.green, "NEUTRAL": ARIA.yellow, "RISK OFF": ARIA.red };
-  const SEC_C = { CLEAR: ARIA.green, CAUTION: ARIA.yellow, DEFENSIVE: ARIA.red };
-  const badge = (label, val, color) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-      <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
-      <span style={{ fontSize: 9, fontWeight: 800, color, background: color + "1c", border: `1px solid ${color}55`, borderRadius: 3, padding: "1px 6px", letterSpacing: 0.4 }}>{val}</span>
-    </div>
-  );
-  // %-above-EMA thermometer. 50% is the neutral line: green ≥50, red <40.
-  const therm = (label, pct, tip) => {
-    if (pct == null) return null;
-    const c = pct >= 50 ? ARIA.green : pct >= 40 ? ARIA.yellow : ARIA.red;
-    return (
-      <div title={tip} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "help" }}>
-        <span style={{ fontSize: 8, color: ARIA.textMuted }}>{label}</span>
-        <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: c }}>{pct.toFixed(1)}%</span>
-        <div style={{ width: 34, height: 3, borderRadius: 2, background: ARIA.border, overflow: "hidden", position: "relative" }}>
-          <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: c }} />
-          <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: "100%", background: ARIA.textMuted, opacity: 0.5 }} />
-        </div>
-      </div>
-    );
-  };
-
-  // SPY regime SVG — colored polyline segments + dashed weekly-20.
+  // regime SVG — colored polyline segments + dashed weekly-20.
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const Chart = () => {
-    if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading SPY regime…</div>;
-    if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>SPY data unavailable</div>;
+    if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading {sym} regime…</div>;
+    if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>{sym} data unavailable</div>;
     const W = 640, H = 158, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
     const bars = spy.regimeBars, wk = spy.wk20;
     const lo = Math.min(...bars.map((x) => x.close), ...wk);
@@ -1148,112 +1085,61 @@ function MarketBreadthMonitor() {
     );
   };
 
+  const KNOWN = ["SPY", "QQQ", "IWM", "XLV", "XLU", "XLP", "GLD", "GDX", "SH", "PSQ"];
+  const info = INDEX_INFO[sym] || { name: sym, role: "", roleColor: ARIA.textMuted, blurb: "" };
   return (
-    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "6px 12px", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700 }} title={`True EMA breadth — top ${b.n} liquid names, as of ${b.date}${b.gen ? " · computed " + b.gen : ""}`}>Breadth Monitor</span>
-        {badge("Primary", regime.primary, REG_C[regime.primary])}
-        {badge("Secondary", regime.secondary, SEC_C[regime.secondary])}
-        <div style={{ display: "flex", gap: 14, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
-          {therm(">20", b.p20, `% of top ${b.n} liquid names above their 20 EMA (short-term participation). ${b.date}`)}
-          {therm(">50", b.p50, `% above 50 EMA (intermediate trend participation)`)}
-          {therm("10>20", b.p1020, `% with 10 EMA above 20 EMA (short-term momentum confirming)`)}
-          {therm(">200", b.p200, `% above 200 EMA (long-term trend participation)`)}
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <select value={sym}
-              onChange={(e) => { const s = e.target.value; setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {} if (!open) { setOpen(true); try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {} } }}
-              title="Index for the regime chart"
-              style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
-              {!["SPY", "QQQ", "IWM", "XLV", "XLU", "XLP", "GLD", "GDX", "SH", "PSQ"].includes(sym) && (
-                <option value={sym}>{sym}</option>
-              )}
-              <optgroup label="Risk-on">
-                <option value="SPY">SPY</option>
-                <option value="QQQ">QQQ</option>
-                <option value="IWM">IWM</option>
-              </optgroup>
-              <optgroup label="Defensive">
-                <option value="XLV">XLV · health</option>
-                <option value="XLU">XLU · utils</option>
-                <option value="XLP">XLP · staples</option>
-                <option value="GLD">GLD · gold</option>
-                <option value="GDX">GDX · miners</option>
-                <option value="SH">SH · inv SPY</option>
-                <option value="PSQ">PSQ · inv QQQ</option>
-              </optgroup>
-            </select>
-            <button onClick={() => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-breadth-monitor-open", n ? "1" : "0"); } catch {} return n; })}
-              title="Toggle regime chart"
-              style={{ fontSize: 9, fontWeight: 700, color: open ? ARIA.text : ARIA.textMuted, background: open ? ARIA.glass || "transparent" : "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 7px", cursor: "pointer" }}>
-              {open ? "▾" : "▸"}
-            </button>
+    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
+        <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
+        <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Index Regime</span>
+        <select value={sym}
+          onChange={(e) => setSym(e.target.value)}
+          title="Index for the regime chart"
+          style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
+          {!KNOWN.includes(sym) && <option value={sym}>{sym}</option>}
+          <optgroup label="Risk-on"><option value="SPY">SPY</option><option value="QQQ">QQQ</option><option value="IWM">IWM</option></optgroup>
+          <optgroup label="Defensive">
+            <option value="XLV">XLV · health</option><option value="XLU">XLU · utils</option><option value="XLP">XLP · staples</option>
+            <option value="GLD">GLD · gold</option><option value="GDX">GDX · miners</option><option value="SH">SH · inv SPY</option><option value="PSQ">PSQ · inv QQQ</option>
+          </optgroup>
+        </select>
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>click a ticker above to chart it</span>
+      </div>
+      <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
+        {/* Left: top-10 constituents by weight */}
+        <div style={{ width: 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>{sym} Top 10 · wt</div>
+          {!holdings || holdings.sym !== sym ? (
+            <div style={{ fontSize: 8, color: ARIA.textMuted }}>Loading…</div>
+          ) : holdings.list.length === 0 ? (
+            <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
+          ) : (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              {holdings.list.map((h) => (
+                <div key={h.ticker} title={`${h.name} — ${h.weight}%`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9 }}>
+                  <span style={{ fontWeight: 700, color: ARIA.text, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
+                  <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
+                    <div style={{ width: `${Math.min(100, (h.weight / (holdings.list[0].weight || 1)) * 100)}%`, height: "100%", background: ARIA.blue }} />
+                  </div>
+                  <span style={{ color: ARIA.textDim, width: 26, textAlign: "right", flexShrink: 0 }}>{h.weight}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
+        {/* Right: short blurb */}
+        <div style={{ width: 200, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: ARIA.text }}>{sym}</span>
+            <span style={{ fontSize: 8, color: ARIA.textDim }}>{info.name}</span>
           </div>
+          {info.role && (
+            <span style={{ alignSelf: "flex-start", fontSize: 7, fontWeight: 700, color: info.roleColor, background: info.roleColor + "1c", border: `1px solid ${info.roleColor}55`, borderRadius: 2, padding: "0 4px", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 5 }}>{info.role}</span>
+          )}
+          <div style={{ fontSize: 8.5, color: ARIA.textDim, lineHeight: 1.5 }}>{info.blurb}</div>
         </div>
       </div>
-      {/* Rotation strip — risk-on vs defensive regime at a glance (always visible) */}
-      {bd?.rotation && (() => {
-        const DOT = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
-        const cell = (r) => (
-          <button key={r.sym} onClick={() => { setSym(r.sym); try { localStorage.setItem("tp-breadth-sym", r.sym); } catch {} if (!open) { setOpen(true); try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {} } }}
-            title={`${r.sym} — ${r.regime.toUpperCase()} · 1mo ${r.ret1m >= 0 ? "+" : ""}${r.ret1m}%  (click to chart)`}
-            style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: DOT[r.regime] || ARIA.textMuted, flexShrink: 0 }} />
-            <span style={{ fontSize: 9, fontWeight: 700, color: r.sym === sym ? ARIA.text : ARIA.textDim }}>{r.sym}</span>
-          </button>
-        );
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "3px 12px 5px", borderTop: `1px solid ${ARIA.border}`, fontFamily: "monospace", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Rotation</span>
-            <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>RISK-ON</span>
-            <div style={{ display: "flex", gap: 9, alignItems: "center" }}>{bd.rotation.risk_on.map(cell)}</div>
-            <span style={{ color: ARIA.border }}>·</span>
-            <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>DEFENSIVE</span>
-            <div style={{ display: "flex", gap: 9, alignItems: "center" }}>{bd.rotation.defensive.map(cell)}</div>
-          </div>
-        );
-      })()}
-      {open && (
-        <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch" }}>
-          {/* Left: top-10 index constituents by weight */}
-          <div style={{ width: 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>{sym} Top 10 · wt</div>
-            {!holdings || holdings.sym !== sym ? (
-              <div style={{ fontSize: 8, color: ARIA.textMuted }}>Loading…</div>
-            ) : holdings.list.length === 0 ? (
-              <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
-            ) : (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                {holdings.list.map((h) => (
-                  <div key={h.ticker} title={`${h.name} — ${h.weight}%`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9 }}>
-                    <span style={{ fontWeight: 700, color: ARIA.text, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
-                    <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
-                      <div style={{ width: `${Math.min(100, (h.weight / (holdings.list[0].weight || 1)) * 100)}%`, height: "100%", background: ARIA.blue }} />
-                    </div>
-                    <span style={{ color: ARIA.textDim, width: 26, textAlign: "right", flexShrink: 0 }}>{h.weight}%</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>{Chart()}</div>
-          {/* Right: short blurb explaining the selected index */}
-          {(() => {
-            const info = INDEX_INFO[sym] || { name: sym, role: "", roleColor: ARIA.textMuted, blurb: "" };
-            return (
-              <div style={{ width: 230, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: ARIA.text }}>{sym}</span>
-                  <span style={{ fontSize: 8, color: ARIA.textDim }}>{info.name}</span>
-                </div>
-                {info.role && (
-                  <span style={{ alignSelf: "flex-start", fontSize: 7, fontWeight: 700, color: info.roleColor, background: info.roleColor + "1c", border: `1px solid ${info.roleColor}55`, borderRadius: 2, padding: "0 4px", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 5 }}>{info.role}</span>
-                )}
-                <div style={{ fontSize: 8.5, color: ARIA.textDim, lineHeight: 1.5 }}>{info.blurb}</div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
     </div>
   );
 }
@@ -1394,6 +1280,30 @@ function MarketConditionsPanel() {
               {perfCell("VIX", p.vix, p.vix == null ? "neu" : p.vix < 16 ? "pos" : p.vix > 25 ? "neg" : "neu", p.vix == null ? "—" : p.vix.toFixed(2))}
             </div>
           </div>
+          {/* Risk-on vs Defensive rotation — click a ticker to chart it in Sector Rotation */}
+          {bd.rotation && (() => {
+            const DOT = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+            const cell = (r) => (
+              <button key={r.sym} onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-breadth-sym", { detail: r.sym })); } catch {} }}
+                title={`${r.sym} — ${r.regime.toUpperCase()} · 1mo ${r.ret1m >= 0 ? "+" : ""}${r.ret1m}%  (click to chart in Sector Rotation)`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: DOT[r.regime] || ARIA.textMuted, flexShrink: 0 }} />
+                <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.textDim }}>{r.sym}</span>
+              </button>
+            );
+            return (
+              <div>
+                <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Rotation — Risk-on vs Defensive</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>RISK-ON</span>
+                  <div style={{ display: "flex", gap: 9, alignItems: "center" }}>{bd.rotation.risk_on.map(cell)}</div>
+                  <span style={{ color: ARIA.border }}>·</span>
+                  <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>DEFENSIVE</span>
+                  <div style={{ display: "flex", gap: 9, alignItems: "center" }}>{bd.rotation.defensive.map(cell)}</div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -1506,13 +1416,31 @@ function RsRotationBoard({ onTickerClick }) {
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem("tp-rs-board-open") === "1"; } catch { return false; }
   });
+  // Symbol for the embedded Index Regime chart (was the standalone Breadth Monitor).
+  const [sym, setSym] = useState(() => {
+    try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
+  });
+  const setSymPersist = useCallback((s) => {
+    setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {}
+  }, []);
+  // Let Market Conditions' rotation dots (or anything) drive the chart symbol.
+  useEffect(() => {
+    const onSym = (e) => {
+      const t = (e?.detail || "").toUpperCase();
+      if (!t) return;
+      setSymPersist(t);
+      setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
+    };
+    window.addEventListener("tp-breadth-sym", onSym);
+    return () => window.removeEventListener("tp-breadth-sym", onSym);
+  }, [setSymPersist]);
   if (!d) return null;
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
-  // Click a ticker → load it into the Breadth Monitor's regime chart + holdings
-  // (the "graph and tickers list on top") and the main chart panel.
+  // Click a ticker → chart it in the embedded Index Regime chart + the main panel.
   const openTicker = (t) => {
     if (!t) return;
-    try { window.dispatchEvent(new CustomEvent("tp-breadth-sym", { detail: t })); } catch {}
+    setSymPersist(t);
+    setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(t);
   };
   return (
@@ -1531,6 +1459,8 @@ function RsRotationBoard({ onTickerClick }) {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Regime chart for the selected ETF (folded in from the Breadth Monitor) */}
+          <IndexRegimeChart sym={sym} setSym={setSymPersist} />
           {/* Movers + Sector Leaders */}
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: "1 1 360px", minWidth: 300 }}>
@@ -11885,11 +11815,6 @@ function AppMain() {
             {/* Market Conditions — distribution days, SMA trend, performance, verdict */}
             <ErrorBoundary>
               <MarketConditionsPanel />
-            </ErrorBoundary>
-
-            {/* Breadth regime monitor — compact, slide-out SPY regime chart */}
-            <ErrorBoundary>
-              <MarketBreadthMonitor />
             </ErrorBoundary>
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
