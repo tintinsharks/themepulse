@@ -1404,7 +1404,7 @@ function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
   );
 }
 
-function RsRotationBoard({ onTickerClick }) {
+function RsRotationBoard({ onTickerClick, stockMap, tickerStrengthMap }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
@@ -1468,10 +1468,17 @@ function RsRotationBoard({ onTickerClick }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                     {tabBtn("sectors", "Sector Leaders")}
                     {tabBtn("industries", "Industries")}
-                    {rsTab === "industries" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>}
+                    {tabBtn("layers", "Layers")}
+                    {rsTab !== "sectors" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>}
                   </div>
-                  <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
-                    <RsTable rows={rsTab === "sectors" ? d.sectors : d.industries} sortable={rsTab === "industries"} onTicker={openTicker} ARIA={ARIA} />
+                  <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150, display: "flex", flexDirection: "column" }}>
+                    {rsTab === "layers" ? (
+                      <ChainLayerTable stockMap={stockMap} tickerStrengthMap={tickerStrengthMap}
+                        onTickerClick={openTicker} onLayerClick={(l, tks) => tks?.[0] && openTicker(tks[0])}
+                        activeFilterNames={[]} posOnly={false} />
+                    ) : (
+                      <RsTable rows={rsTab === "sectors" ? d.sectors : d.industries} sortable={rsTab === "industries"} onTicker={openTicker} ARIA={ARIA} />
+                    )}
                   </div>
                 </>
               } />
@@ -11817,7 +11824,7 @@ function AppMain() {
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
             <ErrorBoundary>
-              <RsRotationBoard onTickerClick={handleTickerClick} />
+              <RsRotationBoard onTickerClick={handleTickerClick} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} />
             </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
