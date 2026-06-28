@@ -946,51 +946,27 @@ function MarketBreadthMonitor() {
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem("tp-breadth-monitor-open") === "1"; } catch { return false; }
   });
-  const [mm, setMm] = useState(null);       // market_monitor.json
+  const [bd, setBd] = useState(null);       // breadth.json (true EMA breadth)
   const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
 
-  // Pull the Stockbee breadth engine (pipeline-computed, reconciles with nvst).
+  // True EMA breadth on the top liquid universe — fresh, validated against
+  // ground truth (not the lagging Stockbee counts / broken ATR-dist signs).
   useEffect(() => {
-    fetch("/market_monitor.json", { cache: "no-store" })
+    fetch("/data/breadth.json", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then(setMm)
-      .catch(() => setMm(null));
+      .then(setBd)
+      .catch(() => setBd(null));
   }, []);
 
-  // Classify a metric green/yellow/red using its own gauge band; a band is
-  // [lo,hi] and a value falls in it when lo ≤ v < hi. Returns +1/0/-1.
-  const classify = (val, gauge) => {
-    if (gauge == null || val == null) return 0;
-    const inB = (band) => band && val >= band[0] && val < band[1];
-    if (inB(gauge.green)) return 1;
-    if (inB(gauge.red)) return -1;
-    return 0;
-  };
-
-  // Regime: net (green − red) across PRIMARY gauges → RISK ON/NEUTRAL/RISK OFF;
-  // across SECONDARY gauges → CLEAR/CAUTION/DEFENSIVE. Skip ratio gauges that
-  // read exactly 0 (means "not computed", not a real zero).
   const { regime, b } = useMemo(() => {
-    if (!mm?.current || !mm?.gauges) return { regime: null, b: null };
-    const cur = mm.current, g = mm.gauges;
-    const score = (type) => {
-      let s = 0;
-      for (const [k, gauge] of Object.entries(g)) {
-        if (gauge.type !== type) continue;
-        if (k.startsWith("ratio_") && (cur[k] === 0 || cur[k] == null)) continue;
-        s += classify(cur[k], gauge);
-      }
-      return s;
-    };
-    const ps = score("primary"), ss = score("secondary");
-    const primary = ps >= 2 ? "RISK ON" : ps <= -2 ? "RISK OFF" : "NEUTRAL";
-    const secondary = primary === "RISK OFF" ? "DEFENSIVE" : ss >= 2 ? "CLEAR" : ss >= 0 ? "CAUTION" : "DEFENSIVE";
+    if (!bd?.current || !bd?.regime) return { regime: null, b: null };
+    const c = bd.current;
     return {
-      regime: { primary, secondary, ps, ss },
-      b: { t2108: cur.t2108, up4: cur.up_4pct, down4: cur.down_4pct, up25q: cur.up_25q, down25q: cur.down_25q, date: mm.date, gen: mm.generated, total: cur.total_stocks },
+      regime: bd.regime,
+      b: { p20: c.pct_above_20ema, p50: c.pct_above_50ema, p200: c.pct_above_200ema, p1020: c.pct_10_over_20, n: c.n, date: bd.date, gen: bd.generated },
     };
-  }, [mm]);
+  }, [bd]);
 
   // Lazy-load SPY daily on first expand; compute regime coloring client-side.
   useEffect(() => {
@@ -1025,29 +1001,21 @@ function MarketBreadthMonitor() {
       <span style={{ fontSize: 9, fontWeight: 800, color, background: color + "1c", border: `1px solid ${color}55`, borderRadius: 3, padding: "1px 6px", letterSpacing: 0.4 }}>{val}</span>
     </div>
   );
-  // %>40DMA thermometer (t2108) — the headline breadth gauge.
+  // %-above-EMA thermometer. 50% is the neutral line: green ≥50, red <40.
   const therm = (label, pct, tip) => {
     if (pct == null) return null;
-    const c = pct >= 50 ? ARIA.green : pct >= 35 ? ARIA.yellow : ARIA.red;
+    const c = pct >= 50 ? ARIA.green : pct >= 40 ? ARIA.yellow : ARIA.red;
     return (
       <div title={tip} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "help" }}>
         <span style={{ fontSize: 8, color: ARIA.textMuted }}>{label}</span>
         <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: c }}>{pct.toFixed(1)}%</span>
-        <div style={{ width: 34, height: 3, borderRadius: 2, background: ARIA.border, overflow: "hidden" }}>
+        <div style={{ width: 34, height: 3, borderRadius: 2, background: ARIA.border, overflow: "hidden", position: "relative" }}>
           <div style={{ width: `${Math.min(100, pct)}%`, height: "100%", background: c }} />
+          <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: "100%", background: ARIA.textMuted, opacity: 0.5 }} />
         </div>
       </div>
     );
   };
-  // Up/Down breadth pair (e.g. 4%-movers, 25%-in-a-quarter) — green vs red counts.
-  const pair = (label, up, down, tip) => (
-    <div title={tip} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "help", fontFamily: "monospace", fontSize: 10 }}>
-      <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "inherit" }}>{label}</span>
-      <span style={{ color: ARIA.green, fontWeight: 700 }}>{up}</span>
-      <span style={{ color: ARIA.textMuted }}>/</span>
-      <span style={{ color: ARIA.red, fontWeight: 700 }}>{down}</span>
-    </div>
-  );
 
   // SPY regime SVG — colored polyline segments + dashed weekly-20.
   const Chart = () => {
@@ -1079,13 +1047,14 @@ function MarketBreadthMonitor() {
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "6px 12px", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700 }} title={`Breadth as of ${b.date}${b.gen ? " · scan " + b.gen : ""} · ${b.total} stocks`}>Breadth Monitor</span>
+        <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 700 }} title={`True EMA breadth — top ${b.n} liquid names, as of ${b.date}${b.gen ? " · computed " + b.gen : ""}`}>Breadth Monitor</span>
         {badge("Primary", regime.primary, REG_C[regime.primary])}
         {badge("Secondary", regime.secondary, SEC_C[regime.secondary])}
         <div style={{ display: "flex", gap: 14, alignItems: "center", marginLeft: "auto", flexWrap: "wrap" }}>
-          {therm(">40DMA", b.t2108, `T2108 — % of stocks above their 40-day MA (headline breadth thermometer). ${b.date}`)}
-          {pair("U4/D4", b.up4, b.down4, "Stocks up vs down 4%+ today — daily buying pressure (Stockbee primary)")}
-          {pair("25Q", b.up25q, b.down25q, "Stocks up vs down 25%+ in a quarter — intermediate momentum (Stockbee primary)")}
+          {therm(">20", b.p20, `% of top ${b.n} liquid names above their 20 EMA (short-term participation). ${b.date}`)}
+          {therm(">50", b.p50, `% above 50 EMA (intermediate trend participation)`)}
+          {therm("10>20", b.p1020, `% with 10 EMA above 20 EMA (short-term momentum confirming)`)}
+          {therm(">200", b.p200, `% above 200 EMA (long-term trend participation)`)}
           <button onClick={() => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-breadth-monitor-open", n ? "1" : "0"); } catch {} return n; })}
             title="Toggle SPY regime chart"
             style={{ fontSize: 9, fontWeight: 700, color: open ? ARIA.text : ARIA.textMuted, background: open ? ARIA.glass || "transparent" : "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 7px", cursor: "pointer" }}>
