@@ -971,8 +971,9 @@ async function fetchOhlcBars(ticker) {
   }
 }
 
-// Equal-weight basket index from constituent tickers: normalize each to 100 at
-// its first day in the window, average across available names per date.
+// True equal-weight (daily-rebalanced / constant-mix) basket index from the
+// constituent tickers: each day the basket return = mean of constituents' daily
+// returns, so weights stay equal and no single winner dominates the regime.
 async function buildBasketSeries(tickers) {
   const lists = await Promise.all(tickers.slice(0, 15).map(fetchOhlcBars));
   const maps = lists.map((bars) => {
@@ -983,15 +984,17 @@ async function buildBasketSeries(tickers) {
   const dateSet = new Set();
   maps.forEach((m) => m.forEach((_, d) => dateSet.add(d)));
   const dates = [...dateSet].sort();
-  const bases = maps.map((m) => {
-    for (const d of dates) if (m.has(d)) return m.get(d);
-    return null;
-  });
   const out = [];
-  for (const d of dates) {
-    let sum = 0, n = 0;
-    maps.forEach((m, i) => { if (m.has(d) && bases[i]) { sum += (m.get(d) / bases[i]) * 100; n++; } });
-    if (n) out.push({ date: d, close: sum / n });
+  let idx = 100;
+  for (let i = 0; i < dates.length; i++) {
+    const d = dates[i];
+    if (i > 0) {
+      const pd = dates[i - 1];
+      const rets = [];
+      maps.forEach((m) => { if (m.has(d) && m.has(pd) && m.get(pd)) rets.push(m.get(d) / m.get(pd) - 1); });
+      if (rets.length) idx *= 1 + rets.reduce((a, b) => a + b, 0) / rets.length;
+    }
+    out.push({ date: d, close: idx });
   }
   return out;
 }
