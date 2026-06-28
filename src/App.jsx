@@ -958,7 +958,7 @@ function emaSeries(values, period) {
 // IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
 // holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
 // rotation board (which embeds it) and Market Conditions can drive the symbol.
-function IndexRegimeChart({ sym, setSym }) {
+function IndexRegimeChart({ sym, setSym, rightPanel }) {
   const ARIA = useAriaTheme();
   const [spy, setSpy] = useState(null);     // { sym, regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
@@ -1086,7 +1086,6 @@ function IndexRegimeChart({ sym, setSym }) {
   };
 
   const KNOWN = ["SPY", "QQQ", "IWM", "XLV", "XLU", "XLP", "GLD", "GDX", "SH", "PSQ"];
-  const info = INDEX_INFO[sym] || { name: sym, role: "", roleColor: ARIA.textMuted, blurb: "" };
   return (
     <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
@@ -1128,17 +1127,12 @@ function IndexRegimeChart({ sym, setSym }) {
           )}
         </div>
         <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
-        {/* Right: short blurb */}
-        <div style={{ width: 200, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: ARIA.text }}>{sym}</span>
-            <span style={{ fontSize: 8, color: ARIA.textDim }}>{info.name}</span>
+        {/* Right: caller-provided panel (Sector Leaders) */}
+        {rightPanel && (
+          <div style={{ width: 392, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column", minWidth: 320 }}>
+            {rightPanel}
           </div>
-          {info.role && (
-            <span style={{ alignSelf: "flex-start", fontSize: 7, fontWeight: 700, color: info.roleColor, background: info.roleColor + "1c", border: `1px solid ${info.roleColor}55`, borderRadius: 2, padding: "0 4px", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 5 }}>{info.role}</span>
-          )}
-          <div style={{ fontSize: 8.5, color: ARIA.textDim, lineHeight: 1.5 }}>{info.blurb}</div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1459,23 +1453,24 @@ function RsRotationBoard({ onTickerClick }) {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Regime chart for the selected ETF (folded in from the Breadth Monitor) */}
-          <IndexRegimeChart sym={sym} setSym={setSymPersist} />
-          {/* Movers + Sector Leaders */}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: "1 1 360px", minWidth: 300 }}>
-              <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={openTicker} ARIA={ARIA} />
-              <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={openTicker} ARIA={ARIA} />
-              <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={openTicker} ARIA={ARIA} />
-              <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={openTicker} ARIA={ARIA} />
-            </div>
-            <div style={{ flex: "1 1 420px", minWidth: 340, border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden" }}>
-              <div style={{ padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 5 }}>
+          {/* Regime chart (left) + Sector Leaders (right of the graph) */}
+          <IndexRegimeChart sym={sym} setSym={setSymPersist} rightPanel={
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
                 <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
                 <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Sector Leaders</span>
               </div>
-              <div style={{ padding: "0 4px 2px" }}><RsTable rows={d.sectors} sortable={false} onTicker={openTicker} ARIA={ARIA} /></div>
-            </div>
+              <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden" }}>
+                <RsTable rows={d.sectors} sortable={false} onTicker={openTicker} ARIA={ARIA} />
+              </div>
+            </>
+          } />
+          {/* Movers — full width */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+            <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={openTicker} ARIA={ARIA} />
+            <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={openTicker} ARIA={ARIA} />
+            <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={openTicker} ARIA={ARIA} />
+            <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={openTicker} ARIA={ARIA} />
           </div>
           {/* Industry RS Rank — sortable */}
           <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden" }}>
