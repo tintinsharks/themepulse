@@ -1621,6 +1621,25 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
+          {(() => {
+            const activeRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
+            const isLayer = rsTab === "layers";
+            const mv = (prevKey, dir) => {
+              const scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
+              scored.sort((a, b) => (dir === "up" ? b.pts - a.pts : a.pts - b.pts));
+              return scored.slice(0, 7);
+            };
+            const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+              </div>
+            );
+          })()}
           {/* Regime chart (left) + tabbed Sectors/Industries table (right of the graph) */}
           {(() => {
             const tabBtn = (key, label) => (
@@ -1652,25 +1671,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   </div>
                 </>
               } />
-            );
-          })()}
-          {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
-          {(() => {
-            const activeRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
-            const isLayer = rsTab === "layers";
-            const mv = (prevKey, dir) => {
-              const scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
-              scored.sort((a, b) => (dir === "up" ? b.pts - a.pts : a.pts - b.pts));
-              return scored.slice(0, 7);
-            };
-            const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
-            return (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-                <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-              </div>
             );
           })()}
         </div>
