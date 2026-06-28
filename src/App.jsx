@@ -1259,6 +1259,130 @@ function MarketBreadthMonitor() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Market Conditions — distribution days, SMA-trend grid, performance, verdict
+// ──────────────────────────────────────────────────────────────────────────
+let _breadthCache = null, _breadthFetching = false; const _breadthListeners = [];
+function useBreadthData() {
+  const [d, setD] = useState(_breadthCache);
+  useEffect(() => {
+    if (_breadthCache) { setD(_breadthCache); return; }
+    if (_breadthFetching) { _breadthListeners.push(setD); return; }
+    _breadthFetching = true;
+    fetch("/data/breadth.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { _breadthCache = j; setD(j); _breadthListeners.forEach((fn) => fn(j)); _breadthListeners.length = 0; })
+      .catch(() => { _breadthFetching = false; });
+  }, []);
+  return d;
+}
+
+function MarketConditionsPanel() {
+  const ARIA = useAriaTheme();
+  const bd = useBreadthData();
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("tp-conditions-open") !== "0"; } catch { return true; }
+  });
+  if (!bd?.conditions) return null;
+  const c = bd.conditions;
+  const STAT = { pos: ARIA.green, neg: ARIA.red, neu: ARIA.textMuted };
+  const SLABEL = { pos: "Positive", neg: "Negative", neu: "Neutral" };
+  const verdictC = c.verdict === "Positive" ? ARIA.green : c.verdict === "Negative" ? ARIA.red : ARIA.yellow;
+  const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-conditions-open", n ? "1" : "0"); } catch {} return n; });
+
+  const bStat = (v) => v == null ? "neu" : v >= 67 ? "pos" : v < 40 ? "neg" : "neu";
+  const rStat = (v) => v == null ? "neu" : v > 2 ? "pos" : v < -2 ? "neg" : "neu";
+
+  const gridCell = (label, v) => {
+    const st = bStat(v), c2 = STAT[st];
+    return (
+      <div key={label} style={{ flex: "1 1 90px", minWidth: 82, border: `1px solid ${ARIA.border}`, borderRadius: 5, padding: "4px 7px" }}>
+        <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, fontWeight: 700 }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: ARIA.text, fontFamily: "monospace" }}>{v == null ? "—" : v.toFixed(2) + "%"}</div>
+        <div style={{ height: 3, background: ARIA.border, borderRadius: 2, margin: "3px 0", overflow: "hidden" }}>
+          <div style={{ width: `${Math.min(100, v || 0)}%`, height: "100%", background: c2 }} />
+        </div>
+        <div style={{ fontSize: 7.5, fontWeight: 700, color: c2 }}>{SLABEL[st]}</div>
+      </div>
+    );
+  };
+  const perfCell = (label, v, st, fmt) => {
+    const c2 = STAT[st];
+    return (
+      <div key={label} style={{ flex: "1 1 70px", minWidth: 64, border: `1px solid ${ARIA.border}`, borderRadius: 5, padding: "4px 7px", textAlign: "center" }}>
+        <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, fontWeight: 700 }}>{label}</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, fontFamily: "monospace" }}>{fmt}</div>
+        <div style={{ fontSize: 7.5, fontWeight: 700, color: c2 }}>{SLABEL[st]}</div>
+      </div>
+    );
+  };
+  const p = c.perf || {};
+  const distCard = (tk) => {
+    const dd = c.dist_days?.[tk]; if (!dd) return null;
+    const lc = dd.label === "Correction" ? ARIA.red : dd.label === "Under Pressure" ? ARIA.yellow : ARIA.green;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px", border: `1px solid ${ARIA.border}`, borderRadius: 5 }}>
+        <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.text, width: 30 }}>{tk}</span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+          <span style={{ fontSize: 7, color: ARIA.textMuted }}>Today</span>
+          <span style={{ fontSize: 15, fontWeight: 800, color: lc, fontFamily: "monospace" }}>{dd.today}</span>
+          <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: 5 }}>1D ago</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: ARIA.textDim, fontFamily: "monospace" }}>{dd.prior}</span>
+        </div>
+        <span style={{ fontSize: 8, fontWeight: 700, color: lc, marginLeft: "auto" }}>{dd.label}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
+      <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
+        <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Market Conditions</span>
+        <span style={{ fontSize: 9, fontWeight: 800, color: verdictC, background: verdictC + "1c", border: `1px solid ${verdictC}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>{c.verdict}</span>
+        {c.dist_days?.SPY && (
+          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>
+            Dist: SPY <b style={{ color: c.dist_days.SPY.today >= 5 ? ARIA.red : ARIA.textDim }}>{c.dist_days.SPY.today}</b> · QQQ <b style={{ color: c.dist_days.QQQ.today >= 5 ? ARIA.red : ARIA.textDim }}>{c.dist_days.QQQ.today}</b>
+          </span>
+        )}
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>as of {bd.date}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ flex: "2 1 460px", minWidth: 320 }}>
+              <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Breadth & Trend</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {gridCell("SMA 10", c.sma_grid?.sma10)}
+                {gridCell("SMA 20", c.sma_grid?.sma20)}
+                {gridCell("SMA 50", c.sma_grid?.sma50)}
+                {gridCell("SMA 200", c.sma_grid?.sma200)}
+                {gridCell("20 > 50", c.sma_grid?.x20_50)}
+                {gridCell("50 > 200", c.sma_grid?.x50_200)}
+              </div>
+            </div>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Distribution Days</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{distCard("SPY")}{distCard("QQQ")}</div>
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Market Performance (SPY)</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {perfCell("YTD", p.ytd, rStat(p.ytd), p.ytd == null ? "—" : (p.ytd > 0 ? "+" : "") + p.ytd.toFixed(2) + "%")}
+              {perfCell("1W", p.w1, rStat(p.w1), p.w1 == null ? "—" : (p.w1 > 0 ? "+" : "") + p.w1.toFixed(2) + "%")}
+              {perfCell("1M", p.m1, rStat(p.m1), p.m1 == null ? "—" : (p.m1 > 0 ? "+" : "") + p.m1.toFixed(2) + "%")}
+              {perfCell("1Y", p.y1, rStat(p.y1), p.y1 == null ? "—" : (p.y1 > 0 ? "+" : "") + p.y1.toFixed(2) + "%")}
+              {perfCell("52W High", p.off52, p.off52 == null ? "neu" : p.off52 > -3 ? "pos" : p.off52 < -8 ? "neg" : "neu", p.off52 == null ? "—" : p.off52.toFixed(2) + "%")}
+              {perfCell("VIX", p.vix, p.vix == null ? "neu" : p.vix < 16 ? "pos" : p.vix > 25 ? "neg" : "neu", p.vix == null ? "—" : p.vix.toFixed(2))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // RS Rotation Board — sector/industry relative-strength rank rotation
 // ──────────────────────────────────────────────────────────────────────────
 // Reads /data/rs_rotation.json (pipeline 10c_rs_rotation.py). Collapsible.
@@ -11738,6 +11862,11 @@ function AppMain() {
           <>
             {/* Top: Market Breadth Bar (full width) */}
             <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
+
+            {/* Market Conditions — distribution days, SMA trend, performance, verdict */}
+            <ErrorBoundary>
+              <MarketConditionsPanel />
+            </ErrorBoundary>
 
             {/* Breadth regime monitor — compact, slide-out SPY regime chart */}
             <ErrorBoundary>
