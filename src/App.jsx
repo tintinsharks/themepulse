@@ -1404,7 +1404,7 @@ function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
   );
 }
 
-function RsRotationBoard({ onTickerClick, stockMap, tickerStrengthMap }) {
+function RsRotationBoard({ onTickerClick }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
@@ -1471,14 +1471,10 @@ function RsRotationBoard({ onTickerClick, stockMap, tickerStrengthMap }) {
                     {tabBtn("layers", "Layers")}
                     {rsTab !== "sectors" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>}
                   </div>
-                  <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150, display: "flex", flexDirection: "column" }}>
-                    {rsTab === "layers" ? (
-                      <ChainLayerTable stockMap={stockMap} tickerStrengthMap={tickerStrengthMap}
-                        onTickerClick={openTicker} onLayerClick={(l, tks) => tks?.[0] && openTicker(tks[0])}
-                        activeFilterNames={[]} posOnly={false} />
-                    ) : (
-                      <RsTable rows={rsTab === "sectors" ? d.sectors : d.industries} sortable={rsTab === "industries"} onTicker={openTicker} ARIA={ARIA} />
-                    )}
+                  <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
+                    <RsTable
+                      rows={rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || [])}
+                      sortable={rsTab !== "sectors"} onTicker={openTicker} ARIA={ARIA} />
                   </div>
                 </>
               } />
@@ -11824,7 +11820,7 @@ function AppMain() {
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
             <ErrorBoundary>
-              <RsRotationBoard onTickerClick={handleTickerClick} stockMap={stockMap} tickerStrengthMap={tickerStrengthMap} />
+              <RsRotationBoard onTickerClick={handleTickerClick} />
             </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
