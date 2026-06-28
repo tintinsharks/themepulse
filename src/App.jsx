@@ -1414,6 +1414,7 @@ function RsRotationBoard({ onTickerClick }) {
   const [sym, setSym] = useState(() => {
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
+  const [rsTab, setRsTab] = useState("sectors"); // right-panel tab: sectors | industries
   const setSymPersist = useCallback((s) => {
     setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {}
   }, []);
@@ -1453,33 +1454,35 @@ function RsRotationBoard({ onTickerClick }) {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Regime chart (left) + Sector Leaders (right of the graph) */}
-          <IndexRegimeChart sym={sym} setSym={setSymPersist} rightPanel={
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
-                <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Sector Leaders</span>
-              </div>
-              <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden" }}>
-                <RsTable rows={d.sectors} sortable={false} onTicker={openTicker} ARIA={ARIA} />
-              </div>
-            </>
-          } />
+          {/* Regime chart (left) + tabbed Sectors/Industries table (right of the graph) */}
+          {(() => {
+            const tabBtn = (key, label) => (
+              <button onClick={() => setRsTab(key)}
+                style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
+                  color: rsTab === key ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none",
+                  borderBottom: `2px solid ${rsTab === key ? ARIA.blue : "transparent"}` }}>{label}</button>
+            );
+            return (
+              <IndexRegimeChart sym={sym} setSym={setSymPersist} rightPanel={
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
+                    {tabBtn("sectors", "Sector Leaders")}
+                    {tabBtn("industries", "Industries")}
+                    {rsTab === "industries" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>}
+                  </div>
+                  <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
+                    <RsTable rows={rsTab === "sectors" ? d.sectors : d.industries} sortable={rsTab === "industries"} onTicker={openTicker} ARIA={ARIA} />
+                  </div>
+                </>
+              } />
+            );
+          })()}
           {/* Movers — full width */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
             <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={openTicker} ARIA={ARIA} />
             <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={openTicker} ARIA={ARIA} />
             <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={openTicker} ARIA={ARIA} />
             <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={openTicker} ARIA={ARIA} />
-          </div>
-          {/* Industry RS Rank — sortable */}
-          <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden" }}>
-            <div style={{ padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
-              <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Industry RS Rank</span>
-              <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>click a header to sort · click a ticker to chart it</span>
-            </div>
-            <div style={{ padding: "0 4px 2px", maxHeight: 360, overflowY: "auto" }}><RsTable rows={d.industries} sortable onTicker={openTicker} ARIA={ARIA} /></div>
           </div>
         </div>
       )}
