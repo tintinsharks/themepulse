@@ -1387,8 +1387,8 @@ function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
         <span style={{ width: 3, height: 11, background: accent, borderRadius: 2 }} />
         <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{title}</span>
       </div>
-      {/* Single-line rows, capped to the original ~3-row footprint (scrolls for 7). */}
-      <div style={{ maxHeight: 96, overflowY: "auto" }}>
+      {/* Single-line rows — height for ~6 visible, 7th scrolls. */}
+      <div style={{ maxHeight: 150, overflowY: "auto" }}>
         {(rows || []).map((m) => (
           <div key={m.ticker} title={`${m.ticker} · ${m.name} — $${m.price?.toFixed(2)} · ${m.pts >= 0 ? "+" : ""}${m.pts} pts`}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 7px", borderBottom: `1px solid ${ARIA.border}25` }}>
