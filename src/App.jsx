@@ -958,7 +958,7 @@ function emaSeries(values, period) {
 // IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
 // holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
 // rotation board (which embeds it) and Market Conditions can drive the symbol.
-function IndexRegimeChart({ sym, setSym, rightPanel }) {
+function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride }) {
   const ARIA = useAriaTheme();
   const [spy, setSpy] = useState(null);     // { sym, regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
@@ -990,14 +990,16 @@ function IndexRegimeChart({ sym, setSym, rightPanel }) {
       .finally(() => setSpyLoading(false));
   }, [sym, spy, spyLoading]);
 
-  // Top holdings by weight for the selected index.
+  // Top holdings by weight for the selected index (skipped when a layer's
+  // constituents are supplied via holdingsOverride).
   useEffect(() => {
+    if (holdingsOverride) return;
     if (holdings && holdings.sym === sym) return;
     fetch(`/api/live?etf=${encodeURIComponent(sym)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setHoldings({ sym, list: (d?.holdings || []).slice(0, 10) }))
       .catch(() => setHoldings({ sym, list: [] }));
-  }, [sym, holdings]);
+  }, [sym, holdings, holdingsOverride]);
 
   // regime SVG — colored polyline segments + dashed weekly-20.
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1105,25 +1107,47 @@ function IndexRegimeChart({ sym, setSym, rightPanel }) {
         <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>click a ticker above to chart it</span>
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
-        {/* Left: top-10 constituents by weight */}
+        {/* Left: ETF top-10 by weight, OR layer constituents by RS strength */}
         <div style={{ width: 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>{sym} Top 10 · wt</div>
-          {!holdings || holdings.sym !== sym ? (
-            <div style={{ fontSize: 8, color: ARIA.textMuted }}>Loading…</div>
-          ) : holdings.list.length === 0 ? (
-            <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
+          {holdingsOverride ? (
+            <>
+              <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Layer · RS</div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: holdingsOverride.length > 7 ? "flex-start" : "space-between", overflowY: "auto" }}>
+                {holdingsOverride.map((h) => {
+                  const c = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
+                  return (
+                    <div key={h.t} onClick={() => setSym(h.t)} title={`${h.t} — RS ${h.s ?? "—"} (click to chart)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0" }}>
+                      <span style={{ fontWeight: 700, color: h.t === sym ? ARIA.text : ARIA.blue, width: 40, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
+                      <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
+                        <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: c }} />
+                      </div>
+                      <span style={{ color: ARIA.textDim, width: 18, textAlign: "right", flexShrink: 0 }}>{h.s ?? "—"}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              {holdings.list.map((h) => (
-                <div key={h.ticker} title={`${h.name} — ${h.weight}%`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9 }}>
-                  <span style={{ fontWeight: 700, color: ARIA.text, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
-                  <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
-                    <div style={{ width: `${Math.min(100, (h.weight / (holdings.list[0].weight || 1)) * 100)}%`, height: "100%", background: ARIA.blue }} />
-                  </div>
-                  <span style={{ color: ARIA.textDim, width: 26, textAlign: "right", flexShrink: 0 }}>{h.weight}%</span>
+            <>
+              <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>{sym} Top 10 · wt</div>
+              {!holdings || holdings.sym !== sym ? (
+                <div style={{ fontSize: 8, color: ARIA.textMuted }}>Loading…</div>
+              ) : holdings.list.length === 0 ? (
+                <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
+              ) : (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                  {holdings.list.map((h) => (
+                    <div key={h.ticker} title={`${h.name} — ${h.weight}%`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9 }}>
+                      <span style={{ fontWeight: 700, color: ARIA.text, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
+                      <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
+                        <div style={{ width: `${Math.min(100, (h.weight / (holdings.list[0].weight || 1)) * 100)}%`, height: "100%", background: ARIA.blue }} />
+                      </div>
+                      <span style={{ color: ARIA.textDim, width: 26, textAlign: "right", flexShrink: 0 }}>{h.weight}%</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
         <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
@@ -1333,7 +1357,7 @@ function RsRankBox({ v, ARIA }) {
   );
 }
 
-function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag }) {
+function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect }) {
   const [sort, setSort] = useState({ key: "now", dir: "desc" });
   const sorted = useMemo(() => {
     if (!sortable) return rows;
@@ -1369,7 +1393,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.m1} ARIA={ARIA} /></td>
             <td style={{ padding: "2px 6px" }}>
               {getTag ? (
-                <button onClick={() => onTicker?.(r.ticker)} title={`${r.n || ""} tickers · lead ${r.ticker} — click to chart`}
+                <button onClick={() => (onLayerSelect || ((rr) => onTicker?.(rr.ticker)))(r)} title={`${r.n || ""} tickers · lead ${r.ticker} — click to load layer`}
                   style={{ background: ARIA.blue + "1c", border: `1px solid ${ARIA.blue}44`, borderRadius: 3, color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 8, cursor: "pointer", padding: "0 4px", whiteSpace: "nowrap" }}>{getTag(r)}</button>
               ) : (
                 <button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button>
@@ -1421,7 +1445,8 @@ function RsRotationBoard({ onTickerClick }) {
   const [sym, setSym] = useState(() => {
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
-  const [rsTab, setRsTab] = useState("sectors"); // right-panel tab: sectors | industries
+  const [rsTab, setRsTab] = useState("sectors"); // right-panel tab: sectors | industries | layers
+  const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const setSymPersist = useCallback((s) => {
     setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {}
   }, []);
@@ -1438,12 +1463,21 @@ function RsRotationBoard({ onTickerClick }) {
   }, [setSymPersist]);
   if (!d) return null;
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
-  // Click a ticker → chart it in the embedded Index Regime chart + the main panel.
+  // Click an ETF ticker → chart it + ETF holdings (clears any layer override).
   const openTicker = (t) => {
     if (!t) return;
+    setLayerHolds(null);
     setSymPersist(t);
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(t);
+  };
+  // Click a layer → chart its lead + show its constituents (by RS) on the left.
+  const openLayer = (r) => {
+    if (!r?.ticker) return;
+    setLayerHolds(r.holds || []);
+    setSymPersist(r.ticker);
+    setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
+    onTickerClick?.(r.ticker);
   };
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
@@ -1470,7 +1504,7 @@ function RsRotationBoard({ onTickerClick }) {
                   borderBottom: `2px solid ${rsTab === key ? ARIA.blue : "transparent"}` }}>{label}</button>
             );
             return (
-              <IndexRegimeChart sym={sym} setSym={setSymPersist} rightPanel={
+              <IndexRegimeChart sym={sym} setSym={setSymPersist} holdingsOverride={layerHolds} rightPanel={
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                     {tabBtn("sectors", "Sector Leaders")}
@@ -1483,7 +1517,8 @@ function RsRotationBoard({ onTickerClick }) {
                       rows={rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || [])}
                       sortable={rsTab !== "sectors"} onTicker={openTicker} ARIA={ARIA}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
-                      getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined} />
+                      getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
+                      onLayerSelect={rsTab === "layers" ? openLayer : undefined} />
                   </div>
                 </>
               } />
