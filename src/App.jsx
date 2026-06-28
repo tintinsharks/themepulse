@@ -978,6 +978,20 @@ function MarketBreadthMonitor() {
       .catch(() => setBd(null));
   }, []);
 
+  // Let other panels (e.g. the RS rotation board) drive this chart's symbol.
+  useEffect(() => {
+    const onSym = (e) => {
+      const t = (e?.detail || "").toUpperCase();
+      if (!t) return;
+      setSym(t);
+      try { localStorage.setItem("tp-breadth-sym", t); } catch {}
+      setOpen(true);
+      try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {}
+    };
+    window.addEventListener("tp-breadth-sym", onSym);
+    return () => window.removeEventListener("tp-breadth-sym", onSym);
+  }, []);
+
   const { regime, b } = useMemo(() => {
     if (!bd?.current || !bd?.regime) return { regime: null, b: null };
     const c = bd.current;
@@ -1150,6 +1164,9 @@ function MarketBreadthMonitor() {
               onChange={(e) => { const s = e.target.value; setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {} if (!open) { setOpen(true); try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {} } }}
               title="Index for the regime chart"
               style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
+              {!["SPY", "QQQ", "IWM", "XLV", "XLU", "XLP", "GLD", "GDX", "SH", "PSQ"].includes(sym) && (
+                <option value={sym}>{sym}</option>
+              )}
               <optgroup label="Risk-on">
                 <option value="SPY">SPY</option>
                 <option value="QQQ">QQQ</option>
@@ -1349,6 +1366,13 @@ function RsRotationBoard({ onTickerClick }) {
   });
   if (!d) return null;
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
+  // Click a ticker → load it into the Breadth Monitor's regime chart + holdings
+  // (the "graph and tickers list on top") and the main chart panel.
+  const openTicker = (t) => {
+    if (!t) return;
+    try { window.dispatchEvent(new CustomEvent("tp-breadth-sym", { detail: t })); } catch {}
+    onTickerClick?.(t);
+  };
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
@@ -1367,17 +1391,17 @@ function RsRotationBoard({ onTickerClick }) {
           {/* Movers + Sector Leaders */}
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: "1 1 360px", minWidth: 300 }}>
-              <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={onTickerClick} ARIA={ARIA} />
-              <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={onTickerClick} ARIA={ARIA} />
-              <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={onTickerClick} ARIA={ARIA} />
-              <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={onTickerClick} ARIA={ARIA} />
+              <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={d.rankUpDaily} onTicker={openTicker} ARIA={ARIA} />
+              <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={d.rankUpWeekly} onTicker={openTicker} ARIA={ARIA} />
+              <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={d.rankDownDaily} onTicker={openTicker} ARIA={ARIA} />
+              <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={d.rankDownWeekly} onTicker={openTicker} ARIA={ARIA} />
             </div>
             <div style={{ flex: "1 1 420px", minWidth: 340, border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden" }}>
               <div style={{ padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 5 }}>
                 <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
                 <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Sector Leaders</span>
               </div>
-              <div style={{ padding: "0 4px 2px" }}><RsTable rows={d.sectors} sortable={false} onTicker={onTickerClick} ARIA={ARIA} /></div>
+              <div style={{ padding: "0 4px 2px" }}><RsTable rows={d.sectors} sortable={false} onTicker={openTicker} ARIA={ARIA} /></div>
             </div>
           </div>
           {/* Industry RS Rank — sortable */}
@@ -1387,7 +1411,7 @@ function RsRotationBoard({ onTickerClick }) {
               <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>Industry RS Rank</span>
               <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>click a header to sort · click a ticker to chart it</span>
             </div>
-            <div style={{ padding: "0 4px 2px", maxHeight: 360, overflowY: "auto" }}><RsTable rows={d.industries} sortable onTicker={onTickerClick} ARIA={ARIA} /></div>
+            <div style={{ padding: "0 4px 2px", maxHeight: 360, overflowY: "auto" }}><RsTable rows={d.industries} sortable onTicker={openTicker} ARIA={ARIA} /></div>
           </div>
         </div>
       )}
