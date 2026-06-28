@@ -1333,7 +1333,7 @@ function RsRankBox({ v, ARIA }) {
   );
 }
 
-function RsTable({ rows, sortable, onTicker, ARIA }) {
+function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag }) {
   const [sort, setSort] = useState({ key: "now", dir: "desc" });
   const sorted = useMemo(() => {
     if (!sortable) return rows;
@@ -1348,7 +1348,7 @@ function RsTable({ rows, sortable, onTicker, ARIA }) {
     });
     return arr;
   }, [rows, sort, sortable]);
-  const cols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", "Ticker"], ["name", "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["off52", "52W High"]];
+  const cols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["off52", "52W High"]];
   const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
   const hdr = (key, label) => (
@@ -1367,8 +1367,15 @@ function RsTable({ rows, sortable, onTicker, ARIA }) {
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.m1} ARIA={ARIA} /></td>
-            <td style={{ padding: "2px 6px" }}><button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button></td>
-            <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}</td>
+            <td style={{ padding: "2px 6px" }}>
+              {getTag ? (
+                <button onClick={() => onTicker?.(r.ticker)} title={`${r.n || ""} tickers · lead ${r.ticker} — click to chart`}
+                  style={{ background: ARIA.blue + "1c", border: `1px solid ${ARIA.blue}44`, borderRadius: 3, color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 8, cursor: "pointer", padding: "0 4px", whiteSpace: "nowrap" }}>{getTag(r)}</button>
+              ) : (
+                <button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button>
+              )}
+            </td>
+            <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}{getTag && r.n ? <span style={{ color: ARIA.textMuted, fontSize: 8 }}> · {r.n}</span> : ""}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
@@ -1474,7 +1481,9 @@ function RsRotationBoard({ onTickerClick }) {
                   <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
                     <RsTable
                       rows={rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || [])}
-                      sortable={rsTab !== "sectors"} onTicker={openTicker} ARIA={ARIA} />
+                      sortable={rsTab !== "sectors"} onTicker={openTicker} ARIA={ARIA}
+                      tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
+                      getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined} />
                   </div>
                 </>
               } />
