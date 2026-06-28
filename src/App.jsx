@@ -1524,7 +1524,7 @@ function RsRotationBoard({ onTickerClick }) {
                   <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
                     <RsTable
                       rows={rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || [])}
-                      sortable={rsTab !== "sectors"} onTicker={openTicker} ARIA={ARIA}
+                      sortable onTicker={openTicker} ARIA={ARIA}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
                       onLayerSelect={rsTab === "layers" ? openLayer : undefined} />
