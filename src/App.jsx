@@ -1023,15 +1023,27 @@ function MarketBreadthMonitor() {
   const Chart = () => {
     if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading SPY regime…</div>;
     if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>SPY data unavailable</div>;
-    const W = 640, H = 158, padX = 4, padT = 8, padB = 16; // padB leaves room for x-axis labels
+    const W = 640, H = 158, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
     const bars = spy.regimeBars, wk = spy.wk20;
     const lo = Math.min(...bars.map((x) => x.close), ...wk);
     const hi = Math.max(...bars.map((x) => x.close), ...wk);
     const rng = hi - lo || 1;
-    const x = (i) => padX + (i / (bars.length - 1)) * (W - padX * 2);
+    const x = (i) => padL + (i / (bars.length - 1)) * (W - padL - padX);
     const y = (v) => padT + (1 - (v - lo) / rng) * (H - padT - padB);
     const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
     const axisY = H - padB;
+
+    // y-axis price gridlines — 4 intervals between lo and hi
+    const yTicks = [];
+    for (let j = 0; j <= 4; j++) {
+      const v = lo + (rng * j) / 4;
+      yTicks.push(
+        <g key={`y${j}`}>
+          <line x1={padL} y1={y(v)} x2={W - padX} y2={y(v)} stroke={ARIA.border} strokeWidth={0.5} opacity={0.35} />
+          <text x={padL - 4} y={y(v) + 3} textAnchor="end" fontSize="8" fill={ARIA.textMuted} fontFamily="monospace">{Math.round(v)}</text>
+        </g>
+      );
+    }
     const segs = [];
     for (let i = 1; i < bars.length; i++) {
       segs.push(<line key={i} x1={x(i - 1)} y1={y(bars[i - 1].close)} x2={x(i)} y2={y(bars[i].close)}
@@ -1058,7 +1070,8 @@ function MarketBreadthMonitor() {
 
     const onMove = (e) => {
       const r = e.currentTarget.getBoundingClientRect();
-      const frac = (e.clientX - r.left) / (r.width || 1);
+      const px = ((e.clientX - r.left) / (r.width || 1)) * W; // → viewBox coords
+      const frac = (px - padL) / (W - padL - padX);           // within plot area
       const i = Math.max(0, Math.min(bars.length - 1, Math.round(frac * (bars.length - 1))));
       setHoverIdx(i);
     };
@@ -1068,7 +1081,8 @@ function MarketBreadthMonitor() {
     return (
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 158, display: "block", cursor: "crosshair" }}
         onMouseMove={onMove} onMouseLeave={() => setHoverIdx(null)}>
-        <line x1={padX} y1={axisY} x2={W - padX} y2={axisY} stroke={ARIA.border} strokeWidth={0.7} />
+        {yTicks}
+        <line x1={padL} y1={axisY} x2={W - padX} y2={axisY} stroke={ARIA.border} strokeWidth={0.7} />
         {ticks}
         <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
         {segs}
