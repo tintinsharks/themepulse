@@ -933,6 +933,20 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
 // dist_NNdma_atrx sign), and a slide-out SPY line colored by trend regime
 // (green = price ≥ weekly-20 & daily-10 ≥ daily-20; yellow = daily-10 < daily-20;
 // red = price < weekly-20). Lazy-fetches SPY OHLC only when expanded.
+// Short blurb per regime-chart symbol — what it tracks + how to read it.
+const INDEX_INFO = {
+  SPY: { name: "S&P 500", role: "Risk-on", roleColor: "#16a34a", blurb: "500 large-cap US stocks — the broad-market benchmark, mega-cap weighted. The baseline tape; green here = broad risk appetite." },
+  QQQ: { name: "Nasdaq-100", role: "Risk-on", roleColor: "#16a34a", blurb: "100 largest non-financial Nasdaq names — tech/growth heavy, higher beta. Leads both ways; rolls before SPY at tops." },
+  IWM: { name: "Russell 2000", role: "Risk-on", roleColor: "#16a34a", blurb: "Small-cap US stocks — the risk-appetite canary. Breadth here cracks first; green while SPY rolls = risk still on under the surface." },
+  XLV: { name: "Health Care SPDR", role: "Defensive", roleColor: "#60a5fa", blurb: "Pharma, biotech, devices, insurers. Classic defensive bid — green while tech rolls = money rotating to safety." },
+  XLU: { name: "Utilities SPDR", role: "Defensive", roleColor: "#60a5fa", blurb: "Regulated utilities — lowest-beta, rate-sensitive. The textbook risk-off hide; leads when growth gets sold." },
+  XLP: { name: "Consumer Staples SPDR", role: "Defensive", roleColor: "#60a5fa", blurb: "Food, beverage, household staples — steady demand. Defensive ballast; relative strength here signals caution." },
+  GLD: { name: "Gold bullion", role: "Hard asset", roleColor: "#fbbf24", blurb: "Physical gold — crisis/inflation hedge, low correlation to stocks. When red during a selloff, the move is tech-specific, not broad risk-off." },
+  GDX: { name: "Gold Miners", role: "Hard asset", roleColor: "#fbbf24", blurb: "Gold-mining equities — a leveraged play on GLD. Amplifies gold's move both ways; confirms or denies a gold trend." },
+  SH: { name: "Inverse S&P 500 (−1x)", role: "Hedge", roleColor: "#f472b6", blurb: "Rises when SPY falls. Green = SH trending up = market falling = the hedge is working. Red = market still up, no hedge needed." },
+  PSQ: { name: "Inverse Nasdaq-100 (−1x)", role: "Hedge", roleColor: "#f472b6", blurb: "Rises when QQQ falls. Green = the short hedge is working; red = tech still bid. Tactical, not buy-and-hold (decays sideways)." },
+};
+
 function emaSeries(values, period) {
   if (!values.length) return [];
   const k = 2 / (period + 1);
@@ -1205,34 +1219,22 @@ function MarketBreadthMonitor() {
             )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>{Chart()}</div>
-          {/* Right-side legend / explanation of the SPY regime line — two columns
-              so its height tracks the chart's. */}
-          <div style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>{sym} Trend Regime</div>
-            <div style={{ fontSize: 8, color: ARIA.textDim, lineHeight: 1.35, marginBottom: 6 }}>
-              {sym}'s daily close, colored by where it sits vs its moving averages.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", flex: 1, alignContent: "space-between" }}>
-              {[
-                ["#16a34a", "Green", "rect", "Uptrend — above weekly-20 & daily 10-EMA above 20-EMA. Lean in."],
-                ["#d9a441", "Yellow", "rect", "Caution — above weekly-20 but daily 10-EMA crossed below 20-EMA."],
-                ["#b1374a", "Red", "rect", "Broken — below the weekly-20 EMA. Trend down; expect failed breakouts."],
-                ["#b1374a", "Dashed", "line", "The weekly-20 EMA (≈100-day) — the trend line the color rule keys off."],
-              ].map(([c, label, kind, desc]) => (
-                <div key={label} style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
-                  {kind === "line" ? (
-                    <svg width="14" height="9" style={{ flexShrink: 0, marginTop: 2 }}><line x1="0" y1="4.5" x2="14" y2="4.5" stroke={c} strokeWidth="1.4" strokeDasharray="3 3" /></svg>
-                  ) : (
-                    <span style={{ width: 9, height: 9, borderRadius: 2, background: c, flexShrink: 0, marginTop: 1 }} />
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <span style={{ fontSize: 8, fontWeight: 700, color: c }}>{label}</span>
-                    <span style={{ fontSize: 7.5, color: ARIA.textMuted, lineHeight: 1.3 }}> — {desc}</span>
-                  </div>
+          {/* Right: short blurb explaining the selected index */}
+          {(() => {
+            const info = INDEX_INFO[sym] || { name: sym, role: "", roleColor: ARIA.textMuted, blurb: "" };
+            return (
+              <div style={{ width: 230, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: ARIA.text }}>{sym}</span>
+                  <span style={{ fontSize: 8, color: ARIA.textDim }}>{info.name}</span>
                 </div>
-              ))}
-            </div>
-          </div>
+                {info.role && (
+                  <span style={{ alignSelf: "flex-start", fontSize: 7, fontWeight: 700, color: info.roleColor, background: info.roleColor + "1c", border: `1px solid ${info.roleColor}55`, borderRadius: 2, padding: "0 4px", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 5 }}>{info.role}</span>
+                )}
+                <div style={{ fontSize: 8.5, color: ARIA.textDim, lineHeight: 1.5 }}>{info.blurb}</div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
