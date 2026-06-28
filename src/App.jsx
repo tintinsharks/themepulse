@@ -1379,7 +1379,10 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     });
     return arr;
   }, [augmented, sort, sortable]);
-  const cols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
+  // Layers (getTag) drop the Theme/identity column; the layer name itself is the
+  // clickable, fixed-width title so the numeric columns get more room.
+  const allCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
+  const cols = getTag ? allCols.filter(([k]) => k !== "ticker") : allCols;
   const TITLES = { rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over." };
   const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
@@ -1399,15 +1402,22 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.m1} ARIA={ARIA} /></td>
-            <td style={{ padding: "2px 6px" }}>
-              {getTag ? (
-                <button onClick={() => (onLayerSelect || ((rr) => onTicker?.(rr.ticker)))(r)} title={`${r.n || ""} tickers · lead ${r.ticker} — click to load layer`}
-                  style={{ background: ARIA.blue + "1c", border: `1px solid ${ARIA.blue}44`, borderRadius: 3, color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 8, cursor: "pointer", padding: "0 4px", whiteSpace: "nowrap" }}>{getTag(r)}</button>
-              ) : (
+            {!getTag && (
+              <td style={{ padding: "2px 6px" }}>
                 <button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button>
-              )}
-            </td>
-            <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}{getTag && r.n ? <span style={{ color: ARIA.textMuted, fontSize: 8 }}> · {r.n}</span> : ""}</td>
+              </td>
+            )}
+            {getTag ? (
+              <td style={{ padding: "2px 6px" }}>
+                <button onClick={() => (onLayerSelect || ((rr) => onTicker?.(rr.ticker)))(r)}
+                  title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker} (click to load)`}
+                  style={{ display: "block", width: 132, maxWidth: 132, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
+                  {r.name}{r.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span> : ""}
+                </button>
+              </td>
+            ) : (
+              <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}</td>
+            )}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
