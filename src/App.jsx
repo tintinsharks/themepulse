@@ -947,8 +947,9 @@ function MarketBreadthMonitor() {
     try { return localStorage.getItem("tp-breadth-monitor-open") === "1"; } catch { return false; }
   });
   const [bd, setBd] = useState(null);       // breadth.json (true EMA breadth)
-  const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime}], wk20: [...] }
+  const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
+  const [hoverIdx, setHoverIdx] = useState(null); // SPY chart crosshair index
 
   // True EMA breadth on the top liquid universe — fresh, validated against
   // ground truth (not the lagging Stockbee counts / broken ATR-dist signs).
@@ -983,7 +984,7 @@ function MarketBreadthMonitor() {
         const wk20 = emaSeries(closes, 100); // ~20 weeks ≈ weekly-20 on daily
         const regimeBars = closes.map((c, i) => {
           const regime = c < wk20[i] ? "red" : e10[i] < e20[i] ? "yellow" : "green";
-          return { close: c, regime };
+          return { close: c, regime, date: bars[i].date || null };
         });
         setSpy({ regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
       })
@@ -1018,28 +1019,73 @@ function MarketBreadthMonitor() {
   };
 
   // SPY regime SVG — colored polyline segments + dashed weekly-20.
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const Chart = () => {
     if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading SPY regime…</div>;
     if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>SPY data unavailable</div>;
-    const W = 640, H = 150, padX = 4, padY = 8;
+    const W = 640, H = 158, padX = 4, padT = 8, padB = 16; // padB leaves room for x-axis labels
     const bars = spy.regimeBars, wk = spy.wk20;
     const lo = Math.min(...bars.map((x) => x.close), ...wk);
     const hi = Math.max(...bars.map((x) => x.close), ...wk);
     const rng = hi - lo || 1;
     const x = (i) => padX + (i / (bars.length - 1)) * (W - padX * 2);
-    const y = (v) => padY + (1 - (v - lo) / rng) * (H - padY * 2);
+    const y = (v) => padT + (1 - (v - lo) / rng) * (H - padT - padB);
     const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+    const axisY = H - padB;
     const segs = [];
     for (let i = 1; i < bars.length; i++) {
       segs.push(<line key={i} x1={x(i - 1)} y1={y(bars[i - 1].close)} x2={x(i)} y2={y(bars[i].close)}
         stroke={CMAP[bars[i].regime]} strokeWidth={2} strokeLinecap="round" />);
     }
     const wkPath = wk.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+
+    // x-axis month ticks — mark the first bar of each calendar month
+    const ticks = [];
+    for (let i = 0; i < bars.length; i++) {
+      const d = bars[i].date;
+      if (!d) continue;
+      const mo = d.slice(5, 7), prevMo = i > 0 ? bars[i - 1].date?.slice(5, 7) : null;
+      if (i === 0 || mo !== prevMo) {
+        const lbl = MONTHS[parseInt(mo, 10) - 1] + (mo === "01" ? ` '${d.slice(2, 4)}` : "");
+        ticks.push(
+          <g key={`t${i}`}>
+            <line x1={x(i)} y1={padT} x2={x(i)} y2={axisY} stroke={ARIA.border} strokeWidth={0.5} opacity={0.4} />
+            <text x={x(i)} y={H - 4} textAnchor="middle" fontSize="8" fill={ARIA.textMuted} fontFamily="monospace">{lbl}</text>
+          </g>
+        );
+      }
+    }
+
+    const onMove = (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const frac = (e.clientX - r.left) / (r.width || 1);
+      const i = Math.max(0, Math.min(bars.length - 1, Math.round(frac * (bars.length - 1))));
+      setHoverIdx(i);
+    };
+    const h = hoverIdx != null && hoverIdx < bars.length ? bars[hoverIdx] : null;
+    const lastClose = bars[bars.length - 1].close;
+
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 150, display: "block" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 158, display: "block", cursor: "crosshair" }}
+        onMouseMove={onMove} onMouseLeave={() => setHoverIdx(null)}>
+        <line x1={padX} y1={axisY} x2={W - padX} y2={axisY} stroke={ARIA.border} strokeWidth={0.7} />
+        {ticks}
         <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
         {segs}
-        <text x={W - 4} y={y(bars[bars.length - 1].close) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">SPY {bars[bars.length - 1].close.toFixed(0)}</text>
+        {/* hover crosshair + readout */}
+        {h && (
+          <g>
+            <line x1={x(hoverIdx)} y1={padT} x2={x(hoverIdx)} y2={axisY} stroke={ARIA.textDim} strokeWidth={1} strokeDasharray="2 2" opacity={0.8} />
+            <circle cx={x(hoverIdx)} cy={y(h.close)} r={3} fill={CMAP[h.regime]} stroke={ARIA.bg} strokeWidth={1} />
+            <text x={x(hoverIdx) <= W / 2 ? x(hoverIdx) + 6 : x(hoverIdx) - 6} y={padT + 9}
+              textAnchor={x(hoverIdx) <= W / 2 ? "start" : "end"} fontSize="9" fontWeight="700" fill={ARIA.text} fontFamily="monospace">
+              {h.date} · SPY {h.close.toFixed(2)}
+            </text>
+          </g>
+        )}
+        {!h && (
+          <text x={W - 4} y={y(lastClose) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">SPY {lastClose.toFixed(0)}</text>
+        )}
       </svg>
     );
   };
@@ -1064,7 +1110,7 @@ function MarketBreadthMonitor() {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "4px 8px 6px" }}>
-          <Chart />
+          {Chart()}
           <div style={{ display: "flex", gap: 12, justifyContent: "center", fontSize: 7.5, color: ARIA.textMuted, marginTop: 2 }}>
             <span><span style={{ color: "#16a34a" }}>■</span> Price ≥ Wk-20 & D10≥D20</span>
             <span><span style={{ color: "#d9a441" }}>■</span> D10 &lt; D20</span>
