@@ -5269,8 +5269,28 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
 // sortable. Replaces the iframe view in ScanWatch's "Chain" sub-tab.
 // ── Shared hook: computes per-layer aggregates used by ChainLayerTable and
 // ChainFlowMap. Centralises useLiveQuotes so both views share one poll cycle.
+// chain_layers.json (full layer membership — curated + industry fallback, the
+// same file the RS Rotation Layers tab uses) so the two layer views match.
+let _chainLayersCache = null, _chainLayersFetching = false; const _chainLayersListeners = [];
+function useChainLayers() {
+  const [d, setD] = useState(_chainLayersCache);
+  useEffect(() => {
+    if (_chainLayersCache) { setD(_chainLayersCache); return; }
+    if (_chainLayersFetching) { _chainLayersListeners.push(setD); return; }
+    _chainLayersFetching = true;
+    fetch("/data/chain_layers.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { _chainLayersCache = j || []; setD(_chainLayersCache); _chainLayersListeners.forEach((fn) => fn(_chainLayersCache)); _chainLayersListeners.length = 0; })
+      .catch(() => { _chainLayersFetching = false; });
+  }, []);
+  return d;
+}
+
 function useChainLayerRows(stockMap, tickerStrengthMap, alphaMode) {
   const spyReturns = useSpyReturns();
+  const chainLayers = useChainLayers();
+  // full membership when loaded; fall back to the explicit lists while fetching
+  const layerDefs = chainLayers && chainLayers.length ? chainLayers : DRAWER_SUBTHEMES;
   const allTickers = useMemo(() => {
     const s = new Set();
     DRAWER_SUBTHEMES.forEach((sub) => sub.tickers.forEach((tk) => s.add(tk)));
@@ -5282,7 +5302,7 @@ function useChainLayerRows(stockMap, tickerStrengthMap, alphaMode) {
     const spyQ = liveQuotes.get("SPY");
     const spyChg = spyQ?.change ?? 0;
     const spyPeriod = alphaMode === "1w" ? spyReturns?.["1w"] : alphaMode === "1m" ? spyReturns?.["1m"] : null;
-    return DRAWER_SUBTHEMES.map((sub) => {
+    return layerDefs.map((sub) => {
       const chgs = [], rvols = [], strs = [], crs = [], rocs = [], alphas = [];
       sub.tickers.forEach((tk) => {
         const q = liveQuotes.get(tk);
@@ -5316,7 +5336,7 @@ function useChainLayerRows(stockMap, tickerStrengthMap, alphaMode) {
         avgCr: avg(crs), avgRoc2: avg(rocs), avgAlpha: avg(alphas),
       };
     });
-  }, [liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns]);
+  }, [liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, layerDefs]);
 }
 
 // ── ChainFlowMap: horizontal lanes showing which layer within each value
