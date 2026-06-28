@@ -947,9 +947,12 @@ function MarketBreadthMonitor() {
     try { return localStorage.getItem("tp-breadth-monitor-open") === "1"; } catch { return false; }
   });
   const [bd, setBd] = useState(null);       // breadth.json (true EMA breadth)
-  const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime, date}], wk20: [...] }
+  const [spy, setSpy] = useState(null);     // { sym, regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
-  const [hoverIdx, setHoverIdx] = useState(null); // SPY chart crosshair index
+  const [hoverIdx, setHoverIdx] = useState(null); // regime chart crosshair index
+  const [sym, setSym] = useState(() => {
+    try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
+  });
 
   // True EMA breadth on the top liquid universe — fresh, validated against
   // ground truth (not the lagging Stockbee counts / broken ATR-dist signs).
@@ -969,15 +972,18 @@ function MarketBreadthMonitor() {
     };
   }, [bd]);
 
-  // Lazy-load SPY daily on first expand; compute regime coloring client-side.
+  // Lazy-load the selected index on expand / symbol change; compute regime
+  // coloring client-side. Refetches whenever sym changes.
   useEffect(() => {
-    if (!open || spy || spyLoading) return;
+    if (!open || spyLoading) return;
+    if (spy && spy.sym === sym) return;
     setSpyLoading(true);
-    fetch("/api/ohlc?ticker=SPY")
+    setHoverIdx(null);
+    fetch(`/api/ohlc?ticker=${encodeURIComponent(sym)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const bars = (d?.ohlc || []).filter((x) => x.close != null);
-        if (!bars.length) { setSpy({ regimeBars: [], wk20: [] }); return; }
+        if (!bars.length) { setSpy({ sym, regimeBars: [], wk20: [] }); return; }
         const closes = bars.map((x) => x.close);
         const e10 = emaSeries(closes, 10);
         const e20 = emaSeries(closes, 20);
@@ -986,11 +992,11 @@ function MarketBreadthMonitor() {
           const regime = c < wk20[i] ? "red" : e10[i] < e20[i] ? "yellow" : "green";
           return { close: c, regime, date: bars[i].date || null };
         });
-        setSpy({ regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
+        setSpy({ sym, regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
       })
-      .catch(() => setSpy({ regimeBars: [], wk20: [] }))
+      .catch(() => setSpy({ sym, regimeBars: [], wk20: [] }))
       .finally(() => setSpyLoading(false));
-  }, [open, spy, spyLoading]);
+  }, [open, sym, spy, spyLoading]);
 
   if (!b || !regime) return null;
 
@@ -1093,12 +1099,12 @@ function MarketBreadthMonitor() {
             <circle cx={x(hoverIdx)} cy={y(h.close)} r={3} fill={CMAP[h.regime]} stroke={ARIA.bg} strokeWidth={1} />
             <text x={x(hoverIdx) <= W / 2 ? x(hoverIdx) + 6 : x(hoverIdx) - 6} y={padT + 9}
               textAnchor={x(hoverIdx) <= W / 2 ? "start" : "end"} fontSize="9" fontWeight="700" fill={ARIA.text} fontFamily="monospace">
-              {h.date} · SPY {h.close.toFixed(2)}
+              {h.date} · {sym} {h.close.toFixed(2)}
             </text>
           </g>
         )}
         {!h && (
-          <text x={W - 4} y={y(lastClose) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">SPY {lastClose.toFixed(0)}</text>
+          <text x={W - 4} y={y(lastClose) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">{sym} {lastClose.toFixed(0)}</text>
         )}
       </svg>
     );
@@ -1115,11 +1121,21 @@ function MarketBreadthMonitor() {
           {therm(">50", b.p50, `% above 50 EMA (intermediate trend participation)`)}
           {therm("10>20", b.p1020, `% with 10 EMA above 20 EMA (short-term momentum confirming)`)}
           {therm(">200", b.p200, `% above 200 EMA (long-term trend participation)`)}
-          <button onClick={() => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-breadth-monitor-open", n ? "1" : "0"); } catch {} return n; })}
-            title="Toggle SPY regime chart"
-            style={{ fontSize: 9, fontWeight: 700, color: open ? ARIA.text : ARIA.textMuted, background: open ? ARIA.glass || "transparent" : "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 7px", cursor: "pointer" }}>
-            {open ? "▾ SPY" : "▸ SPY"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <select value={sym}
+              onChange={(e) => { const s = e.target.value; setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {} if (!open) { setOpen(true); try { localStorage.setItem("tp-breadth-monitor-open", "1"); } catch {} } }}
+              title="Index for the regime chart"
+              style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
+              <option value="SPY">SPY</option>
+              <option value="QQQ">QQQ</option>
+              <option value="IWM">IWM</option>
+            </select>
+            <button onClick={() => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-breadth-monitor-open", n ? "1" : "0"); } catch {} return n; })}
+              title="Toggle regime chart"
+              style={{ fontSize: 9, fontWeight: 700, color: open ? ARIA.text : ARIA.textMuted, background: open ? ARIA.glass || "transparent" : "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 7px", cursor: "pointer" }}>
+              {open ? "▾" : "▸"}
+            </button>
+          </div>
         </div>
       </div>
       {open && (
@@ -1128,9 +1144,9 @@ function MarketBreadthMonitor() {
           {/* Right-side legend / explanation of the SPY regime line — two columns
               so its height tracks the chart's. */}
           <div style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>SPY Trend Regime</div>
+            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>{sym} Trend Regime</div>
             <div style={{ fontSize: 8, color: ARIA.textDim, lineHeight: 1.35, marginBottom: 6 }}>
-              SPY's daily close, colored by where it sits vs its moving averages.
+              {sym}'s daily close, colored by where it sits vs its moving averages.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", flex: 1, alignContent: "space-between" }}>
               {[
