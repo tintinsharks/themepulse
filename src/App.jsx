@@ -1125,31 +1125,32 @@ function MarketBreadthMonitor() {
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch" }}>
           <div style={{ flex: 1, minWidth: 0 }}>{Chart()}</div>
-          {/* Right-side legend / explanation of the SPY regime line */}
-          <div style={{ width: 188, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, fontFamily: "monospace" }}>
-            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>SPY Trend Regime</div>
-            <div style={{ fontSize: 8, color: ARIA.textDim, lineHeight: 1.4, marginBottom: 6 }}>
-              The line is SPY's daily close, colored by where it sits vs its moving averages.
+          {/* Right-side legend / explanation of the SPY regime line — two columns
+              so its height tracks the chart's. */}
+          <div style={{ width: 320, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, fontFamily: "monospace", display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 3 }}>SPY Trend Regime</div>
+            <div style={{ fontSize: 8, color: ARIA.textDim, lineHeight: 1.35, marginBottom: 6 }}>
+              SPY's daily close, colored by where it sits vs its moving averages.
             </div>
-            {[
-              ["#16a34a", "Green", "Uptrend — price above the weekly-20 and the daily 10-EMA is above the 20-EMA. Lean in."],
-              ["#d9a441", "Yellow", "Caution — still above the weekly-20, but daily 10-EMA crossed below the 20-EMA. Short-term momentum lost."],
-              ["#b1374a", "Red", "Broken — price below the weekly-20 EMA. Intermediate trend down; expect failed breakouts."],
-            ].map(([c, label, desc]) => (
-              <div key={label} style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "flex-start" }}>
-                <span style={{ width: 9, height: 9, borderRadius: 2, background: c, flexShrink: 0, marginTop: 1 }} />
-                <div style={{ minWidth: 0 }}>
-                  <span style={{ fontSize: 8, fontWeight: 700, color: c }}>{label}</span>
-                  <span style={{ fontSize: 7.5, color: ARIA.textMuted, lineHeight: 1.35 }}> — {desc}</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", flex: 1, alignContent: "space-between" }}>
+              {[
+                ["#16a34a", "Green", "rect", "Uptrend — above weekly-20 & daily 10-EMA above 20-EMA. Lean in."],
+                ["#d9a441", "Yellow", "rect", "Caution — above weekly-20 but daily 10-EMA crossed below 20-EMA."],
+                ["#b1374a", "Red", "rect", "Broken — below the weekly-20 EMA. Trend down; expect failed breakouts."],
+                ["#b1374a", "Dashed", "line", "The weekly-20 EMA (≈100-day) — the trend line the color rule keys off."],
+              ].map(([c, label, kind, desc]) => (
+                <div key={label} style={{ display: "flex", gap: 5, alignItems: "flex-start" }}>
+                  {kind === "line" ? (
+                    <svg width="14" height="9" style={{ flexShrink: 0, marginTop: 2 }}><line x1="0" y1="4.5" x2="14" y2="4.5" stroke={c} strokeWidth="1.4" strokeDasharray="3 3" /></svg>
+                  ) : (
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: c, flexShrink: 0, marginTop: 1 }} />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: c }}>{label}</span>
+                    <span style={{ fontSize: 7.5, color: ARIA.textMuted, lineHeight: 1.3 }}> — {desc}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: 5, alignItems: "flex-start", marginTop: 5, paddingTop: 5, borderTop: `1px solid ${ARIA.border}` }}>
-              <svg width="16" height="9" style={{ flexShrink: 0, marginTop: 2 }}><line x1="0" y1="4.5" x2="16" y2="4.5" stroke="#b1374a" strokeWidth="1.4" strokeDasharray="3 3" /></svg>
-              <div style={{ minWidth: 0 }}>
-                <span style={{ fontSize: 8, fontWeight: 700, color: "#b1374a" }}>Dashed</span>
-                <span style={{ fontSize: 7.5, color: ARIA.textMuted, lineHeight: 1.35 }}> — the weekly-20 EMA (≈100-day), the trend line the color rule keys off.</span>
-              </div>
+              ))}
             </div>
           </div>
         </div>
