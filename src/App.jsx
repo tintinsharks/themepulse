@@ -1002,7 +1002,7 @@ async function buildBasketSeries(tickers) {
 // IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
 // holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
 // rotation board (which embeds it) and Market Conditions can drive the symbol.
-function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, basketLabel, onPickConstituent }) {
+function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, basketLabel, onChartTicker }) {
   const ARIA = useAriaTheme();
   const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
@@ -1171,8 +1171,9 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                 {holdingsOverride.slice(0, 30).map((h) => {
                   const c = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                   return (
-                    <div key={h.t} onClick={() => (onPickConstituent || setSym)(h.t)} title={`${h.t} — RS ${h.s ?? "—"} (click to chart)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0" }}>
-                      <span style={{ fontWeight: 700, color: h.t === sym ? ARIA.text : ARIA.blue, width: 40, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
+                    <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                      <span style={{ fontWeight: 700, color: ARIA.blue, width: 40, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                       <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
                         <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: c }} />
                       </div>
@@ -1192,8 +1193,9 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
               ) : (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   {holdings.list.map((h) => (
-                    <div key={h.ticker} title={`${h.name} — ${h.weight}%`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9 }}>
-                      <span style={{ fontWeight: 700, color: ARIA.text, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
+                    <div key={h.ticker} onClick={() => onChartTicker?.(h.ticker)} title={`${h.name} — ${h.weight}% (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                      <span style={{ fontWeight: 700, color: ARIA.blue, width: 38, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.ticker}</span>
                       <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 0 }}>
                         <div style={{ width: `${Math.min(100, (h.weight / (holdings.list[0].weight || 1)) * 100)}%`, height: "100%", background: ARIA.blue }} />
                       </div>
@@ -1557,14 +1559,6 @@ function RsRotationBoard({ onTickerClick }) {
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(r.ticker);
   };
-  // Click a constituent inside the layer panel → drill into that single ticker
-  // but KEEP the constituents panel (exit basket mode only).
-  const pickConstituent = (t) => {
-    if (!t) return;
-    setBasketMode(false);
-    setSymPersist(t);
-    onTickerClick?.(t);
-  };
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
@@ -1590,7 +1584,7 @@ function RsRotationBoard({ onTickerClick }) {
                   borderBottom: `2px solid ${rsTab === key ? ARIA.blue : "transparent"}` }}>{label}</button>
             );
             return (
-              <IndexRegimeChart sym={sym} setSym={openTicker} onPickConstituent={pickConstituent}
+              <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
                 holdingsOverride={layerHolds}
                 basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
                 rightPanel={
