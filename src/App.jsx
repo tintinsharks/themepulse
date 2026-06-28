@@ -1404,31 +1404,6 @@ function useRsRotation() {
   return d;
 }
 
-// chain_layers.json (full layer membership) → ticker → Set of "theme|layer" keys,
-// so a charted ticker can be mapped back to the layer(s) that contain it.
-let _clCache = null, _clFetching = false; const _clListeners = [];
-function useChainLayerIndex() {
-  const [idx, setIdx] = useState(_clCache);
-  useEffect(() => {
-    const build = (arr) => {
-      const m = new Map();
-      (arr || []).forEach((l) => {
-        const key = `${l.theme}|${l.layer}`;
-        (l.tickers || []).forEach((t) => { if (!m.has(t)) m.set(t, new Set()); m.get(t).add(key); });
-      });
-      return m;
-    };
-    if (_clCache) { setIdx(_clCache); return; }
-    if (_clFetching) { _clListeners.push(setIdx); return; }
-    _clFetching = true;
-    fetch("/data/chain_layers.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { _clCache = build(j); setIdx(_clCache); _clListeners.forEach((fn) => fn(_clCache)); _clListeners.length = 0; })
-      .catch(() => { _clFetching = false; });
-  }, []);
-  return idx;
-}
-
 // colored 0-100 rank pill — green high, red low
 function RsRankBox({ v, ARIA }) {
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
@@ -1441,7 +1416,7 @@ function RsRankBox({ v, ARIA }) {
 
 function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey }) {
   const [sort, setSort] = useState({ key: "now", dir: "desc" });
-  const rowKeyOf = (r) => (getTag ? `${r.theme}|${r.name}` : r.ticker);
+  const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
   // RS acceleration (2nd derivative), weekly→monthly: project last week's
   // relative pace to a month (×21/5) and subtract the actual monthly relative
@@ -1546,7 +1521,7 @@ function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
   );
 }
 
-function RsRotationBoard({ onTickerClick, chartTicker }) {
+function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
@@ -1560,8 +1535,7 @@ function RsRotationBoard({ onTickerClick, chartTicker }) {
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
   const [basketLabel, setBasketLabel] = useState("");
-  const [selectedLayerKey, setSelectedLayerKey] = useState(null); // "theme|layer" of current layer
-  const layerIndex = useChainLayerIndex(); // ticker → Set of "theme|layer"
+  const [selectedLayerKey, setSelectedLayerKey] = useState(null); // "themeId|layer" of current layer
   const setSymPersist = useCallback((s) => {
     setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {}
   }, []);
@@ -1591,7 +1565,7 @@ function RsRotationBoard({ onTickerClick, chartTicker }) {
     if (!r?.ticker) return;
     setLayerHolds(r.holds || []);
     setBasketLabel(r.name || ""); setBasketMode(true);
-    setSelectedLayerKey(`${r.theme}|${r.name}`);
+    setSelectedLayerKey(`${r.themeId}|${r.name}`);
     setRsTab("layers");
     setSymPersist(r.ticker);
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
@@ -1599,20 +1573,22 @@ function RsRotationBoard({ onTickerClick, chartTicker }) {
   };
   const openLayer = (r) => applyLayer(r, true);
   // Reverse sync: when a ticker is charted elsewhere (manual input / click),
-  // switch the board to the layer that contains it — unless it's already inside
-  // the layer on screen (so constituent clicks don't yank the view away).
+  // map it to its layer(s) via chainsForStock (same logic as Scan Watch → Chain,
+  // full universe incl. unscored names) and switch the board to the highest-RS
+  // one — unless it's already inside the layer on screen.
   useEffect(() => {
     const t = (chartTicker || "").toUpperCase();
-    if (!t || !d?.layers || !layerIndex) return;
-    const keys = layerIndex.get(t);
-    if (!keys || !keys.size) return;                         // ticker not in any layer
+    if (!t || !d?.layers) return;
+    const chains = chainsForStock(t, stockMap?.[t]) || [];
+    if (!chains.length) return;                              // ticker not in any chain
+    const keys = new Set(chains.map((c) => `${c.themeId}|${c.layer}`));
     if (selectedLayerKey && keys.has(selectedLayerKey)) return; // already on a containing layer
-    const matches = d.layers.filter((l) => keys.has(`${l.theme}|${l.name}`));
+    const matches = d.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`));
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
     applyLayer(best, false); // don't re-chart — avoids a feedback loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartTicker, d, layerIndex]);
+  }, [chartTicker, d, stockMap]);
   if (!d) return null; // all hooks run above this guard
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
@@ -12003,7 +11979,7 @@ function AppMain() {
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
             <ErrorBoundary>
-              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} />
+              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} />
             </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
