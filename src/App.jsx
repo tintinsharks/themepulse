@@ -1415,7 +1415,7 @@ function RsRankBox({ v, ARIA }) {
 }
 
 function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey }) {
-  const [sort, setSort] = useState({ key: "now", dir: "desc" });
+  const [sort, setSort] = useState({ key: "rsRoc2", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
   // RS acceleration (2nd derivative), weekly→monthly: project last week's
@@ -1539,7 +1539,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const [sym, setSym] = useState(() => {
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
-  const [rsTab, setRsTab] = useState("sectors"); // right-panel tab: sectors | industries | layers
+  const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
   const [basketLabel, setBasketLabel] = useState("");
