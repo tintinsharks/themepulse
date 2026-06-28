@@ -1387,19 +1387,19 @@ function RsMoverCard({ title, accent, rows, onTicker, ARIA }) {
         <span style={{ width: 3, height: 11, background: accent, borderRadius: 2 }} />
         <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{title}</span>
       </div>
-      {(rows || []).map((m) => (
-        <div key={m.ticker} style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 7px", borderBottom: `1px solid ${ARIA.border}30` }}>
-          <RsRankBox v={m.now} ARIA={ARIA} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <button onClick={() => onTicker?.(m.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 10, cursor: "pointer", padding: 0 }}>{m.ticker}</button>
-            <div style={{ fontSize: 7.5, color: ARIA.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
+      {/* Single-line rows, capped to the original ~3-row footprint (scrolls for 7). */}
+      <div style={{ maxHeight: 96, overflowY: "auto" }}>
+        {(rows || []).map((m) => (
+          <div key={m.ticker} title={`${m.ticker} · ${m.name} — $${m.price?.toFixed(2)} · ${m.pts >= 0 ? "+" : ""}${m.pts} pts`}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 7px", borderBottom: `1px solid ${ARIA.border}25` }}>
+            <RsRankBox v={m.now} ARIA={ARIA} />
+            <button onClick={() => onTicker?.(m.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0, flexShrink: 0 }}>{m.ticker}</button>
+            <span style={{ fontSize: 7.5, color: ARIA.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}</span>
+            <span style={{ fontSize: 8, color: ARIA.textDim, flexShrink: 0 }}>${m.price?.toFixed(2)}</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: m.pts >= 0 ? ARIA.green : ARIA.red, flexShrink: 0, width: 42, textAlign: "right" }}>{m.pts >= 0 ? "+" : ""}{m.pts}</span>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 9, color: ARIA.textDim }}>${m.price?.toFixed(2)}</div>
-            <div style={{ fontSize: 8, fontWeight: 700, color: m.pts >= 0 ? ARIA.green : ARIA.red }}>{m.pts >= 0 ? "+" : ""}{m.pts} pts</div>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
