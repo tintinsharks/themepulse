@@ -1686,6 +1686,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers | leaders
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
+  const [moversOpen, setMoversOpen] = useState(() => { try { return localStorage.getItem("tp-rs-movers-open") === "1"; } catch { return false; } });
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
   const [basketLabel, setBasketLabel] = useState("");
   const [selectedLayerKey, setSelectedLayerKey] = useState(null); // "themeId|layer" of current layer
@@ -1907,19 +1908,23 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               return scored.slice(0, 7);
             };
             const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
+            const toggleMovers = () => setMoversOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-movers-open", n ? "1" : "0"); } catch {} return n; });
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {isLayer && (
-                  <div style={{ fontSize: 7.5, color: ARIA.textDim }}>
-                    Rank movers · <span title="Each layer's rank change is multiplied by a confidence factor n/(n+3), so single-stock layers need a much larger move to surface. Thin (·<3) layers are flagged amber.">confidence-weighted by ·constituents</span>
+                <div onClick={toggleMovers} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 7.5 }}>
+                  <span style={{ fontSize: 8, color: ARIA.textMuted }}>{moversOpen ? "▾" : "▸"}</span>
+                  <span style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: moversOpen ? ARIA.text : ARIA.textMuted }}>Rank movers</span>
+                  {isLayer && moversOpen && <span style={{ color: ARIA.textDim }} title="Each layer's rank change is multiplied by a confidence factor n/(n+3), so single-stock layers need a much larger move to surface. Thin (·<3) layers are flagged amber.">· confidence-weighted by ·constituents</span>}
+                  {!moversOpen && <span style={{ color: ARIA.textMuted }}>— click to expand</span>}
+                </div>
+                {moversOpen && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                    <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                    <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                    <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                    <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
                   </div>
                 )}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-                  <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                  <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                  <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                  <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                </div>
               </div>
             );
           })()}
