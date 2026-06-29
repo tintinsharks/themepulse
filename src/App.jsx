@@ -1707,48 +1707,54 @@ function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
 // (weak+falling), Improving (weak+rising — catch a theme before it's a leader).
 // Short tail = last week's position → now. Click a dot to load that layer.
 function RrgQuadrant({ layers, onLayer, ARIA }) {
-  const W = 560, H = 320, m = 30;
-  const pts = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => {
+  const W = 680, H = 480, m = 34;
+  const all = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => {
     const x = l.now, y = l.now - l.w1;
-    const py = (l.m1 != null) ? { x: l.w1, y: l.w1 - l.m1 } : null;
-    return { l, x, y, py };
+    return { l, x, y, py: l.m1 != null ? { x: l.w1, y: l.w1 - l.m1 } : null,
+      dist: Math.hypot((x - 50) / 2.2, y) }; // distance from center (RS scaled to momentum)
   });
-  if (!pts.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
-  const ymax = Math.max(15, Math.ceil(Math.max(...pts.map((p) => Math.abs(p.y))) / 5) * 5);
+  if (!all.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
+  const ymax = Math.max(12, Math.ceil(Math.max(...all.map((p) => Math.abs(p.y))) / 5) * 5);
+  const clampY = (y) => Math.max(-ymax, Math.min(ymax, y));
   const sx = (x) => m + (x / 100) * (W - 2 * m);
-  const sy = (y) => (H - m) - ((y + ymax) / (2 * ymax)) * (H - 2 * m);
+  const sy = (y) => (H - m) - ((clampY(y) + ymax) / (2 * ymax)) * (H - 2 * m);
   const quad = (x, y) => x >= 50 ? (y >= 0 ? { c: ARIA.green, k: "Leading" } : { c: ARIA.yellow, k: "Weakening" })
     : (y >= 0 ? { c: ARIA.blue, k: "Improving" } : { c: ARIA.red, k: "Lagging" });
-  // Label the actionable dots: rising layers (y≥6) + top leaders (x≥90), capped.
-  const labeled = new Set(pts.filter((p) => p.y >= 6 || p.x >= 90).sort((a, b) => b.y - a.y).slice(0, 18).map((p) => p.l));
+  // Only the most extreme dots get a bold marker + label + tail; the rest are
+  // faint context. Vertical de-clutter so labels don't stack.
+  const notable = [...all].sort((a, b) => b.dist - a.dist).slice(0, 14)
+    .sort((a, b) => sy(a.y) - sy(b.y));
+  const notableSet = new Set(notable.map((p) => p.l));
+  let lastLabelY = -Infinity;
   const cx = sx(50), cy = sy(0);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", fontFamily: "monospace" }}>
-      {/* quadrant tints */}
-      <rect x={cx} y={m} width={W - m - cx} height={cy - m} fill={ARIA.green} opacity="0.05" />
-      <rect x={cx} y={cy} width={W - m - cx} height={H - m - cy} fill={ARIA.yellow} opacity="0.05" />
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", maxHeight: 460, fontFamily: "monospace" }}>
+      <rect x={cx} y={m} width={W - m - cx} height={cy - m} fill={ARIA.green} opacity="0.04" />
+      <rect x={cx} y={cy} width={W - m - cx} height={H - m - cy} fill={ARIA.yellow} opacity="0.04" />
       <rect x={m} y={m} width={cx - m} height={cy - m} fill={ARIA.blue} opacity="0.05" />
-      <rect x={m} y={cy} width={cx - m} height={H - m - cy} fill={ARIA.red} opacity="0.05" />
-      {/* axes */}
+      <rect x={m} y={cy} width={cx - m} height={H - m - cy} fill={ARIA.red} opacity="0.04" />
       <line x1={cx} y1={m} x2={cx} y2={H - m} stroke={ARIA.border} strokeWidth="1" />
       <line x1={m} y1={cy} x2={W - m} y2={cy} stroke={ARIA.border} strokeWidth="1" />
-      {/* quadrant labels */}
-      <text x={W - m - 4} y={m + 11} textAnchor="end" fontSize="9" fontWeight="700" fill={ARIA.green} opacity="0.8">LEADING</text>
-      <text x={W - m - 4} y={H - m - 4} textAnchor="end" fontSize="9" fontWeight="700" fill={ARIA.yellow} opacity="0.8">WEAKENING</text>
-      <text x={m + 4} y={m + 11} fontSize="9" fontWeight="700" fill={ARIA.blue} opacity="0.85">IMPROVING</text>
-      <text x={m + 4} y={H - m - 4} fontSize="9" fontWeight="700" fill={ARIA.red} opacity="0.8">LAGGING</text>
-      <text x={W - m} y={cy - 4} textAnchor="end" fontSize="7.5" fill={ARIA.textMuted}>RS rank →</text>
-      <text x={cx + 4} y={m + 4} fontSize="7.5" fill={ARIA.textMuted}>↑ momentum (1wk)</text>
-      {/* dots + tails */}
-      {pts.map((p, i) => {
-        const q = quad(p.x, p.y);
-        const r = 3 + Math.min(4, Math.sqrt(p.l.n || 1) / 2);
+      <text x={W - m - 5} y={m + 13} textAnchor="end" fontSize="11" fontWeight="800" fill={ARIA.green} opacity="0.5">LEADING</text>
+      <text x={W - m - 5} y={H - m - 5} textAnchor="end" fontSize="11" fontWeight="800" fill={ARIA.yellow} opacity="0.5">WEAKENING</text>
+      <text x={m + 5} y={m + 13} fontSize="11" fontWeight="800" fill={ARIA.blue} opacity="0.6">IMPROVING</text>
+      <text x={m + 5} y={H - m - 5} fontSize="11" fontWeight="800" fill={ARIA.red} opacity="0.5">LAGGING</text>
+      <text x={W - m} y={cy + 11} textAnchor="end" fontSize="8" fill={ARIA.textMuted}>RS rank →</text>
+      {/* faint context dots (non-notable) */}
+      {all.filter((p) => !notableSet.has(p.l)).map((p, i) => (
+        <circle key={"c" + i} cx={sx(p.x)} cy={sy(p.y)} r="2.5" fill={quad(p.x, p.y).c} opacity="0.28"
+          onClick={() => onLayer?.(p.l)} style={{ cursor: "pointer" }}><title>{`${p.l.name} — RS ${p.x}, ${p.y >= 0 ? "+" : ""}${p.y} 1wk`}</title></circle>
+      ))}
+      {/* notable: tail + bold dot + de-cluttered label */}
+      {notable.map((p, i) => {
+        const q = quad(p.x, p.y); const px = sx(p.x), py = sy(p.y);
+        let ly = py + 3; if (ly - lastLabelY < 11) ly = lastLabelY + 11; lastLabelY = ly;
         return (
-          <g key={i} onClick={() => onLayer?.(p.l)} style={{ cursor: "pointer" }}>
+          <g key={"n" + i} onClick={() => onLayer?.(p.l)} style={{ cursor: "pointer" }}>
             <title>{`${p.l.name} — RS ${p.x}, momentum ${p.y >= 0 ? "+" : ""}${p.y} (1wk)\n${q.k}${p.l.n ? ` · ${p.l.n} names` : ""}`}</title>
-            {p.py && <line x1={sx(Math.max(0, Math.min(100, p.py.x)))} y1={sy(Math.max(-ymax, Math.min(ymax, p.py.y)))} x2={sx(p.x)} y2={sy(Math.max(-ymax, Math.min(ymax, p.y)))} stroke={q.c} strokeWidth="0.75" opacity="0.4" />}
-            <circle cx={sx(p.x)} cy={sy(Math.max(-ymax, Math.min(ymax, p.y)))} r={r} fill={q.c} opacity="0.85" />
-            {labeled.has(p.l) && <text x={sx(p.x) + r + 2} y={sy(Math.max(-ymax, Math.min(ymax, p.y))) + 3} fontSize="7.5" fill={ARIA.textDim}>{p.l.name}</text>}
+            {p.py && <line x1={sx(p.py.x)} y1={sy(p.py.y)} x2={px} y2={py} stroke={q.c} strokeWidth="1" opacity="0.5" />}
+            <circle cx={px} cy={py} r="5" fill={q.c} stroke={ARIA.bg || "#15151c"} strokeWidth="0.5" />
+            <text x={px + 8} y={ly} fontSize="9.5" fontWeight="600" fill={ARIA.text}>{p.l.name}</text>
           </g>
         );
       })}
