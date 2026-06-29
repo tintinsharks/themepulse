@@ -12044,7 +12044,7 @@ function AppMain() {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
   // Top-level view: dashboard or setup journal
-  const [mainView, setMainView] = useState(() => localStorage.getItem("themepulse-view") || "dash");
+  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "leaders" || v === "journal" ? "dash" : (v || "dash"); });
   const switchView = useCallback((v) => {
     setMainView(v);
     try { localStorage.setItem("themepulse-view", v); } catch {}
@@ -12221,7 +12221,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["dash", "DASH"], ["leaders", "🎯 LEADERS"], ["journal", "⚡ JOURNAL"]].map(([v, label]) => (
+          {[["dash", "DASH"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
