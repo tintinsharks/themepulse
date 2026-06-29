@@ -1701,6 +1701,61 @@ function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
   );
 }
 
+// ── RRG: Relative Rotation Graph for layers ─────────────────────────────────
+// x = RS level (now rank), y = RS momentum (now − w1, weekly rank change). Four
+// quadrants: Leading (strong+rising), Weakening (strong+falling), Lagging
+// (weak+falling), Improving (weak+rising — catch a theme before it's a leader).
+// Short tail = last week's position → now. Click a dot to load that layer.
+function RrgQuadrant({ layers, onLayer, ARIA }) {
+  const W = 560, H = 320, m = 30;
+  const pts = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => {
+    const x = l.now, y = l.now - l.w1;
+    const py = (l.m1 != null) ? { x: l.w1, y: l.w1 - l.m1 } : null;
+    return { l, x, y, py };
+  });
+  if (!pts.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
+  const ymax = Math.max(15, Math.ceil(Math.max(...pts.map((p) => Math.abs(p.y))) / 5) * 5);
+  const sx = (x) => m + (x / 100) * (W - 2 * m);
+  const sy = (y) => (H - m) - ((y + ymax) / (2 * ymax)) * (H - 2 * m);
+  const quad = (x, y) => x >= 50 ? (y >= 0 ? { c: ARIA.green, k: "Leading" } : { c: ARIA.yellow, k: "Weakening" })
+    : (y >= 0 ? { c: ARIA.blue, k: "Improving" } : { c: ARIA.red, k: "Lagging" });
+  // Label the actionable dots: rising layers (y≥6) + top leaders (x≥90), capped.
+  const labeled = new Set(pts.filter((p) => p.y >= 6 || p.x >= 90).sort((a, b) => b.y - a.y).slice(0, 18).map((p) => p.l));
+  const cx = sx(50), cy = sy(0);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", fontFamily: "monospace" }}>
+      {/* quadrant tints */}
+      <rect x={cx} y={m} width={W - m - cx} height={cy - m} fill={ARIA.green} opacity="0.05" />
+      <rect x={cx} y={cy} width={W - m - cx} height={H - m - cy} fill={ARIA.yellow} opacity="0.05" />
+      <rect x={m} y={m} width={cx - m} height={cy - m} fill={ARIA.blue} opacity="0.05" />
+      <rect x={m} y={cy} width={cx - m} height={H - m - cy} fill={ARIA.red} opacity="0.05" />
+      {/* axes */}
+      <line x1={cx} y1={m} x2={cx} y2={H - m} stroke={ARIA.border} strokeWidth="1" />
+      <line x1={m} y1={cy} x2={W - m} y2={cy} stroke={ARIA.border} strokeWidth="1" />
+      {/* quadrant labels */}
+      <text x={W - m - 4} y={m + 11} textAnchor="end" fontSize="9" fontWeight="700" fill={ARIA.green} opacity="0.8">LEADING</text>
+      <text x={W - m - 4} y={H - m - 4} textAnchor="end" fontSize="9" fontWeight="700" fill={ARIA.yellow} opacity="0.8">WEAKENING</text>
+      <text x={m + 4} y={m + 11} fontSize="9" fontWeight="700" fill={ARIA.blue} opacity="0.85">IMPROVING</text>
+      <text x={m + 4} y={H - m - 4} fontSize="9" fontWeight="700" fill={ARIA.red} opacity="0.8">LAGGING</text>
+      <text x={W - m} y={cy - 4} textAnchor="end" fontSize="7.5" fill={ARIA.textMuted}>RS rank →</text>
+      <text x={cx + 4} y={m + 4} fontSize="7.5" fill={ARIA.textMuted}>↑ momentum (1wk)</text>
+      {/* dots + tails */}
+      {pts.map((p, i) => {
+        const q = quad(p.x, p.y);
+        const r = 3 + Math.min(4, Math.sqrt(p.l.n || 1) / 2);
+        return (
+          <g key={i} onClick={() => onLayer?.(p.l)} style={{ cursor: "pointer" }}>
+            <title>{`${p.l.name} — RS ${p.x}, momentum ${p.y >= 0 ? "+" : ""}${p.y} (1wk)\n${q.k}${p.l.n ? ` · ${p.l.n} names` : ""}`}</title>
+            {p.py && <line x1={sx(Math.max(0, Math.min(100, p.py.x)))} y1={sy(Math.max(-ymax, Math.min(ymax, p.py.y)))} x2={sx(p.x)} y2={sy(Math.max(-ymax, Math.min(ymax, p.y)))} stroke={q.c} strokeWidth="0.75" opacity="0.4" />}
+            <circle cx={sx(p.x)} cy={sy(Math.max(-ymax, Math.min(ymax, p.y)))} r={r} fill={q.c} opacity="0.85" />
+            {labeled.has(p.l) && <text x={sx(p.x) + r + 2} y={sy(Math.max(-ymax, Math.min(ymax, p.y))) + 3} fontSize="7.5" fill={ARIA.textDim}>{p.l.name}</text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
@@ -2009,9 +2064,20 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 {tabBtn("layers", "Layers")}
                 {tabBtn("leaders", "Leaders")}
                 {tabBtn("emerging", "Emerging")}
-                {isStockTab ? layerBtns : (rsTab !== "sectors" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
+                {tabBtn("rrg", "RRG")}
+                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "rrg" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
+            // RRG quadrant is a full-width chart (the regime chart isn't relevant).
+            if (rsTab === "rrg") {
+              return (
+                <div>
+                  {tabRow}
+                  <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>each dot = a layer · click to load · tail = last week → now · watch the Improving quadrant</div>
+                  <RrgQuadrant layers={d.layers} onLayer={openLayer} ARIA={ARIA} />
+                </div>
+              );
+            }
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
