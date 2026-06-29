@@ -1554,11 +1554,11 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   };
   const roc2Pct = useMemo(() => pctRankMap("rsRoc2"), [augmented]);
   const rsDayPct = useMemo(() => pctRankMap("rsDay"), [augmented]);
-  // Only flag the extremes: top 10% green, bottom 10% red, everything else clear.
+  // Only flag the extremes: top 5% green, bottom 5% red, everything else clear.
   const heatBg = (pct) => {
     if (pct == null) return "transparent";
-    if (pct >= 90) return "rgba(13,145,99,0.32)";
-    if (pct <= 10) return "rgba(239,68,68,0.32)";
+    if (pct >= 95) return "rgba(13,145,99,0.32)";
+    if (pct <= 5) return "rgba(239,68,68,0.32)";
     return "transparent";
   };
   const sorted = useMemo(() => {
