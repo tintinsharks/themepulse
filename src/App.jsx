@@ -1810,7 +1810,16 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       const vals = (r.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
       return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
     }
-    return tickerZvr(r.ticker) != null ? Math.round(tickerZvr(r.ticker)) : null;
+    // Sectors/industries are single ETFs with no stockMap entry; FMP batch-quote
+    // doesn't return avgVolume and the live backfill is capped, so use the
+    // pipeline's per-ETF avgVol baseline (falls back to live avgVolume).
+    const q = liveQuotes.get(r.ticker);
+    const av = r.avgVol || q?.avgVolume || 0;
+    const lv = q?.volume;
+    if (!lv || av <= 0) return null;
+    let v = Math.round((lv / (av * _elapsed)) * 100);
+    if (q.change != null && q.change < 0) v = -v;
+    return v;
   };
   const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
   const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r), zvr: liveZvr(r) }));
