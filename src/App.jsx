@@ -1466,6 +1466,25 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     ...r,
     rsRoc2: (r.rsWk != null && r.rsMth != null) ? +(r.rsWk * 4.2 - r.rsMth).toFixed(2) : null,
   })), [rows]);
+  // Percentile rank of RS Acc² among the current rows — drives a heatmap tint
+  // behind each Acc² cell so a value's standing vs peers reads at a glance
+  // (green = top of the field, red = bottom) without losing the raw number.
+  const roc2Pct = useMemo(() => {
+    const vals = augmented.map((r) => r.rsRoc2).filter((v) => v != null).sort((a, b) => a - b);
+    const denom = (vals.length - 1) || 1;
+    const m = new Map();
+    augmented.forEach((r) => {
+      if (r.rsRoc2 == null) return;
+      let lo = 0; while (lo < vals.length && vals[lo] < r.rsRoc2) lo++;
+      m.set(r, Math.round((lo / denom) * 100));
+    });
+    return m;
+  }, [augmented]);
+  const heatBg = (pct) => {
+    if (pct == null) return "transparent";
+    const a = ((Math.abs(pct - 50) / 50) * 0.34).toFixed(3);
+    return pct >= 50 ? `rgba(13,145,99,${a})` : `rgba(239,68,68,${a})`;
+  };
   const sorted = useMemo(() => {
     if (!sortable) return augmented;
     const arr = augmented.slice();
@@ -1532,7 +1551,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
-            <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.rsRoc2 > 0 ? ARIA.green : r.rsRoc2 < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
+            <td title={r.rsRoc2 == null ? undefined : `RS Acc² ${r.rsRoc2 > 0 ? "+" : ""}${r.rsRoc2.toFixed(1)} · ${roc2Pct.get(r)}th pct among ${getTag ? "layers" : "names"}`}
+              style={{ textAlign: "right", padding: "2px 6px", background: heatBg(roc2Pct.get(r)) }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: ARIA.text, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>
           </tr>
           );
