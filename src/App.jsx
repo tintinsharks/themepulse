@@ -4136,12 +4136,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           ({rows.length})
         </span>
         <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
-          <button onClick={() => setSwView(swView === "etf" ? "scan" : "etf")} style={pillStyle(swView === "etf", ARIA.green)}>ETF</button>
           <button onClick={() => setSwView(swView === "watchlist" ? "scan" : "watchlist")} style={pillStyle(swView === "watchlist", ARIA.green)}>WL</button>
-          <button onClick={() => setSwView(swView === "themes" ? "scan" : "themes")} style={pillStyle(swView === "themes", ARIA.green)}>Themes</button>
-          <button onClick={() => setSwView(swView === "subflow" ? "scan" : "subflow")} style={pillStyle(swView === "subflow", ARIA.green)}>Subflow</button>
-          <button onClick={() => setSwView(swView === "leaderboard" ? "scan" : "leaderboard")} style={pillStyle(swView === "leaderboard", "#fbbf24")}>Rank</button>
-          <button onClick={() => setSwView(swView === "leaders" ? "scan" : "leaders")} style={pillStyle(swView === "leaders", "#fbbf24")}>🎯 Lead</button>
           <button onClick={() => setSwView(swView === "chain" ? "scan" : "chain")} style={pillStyle(swView === "chain", "#6cd5e8")}>Chain</button>
         </div>
         <div
