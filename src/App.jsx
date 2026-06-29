@@ -1164,7 +1164,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
-        <div style={{ width: holdingsOverride ? 260 : 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
+        <div style={{ width: holdingsOverride ? 288 : 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
@@ -1176,9 +1176,10 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                 let zvr = zvrMap?.get(h.t) ?? null;
                 if (zvr == null && s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
                 if (zvr != null && chg != null && chg < 0) zvr = -zvr;
-                return { ...h, chg, cr, zvr };
+                const eif = s?.framework_score ?? null;
+                return { ...h, chg, cr, zvr, eif };
               });
-              const val = (r) => ({ t: r.t, rs: r.s, chg: r.chg, zvr: r.zvr, cr: r.cr }[hSort.key]);
+              const val = (r) => ({ t: r.t, rs: r.s, eif: r.eif, chg: r.chg, zvr: r.zvr, cr: r.cr }[hSort.key]);
               rows.sort((a, b) => {
                 const av = val(a), bv = val(b);
                 if (hSort.key === "t") return hSort.dir === "asc" ? String(av).localeCompare(bv) : String(bv).localeCompare(av);
@@ -1195,6 +1196,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                   <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
                     {hCell("t", "Layer", 36, false)}
                     {hCell("rs", "RS", 0, true)}
+                    {hCell("eif", "EIF", 22, false)}
                     {hCell("chg", "Chg", 38, false)}
                     {hCell("zvr", "ZVR", 40, false)}
                     {hCell("cr", "CR", 26, false)}
@@ -1202,18 +1204,20 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                   <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
-                      const { chg, cr, zvr } = h;
+                      const { chg, cr, zvr, eif } = h;
                       const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
                       const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
                       const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr >= 40 ? ARIA.textDim : ARIA.red;
+                      const eifC = eif == null ? ARIA.textMuted : eif >= 70 ? "#fbbf24" : eif >= 55 ? ARIA.green : eif >= 40 ? ARIA.textDim : ARIA.textMuted;
                       return (
-                        <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0 }}
+                        <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0 }}
                           onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                           <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
                             <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
                           </div>
                           <span style={{ color: ARIA.textDim, width: 16, textAlign: "right", flexShrink: 0 }}>{h.s ?? "—"}</span>
+                          <span style={{ color: eifC, width: 22, textAlign: "right", flexShrink: 0, fontWeight: eif != null && eif >= 55 ? 700 : 400 }}>{eif == null ? "—" : eif}</span>
                           <span style={{ color: chgC, width: 38, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
                           <span style={{ color: zvrC, width: 40, textAlign: "right", flexShrink: 0, fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400 }}>{zvr == null ? "—" : zvr + "%"}</span>
                           <span style={{ color: crC, width: 26, textAlign: "right", flexShrink: 0 }}>{cr == null ? "—" : cr}</span>
