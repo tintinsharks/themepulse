@@ -1922,15 +1922,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
   const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r), zvr: liveZvr(r) }));
 
-  // Enriched stock rows from the top-N layers (shared by the Leaders + Emerging
-  // tabs). Rank boxes (Now/1D/1W/1M) = the parent layer's trajectory; the RS%/
-  // ZVR/52W columns are the stock's own.
+  // Enrich a set of layers' constituents into stock rows. Rank boxes (Now/1D/
+  // 1W/1M) = the parent layer's trajectory; the RS%/ZVR/52W columns are the
+  // stock's own. Shared by Leaders + Emerging.
   const clampPct = (v) => Math.max(0, Math.min(100, v));
-  const topLayerStocks = (() => {
-    if (!(rsTab === "leaders" || rsTab === "emerging") || !d.layers) return [];
-    const top = [...d.layers].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, topLayers);
+  const sortedLayers = (n) => [...(d.layers || [])].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, n);
+  const buildStocks = (lyrs) => {
     const byT = new Map();
-    top.forEach((l) => (l.holds || []).forEach((h) => {
+    lyrs.forEach((l) => (l.holds || []).forEach((h) => {
       const prev = byT.get(h.t);
       if (!prev || (l.now ?? -1) > prev._lnow) byT.set(h.t, { t: h.t, layer: l, _lnow: l.now ?? -1 });
     }));
@@ -1950,26 +1949,27 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
         off52: s.off_52w_high ?? null, zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
         erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high };
     });
-  })();
+  };
 
-  // Leaders: strongest established names — composite of RS + EIF + near-high + volume.
-  const leaderRows = (() => {
-    if (rsTab !== "leaders") return [];
-    const rows = topLayerStocks.map((r) => ({ ...r, _score:
-      0.40 * (r.rsRank ?? 0) + 0.30 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
-      + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
-      + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) }));
-    rows.sort((a, b) => b._score - a._score);
-    rows.forEach((r, i) => { r.lead = i + 1; });
-    return rows.slice(0, 25);
-  })();
+  // Leaders: strongest established names in the top-N layers (RS + EIF + near-
+  // high + volume). The top-25 also form an exclusion set for Emerging.
+  const leaderPool = (rsTab === "leaders" || rsTab === "emerging") ? buildStocks(sortedLayers(topLayers)) : [];
+  const leaderTop = leaderPool.map((r) => ({ ...r, _score:
+    0.40 * (r.rsRank ?? 0) + 0.30 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
+    + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
+    + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 25);
+  const leaderSet = new Set(leaderTop.map((r) => r.ticker));
+  const leaderRows = rsTab === "leaders" ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
 
-  // Emerging: names pushing INTO leadership — near a 52w high (or RS-line new
-  // high) with decent EIF. Volume is a SCORE bonus, not a hard gate, so the tab
-  // stays populated outside RTH / on quiet sessions instead of collapsing to ~1.
+  // Emerging: quality names near a 52w high (or RS-line new high) that AREN'T
+  // already established leaders. Scans a BROADER pool (top ~36 layers) than
+  // Leaders so it surfaces the mid-tier names rotating up — never the same
+  // tickers as Leaders. Volume is a score bonus, not a hard gate.
   const emergingRows = (() => {
     if (rsTab !== "emerging") return [];
-    const cand = topLayerStocks.filter((r) =>
+    const pool = buildStocks(sortedLayers(Math.max(36, topLayers)));
+    const cand = pool.filter((r) =>
+      !leaderSet.has(r.ticker) &&                                  // not already in Leaders
       ((r.off52 != null && r.off52 >= -8) || r.rsLineNewHigh) &&    // at/near 52w high or RS-line new high
       (r.eif != null && r.eif >= 50));                             // quality
     const rows = cand.map((r) => ({ ...r, _score:
