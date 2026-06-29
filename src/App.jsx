@@ -1276,29 +1276,79 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
 // ──────────────────────────────────────────────────────────────────────────
 // Market Conditions — distribution days, SMA-trend grid, performance, verdict
 // ──────────────────────────────────────────────────────────────────────────
-let _breadthCache = null, _breadthFetching = false; const _breadthListeners = [];
+let _breadthCache = null;
 function useBreadthData() {
   const [d, setD] = useState(_breadthCache);
   useEffect(() => {
-    if (_breadthCache) { setD(_breadthCache); return; }
-    if (_breadthFetching) { _breadthListeners.push(setD); return; }
-    _breadthFetching = true;
-    fetch("/data/breadth.json", { cache: "no-store" })
+    let alive = true;
+    const load = () => fetch("/data/breadth.json", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { _breadthCache = j; setD(j); _breadthListeners.forEach((fn) => fn(j)); _breadthListeners.length = 0; })
-      .catch(() => { _breadthFetching = false; });
+      .then((j) => { if (alive && j) { _breadthCache = j; setD(j); } })
+      .catch(() => {});
+    load();
+    // Re-pull the snapshot so an intraday pipeline push shows up without reload.
+    const id = setInterval(load, 60000);
+    return () => { alive = false; clearInterval(id); };
   }, []);
   return d;
+}
+
+// Live SPY/QQQ/IWM/DIA + VIX from one cheap FMP batch-quote call. Polls during
+// the trading day so Market Conditions can move intraday.
+function useBriefing(intervalMs = 60000) {
+  const [b, setB] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch("/api/live?briefing=1", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive && j) setB(j); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, intervalMs);
+    return () => { alive = false; clearInterval(id); };
+  }, [intervalMs]);
+  return b;
 }
 
 function MarketConditionsPanel() {
   const ARIA = useAriaTheme();
   const bd = useBreadthData();
+  const briefing = useBriefing(60000);
+  const spyRet = useSpyReturns();
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem("tp-conditions-open") === "1"; } catch { return false; }
   });
   if (!bd?.conditions) return null;
-  const c = bd.conditions;
+  const cRaw = bd.conditions;
+
+  // ── Live overlay ─────────────────────────────────────────────
+  // Breadth (% > MA) is a daily universe measure and stays from the snapshot,
+  // but SPY/QQQ moves, VIX, the 1-month return and the verdict are recomputed
+  // live during the trading day from one cheap briefing quote.
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const etMin = et.getHours() * 60 + et.getMinutes(), dow = et.getDay();
+  const liveSpyChg = briefing?.indices?.SPY?.change_pct ?? null;
+  const liveQqqChg = briefing?.indices?.QQQ?.change_pct ?? null;
+  const liveVix = briefing?.vix?.level ?? null;
+  // Active 4:00a–8:00p ET on weekdays (pre/RTH/after), and only once we have a live tick.
+  const liveActive = dow >= 1 && dow <= 5 && etMin >= 240 && etMin < 1200 && liveSpyChg != null;
+  // Live 1M: compound today's SPY move onto the snapshot's last-close 1M return.
+  const baseM1 = cRaw.perf?.m1 ?? spyRet?.["1m"] ?? null;
+  const liveM1 = (liveActive && baseM1 != null) ? +(((1 + baseM1 / 100) * (1 + liveSpyChg / 100) - 1) * 100).toFixed(2) : baseM1;
+  const perf = { ...(cRaw.perf || {}), m1: liveM1 ?? cRaw.perf?.m1, vix: (liveActive && liveVix != null) ? liveVix : cRaw.perf?.vix };
+  // Recompute the verdict with the live-adjusted signals (same rule as 10b_breadth.py).
+  const liveVerdict = (() => {
+    const sg = cRaw.sma_grid || {}; let sig = 0;
+    if (sg.sma200 != null) sig += sg.sma200 >= 60 ? 1 : sg.sma200 < 40 ? -1 : 0;
+    if (sg.sma50 != null) sig += sg.sma50 >= 55 ? 1 : sg.sma50 < 40 ? -1 : 0;
+    const dt = cRaw.dist_days?.SPY?.today;
+    if (dt != null) sig += dt >= 5 ? -1 : dt <= 2 ? 1 : 0;
+    if (perf.m1 != null) sig += perf.m1 > 0 ? 1 : -1;
+    if (perf.y1 != null) sig += perf.y1 > 0 ? 1 : -1;
+    return sig >= 3 ? "Positive" : sig <= -3 ? "Negative" : "Neutral";
+  })();
+  const c = { ...cRaw, perf, verdict: liveActive ? liveVerdict : cRaw.verdict };
+
   const STAT = { pos: ARIA.green, neg: ARIA.red, neu: ARIA.textMuted };
   const SLABEL = { pos: "Positive", neg: "Negative", neu: "Neutral" };
   const verdictC = c.verdict === "Positive" ? ARIA.green : c.verdict === "Negative" ? ARIA.red : ARIA.yellow;
@@ -1364,8 +1414,13 @@ function MarketConditionsPanel() {
           const g = c.sma_grid || {}, pf = c.perf || {};
           const trendC = (v) => v == null ? ARIA.textDim : v >= 60 ? ARIA.green : v < 40 ? ARIA.red : ARIA.yellow;
           const m1c = pf.m1 == null ? ARIA.textDim : pf.m1 > 0 ? ARIA.green : pf.m1 < 0 ? ARIA.red : ARIA.textDim;
+          const idxC = (v) => v == null ? ARIA.textDim : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textDim;
+          const fmtChg = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
           return (
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              {liveActive && chip("SPY", fmtChg(liveSpyChg), idxC(liveSpyChg))}
+              {liveActive && chip("QQQ", fmtChg(liveQqqChg), idxC(liveQqqChg))}
+              {liveActive && <span style={{ color: ARIA.border }}>|</span>}
               {dd.SPY && chip("Dist", `SPY ${dd.SPY.today} · QQQ ${dd.QQQ.today}`, distC)}
               {dd.SPY?.label && <span style={{ fontSize: 8, fontWeight: 700, color: distC }}>{dd.SPY.label}</span>}
               <span style={{ color: ARIA.border }}>|</span>
@@ -1377,7 +1432,11 @@ function MarketConditionsPanel() {
             </div>
           );
         })()}
-        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>{open ? "" : "click to expand"} · as of {bd.date}</span>
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
+          {liveActive
+            ? <><span style={{ width: 6, height: 6, borderRadius: "50%", background: ARIA.green, boxShadow: `0 0 5px ${ARIA.green}` }} /><b style={{ color: ARIA.green }}>LIVE</b>{briefing?.timestamp ? ` · ${new Date(briefing.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""} · breadth as of {bd.date}</>
+            : <>{open ? "" : "click to expand · "}as of {bd.date}</>}
+        </span>
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
