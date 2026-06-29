@@ -724,9 +724,11 @@ function useSpyReturns() {
 
 const INDEX_LIST = [
   { ticker: "DIA", name: "DOW" },
-  { ticker: "QQQ", name: "QQQ" },
+  { ticker: "QQQ", name: "NASDAQ" },
   { ticker: "SPY", name: "S&P 500" },
   { ticker: "IWM", name: "RUSSELL" },
+  { ticker: "IBIT", name: "BTC" },
+  { ticker: "VIX", name: "VIX", kind: "vix" },
 ];
 
 function MarketBreadthBar({ stocks, onTickerClick }) {
@@ -803,35 +805,27 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
     const q = quotes.get(idx.ticker);
     const chg = q?.change ?? null;
     const price = q?.price ?? null;
-    const c =
-      chg == null
-        ? ARIA.textMuted
-        : chg > 0
-        ? ARIA.green
-        : chg < 0
-        ? ARIA.red
-        : ARIA.textMuted;
+    const arrow = chg == null ? "" : chg > 0 ? "▲" : chg < 0 ? "▼" : "";
+    // VIX: rising volatility = risk-off, so up is red / down is green. Show the
+    // level (a % move on VIX is meaningless) plus the day's change.
+    if (idx.kind === "vix") {
+      const vc = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.red : chg < 0 ? ARIA.green : ARIA.textMuted;
+      return (
+        <div key={idx.ticker} onClick={() => onTickerClick && onTickerClick(idx.ticker)}
+          style={{ display: "flex", alignItems: "baseline", gap: 4, cursor: "pointer" }}>
+          <span style={{ fontWeight: 700, fontSize: 11, color: ARIA.text }}>VIX</span>
+          <span style={{ fontWeight: 700, fontSize: 11, color: vc }}>{price != null ? price.toFixed(1) : "—"}</span>
+          {chg != null && <span style={{ fontSize: 9, color: vc }}>{arrow}{Math.abs(chg).toFixed(1)}%</span>}
+        </div>
+      );
+    }
+    const c = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
     return (
-      <div
-        key={idx.ticker}
-        onClick={() => onTickerClick && onTickerClick(idx.ticker)}
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: 4,
-          cursor: "pointer",
-        }}
-      >
-        <span style={{ fontWeight: 700, fontSize: 11, color: ARIA.text }}>
-          {idx.name}
-        </span>
-        <span style={{ color: ARIA.textDim, fontSize: 10 }}>
-          {price != null ? price.toFixed(2) : "—"}
-        </span>
-        <span style={{ fontWeight: 700, color: c, fontSize: 10 }}>
-          {chg == null
-            ? ""
-            : (chg > 0 ? "+" : "") + chg.toFixed(2) + "%"}
+      <div key={idx.ticker} onClick={() => onTickerClick && onTickerClick(idx.ticker)}
+        style={{ display: "flex", alignItems: "baseline", gap: 5, cursor: "pointer" }}>
+        <span style={{ fontWeight: 700, fontSize: 11, color: ARIA.text }}>{idx.name}</span>
+        <span style={{ fontWeight: 700, fontSize: 11, color: c }}>
+          {chg == null ? "—" : `${arrow} ${Math.abs(chg).toFixed(2)}%`}
         </span>
       </div>
     );
