@@ -1528,7 +1528,7 @@ function RsRankBox({ v, ARIA }) {
 }
 
 function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey }) {
-  const [sort, setSort] = useState({ key: "rsRoc2", dir: "desc" });
+  const [sort, setSort] = useState({ key: "zvr", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
   // RS acceleration (2nd derivative), weekly→monthly: project last week's
