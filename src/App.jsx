@@ -1613,7 +1613,32 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     setSymPersist(top.ticker);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d]);
+  // Live intraday overlay: poll quotes for the active tab's tickers so RS Day%
+  // reflects today's move vs SPY (like the Chain α column), not the last close.
+  // Ranks / Wk / Mth / Acc² stay EOD (multi-day, barely move intraday).
+  const liveUniverse = useMemo(() => {
+    if (!open || !d) return [];
+    const s = new Set(["SPY"]);
+    if (rsTab === "sectors") (d.sectors || []).forEach((r) => r.ticker && s.add(r.ticker));
+    else if (rsTab === "industries") (d.industries || []).forEach((r) => r.ticker && s.add(r.ticker));
+    else (d.layers || []).forEach((l) => (l.holds || []).forEach((h) => h.t && s.add(h.t)));
+    return [...s];
+  }, [open, rsTab, d]);
+  const { quotes: liveQuotes } = useLiveQuotes(liveUniverse, 30000);
   if (!d) return null; // all hooks run above this guard
+  const spyChg = liveQuotes.get("SPY")?.change;
+  const liveDay = (r) => {
+    if (spyChg == null) return r.rsDay;
+    if (rsTab === "layers") {
+      const vals = (r.holds || []).map((h) => { const q = liveQuotes.get(h.t); return q?.change != null ? q.change - spyChg : null; }).filter((v) => v != null);
+      return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100 : r.rsDay;
+    }
+    const q = liveQuotes.get(r.ticker);
+    return q?.change != null ? Math.round((q.change - spyChg) * 100) / 100 : r.rsDay;
+  };
+  const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
+  const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r) }));
+  const liveOn = spyChg != null;
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", cursor: "pointer", userSelect: "none" }}>
@@ -1633,13 +1658,15 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
             </span>
           );
         })()}
-        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0 }}>{open ? "" : "click to expand"} · {d.date}</span>
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0, display: "inline-flex", alignItems: "center", gap: 5 }}>
+          {open && liveOn && <span title="RS Day% is live (today's move vs SPY); ranks are EOD" style={{ display: "inline-flex", alignItems: "center", gap: 3, color: ARIA.green }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: ARIA.green, boxShadow: `0 0 4px ${ARIA.green}` }} />LIVE Day%</span>}
+          <span>{open ? "" : "click to expand"} · {d.date}</span>
+        </span>
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
           {(() => {
-            const activeRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
             const isLayer = rsTab === "layers";
             const mv = (prevKey, dir) => {
               const scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
@@ -1678,7 +1705,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   </div>
                   <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
                     <RsTable
-                      rows={rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || [])}
+                      rows={activeRows}
                       sortable onTicker={openTicker} ARIA={ARIA}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
