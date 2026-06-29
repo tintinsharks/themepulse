@@ -1541,17 +1541,19 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   // Percentile rank of RS Acc² among the current rows — drives a heatmap tint
   // behind each Acc² cell so a value's standing vs peers reads at a glance
   // (green = top of the field, red = bottom) without losing the raw number.
-  const roc2Pct = useMemo(() => {
-    const vals = augmented.map((r) => r.rsRoc2).filter((v) => v != null).sort((a, b) => a - b);
+  const pctRankMap = (key) => {
+    const vals = augmented.map((r) => r[key]).filter((v) => v != null).sort((a, b) => a - b);
     const denom = (vals.length - 1) || 1;
     const m = new Map();
     augmented.forEach((r) => {
-      if (r.rsRoc2 == null) return;
-      let lo = 0; while (lo < vals.length && vals[lo] < r.rsRoc2) lo++;
+      if (r[key] == null) return;
+      let lo = 0; while (lo < vals.length && vals[lo] < r[key]) lo++;
       m.set(r, Math.round((lo / denom) * 100));
     });
     return m;
-  }, [augmented]);
+  };
+  const roc2Pct = useMemo(() => pctRankMap("rsRoc2"), [augmented]);
+  const rsDayPct = useMemo(() => pctRankMap("rsDay"), [augmented]);
   // Only flag the extremes: top 10% green, bottom 10% red, everything else clear.
   const heatBg = (pct) => {
     if (pct == null) return "transparent";
@@ -1621,7 +1623,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             ) : (
               <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}</td>
             )}
-            <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsDay)}</td>
+            <td title={r.rsDay == null ? undefined : `RS Day% ${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(2)}% · ${rsDayPct.get(r)}th pct among ${getTag ? "layers" : "names"}`}
+              style={{ textAlign: "right", padding: "2px 6px", background: heatBg(rsDayPct.get(r)) }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
