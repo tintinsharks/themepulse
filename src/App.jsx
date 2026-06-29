@@ -1652,7 +1652,7 @@ function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 7px", borderBottom: `1px solid ${ARIA.border}25`, cursor: "pointer" }}>
             <RsRankBox v={m.now} ARIA={ARIA} />
             {isLayer ? (
-              <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.blue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}<span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{m.n}</span></span>
+              <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.blue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}<span title={m.n < 3 ? `Only ${m.n} constituent${m.n === 1 ? "" : "s"} — rank can swing on one name` : undefined} style={{ color: m.n < 3 ? ARIA.yellow : ARIA.textMuted, fontWeight: m.n < 3 ? 700 : 400 }}> ·{m.n}</span></span>
             ) : (
               <>
                 <span style={{ color: ARIA.blue, fontWeight: 700, fontSize: 9, flexShrink: 0 }}>{m.ticker}</span>
@@ -1680,6 +1680,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   });
   const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
+  const [broadOnly, setBroadOnly] = useState(() => { try { return localStorage.getItem("tp-rs-broad-only") === "1"; } catch { return false; } });
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
   const [basketLabel, setBasketLabel] = useState("");
   const [selectedLayerKey, setSelectedLayerKey] = useState(null); // "themeId|layer" of current layer
@@ -1828,18 +1829,36 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
           {(() => {
             const isLayer = rsTab === "layers";
+            // Thin layers (1–2 names) can swing rank violently on one stock. The
+            // "broad only" toggle hides ·<3 layers; off by default so nothing is
+            // missed, and thin counts are flagged amber in the cards regardless.
             const mv = (prevKey, dir) => {
-              const scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
+              let scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
+              if (isLayer && broadOnly) scored = scored.filter((r) => (r.n || 0) >= 3);
               scored.sort((a, b) => (dir === "up" ? b.pts - a.pts : a.pts - b.pts));
               return scored.slice(0, 7);
             };
             const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
+            const toggleBroad = () => setBroadOnly((v) => { const n = !v; try { localStorage.setItem("tp-rs-broad-only", n ? "1" : "0"); } catch {} return n; });
             return (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-                <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {isLayer && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 8 }}>
+                    <span style={{ color: ARIA.textMuted }}>Rank movers</span>
+                    <button onClick={toggleBroad} title="Hide layers with fewer than 3 constituents — single-stock layers swing rank on one name"
+                      style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 0.3, cursor: "pointer", padding: "1px 6px", borderRadius: 3, fontFamily: "monospace",
+                        color: broadOnly ? ARIA.green : ARIA.textMuted, background: broadOnly ? ARIA.green + "1c" : "transparent", border: `1px solid ${broadOnly ? ARIA.green + "66" : ARIA.border}` }}>
+                      {broadOnly ? "✓ broad only ·≥3" : "broad only ·≥3"}
+                    </button>
+                    {!broadOnly && <span style={{ color: ARIA.textDim, fontSize: 7.5 }}>showing all · thin layers flagged amber</span>}
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                  <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                  <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                  <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                  <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
+                </div>
               </div>
             );
           })()}
