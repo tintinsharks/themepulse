@@ -1008,7 +1008,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
   const [spyLoading, setSpyLoading] = useState(false);
   const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
-  const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort
+  const [hSort, setHSort] = useState({ key: "zvr", dir: "desc" }); // layer-constituents panel sort
   // What's plotted: an equal-weight basket of the layer's constituents, or a
   // single ticker/ETF. The basket is the honest picture of a layer.
   const isBasket = Array.isArray(basket) && basket.length > 0;
