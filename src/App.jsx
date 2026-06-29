@@ -1614,6 +1614,13 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   };
   const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
+  // RRG quadrant color from RS level (now) × 1wk momentum (now−w1): Leading=green,
+  // Weakening=yellow, Improving=blue, Lagging=red. Colors the layer name to match.
+  const quadColor = (r) => {
+    if (r.now == null || r.w1 == null) return ARIA.blue;
+    const y = r.now - r.w1;
+    return r.now >= 50 ? (y >= 0 ? ARIA.green : ARIA.yellow) : (y >= 0 ? ARIA.blue : ARIA.red);
+  };
   const hdr = (key, label) => (
     <th key={key} title={TITLES[key]} onClick={sortable ? () => setSort((s) => ({ key, dir: s.key === key && s.dir === "desc" ? "asc" : "desc" })) : undefined}
       style={{ position: "sticky", top: 0, zIndex: 1, background: ARIA.bgRow || ARIA.bg || "#15151c", textAlign: key === "ticker" || key === "name" ? "left" : "right", padding: "2px 6px", color: sortable && sort.key === key ? ARIA.text : ARIA.textMuted, fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3, cursor: sortable ? "pointer" : "default", whiteSpace: "nowrap", boxShadow: `inset 0 -1px 0 ${ARIA.border}` }}>
@@ -1645,8 +1652,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             {getTag ? (
               <td style={{ padding: "2px 6px" }}>
                 <button onClick={() => (onLayerSelect || ((rr) => onTicker?.(rr.ticker)))(r)}
-                  title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker} (click to load)`}
-                  style={{ display: "block", width: 132, maxWidth: 132, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
+                  title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker} · RRG: ${r.now != null && r.w1 != null ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : "—"} (click to load)`}
+                  style={{ display: "block", width: 132, maxWidth: 132, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", background: "none", border: "none", color: quadColor(r), fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
                   {r.name}{r.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span> : ""}
                 </button>
               </td>
