@@ -1480,10 +1480,12 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     });
     return m;
   }, [augmented]);
+  // Only flag the extremes: top 10% green, bottom 10% red, everything else clear.
   const heatBg = (pct) => {
     if (pct == null) return "transparent";
-    const a = ((Math.abs(pct - 50) / 50) * 0.34).toFixed(3);
-    return pct >= 50 ? `rgba(13,145,99,${a})` : `rgba(239,68,68,${a})`;
+    if (pct >= 90) return "rgba(13,145,99,0.32)";
+    if (pct <= 10) return "rgba(239,68,68,0.32)";
+    return "transparent";
   };
   const sorted = useMemo(() => {
     if (!sortable) return augmented;
