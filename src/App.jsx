@@ -1316,6 +1316,8 @@ function MarketConditionsPanel() {
   const briefing = useBriefing(60000);
   const spyRet = useSpyReturns();
   const rot = useRsRotation(); // sector leadership glance
+  const secTickers = useMemo(() => (rot?.sectors || []).map((s) => s.ticker), [rot]);
+  const { quotes: secQuotes } = useLiveQuotes(secTickers, 60000); // live sector ETF moves
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem("tp-conditions-open") === "1"; } catch { return false; }
   });
@@ -1435,16 +1437,25 @@ function MarketConditionsPanel() {
             </div>
           );
         })()}
-        {/* Sector leadership glance — which sectors are in / out of favor */}
+        {/* Sector leadership glance — live during RTH (today's move vs SPY), else EOD RS rank */}
         {rot?.sectors?.length > 0 && (() => {
-          const s = rot.sectors; // pipeline-sorted by RS desc
           const nm = (x) => x.name || x.ticker;
+          let s = rot.sectors; // pipeline-sorted by RS desc (EOD)
+          let live = false;
+          if (liveActive && liveSpyChg != null) {
+            const ranked = rot.sectors.map((x) => {
+              const q = secQuotes.get(x.ticker);
+              return { ...x, _a: q?.change != null ? q.change - liveSpyChg : null };
+            }).filter((x) => x._a != null);
+            if (ranked.length >= rot.sectors.length - 1) { s = ranked.sort((a, b) => b._a - a._a); live = true; }
+          }
+          const tag = (x) => live ? `${nm(x)} (${x._a > 0 ? "+" : ""}${x._a.toFixed(2)}% vs SPY)` : nm(x);
           return (
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", fontSize: 8 }}>
               <span style={{ color: ARIA.border }}>|</span>
-              <span style={{ color: ARIA.textMuted }}>SECT</span>
-              <span style={{ color: ARIA.green, fontWeight: 700 }} title="Strongest sectors by RS rank">↑ {s.slice(0, 3).map(nm).join(" · ")}</span>
-              <span style={{ color: ARIA.red, fontWeight: 700 }} title="Weakest sectors by RS rank">↓ {s.slice(-2).map(nm).join(" · ")}</span>
+              <span style={{ color: ARIA.textMuted }} title={live ? "Sectors ranked by today's move vs SPY (live)" : "Sectors by RS rank (EOD)"}>SECT{live ? "•" : ""}</span>
+              <span style={{ color: ARIA.green, fontWeight: 700 }} title={live ? "Leading today (vs SPY)\n" + s.slice(0, 3).map(tag).join("\n") : "Strongest sectors by RS rank"}>↑ {s.slice(0, 3).map(nm).join(" · ")}</span>
+              <span style={{ color: ARIA.red, fontWeight: 700 }} title={live ? "Lagging today (vs SPY)\n" + s.slice(-2).map(tag).join("\n") : "Weakest sectors by RS rank"}>↓ {s.slice(-2).map(nm).join(" · ")}</span>
             </div>
           );
         })()}
