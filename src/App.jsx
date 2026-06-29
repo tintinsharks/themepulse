@@ -1315,6 +1315,7 @@ function MarketConditionsPanel() {
   const bd = useBreadthData();
   const briefing = useBriefing(60000);
   const spyRet = useSpyReturns();
+  const rot = useRsRotation(); // sector leadership glance
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem("tp-conditions-open") === "1"; } catch { return false; }
   });
@@ -1431,6 +1432,19 @@ function MarketConditionsPanel() {
               <span style={{ color: ARIA.border }}>|</span>
               {chip("1M", pf.m1 == null ? "—" : (pf.m1 > 0 ? "+" : "") + pf.m1.toFixed(1) + "%", m1c)}
               {chip("VIX", pf.vix == null ? "—" : pf.vix.toFixed(1), pf.vix == null ? ARIA.textDim : pf.vix > 25 ? ARIA.red : pf.vix < 16 ? ARIA.green : ARIA.textDim)}
+            </div>
+          );
+        })()}
+        {/* Sector leadership glance — which sectors are in / out of favor */}
+        {rot?.sectors?.length > 0 && (() => {
+          const s = rot.sectors; // pipeline-sorted by RS desc
+          const nm = (x) => x.name || x.ticker;
+          return (
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", fontSize: 8 }}>
+              <span style={{ color: ARIA.border }}>|</span>
+              <span style={{ color: ARIA.textMuted }}>SECT</span>
+              <span style={{ color: ARIA.green, fontWeight: 700 }} title="Strongest sectors by RS rank">↑ {s.slice(0, 3).map(nm).join(" · ")}</span>
+              <span style={{ color: ARIA.red, fontWeight: 700 }} title="Weakest sectors by RS rank">↓ {s.slice(-2).map(nm).join(" · ")}</span>
             </div>
           );
         })()}
