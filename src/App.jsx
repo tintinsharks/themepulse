@@ -1635,8 +1635,11 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.m1} ARIA={ARIA} /></td>
             {!getTag && (
-              <td style={{ padding: "2px 6px" }}>
+              <td style={{ padding: "2px 6px", whiteSpace: "nowrap" }}>
                 <button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button>
+                {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
+                  <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
+                )}
               </td>
             )}
             {getTag ? (
@@ -1855,21 +1858,20 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
   const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r), zvr: liveZvr(r) }));
 
-  // Leaders rows: strongest stocks inside the top-N layers, shaped to the same
-  // RsTable columns. Rank boxes (Now/1D/1W/1M) = the parent layer's trajectory
-  // (theme rotation); RS Day/Wk/Mth%, ZVR and 52W High = the stock's own. Ranked
-  // (#) by a composite of stock RS + EIF + near-52w-high + volume.
-  const leaderRows = (() => {
-    if (rsTab !== "leaders" || !d.layers) return [];
+  // Enriched stock rows from the top-N layers (shared by the Leaders + Emerging
+  // tabs). Rank boxes (Now/1D/1W/1M) = the parent layer's trajectory; the RS%/
+  // ZVR/52W columns are the stock's own.
+  const clampPct = (v) => Math.max(0, Math.min(100, v));
+  const topLayerStocks = (() => {
+    if (!(rsTab === "leaders" || rsTab === "emerging") || !d.layers) return [];
     const top = [...d.layers].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, topLayers);
     const byT = new Map();
     top.forEach((l) => (l.holds || []).forEach((h) => {
       const prev = byT.get(h.t);
       if (!prev || (l.now ?? -1) > prev._lnow) byT.set(h.t, { t: h.t, layer: l, _lnow: l.now ?? -1 });
     }));
-    const clamp = (v) => Math.max(0, Math.min(100, v));
     const sp1w = spyRet?.["1w"] ?? 0, sp1m = spyRet?.["1m"] ?? 0;
-    const rows = [...byT.values()].map(({ t, layer }) => {
+    return [...byT.values()].map(({ t, layer }) => {
       const s = stockMap?.[t] || {}; const q = liveQuotes.get(t);
       const chg = q?.change ?? s.change_pct ?? null;
       const rsDay = chg != null ? +(chg - (spyChg ?? 0)).toFixed(2) : null;
@@ -1879,13 +1881,39 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       if (lv && av > 0) zvr = Math.round((lv / (av * _elapsed)) * 100);
       else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
       if (zvr != null && chg != null && chg < 0) zvr = -zvr;
-      const eif = s.framework_score ?? null, off52 = s.off_52w_high ?? null, rsRank = s.rs_rank ?? null;
-      const score = 0.40 * (rsRank ?? 0) + 0.30 * (eif != null ? clamp(eif / 86 * 100) : 0)
-        + 0.20 * (off52 != null ? clamp(100 * (1 - Math.min(40, Math.max(0, -off52)) / 40)) : 50)
-        + 0.10 * (zvr != null ? clamp(50 + zvr / 3) : 50);
       return { ticker: t, name: layer.name, theme: layer.theme, themeId: layer.themeId,
-        now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth, off52, zvr, _score: score };
+        now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth,
+        off52: s.off_52w_high ?? null, zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
+        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high };
     });
+  })();
+
+  // Leaders: strongest established names — composite of RS + EIF + near-high + volume.
+  const leaderRows = (() => {
+    if (rsTab !== "leaders") return [];
+    const rows = topLayerStocks.map((r) => ({ ...r, _score:
+      0.40 * (r.rsRank ?? 0) + 0.30 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
+      + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
+      + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) }));
+    rows.sort((a, b) => b._score - a._score);
+    rows.forEach((r, i) => { r.lead = i + 1; });
+    return rows.slice(0, 25);
+  })();
+
+  // Emerging: names pushing INTO leadership — near a 52w high (or RS-line new high)
+  // on heavy up-volume, with decent EIF, but not yet maxed-out mega leaders.
+  const emergingRows = (() => {
+    if (rsTab !== "emerging") return [];
+    const cand = topLayerStocks.filter((r) =>
+      ((r.off52 != null && r.off52 >= -6) || r.rsLineNewHigh) &&    // at/near 52w high or RS-line new high
+      r.zvr != null && r.zvr >= 120 &&                              // volume thrust (up)
+      (r.eif == null || r.eif >= 45) &&                             // not junk
+      (r.rsDay == null || r.rsDay > -1));                           // not red vs SPY today
+    const rows = cand.map((r) => ({ ...r, _score:
+      0.35 * (r.zvr != null ? clampPct(r.zvr / 3) : 0)                                   // volume conviction
+      + 0.30 * (r.off52 != null ? clampPct(100 * (1 - Math.min(15, Math.max(0, -r.off52)) / 15)) : 50) // proximity to high
+      + 0.20 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
+      + 0.15 * (r.rsLineNewHigh ? 100 : 0) }));                                          // RS-line new high = early
     rows.sort((a, b) => b._score - a._score);
     rows.forEach((r, i) => { r.lead = i + 1; });
     return rows.slice(0, 25);
@@ -1918,7 +1946,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
-          {rsTab !== "leaders" && (() => {
+          {rsTab !== "leaders" && rsTab !== "emerging" && (() => {
             const isLayer = rsTab === "layers";
             // Confidence-weight the rank change by constituent count so a thin
             // layer (1–2 names) needs a much bigger move to surface, while a
@@ -1971,16 +1999,20 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 ))}
               </span>
             );
+            const isLeaders = rsTab === "leaders";
+            const isEmerging = rsTab === "emerging";
+            const isStockTab = isLeaders || isEmerging;
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                 {tabBtn("sectors", "Sector Leaders")}
                 {tabBtn("industries", "Industries")}
                 {tabBtn("layers", "Layers")}
                 {tabBtn("leaders", "Leaders")}
-                {rsTab === "leaders" ? layerBtns : (rsTab !== "sectors" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
+                {tabBtn("emerging", "Emerging")}
+                {isStockTab ? layerBtns : (rsTab !== "sectors" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
-            const isLeaders = rsTab === "leaders";
+            const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap}
@@ -1988,17 +2020,18 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 rightPanel={
                 <>
                   {tabRow}
+                  {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high, on up-volume</div>}
                   <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
                     <RsTable
-                      key={isLeaders ? "rs-leaders" : "rs-rotation"}
-                      rows={isLeaders ? leaderRows : activeRows}
-                      sortable onTicker={isLeaders ? openTickerNoSync : openTicker} ARIA={ARIA}
-                      rankCol={isLeaders}
-                      initialSort={isLeaders ? { key: "lead", dir: "asc" } : undefined}
+                      key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
+                      rows={stockRows}
+                      sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
+                      rankCol={isStockTab}
+                      initialSort={isStockTab ? { key: "lead", dir: "asc" } : undefined}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
                       onLayerSelect={rsTab === "layers" ? openLayer : undefined}
-                      activeKey={rsTab === "layers" ? selectedLayerKey : (isLeaders ? null : sym)} />
+                      activeKey={rsTab === "layers" ? selectedLayerKey : (isStockTab ? null : sym)} />
                   </div>
                 </>
               } />
