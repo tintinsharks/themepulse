@@ -1169,11 +1169,20 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
             (() => {
               // Enrich each constituent with live metrics, then sort by the
               // clicked header. Default RS desc.
+              // ZVR fallback chain — identical to Scan Watch's calcZVR so the
+              // same ticker reads the same value in both tables: true API ZVR →
+              // session-elapsed linear estimate → pipeline rel_volume.
+              const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+              const _etMins = _et.getHours() * 60 + _et.getMinutes();
+              const _isRTH = _etMins >= 570 && _etMins < 960;
+              const _elapsedFrac = _isRTH ? Math.max(0.02, sessionVolFraction(_etMins - 570)) : 1.0;
               const rows = holdingsOverride.slice(0, 30).map((h) => {
                 const q = liveQuotes?.get(h.t); const s = stockMap?.[h.t];
                 const chg = q?.change ?? s?.change_pct ?? null;
                 const cr = computeCR(q, s);
                 let zvr = zvrMap?.get(h.t) ?? null;
+                const liveVol = q?.volume; const avgVol = s?.avg_volume_raw || 0;
+                if (zvr == null && liveVol && avgVol > 0) zvr = Math.round((liveVol / (avgVol * _elapsedFrac)) * 100);
                 if (zvr == null && s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
                 if (zvr != null && chg != null && chg < 0) zvr = -zvr;
                 const eif = s?.framework_score ?? null;
