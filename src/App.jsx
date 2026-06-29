@@ -1485,9 +1485,12 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   }, [activeKey, sorted]);
   // Layers (getTag) drop the Theme/identity column; the layer name itself is the
   // clickable, fixed-width title so the numeric columns get more room.
-  const allCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
+  const allCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
   const cols = getTag ? allCols.filter(([k]) => k !== "ticker") : allCols;
-  const TITLES = { rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over." };
+  const TITLES = {
+    rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over.",
+    zvr: "Normalized ZVR: signed relative volume (rel-vol × 100, negative on down days) averaged across the layer's constituents — count-independent, so layers of different sizes are comparable. Live during market hours.",
+  };
   const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
   const hdr = (key, label) => (
@@ -1526,6 +1529,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
               <td style={{ padding: "2px 6px", color: ARIA.textDim, whiteSpace: "nowrap" }}>{r.name}</td>
             )}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsDay)}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.rsRoc2 > 0 ? ARIA.green : r.rsRoc2 < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
@@ -1680,8 +1684,26 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     const q = liveQuotes.get(r.ticker);
     return q?.change != null ? Math.round((q.change - spyChg) * 100) / 100 : r.rsDay;
   };
+  // Normalized layer ZVR: signed relative-volume per ticker (rel_volume×100,
+  // negative on down moves), averaged across the layer's constituents — so it's
+  // count-independent and comparable across layers of different sizes. ETF rows
+  // use the ETF's own signed rel-vol. Reuses liveQuotes (no extra API).
+  const tickerZvr = (t) => {
+    const q = liveQuotes.get(t);
+    if (!q || q.rel_volume == null) return null;
+    let v = q.rel_volume * 100;
+    if (q.change != null && q.change < 0) v = -v;
+    return v;
+  };
+  const liveZvr = (r) => {
+    if (rsTab === "layers") {
+      const vals = (r.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    }
+    return tickerZvr(r.ticker) != null ? Math.round(tickerZvr(r.ticker)) : null;
+  };
   const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
-  const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r) }));
+  const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r), zvr: liveZvr(r) }));
   const liveOn = spyChg != null;
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
