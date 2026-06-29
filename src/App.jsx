@@ -1137,7 +1137,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
     );
   };
 
-  const KNOWN = ["SPY", "QQQ", "IWM", "XLV", "XLU", "XLP", "GLD", "GDX", "SH", "PSQ"];
   return (
     <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
@@ -1146,17 +1145,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
         {isBasket ? (
           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }} title={`Equal-weight basket of ${basket.length} constituents (top 15 by RS)`}>{label} · EW basket ({Math.min(15, basket.length)})</span>
         ) : (
-          <select value={sym}
-            onChange={(e) => setSym(e.target.value)}
-            title="Index for the regime chart"
-            style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.text, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px", cursor: "pointer" }}>
-            {!KNOWN.includes(sym) && <option value={sym}>{sym}</option>}
-            <optgroup label="Risk-on"><option value="SPY">SPY</option><option value="QQQ">QQQ</option><option value="IWM">IWM</option></optgroup>
-            <optgroup label="Defensive">
-              <option value="XLV">XLV · health</option><option value="XLU">XLU · utils</option><option value="XLP">XLP · staples</option>
-              <option value="GLD">GLD · gold</option><option value="GDX">GDX · miners</option><option value="SH">SH · inv SPY</option><option value="PSQ">PSQ · inv QQQ</option>
-            </optgroup>
-          </select>
+          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }}>{sym}</span>
         )}
         <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>{isBasket ? "click a constituent (left) to drill in" : "click a ticker above to chart it"}</span>
       </div>
