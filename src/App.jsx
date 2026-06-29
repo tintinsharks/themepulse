@@ -1778,14 +1778,23 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     const q = liveQuotes.get(r.ticker);
     return q?.change != null ? Math.round((q.change - spyChg) * 100) / 100 : r.rsDay;
   };
-  // Normalized layer ZVR: signed relative-volume per ticker (rel_volume×100,
-  // negative on down moves), averaged across the layer's constituents — so it's
-  // count-independent and comparable across layers of different sizes. ETF rows
-  // use the ETF's own signed rel-vol. Reuses liveQuotes (no extra API).
+  // Normalized layer ZVR: signed relative-volume per ticker, averaged across the
+  // layer's constituents — count-independent so layers of different sizes are
+  // comparable. ETF rows use their own. The /api/live?universe= feed doesn't
+  // carry rel_volume, so compute it the same way Scan Watch does: session-
+  // elapsed estimate volume/(avg×elapsedFrac), falling back to pipeline rel_vol.
+  const _et2 = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const _et2Min = _et2.getHours() * 60 + _et2.getMinutes();
+  const _rthNow = _et2Min >= 570 && _et2Min < 960;
+  const _elapsed = _rthNow ? Math.max(0.02, sessionVolFraction(_et2Min - 570)) : 1.0;
   const tickerZvr = (t) => {
-    const q = liveQuotes.get(t);
-    if (!q || q.rel_volume == null) return null;
-    let v = q.rel_volume * 100;
+    const q = liveQuotes.get(t); const s = stockMap?.[t];
+    if (!q) return null;
+    const liveVol = q.volume; const avgVol = s?.avg_volume_raw || q.avgVolume || 0;
+    let v = null;
+    if (liveVol && avgVol > 0) v = (liveVol / (avgVol * _elapsed)) * 100;
+    else if (s?.rel_volume > 0) v = s.rel_volume * 100;
+    if (v == null) return null;
     if (q.change != null && q.change < 0) v = -v;
     return v;
   };
