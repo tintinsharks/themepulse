@@ -1147,7 +1147,10 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
         ) : (
           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }}>{sym}</span>
         )}
-        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto" }}>{isBasket ? "click a constituent (left) to drill in" : "click a ticker above to chart it"}</span>
+        <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 420 }}
+          title={isBasket ? (basket || []).join(" · ") : undefined}>
+          {isBasket ? ((basket || []).slice(0, 8).join(" · ") + ((basket || []).length > 8 ? ` +${basket.length - 8}` : "")) : "click a ticker above to chart it"}
+        </span>
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
