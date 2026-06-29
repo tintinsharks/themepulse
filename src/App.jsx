@@ -1605,7 +1605,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   }, [activeKey, sorted]);
   // Layers (getTag) drop the Theme/identity column; the layer name itself is the
   // clickable, fixed-width title so the numeric columns get more room.
-  const baseCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
+  const lastCol = rankCol ? ["cr", "CR%"] : ["off52", "52W High"]; // stock tabs show closing range, not 52w high
+  const baseCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], lastCol];
   const withRank = rankCol ? [["lead", "#"], ...baseCols] : baseCols;
   const cols = getTag ? withRank.filter(([k]) => k !== "ticker") : withRank;
   const TITLES = {
@@ -1667,7 +1668,9 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
             <td title={r.rsRoc2 == null ? undefined : `RS Acc² ${r.rsRoc2 > 0 ? "+" : ""}${r.rsRoc2.toFixed(1)} · ${roc2Pct.get(r)}th pct among ${getTag ? "layers" : "names"}`}
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(roc2Pct.get(r)) }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: ARIA.text, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
-            <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>
+            {rankCol
+              ? <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{r.cr}</span>}</td>
+              : <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>}
           </tr>
           );
         })}
@@ -1946,7 +1949,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       if (zvr != null && chg != null && chg < 0) zvr = -zvr;
       return { ticker: t, name: layer.name, theme: layer.theme, themeId: layer.themeId,
         now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth,
-        off52: s.off_52w_high ?? null, zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
+        off52: s.off_52w_high ?? null, cr: computeCR(q, s), zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
         erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high };
     });
   };
