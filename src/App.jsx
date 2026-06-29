@@ -1008,6 +1008,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
   const [spyLoading, setSpyLoading] = useState(false);
   const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
+  const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort
   // What's plotted: an equal-weight basket of the layer's constituents, or a
   // single ticker/ETF. The basket is the honest picture of a layer.
   const isBasket = Array.isArray(basket) && basket.length > 0;
@@ -1165,42 +1166,64 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
         <div style={{ width: holdingsOverride ? 260 : 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
-            <>
-              <div style={{ display: "flex", alignItems: "center", fontSize: 7, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
-                <span style={{ width: 36, flexShrink: 0 }}>Layer</span>
-                <span style={{ flex: 1, minWidth: 0, textAlign: "right" }}>RS</span>
-                <span style={{ width: 38, flexShrink: 0, textAlign: "right" }}>Chg</span>
-                <span style={{ width: 40, flexShrink: 0, textAlign: "right" }}>ZVR</span>
-                <span style={{ width: 26, flexShrink: 0, textAlign: "right" }}>CR</span>
-              </div>
-              <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
-                {holdingsOverride.slice(0, 30).map((h) => {
-                  const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
-                  const q = liveQuotes?.get(h.t); const s = stockMap?.[h.t];
-                  const chg = q?.change ?? s?.change_pct ?? null;
-                  const cr = computeCR(q, s);
-                  let zvr = zvrMap?.get(h.t) ?? null;
-                  if (zvr == null && s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
-                  if (zvr != null && chg != null && chg < 0) zvr = -zvr;
-                  const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
-                  const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
-                  const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr >= 40 ? ARIA.textDim : ARIA.red;
-                  return (
-                    <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                      <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
-                      <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
-                        <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
-                      </div>
-                      <span style={{ color: ARIA.textDim, width: 16, textAlign: "right", flexShrink: 0 }}>{h.s ?? "—"}</span>
-                      <span style={{ color: chgC, width: 38, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
-                      <span style={{ color: zvrC, width: 40, textAlign: "right", flexShrink: 0, fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400 }}>{zvr == null ? "—" : zvr + "%"}</span>
-                      <span style={{ color: crC, width: 26, textAlign: "right", flexShrink: 0 }}>{cr == null ? "—" : cr}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+            (() => {
+              // Enrich each constituent with live metrics, then sort by the
+              // clicked header. Default RS desc.
+              const rows = holdingsOverride.slice(0, 30).map((h) => {
+                const q = liveQuotes?.get(h.t); const s = stockMap?.[h.t];
+                const chg = q?.change ?? s?.change_pct ?? null;
+                const cr = computeCR(q, s);
+                let zvr = zvrMap?.get(h.t) ?? null;
+                if (zvr == null && s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+                if (zvr != null && chg != null && chg < 0) zvr = -zvr;
+                return { ...h, chg, cr, zvr };
+              });
+              const val = (r) => ({ t: r.t, rs: r.s, chg: r.chg, zvr: r.zvr, cr: r.cr }[hSort.key]);
+              rows.sort((a, b) => {
+                const av = val(a), bv = val(b);
+                if (hSort.key === "t") return hSort.dir === "asc" ? String(av).localeCompare(bv) : String(bv).localeCompare(av);
+                const an = av == null ? -Infinity : av, bn = bv == null ? -Infinity : bv;
+                return hSort.dir === "asc" ? an - bn : bn - an;
+              });
+              const onSort = (key) => setHSort((p) => p.key === key ? { key, dir: p.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "t" ? "asc" : "desc" });
+              const arrow = (key) => hSort.key === key ? (hSort.dir === "asc" ? "▲" : "▼") : "";
+              const hCell = (key, label, w, flex) => (
+                <span onClick={() => onSort(key)} title={`Sort by ${label}`} style={{ ...(flex ? { flex: 1, minWidth: 0 } : { width: w, flexShrink: 0 }), textAlign: flex || key !== "t" ? "right" : "left", cursor: "pointer", color: hSort.key === key ? ARIA.text : ARIA.textMuted, userSelect: "none" }}>{label}{arrow(key) && <span style={{ fontSize: 6 }}> {arrow(key)}</span>}</span>
+              );
+              return (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
+                    {hCell("t", "Layer", 36, false)}
+                    {hCell("rs", "RS", 0, true)}
+                    {hCell("chg", "Chg", 38, false)}
+                    {hCell("zvr", "ZVR", 40, false)}
+                    {hCell("cr", "CR", 26, false)}
+                  </div>
+                  <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
+                    {rows.map((h) => {
+                      const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
+                      const { chg, cr, zvr } = h;
+                      const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
+                      const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
+                      const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr >= 40 ? ARIA.textDim : ARIA.red;
+                      return (
+                        <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0 }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                          <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
+                          <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
+                            <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
+                          </div>
+                          <span style={{ color: ARIA.textDim, width: 16, textAlign: "right", flexShrink: 0 }}>{h.s ?? "—"}</span>
+                          <span style={{ color: chgC, width: 38, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
+                          <span style={{ color: zvrC, width: 40, textAlign: "right", flexShrink: 0, fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400 }}>{zvr == null ? "—" : zvr + "%"}</span>
+                          <span style={{ color: crC, width: 26, textAlign: "right", flexShrink: 0 }}>{cr == null ? "—" : cr}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()
           ) : (
             <>
               <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>{sym} Top 10 · wt</div>
