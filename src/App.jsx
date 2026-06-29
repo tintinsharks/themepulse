@@ -1680,7 +1680,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   });
   const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
-  const [broadOnly, setBroadOnly] = useState(() => { try { return localStorage.getItem("tp-rs-broad-only") === "1"; } catch { return false; } });
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
   const [basketLabel, setBasketLabel] = useState("");
   const [selectedLayerKey, setSelectedLayerKey] = useState(null); // "themeId|layer" of current layer
@@ -1829,28 +1828,24 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
           {(() => {
             const isLayer = rsTab === "layers";
-            // Thin layers (1–2 names) can swing rank violently on one stock. The
-            // "broad only" toggle hides ·<3 layers; off by default so nothing is
-            // missed, and thin counts are flagged amber in the cards regardless.
+            // Confidence-weight the rank change by constituent count so a thin
+            // layer (1–2 names) needs a much bigger move to surface, while a
+            // broad layer's modest shift still counts. Shrinkage conf = n/(n+K):
+            // n=1→0.25, 3→0.50, 6→0.67, 12→0.80, 30→0.91; ETF rows = 1.0.
+            const K = 3;
+            const conf = (r) => isLayer ? (r.n || 1) / ((r.n || 1) + K) : 1;
             const mv = (prevKey, dir) => {
-              let scored = activeRows.filter((r) => r[prevKey] != null).map((r) => ({ ...r, pts: r.now - r[prevKey] }));
-              if (isLayer && broadOnly) scored = scored.filter((r) => (r.n || 0) >= 3);
-              scored.sort((a, b) => (dir === "up" ? b.pts - a.pts : a.pts - b.pts));
+              const scored = activeRows.filter((r) => r[prevKey] != null)
+                .map((r) => { const pts = r.now - r[prevKey]; return { ...r, pts, wpts: pts * conf(r) }; });
+              scored.sort((a, b) => (dir === "up" ? b.wpts - a.wpts : a.wpts - b.wpts));
               return scored.slice(0, 7);
             };
             const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
-            const toggleBroad = () => setBroadOnly((v) => { const n = !v; try { localStorage.setItem("tp-rs-broad-only", n ? "1" : "0"); } catch {} return n; });
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {isLayer && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 8 }}>
-                    <span style={{ color: ARIA.textMuted }}>Rank movers</span>
-                    <button onClick={toggleBroad} title="Hide layers with fewer than 3 constituents — single-stock layers swing rank on one name"
-                      style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 0.3, cursor: "pointer", padding: "1px 6px", borderRadius: 3, fontFamily: "monospace",
-                        color: broadOnly ? ARIA.green : ARIA.textMuted, background: broadOnly ? ARIA.green + "1c" : "transparent", border: `1px solid ${broadOnly ? ARIA.green + "66" : ARIA.border}` }}>
-                      {broadOnly ? "✓ broad only ·≥3" : "broad only ·≥3"}
-                    </button>
-                    {!broadOnly && <span style={{ color: ARIA.textDim, fontSize: 7.5 }}>showing all · thin layers flagged amber</span>}
+                  <div style={{ fontSize: 7.5, color: ARIA.textDim }}>
+                    Rank movers · <span title="Each layer's rank change is multiplied by a confidence factor n/(n+3), so single-stock layers need a much larger move to surface. Thin (·<3) layers are flagged amber.">confidence-weighted by ·constituents</span>
                   </div>
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
