@@ -728,7 +728,7 @@ const INDEX_LIST = [
   { ticker: "SPY", name: "S&P 500" },
   { ticker: "IWM", name: "RUSSELL" },
   { ticker: "IBIT", name: "BTC" },
-  { ticker: "VIX", name: "VIX", kind: "vix" },
+  { ticker: "^VIX", name: "VIX", kind: "vix" },
 ];
 
 function MarketBreadthBar({ stocks, onTickerClick }) {
@@ -811,8 +811,8 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
     if (idx.kind === "vix") {
       const vc = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.red : chg < 0 ? ARIA.green : ARIA.textMuted;
       return (
-        <div key={idx.ticker} onClick={() => onTickerClick && onTickerClick(idx.ticker)}
-          style={{ display: "flex", alignItems: "baseline", gap: 4, cursor: "pointer" }}>
+        <div key={idx.ticker} title="CBOE Volatility Index — up = risk-off"
+          style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
           <span style={{ fontWeight: 700, fontSize: 11, color: ARIA.text }}>VIX</span>
           <span style={{ fontWeight: 700, fontSize: 11, color: vc }}>{price != null ? price.toFixed(1) : "—"}</span>
           {chg != null && <span style={{ fontSize: 9, color: vc }}>{arrow}{Math.abs(chg).toFixed(1)}%</span>}
