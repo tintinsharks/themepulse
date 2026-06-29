@@ -1707,58 +1707,54 @@ function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
 // (weak+falling), Improving (weak+rising — catch a theme before it's a leader).
 // Short tail = last week's position → now. Click a dot to load that layer.
 function RrgQuadrant({ layers, onLayer, ARIA }) {
-  const W = 680, H = 480, m = 34;
-  const all = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => {
-    const x = l.now, y = l.now - l.w1;
-    return { l, x, y, py: l.m1 != null ? { x: l.w1, y: l.w1 - l.m1 } : null,
-      dist: Math.hypot((x - 50) / 2.2, y) }; // distance from center (RS scaled to momentum)
+  const pts = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => ({ l, x: l.now, y: l.now - l.w1 }));
+  if (!pts.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
+  const buckets = { Improving: [], Leading: [], Lagging: [], Weakening: [] };
+  pts.forEach((p) => {
+    const k = p.x >= 50 ? (p.y >= 0 ? "Leading" : "Weakening") : (p.y >= 0 ? "Improving" : "Lagging");
+    buckets[k].push(p);
   });
-  if (!all.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
-  const ymax = Math.max(12, Math.ceil(Math.max(...all.map((p) => Math.abs(p.y))) / 5) * 5);
-  const clampY = (y) => Math.max(-ymax, Math.min(ymax, y));
-  const sx = (x) => m + (x / 100) * (W - 2 * m);
-  const sy = (y) => (H - m) - ((clampY(y) + ymax) / (2 * ymax)) * (H - 2 * m);
-  const quad = (x, y) => x >= 50 ? (y >= 0 ? { c: ARIA.green, k: "Leading" } : { c: ARIA.yellow, k: "Weakening" })
-    : (y >= 0 ? { c: ARIA.blue, k: "Improving" } : { c: ARIA.red, k: "Lagging" });
-  // Only the most extreme dots get a bold marker + label + tail; the rest are
-  // faint context. Vertical de-clutter so labels don't stack.
-  const notable = [...all].sort((a, b) => b.dist - a.dist).slice(0, 14)
-    .sort((a, b) => sy(a.y) - sy(b.y));
-  const notableSet = new Set(notable.map((p) => p.l));
-  let lastLabelY = -Infinity;
-  const cx = sx(50), cy = sy(0);
+  buckets.Improving.sort((a, b) => b.y - a.y);   // fastest risers first
+  buckets.Leading.sort((a, b) => b.x - a.x);     // strongest first
+  buckets.Weakening.sort((a, b) => a.y - b.y);   // fastest fallers first
+  buckets.Lagging.sort((a, b) => a.x - b.x);     // weakest first
+  const meta = {
+    Improving: { c: ARIA.blue, desc: "weak but rising — pre-breakout watch" },
+    Leading: { c: ARIA.green, desc: "strong & rising" },
+    Lagging: { c: ARIA.red, desc: "weak & falling — avoid" },
+    Weakening: { c: ARIA.yellow, desc: "strong but rolling over" },
+  };
+  const box = (key) => {
+    const mt = meta[key], rows = buckets[key];
+    return (
+      <div style={{ border: `1px solid ${ARIA.border}`, borderTop: `2px solid ${mt.c}`, borderRadius: 5, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: mt.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{key}</span>
+          <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>{mt.desc}</span>
+          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>{rows.length}</span>
+        </div>
+        <div style={{ maxHeight: 168, overflowY: "auto" }}>
+          {rows.slice(0, 14).map((p, i) => {
+            const yc = p.y > 0 ? ARIA.green : p.y < 0 ? ARIA.red : ARIA.textMuted;
+            return (
+              <div key={i} onClick={() => onLayer?.(p.l)} title={`${p.l.theme} · ${p.l.name} — RS ${p.x}, ${p.y >= 0 ? "+" : ""}${p.y} 1wk${p.l.n ? ` · ${p.l.n} names` : ""}`}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 8px", borderBottom: `1px solid ${ARIA.border}25`, cursor: "pointer", fontSize: 9 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{p.l.name}{p.l.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{p.l.n}</span> : ""}</span>
+                <RsRankBox v={p.x} ARIA={ARIA} />
+                <span style={{ width: 32, textAlign: "right", fontWeight: 700, color: yc, flexShrink: 0 }}>{p.y > 0 ? "▲" : p.y < 0 ? "▼" : ""}{Math.abs(p.y)}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", maxHeight: 460, fontFamily: "monospace" }}>
-      <rect x={cx} y={m} width={W - m - cx} height={cy - m} fill={ARIA.green} opacity="0.04" />
-      <rect x={cx} y={cy} width={W - m - cx} height={H - m - cy} fill={ARIA.yellow} opacity="0.04" />
-      <rect x={m} y={m} width={cx - m} height={cy - m} fill={ARIA.blue} opacity="0.05" />
-      <rect x={m} y={cy} width={cx - m} height={H - m - cy} fill={ARIA.red} opacity="0.04" />
-      <line x1={cx} y1={m} x2={cx} y2={H - m} stroke={ARIA.border} strokeWidth="1" />
-      <line x1={m} y1={cy} x2={W - m} y2={cy} stroke={ARIA.border} strokeWidth="1" />
-      <text x={W - m - 5} y={m + 13} textAnchor="end" fontSize="11" fontWeight="800" fill={ARIA.green} opacity="0.5">LEADING</text>
-      <text x={W - m - 5} y={H - m - 5} textAnchor="end" fontSize="11" fontWeight="800" fill={ARIA.yellow} opacity="0.5">WEAKENING</text>
-      <text x={m + 5} y={m + 13} fontSize="11" fontWeight="800" fill={ARIA.blue} opacity="0.6">IMPROVING</text>
-      <text x={m + 5} y={H - m - 5} fontSize="11" fontWeight="800" fill={ARIA.red} opacity="0.5">LAGGING</text>
-      <text x={W - m} y={cy + 11} textAnchor="end" fontSize="8" fill={ARIA.textMuted}>RS rank →</text>
-      {/* faint context dots (non-notable) */}
-      {all.filter((p) => !notableSet.has(p.l)).map((p, i) => (
-        <circle key={"c" + i} cx={sx(p.x)} cy={sy(p.y)} r="2.5" fill={quad(p.x, p.y).c} opacity="0.28"
-          onClick={() => onLayer?.(p.l)} style={{ cursor: "pointer" }}><title>{`${p.l.name} — RS ${p.x}, ${p.y >= 0 ? "+" : ""}${p.y} 1wk`}</title></circle>
-      ))}
-      {/* notable: tail + bold dot + de-cluttered label */}
-      {notable.map((p, i) => {
-        const q = quad(p.x, p.y); const px = sx(p.x), py = sy(p.y);
-        let ly = py + 3; if (ly - lastLabelY < 11) ly = lastLabelY + 11; lastLabelY = ly;
-        return (
-          <g key={"n" + i} onClick={() => onLayer?.(p.l)} style={{ cursor: "pointer" }}>
-            <title>{`${p.l.name} — RS ${p.x}, momentum ${p.y >= 0 ? "+" : ""}${p.y} (1wk)\n${q.k}${p.l.n ? ` · ${p.l.n} names` : ""}`}</title>
-            {p.py && <line x1={sx(p.py.x)} y1={sy(p.py.y)} x2={px} y2={py} stroke={q.c} strokeWidth="1" opacity="0.5" />}
-            <circle cx={px} cy={py} r="5" fill={q.c} stroke={ARIA.bg || "#15151c"} strokeWidth="0.5" />
-            <text x={px + 8} y={ly} fontSize="9.5" fontWeight="600" fill={ARIA.text}>{p.l.name}</text>
-          </g>
-        );
-      })}
-    </svg>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontFamily: "monospace" }}>
+      {box("Improving")}{box("Leading")}
+      {box("Lagging")}{box("Weakening")}
+    </div>
   );
 }
 
@@ -2079,7 +2075,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               return (
                 <div>
                   {tabRow}
-                  <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>each dot = a layer · click to load · tail = last week → now · watch the Improving quadrant</div>
+                  <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 3px" }}>layers by RS level × 1-week momentum · click to load · watch the Improving quadrant (rotating up before they lead)</div>
                   <RrgQuadrant layers={d.layers} onLayer={openLayer} ARIA={ARIA} />
                 </div>
               );
