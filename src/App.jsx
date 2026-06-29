@@ -1971,7 +1971,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     const cand = pool.filter((r) =>
       !leaderSet.has(r.ticker) &&                                  // not already in Leaders
       ((r.off52 != null && r.off52 >= -8) || r.rsLineNewHigh) &&    // at/near 52w high or RS-line new high
-      (r.eif != null && r.eif >= 50));                             // quality
+      (r.eif != null && r.eif >= 45));                             // quality (relaxed floor)
     const rows = cand.map((r) => ({ ...r, _score:
       0.34 * (r.off52 != null ? clampPct(100 * (1 - Math.min(20, Math.max(0, -r.off52)) / 20)) : 50) // proximity to high
       + 0.28 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)                                       // quality
