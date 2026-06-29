@@ -831,13 +831,15 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
     );
   };
 
-  const miniBar = (label, leftPct, leftCount, rightPct, rightCount) => (
+  const miniBar = (label, leftPct, leftCount, rightPct, rightCount, tip) => (
     <div
+      title={tip}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 4,
         fontSize: 10,
+        cursor: "help",
       }}
     >
       <span style={{ color: ARIA.textMuted }}>{label}</span>
@@ -903,14 +905,16 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
             breadth.advPct,
             breadth.advCount,
             breadth.decPct,
-            breadth.decCount
+            breadth.decCount,
+            `Advance / Decline — of the top-500 liquid stocks moving today, ${breadth.advCount} are up (${breadth.advPct}%) vs ${breadth.decCount} down (${breadth.decPct}%). >50% green = broad participation to the upside.`
           )}
           {miniBar(
             "H/L",
             breadth.nhPct,
             breadth.nhCount,
             breadth.nlPct,
-            breadth.nlCount
+            breadth.nlCount,
+            `New Highs / Lows — ${breadth.nhCount} stocks are within 2% of their 52-week high (${breadth.nhPct}%) vs ${breadth.nlCount} near their 52-week low (${breadth.nlPct}%). High % = leaders pushing to new highs, not breaking down.`
           )}
         </div>
       )}
