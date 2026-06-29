@@ -1527,8 +1527,8 @@ function RsRankBox({ v, ARIA }) {
   );
 }
 
-function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey }) {
-  const [sort, setSort] = useState({ key: "zvr", dir: "desc" });
+function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort }) {
+  const [sort, setSort] = useState(initialSort || { key: "zvr", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
   // RS acceleration (2nd derivative), weekly→monthly: project last week's
@@ -1580,8 +1580,9 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   }, [activeKey, sorted]);
   // Layers (getTag) drop the Theme/identity column; the layer name itself is the
   // clickable, fixed-width title so the numeric columns get more room.
-  const allCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
-  const cols = getTag ? allCols.filter(([k]) => k !== "ticker") : allCols;
+  const baseCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsRoc2", "RS Acc²"], ["off52", "52W High"]];
+  const withRank = rankCol ? [["lead", "#"], ...baseCols] : baseCols;
+  const cols = getTag ? withRank.filter(([k]) => k !== "ticker") : withRank;
   const TITLES = {
     rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over.",
     zvr: "Normalized ZVR: signed relative volume (rel-vol × 100, negative on down days) averaged across the layer's constituents — count-independent, so layers of different sizes are comparable. Live during market hours.",
@@ -1603,6 +1604,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
             style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : "transparent", boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
+            {rankCol && <td style={{ textAlign: "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r.lead}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
@@ -1668,96 +1670,6 @@ function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
         ))}
       </div>
     </div>
-  );
-}
-
-// ── Leaders tab content: the strongest stocks inside the strongest layers ──
-// Top-down leader finder (Minervini style): take the top-N layers by RS, mine
-// their constituents, and rank each by a composite of stock RS + EIF + proximity
-// to 52w high + volume confirmation, with the chainSetup badge. Surfaces the
-// MU/SNDK-type names — leaders of leading themes. Presentational: the board owns
-// the data hooks and passes live quotes in.
-function LeadersContent({ d, quotes, stockMap, onTickerClick, topLayers, setTopLayers, ARIA }) {
-  const top = [...(d.layers || [])].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, topLayers);
-  const byTicker = new Map();
-  top.forEach((l) => (l.holds || []).forEach((h) => {
-    const prev = byTicker.get(h.t);
-    if (!prev || (l.now ?? -1) > prev.layerNow) byTicker.set(h.t, { t: h.t, layerRs: h.s, layer: l.name, layerNow: l.now ?? null });
-  }));
-
-  const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const _etMin = _et.getHours() * 60 + _et.getMinutes();
-  const _elapsed = (_etMin >= 570 && _etMin < 960) ? Math.max(0.02, sessionVolFraction(_etMin - 570)) : 1.0;
-  const spyChg = quotes.get("SPY")?.change ?? 0;
-  const clamp = (v) => Math.max(0, Math.min(100, v));
-
-  const rows = [...byTicker.values()].map((c) => {
-    const s = stockMap?.[c.t]; const q = quotes.get(c.t);
-    const rs = s?.rs_rank ?? c.layerRs ?? null;          // universe-wide RS rank preferred
-    const eif = s?.framework_score ?? null;
-    const chg = q?.change ?? s?.change_pct ?? null;
-    const off52 = s?.off_52w_high ?? null;               // negative = % below 52w high
-    const cr = computeCR(q, s);
-    let zvr = null; const lv = q?.volume, av = s?.avg_volume_raw || q?.avgVolume || 0;
-    if (lv && av > 0) zvr = Math.round((lv / (av * _elapsed)) * 100);
-    else if (s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
-    if (zvr != null && chg != null && chg < 0) zvr = -zvr;
-    const alpha = chg != null ? +(chg - spyChg).toFixed(2) : null;
-    const erDays = s?.earnings_days ?? null;
-    const badge = chainSetup({ zvr, rs: eif, cr, str: s?.ts_rank ?? null, alpha, erDays, chg });
-    const rsC = rs ?? 0;
-    const eifC = eif != null ? clamp((eif / 86) * 100) : 0;
-    const nearC = off52 != null ? clamp(100 * (1 - Math.min(40, Math.max(0, -off52)) / 40)) : 50;
-    const volC = zvr != null ? clamp(50 + zvr / 3) : 50;
-    let score = 0.40 * rsC + 0.30 * eifC + 0.20 * nearC + 0.10 * volC;
-    if (badge?.key === "ACC" || badge?.key === "EP") score += 5;
-    if (badge?.key === "DIST") score -= 12;
-    return { ...c, rs, eif, chg, off52, cr, zvr, badge, score: Math.round(clamp(score)) };
-  }).sort((a, b) => b.score - a.score).slice(0, 25);
-
-  const setLayers = (n) => { setTopLayers(n); try { localStorage.setItem("tp-funnel-layers", String(n)); } catch {} };
-  const eifColor = (v) => v == null ? ARIA.textMuted : v >= 70 ? "#fbbf24" : v >= 55 ? ARIA.green : v >= 40 ? ARIA.textDim : ARIA.textMuted;
-  const nearColor = (v) => v == null ? ARIA.textMuted : v >= -8 ? ARIA.green : v >= -20 ? ARIA.textDim : ARIA.red;
-  const zvrColor = (v) => v == null ? ARIA.textMuted : Math.abs(v) >= 200 ? (v < 0 ? "#ef4444" : "#fbbf24") : Math.abs(v) >= 130 ? (v < 0 ? ARIA.red : ARIA.green) : ARIA.textDim;
-  const scoreColor = (v) => v >= 80 ? ARIA.green : v >= 65 ? ARIA.blue : ARIA.textDim;
-  const th = (label, alignR = true) => <th style={{ position: "sticky", top: 0, background: ARIA.bgRow || "#15151c", textAlign: alignR ? "right" : "left", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap", boxShadow: `inset 0 -1px 0 ${ARIA.border}` }}>{label}</th>;
-
-  return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <span style={{ fontSize: 7.5, color: ARIA.textDim }}>strongest names in the strongest layers · RS + EIF + near-high + volume</span>
-        <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>top layers</span>
-          {[5, 8, 12].map((n) => (
-            <button key={n} onClick={() => setLayers(n)} style={{ fontSize: 7.5, fontWeight: 700, cursor: "pointer", padding: "1px 5px", borderRadius: 3, fontFamily: "monospace",
-              color: topLayers === n ? ARIA.text : ARIA.textMuted, background: topLayers === n ? ARIA.blue + "22" : "transparent", border: `1px solid ${topLayers === n ? ARIA.blue + "66" : ARIA.border}` }}>{n}</button>
-          ))}
-        </span>
-      </div>
-      <div style={{ overflowY: "auto", maxHeight: 300 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9, fontFamily: "monospace" }}>
-          <thead><tr>{th("#")}{th("Ticker", false)}{th("Layer", false)}{th("RS")}{th("EIF")}{th("%52wH")}{th("Chg")}{th("ZVR")}{th("CR")}{th("Setup", false)}{th("Lead")}</tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.t} onClick={() => onTickerClick?.(r.t)} style={{ borderBottom: `1px solid ${ARIA.border}30`, cursor: "pointer" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: ARIA.textMuted }}>{i + 1}</td>
-                <td style={{ padding: "2px 6px", color: ARIA.blue, fontWeight: 700 }}>{r.t}</td>
-                <td style={{ padding: "2px 6px", color: ARIA.textDim, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${r.layer} · layer RS ${r.layerNow}`}>{r.layer}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: r.rs >= 90 ? ARIA.green : r.rs >= 70 ? ARIA.blue : ARIA.textDim, fontWeight: 700 }}>{r.rs ?? "—"}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: eifColor(r.eif), fontWeight: r.eif != null && r.eif >= 55 ? 700 : 400 }}>{r.eif ?? "—"}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: nearColor(r.off52) }}>{r.off52 == null ? "—" : r.off52.toFixed(0) + "%"}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: r.chg == null ? ARIA.textMuted : r.chg > 0 ? ARIA.green : r.chg < 0 ? ARIA.red : ARIA.textMuted }}>{r.chg == null ? "—" : (r.chg > 0 ? "+" : "") + r.chg.toFixed(1)}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: zvrColor(r.zvr), fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr + "%"}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</td>
-                <td style={{ padding: "2px 6px" }}>{r.badge ? <span title={r.badge.desc} style={{ fontSize: 7.5, fontWeight: 800, color: r.badge.color, background: r.badge.color + "1c", border: `1px solid ${r.badge.color}55`, borderRadius: 3, padding: "0 4px" }}>{r.badge.key}</span> : ""}</td>
-                <td style={{ textAlign: "right", padding: "2px 6px", color: scoreColor(r.score), fontWeight: 800 }}>{r.score}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
   );
 }
 
@@ -1861,6 +1773,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   // ZVR only feeds the selected layer's constituents panel — poll just those.
   const zvrUniverse = useMemo(() => (open && layerHolds ? layerHolds.map((h) => h.t) : []), [open, layerHolds]);
   const { cur: zvrMap } = useZVR(zvrUniverse);
+  const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
   if (!d) return null; // all hooks run above this guard
   const spyChg = liveQuotes.get("SPY")?.change;
   const liveDay = (r) => {
@@ -1901,6 +1814,42 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   };
   const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
   const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r), zvr: liveZvr(r) }));
+
+  // Leaders rows: strongest stocks inside the top-N layers, shaped to the same
+  // RsTable columns. Rank boxes (Now/1D/1W/1M) = the parent layer's trajectory
+  // (theme rotation); RS Day/Wk/Mth%, ZVR and 52W High = the stock's own. Ranked
+  // (#) by a composite of stock RS + EIF + near-52w-high + volume.
+  const leaderRows = (() => {
+    if (rsTab !== "leaders" || !d.layers) return [];
+    const top = [...d.layers].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, topLayers);
+    const byT = new Map();
+    top.forEach((l) => (l.holds || []).forEach((h) => {
+      const prev = byT.get(h.t);
+      if (!prev || (l.now ?? -1) > prev._lnow) byT.set(h.t, { t: h.t, layer: l, _lnow: l.now ?? -1 });
+    }));
+    const clamp = (v) => Math.max(0, Math.min(100, v));
+    const sp1w = spyRet?.["1w"] ?? 0, sp1m = spyRet?.["1m"] ?? 0;
+    const rows = [...byT.values()].map(({ t, layer }) => {
+      const s = stockMap?.[t] || {}; const q = liveQuotes.get(t);
+      const chg = q?.change ?? s.change_pct ?? null;
+      const rsDay = chg != null ? +(chg - (spyChg ?? 0)).toFixed(2) : null;
+      const rsWk = s.return_1w != null ? +(s.return_1w - sp1w).toFixed(2) : null;
+      const rsMth = s.return_1m != null ? +(s.return_1m - sp1m).toFixed(2) : null;
+      let zvr = null; const lv = q?.volume, av = s.avg_volume_raw || q?.avgVolume || 0;
+      if (lv && av > 0) zvr = Math.round((lv / (av * _elapsed)) * 100);
+      else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+      if (zvr != null && chg != null && chg < 0) zvr = -zvr;
+      const eif = s.framework_score ?? null, off52 = s.off_52w_high ?? null, rsRank = s.rs_rank ?? null;
+      const score = 0.40 * (rsRank ?? 0) + 0.30 * (eif != null ? clamp(eif / 86 * 100) : 0)
+        + 0.20 * (off52 != null ? clamp(100 * (1 - Math.min(40, Math.max(0, -off52)) / 40)) : 50)
+        + 0.10 * (zvr != null ? clamp(50 + zvr / 3) : 50);
+      return { ticker: t, name: layer.name, theme: layer.theme, themeId: layer.themeId,
+        now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth, off52, zvr, _score: score };
+    });
+    rows.sort((a, b) => b._score - a._score);
+    rows.forEach((r, i) => { r.lead = i + 1; });
+    return rows.slice(0, 25);
+  })();
   const liveOn = spyChg != null;
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
@@ -1968,25 +1917,26 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   color: rsTab === key ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none",
                   borderBottom: `2px solid ${rsTab === key ? ARIA.blue : "transparent"}` }}>{label}</button>
             );
+            const layerBtns = (
+              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ fontSize: 7, color: ARIA.textMuted }}>top layers</span>
+                {[5, 8, 12].map((n) => (
+                  <button key={n} onClick={() => { setTopLayers(n); try { localStorage.setItem("tp-funnel-layers", String(n)); } catch {} }}
+                    style={{ fontSize: 7, fontWeight: 700, cursor: "pointer", padding: "0 4px", borderRadius: 3, fontFamily: "monospace",
+                      color: topLayers === n ? ARIA.text : ARIA.textMuted, background: topLayers === n ? ARIA.blue + "22" : "transparent", border: `1px solid ${topLayers === n ? ARIA.blue + "66" : ARIA.border}` }}>{n}</button>
+                ))}
+              </span>
+            );
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                 {tabBtn("sectors", "Sector Leaders")}
                 {tabBtn("industries", "Industries")}
                 {tabBtn("layers", "Layers")}
                 {tabBtn("leaders", "Leaders")}
-                {rsTab !== "sectors" && rsTab !== "leaders" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>}
+                {rsTab === "leaders" ? layerBtns : (rsTab !== "sectors" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
-            // Leaders is a full-width table (the regime chart isn't relevant to it).
-            if (rsTab === "leaders") {
-              return (
-                <div>
-                  {tabRow}
-                  <LeadersContent d={d} quotes={liveQuotes} stockMap={stockMap} onTickerClick={onTickerClick}
-                    topLayers={topLayers} setTopLayers={setTopLayers} ARIA={ARIA} />
-                </div>
-              );
-            }
+            const isLeaders = rsTab === "leaders";
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap}
@@ -1996,12 +1946,15 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   {tabRow}
                   <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
                     <RsTable
-                      rows={activeRows}
+                      key={isLeaders ? "rs-leaders" : "rs-rotation"}
+                      rows={isLeaders ? leaderRows : activeRows}
                       sortable onTicker={openTicker} ARIA={ARIA}
+                      rankCol={isLeaders}
+                      initialSort={isLeaders ? { key: "lead", dir: "asc" } : undefined}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
                       onLayerSelect={rsTab === "layers" ? openLayer : undefined}
-                      activeKey={rsTab === "layers" ? selectedLayerKey : sym} />
+                      activeKey={rsTab === "layers" ? selectedLayerKey : (isLeaders ? null : sym)} />
                   </div>
                 </>
               } />
