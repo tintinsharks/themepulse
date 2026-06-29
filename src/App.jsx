@@ -1964,20 +1964,20 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     return rows.slice(0, 25);
   })();
 
-  // Emerging: names pushing INTO leadership — near a 52w high (or RS-line new high)
-  // on heavy up-volume, with decent EIF, but not yet maxed-out mega leaders.
+  // Emerging: names pushing INTO leadership — near a 52w high (or RS-line new
+  // high) with decent EIF. Volume is a SCORE bonus, not a hard gate, so the tab
+  // stays populated outside RTH / on quiet sessions instead of collapsing to ~1.
   const emergingRows = (() => {
     if (rsTab !== "emerging") return [];
     const cand = topLayerStocks.filter((r) =>
-      ((r.off52 != null && r.off52 >= -6) || r.rsLineNewHigh) &&    // at/near 52w high or RS-line new high
-      r.zvr != null && r.zvr >= 120 &&                              // volume thrust (up)
-      (r.eif == null || r.eif >= 45) &&                             // not junk
-      (r.rsDay == null || r.rsDay > -1));                           // not red vs SPY today
+      ((r.off52 != null && r.off52 >= -8) || r.rsLineNewHigh) &&    // at/near 52w high or RS-line new high
+      (r.eif != null && r.eif >= 50));                             // quality
     const rows = cand.map((r) => ({ ...r, _score:
-      0.35 * (r.zvr != null ? clampPct(r.zvr / 3) : 0)                                   // volume conviction
-      + 0.30 * (r.off52 != null ? clampPct(100 * (1 - Math.min(15, Math.max(0, -r.off52)) / 15)) : 50) // proximity to high
-      + 0.20 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
-      + 0.15 * (r.rsLineNewHigh ? 100 : 0) }));                                          // RS-line new high = early
+      0.34 * (r.off52 != null ? clampPct(100 * (1 - Math.min(20, Math.max(0, -r.off52)) / 20)) : 50) // proximity to high
+      + 0.28 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)                                       // quality
+      + 0.18 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50)                                         // volume conviction (bonus)
+      + 0.10 * (r.rsLineNewHigh ? 100 : 0)                                                             // RS-line new high = early
+      + 0.10 * (r.rsDay != null ? clampPct(50 + r.rsDay * 8) : 50) }));                                // today's relative strength
     rows.sort((a, b) => b._score - a._score);
     rows.forEach((r, i) => { r.lead = i + 1; });
     return rows.slice(0, 25);
@@ -2095,7 +2095,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 rightPanel={
                 <>
                   {tabRow}
-                  {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high, on up-volume</div>}
+                  {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
                   <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
