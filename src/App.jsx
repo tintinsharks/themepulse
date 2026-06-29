@@ -1713,6 +1713,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(t);
   };
+  // Chart a ticker WITHOUT the reverse-sync auto-switching the board to its
+  // layer — used by the Leaders tab so a click charts the name but stays put.
+  const suppressSyncRef = useRef(false);
+  const openTickerNoSync = (t) => { suppressSyncRef.current = true; openTicker(t); };
   // Load a layer (EW basket + constituents). `doChart` charts its lead below.
   const applyLayer = (r, doChart) => {
     if (!r?.ticker) return;
@@ -1730,6 +1734,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   // full universe incl. unscored names) and switch the board to the highest-RS
   // one — unless it's already inside the layer on screen.
   useEffect(() => {
+    if (suppressSyncRef.current) { suppressSyncRef.current = false; return; } // Leaders-tab click — stay put
     const t = (chartTicker || "").toUpperCase();
     if (!t || !d?.layers) return;
     const chains = chainsForStock(t, stockMap?.[t]) || [];
@@ -1957,7 +1962,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                     <RsTable
                       key={isLeaders ? "rs-leaders" : "rs-rotation"}
                       rows={isLeaders ? leaderRows : activeRows}
-                      sortable onTicker={openTicker} ARIA={ARIA}
+                      sortable onTicker={isLeaders ? openTickerNoSync : openTicker} ARIA={ARIA}
                       rankCol={isLeaders}
                       initialSort={isLeaders ? { key: "lead", dir: "asc" } : undefined}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
