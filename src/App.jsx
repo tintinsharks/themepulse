@@ -1543,7 +1543,7 @@ function RsRankBox({ v, ARIA }) {
   );
 }
 
-function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort }) {
+function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort, onNameLayer }) {
   const [sort, setSort] = useState(initialSort || { key: "zvr", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
@@ -1625,6 +1625,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
       <tbody>
         {sorted.map((r) => {
           const isActive = activeKey && rowKeyOf(r) === activeKey;
+          const quadName = (r.now != null && r.w1 != null) ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : null;
+          const nameTitle = quadName ? `${r.theme ? r.theme + " · " : ""}${r.name} — RRG: ${quadName}${onNameLayer ? " (click to load layer)" : ""}` : undefined;
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
             style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : "transparent", boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
@@ -1650,7 +1652,11 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                 </button>
               </td>
             ) : (
-              <td style={{ padding: "2px 6px", color: quadColor(r), whiteSpace: "nowrap" }} title={r.now != null && r.w1 != null ? `RRG: ${r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")}` : undefined}>{r.name}</td>
+              <td style={{ padding: "2px 6px", whiteSpace: "nowrap" }} title={nameTitle}>
+                {onNameLayer
+                  ? <button onClick={() => onNameLayer(r)} style={{ background: "none", border: "none", color: quadColor(r), fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.name}</button>
+                  : <span style={{ color: quadColor(r) }}>{r.name}</span>}
+              </td>
             )}
             <td title={r.rsDay == null ? undefined : `RS Day% ${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(2)}% · ${rsDayPct.get(r)}th pct among ${getTag ? "layers" : "names"}`}
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(rsDayPct.get(r)) }}>{pctCell(r.rsDay)}</td>
@@ -2097,6 +2103,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                       sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
                       initialSort={isStockTab ? { key: "lead", dir: "asc" } : undefined}
+                      onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayer(lyr); }) : undefined}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
                       onLayerSelect={rsTab === "layers" ? openLayer : undefined}
