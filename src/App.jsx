@@ -1810,18 +1810,22 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   // layer — used by the Leaders tab so a click charts the name but stays put.
   const suppressSyncRef = useRef(false);
   const openTickerNoSync = (t) => { suppressSyncRef.current = true; openTicker(t); };
-  // Load a layer (EW basket + constituents). `doChart` charts its lead below.
-  const applyLayer = (r, doChart) => {
+  // Load a layer (EW basket + constituents). `doChart` charts its lead below;
+  // `keepTab` loads the basket but stays on the current subtab (Leaders/Emerging).
+  const applyLayer = (r, doChart, keepTab) => {
     if (!r?.ticker) return;
     setLayerHolds(r.holds || []);
     setBasketLabel(r.name || ""); setBasketMode(true);
     setSelectedLayerKey(`${r.themeId}|${r.name}`);
-    setRsTab("layers");
+    if (!keepTab) setRsTab("layers");
     setSymPersist(r.ticker);
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     if (doChart) onTickerClick?.(r.ticker);
   };
   const openLayer = (r) => applyLayer(r, true);
+  // From Leaders/Emerging: load the layer basket but don't switch to Layers and
+  // don't chart a ticker (which would trip reverse-sync) — stay put.
+  const openLayerStay = (r) => applyLayer(r, false, true);
   // Reverse sync: when a ticker is charted elsewhere (manual input / click),
   // map it to its layer(s) via chainsForStock (same logic as Scan Watch → Chain,
   // full universe incl. unscored names) and switch the board to the highest-RS
@@ -2103,7 +2107,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                       sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
                       initialSort={isStockTab ? { key: "lead", dir: "asc" } : undefined}
-                      onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayer(lyr); }) : undefined}
+                      onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
                       onLayerSelect={rsTab === "layers" ? openLayer : undefined}
