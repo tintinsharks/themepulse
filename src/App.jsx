@@ -724,7 +724,7 @@ function useSpyReturns() {
 
 const INDEX_LIST = [
   { ticker: "DIA", name: "DOW" },
-  { ticker: "QQQ", name: "NASDAQ" },
+  { ticker: "QQQ", name: "QQQ" },
   { ticker: "SPY", name: "S&P 500" },
   { ticker: "IWM", name: "RUSSELL" },
   { ticker: "IBIT", name: "BTC" },
