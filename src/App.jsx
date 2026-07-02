@@ -1968,7 +1968,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     const matches = d.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`));
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
-    applyLayer(best, false); // don't re-chart — avoids a feedback loop
+    // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends
+    applyLayer(best, false, rsTab === "rrg" || rsTab === "trends");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
@@ -2143,7 +2144,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
           {rsTab !== "leaders" && rsTab !== "emerging" && (() => {
-            const isLayer = rsTab === "layers";
+            // rrg/trends also show LAYER rows in the mover cards — treat them as
+            // layers (load in place) rather than charting the lead ticker, which
+            // would trip reverse-sync and yank the tab to Layers.
+            const isLayer = rsTab === "layers" || rsTab === "rrg" || rsTab === "trends";
             // Confidence-weight the rank change by constituent count so a thin
             // layer (1–2 names) needs a much bigger move to surface, while a
             // broad layer's modest shift still counts. Shrinkage conf = n/(n+K):
@@ -2156,7 +2160,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               scored.sort((a, b) => (dir === "up" ? b.wpts - a.wpts : a.wpts - b.wpts));
               return scored.slice(0, 7);
             };
-            const onRow = isLayer ? openLayer : (r) => openTicker(r.ticker);
+            const onRow = isLayer ? (rsTab === "layers" ? openLayer : openLayerStay) : (r) => openTicker(r.ticker);
             const toggleMovers = () => setMoversOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-movers-open", n ? "1" : "0"); } catch {} return n; });
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
