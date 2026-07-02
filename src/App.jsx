@@ -2210,25 +2210,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "rrg" && rsTab !== "trends" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
-            // RRG quadrant is a full-width chart (the regime chart isn't relevant).
-            if (rsTab === "rrg") {
-              return (
-                <div>
-                  {tabRow}
-                  <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 3px" }}>layers by RS level × 1-week momentum · click to load · watch the Improving quadrant (rotating up before they lead)</div>
-                  <RrgQuadrant layers={d.layers} onLayer={openLayer} ARIA={ARIA} />
-                </div>
-              );
-            }
-            // Trends: multi-day rank trajectories — full-width
-            if (rsTab === "trends") {
-              return (
-                <div>
-                  {tabRow}
-                  <TrendsBoard hist={rankHist} d={d} onLayer={openLayer} onTicker={openTickerNoSync} ARIA={ARIA} />
-                </div>
-              );
-            }
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
@@ -2238,7 +2219,13 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 <>
                   {tabRow}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
+                  {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click a layer to load it left · watch Improving</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
+                    {rsTab === "rrg" ? (
+                      <RrgQuadrant layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
+                    ) : rsTab === "trends" ? (
+                      <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
+                    ) : (
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
                       rows={stockRows}
@@ -2249,6 +2236,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
                       onLayerSelect={rsTab === "layers" ? openLayer : undefined}
                       activeKey={rsTab === "layers" ? selectedLayerKey : (isStockTab ? null : sym)} />
+                    )}
                   </div>
                 </>
               } />
