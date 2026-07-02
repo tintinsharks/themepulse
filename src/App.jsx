@@ -1679,6 +1679,85 @@ function TrendsBoard({ hist, d, onLayer, onTicker, ARIA }) {
   );
 }
 
+// themes considered "tech" — shared by the Tech / Ex-Tech tabs and the Playbook
+const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "internet", "robotics", "fintech"]);
+
+// ── Playbook: crosses trailing rank × weekly momentum × live day strength ──
+// into action buckets. Tech layers are ranked within tech (day vs QQQ);
+// ex-tech within ex-tech (day vs SPY). Same lens as a desk read:
+//   rank high + red today        → DISTRIBUTION (avoid/trim)
+//   rank high + rising + green   → CONTINUATION (hold/add on setups)
+//   rank mid  + rising + green   → BUY ZONE (look for entries)
+//   huge weekly rise + red today → STALK (wait for first tight day)
+//   rank low  + big green        → BOUNCE (watch only)
+function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
+  const spy = quotes.get("SPY")?.change ?? null;
+  const qqq = quotes.get("QQQ")?.change ?? null;
+  const build = (pred, bench, tag) => {
+    const subset = (d.layers || []).filter((l) => pred(l) && l.now != null).map((l) => ({ ...l, tag }));
+    ["now", "w1"].forEach((k) => {
+      const order = subset.filter((l) => l[k] != null).sort((a, b) => a[k] - b[k]);
+      const n = (order.length - 1) || 1;
+      order.forEach((l, i) => { l["_" + k] = Math.round((i / n) * 100); });
+    });
+    subset.forEach((l) => {
+      const chgs = (l.holds || []).map((h) => quotes.get(h.t)?.change).filter((v) => v != null);
+      l.day = (chgs.length && bench != null) ? +(chgs.reduce((a, b) => a + b, 0) / chgs.length - bench).toFixed(2) : null;
+      l.mom = (l._now ?? 0) - (l._w1 ?? 0);
+      l.rank = l._now ?? null;
+    });
+    return subset;
+  };
+  const rows = [
+    ...build((l) => TECH_THEMES.has(l.themeId), qqq, "TECH"),
+    ...build((l) => !TECH_THEMES.has(l.themeId), spy, "EX"),
+  ];
+  const BUCKETS = [
+    { key: "cont", label: "⭐ CONTINUATION", desc: "leaders still working — hold / add on setups", c: ARIA.green,
+      test: (r) => r.rank >= 88 && r.mom >= 0 && (r.day ?? 0) > 0, sort: (a, b) => (b.day ?? 0) - (a.day ?? 0) },
+    { key: "buy", label: "🟢 BUY ZONE", desc: "rising + confirmed today — look for entries", c: "#34d399",
+      test: (r) => r.mom >= 8 && (r.day ?? -9) > 0.5 && r.rank >= 35 && r.rank < 88, sort: (a, b) => b.mom - a.mom },
+    { key: "stalk", label: "🔭 STALK", desc: "violent weekly rotation, digesting today — wait for the first tight day", c: "#22d3ee",
+      test: (r) => r.mom >= 18 && (r.day ?? 0) <= 0.5, sort: (a, b) => b.mom - a.mom },
+    { key: "dist", label: "⚠ DISTRIBUTION", desc: "leaders being sold — trim / avoid new buys", c: ARIA.red,
+      test: (r) => r.rank >= 85 && (r.day ?? 0) <= -2, sort: (a, b) => (a.day ?? 0) - (b.day ?? 0) },
+    { key: "bounce", label: "🎣 BOUNCE", desc: "oversold pop in a low-rank group — watch only, needs repair", c: ARIA.yellow,
+      test: (r) => r.rank < 35 && (r.day ?? 0) >= 2, sort: (a, b) => (b.day ?? 0) - (a.day ?? 0) },
+  ];
+  const used = new Set();
+  const grouped = BUCKETS.map((b) => {
+    const hits = rows.filter((r) => !used.has(r) && b.test(r)).sort(b.sort).slice(0, 8);
+    hits.forEach((r) => used.add(r));
+    return { ...b, hits };
+  });
+  const TAGC = { TECH: "#6cd5e8", EX: "#fbbf24" };
+  return (
+    <div style={{ fontFamily: "monospace", display: "flex", flexDirection: "column", gap: 6 }}>
+      {grouped.map((b) => b.hits.length > 0 && (
+        <div key={b.key} style={{ border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${b.c}`, borderRadius: 5, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "2.5px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
+            <span style={{ fontSize: 8.5, fontWeight: 800, color: b.c, letterSpacing: 0.4 }}>{b.label}</span>
+            <span style={{ fontSize: 7, color: ARIA.textMuted }}>{b.desc}</span>
+          </div>
+          {b.hits.map((r) => (
+            <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
+              title={`${r.theme || ""} · ${r.name} — within-group rank ${r.rank} (${r.mom >= 0 ? "+" : ""}${r.mom}w) · today ${r.day == null ? "—" : (r.day >= 0 ? "+" : "") + r.day.toFixed(1)}% vs ${r.tag === "TECH" ? "QQQ" : "SPY"} · ${r.off52 != null ? r.off52.toFixed(0) + "% off 52w high" : ""} (click to load)`}
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "1.5px 8px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 9 }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+              <span style={{ fontSize: 6.5, fontWeight: 800, color: TAGC[r.tag], width: 26, flexShrink: 0 }}>{r.tag}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}<span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span></span>
+              <RsRankBox v={r.rank} ARIA={ARIA} />
+              <span style={{ width: 30, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.mom > 0 ? ARIA.green : r.mom < 0 ? ARIA.red : ARIA.textMuted }}>{r.mom > 0 ? "▲" : r.mom < 0 ? "▼" : ""}{Math.abs(r.mom)}</span>
+              <span style={{ width: 36, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
+              <span style={{ width: 32, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0) + "%"}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // colored 0-100 rank pill — green high, red low
 function RsRankBox({ v, ARIA }) {
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
@@ -2000,7 +2079,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
     // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends/tech/ex-tech
-    applyLayer(best, false, rsTab === "rrg" || rsTab === "trends" || rsTab === "tech" || rsTab === "extech");
+    applyLayer(best, false, ["rrg", "trends", "tech", "extech", "playbook"].includes(rsTab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
@@ -2093,7 +2172,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   // Tech tab: tech-theme layers only, RE-RANKED among themselves (0-100
   // percentile within tech) so leadership INSIDE the sector is visible even
   // when tech broadly sells off. Day% benchmarks vs QQQ (see liveDay).
-  const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "internet", "robotics", "fintech"]);
   const subsetRanked = (pred) => {
     const subset = (d.layers || []).filter(pred).map((l) => ({ ...l }));
     ["now", "d1", "w1", "m1"].forEach((k) => {
@@ -2214,7 +2292,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
             // rrg/trends also show LAYER rows in the mover cards — treat them as
             // layers (load in place) rather than charting the lead ticker, which
             // would trip reverse-sync and yank the tab to Layers.
-            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "extech" || rsTab === "rrg" || rsTab === "trends";
+            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "extech" || rsTab === "rrg" || rsTab === "trends" || rsTab === "playbook";
             // Confidence-weight the rank change by constituent count so a thin
             // layer (1–2 names) needs a much bigger move to surface, while a
             // broad layer's modest shift still counts. Shrinkage conf = n/(n+K):
@@ -2280,6 +2358,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 {tabBtn("emerging", "Emerging")}
                 {tabBtn("rrg", "RRG")}
                 {tabBtn("trends", "Trends")}
+                {tabBtn("playbook", "Playbook")}
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "rrg" && rsTab !== "trends" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
@@ -2295,11 +2374,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click a layer to load it left · watch Improving</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
+                  {rsTab === "playbook" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>rank × weekly momentum × live day (tech vs QQQ, ex-tech vs SPY) → action buckets · % = off 52w high</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "rrg" ? (
                       <RrgQuadrant layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : rsTab === "trends" ? (
                       <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
+                    ) : rsTab === "playbook" ? (
+                      <PlaybookBoard d={d} quotes={liveQuotes} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : (
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
