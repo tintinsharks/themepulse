@@ -2379,6 +2379,37 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               </div>
             );
           })()}
+          {/* All layers containing the charted ticker — reverse-sync auto-picks the
+              strongest, but multi-layer names (e.g. ISRG in Devices AND Medical
+              Robotics) get chips here so every containing layer is one click away */}
+          {(() => {
+            const t = (chartTicker || "").toUpperCase();
+            if (!t || !d.layers) return null;
+            const chains = chainsForStock(t, stockMap?.[t]) || [];
+            if (chains.length < 2) return null;
+            const keys = new Set(chains.map((c) => `${c.themeId}|${c.layer}`));
+            const containing = d.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`))
+              .sort((a, b) => (b.now ?? -1) - (a.now ?? -1));
+            if (containing.length < 2) return null;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", fontSize: 8 }}>
+                <span style={{ color: ARIA.textMuted }}>{t} is in:</span>
+                {containing.map((l) => {
+                  const key = `${l.themeId}|${l.name}`;
+                  const active = selectedLayerKey === key;
+                  return (
+                    <button key={key} onClick={() => applyLayer(l, false, true)}
+                      title={`${l.theme} · ${l.name} — rank ${l.now} (click to load this layer)`}
+                      style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 6px", borderRadius: 3,
+                        color: active ? ARIA.text : ARIA.textDim, background: active ? ARIA.blue + "26" : "transparent",
+                        border: `1px solid ${active ? ARIA.blue : ARIA.border}` }}>
+                      {l.name} <span style={{ color: (l.now ?? 0) >= 67 ? ARIA.green : (l.now ?? 0) >= 33 ? ARIA.blue : ARIA.red }}>{l.now}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
           {/* Regime chart (left) + tabbed Sectors/Industries table (right of the graph) */}
           {(() => {
             const tabBtn = (key, label) => (
@@ -12894,7 +12925,6 @@ const DRAWER_SUBTHEMES = [
   { theme: "Quantum", themeId: "quantum", layer: "Mega-Cap Quantum", desc: "Mega-caps with quantum-computing programs", tickers: ["GOOGL","MSFT","AMZN","IBM","NVDA"] },
   { theme: "Quantum", themeId: "quantum", layer: "Enabling Tech", desc: "Photonics & components enabling quantum", tickers: ["COHR","FORM","HON","NOVT","POET"] },
   { theme: "Space", themeId: "space", layer: "Defense Space", desc: "Defense primes' space & satellite work", tickers: ["LMT","NOC","RTX","BA","LHX","BWXT"] },
-  { theme: "Space", themeId: "space", layer: "Earth Observation", desc: "Satellite imaging & earth-observation data", tickers: ["PL","BKSY","RKLB"] },
   { theme: "Space", themeId: "space", layer: "Satellites + Connect", desc: "Satellite comms & direct-to-device connectivity", tickers: ["ASTS","GSAT","IRDM","VSAT","BKSY","SATS","GILT","RKLB"] },
   { theme: "Space", themeId: "space", layer: "Lunar + Deep Space", desc: "Lunar landers & deep-space exploration", tickers: ["LUNR","LDOS","LMT","RKLB","RDW","BWXT"] },
   { theme: "Space", themeId: "space", layer: "Space Infrastructure", desc: "Launch, in-space services & space hardware", tickers: ["BWXT","RDW","GHM","VVX","KTOS","LUNR"] },
