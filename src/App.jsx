@@ -1568,7 +1568,7 @@ function RsRankBox({ v, ARIA }) {
 }
 
 function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort, onNameLayer }) {
-  const [sort, setSort] = useState(initialSort || { key: "zvr", dir: "desc" });
+  const [sort, setSort] = useState(initialSort || { key: "rsDay", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
   // RS acceleration (2nd derivative), weekly→monthly: project last week's
@@ -1610,7 +1610,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
         return sort.dir === "desc" ? bv.localeCompare(av) : av.localeCompare(bv);
       }
       const av = a[sort.key] ?? -9999, bv = b[sort.key] ?? -9999;
-      return sort.dir === "desc" ? bv - av : av - bv;
+      if (av !== bv) return sort.dir === "desc" ? bv - av : av - bv;
+      return (b.zvr ?? -9999) - (a.zvr ?? -9999); // secondary: ZVR desc
     });
     return arr;
   }, [augmented, sort, sortable]);
@@ -2130,7 +2131,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                       rows={stockRows}
                       sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
-                      initialSort={isStockTab ? { key: "lead", dir: "asc" } : undefined}
                       onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
                       tickerLabel={rsTab === "layers" ? "Theme" : "Ticker"}
                       getTag={rsTab === "layers" ? ((r) => r.theme || "—") : undefined}
