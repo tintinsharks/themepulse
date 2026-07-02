@@ -1267,9 +1267,10 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
           )}
         </div>
         <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
-        {/* Right: caller-provided panel (Sectors/Industries tabs) */}
+        {/* Right: caller-provided panel (Sectors/Industries tabs) — pinned to the
+            chart height so its table flex-fills when the box is resized taller */}
         {rightPanel && (
-          <div style={{ width: 640, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column", minWidth: 600 }}>
+          <div style={{ width: 640, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column", minWidth: 600, height: chartH, overflow: "hidden" }}>
             {rightPanel}
           </div>
         )}
@@ -2123,7 +2124,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 <>
                   {tabRow}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
-                  <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", maxHeight: 150 }}>
+                  <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
                       rows={stockRows}
