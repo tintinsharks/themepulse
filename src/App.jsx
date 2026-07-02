@@ -1690,7 +1690,7 @@ const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "int
 //   rank mid  + rising + green   → BUY ZONE (look for entries)
 //   huge weekly rise + red today → STALK (wait for first tight day)
 //   rank low  + big green        → BOUNCE (watch only)
-function PlaybookBoard({ d, quotes, stockMap, onLayer, ARIA }) {
+function PlaybookBoard({ d, quotes, stockMap, wAdjTech, onLayer, ARIA }) {
   const [sorts, setSorts] = useState({}); // per-bucket header sort override
   const spy = quotes.get("SPY")?.change ?? null;
   const qqq = quotes.get("QQQ")?.change ?? null;
@@ -1725,6 +1725,9 @@ function PlaybookBoard({ d, quotes, stockMap, onLayer, ARIA }) {
       l.cr = crs.length ? Math.round(crs.reduce((a, b) => a + b, 0) / crs.length) : null;
       l.mom = (l._now ?? 0) - (l._w1 ?? 0);
       l.rank = l._now ?? null;
+      // Acc¹ = today's pace ×5 vs its own week — benchmark-consistent per group
+      const wk = l.rsWk != null ? l.rsWk + (tag === "TECH" && wAdjTech != null ? wAdjTech : 0) : null;
+      l.acc1 = (l.day != null && wk != null) ? +(l.day * 5 - wk).toFixed(1) : null;
     });
     return subset;
   };
@@ -1783,12 +1786,11 @@ function PlaybookBoard({ d, quotes, stockMap, onLayer, ARIA }) {
           <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "1px 6px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 6.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>
             <span style={{ width: 8, flexShrink: 0 }} />
             {hc(b.key, "name", "Layer", { flex: 1, minWidth: 0, textAlign: "left" })}
-            {hc(b.key, "rank", "Rk", { width: 22, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "mom", "Wk", { width: 24, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "day", "Day", { width: 30, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "zvr", "ZVR", { width: 32, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "cr", "CR", { width: 20, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "off52", "52W", { width: 28, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "day", "Day", { width: 32, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "zvr", "ZVR", { width: 34, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "cr", "CR", { width: 22, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "acc1", "A¹", { width: 32, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "off52", "52W", { width: 30, textAlign: "right", flexShrink: 0 })}
           </div>
           {b.hits.map((r) => (
             <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
@@ -1797,12 +1799,11 @@ function PlaybookBoard({ d, quotes, stockMap, onLayer, ARIA }) {
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
               <span title={r.tag === "TECH" ? "Tech (vs QQQ)" : "Ex-Tech (vs SPY)"} style={{ fontSize: 7, fontWeight: 800, color: TAGC[r.tag], width: 8, flexShrink: 0 }}>{r.tag === "TECH" ? "T" : "E"}</span>
               <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}</span>
-              <span style={{ width: 22, textAlign: "right", flexShrink: 0, fontWeight: 700, color: r.rank >= 67 ? ARIA.green : r.rank >= 33 ? ARIA.blue : ARIA.red }}>{r.rank}</span>
-              <span style={{ width: 24, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.mom > 0 ? ARIA.green : r.mom < 0 ? ARIA.red : ARIA.textMuted }}>{r.mom > 0 ? "▲" : r.mom < 0 ? "▼" : ""}{Math.abs(r.mom)}</span>
-              <span style={{ width: 30, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
-              <span style={{ width: 32, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr}</span>
-              <span style={{ width: 20, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
-              <span style={{ width: 28, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0)}</span>
+              <span style={{ width: 32, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
+              <span style={{ width: 34, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr}</span>
+              <span style={{ width: 22, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
+              <span title="Acc¹ — today's pace ×5 vs its own week: high = fresh inflection, negative = lagging its week" style={{ width: 32, textAlign: "right", flexShrink: 0, fontWeight: r.acc1 != null && Math.abs(r.acc1) >= 10 ? 700 : 400, color: r.acc1 == null ? ARIA.textMuted : r.acc1 > 0 ? ARIA.green : ARIA.red }}>{r.acc1 == null ? "—" : (r.acc1 > 0 ? "+" : "") + r.acc1.toFixed(0)}</span>
+              <span style={{ width: 30, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0)}</span>
             </div>
           ))}
         </div>
@@ -2465,7 +2466,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                     ) : rsTab === "trends" ? (
                       <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
                     ) : rsTab === "playbook" ? (
-                      <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} onLayer={openLayerStay} ARIA={ARIA} />
+                      <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : (
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
