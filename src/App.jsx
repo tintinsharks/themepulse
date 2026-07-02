@@ -1995,8 +1995,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     const matches = d.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`));
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
-    // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends/tech
-    applyLayer(best, false, rsTab === "rrg" || rsTab === "trends" || rsTab === "tech");
+    // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends/tech/ex-tech
+    applyLayer(best, false, rsTab === "rrg" || rsTab === "trends" || rsTab === "tech" || rsTab === "extech");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
@@ -2037,7 +2037,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const spyChg = liveQuotes.get("SPY")?.change;
   const qqqChg = liveQuotes.get("QQQ")?.change;
   const isTechTab = rsTab === "tech";
-  const isLayerLike = rsTab === "layers" || isTechTab;
+  const isLayerLike = rsTab === "layers" || isTechTab || rsTab === "extech";
   const liveDay = (r) => {
     // Tech tab benchmarks vs QQQ — "strength WITHIN tech", so a cyber layer
     // holding flat while QQQ bleeds reads as strongly positive.
@@ -2090,9 +2090,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   // percentile within tech) so leadership INSIDE the sector is visible even
   // when tech broadly sells off. Day% benchmarks vs QQQ (see liveDay).
   const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "internet", "robotics", "fintech"]);
-  const techRows = (() => {
-    if (!isTechTab) return [];
-    const subset = (d.layers || []).filter((l) => TECH_THEMES.has(l.themeId)).map((l) => ({ ...l }));
+  const subsetRanked = (pred) => {
+    const subset = (d.layers || []).filter(pred).map((l) => ({ ...l }));
     ["now", "d1", "w1", "m1"].forEach((k) => {
       const order = [...subset].filter((l) => l[k] != null).sort((a, b) => a[k] - b[k]);
       const n = (order.length - 1) || 1;
@@ -2100,8 +2099,13 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       subset.forEach((l) => { l[k] = rank.has(l) ? rank.get(l) : null; });
     });
     return subset;
-  })();
-  const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : isTechTab ? techRows : (d.layers || []);
+  };
+  const techRows = isTechTab ? subsetRanked((l) => TECH_THEMES.has(l.themeId)) : [];
+  // Ex-Tech: everything OUTSIDE the tech themes, re-ranked among themselves —
+  // where money rotates TO when it leaves tech. Benchmarked vs SPY.
+  const isExTab = rsTab === "extech";
+  const exRows = isExTab ? subsetRanked((l) => !TECH_THEMES.has(l.themeId)) : [];
+  const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : isTechTab ? techRows : isExTab ? exRows : (d.layers || []);
   // Tech tab: shift the pipeline's vs-SPY Wk/Mth columns to vs-QQQ so they
   // match the tab's benchmark — and so RS Acc¹/Acc² (derived from Day/Wk/Mth)
   // stay internally consistent instead of mixing benchmarks.
@@ -2206,7 +2210,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
             // rrg/trends also show LAYER rows in the mover cards — treat them as
             // layers (load in place) rather than charting the lead ticker, which
             // would trip reverse-sync and yank the tab to Layers.
-            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "rrg" || rsTab === "trends";
+            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "extech" || rsTab === "rrg" || rsTab === "trends";
             // Confidence-weight the rank change by constituent count so a thin
             // layer (1–2 names) needs a much bigger move to surface, while a
             // broad layer's modest shift still counts. Shrinkage conf = n/(n+K):
@@ -2267,6 +2271,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 {tabBtn("industries", "Industries")}
                 {tabBtn("layers", "Layers")}
                 {tabBtn("tech", "Tech")}
+                {tabBtn("extech", "Ex-Tech")}
                 {tabBtn("leaders", "Leaders")}
                 {tabBtn("emerging", "Emerging")}
                 {tabBtn("rrg", "RRG")}
@@ -2285,6 +2290,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
                   {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click a layer to load it left · watch Improving</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
+                  {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "rrg" ? (
                       <RrgQuadrant layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
@@ -2299,7 +2305,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                       onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
                       tickerLabel={isLayerLike ? "Theme" : "Ticker"}
                       getTag={isLayerLike ? ((r) => r.theme || "—") : undefined}
-                      onLayerSelect={rsTab === "layers" ? openLayer : isTechTab ? ((r) => applyLayer(r, true, true)) : undefined}
+                      onLayerSelect={rsTab === "layers" ? openLayer : (isTechTab || isExTab) ? ((r) => applyLayer(r, true, true)) : undefined}
                       activeKey={isLayerLike ? selectedLayerKey : (isStockTab ? null : sym)} />
                     )}
                   </div>
