@@ -1007,6 +1007,22 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
   const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
   const [hSort, setHSort] = useState({ key: "zvr", dir: "desc" }); // layer-constituents panel sort
+  // Vertical size of the regime chart (drag handle at the box's bottom edge);
+  // persisted so the box reopens at the same height.
+  const [chartH, setChartH] = useState(() => {
+    try { const v = parseInt(localStorage.getItem("tp-regime-h") || "158", 10); return Math.max(120, Math.min(480, isNaN(v) ? 158 : v)); } catch { return 158; }
+  });
+  const startResize = (e) => {
+    e.preventDefault();
+    const startY = e.clientY, startH = chartH;
+    const clampH = (h) => Math.max(120, Math.min(480, h));
+    const onMove = (ev) => setChartH(clampH(startH + (ev.clientY - startY)));
+    const onUp = (ev) => {
+      try { localStorage.setItem("tp-regime-h", String(clampH(startH + (ev.clientY - startY)))); } catch {}
+      window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
+  };
   // What's plotted: an equal-weight basket of the layer's constituents, or a
   // single ticker/ETF. The basket is the honest picture of a layer.
   const isBasket = Array.isArray(basket) && basket.length > 0;
@@ -1056,7 +1072,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
   const Chart = () => {
     if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading {label} regime…</div>;
     if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>{label} data unavailable</div>;
-    const W = 640, H = 158, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
+    const W = 640, H = chartH, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
     const bars = spy.regimeBars, wk = spy.wk20;
     const lo = Math.min(...bars.map((x) => x.close), ...wk);
     const hi = Math.max(...bars.map((x) => x.close), ...wk);
@@ -1112,7 +1128,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
     const lastClose = bars[bars.length - 1].close;
 
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 158, display: "block", cursor: "crosshair" }}
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: chartH, display: "block", cursor: "crosshair" }}
         onMouseMove={onMove} onMouseLeave={() => setHoverIdx(null)}>
         {yTicks}
         <line x1={padL} y1={axisY} x2={W - padX} y2={axisY} stroke={ARIA.border} strokeWidth={0.7} />
@@ -1199,7 +1215,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                     {hCell("zvr", "ZVR", 40, false)}
                     {hCell("cr", "CR", 26, false)}
                   </div>
-                  <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
+                  <div style={{ maxHeight: chartH - 8, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                       const { chg, cr, zvr, eif } = h;
@@ -1234,7 +1250,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
               ) : holdings.list.length === 0 ? (
                 <div style={{ fontSize: 8, color: ARIA.textMuted }}>No holdings data</div>
               ) : (
-                <div style={{ maxHeight: 150, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
+                <div style={{ maxHeight: chartH - 8, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
                   {holdings.list.map((h) => (
                     <div key={h.ticker} onClick={() => onChartTicker?.(h.ticker)} title={`${h.name} — ${h.weight}% (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", flexShrink: 0 }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
@@ -1257,6 +1273,13 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
             {rightPanel}
           </div>
         )}
+      </div>
+      {/* Drag handle — resize the chart vertically; height persists across sessions */}
+      <div onMouseDown={startResize} title="Drag to resize chart height"
+        style={{ height: 8, cursor: "ns-resize", display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
+        onMouseEnter={(e) => (e.currentTarget.firstChild.style.background = ARIA.textMuted)}
+        onMouseLeave={(e) => (e.currentTarget.firstChild.style.background = ARIA.border)}>
+        <div style={{ width: 44, height: 3, borderRadius: 2, background: ARIA.border }} />
       </div>
     </div>
   );
