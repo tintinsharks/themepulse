@@ -1773,36 +1773,36 @@ function PlaybookBoard({ d, quotes, stockMap, onLayer, ARIA }) {
   };
   const TAGC = { TECH: "#6cd5e8", EX: "#fbbf24" };
   return (
-    <div style={{ fontFamily: "monospace", display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ fontFamily: "monospace", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, alignItems: "start" }}>
       {grouped.map((b) => b.hits.length > 0 && (
         <div key={b.key} style={{ border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${b.c}`, borderRadius: 5, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "2.5px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
             <span style={{ fontSize: 8.5, fontWeight: 800, color: b.c, letterSpacing: 0.4 }}>{b.label}</span>
             <span style={{ fontSize: 7, color: ARIA.textMuted }}>{b.desc}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "1px 8px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 6.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>
-            <span style={{ width: 26, flexShrink: 0 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "1px 6px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 6.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>
+            <span style={{ width: 8, flexShrink: 0 }} />
             {hc(b.key, "name", "Layer", { flex: 1, minWidth: 0, textAlign: "left" })}
-            {hc(b.key, "rank", "Rank", { width: 26, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "mom", "Wk", { width: 30, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "day", "Day", { width: 36, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "zvr", "ZVR", { width: 38, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "cr", "CR", { width: 24, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "off52", "52W", { width: 32, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "rank", "Rk", { width: 22, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "mom", "Wk", { width: 24, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "day", "Day", { width: 30, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "zvr", "ZVR", { width: 32, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "cr", "CR", { width: 20, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "off52", "52W", { width: 28, textAlign: "right", flexShrink: 0 })}
           </div>
           {b.hits.map((r) => (
             <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
               title={`${r.theme || ""} · ${r.name} — within-group rank ${r.rank} (${r.mom >= 0 ? "+" : ""}${r.mom}w) · today ${r.day == null ? "—" : (r.day >= 0 ? "+" : "") + r.day.toFixed(1)}% vs ${r.tag === "TECH" ? "QQQ" : "SPY"}${r.zvr != null ? ` · ZVR ${r.zvr}%` : ""}${r.cr != null ? ` · CR ${r.cr}` : ""} · ${r.off52 != null ? r.off52.toFixed(0) + "% off 52w high" : ""} (click to load)`}
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "1.5px 8px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 9 }}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "1.5px 6px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 8.5 }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-              <span style={{ fontSize: 6.5, fontWeight: 800, color: TAGC[r.tag], width: 26, flexShrink: 0 }}>{r.tag}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}<span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span></span>
-              <RsRankBox v={r.rank} ARIA={ARIA} />
-              <span style={{ width: 30, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.mom > 0 ? ARIA.green : r.mom < 0 ? ARIA.red : ARIA.textMuted }}>{r.mom > 0 ? "▲" : r.mom < 0 ? "▼" : ""}{Math.abs(r.mom)}</span>
-              <span style={{ width: 36, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
-              <span style={{ width: 38, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr + "%"}</span>
-              <span style={{ width: 24, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
-              <span style={{ width: 32, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0) + "%"}</span>
+              <span title={r.tag === "TECH" ? "Tech (vs QQQ)" : "Ex-Tech (vs SPY)"} style={{ fontSize: 7, fontWeight: 800, color: TAGC[r.tag], width: 8, flexShrink: 0 }}>{r.tag === "TECH" ? "T" : "E"}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}</span>
+              <span style={{ width: 22, textAlign: "right", flexShrink: 0, fontWeight: 700, color: r.rank >= 67 ? ARIA.green : r.rank >= 33 ? ARIA.blue : ARIA.red }}>{r.rank}</span>
+              <span style={{ width: 24, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.mom > 0 ? ARIA.green : r.mom < 0 ? ARIA.red : ARIA.textMuted }}>{r.mom > 0 ? "▲" : r.mom < 0 ? "▼" : ""}{Math.abs(r.mom)}</span>
+              <span style={{ width: 30, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
+              <span style={{ width: 32, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr}</span>
+              <span style={{ width: 20, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
+              <span style={{ width: 28, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0)}</span>
             </div>
           ))}
         </div>
