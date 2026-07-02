@@ -1690,10 +1690,25 @@ const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "int
 //   rank mid  + rising + green   → BUY ZONE (look for entries)
 //   huge weekly rise + red today → STALK (wait for first tight day)
 //   rank low  + big green        → BOUNCE (watch only)
-function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
+function PlaybookBoard({ d, quotes, stockMap, onLayer, ARIA }) {
   const [sorts, setSorts] = useState({}); // per-bucket header sort override
   const spy = quotes.get("SPY")?.change ?? null;
   const qqq = quotes.get("QQQ")?.change ?? null;
+  // session-elapsed fraction for pace-adjusted ZVR (same as the other tabs)
+  const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const _min = _et.getHours() * 60 + _et.getMinutes();
+  const _elapsed = (_min >= 570 && _min < 960) ? Math.max(0.02, sessionVolFraction(_min - 570)) : 1.0;
+  const tickerZvr = (t) => {
+    const q = quotes.get(t); const st = stockMap?.[t];
+    if (!q) return null;
+    const vol = q.volume; const avg = st?.avg_volume_raw || q.avgVolume || 0;
+    let v = null;
+    if (vol && avg > 0) v = (vol / (avg * _elapsed)) * 100;
+    else if (st?.rel_volume > 0) v = st.rel_volume * 100;
+    if (v == null) return null;
+    if (q.change != null && q.change < 0) v = -v;
+    return v;
+  };
   const build = (pred, bench, tag) => {
     const subset = (d.layers || []).filter((l) => pred(l) && l.now != null).map((l) => ({ ...l, tag }));
     ["now", "w1"].forEach((k) => {
@@ -1704,6 +1719,10 @@ function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
     subset.forEach((l) => {
       const chgs = (l.holds || []).map((h) => quotes.get(h.t)?.change).filter((v) => v != null);
       l.day = (chgs.length && bench != null) ? +(chgs.reduce((a, b) => a + b, 0) / chgs.length - bench).toFixed(2) : null;
+      const zvrs = (l.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
+      l.zvr = zvrs.length ? Math.round(zvrs.reduce((a, b) => a + b, 0) / zvrs.length) : null;
+      const crs = (l.holds || []).map((h) => computeCR(quotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
+      l.cr = crs.length ? Math.round(crs.reduce((a, b) => a + b, 0) / crs.length) : null;
       l.mom = (l._now ?? 0) - (l._w1 ?? 0);
       l.rank = l._now ?? null;
     });
@@ -1767,11 +1786,13 @@ function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
             {hc(b.key, "rank", "Rank", { width: 26, textAlign: "right", flexShrink: 0 })}
             {hc(b.key, "mom", "Wk", { width: 30, textAlign: "right", flexShrink: 0 })}
             {hc(b.key, "day", "Day", { width: 36, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "zvr", "ZVR", { width: 38, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "cr", "CR", { width: 24, textAlign: "right", flexShrink: 0 })}
             {hc(b.key, "off52", "52W", { width: 32, textAlign: "right", flexShrink: 0 })}
           </div>
           {b.hits.map((r) => (
             <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
-              title={`${r.theme || ""} · ${r.name} — within-group rank ${r.rank} (${r.mom >= 0 ? "+" : ""}${r.mom}w) · today ${r.day == null ? "—" : (r.day >= 0 ? "+" : "") + r.day.toFixed(1)}% vs ${r.tag === "TECH" ? "QQQ" : "SPY"} · ${r.off52 != null ? r.off52.toFixed(0) + "% off 52w high" : ""} (click to load)`}
+              title={`${r.theme || ""} · ${r.name} — within-group rank ${r.rank} (${r.mom >= 0 ? "+" : ""}${r.mom}w) · today ${r.day == null ? "—" : (r.day >= 0 ? "+" : "") + r.day.toFixed(1)}% vs ${r.tag === "TECH" ? "QQQ" : "SPY"}${r.zvr != null ? ` · ZVR ${r.zvr}%` : ""}${r.cr != null ? ` · CR ${r.cr}` : ""} · ${r.off52 != null ? r.off52.toFixed(0) + "% off 52w high" : ""} (click to load)`}
               style={{ display: "flex", alignItems: "center", gap: 7, padding: "1.5px 8px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 9 }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
               <span style={{ fontSize: 6.5, fontWeight: 800, color: TAGC[r.tag], width: 26, flexShrink: 0 }}>{r.tag}</span>
@@ -1779,6 +1800,8 @@ function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
               <RsRankBox v={r.rank} ARIA={ARIA} />
               <span style={{ width: 30, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.mom > 0 ? ARIA.green : r.mom < 0 ? ARIA.red : ARIA.textMuted }}>{r.mom > 0 ? "▲" : r.mom < 0 ? "▼" : ""}{Math.abs(r.mom)}</span>
               <span style={{ width: 36, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
+              <span style={{ width: 38, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr + "%"}</span>
+              <span style={{ width: 24, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
               <span style={{ width: 32, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0) + "%"}</span>
             </div>
           ))}
@@ -2411,7 +2434,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                     ) : rsTab === "trends" ? (
                       <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
                     ) : rsTab === "playbook" ? (
-                      <PlaybookBoard d={d} quotes={liveQuotes} onLayer={openLayerStay} ARIA={ARIA} />
+                      <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : (
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
