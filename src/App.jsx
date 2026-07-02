@@ -686,6 +686,33 @@ function useLiveQuotes(tickers, _intervalMs) {
   return { quotes, updated: _quoteManager.updated };
 }
 
+// generic benchmark period returns (1w/1m) from OHLC — cached per symbol.
+// Used by the Tech tab to convert vs-SPY columns to vs-QQQ.
+const _benchRetCache = {};
+function useBenchReturns(sym) {
+  const [ret, setRet] = useState(_benchRetCache[sym]?.data || null);
+  useEffect(() => {
+    const c = _benchRetCache[sym] || (_benchRetCache[sym] = { data: null, promise: null });
+    if (c.data) { setRet(c.data); return; }
+    if (!c.promise) {
+      c.promise = fetch(`/api/ohlc?ticker=${encodeURIComponent(sym)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          const bars = d?.ohlc;
+          if (!bars?.length) return null;
+          const last = bars[bars.length - 1];
+          const pct = (idx) => { const b = bars[idx]; return b ? Math.round((last.close - b.close) / b.close * 10000) / 100 : null; };
+          c.data = { "1w": pct(Math.max(0, bars.length - 6)), "1m": pct(Math.max(0, bars.length - 22)) };
+          return c.data;
+        }).catch(() => null);
+    }
+    let alive = true;
+    c.promise.then((v) => { if (alive && v) setRet(v); });
+    return () => { alive = false; };
+  }, [sym]);
+  return ret;
+}
+
 // ── SPY period returns (1W / 1M / 3M) from OHLC — cached, one fetch ────
 const _spyReturnsCache = { data: null, promise: null };
 function useSpyReturns() {
@@ -2005,6 +2032,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const { cur: zvrMap } = useZVR(zvrUniverse);
   const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
   const rankHist = useRankHistory(); // daily rank history for the Trends tab
+  const qqqRet = useBenchReturns("QQQ"); // Tech tab: convert Wk/Mth columns to vs-QQQ
   if (!d) return null; // all hooks run above this guard
   const spyChg = liveQuotes.get("SPY")?.change;
   const qqqChg = liveQuotes.get("QQQ")?.change;
@@ -2074,7 +2102,17 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
     return subset;
   })();
   const baseRows = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : isTechTab ? techRows : (d.layers || []);
-  const activeRows = baseRows.map((r) => ({ ...r, rsDay: liveDay(r), zvr: liveZvr(r) }));
+  // Tech tab: shift the pipeline's vs-SPY Wk/Mth columns to vs-QQQ so they
+  // match the tab's benchmark — and so RS Acc¹/Acc² (derived from Day/Wk/Mth)
+  // stay internally consistent instead of mixing benchmarks.
+  const wAdj = (isTechTab && spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null;
+  const mAdj = (isTechTab && spyRet?.["1m"] != null && qqqRet?.["1m"] != null) ? spyRet["1m"] - qqqRet["1m"] : null;
+  const activeRows = baseRows.map((r) => {
+    const row = { ...r, rsDay: liveDay(r), zvr: liveZvr(r) };
+    if (isTechTab && wAdj != null && row.rsWk != null) row.rsWk = +(row.rsWk + wAdj).toFixed(2);
+    if (isTechTab && mAdj != null && row.rsMth != null) row.rsMth = +(row.rsMth + mAdj).toFixed(2);
+    return row;
+  });
 
   // Enrich a set of layers' constituents into stock rows. Rank boxes (Now/1D/
   // 1W/1M) = the parent layer's trajectory; the RS%/ZVR/52W columns are the
@@ -2246,7 +2284,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   {tabRow}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
                   {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click a layer to load it left · watch Improving</div>}
-                  {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · RS Day% vs QQQ — who's strong WITHIN tech</div>}
+                  {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "rrg" ? (
                       <RrgQuadrant layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
