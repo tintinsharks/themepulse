@@ -1691,6 +1691,7 @@ const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "int
 //   huge weekly rise + red today → STALK (wait for first tight day)
 //   rank low  + big green        → BOUNCE (watch only)
 function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
+  const [sorts, setSorts] = useState({}); // per-bucket header sort override
   const spy = quotes.get("SPY")?.change ?? null;
   const qqq = quotes.get("QQQ")?.change ?? null;
   const build = (pred, bench, tag) => {
@@ -1728,8 +1729,29 @@ function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
   const grouped = BUCKETS.map((b) => {
     const hits = rows.filter((r) => !used.has(r) && b.test(r)).sort(b.sort).slice(0, 8);
     hits.forEach((r) => used.add(r));
+    const s = sorts[b.key];
+    if (s) {
+      hits.sort((a, b2) => {
+        if (s.key === "name") { const av = a.name || "", bv = b2.name || ""; return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av); }
+        const an = a[s.key] ?? -9999, bn = b2[s.key] ?? -9999;
+        return s.dir === "asc" ? an - bn : bn - an;
+      });
+    }
     return { ...b, hits };
   });
+  const setSort = (bk, key) => setSorts((p) => {
+    const cur = p[bk];
+    return { ...p, [bk]: { key, dir: cur?.key === key && cur.dir === "desc" ? "asc" : "desc" } };
+  });
+  const hc = (bk, key, label, style) => {
+    const s = sorts[bk];
+    return (
+      <span onClick={(e) => { e.stopPropagation(); setSort(bk, key); }}
+        style={{ ...style, cursor: "pointer", userSelect: "none", color: s?.key === key ? ARIA.text : ARIA.textMuted }}>
+        {label}{s?.key === key ? (s.dir === "desc" ? " \u2193" : " \u2191") : ""}
+      </span>
+    );
+  };
   const TAGC = { TECH: "#6cd5e8", EX: "#fbbf24" };
   return (
     <div style={{ fontFamily: "monospace", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1738,6 +1760,14 @@ function PlaybookBoard({ d, quotes, onLayer, ARIA }) {
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "2.5px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
             <span style={{ fontSize: 8.5, fontWeight: 800, color: b.c, letterSpacing: 0.4 }}>{b.label}</span>
             <span style={{ fontSize: 7, color: ARIA.textMuted }}>{b.desc}</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "1px 8px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 6.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>
+            <span style={{ width: 26, flexShrink: 0 }} />
+            {hc(b.key, "name", "Layer", { flex: 1, minWidth: 0, textAlign: "left" })}
+            {hc(b.key, "rank", "Rank", { width: 26, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "mom", "Wk", { width: 30, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "day", "Day", { width: 36, textAlign: "right", flexShrink: 0 })}
+            {hc(b.key, "off52", "52W", { width: 32, textAlign: "right", flexShrink: 0 })}
           </div>
           {b.hits.map((r) => (
             <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
