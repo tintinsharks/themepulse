@@ -7988,18 +7988,22 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
   const containerRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const [containerW, setContainerW] = useState(900);
+  const [containerH, setContainerH] = useState(380);
   const [volSubTab, setVolSubTab] = useState("vol");
 
-  // Measure container width
+  // Measure container width + height (chart price panel grows to fill height)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect?.width;
+      const h = entries[0]?.contentRect?.height;
       if (w && w > 0) setContainerW(Math.round(w));
+      if (h && h > 0) setContainerH(Math.round(h));
     });
     ro.observe(el);
     setContainerW(Math.round(el.offsetWidth) || 900);
+    if (el.offsetHeight > 0) setContainerH(Math.round(el.offsetHeight));
     return () => ro.disconnect();
   }, []);
 
@@ -8134,8 +8138,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
     const bars = ohlc.slice(start, end);
     if (bars.length === 0) return null;
 
-    const W = containerW, priceH = 260, volH = 80, yAxisW = 48, pad = { l: 0, r: yAxisW, t: 16, b: 0 };
+    const W = containerW, volH = 80, yAxisW = 48, pad = { l: 0, r: yAxisW, t: 16, b: 0 };
     const volGap = 6;
+    // Price panel fills the available container height so the chart grows into
+    // the panel (the ~24px reserve is the legend row + x-axis below the SVG).
+    const priceH = Math.max(220, Math.min(760, (containerH || 380) - volH - volGap - pad.t - pad.b - 24));
     const totalH = priceH + volGap + volH + pad.t + pad.b;
     const chartRight = W - pad.r;
     const bw = Math.max(2, (chartRight - pad.l) / bars.length - 1);
@@ -8347,7 +8354,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -8400,7 +8407,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
   }
 
   return (
-    <div ref={containerRef} style={{ width: "100%", padding: "0 4px" }}>
+    <div ref={containerRef} style={{ width: "100%", height: "100%", padding: "0 4px" }}>
       <svg ref={svgRef} width={chartData.W} height={chartData.totalH}
         style={{ display: "block", cursor: dragRef.current ? "grabbing" : "grab" }}
         onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
@@ -8828,8 +8835,28 @@ function ChartPanelInline({
         flexDirection: "column",
       }}
     >
-      {/* Header: Logo + Meta + Buttons + layers/perf — one container */}
-      <div style={{ padding: "10px 14px 6px", borderBottom: `1px solid ${ARIA.border}` }}>
+      {/* SVG D/W Chart */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <ErrorBoundary>
+          <DailyChartSVG
+            ohlc={ohlcBars}
+            quarters={quarters}
+            height={height}
+            stopLines={[
+              ...(showTrade && riskScenarios ? [
+                { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
+                { price: riskScenarios.base?.stopPrice,  color: "#f97316", label: "1x",   dashed: true },
+                { price: riskScenarios.wide?.stopPrice,  color: "#f59e0b", label: "2x",   dashed: true },
+                { price: riskDayLow,                     color: "#9ca3af", label: "LOD",  dashed: false },
+                { price: riskPDL,                        color: "#fb923c", label: "PDL",  dashed: true },
+              ] : []),
+            ].filter(sl => sl.price > 0)}
+          />
+        </ErrorBoundary>
+      </div>
+
+      {/* Ticker details — compact strip below the chart */}
+      <div style={{ padding: "6px 14px", borderTop: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         {/* Logo */}
         <div key={ticker} style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
@@ -8859,9 +8886,9 @@ function ChartPanelInline({
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {stockInfo.company || ""}
           </div>
-          {/* Description */}
+          {/* Description — single truncated line (full text on hover) */}
           {description && (
-            <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 2, maxHeight: 41, overflowY: "auto" }}>
+            <div title={description} style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {description}
             </div>
           )}
@@ -9100,26 +9127,6 @@ function ChartPanelInline({
           </div>
         );
       })()}
-
-      {/* SVG D/W Chart */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <ErrorBoundary>
-          <DailyChartSVG
-            ohlc={ohlcBars}
-            quarters={quarters}
-            height={height}
-            stopLines={[
-              ...(showTrade && riskScenarios ? [
-                { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
-                { price: riskScenarios.base?.stopPrice,  color: "#f97316", label: "1x",   dashed: true },
-                { price: riskScenarios.wide?.stopPrice,  color: "#f59e0b", label: "2x",   dashed: true },
-                { price: riskDayLow,                     color: "#9ca3af", label: "LOD",  dashed: false },
-                { price: riskPDL,                        color: "#fb923c", label: "PDL",  dashed: true },
-              ] : []),
-            ].filter(sl => sl.price > 0)}
-          />
-        </ErrorBoundary>
-      </div>
 
       {/* Quarterly fundamentals — always visible below chart */}
       {(() => {
