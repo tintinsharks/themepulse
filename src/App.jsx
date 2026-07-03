@@ -2073,7 +2073,7 @@ function RrgQuadrant({ layers, onLayer, ARIA }) {
   );
 }
 
-function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
+function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
@@ -2364,6 +2364,30 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
           );
         })()}
         <span style={{ fontSize: 7.5, color: ARIA.textMuted, marginLeft: open ? "auto" : 0, display: "inline-flex", alignItems: "center", gap: 5 }}>
+          {(() => {
+            // Pipeline freshness + live SPY — the old PipelineLiveBar, relocated here
+            const lr = pipelineMeta?.last_run;
+            let pipelineText = "";
+            if (lr) {
+              const pd = new Date(lr);
+              if (!isNaN(pd)) {
+                const diffM = Math.round((Date.now() - pd.getTime()) / 60000);
+                const ago = diffM < 1 ? "just now" : diffM < 60 ? `${diffM}m ago` : diffM < 1440 ? `${Math.floor(diffM / 60)}h ago` : `${Math.floor(diffM / 1440)}d ago`;
+                pipelineText = `Pipeline: ${pd.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })} (${ago})`;
+              }
+            }
+            return (
+              <>
+                {pipelineText && <span style={{ color: ARIA.green, fontWeight: 600 }}>{pipelineText}</span>}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: liveOn ? ARIA.green : "#555", display: "inline-block" }} />
+                  <span style={{ color: spyChg == null ? ARIA.textMuted : spyChg >= 0 ? ARIA.green : ARIA.red }}>
+                    Live: SPY {spyChg != null ? (spyChg >= 0 ? "+" : "") + Number(spyChg).toFixed(2) + "%" : "—"}
+                  </span>
+                </span>
+              </>
+            );
+          })()}
           {open && liveOn && <span title="RS Day% is live (today's move vs SPY); ranks are EOD" style={{ display: "inline-flex", alignItems: "center", gap: 3, color: ARIA.green }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: ARIA.green, boxShadow: `0 0 4px ${ARIA.green}` }} />LIVE Day%</span>}
           <span>{open ? "" : "click to expand"} · {d.date}</span>
         </span>
@@ -11433,82 +11457,12 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
   );
 }
 
-function PipelineLiveBar({ pipelineMeta }) {
-  const ARIA = useAriaTheme();
-  const spyTickers = useMemo(() => ["SPY"], []);
-  const { quotes } = useLiveQuotes(spyTickers, 30000);
-  const spy = quotes.get("SPY");
-
-  // Pipeline relative time
-  let pipelineText = "";
-  const lr = pipelineMeta?.last_run;
-  if (lr) {
-    const d = new Date(lr);
-    if (!isNaN(d)) {
-      const diffM = Math.round((Date.now() - d.getTime()) / 60000);
-      const ago =
-        diffM < 1
-          ? "just now"
-          : diffM < 60
-          ? `${diffM}m ago`
-          : diffM < 1440
-          ? `${Math.floor(diffM / 60)}h ago`
-          : `${Math.floor(diffM / 1440)}d ago`;
-      const dateStr = d.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      });
-      pipelineText = `Pipeline: ${dateStr} (${ago})`;
-    }
-  }
-
-  const spyChg = spy?.change ?? spy?.changePercentage ?? null;
-  const spyColor =
-    spyChg == null ? ARIA.textMuted : spyChg >= 0 ? ARIA.green : ARIA.red;
-
-  return (
-    <div
-      style={{
-        padding: "3px 10px",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        fontSize: 8,
-        fontFamily: "monospace",
-      }}
-    >
-      {pipelineText && (
-        <span style={{ color: ARIA.green, fontWeight: 600 }}>{pipelineText}</span>
-      )}
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-        <span
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: "50%",
-            background: spy ? ARIA.green : "#555",
-            display: "inline-block",
-          }}
-        />
-        <span style={{ color: spyColor }}>
-          Live: SPY{" "}
-          {spyChg != null
-            ? (spyChg >= 0 ? "+" : "") + Number(spyChg).toFixed(2) + "%"
-            : "—"}
-        </span>
-      </span>
-    </div>
-  );
-}
-
 function ChartScanRow({
   chartTicker,
   handleTickerClick,
   stockMap,
   themeHealth,
   stocks,
-  pipelineMeta,
   tickerStrengthMap,
 }) {
   // Default 320px to match Aria's #sw-column initial width.
@@ -11587,7 +11541,6 @@ function ChartScanRow({
         position: "sticky", top: 0, alignSelf: "flex-start",
         maxHeight: "100vh", overflowY: "auto",
       }}>
-        <PipelineLiveBar pipelineMeta={pipelineMeta} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
       </div>
     </div>
@@ -12488,7 +12441,7 @@ function AppMain() {
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
             <ErrorBoundary>
-              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} />
+              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} />
             </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
@@ -12498,7 +12451,6 @@ function AppMain() {
               stockMap={stockMap}
               themeHealth={data.pipeline?.theme_health || []}
               stocks={stocks}
-              pipelineMeta={data.pipeline?.pipeline_meta}
               tickerStrengthMap={tickerStrengthMap}
             />
           </>
