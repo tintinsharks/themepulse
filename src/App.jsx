@@ -296,6 +296,13 @@ const PRESETS = {
       return Math.abs(d20) <= 1 && d50 > 0 && rv <= 0.9 && chg > -2.5 && dv >= 10e6;
     },
   },
+  rsnh: {
+    label: "◆ RS↑",
+    desc:
+      "RS new high before price (IBD 'blue dot'): the relative-strength line (stock ÷ SPY) is at/near a new 52-week high WHILE price is still below its own high — the stock is leading the market up and often breaks out next. Computed in the pipeline as rs_line_new_high (RS line within 3% of its high + price >5% below its high). $Vol ≥ $10M.",
+    color: "#3b82f6",
+    test: (s) => !!s.rs_line_new_high && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5,
+  },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -8881,6 +8888,7 @@ function ChartPanelInline({
             ) : null}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
+            {stockInfo.rs_line_new_high && <span style={badgeStyle("#3b82f6")} title="RS new high before price (IBD 'blue dot') — the RS line (stock ÷ SPY) is at a new high while price is still below its own high. Leading breakout signal.">◆ RS↑</span>}
           </div>
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
