@@ -163,111 +163,83 @@ const DEFAULT_FILTERS = {
 
 const DEFAULT_SORT = { primary: "rvol", secondary: "change" }; // Aria default
 
-// Momentum + gap presets — ported from Aria backend `_handle_preset_scan` in dashboard.py
+// Momentum + gap presets — consolidated 2026-07: the 1M/3M/6M lookbacks and
+// Stealth/ACCUM-Stack pairs overlapped heavily (nested momentum lookbacks; same
+// volume-before-price thesis). Six pills now cover six distinct regimes:
+//   1W 20%  — fresh explosive momentum (early catches)
+//   Combo   — sustained conviction: 2+ of the five momentum legs (legs live on
+//             below as MOM_LEGS so Combo's cross-check is unchanged)
+//   Strong  — fundamentals (EPS/Sales ≥25%) + buyable position near MAs
+//   Gap4%+  — today's episodic-pivot candidates (only intraday preset)
+//   Accum   — volume-before-price: Stealth ∪ ACCUM-Stack merged
+//   Dry-Up  — volume-contraction consolidation (pre-breakout)
 // Each preset returns true if a stock matches. Filters are applied AFTER the
 // global default filters (NoBio, ADR, dvol) so a preset can be combined with them.
+const MOM_LEGS = {
+  "1w20": (s) =>
+    (s.return_1w || 0) >= 20 &&
+    (s.price || s.close || 0) >= 5 &&
+    (s.avg_volume_raw || 0) >= 100_000,
+  "1m20": (s) =>
+    (s.return_1m || 0) >= 20 &&
+    (s.price || s.close || 0) >= 5 &&
+    (s.avg_volume_raw || 0) >= 100_000,
+  strongest: (s) => {
+    const aboveLow = s.above_52w_low || 0;
+    const eps = s.eps_yoy || 0;
+    const sales = s.sales_yoy || 0;
+    const sma20 = s.sma20_pct || 0;
+    const sma50 = s.sma50_pct || 0;
+    return aboveLow >= 70 && (eps >= 25 || sales >= 25) && sma20 >= -2 && sma20 <= 18 && sma50 >= -3;
+  },
+  mom3m: (s) => {
+    const r = s.return_3m || 0;
+    const mc = s.market_cap_raw || 0;
+    const aboveLow = s.above_52w_low || 0;
+    const sma20 = s.sma20_pct || 0;
+    const adr = s.adr_pct || 0;
+    return r >= 70 && mc >= 300e6 && aboveLow >= 50 && sma20 >= 0 && sma20 <= 20 && adr >= 3;
+  },
+  mom6m: (s) => {
+    const r = s.return_6m || 0;
+    const mc = s.market_cap_raw || 0;
+    const aboveLow = s.above_52w_low || 0;
+    const sma20 = s.sma20_pct || 0;
+    const adr = s.adr_pct || 0;
+    return r >= 100 && mc >= 300e6 && aboveLow >= 50 && sma20 >= 0 && sma20 <= 20 && adr >= 3;
+  },
+};
+
 const PRESETS = {
   "1w20": {
     label: "1W 20%",
     desc:
-      "Stocks up 20%+ in the last week. Price ≥ $5, avg volume ≥ 100K. Catches explosive breakouts early.",
+      "Stocks up 20%+ in the last week. Price ≥ $5, avg volume ≥ 100K. Catches explosive breakouts early — the freshest momentum.",
     color: "#0ea5e9",
-    test: (s) =>
-      (s.return_1w || 0) >= 20 &&
-      (s.price || s.close || 0) >= 5 &&
-      (s.avg_volume_raw || 0) >= 100_000,
-  },
-  "1m20": {
-    label: "1M 20%",
-    desc:
-      "Stocks up 20%+ in the last month. Price ≥ $5, avg volume ≥ 100K. Sustained momentum runners.",
-    color: "#0ea5e9",
-    test: (s) =>
-      (s.return_1m || 0) >= 20 &&
-      (s.price || s.close || 0) >= 5 &&
-      (s.avg_volume_raw || 0) >= 100_000,
-  },
-  strongest: {
-    label: "Strong",
-    desc:
-      "70%+ above 52W low, EPS or Sales growth ≥ 25%, near moving averages (SMA20 -2% to 18%, SMA50 ≥ -3%).",
-    color: "#0ea5e9",
-    test: (s) => {
-      const aboveLow = s.above_52w_low || 0;
-      const eps = s.eps_yoy || 0;
-      const sales = s.sales_yoy || 0;
-      const sma20 = s.sma20_pct || 0;
-      const sma50 = s.sma50_pct || 0;
-      return (
-        aboveLow >= 70 &&
-        (eps >= 25 || sales >= 25) &&
-        sma20 >= -2 &&
-        sma20 <= 18 &&
-        sma50 >= -3
-      );
-    },
-  },
-  mom3m: {
-    label: "Mom3M",
-    desc:
-      "Return ≥ 70% over 3 months. MCap ≥ $300M, above 50% from 52W low, SMA20 0–20%, ADR ≥ 3%.",
-    color: "#0ea5e9",
-    test: (s) => {
-      const r = s.return_3m || 0;
-      const mc = s.market_cap_raw || 0;
-      const aboveLow = s.above_52w_low || 0;
-      const sma20 = s.sma20_pct || 0;
-      const adr = s.adr_pct || 0;
-      return (
-        r >= 70 &&
-        mc >= 300e6 &&
-        aboveLow >= 50 &&
-        sma20 >= 0 &&
-        sma20 <= 20 &&
-        adr >= 3
-      );
-    },
-  },
-  mom6m: {
-    label: "Mom6M",
-    desc:
-      "Return ≥ 100% over 6 months. Same base filters as 3M but even more explosive. Multi-bagger candidates.",
-    color: "#0ea5e9",
-    test: (s) => {
-      const r = s.return_6m || 0;
-      const mc = s.market_cap_raw || 0;
-      const aboveLow = s.above_52w_low || 0;
-      const sma20 = s.sma20_pct || 0;
-      const adr = s.adr_pct || 0;
-      return (
-        r >= 100 &&
-        mc >= 300e6 &&
-        aboveLow >= 50 &&
-        sma20 >= 0 &&
-        sma20 <= 20 &&
-        adr >= 3
-      );
-    },
+    test: MOM_LEGS["1w20"],
   },
   combo: {
     label: "Combo",
     desc:
-      "Stocks appearing in 2+ momentum scans (1W, 1M, Strongest, Mom3M, Mom6M). The overlap = highest conviction.",
+      "Sustained momentum conviction: matches 2+ of the five legs (1W 20%, 1M 20%, Strong, 3M ≥70%, 6M ≥100%). The overlap = highest conviction — replaces the old separate 1M/3M/6M pills.",
     color: "#0ea5e9",
     test: (s) => {
       let hits = 0;
-      if (PRESETS["1w20"].test(s)) hits++;
-      if (PRESETS["1m20"].test(s)) hits++;
-      if (PRESETS.strongest.test(s)) hits++;
-      if (PRESETS.mom3m.test(s)) hits++;
-      if (PRESETS.mom6m.test(s)) hits++;
+      for (const k in MOM_LEGS) if (MOM_LEGS[k](s)) hits++;
       return hits >= 2;
     },
+  },
+  strongest: {
+    label: "Strong",
+    desc:
+      "70%+ above 52W low, EPS or Sales growth ≥ 25%, near moving averages (SMA20 -2% to 18%, SMA50 ≥ -3%). The fundamentals + buyable-position preset.",
+    color: "#0ea5e9",
+    test: MOM_LEGS.strongest,
   },
   gap4: {
     label: "Gap4%+",
     desc:
-      "Gapping up ≥ 4% today with volume > 1.1x average. MCap ≥ $300M, $Vol ≥ $50M. Episodic pivot candidates.",
+      "Gapping up ≥ 4% today with volume > 1.1x average. MCap ≥ $300M, $Vol ≥ $50M. Episodic pivot candidates — the only intraday preset.",
     color: "#22c55e",
     test: (s) => {
       const chg = s.change_pct || 0;
@@ -277,41 +249,25 @@ const PRESETS = {
       return chg >= 4 && rv > 1.1 && mc >= 300e6 && dv >= 50e6;
     },
   },
-  stealth: {
-    label: "Stealth",
+  accum: {
+    label: "Accum",
     desc:
-      "Stealth accumulation: 20d dollar-volume is climbing much faster than price over the last 90 days. stealth_score ≥ 50 (ADV growth − price growth). Institutions stepping in before the price move — pre-breakout watchlist.",
+      "Volume-before-price accumulation (Stealth ∪ ACCUM Stack merged): stealth_score ≥ 50 (20d $vol climbing much faster than price over 90d), OR 20d ADV up ≥ 100% crossed with insider cluster buying / 3+ EPS beats / RS ≥ 95. $Vol ≥ $20M, MCap ≥ $300M.",
     color: "#a78bfa",
     test: (s) => {
-      const ss = s.stealth_score;
-      if (ss == null) return false;
       const dv = s.avg_dollar_vol_raw || 0;
       const mc = s.market_cap_raw || 0;
-      // Enforce tradeable liquidity + avoid tiny names where ADV ratios
-      // swing wildly on single catalyst days.
-      return ss >= 50 && dv >= 20e6 && mc >= 300e6;
-    },
-  },
-  accum_stack: {
-    label: "ACCUM Stack",
-    desc:
-      "ACCUM (20d ADV up ≥ 100% over 90d) crossed with at least one of: insider cluster buying, 3+ consecutive EPS beats, or RS rank ≥ 95. Highest-conviction accumulation setups.",
-    color: "#22c55e",
-    test: (s) => {
+      if (dv < 20e6 || mc < 300e6) return false;
+      if ((s.stealth_score ?? -999) >= 50) return true;
       const advUp = (s.adv_pct_90d || 0) >= 100;
-      if (!advUp) return false;
-      const insiderCluster = !!s.insider_cluster_buy;
-      const beatStreak = (s.positive_surprise_streak || 0) >= 3;
-      const topRS = (s.rs_rank || 0) >= 95;
-      const dv = s.avg_dollar_vol_raw || 0;
-      const mc = s.market_cap_raw || 0;
-      return (insiderCluster || beatStreak || topRS) && dv >= 20e6 && mc >= 300e6;
+      const confirmed = !!s.insider_cluster_buy || (s.positive_surprise_streak || 0) >= 3 || (s.rs_rank || 0) >= 95;
+      return advUp && confirmed;
     },
   },
   dryup: {
     label: "Dry-Up",
     desc:
-      "Volume dry-up setups: 5-day dollar volume < 80% of 20-day avg (dvol_ratio ≤ 0.8), flat week (1W < 5%), price above SMA20, above 52W low by 30%+, MCap ≥ $300M. Stocks consolidating on declining volume — classic pre-breakout pattern.",
+      "Volume dry-up setups: 5-day dollar volume < 80% of 20-day avg (dvol_ratio ≤ 0.8), flat week (1W < 5%), price above SMA20, above 52W low by 30%+, MCap ≥ $300M. Consolidating on declining volume — classic pre-breakout pattern.",
     color: "#f59e0b",
     test: (s) => {
       const dvolRatio = s.dvol_ratio_5_20;
@@ -320,12 +276,7 @@ const PRESETS = {
       const r1w = Math.abs(s.return_1w || 0);
       const sma20 = s.sma20_pct || 0;
       const aboveLow = s.above_52w_low || 0;
-      return (
-        mc >= 300e6 &&
-        r1w < 5 &&
-        sma20 >= 0 &&
-        aboveLow >= 30
-      );
+      return mc >= 300e6 && r1w < 5 && sma20 >= 0 && aboveLow >= 30;
     },
   },
 };
@@ -2666,7 +2617,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
 //    ADR min/max inputs, $Vol input, Chg≥/RV≥ sliders)
 //  - Sort buttons with primary¹/secondary² (left-click = primary, right-click
 //    = secondary). Sort keys: RS, Chg%, RVol, Acc, MAG, BO, Open%
-//  - 7 momentum/gap presets: 1W20%, 1M20%, Strong, Mom3M, Mom6M, Combo, Gap4%+
+//  - 6 consolidated presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up
 //  - Filter description box (shows preset's explanation when active)
 //
 // Phase 2.3 will add: short presets (BD/DT/WK/FL/DC), tag filters
