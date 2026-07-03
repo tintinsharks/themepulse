@@ -5560,6 +5560,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
   const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
+  const [pfOnly, setPfOnly] = useState(() => { try { return localStorage.getItem("tp-chain-pf-only") === "1"; } catch { return false; } });
+  const portfolioSet = useMemo(() => new Set(portfolio), [portfolio]);
   const [layerFilter, setLayerFilter] = useState(null); // local layer filter — click layer to toggle
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
@@ -5731,7 +5733,36 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           chainOnly: true, // visual marker — didn't pass scan filters
         });
       }
-      return [...base, ...injected];
+      // PF filter on: ensure every portfolio ticker is present, even ones
+      // outside the scan/chain universe (otherwise clicking PF shows nothing).
+      const pfInjected = [];
+      if (pfOnly) {
+        const present = new Set([...base, ...injected].map((r) => r.ticker));
+        for (const tk of portfolio) {
+          if (!tk || present.has(tk)) continue;
+          const s = stockMap?.[tk]; const q = liveQuotes.get(tk);
+          const chains = TICKER_CHAIN_MAP.get(tk) || [];
+          const themeId = chains[0]?.themeId ?? null;
+          const theme = themeId ? (DRAWER_SUBTHEMES.find((d) => d.themeId === themeId)?.theme ?? themeId) : null;
+          const layers = [...new Set(chains.map((c) => c.layer))];
+          const chg = q?.change != null ? q.change : (s?.change_pct ?? null);
+          const liveVol = q?.volume; const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
+          let rvol = null;
+          if (liveVol && avgVol > 0) rvol = liveVol / avgVol;
+          else if (s?.rel_volume > 0) rvol = s.rel_volume;
+          pfInjected.push({
+            ticker: tk, themeId, theme, layer: layers[0] ?? null, layerCount: layers.length,
+            chg, alpha: calcAlpha(chg, s), rvol,
+            rs: s?.framework_score ?? s?.rs_rank ?? null, rsRank: s?.rs_rank ?? null,
+            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null,
+            str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
+            zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
+            adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
+            mcap: s?.market_cap_raw ?? null, erDays: s?.earnings_days ?? null,
+          });
+        }
+      }
+      return [...base, ...injected, ...pfInjected];
     }
     // Default: all chain tickers
     return allChainTickers.map((tk) => {
@@ -5776,7 +5807,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap, pfOnly, portfolio]);
 
   // Regime context for setup thresholds: scale ZVR bars by today's tape.
   // zFactor = universe median |ZVR| / 60 (baseline), clamped 0.8–1.4 so a hot
@@ -5867,8 +5898,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
   const [leadersOnly, setLeadersOnly] = useState(() => { try { return localStorage.getItem("tp-chain-leaders-only") === "1"; } catch { return false; } });
   const [crpOnly, setCrpOnly] = useState(() => { try { return localStorage.getItem("tp-chain-crp-only") === "1"; } catch { return false; } });
-  const [pfOnly, setPfOnly] = useState(() => { try { return localStorage.getItem("tp-chain-pf-only") === "1"; } catch { return false; } });
-  const portfolioSet = useMemo(() => new Set(portfolio), [portfolio]);
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (pfOnly) arr = arr.filter(r => portfolioSet.has(r.ticker));
