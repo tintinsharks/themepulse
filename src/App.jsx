@@ -5607,6 +5607,9 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
   const [pfOnly, setPfOnly] = useState(() => { try { return localStorage.getItem("tp-chain-pf-only") === "1"; } catch { return false; } });
   const portfolioSet = useMemo(() => new Set(portfolio), [portfolio]);
+  const [focus] = useLocalStorageList("themepulse-focus");
+  const [fcOnly, setFcOnly] = useState(() => { try { return localStorage.getItem("tp-chain-fc-only") === "1"; } catch { return false; } });
+  const focusSet = useMemo(() => new Set(focus), [focus]);
   const [layerFilter, setLayerFilter] = useState(null); // local layer filter — click layer to toggle
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
@@ -5780,12 +5783,13 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           chainOnly: true, // visual marker — didn't pass scan filters
         });
       }
-      // PF filter on: ensure every portfolio ticker is present, even ones
-      // outside the scan/chain universe (otherwise clicking PF shows nothing).
+      // PF/FC filter on: ensure every portfolio/focus ticker is present, even
+      // ones outside the scan/chain universe (else the filter shows nothing).
       const pfInjected = [];
-      if (pfOnly) {
+      if (pfOnly || fcOnly) {
         const present = new Set([...base, ...injected].map((r) => r.ticker));
-        for (const tk of portfolio) {
+        const mustInclude = new Set([...(pfOnly ? portfolio : []), ...(fcOnly ? focus : [])]);
+        for (const tk of mustInclude) {
           if (!tk || present.has(tk)) continue;
           const s = stockMap?.[tk]; const q = liveQuotes.get(tk);
           const chains = TICKER_CHAIN_MAP.get(tk) || [];
@@ -5855,7 +5859,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap, pfOnly, portfolio]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap, pfOnly, portfolio, fcOnly, focus]);
 
   // Regime context for setup thresholds: scale ZVR bars by today's tape.
   // zFactor = universe median |ZVR| / 60 (baseline), clamped 0.8–1.4 so a hot
@@ -5949,6 +5953,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const sorted = useMemo(() => {
     let arr = rows.slice();
     if (pfOnly) arr = arr.filter(r => portfolioSet.has(r.ticker));
+    if (fcOnly) arr = arr.filter(r => focusSet.has(r.ticker));
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
     if (setupsOnly) arr = arr.filter(r => chainSetup(r, setupCtx));
@@ -5984,7 +5989,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, leadersOnly, eifReasons, crpOnly, pfOnly, portfolioSet]);
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, leadersOnly, eifReasons, crpOnly, pfOnly, portfolioSet, fcOnly, focusSet]);
   const saveSortSpec = (next) => {
     setSortSpec(next);
     try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
@@ -6098,6 +6103,12 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           title="Show only tickers in your portfolio"
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: pfOnly ? "#f472b6" : ARIA.textMuted, background: pfOnly ? "rgba(244,114,182,0.12)" : "transparent", border: `1px solid ${pfOnly ? "rgba(244,114,182,0.45)" : ARIA.border}` }}>
           ◆ PF
+        </button>
+        <button
+          onClick={() => setFcOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-fc-only", n ? "1" : "0"); } catch {} return n; })}
+          title="Show only tickers in your Focus list (high-priority recent setups)"
+          style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: fcOnly ? "#22d3ee" : ARIA.textMuted, background: fcOnly ? "rgba(34,211,238,0.12)" : "transparent", border: `1px solid ${fcOnly ? "rgba(34,211,238,0.45)" : ARIA.border}` }}>
+          ⚡ FC
         </button>
         <button
           onClick={() => setSetupsOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-setups-only", n ? "1" : "0"); } catch {} return n; })}
@@ -6694,7 +6705,7 @@ const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // mirrors server-side filter
 const ANALYZED_MAX = 50;
 
 function emptyServerState() {
-  return { analyzedPicks: [], watchlist: [], portfolio: [], updated_at: null };
+  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], updated_at: null };
 }
 
 function loadCachedState() {
@@ -6775,6 +6786,7 @@ async function _pushToServer() {
         analyzedPicks: s.analyzedPicks,
         watchlist: s.watchlist,
         portfolio: s.portfolio,
+        focus: s.focus,
       }),
     });
     if (!r.ok) return;
@@ -6817,12 +6829,14 @@ function _pullFromServer() {
       const union = (a, b) => { const s = new Set(a || []); (b || []).forEach((t) => s.add(t)); return [...s]; };
       const mergedWl = union(d.watchlist, local.watchlist);
       const mergedPf = union(d.portfolio, local.portfolio);
-      const serverMissing = mergedWl.length > (d.watchlist || []).length || mergedPf.length > (d.portfolio || []).length;
+      const mergedFocus = union(d.focus, local.focus);
+      const serverMissing = mergedWl.length > (d.watchlist || []).length || mergedPf.length > (d.portfolio || []).length || mergedFocus.length > (d.focus || []).length;
       _moduleState = {
         ...emptyServerState(),
         analyzedPicks: d.analyzedPicks || [],
         watchlist: mergedWl,
         portfolio: mergedPf,
+        focus: mergedFocus,
         updated_at: d.updated_at || null,
       };
       saveCachedState(_moduleState);
@@ -6935,6 +6949,8 @@ function useLocalStorageList(key) {
       ? "watchlist"
       : key === "themepulse-portfolio"
       ? "portfolio"
+      : key === "themepulse-focus"
+      ? "focus"
       : null;
   const list = field ? state[field] || [] : [];
   const update = useCallback(
@@ -6958,16 +6974,19 @@ function useLocalStorageList(key) {
 function useOwnedTint() {
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focus] = useLocalStorageList("themepulse-focus");
   return useMemo(() => {
     const pf = new Set(portfolio);
     const wl = new Set(watchlist);
+    const fc = new Set(focus);
     return (ticker, ARIA) => {
       if (!ticker) return "transparent";
       if (pf.has(ticker)) return `${ARIA.yellow}1f`;
+      if (fc.has(ticker)) return `${ARIA.cyan}1f`;
       if (wl.has(ticker)) return `${ARIA.green}1f`;
       return "transparent";
     };
-  }, [portfolio, watchlist]);
+  }, [portfolio, watchlist, focus]);
 }
 
 // Aria-style colored mini-badge (used in chart header for 9M / VOL / HI / Grade)
@@ -8862,8 +8881,10 @@ function ChartPanelInline({
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focus, setFocus] = useLocalStorageList("themepulse-focus");
   const inPF = portfolio.includes(ticker);
   const inWL = watchlist.includes(ticker);
+  const inFC = focus.includes(ticker);
   const toggleWL = useCallback(() => {
     setWatchlist((prev) =>
       prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
@@ -8874,6 +8895,11 @@ function ChartPanelInline({
       prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
     );
   }, [ticker, setPortfolio]);
+  const toggleFC = useCallback(() => {
+    setFocus((prev) =>
+      prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
+    );
+  }, [ticker, setFocus]);
 
   const submitTicker = () => {
     const t = tickerInput.trim().toUpperCase();
@@ -8983,11 +9009,14 @@ function ChartPanelInline({
         {/* Right side: buttons + perf, stacked so perf starts under +WL */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5, flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inWL ? ARIA.bg : ARIA.cyan, background: inWL ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-            {inWL ? "✓WL" : "+WL"}
-          </button>
           <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
             {inPF ? "✓PF" : "+PF"}
+          </button>
+          <button onClick={toggleFC} title={inFC ? "Remove from Focus" : "Add to Focus (high-priority recent setups)"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inFC ? ARIA.bg : ARIA.cyan, background: inFC ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
+            {inFC ? "✓FC" : "⚡FC"}
+          </button>
+          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
+            {inWL ? "✓WL" : "+WL"}
           </button>
           <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
@@ -9467,7 +9496,7 @@ function WatchlistSectionTable({
             userSelect: "none",
           }}
         >
-          {collapsed ? "▶" : "▼"} {list === "portfolio" ? "Portfolio" : "Watchlist"}
+          {collapsed ? "▶" : "▼"} {list === "portfolio" ? "Portfolio" : list === "focus" ? "⚡ Focus" : "Watchlist"}
         </span>
         <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
         {rows.length < count && (
@@ -9748,6 +9777,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   // Shared hook so chart header +WL/+PF buttons stay in sync with this panel
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focus, setFocus] = useLocalStorageList("themepulse-focus");
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
   const [chgPosFilter, setChgPosFilter] = useState(
     () => localStorage.getItem("themepulse-pw-chgpos") === "true"
@@ -9780,9 +9810,14 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   const addManyWatchlist = useCallback((tks) => {
     setWatchlist((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
   }, [setWatchlist]);
+  const addManyFocus = useCallback((tks) => {
+    setFocus((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
+  }, [setFocus]);
   const removeTicker = useCallback((list, t) => {
     if (list === "portfolio") {
       setPortfolio((prev) => prev.filter((x) => x !== t));
+    } else if (list === "focus") {
+      setFocus((prev) => prev.filter((x) => x !== t));
     } else {
       setWatchlist((prev) => prev.filter((x) => x !== t));
     }
@@ -9790,9 +9825,9 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
 
   // Live quotes for all unique tickers
   const allTickers = useMemo(() => {
-    const set = new Set([...portfolio, ...watchlist]);
+    const set = new Set([...portfolio, ...focus, ...watchlist]);
     return Array.from(set);
-  }, [portfolio, watchlist]);
+  }, [portfolio, focus, watchlist]);
   const { quotes } = useLiveQuotes(allTickers, 60000);
 
   // Per-row data merging static + live
@@ -9843,6 +9878,10 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   const portRows = useMemo(
     () => portfolio.map(buildRow),
     [portfolio, buildRow]
+  );
+  const focusRows = useMemo(
+    () => focus.map(buildRow),
+    [focus, buildRow]
   );
   const watchRows = useMemo(
     () => watchlist.map(buildRow),
@@ -10496,6 +10535,18 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             list="portfolio"
             count={portfolio.length}
             onAddMany={addManyPortfolio}
+            universe={universeSet}
+            onTickerClick={onTickerClick}
+            removeTicker={removeTicker}
+            tickerStrengthMap={tickerStrengthMap}
+            onChainClick={onChainClick}
+          />
+          <WatchlistSectionTable
+            rows={chgPosFilter ? focusRows.filter((r) => (r.change || 0) > 0) : focusRows}
+            accent={ARIA.cyan}
+            list="focus"
+            count={focus.length}
+            onAddMany={addManyFocus}
             universe={universeSet}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}

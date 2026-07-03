@@ -55,6 +55,7 @@ function emptyState() {
     analyzedPicks: [],
     watchlist: [],
     portfolio: [],
+    focus: [],
     updated_at: null,
   };
 }
@@ -111,6 +112,7 @@ export default async function handler(req, res) {
         portfolio: Array.isArray(body.portfolio)
           ? body.portfolio
           : existing.portfolio,
+        focus: Array.isArray(body.focus) ? body.focus : existing.focus,
         updated_at: new Date().toISOString(),
       };
 
