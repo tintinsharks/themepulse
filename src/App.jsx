@@ -1027,7 +1027,7 @@ async function buildBasketSeries(tickers) {
 // IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
 // holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
 // rotation board (which embeds it) and Market Conditions can drive the symbol.
-function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap }) {
+function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint }) {
   const ARIA = useAriaTheme();
   const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime, date}], wk20: [...] }
   const [spyLoading, setSpyLoading] = useState(false);
@@ -1256,7 +1256,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                       return (
                         <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0 }}
                           onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                          <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
+                          <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}{heldTint?.has(h.t) ? "💼" : ""}</span>
                           <span style={{ color: adrC, width: 24, textAlign: "right", flexShrink: 0, fontWeight: adr != null && adr >= 5 ? 700 : 400 }}>{adr == null ? "—" : adr.toFixed(1)}</span>
                           <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
                             <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
@@ -1702,7 +1702,7 @@ const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "int
 //   rank mid  + rising + green   → BUY ZONE (look for entries)
 //   huge weekly rise + red today → STALK (wait for first tight day)
 //   rank low  + big green        → BOUNCE (watch only)
-function PlaybookBoard({ d, quotes, stockMap, wAdjTech, onLayer, ARIA }) {
+function PlaybookBoard({ d, quotes, stockMap, heldByLayer, wAdjTech, onLayer, ARIA }) {
   const [sorts, setSorts] = useState({}); // per-bucket header sort override
   const spy = quotes.get("SPY")?.change ?? null;
   const qqq = quotes.get("QQQ")?.change ?? null;
@@ -1810,7 +1810,7 @@ function PlaybookBoard({ d, quotes, stockMap, wAdjTech, onLayer, ARIA }) {
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "1.5px 6px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 8.5 }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
               <span title={r.tag === "TECH" ? "Tech (vs QQQ)" : "Ex-Tech (vs SPY)"} style={{ fontSize: 7, fontWeight: 800, color: TAGC[r.tag], width: 8, flexShrink: 0 }}>{r.tag === "TECH" ? "T" : "E"}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}{heldByLayer?.[`${r.themeId || ""}|${r.name}`]?.length ? <span title={`Holding: ${[...new Set(heldByLayer[`${r.themeId || ""}|${r.name}`])].join(", ")}`}> 💼</span> : null}</span>
               <span style={{ width: 32, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
               <span style={{ width: 34, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr}</span>
               <span style={{ width: 22, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
@@ -1834,7 +1834,7 @@ function RsRankBox({ v, ARIA }) {
   );
 }
 
-function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort, onNameLayer }) {
+function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort, onNameLayer, heldSet, heldByLayer }) {
   const [sort, setSort] = useState(initialSort || { key: "rsDay", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
@@ -1927,7 +1927,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
           const nameTitle = quadName ? `${r.theme ? r.theme + " · " : ""}${r.name} — RRG: ${quadName}${onNameLayer ? " (click to load layer)" : ""}` : undefined;
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
-            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : "transparent", boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
+            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : (heldSet?.has(r.ticker) && !getTag ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
             {rankCol && <td style={{ textAlign: "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r.lead}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
@@ -1942,6 +1942,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                 {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
                   <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
                 )}
+                {heldSet?.has(r.ticker) && <span title="In your portfolio" style={{ marginLeft: 3, fontSize: 7.5 }}>💼</span>}
               </td>
             )}
             {getTag ? (
@@ -1950,6 +1951,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                   title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker} · RRG: ${r.now != null && r.w1 != null ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : "—"} (click to load)`}
                   style={{ display: "block", width: 132, maxWidth: 132, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", background: "none", border: "none", color: quadColor(r), fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
                   {r.name}{r.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span> : ""}
+                  {heldByLayer?.[`${r.themeId}|${r.name}`]?.length ? <span title={`Holding: ${[...new Set(heldByLayer[`${r.themeId}|${r.name}`])].join(", ")}`} style={{ marginLeft: 3, fontSize: 7.5 }}>💼{[...new Set(heldByLayer[`${r.themeId}|${r.name}`])].length}</span> : null}
                 </button>
               </td>
             ) : (
@@ -2182,9 +2184,19 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
   const rankHist = useRankHistory(); // daily rank history for the Trends tab
   const qqqRet = useBenchReturns("QQQ"); // Tech tab: convert Wk/Mth columns to vs-QQQ
+  const [pfList] = useLocalStorageList("themepulse-portfolio"); // held names → 💼 markers
   if (!d) return null; // all hooks run above this guard
   const spyChg = liveQuotes.get("SPY")?.change;
   const qqqChg = liveQuotes.get("QQQ")?.change;
+  // holdings → which layers contain them (full membership via chainsForStock)
+  const heldSet = new Set(pfList || []);
+  const heldByLayer = {};
+  (pfList || []).forEach((t) => {
+    (chainsForStock(t, stockMap?.[t]) || []).forEach((c) => {
+      const k = `${c.themeId}|${c.layer}`;
+      (heldByLayer[k] = heldByLayer[k] || []).push(t);
+    });
+  });
   const isTechTab = rsTab === "tech";
   const isLayerLike = rsTab === "layers" || isTechTab || rsTab === "extech";
   const liveDay = (r) => {
@@ -2353,6 +2365,39 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* 💼 MY LAYERS — where the portfolio sits in the rotation landscape */}
+          {Object.keys(heldByLayer).length > 0 && (() => {
+            const chips = Object.entries(heldByLayer).map(([k, tks]) => {
+              const [tid, name] = k.split("|");
+              const lyr = (d.layers || []).find((l) => l.themeId === tid && l.name === name);
+              return lyr ? { lyr, tks: [...new Set(tks)] } : null;
+            }).filter(Boolean).sort((a, b) => (b.lyr.now ?? -1) - (a.lyr.now ?? -1));
+            if (!chips.length) return null;
+            const totalHeld = heldSet.size || 1;
+            const maxShare = Math.max(...chips.map((c) => c.tks.length)) / totalHeld;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", fontSize: 8 }}>
+                <span style={{ color: ARIA.yellow, fontWeight: 800 }}>💼 MY LAYERS</span>
+                {chips.map(({ lyr, tks }) => {
+                  const qc = lyr.now == null || lyr.w1 == null ? ARIA.blue
+                    : lyr.now >= 50 ? (lyr.now - lyr.w1 >= 0 ? ARIA.green : ARIA.yellow)
+                    : (lyr.now - lyr.w1 >= 0 ? ARIA.blue : ARIA.red);
+                  return (
+                    <button key={lyr.themeId + lyr.name} onClick={() => applyLayer(lyr, false, true)}
+                      title={`${lyr.theme} · ${lyr.name} — rank ${lyr.now} · holding: ${tks.join(", ")} (click to load)`}
+                      style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 6px", borderRadius: 3,
+                        color: ARIA.text, background: "transparent", border: `1px solid ${qc}` }}>
+                      {lyr.name} <span style={{ color: qc }}>{lyr.now}</span> <span style={{ color: ARIA.yellow }}>·{tks.length}</span>
+                    </button>
+                  );
+                })}
+                {maxShare >= 0.4 && heldSet.size >= 3 && (
+                  <span title="Over 40% of your holdings sit in one layer — correlated positions behave like one oversized position on a layer-level red day"
+                    style={{ color: "#fbbf24", fontWeight: 800 }}>⚠ concentrated</span>
+                )}
+              </div>
+            );
+          })()}
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
           {rsTab !== "leaders" && rsTab !== "emerging" && (() => {
             // rrg/trends also show LAYER rows in the mover cards — treat them as
@@ -2462,7 +2507,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
-                holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap}
+                holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
                 basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
                 rightPanel={
                 <>
@@ -2478,13 +2523,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                     ) : rsTab === "trends" ? (
                       <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
                     ) : rsTab === "playbook" ? (
-                      <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
+                      <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : (
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
                       rows={stockRows}
                       sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
+                      heldSet={heldSet} heldByLayer={heldByLayer}
                       onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
                       tickerLabel={isLayerLike ? "Theme" : "Ticker"}
                       getTag={isLayerLike ? ((r) => r.theme || "—") : undefined}
