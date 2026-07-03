@@ -10274,6 +10274,10 @@ function WatchlistSectionTable({
           {collapsed ? "▶" : "▼"} {list === "portfolio" ? "Portfolio" : "Watchlist"}
         </span>
         <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
+        {rows.length < count && (
+          <span title="Rows hidden by the Chg>0% filter (or awaiting a first quote) — toggle the Filter pill above to show all"
+            style={{ color: ARIA.yellow, fontSize: 8, fontWeight: 700 }}>· {count - rows.length} hidden by filter</span>
+        )}
         {focusTickers?.size > 0 && (
           <button
             onClick={() => setPinStars((v) => !v)}
