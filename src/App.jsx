@@ -6145,7 +6145,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
             <Th k="ticker" label="Ticker" align="left" />
-            <Th k="star" label="★" />
             <Th k="theme" label="Chain · Layer" align="left" />
             <Th k="chg" label="Chg%" />
             {(() => {
@@ -6191,17 +6190,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                     {r.rsNH && <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
                   </span>
-                </td>
-                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}>
-                  {(r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length)
-                    ? <span data-star-pop onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setStarPopover((p) => p?.ticker === r.ticker ? null : { ticker: r.ticker, x: rect.left, y: rect.bottom + 4, row: r });
-                      }}
-                      title="EIF leader — click for the reasoning"
-                      style={{ cursor: "pointer", fontSize: 9, color: r.rs >= 65 ? "#fbbf24" : "#d4a017" }}>★</span>
-                    : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>·</span>}
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
                   {r.themeId ? (
@@ -6270,9 +6258,22 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     );
                   })()}
                 </td>
-                <td style={{ ...cell, color: r.rs != null && r.rs >= 60 ? ARIA.green : r.rs != null && r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
-                  {r.rs != null ? Math.round(r.rs) : "—"}
-                </td>
+                {(() => {
+                  const isEifLeader = r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length;
+                  return (
+                    <td
+                      {...(isEifLeader ? { "data-star-pop": "" } : {})}
+                      onClick={isEifLeader ? (e) => {
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setStarPopover((p) => p?.ticker === r.ticker ? null : { ticker: r.ticker, x: rect.left, y: rect.bottom + 4, row: r });
+                      } : undefined}
+                      title={isEifLeader ? "EIF leader — click for the reasoning" : undefined}
+                      style={{ ...cell, color: r.rs != null && r.rs >= 60 ? ARIA.green : r.rs != null && r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700, cursor: isEifLeader ? "pointer" : "default", textDecoration: isEifLeader ? "underline dotted" : "none", textUnderlineOffset: 2 }}>
+                      {r.rs != null ? Math.round(r.rs) : "—"}
+                    </td>
+                  );
+                })()}
                 <td style={{ ...cell, color: r.adr != null && r.adr >= 5 ? "#fbbf24" : r.adr != null && r.adr >= 3 ? ARIA.green : ARIA.textDim, fontWeight: r.adr != null && r.adr >= 3 ? 700 : 400 }}
                     title="Average Daily Range %. ≥3% = tradeable swing range, ≥5% = high volatility">
                   {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
