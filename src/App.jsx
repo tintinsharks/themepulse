@@ -9478,9 +9478,9 @@ function ChartPanelInline({
           : v >= -20 ? "#a06030"
           : "#c04040";
         return (
-          <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {/* grade + perf metrics */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ marginTop: 5, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            {/* grade + perf metrics — aligned under the +WL/+PF/ER button block */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {grade && (
               <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
                 {grade}
