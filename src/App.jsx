@@ -9128,6 +9128,7 @@ function ChartPanelInline({
   const [quarters, setQuarters] = useState([]);
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
+  const [newsOpen, setNewsOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [peers, setPeers] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
@@ -9516,19 +9517,30 @@ function ChartPanelInline({
         </div>
       </div>
 
-      {/* News — same container as logo/ticker/info */}
+      {/* News — same container as logo/ticker/info; collapsible, collapsed by default */}
       {news.length > 0 && (
-        <div style={{ marginTop: 4, maxHeight: 58, overflowY: "auto" }}>
-          {news.slice(0, 4).map((a, i) => (
-            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-              style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
-              onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
-              <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
-              {a.headline}
-              <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
-            </a>
-          ))}
+        <div style={{ marginTop: 4 }}>
+          <div onClick={() => setNewsOpen(o => !o)}
+            style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none", fontSize: 8, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "#9090a0"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "#6a6a7a"; }}>
+            <span style={{ fontSize: 7 }}>{newsOpen ? "▼" : "▶"}</span>
+            News <span style={{ color: "#4a4a5a", fontWeight: 400 }}>({news.length})</span>
+          </div>
+          {newsOpen && (
+            <div style={{ maxHeight: 58, overflowY: "auto" }}>
+              {news.slice(0, 4).map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                  style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
+                  <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
+                  {a.headline}
+                  <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       )}
       </div>
