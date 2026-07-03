@@ -9446,8 +9446,9 @@ function ChartPanelInline({
         flexDirection: "column",
       }}
     >
-      {/* Header: Logo + Meta + Buttons */}
-      <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${ARIA.border}` }}>
+      {/* Header: Logo + Meta + Buttons + layers/perf — one container */}
+      <div style={{ padding: "10px 14px 6px", borderBottom: `1px solid ${ARIA.border}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {/* Logo */}
         <div key={ticker} style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
           <img src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt={ticker} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} onError={e => { e.target.style.display = "none"; e.target.parentElement.style.background = "#2a2a40"; e.target.parentElement.style.color = "#c0c0d8"; e.target.parentElement.style.fontSize = "11px"; e.target.parentElement.style.fontWeight = "800"; e.target.parentElement.textContent = ticker; }} />
@@ -9528,7 +9529,7 @@ function ChartPanelInline({
           : v >= -20 ? "#a06030"
           : "#c04040";
         return (
-          <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
+          <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {/* Left: layer membership (chain_layers.json — matches the RS Rotation Layers tab) */}
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", flex: 1, minWidth: 0 }}>
               {tickerLayers.length > 0 ? tickerLayers.slice(0, 5).map((e, i) => (
@@ -9579,6 +9580,7 @@ function ChartPanelInline({
           </div>
         );
       })()}
+      </div>
 
       {/* Risk Management Dashboard */}
       {showTrade && (() => {
