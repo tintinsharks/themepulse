@@ -2513,28 +2513,39 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
                 rightRail={(() => {
                   const top5 = [...(d.layers || [])].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, 5);
-                  const seen = new Set(); const apex = [];
+                  const seen = new Set(); const groups = [];
                   top5.forEach((l) => {
-                    (l.holds || [])
+                    const items = (l.holds || [])
                       .map((h) => ({ t: h.t, rs: stockMap?.[h.t]?.rs_rank || 0, dvol: stockMap?.[h.t]?.avg_dollar_vol_raw || 0 }))
                       .filter((m) => m.dvol >= 10e6)
                       .sort((a, b) => b.rs - a.rs).slice(0, 2)
-                      .forEach((m) => { if (!seen.has(m.t)) { seen.add(m.t); apex.push({ ...m, layer: l.name }); } });
+                      .filter((m) => !seen.has(m.t));
+                    items.forEach((m) => seen.add(m.t));
+                    if (items.length) groups.push({ layer: l, items });
                   });
-                  if (!apex.length) return null;
+                  if (!groups.length) return null;
                   return (
                     <>
                       <div title="Top-2 RS names in each top-5 layer — the campaign-hold cohort (backtest: only positive-median stock cohort at 63d, +10% mean/quarter vs SPY)."
                         style={{ fontSize: 7.5, fontWeight: 800, color: "#fbbf24", letterSpacing: 0.4, cursor: "help", marginBottom: 1 }}>👑 APEX</div>
-                      {apex.map((m) => (
-                        <button key={m.t} onClick={() => openTickerNoSync(m.t)}
-                          title={`${m.t} — RS ${m.rs} · ${m.layer} (click to chart)`}
-                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 8.5, fontWeight: 700, fontFamily: "monospace",
-                            cursor: "pointer", padding: "1px 4px", borderRadius: 3, border: "none", textAlign: "left",
-                            color: ARIA.blue, background: heldSet.has(m.t) ? ARIA.yellow + "14" : "transparent" }}>
-                          <span>{m.t}</span>
-                          <span style={{ color: m.rs >= 95 ? ARIA.green : ARIA.textDim }}>{m.rs}</span>
-                        </button>
+                      {groups.map(({ layer, items }) => (
+                        <React.Fragment key={layer.themeId + layer.name}>
+                          <div title={`${layer.theme} · ${layer.name} — rank ${layer.now} (click to load layer)`}
+                            onClick={() => applyLayer(layer, false, true)}
+                            style={{ fontSize: 6.5, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, marginTop: 3, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {layer.name}
+                          </div>
+                          {items.map((m) => (
+                            <button key={m.t} onClick={() => openTickerNoSync(m.t)}
+                              title={`${m.t} — RS ${m.rs} · ${layer.name} (click to chart)`}
+                              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 8.5, fontWeight: 700, fontFamily: "monospace",
+                                cursor: "pointer", padding: "1px 4px", borderRadius: 3, border: "none", textAlign: "left",
+                                color: ARIA.blue, background: heldSet.has(m.t) ? ARIA.yellow + "14" : "transparent" }}>
+                              <span>{m.t}</span>
+                              <span style={{ color: m.rs >= 95 ? ARIA.green : ARIA.textDim }}>{m.rs}</span>
+                            </button>
+                          ))}
+                        </React.Fragment>
                       ))}
                     </>
                   );
