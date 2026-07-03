@@ -7132,15 +7132,29 @@ function _pullFromServer() {
       if (!d.ok) return;
       // If user mutated state while we were fetching, discard server snapshot.
       if (_localTick !== tickAtStart) return;
+      const local = _getState();
+      // MERGE, don't replace: union the server's lists with local. A stale
+      // device/tab pushing its old whole-state can no longer erase adds made
+      // elsewhere (the old replace-on-pull silently dropped them — the
+      // "my portfolio keeps losing names" bug). If local had items the server
+      // lacks, push the merged state back up.
+      const union = (a, b) => { const s = new Set(a || []); (b || []).forEach((t) => s.add(t)); return [...s]; };
+      const mergedWl = union(d.watchlist, local.watchlist);
+      const mergedPf = union(d.portfolio, local.portfolio);
+      const serverMissing = mergedWl.length > (d.watchlist || []).length || mergedPf.length > (d.portfolio || []).length;
       _moduleState = {
         ...emptyServerState(),
         analyzedPicks: d.analyzedPicks || [],
-        watchlist: d.watchlist || [],
-        portfolio: d.portfolio || [],
+        watchlist: mergedWl,
+        portfolio: mergedPf,
         updated_at: d.updated_at || null,
       };
       saveCachedState(_moduleState);
       _notify();
+      if (serverMissing) {
+        if (_debounceTimer) clearTimeout(_debounceTimer);
+        _debounceTimer = setTimeout(_pushToServer, 800);
+      }
     } catch {
       /* offline — keep cached state */
     }
