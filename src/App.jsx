@@ -1254,9 +1254,9 @@ function IndexRegimeChart({ sym, setSym, rightPanel, holdingsOverride, basket, b
                       const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr >= 40 ? ARIA.textDim : ARIA.red;
                       const eifC = eif == null ? ARIA.textMuted : eif >= 70 ? "#fbbf24" : eif >= 55 ? ARIA.green : eif >= 40 ? ARIA.textDim : ARIA.textMuted;
                       return (
-                        <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0 }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                          <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}{heldTint?.has(h.t) ? "💼" : ""}</span>
+                        <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0, background: heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent")}>
+                          <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                           <span style={{ color: adrC, width: 24, textAlign: "right", flexShrink: 0, fontWeight: adr != null && adr >= 5 ? 700 : 400 }}>{adr == null ? "—" : adr.toFixed(1)}</span>
                           <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
                             <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
@@ -1807,10 +1807,10 @@ function PlaybookBoard({ d, quotes, stockMap, heldByLayer, wAdjTech, onLayer, AR
           {b.hits.map((r) => (
             <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
               title={`${r.theme || ""} · ${r.name} — within-group rank ${r.rank} (${r.mom >= 0 ? "+" : ""}${r.mom}w) · today ${r.day == null ? "—" : (r.day >= 0 ? "+" : "") + r.day.toFixed(1)}% vs ${r.tag === "TECH" ? "QQQ" : "SPY"}${r.zvr != null ? ` · ZVR ${r.zvr}%` : ""}${r.cr != null ? ` · CR ${r.cr}` : ""} · ${r.off52 != null ? r.off52.toFixed(0) + "% off 52w high" : ""} (click to load)`}
-              style={{ display: "flex", alignItems: "center", gap: 4, padding: "1.5px 6px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 8.5 }}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "1.5px 6px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 8.5, background: heldByLayer?.[`${r.themeId || ""}|${r.name}`]?.length ? ARIA.yellow + "14" : "transparent" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
               <span title={r.tag === "TECH" ? "Tech (vs QQQ)" : "Ex-Tech (vs SPY)"} style={{ fontSize: 7, fontWeight: 800, color: TAGC[r.tag], width: 8, flexShrink: 0 }}>{r.tag === "TECH" ? "T" : "E"}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}{heldByLayer?.[`${r.themeId || ""}|${r.name}`]?.length ? <span title={`Holding: ${[...new Set(heldByLayer[`${r.themeId || ""}|${r.name}`])].join(", ")}`}> 💼</span> : null}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}</span>
               <span style={{ width: 32, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
               <span style={{ width: 34, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr}</span>
               <span style={{ width: 22, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
@@ -1927,7 +1927,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
           const nameTitle = quadName ? `${r.theme ? r.theme + " · " : ""}${r.name} — RRG: ${quadName}${onNameLayer ? " (click to load layer)" : ""}` : undefined;
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
-            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : (heldSet?.has(r.ticker) && !getTag ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
+            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : ((getTag ? heldByLayer?.[`${r.themeId}|${r.name}`]?.length : heldSet?.has(r.ticker)) ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
             {rankCol && <td style={{ textAlign: "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r.lead}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
@@ -1942,7 +1942,6 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                 {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
                   <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
                 )}
-                {heldSet?.has(r.ticker) && <span title="In your portfolio" style={{ marginLeft: 3, fontSize: 7.5 }}>💼</span>}
               </td>
             )}
             {getTag ? (
@@ -1951,7 +1950,6 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                   title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker} · RRG: ${r.now != null && r.w1 != null ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : "—"} (click to load)`}
                   style={{ display: "block", width: 132, maxWidth: 132, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", background: "none", border: "none", color: quadColor(r), fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
                   {r.name}{r.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span> : ""}
-                  {heldByLayer?.[`${r.themeId}|${r.name}`]?.length ? <span title={`Holding: ${[...new Set(heldByLayer[`${r.themeId}|${r.name}`])].join(", ")}`} style={{ marginLeft: 3, fontSize: 7.5 }}>💼{[...new Set(heldByLayer[`${r.themeId}|${r.name}`])].length}</span> : null}
                 </button>
               </td>
             ) : (
