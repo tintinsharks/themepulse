@@ -957,6 +957,7 @@ function emaSeries(values, period) {
 
 // Cached daily OHLC fetch (shared across chart selections).
 const _ohlcCache = new Map();
+const _benchBarsCache = new Map(); // interval → SPY OHLC bars (RS-line denominator)
 async function fetchOhlcBars(ticker) {
   if (_ohlcCache.has(ticker)) return _ohlcCache.get(ticker);
   try {
@@ -8012,7 +8013,7 @@ function calcRiskSize(stopPrice, entryPrice, accountSize, riskPct, maxAllocPct) 
 // pocket pivots, VCP tightness, +4% breakout hatching, dry-up dots, and
 // earnings markers. Ported from theme-leaderboard.html renderDailyChart.
 // ──────────────────────────────────────────────────────────────────────────
-function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
+function DailyChartSVG({ ohlc, benchBars = [], quarters, height = 400, stopLines = [] }) {
   const MAX_BARS = 375;
   const DEFAULT_BARS = 113;
   const MIN_VISIBLE = 30;
@@ -8207,6 +8208,39 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       vals.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${py(v)}`); });
       return pts.length >= 2 ? pts.join(" ") : null;
     };
+    // ── RS line (stock ÷ SPY), IBD/MarketSmith style ──
+    // Normalized to its own visible-window range and drawn across the upper band
+    // of the price panel (shape is what matters, like IBD's RS line — always
+    // in-panel regardless of how far the stock has run vs SPY). Blue dot where
+    // the RS line makes a new window-high while price is still >3% below its own
+    // high — the "RS new high before price" leading signal.
+    let rsLinePts = null; const rsDots = [];
+    if (benchBars && benchBars.length) {
+      const spyByDate = {};
+      benchBars.forEach((b) => { if (b.date != null && b.close != null) spyByDate[b.date] = b.close; });
+      const rs = bars.map((b) => { const sp = spyByDate[b.date]; return (sp && b.close != null && sp > 0) ? b.close / sp : null; });
+      const vals = rs.filter((v) => v != null);
+      if (vals.length >= 2) {
+        const rMin = Math.min(...vals), rMax = Math.max(...vals), rRng = (rMax - rMin) || 1;
+        // draw within the top ~40% of the price panel so it doesn't fight the candles
+        const bandTop = pad.t + priceH * 0.04, bandH = priceH * 0.4;
+        const rsY = (v) => bandTop + (1 - (v - rMin) / rRng) * bandH;
+        const pts = [];
+        rs.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${rsY(v)}`); });
+        rsLinePts = pts.length >= 2 ? pts.join(" ") : null;
+        let rsRun = -Infinity, pxRun = -Infinity;
+        rs.forEach((v, i) => {
+          const ph = bars[i].high;
+          const rsNewHigh = v != null && v > rsRun;
+          const priceBelow = ph != null && pxRun > 0 && (ph / pxRun - 1) <= -0.03;
+          if (v != null && rsNewHigh && priceBelow && i > 2) {
+            rsDots.push({ x: pad.l + i * (bw + gap) + bw / 2, y: rsY(v) });
+          }
+          if (v != null && v > rsRun) rsRun = v;
+          if (ph != null && ph > pxRun) pxRun = ph;
+        });
+      }
+    }
     const volMaPoints = () => {
       const pts = [];
       volMA.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
@@ -8385,12 +8419,13 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
       volMaPts: volMaPoints(),
+      rsLinePts, rsDots,
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
       pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH,
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH]);
+  }, [ohlc, benchBars, precomputed, quarters, visibleCount, endIdx, containerW, containerH]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -8467,6 +8502,13 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
         {chartData.maEma10 && <polyline points={chartData.maEma10} fill="none" stroke="#ff828c" strokeWidth={1} />}
         {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
         {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
+        {/* RS line vs SPY (IBD) + blue dots = RS new high before price */}
+        {chartData.rsLinePts && <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} />}
+        {chartData.rsDots && chartData.rsDots.map((d, i) => (
+          <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.4} fill="#3b82f6" stroke="#0a0a14" strokeWidth={0.5}>
+            <title>RS new high before price</title>
+          </circle>
+        ))}
         {chartData.candleElements}
         {volSubTab === "vol" && chartData.volElements}
         {volSubTab === "vol" && chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
@@ -8534,6 +8576,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
           </span>
         )}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }} title="RS line = stock ÷ SPY, rebased to price. ● = RS at a new high while price is still below its own — RS new high before price (IBD)."><span style={{ width: 8, height: 3, background: "#3b82f6", display: "inline-block" }} />RS vs SPY <span style={{ width: 5, height: 5, background: "#3b82f6", borderRadius: "50%", display: "inline-block" }} />↑</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(135deg,transparent,transparent 2px,#fbbf24 2px,#fbbf24 3px)", border: "1px solid #fbbf2480", borderRadius: 1, display: "inline-block" }} />+4% BO</span>
@@ -8628,6 +8671,7 @@ function ChartPanelInline({
   const [peers, setPeers] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [ohlcBars, setOhlcBars] = useState([]);
+  const [benchBars, setBenchBars] = useState([]); // SPY, for the RS-line overlay
   const [showTrade, setShowTrade] = useState(false);
   const [tradeSettings, setTradeSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem("themepulse-risk-settings") || "null") ||
@@ -8684,6 +8728,18 @@ function ChartPanelInline({
       .catch(() => {});
     return () => { cancelled = true; };
   }, [ticker, tf]);
+
+  // SPY bars (cached per interval) — denominator for the RS-line overlay
+  useEffect(() => {
+    let cancelled = false;
+    const interval = tf === "W" ? "1wk" : "1d";
+    if (_benchBarsCache.has(interval)) { setBenchBars(_benchBarsCache.get(interval)); return; }
+    fetch(`/api/ohlc?ticker=SPY&interval=${interval}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d?.ohlc) { _benchBarsCache.set(interval, d.ohlc); setBenchBars(d.ohlc); } })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [tf]);
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
 
   // Draggable split between daily (left) and intraday (right) panes.
@@ -8876,6 +8932,7 @@ function ChartPanelInline({
         <ErrorBoundary>
           <DailyChartSVG
             ohlc={ohlcBars}
+            benchBars={benchBars}
             quarters={quarters}
             height={height}
             stopLines={[
