@@ -1944,14 +1944,18 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   }, [activeKey, sorted]);
   // Layers (getTag) drop the Theme/identity column; the layer name itself is the
   // clickable, fixed-width title so the numeric columns get more room.
-  const lastCol = rankCol ? ["cr", "CR%"] : ["off52", "52W High"]; // stock tabs show closing range, not 52w high
-  const baseCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"], lastCol];
-  const withRank = rankCol ? [["lead", "#"], ...baseCols] : baseCols;
+  // Shared "strength core" (RS Day% · ZVR · CR% · EIF) sits right after the
+  // identity columns, matching Scan Watch. RS Wk%/Mth% + acceleration follow as
+  // the rotation-specific extras; stock tabs append a live Setup badge.
+  const coreCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["cr", "CR%"], ["eif", "EIF"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"]];
+  const withRank = rankCol ? [["lead", "#"], ...coreCols, ["setup", "Setup"]] : coreCols;
   const cols = getTag ? withRank.filter(([k]) => k !== "ticker") : withRank;
   const TITLES = {
     rsAcc1: "RS acceleration (day→week), LIVE: today's relative pace projected to a week (RS Day% × 5) minus the actual weekly relative return. High positive = fresh inflection TODAY (strong day after a quiet/weak week); negative = today lags its own week (extended or cooling).",
     rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over.",
     zvr: "Normalized ZVR: signed relative volume (rel-vol × 100, negative on down days) averaged across the layer's constituents — count-independent, so layers of different sizes are comparable. Live during market hours.",
+    cr: "Closing range: where price sits in the day's range (100 = closing at the high). Per stock on Leaders/Emerging; layer-average of constituents on layer tabs. Same metric as Scan Watch's CR%.",
+    eif: "EIF (Execution & Integrity framework score). Per stock on Leaders/Emerging; layer-average of constituents on layer tabs. Same metric as Scan Watch's EIF column.",
   };
   const pctCell = (v) => v == null ? <span style={{ color: ARIA.textMuted }}>—</span>
     : <span style={{ color: v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>{v > 0 ? "+" : ""}{v.toFixed(2)}%</span>;
@@ -2013,15 +2017,21 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td title={r.rsDay == null ? undefined : `RS Day% ${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(2)}% · ${rsDayPct.get(r)}th pct among ${getTag ? "layers" : "names"}`}
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(rsDayPct.get(r)) }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{Math.round(r.cr)}%</span>}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.eif == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.eif >= 60 ? ARIA.green : r.eif >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>{Math.round(r.eif)}</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
             <td title={r.rsAcc1 == null ? undefined : `RS Acc¹ ${r.rsAcc1 > 0 ? "+" : ""}${r.rsAcc1.toFixed(1)} · ${acc1Pct.get(r)}th pct among ${getTag ? "layers" : "names"} — day pace vs its own week`}
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(acc1Pct.get(r)) }}>{r.rsAcc1 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: ARIA.text, fontWeight: 700 }}>{r.rsAcc1 > 0 ? "+" : ""}{r.rsAcc1.toFixed(1)}</span>}</td>
             <td title={r.rsRoc2 == null ? undefined : `RS Acc² ${r.rsRoc2 > 0 ? "+" : ""}${r.rsRoc2.toFixed(1)} · ${roc2Pct.get(r)}th pct among ${getTag ? "layers" : "names"}`}
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(roc2Pct.get(r)) }}>{r.rsRoc2 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: ARIA.text, fontWeight: 700 }}>{r.rsRoc2 > 0 ? "+" : ""}{r.rsRoc2.toFixed(1)}</span>}</td>
-            {rankCol
-              ? <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{r.cr}</span>}</td>
-              : <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.off52)}</td>}
+            {rankCol && (
+              <td style={{ textAlign: "center", padding: "2px 4px" }}>{(() => {
+                const su = chainSetup({ ...r, rs: r.eif, alpha: r.rsDay });
+                if (!su) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                return <span title={su.desc} style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>{su.key}</span>;
+              })()}</td>
+            )}
           </tr>
           );
         })}
@@ -2324,6 +2334,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
   const mAdj = (isTechTab && spyRet?.["1m"] != null && qqqRet?.["1m"] != null) ? spyRet["1m"] - qqqRet["1m"] : null;
   const activeRows = baseRows.map((r) => {
     const row = { ...r, rsDay: liveDay(r), zvr: liveZvr(r) };
+    // Layer-average CR% and EIF from constituents — the shared-core columns that
+    // match Scan Watch (ETF sector/industry rows have no holds → left null).
+    if (r.holds && r.holds.length) {
+      const eifs = r.holds.map((h) => stockMap?.[h.t]?.framework_score).filter((v) => v != null);
+      row.eif = eifs.length ? Math.round(eifs.reduce((a, b) => a + b, 0) / eifs.length) : null;
+      const crs = r.holds.map((h) => computeCR(liveQuotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
+      row.cr = crs.length ? Math.round(crs.reduce((a, b) => a + b, 0) / crs.length) : null;
+    }
     if (isTechTab && wAdj != null && row.rsWk != null) row.rsWk = +(row.rsWk + wAdj).toFixed(2);
     if (isTechTab && mAdj != null && row.rsMth != null) row.rsMth = +(row.rsMth + mAdj).toFixed(2);
     return row;
@@ -2354,6 +2372,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
       return { ticker: t, name: layer.name, theme: layer.theme, themeId: layer.themeId,
         now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth,
         off52: s.off_52w_high ?? null, cr: computeCR(q, s), zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
+        chg, adr: s.adr_pct ?? null, d20: s.dist_20dma_atrx ?? null, d50: s.dist_50sma_atrx ?? null, // for the Setup badge
         erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high };
     });
   };
@@ -6116,15 +6135,15 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 <th onClick={(e) => toggleSort("alpha", e.shiftKey)} onContextMenu={(e) => { e.preventDefault(); const next = alphaMode === "1d" ? "1w" : alphaMode === "1w" ? "1m" : "1d"; setAlphaMode(next); try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {} }}
                     title="Click to sort · Shift+click to add as secondary sort · Right-click to cycle α window (1d/1w/1m)"
                     style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: aIdx >= 0 ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
-                  α<span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800, marginLeft: 2 }}>{alphaMode}</span>{aIdx >= 0 ? (sortSpec[aIdx].dir === "asc" ? " ▲" : " ▼") : ""}{aIdx >= 0 && sortSpec.length > 1 && <sup style={{ fontSize: 5, color: "#fbbf24", fontWeight: 800 }}>{aIdx + 1}</sup>}
+                  RS <span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800 }}>{alphaMode === "1d" ? "DAY" : alphaMode === "1w" ? "WK" : "MTH"}%</span>{aIdx >= 0 ? (sortSpec[aIdx].dir === "asc" ? " ▲" : " ▼") : ""}{aIdx >= 0 && sortSpec.length > 1 && <sup style={{ fontSize: 5, color: "#fbbf24", fontWeight: 800 }}>{aIdx + 1}</sup>}
                 </th>
               );
             })()}
-            <Th k="adr" label="ADR" />
-            <Th k="rs" label="EIF" />
-            <Th k="str" label="Str" />
-            <Th k="cr" label="CR%" />
             <Th k="zvr" label="ZVR" />
+            <Th k="cr" label="CR%" />
+            <Th k="rs" label="EIF" />
+            <Th k="adr" label="ADR" />
+            <Th k="str" label="Str" />
             <Th k="setup" label="Setup" />
             <Th k="erDays" label="ER" />
           </tr>
@@ -6192,32 +6211,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     title={`Alpha vs SPY: stock ${r.chg?.toFixed(1)}% − SPY ${(r.chg - r.alpha).toFixed(1)}%`}>
                   {r.alpha != null ? (r.alpha > 0 ? "+" : "") + r.alpha.toFixed(1) : "—"}
                 </td>
-                <td style={{ ...cell, color: r.adr != null && r.adr >= 5 ? "#fbbf24" : r.adr != null && r.adr >= 3 ? ARIA.green : ARIA.textDim, fontWeight: r.adr != null && r.adr >= 3 ? 700 : 400 }}
-                    title="Average Daily Range %. ≥3% = tradeable swing range, ≥5% = high volatility">
-                  {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
-                </td>
-                <td style={{ ...cell, color: r.rs != null && r.rs >= 60 ? ARIA.green : r.rs != null && r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
-                  {r.rs != null ? Math.round(r.rs) : "—"}
-                </td>
-                <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
-                  {r.str != null ? Math.round(r.str) : "—"}
-                </td>
-                <td style={{ ...cell, color: crColor(r.cr) }}>
-                  {r.cr != null ? Math.round(r.cr) + "%" : "—"}
-                  {(() => {
-                    const h = _crHistory.get(r.ticker);
-                    if (!h || h.length < 3) return null;
-                    const vals = h.map((p) => p.v);
-                    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1;
-                    const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * 23 + 1).toFixed(1)},${(9 - ((v - min) / rng) * 7).toFixed(1)}`).join(" ");
-                    const up = vals[vals.length - 1] >= vals[0];
-                    return (
-                      <svg width="25" height="10" style={{ marginLeft: 3, verticalAlign: "middle", opacity: 0.85 }} aria-hidden="true">
-                        <polyline points={pts} fill="none" stroke={up ? "#34d399" : "#ef4444"} strokeWidth="1" />
-                      </svg>
-                    );
-                  })()}
-                </td>
                 <td style={{ ...cell, color: r.zvr != null ? (r.zvr < 0 ? (Math.abs(r.zvr) >= 200 ? "#ef4444" : Math.abs(r.zvr) >= 150 ? ARIA.red : ARIA.textMuted) : (r.zvr >= 200 ? "#fbbf24" : r.zvr >= 150 ? ARIA.green : ARIA.textMuted)) : ARIA.textMuted, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 150 ? 700 : 400, whiteSpace: "nowrap" }}
                     title={`Zanger Volume Ratio: projected EOD volume as % of avg daily volume. Positive = accumulation, negative = distribution. ≥200% = breakout confirmation${r.zvrTrend != null ? ` · ${r.zvrTrend > 0 ? "+" : ""}${r.zvrTrend} pts vs last poll` : ""}`}>
                   {r.zvr != null ? (r.zvr < 0 ? "-" : "") + Math.abs(r.zvr) + "%" : "—"}
@@ -6240,6 +6233,32 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                       </svg>
                     );
                   })()}
+                </td>
+                <td style={{ ...cell, color: crColor(r.cr) }}>
+                  {r.cr != null ? Math.round(r.cr) + "%" : "—"}
+                  {(() => {
+                    const h = _crHistory.get(r.ticker);
+                    if (!h || h.length < 3) return null;
+                    const vals = h.map((p) => p.v);
+                    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1;
+                    const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * 23 + 1).toFixed(1)},${(9 - ((v - min) / rng) * 7).toFixed(1)}`).join(" ");
+                    const up = vals[vals.length - 1] >= vals[0];
+                    return (
+                      <svg width="25" height="10" style={{ marginLeft: 3, verticalAlign: "middle", opacity: 0.85 }} aria-hidden="true">
+                        <polyline points={pts} fill="none" stroke={up ? "#34d399" : "#ef4444"} strokeWidth="1" />
+                      </svg>
+                    );
+                  })()}
+                </td>
+                <td style={{ ...cell, color: r.rs != null && r.rs >= 60 ? ARIA.green : r.rs != null && r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
+                  {r.rs != null ? Math.round(r.rs) : "—"}
+                </td>
+                <td style={{ ...cell, color: r.adr != null && r.adr >= 5 ? "#fbbf24" : r.adr != null && r.adr >= 3 ? ARIA.green : ARIA.textDim, fontWeight: r.adr != null && r.adr >= 3 ? 700 : 400 }}
+                    title="Average Daily Range %. ≥3% = tradeable swing range, ≥5% = high volatility">
+                  {r.adr != null ? r.adr.toFixed(1) + "%" : "—"}
+                </td>
+                <td style={{ ...cell, color: strColor(r.str), fontWeight: 700 }}>
+                  {r.str != null ? Math.round(r.str) : "—"}
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 3px" }}>
                   {(() => {
