@@ -5431,46 +5431,8 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
   // Filter: Chg% > 0 — defaults ON. Stored as "1"/"0" in localStorage.
   const [posOnly, setPosOnly] = useState(() => localStorage.getItem("tp-chain-pos-only") !== "0");
   useEffect(() => { localStorage.setItem("tp-chain-pos-only", posOnly ? "1" : "0"); }, [posOnly]);
-  const tagStyle = (active) => ({
-    fontSize: 8, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
-    fontFamily: "monospace", fontWeight: active ? 800 : 600,
-    border: `1px solid ${active ? "#10b981" : ARIA.border}`,
-    color: active ? "#10b981" : ARIA.textMuted,
-    background: active ? "rgba(16,185,129,0.14)" : "transparent",
-  });
   return (
     <div ref={containerRef} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", gap: 4, padding: "4px 6px", flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>FILTER</span>
-        <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
-          ▲ Chg{'>'}0%
-        </button>
-        {/* Active chain/layer filter chips */}
-        {activeFilterNames?.map((name) => (
-          <span key={name} style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>
-            {name}
-          </span>
-        ))}
-        {/* Active scan filter chips — read-only indicators */}
-        {filters && (() => {
-          const chips = [];
-          const chip = (label, key) => (
-            <span key={key} style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981" }}>{label}</span>
-          );
-          if (filters.noBio) chips.push(chip("NoBio", "nobio"));
-          if (filters.greenOnly) chips.push(chip("Chg>0%", "green"));
-          if (filters.minChg > 0) chips.push(chip(`Chg≥${filters.minChg}%`, "minchg"));
-          if (filters.minRvol > 0) chips.push(chip(`RV≥${filters.minRvol}x`, "minrv"));
-          if (filters.minEif > 0) chips.push(chip(`EIF≥${filters.minEif}`, "mineif"));
-          if (filters.adrMin !== 1 || filters.adrMax !== 15) chips.push(chip(`ADR ${filters.adrMin}–${filters.adrMax}`, "adr"));
-          if (filters.minDvolM > 0) chips.push(chip(`$Vol≥${filters.minDvolM}M`, "dvol"));
-          if (filters.ownedView !== "all") chips.push(chip(filters.ownedView === "owned" ? "Owned" : "None", "owned"));
-          if (activePresets) [...activePresets].forEach(k => { const p = PRESETS[k]; if (p) chips.push(chip(p.label, `preset-${k}`)); });
-          if (activeTags) [...activeTags].forEach(k => { const t = TAG_PREDICATES[k]; if (t) chips.push(chip(t.label, `tag-${k}`)); });
-          return chips.length > 0 ? <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>{chips}</span> : null;
-        })()}
-        <span style={{ marginLeft: "auto", fontSize: 6, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4 }}>↑↓ nav · Enter</span>
-      </div>
       <ChainTickerTable
         stockMap={stockMap}
         tickerStrengthMap={tickerStrengthMap}
@@ -5478,8 +5440,12 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         onLayerClick={onLayerClick}
         chartTicker={chartTicker}
         posOnly={posOnly}
+        setPosOnly={setPosOnly}
         scanRows={scanRows}
         scanFilters={filters}
+        activeFilterNames={activeFilterNames}
+        activePresets={activePresets}
+        activeTags={activeTags}
       />
     </div>
   );
@@ -5561,7 +5527,7 @@ function useZVR(tickers) {
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
-function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, scanRows, scanFilters }) {
+function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, setPosOnly, scanRows, scanFilters, activeFilterNames, activePresets, activeTags }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const eifReasons = useEifReasons();
@@ -6034,7 +6000,35 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5 }}>FILTER</span>
+        <button
+          onClick={() => setPosOnly && setPosOnly((p) => !p)}
+          title="Show only Chg% > 0"
+          style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: posOnly ? "#10b981" : ARIA.textMuted, background: posOnly ? "rgba(16,185,129,0.12)" : "transparent", border: `1px solid ${posOnly ? "rgba(16,185,129,0.45)" : ARIA.border}` }}>
+          ▲ Chg{'>'}0%
+        </button>
+        {activeFilterNames?.map((name) => (
+          <span key={name} style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.4)", color: "#a855f7" }}>{name}</span>
+        ))}
+        {scanFilters && (() => {
+          const chips = [];
+          const chip = (label, key) => (
+            <span key={key} style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981" }}>{label}</span>
+          );
+          if (scanFilters.noBio) chips.push(chip("NoBio", "nobio"));
+          if (scanFilters.greenOnly) chips.push(chip("Chg>0%", "green"));
+          if (scanFilters.minChg > 0) chips.push(chip(`Chg≥${scanFilters.minChg}%`, "minchg"));
+          if (scanFilters.minRvol > 0) chips.push(chip(`RV≥${scanFilters.minRvol}x`, "minrv"));
+          if (scanFilters.minEif > 0) chips.push(chip(`EIF≥${scanFilters.minEif}`, "mineif"));
+          if (scanFilters.adrMin !== 1 || scanFilters.adrMax !== 15) chips.push(chip(`ADR ${scanFilters.adrMin}–${scanFilters.adrMax}`, "adr"));
+          if (scanFilters.minDvolM > 0) chips.push(chip(`$Vol≥${scanFilters.minDvolM}M`, "dvol"));
+          if (scanFilters.ownedView !== "all") chips.push(chip(scanFilters.ownedView === "owned" ? "Owned" : "None", "owned"));
+          if (activePresets) [...activePresets].forEach((k) => { const p = PRESETS[k]; if (p) chips.push(chip(p.label, `preset-${k}`)); });
+          if (activeTags) [...activeTags].forEach((k) => { const t = TAG_PREDICATES[k]; if (t) chips.push(chip(t.label, `tag-${k}`)); });
+          return chips.length > 0 ? <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>{chips}</span> : null;
+        })()}
+        <span style={{ color: ARIA.border, margin: "0 2px" }}>|</span>
         <button
           onClick={() => setPfOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-pf-only", n ? "1" : "0"); } catch {} return n; })}
           title="Show only tickers in your portfolio"
