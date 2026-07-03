@@ -2729,24 +2729,45 @@ const SORT_BUTTONS = [
   { key: "alpha", label: "α" },
 ];
 
-// ── Chain Setup badge: synthesizes ZVR/EIF/CR%/α/Str/ER into a named pattern ──
-// Returns { key, color, rank, desc } or null. Checked in priority order.
-function chainSetup(r) {
-  const { zvr, rs: eif, cr, str, alpha, erDays, chg } = r;
+// ── Chain Setup badge: synthesizes ZVR/EIF/CR%/α/Str/ER/RS/MA-distance into a
+// named pattern. Returns { key, color, rank, desc } or null; checked in priority
+// order (first match wins). `rank` orders the "Setup" column sort — higher =
+// more actionable long (BO > ACC > EP > RST > VCP; DIST is a warning, lowest).
+//
+// EIF here is r.rs (framework_score, the Execution & Integrity score), which is
+// distinct from RS rank. RST additionally uses r.rsRank (momentum RS 0-100).
+//
+// ctx.zFactor (optional) scales the volume thresholds by how hot/quiet today's
+// tape is (universe median |ZVR| vs a ~60 baseline, clamped 0.8–1.4) so the same
+// pill fires a similar number of names in a strong tape and a dead one. Absent
+// ctx → factor 1 → the fixed absolute thresholds.
+function chainSetup(r, ctx) {
+  const { zvr, rs: eif, cr, str, alpha, erDays, chg, rsRank, off52, d20, d50, adr } = r;
+  const f = ctx?.zFactor ?? 1;
+  const zHi = 150 * f, zEP = 200 * f, zLo = -150 * f, zBO = 130 * f, zDry = 80 * f;
   // DIST: heavy volume selling in a quality name — exit/avoid warning
-  if (zvr != null && zvr <= -150 && eif != null && eif >= 52)
-    return { key: "DIST", color: "#ef4444", rank: 2, desc: "Distribution: ZVR ≤ −150% in a leader (EIF ≥ 70). Institutions selling — exit/avoid." };
+  if (zvr != null && zvr <= zLo && eif != null && eif >= 52)
+    return { key: "DIST", color: "#ef4444", rank: 1, desc: `Distribution: ZVR ≤ ${Math.round(zLo)}% in a leader (EIF ≥ 52). Institutions selling — exit/avoid.` };
   // EP: post-earnings accumulation (Qullamaggie episodic pivot follow-through)
-  if (erDays != null && erDays >= -3 && erDays <= 0 && zvr != null && zvr >= 200 && chg != null && chg > 0)
-    return { key: "EP", color: "#22d3ee", rank: 4, desc: "Episodic Pivot: earnings ≤ 3d ago + ZVR ≥ 200% + green. Post-ER accumulation." };
-  // ACC: institutional accumulation in a leader — strongest long signal
-  if (alpha != null && alpha > 0 && zvr != null && zvr >= 150 && cr != null && cr >= 70 && eif != null && eif >= 52)
-    return { key: "ACC", color: "#34d399", rank: 5, desc: "Accumulation: α > 0, ZVR ≥ 150%, CR% ≥ 70, EIF ≥ 70. Buyers in control of a leader." };
+  if (erDays != null && erDays >= -3 && erDays <= 0 && zvr != null && zvr >= zEP && chg != null && chg > 0)
+    return { key: "EP", color: "#22d3ee", rank: 5, desc: `Episodic Pivot: earnings ≤ 3d ago + ZVR ≥ ${Math.round(zEP)}% + green. Post-ER accumulation.` };
+  // BO: breakout to new highs on a range-expansion up day with volume — the entry
+  if (off52 != null && off52 >= -6 && chg != null && chg > 0 && chg >= (adr || 4) &&
+      zvr != null && zvr >= zBO && cr != null && cr >= 60 && eif != null && eif >= 50)
+    return { key: "BO", color: "#a855f7", rank: 7, desc: `Breakout: within 6% of the 52w high, up ≥ its ADR on ZVR ≥ ${Math.round(zBO)}% with a strong close (CR ≥ 60). Range-expansion entry — the actual buy.` };
+  // ACC: institutional accumulation in a leader — strong close on volume
+  if (alpha != null && alpha > 0 && zvr != null && zvr >= zHi && cr != null && cr >= 70 && eif != null && eif >= 52)
+    return { key: "ACC", color: "#34d399", rank: 6, desc: `Accumulation: α > 0, ZVR ≥ ${Math.round(zHi)}%, CR% ≥ 70, EIF ≥ 52. Buyers in control of a leader.` };
+  // RST: RS≥90 leader pulled back to the 20dma on dry volume — add-on-support entry
+  // (the 🪃 leader-reset / Reset preset, as a live badge)
+  if (rsRank != null && rsRank >= 90 && d20 != null && Math.abs(d20) <= 1 && d50 != null && d50 > 0 &&
+      zvr != null && Math.abs(zvr) <= 100 && chg != null && chg > -2.5)
+    return { key: "RST", color: "#0ea5e9", rank: 4, desc: "Reset: RS ≥ 90 leader within ±1 ATR of the 20dma on dry volume (|ZVR| ≤ 100%), above the 50sma, not breaking down. Buy support, not extension." };
   // VCP: volume dry-up in a strong name — quiet before the breakout
-  // |chg| < 2 keeps VCP semantically honest: a big price day on light volume
-  // is a conviction warning, not a tight-base consolidation
-  if (zvr != null && Math.abs(zvr) < 80 && eif != null && eif >= 60 && str != null && str >= 70 && chg != null && Math.abs(chg) < 2)
-    return { key: "VCP", color: "#fbbf24", rank: 3, desc: "Volume dry-up: |ZVR| < 80%, |Chg| < 2%, EIF ≥ 80, Str ≥ 70. Quiet tight day in a leader — watch for breakout on volume return." };
+  // |chg| < 2 keeps VCP honest: a big price day on light volume is a conviction
+  // warning, not a tight-base consolidation
+  if (zvr != null && Math.abs(zvr) < zDry && eif != null && eif >= 60 && str != null && str >= 70 && chg != null && Math.abs(chg) < 2)
+    return { key: "VCP", color: "#fbbf24", rank: 3, desc: `Volume dry-up: |ZVR| < ${Math.round(zDry)}%, |Chg| < 2%, EIF ≥ 60, Str ≥ 70. Quiet tight day in a leader — watch for breakout on volume return.` };
   return null;
 }
 
@@ -5704,7 +5725,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           chg,
           alpha: calcAlpha(chg, s),
           rvol,
-          rs: sr.rs || s?.rs_rank || null,
+          rs: s?.framework_score ?? sr.rs ?? s?.rs_rank ?? null, // EIF (framework score) — consistent with the column label
+          rsRank: s?.rs_rank ?? null,                            // momentum RS rank (RST leader gate)
+          off52: s?.off_52w_high ?? null,
+          d20: s?.dist_20dma_atrx ?? null,
+          d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume, chg),
@@ -5758,6 +5783,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           alpha,
           rvol,
           rs: s?.framework_score ?? s?.rs_rank ?? null,
+          rsRank: s?.rs_rank ?? null,
+          off52: s?.off_52w_high ?? null,
+          d20: s?.dist_20dma_atrx ?? null,
+          d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
           cr: computeCR(q, s),
           zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
@@ -5798,7 +5827,11 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         chg,
         alpha: calcAlpha(chg, s),
         rvol,
-        rs: s?.rs_rank ?? null,
+        rs: s?.framework_score ?? s?.rs_rank ?? null,
+        rsRank: s?.rs_rank ?? null,
+        off52: s?.off_52w_high ?? null,
+        d20: s?.dist_20dma_atrx ?? null,
+        d50: s?.dist_50sma_atrx ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
@@ -5811,6 +5844,17 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       };
     });
   }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap]);
+
+  // Regime context for setup thresholds: scale ZVR bars by today's tape.
+  // zFactor = universe median |ZVR| / 60 (baseline), clamped 0.8–1.4 so a hot
+  // tape raises the bar (stays selective) and a dead tape lowers it (still
+  // surfaces the relative movers). Needs ≥8 samples or it stays neutral (1.0).
+  const setupCtx = useMemo(() => {
+    const mags = rows.map((r) => r.zvr).filter((v) => v != null).map(Math.abs).filter((v) => v > 0).sort((a, b) => a - b);
+    if (mags.length < 8) return { zFactor: 1 };
+    const median = mags[Math.floor(mags.length / 2)];
+    return { zFactor: Math.max(0.8, Math.min(1.4, median / 60)) };
+  }, [rows]);
 
   // Multi-column sort: ordered array of {key, dir}. Click = set primary,
   // Shift+click = add/toggle as secondary/tertiary. Persisted.
@@ -5867,7 +5911,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     if (mins < 600 || mins >= 960) return; // 10:00 ET+ only — first 30 min is ZVR/CR noise
     const fresh = [];
     for (const r of rows) {
-      const su = chainSetup(r);
+      const su = chainSetup(r, setupCtx);
       if (!su) continue;
       // Only journal badges computed from live API ZVR — fallback values
       // (linear estimate / yesterday's rel_volume) produce bogus entries
@@ -5897,7 +5941,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     if (pfOnly) arr = arr.filter(r => portfolioSet.has(r.ticker));
     if (posOnly) arr = arr.filter(r => r.chg != null && r.chg > 0);
     if (layerFilter) arr = arr.filter(r => r.layer === layerFilter);
-    if (setupsOnly) arr = arr.filter(r => chainSetup(r));
+    if (setupsOnly) arr = arr.filter(r => chainSetup(r, setupCtx));
     if (leadersOnly) arr = arr.filter(r => r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length);
     if (crpOnly) arr = arr.filter(r => {
       // Must still be in/near the top third RIGHT NOW (not just historically).
@@ -5908,7 +5952,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       return !p || p.n < 5 || (p.strong / p.n) >= 0.6;
     });
     const sortVal = (r, key) => {
-      if (key === "setup") return chainSetup(r)?.rank ?? 0;
+      if (key === "setup") return chainSetup(r, setupCtx)?.rank ?? 0;
       if (key === "is33") return r.is33 ? 1 : 0;
       if (key === "star") return (r.rs != null && r.rs >= 55) ? r.rs : -1;
       return r[key];
@@ -6199,7 +6243,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 3px" }}>
                   {(() => {
-                    const su = chainSetup(r);
+                    const su = chainSetup(r, setupCtx);
                     if (!su) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
                     return (
                       <span title={su.desc} style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>
@@ -11551,12 +11595,14 @@ function ChartScanRow({
 // Data: GET /api/zvr?journal=N (Upstash-backed, deduped per ticker+badge+day).
 // Shows entry conditions at fire time + live "since fire" return.
 // ──────────────────────────────────────────────────────────────────────────
-const JOURNAL_BADGE_COLORS = { ACC: "#34d399", EP: "#22d3ee", VCP: "#fbbf24", DIST: "#ef4444" };
+const JOURNAL_BADGE_COLORS = { BO: "#a855f7", ACC: "#34d399", EP: "#22d3ee", RST: "#0ea5e9", VCP: "#fbbf24", DIST: "#ef4444" };
 const JOURNAL_BADGE_DESC = {
-  ACC: "Accumulation: α>0, ZVR≥150%, CR%≥70, EIF≥70",
+  BO: "Breakout: within 6% of 52w high, up ≥ ADR, ZVR≥130%, CR≥60, EIF≥50 — the entry",
+  ACC: "Accumulation: α>0, ZVR≥150%, CR%≥70, EIF≥52",
   EP: "Episodic Pivot: ER ≤3d ago, ZVR≥200%, green",
-  VCP: "Volume dry-up: |ZVR|<80%, |Chg|<2%, EIF≥80, Str≥70",
-  DIST: "Distribution: ZVR≤−150%, EIF≥70",
+  RST: "Reset: RS≥90 leader at the 20dma, |ZVR|≤100%, above 50sma, not breaking down",
+  VCP: "Volume dry-up: |ZVR|<80%, |Chg|<2%, EIF≥60, Str≥70",
+  DIST: "Distribution: ZVR≤−150%, EIF≥52",
 };
 
 // ──────────────────────────────────────────────────────────────────────────
