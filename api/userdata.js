@@ -82,7 +82,9 @@ export default async function handler(req, res) {
       );
       const result = await redisCmd("GET", DATA_KEY);
       const stored = result.result ? JSON.parse(result.result) : null;
-      const state = stored || emptyState();
+      // Merge over defaults so newer fields (e.g. focus) always appear even for
+      // states written before they existed.
+      const state = { ...emptyState(), ...(stored || {}) };
       // Apply 1-week TTL filter to analyzed picks at read time
       state.analyzedPicks = applyAnalyzedTtl(state.analyzedPicks);
       return res.status(200).json({ ok: true, ...state });
