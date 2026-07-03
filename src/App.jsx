@@ -9013,15 +9013,15 @@ function ChartPanelInline({
             ) : null}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
-            {stockInfo.rs_line_new_high && <span style={badgeStyle("#3b82f6")} title="RS new high before price (IBD 'blue dot') — the RS line (stock ÷ SPY) is at a new high while price is still below its own high. Leading breakout signal.">◆ RS↑</span>}
+            {!!stockInfo.rs_line_new_high && <span style={badgeStyle("#3b82f6")} title="RS new high before price (IBD 'blue dot') — the RS line (stock ÷ SPY) is at a new high while price is still below its own high. Leading breakout signal.">◆ RS↑</span>}
           </div>
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {stockInfo.company || ""}
           </div>
-          {/* Description — single truncated line (full text on hover) */}
+          {/* Description — full text, wraps naturally */}
           {description && (
-            <div title={description} style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 1 }}>
               {description}
             </div>
           )}
