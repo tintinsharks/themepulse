@@ -1305,7 +1305,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
               const _etMins = _et.getHours() * 60 + _et.getMinutes();
               const _isRTH = _etMins >= 570 && _etMins < 960;
               const _elapsedFrac = _isRTH ? Math.max(0.02, sessionVolFraction(_etMins - 570)) : 1.0;
-              const rows = holdingsOverride.slice(0, 30).map((h) => {
+              const rows = holdingsOverride.slice(0, 100).map((h) => {
                 const q = liveQuotes?.get(h.t); const s = stockMap?.[h.t];
                 const chg = q?.change ?? s?.change_pct ?? null;
                 const cr = computeCR(q, s);
@@ -1341,7 +1341,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                     {hCell("zvr", "ZVR", 40, false)}
                     {hCell("cr", "CR", 26, false)}
                   </div>
-                  <div style={{ maxHeight: chartH - 8, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto" }}>
+                  <div style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                       const { chg, cr, zvr, eif, adr } = h;
