@@ -1664,7 +1664,7 @@ function TrendsBoard({ hist, d, onLayer, onTicker, ARIA }) {
   );
   return (
     <div style={{ fontFamily: "monospace" }}>
-      <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 3px" }}>rank trajectory over {dates.length} sessions ({span}) · 🎯 = climbing hard, not yet a leader · click to load</div>
+      <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 3px" }}>rank trajectory over {dates.length} sessions ({span}) · 🎯 = climbing hard, not yet a leader (watchlist — backtest: entries pay AFTER leadership, not before) · click to load</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <div style={{ border: `1px solid ${ARIA.border}`, borderTop: `2px solid ${ARIA.green}`, borderRadius: 5, overflow: "hidden" }}>
           <div style={{ fontSize: 9, fontWeight: 800, color: ARIA.green, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, textTransform: "uppercase", letterSpacing: 0.5 }}>Climbing</div>
@@ -1736,13 +1736,13 @@ function PlaybookBoard({ d, quotes, stockMap, wAdjTech, onLayer, ARIA }) {
     ...build((l) => !TECH_THEMES.has(l.themeId), spy, "EX"),
   ];
   const BUCKETS = [
-    { key: "cont", label: "⭐ CONTINUATION", desc: "leaders still working — hold / add on setups", c: ARIA.green,
+    { key: "cont", label: "⭐ CONTINUATION", desc: "leaders still working — the backtested edge (+1.4%/21d vs SPY); add on setups", c: ARIA.green,
       test: (r) => r.rank >= 88 && r.mom >= 0 && (r.day ?? 0) > 0, sort: (a, b) => (b.day ?? 0) - (a.day ?? 0) },
-    { key: "buy", label: "🟢 BUY ZONE", desc: "rising + confirmed today — look for entries", c: "#34d399",
+    { key: "buy", label: "🟢 RISING", desc: "rising + confirmed today — watchlist tier (no edge until leadership, per backtest)", c: "#34d399",
       test: (r) => r.mom >= 8 && (r.day ?? -9) > 0.5 && r.rank >= 35 && r.rank < 88, sort: (a, b) => b.mom - a.mom },
-    { key: "stalk", label: "🔭 STALK", desc: "violent weekly rotation, digesting today — wait for the first tight day", c: "#22d3ee",
+    { key: "stalk", label: "🔭 STALK", desc: "violent weekly rotation, digesting — watch; act only if it reaches leadership", c: "#22d3ee",
       test: (r) => r.mom >= 18 && (r.day ?? 0) <= 0.5, sort: (a, b) => b.mom - a.mom },
-    { key: "dist", label: "⚠ DISTRIBUTION", desc: "leaders being sold — trim / avoid new buys", c: ARIA.red,
+    { key: "dist", label: "🔻 LEADERS RED TODAY", desc: "historically a group-level dip-buy (+1.2%/21d) — manage exits per-stock, not per-theme", c: ARIA.red,
       test: (r) => r.rank >= 85 && (r.day ?? 0) <= -2, sort: (a, b) => (a.day ?? 0) - (b.day ?? 0) },
     { key: "bounce", label: "🎣 BOUNCE", desc: "oversold pop in a low-rank group — watch only, needs repair", c: ARIA.yellow,
       test: (r) => r.rank < 35 && (r.day ?? 0) >= 2, sort: (a, b) => (b.day ?? 0) - (a.day ?? 0) },
@@ -2456,7 +2456,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 <>
                   {tabRow}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
-                  {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click a layer to load it left · watch Improving</div>}
+                  {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click to load · Improving = watchlist only (backtest: no edge until leadership)</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   {rsTab === "playbook" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>rank × weekly momentum × live day (tech vs QQQ, ex-tech vs SPY) → action buckets · % = off 52w high</div>}
