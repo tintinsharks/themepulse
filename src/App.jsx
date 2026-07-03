@@ -11880,7 +11880,7 @@ function TickerInfoBox({ ticker, stockMap, onTickerClick }) {
         </div>
       )}
       {open && peers.length > 0 && (
-        <PeersRow ticker={ticker} peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} stockMap={stockMap} liveEarningsDate={liveEarningsDate} />
+        <PeersRow ticker={ticker} peers={peers} onTickerClick={onTickerClick} ARIA={ARIA} stockMap={stockMap} />
       )}
     </div>
   );
