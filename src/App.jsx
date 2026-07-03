@@ -5888,7 +5888,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   }, [rows, liveQuotes]);
 
   const [setupsOnly, setSetupsOnly] = useState(() => { try { return localStorage.getItem("tp-chain-setups-only") === "1"; } catch { return false; } });
-  const [minZvr, setMinZvr] = useState(() => { try { return parseInt(localStorage.getItem("tp-chain-min-zvr")) || 0; } catch { return 0; } });
   const [leadersOnly, setLeadersOnly] = useState(() => { try { return localStorage.getItem("tp-chain-leaders-only") === "1"; } catch { return false; } });
   const [crpOnly, setCrpOnly] = useState(() => { try { return localStorage.getItem("tp-chain-crp-only") === "1"; } catch { return false; } });
   const [pfOnly, setPfOnly] = useState(() => { try { return localStorage.getItem("tp-chain-pf-only") === "1"; } catch { return false; } });
@@ -5908,7 +5907,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       // of the session. Before samples accumulate, current top-third is enough.
       return !p || p.n < 5 || (p.strong / p.n) >= 0.6;
     });
-    if (minZvr > 0) arr = arr.filter(r => r.zvr != null && r.zvr >= minZvr);
     const sortVal = (r, key) => {
       if (key === "setup") return chainSetup(r)?.rank ?? 0;
       if (key === "is33") return r.is33 ? 1 : 0;
@@ -5932,7 +5930,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, minZvr, leadersOnly, eifReasons, crpOnly, pfOnly, portfolioSet]);
+  }, [rows, sortSpec, posOnly, layerFilter, setupsOnly, leadersOnly, eifReasons, crpOnly, pfOnly, portfolioSet]);
   const saveSortSpec = (next) => {
     setSortSpec(next);
     try { localStorage.setItem("tp-chain-sort", JSON.stringify(next)); } catch {}
@@ -6037,13 +6035,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: crpOnly ? "#0ea5e9" : ARIA.textMuted, background: crpOnly ? "rgba(14,165,233,0.12)" : "transparent", border: `1px solid ${crpOnly ? "rgba(14,165,233,0.45)" : ARIA.border}` }}>
           ↑ CR PERSIST
         </button>
-        <span style={{ display: "flex", alignItems: "center", gap: 3 }} title="Minimum ZVR (volume pace %) — filters the table to volume-confirmed names">
-          <span style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, color: minZvr > 0 ? "#34d399" : ARIA.textMuted, letterSpacing: 0.3 }}>ZVR≥</span>
-          <input type="range" min={0} max={300} step={10} value={minZvr}
-            onChange={(e) => { const v = parseInt(e.target.value); setMinZvr(v); try { localStorage.setItem("tp-chain-min-zvr", String(v)); } catch {} }}
-            style={{ width: 56, accentColor: "#34d399", cursor: "pointer" }} />
-          <span style={{ fontSize: 8, fontFamily: "monospace", fontWeight: 700, color: minZvr > 0 ? "#34d399" : ARIA.textMuted, minWidth: 26 }}>{minZvr > 0 ? minZvr + "%" : "—"}</span>
-        </span>
         {!isDefaultSort && (
           <button
             onClick={() => saveSortSpec(DEFAULT_CHAIN_SORT)}
