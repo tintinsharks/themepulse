@@ -10627,6 +10627,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   // symbol against the universe, adds the valid ones, and reports the rest —
   // no more silent junk adds that look like the add "didn't work".
   const universeSet = useMemo(() => new Set(Object.keys(stockMap || {})), [stockMap]);
+  const [quickAdd, setQuickAdd] = useState("");  // quick-add box (side panel)
   const addManyPortfolio = useCallback((tks) => {
     setPortfolio((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
   }, [setPortfolio]);
@@ -11427,10 +11428,17 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             }}
           >
             <input
-              value={wInput}
-              onChange={(e) => setWInput(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === "Enter" && addWatchlist()}
-              placeholder="+ ticker"
+              value={quickAdd}
+              onChange={(e) => setQuickAdd(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const toks = [...new Set(quickAdd.split(/[,\s]+/).map((t) => t.trim().toUpperCase()).filter(Boolean))];
+                const known = universeSet.size ? toks.filter((t) => universeSet.has(t)) : toks;
+                if (known.length) addManyWatchlist(known);
+                setQuickAdd(toks.filter((t) => !known.includes(t)).join(", "));
+              }}
+              placeholder="+ ticker(s)"
+              title="One or several (comma/space separated) — validated against the universe"
               style={{
                 flex: 1,
                 fontSize: 9,
@@ -11444,19 +11452,22 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
               }}
             />
             <button
-              onClick={addWatchlist}
+              onClick={() => {
+                const toks = [...new Set(quickAdd.split(/[,\s]+/).map((t) => t.trim().toUpperCase()).filter(Boolean))];
+                const known = universeSet.size ? toks.filter((t) => universeSet.has(t)) : toks;
+                if (known.length) addManyWatchlist(known);
+                setQuickAdd(toks.filter((t) => !known.includes(t)).join(", "));
+              }}
               style={pillStyle(true, ARIA.green)}
             >
               +WL
             </button>
             <button
               onClick={() => {
-                const t = wInput.trim().toUpperCase();
-                if (!t) return;
-                setPortfolio((prev) =>
-                  prev.includes(t) ? prev : [...prev, t]
-                );
-                setWInput("");
+                const toks = [...new Set(quickAdd.split(/[,\s]+/).map((t) => t.trim().toUpperCase()).filter(Boolean))];
+                const known = universeSet.size ? toks.filter((t) => universeSet.has(t)) : toks;
+                if (known.length) addManyPortfolio(known);
+                setQuickAdd(toks.filter((t) => !known.includes(t)).join(", "));
               }}
               style={pillStyle(true, ARIA.yellow)}
             >
