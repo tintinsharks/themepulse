@@ -9393,6 +9393,19 @@ function ChartPanelInline({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#fff" }}>{ticker}</span>
+            {/* Layer membership (chain_layers.json — matches the RS Rotation Layers tab) */}
+            {tickerLayers.length > 0 ? tickerLayers.slice(0, 5).map((e, i) => (
+              <span key={`ly${i}`}
+                onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: e.themeId })); } catch {} }}
+                title={`${e.theme} — click to open value-chain drawer`}
+                style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap", cursor: "pointer" }}>
+                {e.layer}
+              </span>
+            )) : stockInfo.sector ? (
+              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
+                {stockInfo.sector}
+              </span>
+            ) : null}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
           </div>
@@ -9466,23 +9479,8 @@ function ChartPanelInline({
           : "#c04040";
         return (
           <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {/* Left: layer membership (chain_layers.json — matches the RS Rotation Layers tab) */}
-            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", flex: 1, minWidth: 0 }}>
-              {tickerLayers.length > 0 ? tickerLayers.slice(0, 5).map((e, i) => (
-                <span key={`ly${i}`}
-                  onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: e.themeId })); } catch {} }}
-                  title={`${e.theme} — click to open value-chain drawer`}
-                  style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                  {e.layer}
-                </span>
-              )) : stockInfo.sector ? (
-                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-                  {stockInfo.sector}
-                </span>
-              ) : null}
-            </div>
-            {/* Right: grade + perf metrics */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0, flexWrap: "wrap" }}>
+            {/* grade + perf metrics */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             {grade && (
               <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
                 {grade}
