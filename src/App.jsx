@@ -1008,7 +1008,24 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
   const [spyLoading, setSpyLoading] = useState(false);
   const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
-  const [hSort, setHSort] = useState({ key: "zvr", dir: "desc" }); // layer-constituents panel sort
+  const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort (default RS desc)
+  // Keyboard nav for the left constituents list: ↑/↓ move a selection and chart it.
+  const [selCon, setSelCon] = useState(null);
+  const conListRef = useRef(null);
+  const conOrderRef = useRef([]); // current sorted ticker order (written in render)
+  const onConKey = useCallback((e) => {
+    const order = conOrderRef.current;
+    if (!order.length || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const cur = selCon ? order.indexOf(selCon) : -1;
+    let next = cur < 0 ? 0 : cur + (e.key === "ArrowDown" ? 1 : -1);
+    next = Math.max(0, Math.min(order.length - 1, next));
+    const t = order[next];
+    setSelCon(t);
+    onChartTicker?.(t);
+    const el = conListRef.current?.querySelector(`[data-ct="${t}"]`);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [selCon, onChartTicker]);
   // Vertical size of the regime chart (drag handle at the box's bottom edge);
   // persisted so the box reopens at the same height. Tall by default so the
   // regime box fills the Sector Rotation container; drag up to 900px.
@@ -1325,6 +1342,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                 const an = av == null ? -Infinity : av, bn = bv == null ? -Infinity : bv;
                 return hSort.dir === "asc" ? an - bn : bn - an;
               });
+              conOrderRef.current = rows.map((r) => r.t); // for ↑/↓ keyboard nav
               const onSort = (key) => setHSort((p) => p.key === key ? { key, dir: p.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "t" ? "asc" : "desc" });
               const arrow = (key) => hSort.key === key ? (hSort.dir === "asc" ? "▲" : "▼") : "";
               const hCell = (key, label, w, flex) => (
@@ -1341,7 +1359,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                     {hCell("zvr", "ZVR", 40, false)}
                     {hCell("cr", "CR", 26, false)}
                   </div>
-                  <div style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain" }}>
+                  <div ref={conListRef} tabIndex={0} onKeyDown={onConKey} title="Click then use ↑/↓ to step through constituents (charts each below)"
+                    style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                       const { chg, cr, zvr, eif, adr } = h;
@@ -1351,8 +1370,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                       const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr >= 40 ? ARIA.textDim : ARIA.red;
                       const eifC = eif == null ? ARIA.textMuted : eif >= 70 ? "#fbbf24" : eif >= 55 ? ARIA.green : eif >= 40 ? ARIA.textDim : ARIA.textMuted;
                       return (
-                        <div key={h.t} onClick={() => onChartTicker?.(h.t)} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 0", flexShrink: 0, background: heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)")} onMouseLeave={(e) => (e.currentTarget.style.background = heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent")}>
+                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
+                          onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                           <span style={{ color: adrC, width: 24, textAlign: "right", flexShrink: 0, fontWeight: adr != null && adr >= 5 ? 700 : 400 }}>{adr == null ? "—" : adr.toFixed(1)}</span>
                           <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
