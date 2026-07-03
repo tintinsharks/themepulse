@@ -2396,6 +2396,33 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               </div>
             );
           })()}
+          {/* 👑 APEX — top-2 RS names per top-5 layer (the campaign-hold cohort) */}
+          {(() => {
+            const top5 = [...(d.layers || [])].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, 5);
+            const seen = new Set(); const apex = [];
+            top5.forEach((l) => {
+              const mem = (l.holds || [])
+                .map((h) => ({ t: h.t, rs: stockMap?.[h.t]?.rs_rank || 0, dvol: stockMap?.[h.t]?.avg_dollar_vol_raw || 0 }))
+                .filter((m) => m.dvol >= 10e6)
+                .sort((a, b) => b.rs - a.rs).slice(0, 2);
+              mem.forEach((m) => { if (!seen.has(m.t)) { seen.add(m.t); apex.push({ ...m, layer: l.name }); } });
+            });
+            if (!apex.length) return null;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", fontSize: 8 }}>
+                <span title="Top-2 RS names in each top-5 layer — the campaign-hold cohort (backtest: only positive-median stock cohort at 63d, +10% mean/quarter vs SPY). Manage as campaigns: press winners, cut losers."
+                  style={{ color: "#fbbf24", fontWeight: 800, cursor: "help" }}>👑 APEX</span>
+                {apex.map((m) => (
+                  <button key={m.t} onClick={() => openTickerNoSync(m.t)}
+                    title={`${m.t} — RS ${m.rs} · ${m.layer} (click to chart)`}
+                    style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 6px", borderRadius: 3,
+                      color: ARIA.blue, background: heldSet.has(m.t) ? ARIA.yellow + "14" : "transparent", border: `1px solid ${ARIA.border}` }}>
+                    {m.t} <span style={{ color: m.rs >= 95 ? ARIA.green : ARIA.textDim }}>{m.rs}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
           {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
           {rsTab !== "leaders" && rsTab !== "emerging" && (() => {
             // rrg/trends also show LAYER rows in the mover cards — treat them as
