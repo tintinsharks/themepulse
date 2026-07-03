@@ -6819,6 +6819,7 @@ async function _pushToServer() {
       analyzedPicks: d.analyzedPicks || [],
       watchlist: d.watchlist || [],
       portfolio: d.portfolio || [],
+      focus: d.focus || [],
       updated_at: d.updated_at || null,
     };
     saveCachedState(_moduleState);
