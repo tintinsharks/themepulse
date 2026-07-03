@@ -4985,16 +4985,17 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         </div>
       )}
 
-      {/* Toggle/input filter row */}
+      {/* Toggle/input filter row — single row; scrolls horizontally if too narrow */}
       <div
         style={{
           padding: "4px 12px",
           display: "flex",
-          flexWrap: "wrap",
+          flexWrap: "nowrap",
           gap: 4,
           alignItems: "center",
           borderBottom: `1px solid ${ARIA.border}`,
           fontFamily: "monospace",
+          overflowX: "auto",
         }}
       >
         <button
@@ -5092,28 +5093,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           }}
         >
           {filters.minRvol}x
-        </span>
-        <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
-        <span style={{ fontSize: 7, color: ARIA.textMuted }}>EIF≥</span>
-        <input
-          type="range"
-          min={0}
-          max={99}
-          step={5}
-          value={filters.minEif}
-          onChange={(e) =>
-            updateFilter({ minEif: parseFloat(e.target.value) })
-          }
-          style={{ width: 50, accentColor: "#f59e0b", cursor: "pointer" }}
-        />
-        <span
-          style={{
-            fontSize: 8,
-            color: "#f59e0b",
-            minWidth: 22,
-          }}
-        >
-          {filters.minEif}
         </span>
         <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>$Vol≥</span>
