@@ -4920,6 +4920,17 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
             </button>
           );
         })}
+        {/* divider between momentum/gap presets and tag filters (one row now) */}
+        <span style={{ width: 1, alignSelf: "stretch", background: ARIA.border, margin: "0 4px" }} />
+        {Object.entries(TAG_PREDICATES).map(([key, t]) => {
+          const on = activeTags.has(key);
+          const accent = key === "9M" || key === "33" ? ARIA.yellow : ARIA.green;
+          return (
+            <button key={key} onClick={() => toggleTag(key)} title={t.desc} style={pillStyle(on, accent)}>
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Active preset description box(es) */}
@@ -4948,34 +4959,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           })}
         </div>
       )}
-
-      {/* Tag filter row */}
-      <div
-        style={{
-          padding: "4px 12px",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 3,
-          alignItems: "center",
-          borderBottom: `1px solid ${ARIA.border}`,
-          fontFamily: "monospace",
-        }}
-      >
-        {Object.entries(TAG_PREDICATES).map(([key, t]) => {
-          const on = activeTags.has(key);
-          const accent = key === "9M" || key === "33" ? ARIA.yellow : ARIA.green;
-          return (
-            <button
-              key={key}
-              onClick={() => toggleTag(key)}
-              title={t.desc}
-              style={pillStyle(on, accent)}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Active tag description box */}
       {activeTags.size > 0 && (
