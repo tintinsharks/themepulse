@@ -5568,13 +5568,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
   const ownedSet = useMemo(() => new Set([...portfolio, ...watchlist]), [portfolio, watchlist]);
   const [layerFilter, setLayerFilter] = useState(null); // local layer filter — click layer to toggle
-  const [focusRaw, setFocusRaw] = useState(() => localStorage.getItem("themepulse-focus") || "[]");
-  useEffect(() => {
-    const onStorage = (e) => { if (e.key === "themepulse-focus") setFocusRaw(e.newValue || "[]"); };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-  const focusTickers = useMemo(() => { try { return new Set(JSON.parse(focusRaw)); } catch { return new Set(); } }, [focusRaw]);
   const wrapRef = useRef(null);
   const [selectedTicker, setSelectedTicker] = useState(null);
 
@@ -6068,19 +6061,18 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             const sel = chartTicker === r.ticker;
             const kbSel = selectedTicker === r.ticker;
             const tint = ownedTint(r.ticker, ARIA);
-            const isFocus = focusTickers.has(r.ticker);
-            const baseBg = isFocus ? "rgba(251,191,36,0.07)" : tint;
+            const baseBg = tint;
             return (
               <tr
                 key={r.ticker}
                 data-ticker={r.ticker}
                 onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus(); }}
                 style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg, outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
-                onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = isFocus ? "rgba(251,191,36,0.12)" : ARIA.bgHover; }}
+                onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = ARIA.bgHover; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg; }}
                 title={`${r.ticker} — ${r.theme} → ${r.layer}${r.layerCount > 1 ? ` (+${r.layerCount-1} more)` : ""}${r.chainOnly ? " · chain-only (α≥2, below scan filters)" : ""}`}
               >
-                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : isFocus ? "#fbbf24" : r.chainOnly ? "rgba(251,191,36,0.85)" : ARIA.text, fontWeight: sel || isFocus ? 800 : 700, borderLeft: isFocus ? "2px solid #fbbf24" : r.chainOnly ? "2px solid rgba(251,191,36,0.4)" : "2px solid transparent" }}>
+                <td style={{ ...cell, textAlign: "left", color: sel ? c.color : r.chainOnly ? "rgba(251,191,36,0.85)" : ARIA.text, fontWeight: sel ? 800 : 700, borderLeft: r.chainOnly ? "2px solid rgba(251,191,36,0.4)" : "2px solid transparent" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
@@ -9317,10 +9309,8 @@ function ChartPanelInline({
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
-  const [focusList, setFocusList] = useLocalStorageList("themepulse-focus");
   const inPF = portfolio.includes(ticker);
   const inWL = watchlist.includes(ticker);
-  const inFocus = focusList.includes(ticker);
   const toggleWL = useCallback(() => {
     setWatchlist((prev) =>
       prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
@@ -9331,11 +9321,6 @@ function ChartPanelInline({
       prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
     );
   }, [ticker, setPortfolio]);
-  const toggleFocus = useCallback(() => {
-    setFocusList((prev) =>
-      prev.includes(ticker) ? prev.filter((x) => x !== ticker) : [...prev, ticker]
-    );
-  }, [ticker, setFocusList]);
 
   const submitTicker = () => {
     const t = tickerInput.trim().toUpperCase();
@@ -9429,9 +9414,6 @@ function ChartPanelInline({
           </button>
           <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
             {inPF ? "✓PF" : "+PF"}
-          </button>
-          <button onClick={toggleFocus} title={inFocus ? "Unstar" : "Star (highlight in chain table)"} style={{ fontSize: 12, padding: "0px 4px", borderRadius: 3, border: `1px solid ${inFocus ? "#fbbf24" : ARIA.border}`, background: inFocus ? "rgba(251,191,36,0.15)" : "transparent", cursor: "pointer", lineHeight: 1.4, flexShrink: 0 }}>
-            {inFocus ? "⭐" : "☆"}
           </button>
           <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
@@ -9951,8 +9933,6 @@ function WatchlistSectionTable({
   count,
   onTickerClick,
   removeTicker,
-  focusTickers,
-  toggleFocus,
   tickerStrengthMap,
   onChainClick,
 }) {
@@ -9960,7 +9940,6 @@ function WatchlistSectionTable({
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
-  const [pinStars, setPinStars] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(`themepulse-${list}-collapsed`) === "1"; } catch { return false; }
   });
@@ -10004,12 +9983,6 @@ function WatchlistSectionTable({
   const sortedRows = useMemo(() => {
     const arr = rows.slice();
     arr.sort((a, b) => {
-      // Focus tickers float to top only when pinStars is on
-      if (pinStars) {
-        const af = focusTickers?.has(a.ticker) ? 0 : 1;
-        const bf = focusTickers?.has(b.ticker) ? 0 : 1;
-        if (af !== bf) return af - bf;
-      }
       let av = a[sortKey];
       let bv = b[sortKey];
       if (sortKey === "ticker" || sortKey === "subtheme" || sortKey === "chain") {
@@ -10028,7 +10001,7 @@ function WatchlistSectionTable({
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
-  }, [rows, sortKey, sortDir, focusTickers]);
+  }, [rows, sortKey, sortDir]);
 
   const visibleTickers = sortedRows.map((r) => r.ticker);
   useEffect(() => {
@@ -10103,24 +10076,6 @@ function WatchlistSectionTable({
         {rows.length < count && (
           <span title="Rows hidden by the Chg>0% filter (or awaiting a first quote) — toggle the Filter pill above to show all"
             style={{ color: ARIA.yellow, fontSize: 8, fontWeight: 700 }}>· {count - rows.length} hidden by filter</span>
-        )}
-        {focusTickers?.size > 0 && (
-          <button
-            onClick={() => setPinStars((v) => !v)}
-            title={pinStars ? "Unpin starred — show in sort order" : "Pin starred to top"}
-            style={{
-              fontSize: 8,
-              padding: "1px 5px",
-              borderRadius: 3,
-              cursor: "pointer",
-              background: pinStars ? "rgba(251,191,36,0.15)" : "transparent",
-              border: `1px solid ${pinStars ? "#fbbf24" : ARIA.border}`,
-              color: pinStars ? "#fbbf24" : ARIA.textMuted,
-              lineHeight: 1.4,
-            }}
-          >
-            ★ {pinStars ? "pinned" : "unpinned"}
-          </button>
         )}
         {addMsg && (
           <span style={{ marginLeft: "auto", fontSize: 8, fontFamily: "monospace" }}>
@@ -10243,7 +10198,6 @@ function WatchlistSectionTable({
                     ? ARIA.textDim
                     : ARIA.red;
                 const isSel = selectedTicker === r.ticker;
-                const isFocus = focusTickers?.has(r.ticker);
                 return (
                   <tr
                     key={r.ticker}
@@ -10254,19 +10208,17 @@ function WatchlistSectionTable({
                     }}
                     style={{
                       cursor: "pointer",
-                      background: isSel ? `${ARIA.cyan}26` : isFocus ? "rgba(251,191,36,0.07)" : "transparent",
-                      borderLeft: isFocus ? "2px solid #fbbf24" : "2px solid transparent",
+                      background: isSel ? `${ARIA.cyan}26` : "transparent",
+                      borderLeft: "2px solid transparent",
                     }}
                     onMouseEnter={(e) => {
-                      if (!isSel) e.currentTarget.style.background = isFocus ? "rgba(251,191,36,0.12)" : ARIA.bgHover;
+                      if (!isSel) e.currentTarget.style.background = ARIA.bgHover;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = isSel
-                        ? `${ARIA.cyan}26`
-                        : isFocus ? "rgba(251,191,36,0.07)" : "transparent";
+                      e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : "transparent";
                     }}
                   >
-                    <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: isFocus ? "#fbbf24" : ARIA.text }}>
+                    <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                         {r.ticker}
                         {r.is9m && (
@@ -10358,45 +10310,24 @@ function WatchlistSectionTable({
                       {r.subtheme || "—"}
                     </td>
                     <td style={{ ...cell, padding: "2px 4px" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFocus && toggleFocus(r.ticker);
-                          }}
-                          title={isFocus ? "Remove focus" : "Mark as focus"}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: isFocus ? "#fbbf24" : ARIA.textMuted,
-                            cursor: "pointer",
-                            fontSize: 10,
-                            padding: 0,
-                            lineHeight: 1,
-                            opacity: isFocus ? 1 : 0.4,
-                          }}
-                        >
-                          ★
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeTicker(list, r.ticker);
-                          }}
-                          title="Remove"
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: ARIA.textMuted,
-                            cursor: "pointer",
-                            fontSize: 12,
-                            padding: 0,
-                            lineHeight: 1,
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeTicker(list, r.ticker);
+                        }}
+                        title="Remove"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: ARIA.textMuted,
+                          cursor: "pointer",
+                          fontSize: 12,
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </button>
                     </td>
                   </tr>
                 );
@@ -10420,18 +10351,6 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   // Shared hook so chart header +WL/+PF buttons stay in sync with this panel
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
-  const [focusTickers, setFocusTickers] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("themepulse-focus") || "[]")); }
-    catch { return new Set(); }
-  });
-  const toggleFocus = useCallback((ticker) => {
-    setFocusTickers((prev) => {
-      const next = new Set(prev);
-      if (next.has(ticker)) next.delete(ticker); else next.add(ticker);
-      localStorage.setItem("themepulse-focus", JSON.stringify([...next]));
-      return next;
-    });
-  }, []);
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
   const [chgPosFilter, setChgPosFilter] = useState(
     () => localStorage.getItem("themepulse-pw-chgpos") === "true"
@@ -11183,8 +11102,6 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             universe={universeSet}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}
-            focusTickers={focusTickers}
-            toggleFocus={toggleFocus}
             tickerStrengthMap={tickerStrengthMap}
             onChainClick={onChainClick}
           />
@@ -11197,8 +11114,6 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             universe={universeSet}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}
-            focusTickers={focusTickers}
-            toggleFocus={toggleFocus}
             tickerStrengthMap={tickerStrengthMap}
             onChainClick={onChainClick}
           />
