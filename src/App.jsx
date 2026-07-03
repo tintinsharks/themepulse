@@ -1446,6 +1446,16 @@ function MarketConditionsPanel() {
   };
 
   const posture = c.verdict === "Positive" ? "risk-on" : c.verdict === "Negative" ? "risk-off" : "caution";
+  // ⚖️ exposure dial (matches the Signal scanner's exposure_state, minus the
+  // ledger term which lives on the local machine): dist days + verdict.
+  const expo = (() => {
+    const dd = Math.max(c.dist_days?.SPY?.today ?? 0, c.dist_days?.QQQ?.today ?? 0);
+    let score = dd <= 2 ? 2 : dd <= 4 ? 1 : dd <= 6 ? -1 : -2;
+    score += c.verdict === "Positive" ? 1 : c.verdict === "Negative" ? -2 : 0;
+    const level = score >= 3 ? "FULL" : score >= 1 ? "75% SIZE" : score >= -1 ? "HALF SIZE" : "NO NEW BUYS";
+    const color = score >= 3 ? ARIA.green : score >= 1 ? ARIA.blue : score >= -1 ? ARIA.yellow : ARIA.red;
+    return { level, color, dd };
+  })();
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${verdictC}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap", background: verdictC + "14" }}>
@@ -1453,6 +1463,8 @@ function MarketConditionsPanel() {
         <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Market Conditions</span>
         <span style={{ fontSize: 9, fontWeight: 800, color: verdictC, background: verdictC + "1c", border: `1px solid ${verdictC}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>{c.verdict}</span>
         <span style={{ fontSize: 8, fontWeight: 700, color: verdictC, textTransform: "uppercase", letterSpacing: 0.5 }}>{posture}</span>
+        <span title={`Progressive-exposure dial — ${expo.dd} distribution days + verdict ${c.verdict}. Position sizing throttle for new buys (the Signal scans add a recent-win-rate term on top).`}
+          style={{ fontSize: 8, fontWeight: 800, color: expo.color, background: expo.color + "1c", border: `1px solid ${expo.color}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>⚖ {expo.level}</span>
         {/* broad-glance chips */}
         {(() => {
           const chip = (label, val, color) => (
