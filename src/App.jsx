@@ -5427,27 +5427,18 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
 // ── ChainView: switchable Layers / Tickers view of value-chain data.
 function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, chartTicker, activeFilterNames, scanRows, filters, activePresets, activeTags }) {
   const ARIA = useAriaTheme();
-  const [mode, setMode] = useState(() => localStorage.getItem("tp-chain-view-mode") || "tickers");
   const containerRef = useRef(null);
-  useEffect(() => { localStorage.setItem("tp-chain-view-mode", mode); }, [mode]);
-  // Auto-focus the active table so up/down arrows work without a click first
+  // Auto-focus the table so up/down arrows work without a click first
   useEffect(() => {
     const id = setTimeout(() => {
       const focusable = containerRef.current?.querySelector('[tabindex="0"]');
       if (focusable && document.activeElement !== focusable) focusable.focus();
     }, 50);
     return () => clearTimeout(id);
-  }, [mode]);
+  }, []);
   // Filter: Chg% > 0 — defaults ON. Stored as "1"/"0" in localStorage.
   const [posOnly, setPosOnly] = useState(() => localStorage.getItem("tp-chain-pos-only") !== "0");
   useEffect(() => { localStorage.setItem("tp-chain-pos-only", posOnly ? "1" : "0"); }, [posOnly]);
-  const pillStyle = (active) => ({
-    fontSize: 8, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
-    fontFamily: "monospace", fontWeight: active ? 800 : 600,
-    border: `1px solid ${active ? "#6cd5e8" : ARIA.border}`,
-    color: active ? "#6cd5e8" : ARIA.textMuted,
-    background: active ? "rgba(108,213,232,0.14)" : "transparent",
-  });
   const tagStyle = (active) => ({
     fontSize: 8, padding: "2px 7px", borderRadius: 3, cursor: "pointer",
     fontFamily: "monospace", fontWeight: active ? 800 : 600,
@@ -5458,11 +5449,6 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
   return (
     <div ref={containerRef} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", gap: 4, padding: "4px 6px", flexShrink: 0, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>VIEW</span>
-        <button onClick={() => setMode("layers")} style={pillStyle(mode === "layers")}>Layers</button>
-        <button onClick={() => setMode("tickers")} style={pillStyle(mode === "tickers")}>Tickers</button>
-        <button onClick={() => setMode("flow")} style={pillStyle(mode === "flow")}>Heat</button>
-        <span style={{ color: ARIA.border, margin: "0 4px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.5, marginRight: 4 }}>FILTER</span>
         <button onClick={() => setPosOnly(p => !p)} title="Show only Chg% > 0" style={tagStyle(posOnly)}>
           ▲ Chg{'>'}0%
@@ -5493,33 +5479,16 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
         })()}
         <span style={{ marginLeft: "auto", fontSize: 6, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4 }}>↑↓ nav · Enter</span>
       </div>
-      {mode === "flow" ? (
-        <ChainHeatView
-          stockMap={stockMap}
-          onLayerClick={onLayerClick}
-          onTickerClick={onTickerClick}
-          activeFilterNames={activeFilterNames}
-        />
-      ) : mode === "layers" ? (
-        <ChainLayerTable
-          stockMap={stockMap}
-          tickerStrengthMap={tickerStrengthMap}
-          onLayerClick={onLayerClick}
-          activeFilterNames={activeFilterNames}
-          posOnly={posOnly}
-        />
-      ) : (
-        <ChainTickerTable
-          stockMap={stockMap}
-          tickerStrengthMap={tickerStrengthMap}
-          onTickerClick={onTickerClick}
-          onLayerClick={onLayerClick}
-          chartTicker={chartTicker}
-          posOnly={posOnly}
-          scanRows={scanRows}
-          scanFilters={filters}
-        />
-      )}
+      <ChainTickerTable
+        stockMap={stockMap}
+        tickerStrengthMap={tickerStrengthMap}
+        onTickerClick={onTickerClick}
+        onLayerClick={onLayerClick}
+        chartTicker={chartTicker}
+        posOnly={posOnly}
+        scanRows={scanRows}
+        scanFilters={filters}
+      />
     </div>
   );
 }
