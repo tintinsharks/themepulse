@@ -5105,28 +5105,6 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           {filters.minChg}%
         </span>
         <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
-        <span style={{ fontSize: 7, color: ARIA.textMuted }}>RV≥</span>
-        <input
-          type="range"
-          min={0}
-          max={30}
-          step={1}
-          value={filters.minRvol}
-          onChange={(e) =>
-            updateFilter({ minRvol: parseFloat(e.target.value) })
-          }
-          style={{ width: 50, accentColor: ARIA.purple, cursor: "pointer" }}
-        />
-        <span
-          style={{
-            fontSize: 8,
-            color: ARIA.purple,
-            minWidth: 22,
-          }}
-        >
-          {filters.minRvol}x
-        </span>
-        <span style={{ color: ARIA.border, margin: "0 1px" }}>|</span>
         <span style={{ fontSize: 7, color: ARIA.textMuted }}>$Vol≥</span>
         <input
           type="number"
