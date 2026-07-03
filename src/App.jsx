@@ -9113,6 +9113,12 @@ function ChartPanelInline({
   const ARIA = useAriaTheme();
   const eifReasons = useEifReasons();
   const eifReason = eifReasons[ticker];
+  // layer membership chips (chain_layers.json — same file the RS Rotation Layers tab uses)
+  const chainLayers = useChainLayers();
+  const tickerLayers = useMemo(
+    () => (chainLayers || []).filter((e) => Array.isArray(e.tickers) && e.tickers.includes(ticker)),
+    [chainLayers, ticker]
+  );
   const [tf, setTf] = useState(() => localStorage.getItem("themepulse-chart-tf") || "D");
   const [tickerInput, setTickerInput] = useState("");
   // EPS + Revenue bars below the CANSLIM stats row. Fetches the same
@@ -9523,18 +9529,20 @@ function ChartPanelInline({
           : "#c04040";
         return (
           <div style={{ padding: "3px 14px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
-            {/* Left: theme tags */}
+            {/* Left: layer membership (chain_layers.json — matches the RS Rotation Layers tab) */}
             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", flex: 1, minWidth: 0 }}>
-              {stockInfo.themes?.length > 0 && stockInfo.themes.slice(0, 5).map((t, i) => (
-                <span key={`th${i}`} style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-                  {t.subtheme || t.theme}
+              {tickerLayers.length > 0 ? tickerLayers.slice(0, 5).map((e, i) => (
+                <span key={`ly${i}`}
+                  onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: e.themeId })); } catch {} }}
+                  title={`${e.theme} — click to open value-chain drawer`}
+                  style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap", cursor: "pointer" }}>
+                  {e.layer}
                 </span>
-              ))}
-              {stockInfo.sector && !stockInfo.themes?.some(t => t.theme === stockInfo.sector) && (
+              )) : stockInfo.sector ? (
                 <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
                   {stockInfo.sector}
                 </span>
-              )}
+              ) : null}
             </div>
             {/* Right: grade + perf metrics */}
             <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0, flexWrap: "wrap" }}>
