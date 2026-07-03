@@ -9111,8 +9111,6 @@ function ChartPanelInline({
   tickerStrengthMap,
 }) {
   const ARIA = useAriaTheme();
-  const eifReasons = useEifReasons();
-  const eifReason = eifReasons[ticker];
   // layer membership chips (chain_layers.json — same file the RS Rotation Layers tab uses)
   const chainLayers = useChainLayers();
   const tickerLayers = useMemo(
@@ -9132,12 +9130,7 @@ function ChartPanelInline({
   const [news, setNews] = useState([]);
   const [description, setDescription] = useState("");
   const [peers, setPeers] = useState([]);
-  const [optionsBias, setOptionsBias] = useState(null);
-  const [optionsBiasLoading, setOptionsBiasLoading] = useState(false);
-  const [etfHoldings, setEtfHoldings] = useState([]);
-  const [congressTrades, setCongressTrades] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
-  const [sheetNotes, setSheetNotes] = useState(() => _sheetNotesCache.map);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [showTrade, setShowTrade] = useState(false);
   const [tradeSettings, setTradeSettings] = useState(() => {
@@ -9159,12 +9152,8 @@ function ChartPanelInline({
     if (!ticker) return;
     let cancelled = false;
     setPeers([]);
-    setEtfHoldings([]);
     setLiveEarningsDate(null);
-    Promise.all([
-      fetch(`/api/live?news=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
-      fetch(`/api/live?etf=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null),
-    ]).then(([d, etfData]) => {
+    fetch(`/api/live?news=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null).then((d) => {
       if (cancelled) return;
       const orient = (arr) => {
         if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
@@ -9175,7 +9164,6 @@ function ChartPanelInline({
       setNews(d?.news || []);
       setDescription(d?.description || "");
       setPeers(d?.fmpPeers || d?.peers || []);
-      setEtfHoldings(etfData?.holdings || []);
       if (d?.earningsDate) setLiveEarningsDate(d.earningsDate);
     }).catch(() => {
       if (!cancelled) {
@@ -9184,62 +9172,10 @@ function ChartPanelInline({
         setNews([]);
         setDescription("");
         setPeers([]);
-        setEtfHoldings([]);
       }
     });
     return () => { cancelled = true; };
   }, [ticker]);
-
-  // Fetch options bias from Schwab (debounced 600ms to avoid rapid-fire on ticker clicks)
-  useEffect(() => {
-    if (!ticker) return;
-    let cancelled = false;
-    setOptionsBias(null);
-    setOptionsBiasLoading(true);
-    const timer = setTimeout(() => {
-      fetch(`/api/options-bias?symbol=${encodeURIComponent(ticker)}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (!cancelled) setOptionsBias(d); })
-        .catch(() => { if (!cancelled) setOptionsBias(null); })
-        .finally(() => { if (!cancelled) setOptionsBiasLoading(false); });
-    }, 600);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [ticker]);
-
-  // Fetch congressional trades (senate + house) for the active ticker
-  useEffect(() => {
-    if (!ticker) { setCongressTrades([]); return; }
-    let cancelled = false;
-    setCongressTrades([]);
-    fetch(`/api/live?congress=${encodeURIComponent(ticker)}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setCongressTrades(d?.trades || []); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [ticker]);
-
-  // Fetch Google Sheet notes once (cached across mounts)
-  useEffect(() => {
-    if (_sheetNotesCache.map) { setSheetNotes(_sheetNotesCache.map); return; }
-    if (_sheetNotesCache.loading) return;
-    _sheetNotesCache.loading = true;
-    fetch(SHEET_NOTES_URL)
-      .then(r => r.text())
-      .then(text => {
-        const map = {};
-        text.split('\n').slice(1).forEach(line => {
-          if (!line.trim()) return;
-          const cols = parseSheetCSVRow(line);
-          const tk = cols[0]?.trim();
-          const note = cols[5]?.trim();
-          if (tk && note) map[tk] = note;
-        });
-        _sheetNotesCache.map = map;
-        _sheetNotesCache.loading = false;
-        setSheetNotes(map);
-      })
-      .catch(() => { _sheetNotesCache.loading = false; });
-  }, []);
 
   // Fetch OHLC bars for inline SVG daily chart
   useEffect(() => {
@@ -9580,6 +9516,21 @@ function ChartPanelInline({
           </div>
         );
       })()}
+      {/* News — same container as logo/ticker/info */}
+      {news.length > 0 && (
+        <div style={{ marginTop: 4, maxHeight: 58, overflowY: "auto" }}>
+          {news.slice(0, 4).map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+              style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
+              <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
+              {a.headline}
+              <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
+            </a>
+          ))}
+        </div>
+      )}
       </div>
 
       {/* Risk Management Dashboard */}
@@ -9672,279 +9623,6 @@ function ChartPanelInline({
                 </tbody>
               </table>
             )}
-          </div>
-        );
-      })()}
-
-      {/* News + Notes — two-column row */}
-      {(() => {
-        const tickerNote = sheetNotes?.[ticker] || "";
-        const sheetLoaded = sheetNotes !== null;
-        const hasNews = news.length > 0;
-        if (!hasNews && !sheetLoaded) return null;
-        return (
-          <div style={{ display: "flex", maxHeight: 110, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-            {/* Left: News */}
-            <div style={{ flex: 1, padding: "4px 14px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
-              {hasNews ? news.slice(0, 4).map((a, i) => (
-                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "3px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
-                  {a.headline}
-                  <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
-                </a>
-              )) : <span style={{ fontSize: 8, color: "#5a5a6a" }}>No news</span>}
-            </div>
-            {/* Middle: Smart Money Signals */}
-            <div style={{ width: 220, flexShrink: 0, padding: "4px 6px 2px", overflowY: "auto", borderRight: "1px solid rgba(255,255,255,0.06)", fontFamily: "monospace" }}>
-              {(() => {
-                // Dollar-amount midpoints for weighting congress trades
-                const amtWeight = (a) => {
-                  if (!a) return 1;
-                  if (a.includes("50,000,000")) return 50;
-                  if (a.includes("5,000,001") || a.includes("25,000,001")) return 20;
-                  if (a.includes("1,000,001") || a.includes("5,000,000")) return 10;
-                  if (a.includes("500,001") || a.includes("1,000,000")) return 5;
-                  if (a.includes("250,001") || a.includes("500,000")) return 3;
-                  if (a.includes("100,001") || a.includes("250,000")) return 2;
-                  if (a.includes("50,001") || a.includes("100,000")) return 1.5;
-                  if (a.includes("15,001") || a.includes("50,000")) return 1;
-                  return 0.5;
-                };
-                const now = Date.now();
-                const recencyWeight = (dateStr) => {
-                  if (!dateStr) return 0.3;
-                  const days = (now - new Date(dateStr).getTime()) / 86400000;
-                  if (days <= 30) return 1.0;
-                  if (days <= 90) return 0.7;
-                  if (days <= 180) return 0.4;
-                  return 0.2;
-                };
-                // Congress score: weighted ratio + trade-count conviction + disclosure-lag-adjusted recency
-                let cScore = null, cBuys = 0, cSells = 0, cLabel = "—", cTrades = 0, cRecent = 0;
-                if (congressTrades.length > 0) {
-                  // Recency adjusted for ~45-day disclosure lag: "recent" means disclosed trade date ≤75 days
-                  const cRecency = (dateStr) => {
-                    if (!dateStr) return 0.2;
-                    const days = (now - new Date(dateStr).getTime()) / 86400000;
-                    if (days <= 75) return 1.0;   // effectively ≤30 days old when disclosed
-                    if (days <= 135) return 0.7;  // ~90 days old
-                    if (days <= 225) return 0.4;  // ~180 days old
-                    return 0.15;
-                  };
-                  let buyW = 0, sellW = 0;
-                  congressTrades.forEach(t => {
-                    const w = amtWeight(t.amount) * cRecency(t.transactionDate);
-                    if ((t.type || "").toLowerCase().includes("purchase")) { buyW += w; cBuys++; }
-                    else { sellW += w; cSells++; }
-                    const days = (now - new Date(t.transactionDate).getTime()) / 86400000;
-                    if (days <= 75) cRecent++;
-                  });
-                  cTrades = congressTrades.length;
-                  const total = buyW + sellW;
-                  // Base ratio score (0-10)
-                  let baseScore = total > 0 ? (buyW / total) * 10 : 5;
-                  // Conviction multiplier: more trades = higher confidence in the signal direction
-                  // 1-2 trades: dampen toward 5 (low confidence), 5+: full signal, 10+: slight amplify
-                  let conviction;
-                  if (cTrades <= 2) conviction = 0.4;
-                  else if (cTrades <= 4) conviction = 0.7;
-                  else if (cTrades <= 9) conviction = 1.0;
-                  else conviction = 1.15;
-                  // Apply conviction: blend base score toward neutral (5) based on conviction
-                  cScore = Math.round(Math.max(0, Math.min(10, 5 + (baseScore - 5) * conviction)) * 10) / 10;
-                  cLabel = cScore >= 7 ? "BUYING" : cScore <= 3 ? "SELLING" : "MIXED";
-                }
-                // Institutional score: net flow direction + trans% confirmation + crowding penalty
-                let iScore = null, iLabel = "—";
-                const iTransPct = stockInfo?.inst_trans_pct ?? null;
-                const iNetFlow = stockInfo?.inst_net_change_pct ?? null;
-                const iOwn = stockInfo?.inst_own_pct ?? null;
-                const iFunds = stockInfo?.inst_holder_count ?? null;
-                if (iTransPct != null || iNetFlow != null) {
-                  let s = 5;
-                  const flow = iNetFlow ?? 0;
-                  // Primary: net flow direction (capped contribution ±3)
-                  s += Math.max(-3, Math.min(3, flow * 0.6));
-                  // Confirmation: trans% moving same direction as flow amplifies signal
-                  if (iTransPct != null && flow !== 0) {
-                    const sameDir = (flow > 0 && iTransPct > 0) || (flow < 0 && iTransPct < 0);
-                    s += sameDir ? Math.min(1.5, Math.abs(iTransPct) * 0.3) : -Math.min(0.5, Math.abs(iTransPct) * 0.1);
-                  }
-                  // Crowding penalty: >85% inst ownership = crowded, mild headwind
-                  if (iOwn != null && iOwn > 85) s -= Math.min(1, (iOwn - 85) * 0.07);
-                  iScore = Math.round(Math.max(0, Math.min(10, s)) * 10) / 10;
-                  iLabel = iScore >= 7 ? "ACCUM" : iScore <= 3 ? "DISTRIB" : "NEUTRAL";
-                }
-                // Insider score: mcap-normalized net flow + cluster + unique buyers + trans% confirmation
-                let insScore = null, insLabel = "—";
-                const insBuys = stockInfo?.insider_buy_count_90d ?? 0;
-                const insNet = stockInfo?.insider_net_usd_90d ?? null;
-                const insCluster = stockInfo?.insider_cluster_buy ?? false;
-                const insUnique = stockInfo?.insider_unique_buyers_90d ?? 0;
-                const insOwn = stockInfo?.insider_own_pct ?? null;
-                const insTrans = stockInfo?.insider_trans_pct ?? null;
-                const mcap = stockInfo?.market_cap_raw ?? null;
-                if (insNet != null) {
-                  let s = 5;
-                  // Primary: net flow normalized by market cap (insider buying 0.1% of mcap is meaningful)
-                  if (mcap && mcap > 0) {
-                    const pctOfMcap = (insNet / mcap) * 100; // e.g. 0.05% = modest, 0.5% = huge
-                    s += Math.max(-3.5, Math.min(3.5, pctOfMcap * 20));
-                  } else {
-                    // Fallback: absolute thresholds if no mcap
-                    if (insNet > 1000000) s += 3;
-                    else if (insNet > 100000) s += 2;
-                    else if (insNet > 0) s += 1;
-                    else if (insNet > -1000000) s -= 0.5;
-                    else if (insNet > -50000000) s -= 1.5;
-                    else s -= 3;
-                  }
-                  // Cluster buys: multiple insiders buying within tight window
-                  if (insCluster) s += 1.5;
-                  // Unique buyers: breadth of conviction
-                  if (insUnique >= 3) s += 1.5;
-                  else if (insUnique >= 2) s += 0.8;
-                  else if (insUnique >= 1) s += 0.3;
-                  // Trans% confirmation: rising insider ownership % amplifies
-                  if (insTrans != null && insTrans > 0) s += Math.min(1, insTrans * 0.3);
-                  else if (insTrans != null && insTrans < -5) s -= 0.5;
-                  insScore = Math.round(Math.max(0, Math.min(10, s)) * 10) / 10;
-                  insLabel = insScore >= 7 ? "BUYING" : insScore <= 3 ? "SELLING" : "NEUTRAL";
-                }
-                // Render bar helper
-                const renderBar = (label, score, subLabel, detail, detailColor) => {
-                  if (score == null) return (
-                    <div style={{ marginBottom: 4 }}>
-                      <div style={{ fontSize: 7, color: "#3a3a4a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-                      <div style={{ fontSize: 7, color: "#2a2a3a", fontStyle: "italic" }}>no data</div>
-                    </div>
-                  );
-                  const pct = score * 10;
-                  const barColor = score >= 7 ? "#0d9163" : score <= 3 ? "#e05252" : "#e0a050";
-                  const bgColor = score >= 7 ? "#0d916318" : score <= 3 ? "#e0525218" : "#e0a05018";
-                  return (
-                    <div style={{ marginBottom: 5 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 2 }}>
-                        <span style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</span>
-                        <span style={{ fontSize: 8, fontWeight: 700, color: barColor }}>{subLabel} {score.toFixed(1)}</span>
-                      </div>
-                      <div style={{ height: 6, background: "#1a1a24", borderRadius: 3, overflow: "hidden", position: "relative" }}>
-                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}44, ${barColor})`, borderRadius: 3, transition: "width 0.3s" }} />
-                      </div>
-                      {detail && <div style={{ fontSize: 6.5, color: detailColor || "#4a4a5a", marginTop: 1 }}>{detail}</div>}
-                    </div>
-                  );
-                };
-                return (
-                  <>
-                    {renderBar("Institutions", iScore, iLabel,
-                      iScore != null ? `${iFunds ? iFunds.toLocaleString() + " funds" : ""}${iOwn != null ? ` · ${(iOwn < 1 ? iOwn * 100 : iOwn).toFixed(0)}% owned` : ""}${iTransPct != null ? ` · Δ${iTransPct >= 0 ? "+" : ""}${iTransPct.toFixed(1)}%` : ""}` : null)}
-                    {renderBar("Insiders", insScore, insLabel,
-                      insScore != null ? `${insBuys > 0 ? insBuys + " buys" : "no buys"} 90d${insUnique > 0 ? ` · ${insUnique} buyers` : ""}${insCluster ? " · CLUSTER" : ""}${insNet != null ? ` · net $${(insNet / 1e6).toFixed(1)}M` : ""}` : null)}
-                    {renderBar("Congress", cScore, cLabel,
-                      cScore != null ? `${cBuys}B/${cSells}S · ${cTrades} trades${cRecent > 0 ? ` · ${cRecent} last 30d` : ""}` : null)}
-                  </>
-                );
-              })()}
-            </div>
-            {/* Right: EIF reasoning (outstanding tier) · Options Bias (equities) · ETF holdings */}
-            <div style={{ width: 260, flexShrink: 0, padding: "4px 8px 2px", overflowY: "auto" }}>
-              {etfHoldings.length > 0 ? (
-                <>
-                  <div style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>Top Holdings</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                    {etfHoldings.map(h => (
-                      <button key={h.ticker} onClick={() => onTickerChange?.(h.ticker)}
-                        title={`${h.name} — ${h.weight}%`}
-                        style={{ background: "#141420", border: "1px solid #222230", borderRadius: 3, padding: "1px 5px", cursor: "pointer", display: "flex", gap: 4, alignItems: "center" }}>
-                        <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#c8c8d8" }}>{h.ticker}</span>
-                        <span style={{ fontFamily: "monospace", fontSize: 8, color: "#5a5a7a" }}>{h.weight}%</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (eifReason && eifReason.drivers?.length) ? (() => {
-                const BUCKET_C = { theme: "#a855f7", accel: "#0d9163", quality: "#5a7a9a" };
-                const BUCKET_L = { theme: "THEME", accel: "ACCEL", quality: "QUAL" };
-                // EIF number color tracks the recalibrated v10 tier
-                const eifC = eifReason.eif >= 65 ? "#fbbf24" : eifReason.eif >= 55 ? "#34d399" : eifReason.eif >= 45 ? "#60a5fa" : "#8888a0";
-                return (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-                      <span style={{ fontSize: 7, color: "#5a5a6a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Why EIF</span>
-                      <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 800, color: eifC }}>{eifReason.eif}</span>
-                      <span style={{ fontSize: 6.5, fontWeight: 700, color: eifC, background: eifC + "1f", border: `1px solid ${eifC}59`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.4 }}>{eifReason.verdict}</span>
-                    </div>
-                    {eifReason.drivers.map((d, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
-                        <span style={{ fontSize: 6, fontWeight: 800, color: BUCKET_C[d.bucket] || "#888", background: (BUCKET_C[d.bucket] || "#888") + "18", border: `1px solid ${(BUCKET_C[d.bucket] || "#888")}44`, borderRadius: 2, padding: "0 2px", letterSpacing: 0.3, flexShrink: 0, marginTop: 1, minWidth: 28, textAlign: "center" }}>{BUCKET_L[d.bucket] || "—"}</span>
-                        <span style={{ fontSize: 8, color: "#b8b8c8", lineHeight: 1.35, flex: 1 }}>{d.text}</span>
-                        <span style={{ fontSize: 7, fontFamily: "monospace", color: "#5a5a6a", flexShrink: 0, marginTop: 1 }}>+{d.pts}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })() : (() => {
-                if (optionsBiasLoading) return <div style={{ fontSize: 8, color: "#5a5a6a", marginTop: 2 }}>Loading options…</div>;
-                if (!optionsBias?.bias) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
-                const { bias, optionsTrade } = optionsBias;
-                const sharesTrade = optionsBias.sharesTrade || optionsBias.trade;
-                if (!sharesTrade) return <div style={{ fontSize: 8, color: "#3a3a4a", fontStyle: "italic", marginTop: 4 }}>—</div>;
-                const hasOptions = !!optionsTrade;
-                const hasWarnings = optionsTrade?.warnings?.length > 0;
-                // Traffic light: green = liquid + bullish + cheap IV, amber = one concern, red = illiquid/bearish
-                const lightColor = hasOptions && !hasWarnings && bias.direction === "BULLISH" && bias.ivRank <= 50
-                  ? "#0d9163" : (!hasOptions || bias.direction === "BEARISH")
-                  ? "#e05252" : "#e0a050";
-                const lightBg = lightColor + "12";
-                return (
-                  <div style={{ border: `1px solid ${lightColor}40`, borderRadius: 4, background: lightBg, padding: "3px 6px" }}>
-                    {/* Traffic light header */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: lightColor, boxShadow: `0 0 4px ${lightColor}` }} />
-                      <div style={{ fontSize: 8, fontWeight: 700, color: lightColor, fontFamily: "monospace" }}>
-                        {bias.direction} {bias.score}
-                      </div>
-                      <div style={{ fontSize: 7, color: "#5a5a6a", marginLeft: "auto" }}>
-                        IV<span style={{ color: bias.ivRank <= 50 ? "#0d9163" : bias.ivRank >= 70 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.ivRank}%</span>
-                        <span style={{ marginLeft: 6 }}>P/C<span style={{ color: bias.pcOI < 0.8 ? "#0d9163" : bias.pcOI > 1.2 ? "#e05252" : "#c8c8d8", fontWeight: 700, marginLeft: 2 }}>{bias.pcOI}</span></span>
-                      </div>
-                    </div>
-                    {/* Preferred trade first, secondary below */}
-                    {(() => {
-                      const preferOptions = lightColor === "#0d9163" || lightColor === "#e0a050";
-                      const optionsBlock = hasOptions ? (
-                        <div style={{ fontSize: 8, fontFamily: "monospace", lineHeight: 1.6, color: preferOptions ? "#c8c8d8" : "#8888a0", marginBottom: 3 }}>
-                          <div>{optionsTrade.contracts}x <span style={{ color: preferOptions ? "#fff" : "#b0b0c0", fontWeight: 700 }}>${optionsTrade.strike}C</span> {optionsTrade.expiration} <span style={{ color: "#5a5a7a" }}>δ{optionsTrade.delta} · {optionsTrade.dte}d</span></div>
-                          <div style={{ display: "flex", gap: 8, fontSize: 7.5, color: "#7a7a8a", marginTop: 2 }}>
-                            <span style={{ color: "#0d9163" }}>${optionsTrade.targetPrice || Math.round((optionsBias.bias.underlyingPrice || 0) * 1.05)} → +${(optionsTrade.profitAt50 || Math.round(optionsTrade.totalCost * 0.5)).toLocaleString()}</span>
-                            <span style={{ color: "#22d3ee" }}>BE ${(optionsTrade.breakeven || optionsTrade.effectiveBasis).toFixed(0)} (exp)</span>
-                            <span style={{ color: "#e05252" }}>Max loss ${(optionsTrade.maxLoss || optionsTrade.totalCost).toLocaleString()}</span>
-                          </div>
-                          {hasWarnings && <div style={{ fontSize: 7, color: "#e0a050", marginTop: 1 }}>{optionsTrade.warnings.join(" · ")}</div>}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: 7.5, color: "#5a5a6a", fontStyle: "italic", marginBottom: 3 }}>No viable contracts</div>
-                      );
-                      const sharesBlock = (
-                        <div style={{ fontSize: 7.5, fontFamily: "monospace", color: preferOptions ? "#8888a0" : "#c8c8d8", marginBottom: preferOptions ? 0 : 3 }}>
-                          {!preferOptions && <div style={{ fontSize: 7, color: "#c8c8d8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>▶ Shares</div>}
-                          {preferOptions ? "Shares: " : ""}{sharesTrade.shares} @ ${bias.underlyingPrice.toFixed(2)} · stop ${sharesTrade.stopPrice} · risk ${sharesTrade.risk || Math.round(sharesTrade.shares * bias.underlyingPrice * 0.07).toLocaleString()}
-                        </div>
-                      );
-                      return preferOptions ? (
-                        <>{optionsBlock}<div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 2 }}>{sharesBlock}</div></>
-                      ) : (
-                        <>{sharesBlock}<div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 2 }}>{optionsBlock}</div></>
-                      );
-                    })()}
-                  </div>
-                );
-              })()}
-            </div>
           </div>
         );
       })()}
