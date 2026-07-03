@@ -9384,7 +9384,7 @@ function ChartPanelInline({
     >
       {/* Header: Logo + Meta + Buttons + layers/perf — one container */}
       <div style={{ padding: "10px 14px 6px", borderBottom: `1px solid ${ARIA.border}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         {/* Logo */}
         <div key={ticker} style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
           <img src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt={ticker} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} onError={e => { e.target.style.display = "none"; e.target.parentElement.style.background = "#2a2a40"; e.target.parentElement.style.color = "#c0c0d8"; e.target.parentElement.style.fontSize = "11px"; e.target.parentElement.style.fontWeight = "800"; e.target.parentElement.textContent = ticker; }} />
@@ -9420,8 +9420,9 @@ function ChartPanelInline({
             </div>
           )}
         </div>
-        {/* Right side: buttons */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, flexWrap: "wrap" }}>
+        {/* Right side: buttons + perf, stacked so perf starts under +WL */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inWL ? ARIA.bg : ARIA.cyan, background: inWL ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
             {inWL ? "✓WL" : "+WL"}
           </button>
@@ -9451,9 +9452,7 @@ function ChartPanelInline({
           {erCountdown && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erCountdown}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>}
           <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 60, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
         </div>
-      </div>
-
-      {/* Performance row */}
+      {/* Performance row — under the buttons, left edge under +WL */}
       {(() => {
         const firstClose = ohlcBars.length > 1 ? ohlcBars[0]?.close : null;
         const lastClose  = ohlcBars.length > 1 ? ohlcBars[ohlcBars.length - 1]?.close : null;
@@ -9478,9 +9477,9 @@ function ChartPanelInline({
           : v >= -20 ? "#a06030"
           : "#c04040";
         return (
-          <div style={{ marginTop: 5, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {/* grade + perf metrics — aligned under the +WL/+PF/ER button block */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             {grade && (
               <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
                 {grade}
@@ -9514,6 +9513,9 @@ function ChartPanelInline({
           </div>
         );
       })()}
+        </div>
+      </div>
+
       {/* News — same container as logo/ticker/info */}
       {news.length > 0 && (
         <div style={{ marginTop: 4, maxHeight: 58, overflowY: "auto" }}>
