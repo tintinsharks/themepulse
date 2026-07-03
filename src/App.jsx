@@ -165,7 +165,7 @@ const DEFAULT_SORT = { primary: "rvol", secondary: "change" }; // Aria default
 
 // Momentum + gap presets — consolidated 2026-07: the 1M/3M/6M lookbacks and
 // Stealth/ACCUM-Stack pairs overlapped heavily (nested momentum lookbacks; same
-// volume-before-price thesis). Six pills now cover six distinct regimes:
+// volume-before-price thesis). Seven pills now cover seven distinct regimes:
 //   1W 20%  — fresh explosive momentum (early catches)
 //   Combo   — sustained conviction: 2+ of the five momentum legs (legs live on
 //             below as MOM_LEGS so Combo's cross-check is unchanged)
@@ -173,6 +173,7 @@ const DEFAULT_SORT = { primary: "rvol", secondary: "change" }; // Aria default
 //   Gap4%+  — today's episodic-pivot candidates (only intraday preset)
 //   Accum   — volume-before-price: Stealth ∪ ACCUM-Stack merged
 //   Dry-Up  — volume-contraction consolidation (pre-breakout)
+//   Reset   — 🪃 leader pulled back to the 20dma on dry volume (Signal-alert twin)
 // Each preset returns true if a stock matches. Filters are applied AFTER the
 // global default filters (NoBio, ADR, dvol) so a preset can be combined with them.
 const MOM_LEGS = {
@@ -277,6 +278,22 @@ const PRESETS = {
       const sma20 = s.sma20_pct || 0;
       const aboveLow = s.above_52w_low || 0;
       return mc >= 300e6 && r1w < 5 && sma20 >= 0 && aboveLow >= 30;
+    },
+  },
+  reset: {
+    label: "Reset",
+    desc:
+      "🪃 Leader reset: RS ≥ 90 name pulled back to the 20dma (within ±1 ATR) on dry volume (RVol ≤ 0.9), still above the 50sma, not breaking down (day > -2.5%). $Vol ≥ $10M. The scan-pill twin of the 🪃 Signal alert — buy leaders at logical support, not extended.",
+    color: "#22d3ee",
+    test: (s) => {
+      const rs = s.rs_rank || 0;
+      const d20 = s.dist_20dma_atrx;
+      const d50 = s.dist_50sma_atrx;
+      if (rs < 90 || d20 == null || d50 == null) return false;
+      const rv = s.rel_volume ?? 1;
+      const chg = s.change_pct || 0;
+      const dv = s.avg_dollar_vol_raw || 0;
+      return Math.abs(d20) <= 1 && d50 > 0 && rv <= 0.9 && chg > -2.5 && dv >= 10e6;
     },
   },
 };
@@ -2617,7 +2634,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
 //    ADR min/max inputs, $Vol input, Chg≥/RV≥ sliders)
 //  - Sort buttons with primary¹/secondary² (left-click = primary, right-click
 //    = secondary). Sort keys: RS, Chg%, RVol, Acc, MAG, BO, Open%
-//  - 6 consolidated presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up
+//  - 7 consolidated presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up, Reset
 //  - Filter description box (shows preset's explanation when active)
 //
 // Phase 2.3 will add: short presets (BD/DT/WK/FL/DC), tag filters
