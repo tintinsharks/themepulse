@@ -9496,6 +9496,26 @@ function ChartPanelInline({
           </div>
         );
       })()}
+        {/* Chart timeframe (D/W) + TRADE toggle + IPO date — under the perf line */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {["D", "W"].map(tfOpt => (
+            <button key={tfOpt}
+              onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
+              style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700, minWidth: 18 }}>
+              {tfOpt}
+            </button>
+          ))}
+          <button onClick={() => setShowTrade(prev => !prev)}
+            style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: showTrade ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: showTrade ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700 }}>
+            TRADE
+          </button>
+          {stockInfo.ipo_date && (
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3, fontFamily: "monospace", fontSize: 9 }}>
+              <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>
+              <span style={{ fontWeight: 700, color: ARIA.textDim }}>{stockInfo.ipo_date}</span>
+            </span>
+          )}
+        </div>
         </div>
       </div>
 
@@ -9620,183 +9640,6 @@ function ChartPanelInline({
           </div>
         );
       })()}
-
-      {/* Header row 2: CANSLIM stats line (Aria-faithful) */}
-      <div
-        style={{
-          padding: "0 14px 4px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          fontSize: 9,
-          fontFamily: "monospace",
-          borderBottom: `1px solid ${ARIA.border}`,
-        }}
-      >
-        {mo && (
-          <span
-            style={badgeStyle(mo.hot ? "#f59e0b" : ARIA.blue)}
-            title={`${mo.hot ? "Super-growth " : ""}Minervini / O'Neill ✓ — EPS YoY ${mo.epsYoy.toFixed(0)}%, Sales YoY ${mo.salesYoy.toFixed(0)}%, Margin ${mo.margin.toFixed(1)}%`}
-          >
-            EPS
-          </span>
-        )}
-        {erCountdown && (
-          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-            <span style={{ color: ARIA.textMuted }}>ER</span>
-            <span style={{ color: ARIA.textDim }}>{erCountdown}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
-          </span>
-        )}
-        <CSStat label="EPS" v={epsYoy} clr={csClr(epsYoy)} ARIA={ARIA} />
-        <CSStat label="Prev" v={epsYoyPrev} clr={csClr(epsYoyPrev)} ARIA={ARIA} />
-        <CSStat label="Surp" v={epsSurprise} clr={csClr(epsSurprise)} ARIA={ARIA} />
-        <span style={{ color: ARIA.border }}>|</span>
-        <CSStat label="Sales" v={salesYoy} clr={csClr(salesYoy)} ARIA={ARIA} />
-        <CSStat label="Prev" v={salesYoyPrev} clr={csClr(salesYoyPrev)} ARIA={ARIA} />
-        <CSStat label="Surp" v={salesSurprise} clr={csClr(salesSurprise)} ARIA={ARIA} />
-        <span style={{ color: ARIA.border }}>|</span>
-        <CSStat label="EPS Y" v={epsThisY} clr={csClr(epsThisY)} ARIA={ARIA} />
-        <CSStat label="5Y" v={eps5y} clr={csClr(eps5y)} ARIA={ARIA} />
-        <CSStat label="Sales 5Y" v={sales5y} clr={csClr(sales5y)} ARIA={ARIA} />
-        <span style={{ color: ARIA.border }}>|</span>
-        <CSStat
-          label="Margin"
-          v={margin}
-          clr={
-            margin == null
-              ? ARIA.textMuted
-              : margin >= 20
-              ? ARIA.green
-              : margin > 0
-              ? ARIA.textDim
-              : ARIA.red
-          }
-          ARIA={ARIA}
-        />
-        <CSStat
-          label="ROE"
-          v={roe}
-          clr={
-            roe == null
-              ? ARIA.textMuted
-              : roe >= 25
-              ? ARIA.green
-              : roe >= 17
-              ? ARIA.blue
-              : roe > 0
-              ? ARIA.textDim
-              : ARIA.red
-          }
-          ARIA={ARIA}
-        />
-        <CSStat
-          label="ROIC"
-          v={roic}
-          clr={
-            roic == null
-              ? ARIA.textMuted
-              : roic >= 20
-              ? ARIA.green
-              : roic >= 12
-              ? ARIA.blue
-              : roic > 0
-              ? ARIA.textDim
-              : ARIA.red
-          }
-          ARIA={ARIA}
-        />
-        <span
-          title={
-            instTrans != null
-              ? `Institutional sponsorship — QoQ change in holdings (Minervini's "increasing sponsorship" signal).${instOwn != null ? ` Current Inst Own: ${instOwn.toFixed(1)}%` : ""}`
-              : "Institutional sponsorship data not available for this ticker (scraper covers top 500 by RS rank)"
-          }
-          style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}
-        >
-          <span style={{ color: ARIA.textMuted, fontSize: 8 }}>Inst</span>{" "}
-          <span
-            style={{
-              fontWeight: 700,
-              color:
-                instTrans == null
-                  ? ARIA.textMuted
-                  : instTrans >= 1
-                  ? ARIA.green
-                  : instTrans > 0
-                  ? ARIA.blue
-                  : instTrans > -1
-                  ? ARIA.textDim
-                  : ARIA.red,
-            }}
-          >
-            {instTrans == null
-              ? "—"
-              : `${instTrans >= 0 ? "+" : ""}${instTrans.toFixed(2)}%`}
-          </span>
-        </span>
-        {stockInfo.ipo_date && (
-          <>
-            <span style={{ color: ARIA.border }}>|</span>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-              <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>{" "}
-              <span style={{ fontWeight: 700, color: ARIA.textDim }}>{stockInfo.ipo_date}</span>
-            </span>
-          </>
-        )}
-        <span style={{ color: ARIA.border }}>|</span>
-        {["D", "W"].map(tfOpt => (
-          <button
-            key={tfOpt}
-            onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
-            style={{
-              fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-              background: tf === tfOpt ? "#0d9163" : "transparent",
-              border: "1px solid #0d9163",
-              color: tf === tfOpt ? "#fff" : "#0d9163",
-              fontFamily: "monospace", fontWeight: 700, minWidth: 18,
-            }}
-          >
-            {tfOpt}
-          </button>
-        ))}
-        <button
-          onClick={() => setShowTrade(prev => !prev)}
-          style={{
-            fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
-            background: showTrade ? "#0d9163" : "transparent",
-            border: "1px solid #0d9163",
-            color: showTrade ? "#fff" : "#0d9163",
-            fontFamily: "monospace", fontWeight: 700,
-          }}
-        >
-          TRADE
-        </button>
-        {magna != null && (
-          <>
-            <span style={{ color: ARIA.border }}>|</span>
-            <span>
-              <span style={{ color: ARIA.textMuted, fontSize: 8 }}>MAGNA</span>{" "}
-              <span
-                style={{
-                  fontWeight: 700,
-                  color:
-                    magna >= 80
-                      ? ARIA.green
-                      : magna >= 60
-                      ? ARIA.blue
-                      : magna >= 40
-                      ? ARIA.textDim
-                      : ARIA.textMuted,
-                }}
-              >
-                {magna}
-              </span>
-            </span>
-          </>
-        )}
-      </div>
-
 
       {/* SVG D/W Chart */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
