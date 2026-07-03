@@ -2516,8 +2516,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   const seen = new Set(); const groups = [];
                   top5.forEach((l) => {
                     const items = (l.holds || [])
-                      .map((h) => ({ t: h.t, rs: stockMap?.[h.t]?.rs_rank || 0, dvol: stockMap?.[h.t]?.avg_dollar_vol_raw || 0 }))
-                      .filter((m) => m.dvol >= 10e6)
+                      .map((h) => ({ t: h.t, rs: stockMap?.[h.t]?.rs_rank || 0, dvol: stockMap?.[h.t]?.avg_dollar_vol_raw || 0, adr: stockMap?.[h.t]?.adr_pct || 0 }))
+                      .filter((m) => m.dvol >= 10e6 && m.adr >= 0.5) // ADR floor: excludes acquisition-pinned names
                       .sort((a, b) => b.rs - a.rs).slice(0, 2)
                       .filter((m) => !seen.has(m.t));
                     items.forEach((m) => seen.add(m.t));
