@@ -1044,6 +1044,13 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     return next;
   });
   const [ovMaps, setOvMaps] = useState({}); // { SPY: Map(date→close), QQQ: ... }
+  // SPY closes (always loaded) — RS-line denominator for the new-high-before-price dots
+  const [rsBench, setRsBench] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchOhlcBars("SPY").then((bars) => { if (alive) setRsBench(new Map((bars || []).map((b) => [b.date, b.close]))); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   useEffect(() => {
     let alive = true;
     const want = [...overlays].filter((o) => !ovMaps[o]);
@@ -1130,6 +1137,33 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
     const axisY = H - padB;
 
+    // ── RS line (subject ÷ SPY) + IBD "new high before price" dots ──
+    // Normalized to its own range, drawn in the bottom band so it doesn't clash
+    // with the regime line. Blue dot where RS makes a new window-high while the
+    // subject's price is still >3% below its own high. Skipped when the subject
+    // IS SPY (RS would be a flat 1).
+    let rsPath = null; const rsDots = []; let rsBandTop = 0, rsBandH = 0;
+    if (rsBench && !(!isBasket && sym === "SPY")) {
+      const rsv = bars.map((b) => { const sp = rsBench.get(b.date); return (sp && b.close != null && sp > 0) ? b.close / sp : null; });
+      const vals = rsv.filter((v) => v != null);
+      if (vals.length >= 2) {
+        const rMin = Math.min(...vals), rMax = Math.max(...vals), rRng = (rMax - rMin) || 1;
+        const plotH = H - padT - padB;
+        rsBandTop = padT + plotH * 0.70; rsBandH = plotH * 0.26;
+        const rsY = (v) => rsBandTop + (1 - (v - rMin) / rRng) * rsBandH;
+        rsPath = rsv.map((v, i) => (v == null ? "" : `${x(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        let rsRun = -Infinity, pxRun = -Infinity;
+        rsv.forEach((v, i) => {
+          const pc = bars[i].close;
+          const rsNewHigh = v != null && v > rsRun;
+          const priceBelow = pc != null && pxRun > 0 && (pc / pxRun - 1) <= -0.03;
+          if (v != null && rsNewHigh && priceBelow && i > 2) rsDots.push({ x: x(i), y: rsY(v) });
+          if (v != null && v > rsRun) rsRun = v;
+          if (pc != null && pc > pxRun) pxRun = pc;
+        });
+      }
+    }
+
     // y-axis price gridlines — 4 intervals between lo and hi
     const yTicks = [];
     for (let j = 0; j <= 4; j++) {
@@ -1196,6 +1230,14 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
           );
         })}
         {segs}
+        {/* RS line (subject ÷ SPY) + blue dots = RS new high before price */}
+        {rsPath && <polyline points={rsPath} fill="none" stroke="#3b82f6" strokeWidth={1.1} opacity={0.85} />}
+        {rsPath && <text x={padL + 2} y={rsBandTop - 2} fontSize="7" fill="#3b82f6" fontFamily="monospace" opacity={0.9}>RS vs SPY {rsDots.length > 0 ? "●↑" : ""}</text>}
+        {rsDots.map((d, i) => (
+          <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.4} fill="#3b82f6" stroke={ARIA.bg} strokeWidth={0.6}>
+            <title>RS new high before price</title>
+          </circle>
+        ))}
         {/* hover crosshair + readout */}
         {h && (
           <g>
