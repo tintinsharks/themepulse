@@ -10108,9 +10108,8 @@ function WatchlistSectionTable({
   rows,
   accent,
   list,
-  onAddInput,
-  onAddSubmit,
-  addInput,
+  onAddMany,
+  universe,
   count,
   onTickerClick,
   removeTicker,
@@ -10127,6 +10126,28 @@ function WatchlistSectionTable({
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(`themepulse-${list}-collapsed`) === "1"; } catch { return false; }
   });
+  // add box: local input + validation feedback ("added 2 · unknown: XYZQ")
+  const [addVal, setAddVal] = useState("");
+  const [addMsg, setAddMsg] = useState(null);
+  const addMsgTimer = React.useRef(null);
+  const submitAdd = () => {
+    const toks = [...new Set(addVal.toUpperCase().split(/[,\s]+/).map((t) => t.trim()).filter(Boolean))];
+    if (!toks.length) return;
+    const known = universe && universe.size ? toks.filter((t) => universe.has(t)) : toks;
+    const unknown = toks.filter((t) => !known.includes(t));
+    if (known.length) onAddMany?.(known);
+    setAddVal("");
+    setAddMsg({ ok: known.length, bad: unknown });
+    if (addMsgTimer.current) clearTimeout(addMsgTimer.current);
+    addMsgTimer.current = setTimeout(() => setAddMsg(null), 5000);
+  };
+  const sugg = useMemo(() => {
+    const q = addVal.toUpperCase().split(/[,\s]+/).pop() || "";
+    if (!q || q.length < 1 || !universe) return [];
+    const out = [];
+    for (const t of universe) { if (t.startsWith(q)) { out.push(t); if (out.length >= 8) break; } }
+    return out;
+  }, [addVal, universe]);
   const toggleCollapsed = useCallback(() => {
     setCollapsed(v => {
       const next = !v;
@@ -10259,30 +10280,43 @@ function WatchlistSectionTable({
             ★ {pinStars ? "pinned" : "unpinned"}
           </button>
         )}
+        {addMsg && (
+          <span style={{ marginLeft: "auto", fontSize: 8, fontFamily: "monospace" }}>
+            {addMsg.ok > 0 && <span style={{ color: ARIA.green }}>✓ added {addMsg.ok}</span>}
+            {addMsg.ok > 0 && addMsg.bad.length > 0 && <span style={{ color: ARIA.textMuted }}> · </span>}
+            {addMsg.bad.length > 0 && <span style={{ color: ARIA.red }}>unknown: {addMsg.bad.join(", ")}</span>}
+          </span>
+        )}
         <input
-          value={addInput}
-          onChange={(e) => onAddInput(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && onAddSubmit()}
-          placeholder="Add..."
+          value={addVal}
+          onChange={(e) => setAddVal(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && submitAdd()}
+          placeholder="add ticker(s)…"
+          list={`tp-sugg-${list}`}
+          title="Type one or paste several (comma/space separated) — validated against the universe"
           style={{
-            marginLeft: "auto",
-            width: 50,
+            marginLeft: addMsg ? 4 : "auto",
+            width: 96,
             fontSize: 9,
-            padding: "1px 4px",
+            padding: "2px 5px",
             background: ARIA.bg,
             border: `1px solid ${ARIA.border}`,
             borderRadius: 3,
-            color: ARIA.textDim,
+            color: ARIA.text,
             fontFamily: "monospace",
             textTransform: "uppercase",
             outline: "none",
           }}
         />
+        <datalist id={`tp-sugg-${list}`}>
+          {sugg.map((t) => <option key={t} value={t} />)}
+        </datalist>
         <button
-          onClick={onAddSubmit}
+          onClick={submitAdd}
+          title="Add to list (Enter also works)"
           style={{
             fontSize: 9,
-            padding: "1px 5px",
+            padding: "1px 6px",
             borderRadius: 3,
             cursor: "pointer",
             background: `${accent}26`,
@@ -10556,8 +10590,6 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
       return next;
     });
   }, []);
-  const [pInput, setPInput] = useState("");
-  const [wInput, setWInput] = useState("");
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
   const [chgPosFilter, setChgPosFilter] = useState(
     () => localStorage.getItem("themepulse-pw-chgpos") === "true"
@@ -10579,18 +10611,16 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
     localStorage.setItem("themepulse-pw-rankby", k);
   }, []);
 
-  const addPortfolio = useCallback(() => {
-    const t = pInput.trim().toUpperCase();
-    if (!t) return;
-    setPortfolio((prev) => (prev.includes(t) ? prev : [...prev, t]));
-    setPInput("");
-  }, [pInput]);
-  const addWatchlist = useCallback(() => {
-    const t = wInput.trim().toUpperCase();
-    if (!t) return;
-    setWatchlist((prev) => (prev.includes(t) ? prev : [...prev, t]));
-    setWInput("");
-  }, [wInput]);
+  // Validated multi-add: accepts "NVDA, MU AMD" style input, validates each
+  // symbol against the universe, adds the valid ones, and reports the rest —
+  // no more silent junk adds that look like the add "didn't work".
+  const universeSet = useMemo(() => new Set(Object.keys(stockMap || {})), [stockMap]);
+  const addManyPortfolio = useCallback((tks) => {
+    setPortfolio((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
+  }, [setPortfolio]);
+  const addManyWatchlist = useCallback((tks) => {
+    setWatchlist((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
+  }, [setWatchlist]);
   const removeTicker = useCallback((list, t) => {
     if (list === "portfolio") {
       setPortfolio((prev) => prev.filter((x) => x !== t));
@@ -11306,9 +11336,8 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             accent={ARIA.yellow}
             list="portfolio"
             count={portfolio.length}
-            addInput={pInput}
-            onAddInput={setPInput}
-            onAddSubmit={addPortfolio}
+            onAddMany={addManyPortfolio}
+            universe={universeSet}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}
             focusTickers={focusTickers}
@@ -11321,9 +11350,8 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             accent={ARIA.green}
             list="watchlist"
             count={watchlist.length}
-            addInput={wInput}
-            onAddInput={setWInput}
-            onAddSubmit={addWatchlist}
+            onAddMany={addManyWatchlist}
+            universe={universeSet}
             onTickerClick={onTickerClick}
             removeTicker={removeTicker}
             focusTickers={focusTickers}
