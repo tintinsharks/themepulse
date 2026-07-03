@@ -2045,6 +2045,9 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                 {rankCol && r.rsAcc1 != null && r.rsDay > 0 && r.rsAcc1 >= 5 && (
                   <span title={`Fresh inflection — today's pace (${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(1)}%/d) is running well ahead of its own week (${r.rsWk > 0 ? "+" : ""}${(r.rsWk ?? 0).toFixed(1)}%): day-one turn, not an extended continuation`} style={{ marginLeft: 3, fontSize: 8.5, fontWeight: 800, color: ARIA.green }}>↗</span>
                 )}
+                {rankCol && r.rsLineNewHigh && (
+                  <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ marginLeft: 3, fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>
+                )}
                 {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
                   <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
                 )}
@@ -5705,6 +5708,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? sr.rs ?? s?.rs_rank ?? null, // EIF (framework score) — consistent with the column label
           rsRank: s?.rs_rank ?? null,                            // momentum RS rank (RST leader gate)
           off52: s?.off_52w_high ?? null,
+          rsNH: !!s?.rs_line_new_high,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
@@ -5762,6 +5766,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? s?.rs_rank ?? null,
           rsRank: s?.rs_rank ?? null,
           off52: s?.off_52w_high ?? null,
+          rsNH: !!s?.rs_line_new_high,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
@@ -5796,7 +5801,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             ticker: tk, themeId, theme, layer: layers[0] ?? null, layerCount: layers.length,
             chg, alpha: calcAlpha(chg, s), rvol,
             rs: s?.framework_score ?? s?.rs_rank ?? null, rsRank: s?.rs_rank ?? null,
-            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null,
+            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high,
             str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
             zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
             adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
@@ -5838,6 +5843,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         off52: s?.off_52w_high ?? null,
         d20: s?.dist_20dma_atrx ?? null,
         d50: s?.dist_50sma_atrx ?? null,
+        rsNH: !!s?.rs_line_new_high,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
@@ -6183,6 +6189,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
+                    {r.rsNH && <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}>
