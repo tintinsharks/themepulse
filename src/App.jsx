@@ -2093,6 +2093,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
   const setSymPersist = useCallback((s) => {
     setSym(s); try { localStorage.setItem("tp-breadth-sym", s); } catch {}
   }, []);
+  // stocks array for the embedded Earnings Calendar subtab (it expects the pipeline array shape)
+  const stocksArr = useMemo(() => Object.values(stockMap || {}), [stockMap]);
   // Let Market Conditions' rotation dots (or anything) drive the chart symbol.
   useEffect(() => {
     const onSym = (e) => {
@@ -2504,7 +2506,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                 {tabBtn("rrg", "RRG")}
                 {tabBtn("trends", "Trends")}
                 {tabBtn("playbook", "Playbook")}
-                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "rrg" && rsTab !== "trends" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
+                {tabBtn("ercal", "ER Cal")}
+                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "rrg" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
@@ -2598,7 +2601,9 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   {rsTab === "playbook" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>rank × weekly momentum × live day (tech vs QQQ, ex-tech vs SPY) → action buckets · % = off 52w high</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
-                    {rsTab === "rrg" ? (
+                    {rsTab === "ercal" ? (
+                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTickerNoSync} chartTicker={chartTicker} />
+                    ) : rsTab === "rrg" ? (
                       <RrgQuadrant layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : rsTab === "trends" ? (
                       <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
@@ -3869,15 +3874,17 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
 const ER_LOGO = (tk) => `https://images.financialmodelingprep.com/symbol/${tk}.png`;
 const erCalCache = {};
 
-function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
+function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedded = false }) {
   const ARIA = useAriaTheme();
-  const [expanded, setExpanded] = useState(() => localStorage.getItem("tp-er-cal-open") === "1");
+  // embedded (subtab) mode: always expanded, no collapse toggle
+  const [expandedRaw, setExpanded] = useState(() => localStorage.getItem("tp-er-cal-open") === "1");
+  const expanded = embedded || expandedRaw;
   const [mode, setMode] = useState(() => localStorage.getItem("tp-er-cal-mode") || "drawer");
   const [weekOffset, setWeekOffset] = useState(0);
   const [fmpEvents, setFmpEvents] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { localStorage.setItem("tp-er-cal-open", expanded ? "1" : "0"); }, [expanded]);
+  useEffect(() => { if (!embedded) localStorage.setItem("tp-er-cal-open", expandedRaw ? "1" : "0"); }, [expandedRaw, embedded]);
   useEffect(() => { localStorage.setItem("tp-er-cal-mode", mode); }, [mode]);
 
   const isoDate = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -3999,13 +4006,13 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
   const timingBadge = () => null;
 
   return (
-    <div style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+    <div style={embedded ? undefined : { borderBottom: `1px solid ${ARIA.border}` }}>
       {/* Header */}
       <div
-        onClick={() => setExpanded(!expanded)}
-        style={{ padding: "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+        onClick={embedded ? undefined : () => setExpanded(!expandedRaw)}
+        style={{ padding: embedded ? "2px 2px 4px" : "5px 12px", display: "flex", alignItems: "center", gap: 6, cursor: embedded ? "default" : "pointer", userSelect: "none" }}
       >
-        <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        {!embedded && <span style={{ fontSize: 9, color: ARIA.textMuted, transition: "transform 0.15s", transform: expanded ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>}
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim }}>
           Earnings Calendar
         </span>
@@ -4024,7 +4031,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker }) {
       </div>
       {/* Body */}
       {expanded && (
-        <div style={{ padding: "0 12px 8px" }}>
+        <div style={{ padding: embedded ? "0 2px 8px" : "0 12px 8px" }}>
           {loading && <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "4px 0" }}>Loading FMP calendar…</div>}
           {weekData.usingFallback && !loading && <div style={{ fontSize: 7, color: "#fbbf24", padding: "2px 0 4px" }}>Using pipeline data (FMP unavailable). Timing may be stale.</div>}
           {weekData.days.map((day, di) => (
@@ -11581,7 +11588,6 @@ function ChartScanRow({
         maxHeight: "100vh", overflowY: "auto",
       }}>
         <PipelineLiveBar pipelineMeta={pipelineMeta} />
-        <EarningsCalendar stocks={stocks} stockMap={stockMap} onTickerClick={handleTickerClick} chartTicker={chartTicker} />
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
       </div>
     </div>
