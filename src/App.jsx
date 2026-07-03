@@ -9496,8 +9496,8 @@ function ChartPanelInline({
           </div>
         );
       })()}
-        {/* Chart timeframe (D/W) + TRADE toggle + IPO date — under the perf line */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {/* Chart timeframe (D/W) + TRADE toggle + IPO date — under the perf line, right-aligned */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", alignSelf: "flex-end" }}>
           {["D", "W"].map(tfOpt => (
             <button key={tfOpt}
               onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
