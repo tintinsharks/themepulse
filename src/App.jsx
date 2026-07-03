@@ -2512,16 +2512,29 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
                 rightRail={(() => {
-                  const top5 = [...(d.layers || [])].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, 5);
+                  const ranked = [...(d.layers || [])].sort((a, b) => (b.now ?? -1) - (a.now ?? -1));
+                  const top5 = ranked.slice(0, 5);
+                  const eligible = (l) => (l.holds || [])
+                    .map((h) => ({ t: h.t, rs: stockMap?.[h.t]?.rs_rank || 0, dvol: stockMap?.[h.t]?.avg_dollar_vol_raw || 0, adr: stockMap?.[h.t]?.adr_pct || 0 }))
+                    .filter((m) => m.dvol >= 10e6 && m.adr >= 0.5) // ADR floor: excludes acquisition-pinned names
+                    .sort((a, b) => b.rs - a.rs);
                   const seen = new Set(); const groups = [];
                   top5.forEach((l) => {
-                    const items = (l.holds || [])
-                      .map((h) => ({ t: h.t, rs: stockMap?.[h.t]?.rs_rank || 0, dvol: stockMap?.[h.t]?.avg_dollar_vol_raw || 0, adr: stockMap?.[h.t]?.adr_pct || 0 }))
-                      .filter((m) => m.dvol >= 10e6 && m.adr >= 0.5) // ADR floor: excludes acquisition-pinned names
-                      .sort((a, b) => b.rs - a.rs).slice(0, 2)
-                      .filter((m) => !seen.has(m.t));
+                    const items = eligible(l).slice(0, 2).filter((m) => !seen.has(m.t));
                     items.forEach((m) => seen.add(m.t));
                     if (items.length) groups.push({ layer: l, items });
+                  });
+                  // ⏳ ON DECK — the promotion queue: #3 RS inside top-5 layers, and the
+                  // top RS name in layers ranked 6-10. Watchlist, NOT entries (backtest:
+                  // no edge until promoted) — but you're ready the day promotion happens.
+                  const deck = [];
+                  top5.forEach((l) => {
+                    const m = eligible(l).slice(2, 3).find((x) => !seen.has(x.t));
+                    if (m) { seen.add(m.t); deck.push({ layer: l, items: [m] }); }
+                  });
+                  ranked.slice(5, 10).forEach((l) => {
+                    const m = eligible(l).slice(0, 1).find((x) => !seen.has(x.t));
+                    if (m) { seen.add(m.t); deck.push({ layer: l, items: [m] }); }
                   });
                   if (!groups.length) return null;
                   return (
@@ -2547,6 +2560,31 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap }) {
                           ))}
                         </React.Fragment>
                       ))}
+                      {deck.length > 0 && (
+                        <>
+                          <div title="Promotion queue: #3 RS in the top-5 layers + top RS name in layers ranked 6-10. Watchlist, not entries — per backtest, the edge starts when a name is promoted to Apex, not before."
+                            style={{ fontSize: 7.5, fontWeight: 800, color: "#22d3ee", letterSpacing: 0.4, cursor: "help", marginTop: 6, marginBottom: 1, borderTop: `1px solid ${ARIA.border}`, paddingTop: 4 }}>⏳ ON DECK</div>
+                          {deck.slice(0, 7).map(({ layer, items }) => (
+                            <React.Fragment key={"d" + layer.themeId + layer.name}>
+                              <div title={`${layer.theme} · ${layer.name} — rank ${layer.now} (click to load layer)`}
+                                onClick={() => applyLayer(layer, false, true)}
+                                style={{ fontSize: 6.5, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, marginTop: 2, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {layer.name}
+                              </div>
+                              {items.map((m) => (
+                                <button key={m.t} onClick={() => openTickerNoSync(m.t)}
+                                  title={`${m.t} — RS ${m.rs} · ${layer.name} · next in line for Apex (click to chart)`}
+                                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 8.5, fontWeight: 700, fontFamily: "monospace",
+                                    cursor: "pointer", padding: "1px 4px", borderRadius: 3, border: "none", textAlign: "left",
+                                    color: "#22d3ee", background: heldSet.has(m.t) ? ARIA.yellow + "14" : "transparent" }}>
+                                  <span>{m.t}</span>
+                                  <span style={{ color: ARIA.textDim }}>{m.rs}</span>
+                                </button>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </>
+                      )}
                     </>
                   );
                 })()}
