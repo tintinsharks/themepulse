@@ -2150,7 +2150,7 @@ function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
 // quadrants: Leading (strong+rising), Weakening (strong+falling), Lagging
 // (weak+falling), Improving (weak+rising — catch a theme before it's a leader).
 // Short tail = last week's position → now. Click a dot to load that layer.
-function RrgQuadrant({ layers, onLayer, ARIA }) {
+function RrgQuadrant({ layers, onLayer, ARIA, compact = false }) {
   const pts = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => ({ l, x: l.now, y: l.now - l.w1 }));
   if (!pts.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
   const buckets = { Improving: [], Leading: [], Lagging: [], Weakening: [] };
@@ -2174,11 +2174,11 @@ function RrgQuadrant({ layers, onLayer, ARIA }) {
       <div style={{ border: `1px solid ${ARIA.border}`, borderTop: `2px solid ${mt.c}`, borderRadius: 5, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: mt.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{key}</span>
-          <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>{mt.desc}</span>
+          {!compact && <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>{mt.desc}</span>}
           <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>{rows.length}</span>
         </div>
-        <div style={{ maxHeight: 168, overflowY: "auto" }}>
-          {rows.slice(0, 14).map((p, i) => {
+        <div style={{ maxHeight: compact ? 64 : 168, overflowY: "auto" }}>
+          {rows.slice(0, compact ? 6 : 14).map((p, i) => {
             const yc = p.y > 0 ? ARIA.green : p.y < 0 ? ARIA.red : ARIA.textMuted;
             return (
               <div key={i} onClick={() => onLayer?.(p.l)} title={`${p.l.theme} · ${p.l.name} — RS ${p.x}, ${p.y >= 0 ? "+" : ""}${p.y} 1wk${p.l.n ? ` · ${p.l.n} names` : ""}`}
@@ -2194,7 +2194,11 @@ function RrgQuadrant({ layers, onLayer, ARIA }) {
       </div>
     );
   };
-  return (
+  return compact ? (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, fontFamily: "monospace", marginBottom: 6 }}>
+      {box("Leading")}{box("Improving")}{box("Weakening")}{box("Lagging")}
+    </div>
+  ) : (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontFamily: "monospace" }}>
       {box("Improving")}{box("Leading")}
       {box("Lagging")}{box("Weakening")}
@@ -2281,7 +2285,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
     // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends/tech/ex-tech
-    applyLayer(best, false, ["rrg", "trends", "tech", "extech", "playbook"].includes(rsTab));
+    applyLayer(best, false, ["trends", "tech", "extech", "playbook"].includes(rsTab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
@@ -2570,7 +2574,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
             // rrg/trends also show LAYER rows in the mover cards — treat them as
             // layers (load in place) rather than charting the lead ticker, which
             // would trip reverse-sync and yank the tab to Layers.
-            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "extech" || rsTab === "rrg" || rsTab === "trends" || rsTab === "playbook";
+            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "extech" || rsTab === "trends" || rsTab === "playbook";
             // Confidence-weight the rank change by constituent count so a thin
             // layer (1–2 names) needs a much bigger move to surface, while a
             // broad layer's modest shift still counts. Shrinkage conf = n/(n+K):
@@ -2665,11 +2669,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
                 {tabBtn("extech", "Ex-Tech")}
                 {tabBtn("leaders", "Leaders")}
                 {tabBtn("emerging", "Emerging")}
-                {tabBtn("rrg", "RRG")}
                 {tabBtn("trends", "Trends")}
                 {tabBtn("playbook", "Playbook")}
                 {tabBtn("ercal", "ER Cal")}
-                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "rrg" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
+                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
@@ -2758,17 +2761,18 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
                 <>
                   {tabRow}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
-                  {rsTab === "rrg" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>RS level × 1-week momentum · click to load · Improving = watchlist only (backtest: no edge until leadership)</div>}
+                  {rsTab === "trends" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>quadrants: RS level × 1-wk momentum (Improving = watchlist only — backtest: no edge until leadership) · sparklines: multi-day rank trajectories</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   {rsTab === "playbook" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>rank × weekly momentum × live day (tech vs QQQ, ex-tech vs SPY) → action buckets · % = off 52w high</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "ercal" ? (
                       <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTickerNoSync} chartTicker={chartTicker} />
-                    ) : rsTab === "rrg" ? (
-                      <RrgQuadrant layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : rsTab === "trends" ? (
-                      <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
+                      <>
+                        <RrgQuadrant compact layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
+                        <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
+                      </>
                     ) : rsTab === "playbook" ? (
                       <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : (
@@ -4653,6 +4657,14 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   const [sort, setSort] = useState(DEFAULT_SORT);
   const [activePresets, setActivePresets] = useState(() => new Set());
   const [activeTags, setActiveTags] = useState(() => new Set());
+  const [tagsOpen, setTagsOpen] = useState(() => { try { return localStorage.getItem("tp-tags-open") === "1"; } catch { return false; } });
+  const [legendOpen, setLegendOpen] = useState(false);
+  useEffect(() => {
+    if (!legendOpen) return;
+    const onDown = (e) => { if (!e.target.closest?.("[data-legend-pop]")) setLegendOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [legendOpen]);
   const [activeSubtheme, setActiveSubtheme] = useState(null);
 
   const updateFilter = useCallback((patch) => {
@@ -4919,6 +4931,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         flexDirection: "column",
         overflow: "hidden",
         height: panelH,
+        position: "relative", // anchor for the legend popover
       }}
     >
       {/* Drag handle — resize panel height */}
@@ -4974,13 +4987,41 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
             marginLeft: "auto",
             fontSize: 8,
             color: ARIA.textMuted,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
           {liveUpdated
             ? `Live · ${liveUpdated.toLocaleTimeString()}`
             : "Loading live quotes…"}
+          <button data-legend-pop onClick={() => setLegendOpen((v) => !v)} title="Color & glyph legend"
+            style={{ fontSize: 8, fontWeight: 800, width: 14, height: 14, lineHeight: "12px", padding: 0, borderRadius: "50%", cursor: "pointer", fontFamily: "monospace",
+              border: `1px solid ${legendOpen ? ARIA.cyan : ARIA.border}`, color: legendOpen ? ARIA.cyan : ARIA.textMuted, background: "transparent" }}>?</button>
         </div>
       </div>
+
+      {/* Color & glyph legend — the dashboard's visual language in one place */}
+      {legendOpen && (
+        <div data-legend-pop style={{ position: "absolute", top: 26, right: 8, zIndex: 40, width: 300, background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, boxShadow: "0 6px 24px rgba(0,0,0,0.5)", padding: "8px 10px", fontFamily: "monospace", fontSize: 8.5, lineHeight: 1.7 }}>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.5 }}>Legend</span>
+            <button onClick={() => setLegendOpen(false)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: ARIA.textMuted, cursor: "pointer", fontSize: 11, padding: 0 }}>×</button>
+          </div>
+          <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "3px 0 1px" }}>Row tints (your lists)</div>
+          <div><span style={{ color: ARIA.yellow }}>■</span> Portfolio · <span style={{ color: ARIA.cyan }}>■</span> ⚡ Focus · <span style={{ color: ARIA.green }}>■</span> Watchlist</div>
+          <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Ticker glyphs</div>
+          <div><span style={{ color: "#3b82f6", fontWeight: 800 }}>◆</span> RS new high before price (IBD) · <span style={{ color: ARIA.green, fontWeight: 800 }}>↗</span> fresh inflection (day pace ≫ its week)</div>
+          <div><span style={{ color: "#fbbf24", fontWeight: 800 }}>⚠Nd</span> earnings in N days · <span style={{ color: "#fbbf24", fontWeight: 800 }}>α</span> chain-only (high-alpha, below scan filters)</div>
+          <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Setup badges (live)</div>
+          <div><span style={{ color: "#a855f7", fontWeight: 800 }}>BO</span> breakout entry · <span style={{ color: "#34d399", fontWeight: 800 }}>ACC</span> accumulation · <span style={{ color: "#22d3ee", fontWeight: 800 }}>EP</span> post-ER pivot</div>
+          <div><span style={{ color: "#0ea5e9", fontWeight: 800 }}>RST</span> 🪃 leader reset at 20dma · <span style={{ color: "#fbbf24", fontWeight: 800 }}>VCP</span> volume dry-up · <span style={{ color: "#ef4444", fontWeight: 800 }}>DIST</span> distribution (exit)</div>
+          <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Layer name colors (RRG quadrant)</div>
+          <div><span style={{ color: ARIA.green }}>■</span> Leading · <span style={{ color: ARIA.blue }}>■</span> Improving · <span style={{ color: ARIA.yellow }}>■</span> Weakening · <span style={{ color: ARIA.red }}>■</span> Lagging</div>
+          <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>EIF cell</div>
+          <div>dotted underline = EIF leader — click for the score's reasoning</div>
+        </div>
+      )}
 
       {/* ETF Scan view */}
       {swView === "etf" && <ETFScanTable onTickerClick={onTickerClick} />}
@@ -5027,7 +5068,16 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         })}
         {/* divider between momentum/gap presets and tag filters (one row now) */}
         <span style={{ width: 1, alignSelf: "stretch", background: ARIA.border, margin: "0 4px" }} />
-        {Object.entries(TAG_PREDICATES).map(([key, t]) => {
+        {/* Tag filters live behind an expander — occasional-use vs the everyday
+            presets. Auto-expanded while any tag is active so state stays visible. */}
+        <button onClick={() => setTagsOpen((v) => { const n = !v; try { localStorage.setItem("tp-tags-open", n ? "1" : "0"); } catch {} return n; })}
+          title={tagsOpen ? "Hide tag filters" : "Show tag filters (33 / W / L / E / CS / ZM / QM / 9M / MAG)"}
+          style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", fontWeight: 700,
+            border: `1px solid ${(tagsOpen || activeTags.size > 0) ? ARIA.green : ARIA.border}`,
+            color: (tagsOpen || activeTags.size > 0) ? ARIA.green : ARIA.textMuted, background: "transparent" }}>
+          {tagsOpen || activeTags.size > 0 ? "⋯ tags ▾" : `⋯ tags${activeTags.size ? ` (${activeTags.size})` : ""}`}
+        </button>
+        {(tagsOpen || activeTags.size > 0) && Object.entries(TAG_PREDICATES).map(([key, t]) => {
           const on = activeTags.has(key);
           const accent = key === "9M" || key === "33" ? ARIA.yellow : ARIA.green;
           return (
