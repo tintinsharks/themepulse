@@ -1,0 +1,68 @@
+{
+ "MXL": {
+  "entered": "2026-07-02",
+  "px": 93.12,
+  "spy": 744.78,
+  "layer": "AI Connectivity",
+  "peak": 93.12,
+  "last_seen": "2026-07-05"
+ },
+ "ALAB": {
+  "entered": "2026-07-02",
+  "px": 406.42,
+  "spy": 744.78,
+  "layer": "AI Connectivity",
+  "peak": 406.42,
+  "last_seen": "2026-07-05"
+ },
+ "SNDK": {
+  "entered": "2026-07-02",
+  "px": 1745,
+  "spy": 744.78,
+  "layer": "Memory + Storage",
+  "peak": 1745,
+  "last_seen": "2026-07-05"
+ },
+ "MU": {
+  "entered": "2026-07-02",
+  "px": 975.56,
+  "spy": 744.78,
+  "layer": "Memory + Storage",
+  "peak": 975.56,
+  "last_seen": "2026-07-05"
+ },
+ "SLS": {
+  "entered": "2026-07-02",
+  "px": 14.98,
+  "spy": 744.78,
+  "layer": "Biotech Momentum",
+  "peak": 14.98,
+  "last_seen": "2026-07-05"
+ },
+ "INTC": {
+  "entered": "2026-07-02",
+  "px": 120.35,
+  "spy": 744.78,
+  "layer": "Compute Silicon",
+  "peak": 120.35,
+  "last_seen": "2026-07-05"
+ },
+ "ABVX": {
+  "entered": "2026-07-03",
+  "px": 144.65,
+  "spy": 744.78,
+  "layer": "Biotech Momentum",
+  "peak": 144.65,
+  "last_seen": "2026-07-03",
+  "ondeck": false
+ },
+ "ABSI": {
+  "entered": "2026-07-03",
+  "px": 11.62,
+  "spy": 744.78,
+  "layer": "Biotech Momentum",
+  "peak": 11.62,
+  "last_seen": "2026-07-05",
+  "ondeck": false
+ }
+}
