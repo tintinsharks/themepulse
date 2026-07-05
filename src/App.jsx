@@ -578,6 +578,7 @@ const _quoteManager = {
 
   async _fetch() {
     if (this.fetching) return;
+    if (typeof document !== "undefined" && document.hidden) return; // hidden tab — save FMP data
     const tickers = this._getAllTickers();
     if (tickers.length === 0) return;
     this.fetching = true;
@@ -5591,10 +5592,18 @@ function useZVR(tickers) {
     const all = tickerKey.split(",");
 
     const fetchZVR = async () => {
-      // API caps at 50 tickers per call — fan out in parallel and merge,
-      // so the whole chain universe gets true ZVR (not just the first 50)
+      // Hidden tab or overnight/weekend: skip the fetch, re-check later.
+      const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const _mins = _et.getHours() * 60 + _et.getMinutes();
+      const _day = _et.getDay();
+      const _marketish = _day >= 1 && _day <= 5 && _mins >= 240 && _mins <= 1200; // 4am-8pm ET weekdays
+      if ((typeof document !== "undefined" && document.hidden) || !_marketish) {
+        timer = setTimeout(fetchZVR, 300000);
+        return;
+      }
+      // API caps at 400 tickers per call (one FMP batch-quote each) — chunk + merge
       const chunks = [];
-      for (let i = 0; i < all.length; i += 50) chunks.push(all.slice(i, i + 50));
+      for (let i = 0; i < all.length; i += 400) chunks.push(all.slice(i, i + 400));
       const results = await Promise.all(chunks.map(async (chunk) => {
         try {
           const resp = await fetch(`/api/zvr?tickers=${encodeURIComponent(chunk.join(","))}`);

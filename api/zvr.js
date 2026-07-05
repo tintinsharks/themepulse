@@ -1,21 +1,34 @@
 // Vercel serverless function: /api/zvr?tickers=NVDA,AAPL,PLTR
-// Zanger Volume Ratio — compares today's cumulative volume at time T
-// to the average cumulative volume at time T across a 20-day lookback.
+// Zanger Volume Ratio — today's cumulative volume vs the expected cumulative
+// volume at this time of day.
 //
 // Returns { ok: true, zvr: { NVDA: 245, AAPL: 112, ... }, meta: { slot, elapsed, sessionPct } }
-// where each value is an integer % (245 = projected 245% of avg daily volume).
+// where each value is an integer % (245 = pacing 245% of avg daily volume).
 //
-// FMP 5-min bars include volume. We fetch 20 trading days, build a cumulative
-// volume profile per 5-min slot (0 = 9:30, 1 = 9:35, ... 77 = 3:55), average
-// across days, then compare today's cumulative to that average at the current slot.
+// DATA-BUDGET REWRITE (was blowing the FMP 150GB/mo cap): the old version
+// fetched 30 calendar days of 5-min bars PER TICKER (~150KB each) to build a
+// per-ticker cumulative profile, cached only in instance memory — with the
+// frontend polling 50-ticker chunks every 60s across recycled serverless
+// instances, that was multi-GB/day. Now: ONE batch-quote call per request
+// (~300B/ticker) supplies today's cumulative volume + 50-day avg volume, and
+// the expected fraction comes from the standard U-shaped session curve (the
+// same VOL_PROFILE the frontend's fallback uses). ~1000x fewer FMP bytes for
+// a near-identical number.
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
-const LOOKBACK_DAYS = 30; // calendar days to fetch (yields ~20 trading days)
 const SLOTS_PER_DAY = 78; // 390 min / 5 min = 78 five-minute slots
 
-// In-memory cache: { ticker -> { profile: Float64Array(78), today: string, fetchedAt } }
-const profileCache = new Map();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — profile only changes once per day
+// Intraday cumulative volume profile (U-shaped): expected fraction of a full
+// day's volume traded N minutes after the open. Mirrors App.jsx VOL_PROFILE.
+const VOL_PROFILE = [[0, 0.02], [5, 0.04], [15, 0.08], [30, 0.13], [60, 0.21], [90, 0.27], [120, 0.33], [150, 0.38], [180, 0.43], [210, 0.48], [240, 0.53], [270, 0.59], [300, 0.66], [330, 0.74], [360, 0.84], [375, 0.91], [390, 1]];
+function sessionVolFraction(minsSinceOpen) {
+  const m = Math.max(0, Math.min(390, minsSinceOpen));
+  for (let i = 1; i < VOL_PROFILE.length; i++) {
+    const [m1, f1] = VOL_PROFILE[i - 1], [m2, f2] = VOL_PROFILE[i];
+    if (m <= m2) return f1 + (f2 - f1) * (m - m1) / (m2 - m1);
+  }
+  return 1;
+}
 
 // ── Setup-badge journal (folded in here to stay under Vercel's 12-function limit) ──
 // POST /api/zvr  { events: [{ ticker, badge, zvr, eif, cr, chg, price, ts }] }
@@ -154,7 +167,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.FMP_API_KEY;
   if (!apiKey) return res.status(500).json({ ok: false, error: "FMP_API_KEY not configured" });
 
-  const tickerList = tickers.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean).slice(0, 50);
+  const tickerList = tickers.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean).slice(0, 400);
 
   // Current ET time info
   const now = new Date();
@@ -169,23 +182,25 @@ export default async function handler(req, res) {
   const results = {};
   const errors = [];
 
-  // Process tickers in parallel (max 10 concurrent to respect FMP rate limits)
-  const chunks = [];
-  for (let i = 0; i < tickerList.length; i += 10) {
-    chunks.push(tickerList.slice(i, i + 10));
-  }
-
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map(async (ticker) => {
-        try {
-          const zvr = await computeZVR(ticker, apiKey, currentSlot, todayStr, now);
-          if (zvr != null) results[ticker] = zvr;
-        } catch (e) {
-          errors.push({ ticker, error: e.message });
-        }
-      })
-    );
+  // ONE batch-quote call for the whole request: volume = today's cumulative,
+  // avgVolume = 50-day average. ZVR = volume / (avgVolume × expected fraction).
+  try {
+    const url = `${FMP_BASE}/batch-quote?symbols=${encodeURIComponent(tickerList.join(","))}&apikey=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`FMP ${resp.status}`);
+    const quotes = await resp.json();
+    const frac = isRTH ? Math.max(0.02, sessionVolFraction(etMins - 570)) : 1.0;
+    if (Array.isArray(quotes)) {
+      for (const q of quotes) {
+        const sym = (q.symbol || "").toUpperCase();
+        const vol = Number(q.volume) || 0;
+        const avg = Number(q.avgVolume) || 0;
+        if (!sym || vol <= 0 || avg <= 0) continue;
+        results[sym] = Math.round((vol / (avg * frac)) * 100);
+      }
+    }
+  } catch (e) {
+    errors.push({ error: e.message });
   }
 
   // Best-effort intraday snapshot to Upstash every 30 min (slot % 6 === 0)
@@ -217,112 +232,4 @@ export default async function handler(req, res) {
       errors: errors.length > 0 ? errors : undefined,
     },
   });
-}
-
-async function computeZVR(ticker, apiKey, currentSlot, todayStr, now) {
-  // Check cache — reuse if profile was built today and is fresh
-  const cached = profileCache.get(ticker);
-  if (cached && cached.today === todayStr && (now.getTime() - cached.fetchedAt) < CACHE_TTL_MS) {
-    return zvrFromProfile(cached.profile, cached.todayCumVol, currentSlot);
-  }
-
-  // Fetch 5-min bars for the last ~30 calendar days (≈20 trading days)
-  const fromDate = new Date(now.getTime() - LOOKBACK_DAYS * 24 * 3600 * 1000);
-  const fromStr = fromDate.toISOString().split("T")[0];
-  const url = `${FMP_BASE}/historical-chart/5min?symbol=${encodeURIComponent(ticker)}&from=${fromStr}&to=${todayStr}&apikey=${apiKey}`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`FMP ${resp.status}`);
-  const data = await resp.json();
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  // FMP returns newest-first. Group bars by trading day.
-  // Each bar has: { date: "2026-06-09 10:35:00", volume: 1234567, ... }
-  const dayBuckets = new Map(); // "2026-06-09" -> Array of { slot, volume }
-  for (const bar of data) {
-    if (!bar.date || bar.volume == null) continue;
-    const [dateStr, timeStr] = bar.date.split(" ");
-    if (!timeStr) continue;
-    const [h, m] = timeStr.split(":").map(Number);
-    const barMins = h * 60 + m;
-    // Only RTH bars (9:30-15:55)
-    if (barMins < 570 || barMins >= 960) continue;
-    const slot = Math.floor((barMins - 570) / 5);
-    if (slot < 0 || slot >= SLOTS_PER_DAY) continue;
-
-    if (!dayBuckets.has(dateStr)) dayBuckets.set(dateStr, []);
-    dayBuckets.get(dateStr).push({ slot, volume: Number(bar.volume) || 0 });
-  }
-
-  if (dayBuckets.size === 0) return null;
-
-  // Separate today from historical days
-  const todayBars = dayBuckets.get(todayStr) || [];
-  const histDays = [];
-  for (const [d, bars] of dayBuckets) {
-    if (d !== todayStr) histDays.push(bars);
-  }
-
-  if (histDays.length === 0) return null; // need at least 1 historical day
-
-  // Build average cumulative volume profile across historical days
-  // For each day: sort bars by slot, compute cumulative volume at each slot
-  // Then average across days at each slot
-  const slotSums = new Float64Array(SLOTS_PER_DAY);
-  const slotCounts = new Uint16Array(SLOTS_PER_DAY);
-
-  for (const dayBars of histDays) {
-    dayBars.sort((a, b) => a.slot - b.slot);
-    let cumVol = 0;
-    let barIdx = 0;
-    for (let s = 0; s < SLOTS_PER_DAY; s++) {
-      // Add volume for bars at this slot
-      while (barIdx < dayBars.length && dayBars[barIdx].slot <= s) {
-        cumVol += dayBars[barIdx].volume;
-        barIdx++;
-      }
-      if (cumVol > 0) {
-        slotSums[s] += cumVol;
-        slotCounts[s]++;
-      }
-    }
-  }
-
-  // Average profile
-  const avgProfile = new Float64Array(SLOTS_PER_DAY);
-  for (let s = 0; s < SLOTS_PER_DAY; s++) {
-    avgProfile[s] = slotCounts[s] > 0 ? slotSums[s] / slotCounts[s] : 0;
-  }
-
-  // Today's cumulative volume up to each slot
-  const todayCumVol = new Float64Array(SLOTS_PER_DAY);
-  if (todayBars.length > 0) {
-    todayBars.sort((a, b) => a.slot - b.slot);
-    let cumVol = 0;
-    let barIdx = 0;
-    for (let s = 0; s < SLOTS_PER_DAY; s++) {
-      while (barIdx < todayBars.length && todayBars[barIdx].slot <= s) {
-        cumVol += todayBars[barIdx].volume;
-        barIdx++;
-      }
-      todayCumVol[s] = cumVol;
-    }
-  }
-
-  // Cache
-  profileCache.set(ticker, {
-    profile: avgProfile,
-    todayCumVol,
-    today: todayStr,
-    fetchedAt: now.getTime(),
-  });
-
-  return zvrFromProfile(avgProfile, todayCumVol, currentSlot);
-}
-
-function zvrFromProfile(avgProfile, todayCumVol, currentSlot) {
-  const avgAtSlot = avgProfile[currentSlot];
-  const todayAtSlot = todayCumVol[currentSlot];
-  if (!avgAtSlot || avgAtSlot <= 0) return null;
-  if (!todayAtSlot || todayAtSlot <= 0) return null;
-  return Math.round((todayAtSlot / avgAtSlot) * 100); // integer %
 }

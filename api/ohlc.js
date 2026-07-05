@@ -5,11 +5,14 @@
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
+// lookback = calendar days requested from FMP. Without from/to FMP returns its
+// full default range (a month+ of bars — ~1MB per 1-min request) only for us
+// to slice the last N bars; bounding the window cuts the transfer ~10x.
 const INTRADAY = {
-  "1m": { path: "1min", bars: 390 },
-  "5m": { path: "5min", bars: 78 },
-  "15m": { path: "15min", bars: 26 },
-  "30m": { path: "30min", bars: 65 },
+  "1m": { path: "1min", bars: 390, lookback: 4 },
+  "5m": { path: "5min", bars: 78, lookback: 4 },
+  "15m": { path: "15min", bars: 26, lookback: 6 },
+  "30m": { path: "30min", bars: 65, lookback: 10 },
 };
 
 // FMP intraday timestamps are "YYYY-MM-DD HH:MM:SS" in America/New_York
@@ -49,7 +52,10 @@ export default async function handler(req, res) {
   try {
     let ohlc;
     if (isIntraday) {
-      const url = `${FMP_BASE}/historical-chart/${intraSpec.path}?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
+      const now = new Date();
+      const fromStr = new Date(now.getTime() - intraSpec.lookback * 24 * 3600 * 1000).toISOString().split("T")[0];
+      const toStr = now.toISOString().split("T")[0];
+      const url = `${FMP_BASE}/historical-chart/${intraSpec.path}?symbol=${encodeURIComponent(ticker)}&from=${fromStr}&to=${toStr}&apikey=${apiKey}`;
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`FMP HTTP ${resp.status}`);
       const data = await resp.json();
