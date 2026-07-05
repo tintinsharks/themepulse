@@ -184,8 +184,11 @@ export default async function handler(req, res) {
 
   // ONE batch-quote call for the whole request: volume = today's cumulative,
   // avgVolume = 50-day average. ZVR = volume / (avgVolume × expected fraction).
+  let dbg = null;
   try {
-    const url = `${FMP_BASE}/batch-quote?symbols=${encodeURIComponent(tickerList.join(","))}&apikey=${apiKey}`;
+    // NOTE: symbols joined with RAW commas — FMP does not split %2C-encoded
+    // lists (mirrors live.js). Tickers are ^[A-Z.-]{1,6}$ so this is safe.
+    const url = `${FMP_BASE}/batch-quote?symbols=${tickerList.join(",")}&apikey=${apiKey}`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`FMP ${resp.status}`);
     const quotes = await resp.json();
@@ -198,6 +201,9 @@ export default async function handler(req, res) {
         if (!sym || vol <= 0 || avg <= 0) continue;
         results[sym] = Math.round((vol / (avg * frac)) * 100);
       }
+      if (req.query.dbg) dbg = { rows: quotes.length, first: quotes[0] ? { symbol: quotes[0].symbol, volume: quotes[0].volume, avgVolume: quotes[0].avgVolume } : null, frac };
+    } else if (req.query.dbg) {
+      dbg = { nonArray: JSON.stringify(quotes).slice(0, 200) };
     }
   } catch (e) {
     errors.push({ error: e.message });
@@ -230,6 +236,7 @@ export default async function handler(req, res) {
       tickers: tickerList.length,
       computed: Object.keys(results).length,
       errors: errors.length > 0 ? errors : undefined,
+      dbg: dbg || undefined,
     },
   });
 }
