@@ -161,82 +161,14 @@ export default async function handler(req, res) {
     }
   }
 
-  const { tickers } = req.query;
-  if (!tickers) return res.status(400).json({ ok: false, error: "Missing tickers param" });
-
-  const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) return res.status(500).json({ ok: false, error: "FMP_API_KEY not configured" });
-
-  const tickerList = tickers.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean).slice(0, 400);
-
-  // Current ET time info
-  const now = new Date();
-  const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const etMins = et.getHours() * 60 + et.getMinutes();
-  const todayStr = et.toISOString().split("T")[0];
-  // Current 5-min slot index (0 = 9:30, 77 = 3:55)
-  const currentSlot = Math.min(SLOTS_PER_DAY - 1, Math.max(0, Math.floor((etMins - 570) / 5)));
-  const isRTH = etMins >= 570 && etMins < 960;
-  const sessionPct = isRTH ? Math.round(((etMins - 570) / 390) * 100) : 100;
-
-  const results = {};
-  const errors = [];
-
-  // ONE batch-quote call for the whole request: volume = today's cumulative,
-  // avgVolume = 50-day average. ZVR = volume / (avgVolume × expected fraction).
-  let dbg = null;
-  try {
-    // NOTE: symbols joined with RAW commas — FMP does not split %2C-encoded
-    // lists (mirrors live.js). Tickers are ^[A-Z.-]{1,6}$ so this is safe.
-    const url = `${FMP_BASE}/batch-quote?symbols=${tickerList.join(",")}&apikey=${apiKey}`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`FMP ${resp.status}`);
-    const quotes = await resp.json();
-    const frac = isRTH ? Math.max(0.02, sessionVolFraction(etMins - 570)) : 1.0;
-    if (Array.isArray(quotes)) {
-      for (const q of quotes) {
-        const sym = (q.symbol || "").toUpperCase();
-        const vol = Number(q.volume) || 0;
-        const avg = Number(q.avgVolume) || 0;
-        if (!sym || vol <= 0 || avg <= 0) continue;
-        results[sym] = Math.round((vol / (avg * frac)) * 100);
-      }
-      if (req.query.dbg) dbg = { rows: quotes.length, first: quotes[0] ? { symbol: quotes[0].symbol, volume: quotes[0].volume, avgVolume: quotes[0].avgVolume } : null, frac };
-    } else if (req.query.dbg) {
-      dbg = { nonArray: JSON.stringify(quotes).slice(0, 200) };
-    }
-  } catch (e) {
-    errors.push({ error: e.message });
+  // ── ZVR quote path: DEPRECATED server-side (FMP data budget) ──
+  // FMP batch-quote carries no avgVolume, and the client already holds both
+  // inputs (live volume via the quote manager + avg_volume_raw from the
+  // pipeline) — ZVR is now computed client-side with the same U-profile.
+  // This branch stays only so stale clients get a harmless empty response.
+  if (req.query.tickers != null) {
+    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
+    return res.json({ ok: true, zvr: {}, meta: { clientSide: true } });
   }
-
-  // Best-effort intraday snapshot to Upstash every 30 min (slot % 6 === 0)
-  // for EOD review — key zvrhist:{date}, field "TICKER:slot", 14-day TTL.
-  if (isRTH && currentSlot % 6 === 0 && process.env.UPSTASH_REDIS_REST_URL && Object.keys(results).length) {
-    try {
-      const key = `zvrhist:${todayStr}`;
-      const args = ["HSET", key];
-      for (const [tk, val] of Object.entries(results)) args.push(`${tk}:${currentSlot}`, String(val));
-      const hdrs = { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`, "Content-Type": "application/json" };
-      await fetch(process.env.UPSTASH_REDIS_REST_URL, { method: "POST", headers: hdrs, body: JSON.stringify(args) });
-      await fetch(process.env.UPSTASH_REDIS_REST_URL, { method: "POST", headers: hdrs, body: JSON.stringify(["EXPIRE", key, String(14 * 24 * 3600)]) });
-    } catch { /* snapshot is best-effort */ }
-  }
-
-  // Cache for 30s during RTH, 5min outside
-  const maxAge = isRTH ? 30 : 300;
-  res.setHeader("Cache-Control", `s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 2}`);
-
-  return res.json({
-    ok: true,
-    zvr: results,
-    meta: {
-      slot: currentSlot,
-      elapsed: sessionPct + "%",
-      isRTH,
-      tickers: tickerList.length,
-      computed: Object.keys(results).length,
-      errors: errors.length > 0 ? errors : undefined,
-      dbg: dbg || undefined,
-    },
-  });
+  return res.status(400).json({ ok: false, error: "Missing tickers or journal param" });
 }

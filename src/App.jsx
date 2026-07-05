@@ -5581,58 +5581,17 @@ const _crPersist = new Map(); // ticker -> { n, strong }
 let _crPersistDay = null;
 
 function useZVR(tickers) {
-  // cur = latest poll, prev = poll before it (for intraday trend arrows)
-  const [maps, setMaps] = useState(() => ({ cur: new Map(), prev: new Map() }));
-  const tickerKey = useMemo(() => tickers?.slice().sort().join(",") || "", [tickers]);
-
-  useEffect(() => {
-    if (!tickerKey) return;
-    let cancelled = false;
-    let timer = null;
-    const all = tickerKey.split(",");
-
-    const fetchZVR = async () => {
-      // Hidden tab or overnight/weekend: skip the fetch, re-check later.
-      const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-      const _mins = _et.getHours() * 60 + _et.getMinutes();
-      const _day = _et.getDay();
-      const _marketish = _day >= 1 && _day <= 5 && _mins >= 240 && _mins <= 1200; // 4am-8pm ET weekdays
-      if ((typeof document !== "undefined" && document.hidden) || !_marketish) {
-        timer = setTimeout(fetchZVR, 300000);
-        return;
-      }
-      // API caps at 400 tickers per call (one FMP batch-quote each) — chunk + merge
-      const chunks = [];
-      for (let i = 0; i < all.length; i += 400) chunks.push(all.slice(i, i + 400));
-      const results = await Promise.all(chunks.map(async (chunk) => {
-        try {
-          const resp = await fetch(`/api/zvr?tickers=${encodeURIComponent(chunk.join(","))}`);
-          if (!resp.ok) return null;
-          return await resp.json();
-        } catch { return null; }
-      }));
-      if (cancelled) return;
-      const m = new Map();
-      let isRTH = false, gotAny = false;
-      for (const data of results) {
-        if (!data?.ok || !data.zvr) continue;
-        gotAny = true;
-        if (data.meta?.isRTH) isRTH = true;
-        for (const [tk, val] of Object.entries(data.zvr)) m.set(tk, val);
-      }
-      // History sampling happens at the row level in ChainTickerTable so
-      // linear/rel_volume-fallback tickers get sparklines too.
-      if (gotAny) setMaps((old) => ({ cur: m, prev: old.cur }));
-      // Next poll: 60s during RTH, 5min outside, 2min if everything errored
-      timer = setTimeout(fetchZVR, !gotAny ? 120000 : isRTH ? 60000 : 300000);
-    };
-
-    fetchZVR();
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [tickerKey]);
-
-  return { ...maps, history: _zvrHistory };
+  // DEPRECATED as a network hook (FMP data budget): /api/zvr's per-ticker
+  // 5-min-bar fetching was the main driver of the 150GB/mo overage, and FMP's
+  // batch-quote lacks avgVolume so a cheap server-side version isn't possible.
+  // Every consumer already computes profile-aware ZVR locally via calcZVR
+  // (live volume ÷ avg_volume_raw × session U-profile) — this hook now just
+  // returns empty maps so those fallbacks take over, keeping call sites and
+  // the rolling _zvrHistory sampling untouched.
+  void tickers;
+  return { cur: _EMPTY_ZVR_MAP, prev: _EMPTY_ZVR_MAP, history: _zvrHistory };
 }
+const _EMPTY_ZVR_MAP = new Map();
 
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
@@ -6007,10 +5966,10 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     for (const r of rows) {
       const su = chainSetup(r, setupCtx);
       if (!su) continue;
-      // Only journal badges computed from live API ZVR — fallback values
-      // (linear estimate / yesterday's rel_volume) produce bogus entries
+      // Only journal badges backed by a live quote with real volume —
+      // rel_volume-fallback values (yesterday's data) produce bogus entries
       // when a tab's quote loop stalls.
-      if (!apiZvrMap.has(r.ticker)) continue;
+      if (!(liveQuotes.get(r.ticker)?.volume > 0)) continue;
       const k = `${r.ticker}:${su.key}`;
       if (loggedSetups.current.has(k)) continue;
       loggedSetups.current.add(k);
