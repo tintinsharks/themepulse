@@ -2456,12 +2456,12 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
   };
 
   // Leaders: strongest established names in the top-N layers (RS + EIF + near-
-  // high + volume). The top-25 also form an exclusion set for Emerging.
+  // high + volume). The top-40 also form an exclusion set for Emerging.
   const leaderPool = (rsTab === "leaders" || rsTab === "emerging") ? buildStocks(sortedLayers(topLayers)) : [];
   const leaderTop = leaderPool.map((r) => ({ ...r, _score:
     0.40 * (r.rsRank ?? 0) + 0.30 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
     + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
-    + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 25);
+    + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 40);
   const leaderSet = new Set(leaderTop.map((r) => r.ticker));
   const leaderRows = rsTab === "leaders" ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
 
@@ -2484,7 +2484,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
       + 0.10 * (r.rsDay != null ? clampPct(50 + r.rsDay * 8) : 50) }));                                // today's relative strength
     rows.sort((a, b) => b._score - a._score);
     rows.forEach((r, i) => { r.lead = i + 1; });
-    return rows.slice(0, 25);
+    return rows.slice(0, 40);
   })();
   const liveOn = spyChg != null;
   return (
