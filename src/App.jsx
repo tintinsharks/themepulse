@@ -9505,17 +9505,17 @@ function WatchlistSectionTable({
     });
   };
 
+  // Core columns match the Sector Rotation / Scan Watch tables: RS Day% · ZVR · CR% · EIF.
   const headers = [
     { k: "ticker", label: "Ticker", align: "left" },
-    { k: "strScore", label: "Str" },
     { k: "change", label: "Chg%" },
-    { k: "rvol", label: "RV" },
-    { k: "liveVol", label: "Vol" },
+    { k: "rsDay", label: "RS Day%" },
+    { k: "zvr", label: "ZVR" },
     { k: "cr", label: "CR%" },
-    { k: "adr", label: "ADR" },
     { k: "rs", label: "EIF" },
-    { k: "chain", label: "Chain", align: "left" },
-    { k: "subtheme", label: "Sub", align: "left" },
+    { k: "adr", label: "ADR" },
+    { k: "strScore", label: "Str" },
+    { k: "setupRank", label: "Setup" },
     { k: null, label: "" },
   ];
 
@@ -9701,77 +9701,32 @@ function WatchlistSectionTable({
                             9M
                           </span>
                         )}
+                        {r.rsNH && <span title="RS new high before price (IBD)" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
                       </span>
                     </td>
-                    <td style={{ ...cell, color: r.strScore >= 65 ? ARIA.green : r.strScore >= 50 ? ARIA.blue : r.strScore >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
-                      {r.strScore != null ? r.strScore : "—"}
-                    </td>
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
-                    <td style={{ ...cell, color: colorRvol(r.rvol) }}>
-                      {r.rvol > 0 ? r.rvol.toFixed(1) + "x" : "—"}
+                    <td style={{ ...cell, color: r.rsDay == null ? ARIA.textMuted : r.rsDay > 0 ? ARIA.green : r.rsDay < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>
+                      {r.rsDay == null ? "\u2014" : (r.rsDay > 0 ? "+" : "") + r.rsDay.toFixed(2) + "%"}
                     </td>
-                    <td style={{ ...cell, color: ARIA.textDim, fontSize: 8 }}>
-                      {fmtVol(r.liveVol)}
+                    <td style={{ ...cell, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400 }}>
+                      {r.zvr == null ? "\u2014" : r.zvr + "%"}
                     </td>
                     <td style={{ ...cell, color: colorCr(r.cr) }}>
-                      {r.cr != null ? r.cr + "%" : "—"}
+                      {r.cr != null ? Math.round(r.cr) + "%" : "\u2014"}
+                    </td>
+                    <td style={{ ...cell, color: r.rs >= 60 ? ARIA.green : r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
+                      {r.rs || "\u2014"}
                     </td>
                     <td style={{ ...cell, color: ARIA.cyan }}>
-                      {r.adr ? r.adr.toFixed(1) + "%" : "—"}
+                      {r.adr ? r.adr.toFixed(1) + "%" : "\u2014"}
                     </td>
-                    <td
-                      style={{
-                        ...cell,
-                        color:
-                          r.rs >= 60 ? ARIA.green : r.rs >= 46 ? ARIA.blue : ARIA.textMuted,
-                      }}
-                    >
-                      {r.rs || "—"}
+                    <td style={{ ...cell, color: r.strScore >= 65 ? ARIA.green : r.strScore >= 50 ? ARIA.blue : r.strScore >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
+                      {r.strScore != null ? r.strScore : "\u2014"}
                     </td>
-                    <td style={{ ...cell, textAlign: "left", padding: "2px 3px", maxWidth: 90 }}>
-                      {(() => {
-                        const entries = TICKER_CHAIN_MAP.get(r.ticker) || [];
-                        if (!entries.length) return <span style={{ color: ARIA.textMuted, fontSize: 7 }}>—</span>;
-                        return (
-                          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                            {entries.map(({ themeId, layer }, i) => {
-                              const c = DRAWER_COLORS[themeId] || { color: "#c0c0d8" };
-                              return (
-                                <span
-                                  key={i}
-                                  title={`${layer} — click to view ${themeId} chain`}
-                                  onClick={(e) => { e.stopPropagation(); onChainClick && onChainClick(themeId); }}
-                                  style={{
-                                    fontSize: 6,
-                                    color: c.color,
-                                    cursor: onChainClick ? "pointer" : "default",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    maxWidth: 90,
-                                  }}
-                                >
-                                  {layer}
-                                </span>
-                              );
-                            })}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td
-                      style={{
-                        ...cell,
-                        textAlign: "left",
-                        color: ARIA.cyan,
-                        fontSize: 7,
-                        maxWidth: 80,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                      title={r.subtheme}
-                    >
-                      {r.subtheme || "—"}
+                    <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}>
+                      {r.setup
+                        ? <span title={r.setup.desc} style={{ fontSize: 7, fontWeight: 800, color: r.setup.color, background: `${r.setup.color}1f`, border: `1px solid ${r.setup.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>{r.setup.key}</span>
+                        : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>{"\u2014"}</span>}
                     </td>
                     <td style={{ ...cell, padding: "2px 4px" }}>
                       <button
@@ -9863,7 +9818,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
 
   // Live quotes for all unique tickers
   const allTickers = useMemo(() => {
-    const set = new Set([...portfolio, ...focus, ...watchlist]);
+    const set = new Set([...portfolio, ...focus, ...watchlist, "SPY"]); // SPY for RS Day% vs-market
     return Array.from(set);
   }, [portfolio, focus, watchlist]);
   const { quotes } = useLiveQuotes(allTickers, 60000);
@@ -9889,20 +9844,42 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         liveVol && avgVol > 0
           ? Math.round((liveVol / avgVol) * 100) / 100
           : s.rel_volume || 0;
+      // Match the rotation/Scan-Watch core: RS Day% (vs SPY), ZVR, Setup badge.
+      const spyChg = quotes.get("SPY")?.change ?? 0;
+      const rsDay = change != null ? Math.round((change - spyChg) * 100) / 100 : null;
+      const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const _mins = _et.getHours() * 60 + _et.getMinutes();
+      const _frac = _mins >= 570 && _mins < 960 ? Math.max(0.02, sessionVolFraction(_mins - 570)) : 1.0;
+      let zvr = null;
+      if (liveVol && avgVol > 0) zvr = Math.round((liveVol / (avgVol * _frac)) * 100);
+      else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+      if (zvr != null && change != null && change < 0) zvr = -zvr;
+      const eif = s.framework_score ?? s.rs_rank ?? 0;
+      const strScore = tickerStrengthMap?.[ticker] ?? null;
+      const setup = chainSetup({
+        rs: eif, rsRank: s.rs_rank, cr, zvr, alpha: rsDay, chg: change, str: strScore,
+        erDays: s.earnings_days, off52: s.off_52w_high, d20: s.dist_20dma_atrx, d50: s.dist_50sma_atrx, adr: s.adr_pct,
+      });
       return {
         ticker,
         price,
         change,
         chg: change, // alias for ScanWatchTable
         chgOpen,
+        rsDay,
+        zvr,
         cr,
         rvol,
         liveVol,
         adr: s.adr_pct || 0,
         qmagScore: s.qmag_score || 0,
-        strScore: tickerStrengthMap?.[ticker] ?? null,
+        strScore,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rs: s.framework_score ?? s.rs_rank ?? 0,
+        rsNH: !!s.rs_line_new_high,
+        rs: eif,
+        setup,
+        setupRank: setup?.rank ?? 0,
+        erDays: s.earnings_days ?? null,
         accel: s.accel || 0,
         grade: s.grade || "",
         theme: (s.themes && s.themes[0] && s.themes[0].theme) || s.sector || "",
@@ -9910,7 +9887,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
           (s.themes && s.themes[0] && s.themes[0].subtheme) || s.industry || "",
       };
     },
-    [stockMap, quotes]
+    [stockMap, quotes, tickerStrengthMap]
   );
 
   const portRows = useMemo(
