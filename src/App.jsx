@@ -296,6 +296,13 @@ const PRESETS = {
       return Math.abs(d20) <= 1 && d50 > 0 && rv <= 0.9 && chg > -2.5 && dv >= 10e6;
     },
   },
+  tight: {
+    label: "T2 Tight",
+    desc:
+      "2-Days-Tight (Wiedmaier): the last two closes within 1% of each other AND today's range narrower than yesterday's, above the 50sma. Compression before the spring — tonight's list of tomorrow's breakout candidates. Pair with a range-expansion day for entry. \$Vol ≥ 10M.",
+    color: "#f472b6",
+    test: (s) => !!s.two_day_tight && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5,
+  },
   rsnh: {
     label: "◆ RS↑",
     desc:
@@ -2068,6 +2075,12 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                 {rankCol && r.rsLineNewHigh && (
                   <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ marginLeft: 3, fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>
                 )}
+                {rankCol && r.tt && (
+                  <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2 }}>T2</span>
+                )}
+                {rankCol && r.de && (
+                  <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2 }}>DE</span>
+                )}
                 {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
                   <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
                 )}
@@ -2451,7 +2464,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
         now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth,
         off52: s.off_52w_high ?? null, cr: computeCR(q, s), zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
         chg, adr: s.adr_pct ?? null, d20: s.dist_20dma_atrx ?? null, d50: s.dist_50sma_atrx ?? null, // for the Setup badge
-        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high };
+        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null };
     });
   };
 
@@ -2809,7 +2822,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
 //    ADR min/max inputs, $Vol input, Chg≥/RV≥ sliders)
 //  - Sort buttons with primary¹/secondary² (left-click = primary, right-click
 //    = secondary). Sort keys: RS, Chg%, RVol, Acc, MAG, BO, Open%
-//  - 7 consolidated presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up, Reset
+//  - 8 consolidated presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up, Reset, T2 Tight, ◆ RS↑
 //  - Filter description box (shows preset's explanation when active)
 //
 // Phase 2.3 will add: short presets (BD/DT/WK/FL/DC), tag filters
@@ -2848,10 +2861,14 @@ function chainSetup(r, ctx) {
   // EP: post-earnings accumulation (Qullamaggie episodic pivot follow-through)
   if (erDays != null && erDays >= -3 && erDays <= 0 && zvr != null && zvr >= zEP && chg != null && chg > 0)
     return { key: "EP", color: "#22d3ee", rank: 5, desc: `Episodic Pivot: earnings ≤ 3d ago + ZVR ≥ ${Math.round(zEP)}% + green. Post-ER accumulation.` };
-  // BO: breakout to new highs on a range-expansion up day with volume — the entry
+  // BO: breakout to new highs on a range-expansion up day with volume — the entry.
+  // Jack-in-the-Box extension guard (Wiedmaier): expansion must still be anchored
+  // to the structural averages — within 3 ATR of the 20dma and 5 ATR of the 50sma.
+  // Beyond that the stock is "expanding and trending" — chasing, not entering.
+  const notExtended = (d20 == null || d20 <= 3) && (d50 == null || d50 <= 5);
   if (off52 != null && off52 >= -6 && chg != null && chg > 0 && chg >= (adr || 4) &&
-      zvr != null && zvr >= zBO && cr != null && cr >= 60 && eif != null && eif >= 50)
-    return { key: "BO", color: "#a855f7", rank: 7, desc: `Breakout: within 6% of the 52w high, up ≥ its ADR on ZVR ≥ ${Math.round(zBO)}% with a strong close (CR ≥ 60). Range-expansion entry — the actual buy.` };
+      zvr != null && zvr >= zBO && cr != null && cr >= 60 && eif != null && eif >= 50 && notExtended)
+    return { key: "BO", color: "#a855f7", rank: 7, desc: `Breakout: within 6% of the 52w high, up ≥ its ADR on ZVR ≥ ${Math.round(zBO)}% with a strong close (CR ≥ 60), and NOT extended (≤3 ATR from 20dma, ≤5 ATR from 50sma) — expansion near support, the actual buy.` };
   // ACC: institutional accumulation in a leader — strong close on volume
   if (alpha != null && alpha > 0 && zvr != null && zvr >= zHi && cr != null && cr >= 70 && eif != null && eif >= 52)
     return { key: "ACC", color: "#34d399", rank: 6, desc: `Accumulation: α > 0, ZVR ≥ ${Math.round(zHi)}%, CR% ≥ 70, EIF ≥ 52. Buyers in control of a leader.` };
@@ -5014,6 +5031,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Ticker glyphs</div>
           <div><span style={{ color: "#3b82f6", fontWeight: 800 }}>◆</span> RS new high before price (IBD) · <span style={{ color: ARIA.green, fontWeight: 800 }}>↗</span> fresh inflection (day pace ≫ its week)</div>
           <div><span style={{ color: "#fbbf24", fontWeight: 800 }}>⚠Nd</span> earnings in N days · <span style={{ color: "#fbbf24", fontWeight: 800 }}>α</span> chain-only (high-alpha, below scan filters)</div>
+          <div><span style={{ color: "#f472b6", fontWeight: 800 }}>T2</span> 2-days-tight (closes ≤1% apart + narrowing range) · <span style={{ color: "#fb923c", fontWeight: 800 }}>DE</span> delayed-entry-ready gapper (entry = trigger break)</div>
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Setup badges (live)</div>
           <div><span style={{ color: "#a855f7", fontWeight: 800 }}>BO</span> breakout entry · <span style={{ color: "#34d399", fontWeight: 800 }}>ACC</span> accumulation · <span style={{ color: "#22d3ee", fontWeight: 800 }}>EP</span> post-ER pivot</div>
           <div><span style={{ color: "#0ea5e9", fontWeight: 800 }}>RST</span> 🪃 leader reset at 20dma · <span style={{ color: "#fbbf24", fontWeight: 800 }}>VCP</span> volume dry-up · <span style={{ color: "#ef4444", fontWeight: 800 }}>DIST</span> distribution (exit)</div>
@@ -5748,7 +5766,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? sr.rs ?? s?.rs_rank ?? null, // EIF (framework score) — consistent with the column label
           rsRank: s?.rs_rank ?? null,                            // momentum RS rank (RST leader gate)
           off52: s?.off_52w_high ?? null,
-          rsNH: !!s?.rs_line_new_high,
+          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
@@ -5806,7 +5824,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? s?.rs_rank ?? null,
           rsRank: s?.rs_rank ?? null,
           off52: s?.off_52w_high ?? null,
-          rsNH: !!s?.rs_line_new_high,
+          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
@@ -5842,7 +5860,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             ticker: tk, themeId, theme, layer: layers[0] ?? null, layerCount: layers.length,
             chg, alpha: calcAlpha(chg, s), rvol,
             rs: s?.framework_score ?? s?.rs_rank ?? null, rsRank: s?.rs_rank ?? null,
-            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high,
+            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
             str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
             zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
             adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
@@ -5884,7 +5902,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         off52: s?.off_52w_high ?? null,
         d20: s?.dist_20dma_atrx ?? null,
         d50: s?.dist_50sma_atrx ?? null,
-        rsNH: !!s?.rs_line_new_high,
+        rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
@@ -6237,6 +6255,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     {r.ticker}
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                     {r.rsNH && <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
+                    {r.tt && <span title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
+                    {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
@@ -9032,6 +9052,8 @@ function ChartPanelInline({
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
             {!!stockInfo.rs_line_new_high && <span style={badgeStyle("#3b82f6")} title="RS new high before price (IBD 'blue dot') — the RS line (stock ÷ SPY) is at a new high while price is still below its own high. Leading breakout signal.">◆ RS↑</span>}
+            {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
+            {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
           </div>
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -9702,6 +9724,8 @@ function WatchlistSectionTable({
                           </span>
                         )}
                         {r.rsNH && <span title="RS new high before price (IBD)" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
+                        {r.tt && <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
+                        {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                       </span>
                     </td>
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
@@ -9875,7 +9899,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         qmagScore: s.qmag_score || 0,
         strScore,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rsNH: !!s.rs_line_new_high,
+        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null,
         rs: eif,
         setup,
         setupRank: setup?.rank ?? 0,
@@ -11782,8 +11806,19 @@ function AppMain() {
     Object.entries(frameworkScoresRaw).forEach(([ticker, score]) => {
       if (m[ticker]) m[ticker].framework_score = score;
     });
+    // Delayed-Entry readiness (Wiedmaier): stamp de_ready/de_trigger from the
+    // EP scanner's consolidation analysis so every table can flag stalkable
+    // gappers (2-7d post-gap, tight closes, narrowing range, holding 4-EMA).
+    (data.pipeline?.ep_signals || []).forEach((sig) => {
+      const c = sig?.consol;
+      if (c?.de_ready && m[sig.ticker]) {
+        m[sig.ticker].de_ready = true;
+        m[sig.ticker].de_trigger = c.de_trigger ?? null;
+        m[sig.ticker].de_days = c.days_since ?? null;
+      }
+    });
     return m;
-  }, [stocks, frameworkScoresRaw]);
+  }, [stocks, frameworkScoresRaw, data.pipeline?.ep_signals]);
 
   // Subtheme setup score per ticker — used in Scan Watch "Str" column.
   // Formula mirrors computeDailySetupScore in SubthemeRotation.jsx.
