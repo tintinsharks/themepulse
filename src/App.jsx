@@ -8996,6 +8996,14 @@ function ChartPanelInline({
   const erCountdown = erDaysRaw != null
     ? (erDaysRaw === 0 ? "TODAY" : erDaysRaw > 0 ? `${erDaysRaw}d` : `${-erDaysRaw}d ago`)
     : "";
+  // Next earnings DATE (formatted) + countdown for the thin header bar.
+  const nextErDisp = useMemo(() => {
+    const raw = liveEarningsDate?.date || stockInfo.earnings_display || null;
+    if (!raw) return erCountdown || "";
+    const d = new Date(`${raw}T00:00:00Z`);
+    const dateStr = isNaN(d.getTime()) ? String(raw) : d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    return erCountdown ? `${dateStr} (${erCountdown})` : dateStr;
+  }, [liveEarningsDate, stockInfo.earnings_display, erCountdown]);
 
   // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
   const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
@@ -9094,6 +9102,39 @@ function ChartPanelInline({
         flexDirection: "column",
       }}
     >
+      {/* Thin header bar — ticker · layer · Chg · Intraday · ADR · Next ER (left), ticker input (right) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{ticker}</span>
+        {tickerLayers.length > 0 ? (
+          <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: tickerLayers[0].themeId })); } catch {} }}
+            title={`${tickerLayers[0].theme} — click to open value-chain drawer${tickerLayers.length > 1 ? ` (+${tickerLayers.length - 1} more layer${tickerLayers.length - 1 > 1 ? "s" : ""})` : ""}`}
+            style={{ fontSize: 8, fontWeight: 700, padding: "1px 7px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, cursor: "pointer", flexShrink: 0 }}>
+            {tickerLayers[0].layer}{tickerLayers.length > 1 ? ` +${tickerLayers.length - 1}` : ""}
+          </span>
+        ) : stockInfo.sector ? (
+          <span style={{ fontSize: 8, fontWeight: 700, padding: "1px 7px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 0 }}>{stockInfo.sector}</span>
+        ) : null}
+        <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+          <span style={{ color: ARIA.textMuted }}>Chg</span>
+          <span style={{ color: chgColor, fontWeight: 700 }}>{chgPct != null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "\u2014"}</span>
+        </span>
+        <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+          <span style={{ color: ARIA.textMuted }}>Intra</span>
+          <span style={{ color: o > 0 && c > 0 ? (c >= o ? ARIA.green : ARIA.red) : ARIA.textMuted, fontWeight: 700 }}>{o > 0 && c > 0 ? `${c >= o ? "+" : ""}${((c - o) / o * 100).toFixed(2)}%` : "\u2014"}</span>
+        </span>
+        <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+          <span style={{ color: ARIA.textMuted }}>ADR</span>
+          <span style={{ color: ARIA.cyan }}>{adr != null ? `${adr.toFixed(1)}%` : "\u2014"}</span>
+        </span>
+        {(nextErDisp) && (
+          <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }} title="Next earnings date">
+            <span style={{ color: ARIA.textMuted }}>ER</span>
+            <span style={{ color: ARIA.cyan, fontWeight: 700 }}>{nextErDisp}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
+          </span>
+        )}
+        <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ marginLeft: "auto", width: 64, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none", flexShrink: 0 }} />
+      </div>
+
       {/* SVG D/W Chart */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <ErrorBoundary>
@@ -9168,23 +9209,9 @@ function ChartPanelInline({
           </button>
           <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-            <span style={{ color: ARIA.textMuted }}>Chg</span>
-            <span style={{ color: chgColor, fontWeight: 700 }}>{chgPct != null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "—"}</span>
-          </span>
-          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-            <span style={{ color: ARIA.textMuted }}>Intra</span>
-            <span style={{ color: o > 0 && c > 0 ? (c >= o ? ARIA.green : ARIA.red) : ARIA.textMuted, fontWeight: 700 }}>{o > 0 && c > 0 ? `${c >= o ? "+" : ""}${((c - o) / o * 100).toFixed(2)}%` : "—"}</span>
-          </span>
-          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
             <span style={{ color: ARIA.textMuted }}>RVol</span>
             <span style={{ color: rvColor, fontWeight: rvol >= 1.5 ? 700 : 400 }}>{rvol != null ? `${rvol.toFixed(1)}x` : "—"}</span>
           </span>
-          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-            <span style={{ color: ARIA.textMuted }}>ADR</span>
-            <span style={{ color: ARIA.cyan }}>{adr != null ? `${adr.toFixed(1)}%` : "—"}</span>
-          </span>
-          {erCountdown && <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(34,211,238,0.1)", border: "1px solid #3a8a9e", color: ARIA.cyan, fontFamily: "monospace", fontWeight: 700 }}>ER {erCountdown}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>}
-          <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 60, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
         </div>
       {/* Performance row — under the buttons, left edge under +WL */}
       {(() => {
