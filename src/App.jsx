@@ -9046,6 +9046,18 @@ function ChartPanelInline({
     return erCountdown ? `${dateStr} (${erCountdown})` : dateStr;
   }, [liveEarningsDate, stockInfo.earnings_display, erCountdown]);
 
+  // Layer-regime RS score (holds `s` from rs_rotation.json) — the exact value
+  // the LAYER REGIME box shows, distinct from rs_rank. Map ticker -> max s.
+  const rsRotation = useRsRotation();
+  const rsScoreMap = useMemo(() => {
+    const m = new Map();
+    (rsRotation?.layers || []).forEach((l) => (l.holds || []).forEach((h) => {
+      if (h?.t == null || h.s == null) return;
+      if (!m.has(h.t) || h.s > m.get(h.t)) m.set(h.t, h.s);
+    }));
+    return m;
+  }, [rsRotation]);
+
   // CANSLIM composite + within-sector EPS/Rev growth percentiles for the perf bar.
   const canslimGrade = useMemo(() => canslimComposite(stockInfo, annuals, stockMap), [stockInfo, annuals, stockMap]);
   const sectorPct = useCallback((field) => {
@@ -9216,7 +9228,7 @@ function ChartPanelInline({
           : "#c04040";
         const csColor = (l) => (l === "A+" || l === "A") ? ARIA.green : l === "B" ? ARIA.blue : l === "C" ? ARIA.yellow : l === "D" ? "#f59e0b" : l === "F" ? ARIA.red : ARIA.textMuted;
         const pctColor = (v) => v == null ? ARIA.textMuted : v >= 80 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 30 ? ARIA.yellow : ARIA.textDim;
-        const rsRank = stockInfo?.rs_rank ?? null;
+        const rsRank = rsScoreMap.get(ticker) ?? stockInfo?.rs_rank ?? null;
         const rsColor = rsRank == null ? ARIA.textMuted : rsRank >= 90 ? ARIA.green : rsRank >= 70 ? ARIA.blue : rsRank >= 50 ? ARIA.yellow : ARIA.textDim;
         const perfs = [
           { label: "1M", val: stockInfo?.return_1m },
@@ -9254,7 +9266,7 @@ function ChartPanelInline({
                 </span>
               </span>
             )}
-            {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS Rating (rs_rank, 0-99) — the pipeline's relative-strength rank, same value used in the layer regime box")}
+            {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
           </div>
         );
       })()}
