@@ -9242,8 +9242,8 @@ function ChartPanelInline({
 
       {/* Ticker details — compact strip below the chart */}
       <div style={{ padding: "6px 14px", borderTop: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        {/* Meta block */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+        {/* Left column — badges + company + description */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {(has9M || stockInfo.two_day_tight || stockInfo.de_ready) && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
@@ -9252,30 +9252,24 @@ function ChartPanelInline({
               {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
             </div>
           )}
-          {/* Company + IPO */}
-          <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {stockInfo.company || ""}
+          <div style={{ fontSize: 9, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
+            {stockInfo.company || ticker}
           </div>
-          {/* Description — full text, wraps naturally */}
-          {description && (
-            <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.35, marginTop: 1 }}>
-              {description}
-            </div>
-          )}
+          {description
+            ? <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.4 }}>{description}</div>
+            : <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic" }}>No description available.</div>}
         </div>
-      </div>
-
-      {/* News — fills the freed bottom area; expanded by default */}
-      {news.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          <div onClick={() => setNewsOpen(o => !o)}
-            style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none", fontSize: 8, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
-            onMouseEnter={e => { e.currentTarget.style.color = "#9090a0"; }}
+        {/* Right column — news */}
+        <div style={{ flex: 1, minWidth: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 14 }}>
+          <div onClick={() => news.length > 0 && setNewsOpen(o => !o)}
+            style={{ display: "flex", alignItems: "center", gap: 5, cursor: news.length > 0 ? "pointer" : "default", userSelect: "none", fontSize: 8, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
+            onMouseEnter={e => { if (news.length > 0) e.currentTarget.style.color = "#9090a0"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "#6a6a7a"; }}>
-            <span style={{ fontSize: 7 }}>{newsOpen ? "▼" : "▶"}</span>
+            {news.length > 0 && <span style={{ fontSize: 7 }}>{newsOpen ? "▼" : "▶"}</span>}
             News <span style={{ color: "#4a4a5a", fontWeight: 400 }}>({news.length})</span>
           </div>
-          {newsOpen && (
+          {news.length === 0 && <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
+          {newsOpen && news.length > 0 && (
             <div style={{ maxHeight: 150, overflowY: "auto" }}>
               {news.slice(0, 8).map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
@@ -9290,7 +9284,7 @@ function ChartPanelInline({
             </div>
           )}
         </div>
-      )}
+      </div>
       </div>
 
       {/* Risk Management Dashboard */}
