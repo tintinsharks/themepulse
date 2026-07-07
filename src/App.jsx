@@ -303,6 +303,13 @@ const PRESETS = {
     color: "#f472b6",
     test: (s) => !!s.two_day_tight && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5,
   },
+  de: {
+    label: "DE Ready",
+    desc:
+      "Delayed Entry ready (Wiedmaier): gapped up 2-7 days ago, still holding the gap, last two closes tight (≤1%) with narrowing range, above the 4-EMA. The stalk-the-gapper queue — entry is the break of the DE trigger price (hover the orange DE marker or open the drawer to see it). Note: these are flat/tight days by definition — turn OFF the Chg>0% toggle or most will be hidden.",
+    color: "#fb923c",
+    test: (s) => !!s.de_ready,
+  },
   rsnh: {
     label: "◆ RS↑",
     desc:
@@ -2822,7 +2829,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
 //    ADR min/max inputs, $Vol input, Chg≥/RV≥ sliders)
 //  - Sort buttons with primary¹/secondary² (left-click = primary, right-click
 //    = secondary). Sort keys: RS, Chg%, RVol, Acc, MAG, BO, Open%
-//  - 8 consolidated presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up, Reset, T2 Tight, ◆ RS↑
+//  - 10 presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up, Reset, T2 Tight, DE Ready, ◆ RS↑
 //  - Filter description box (shows preset's explanation when active)
 //
 // Phase 2.3 will add: short presets (BD/DT/WK/FL/DC), tag filters
