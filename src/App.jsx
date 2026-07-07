@@ -4821,8 +4821,12 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       // Helper falls back to pipeline cr_pct + clamps to 0-100.
       const cr = computeCR(q, s);
 
-      // Chg>0% filter — applies to either Open or Chg mode
-      if (filters.greenOnly) {
+      // Chg>0% filter — applies to either Open or Chg mode.
+      // Auto-suspended while a quiet-day preset (T2 Tight / DE Ready) is
+      // active: those setups are flat/tight closes BY DEFINITION, so the
+      // green filter would hide half the very names the preset selects.
+      const quietPreset = activePresets.has("tight") || activePresets.has("de");
+      if (filters.greenOnly && !quietPreset) {
         const gainKey =
           filters.chgMode === "open" && chgOpen != null ? chgOpen : chg;
         if (gainKey <= 0) continue;
@@ -4909,7 +4913,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       filtered = filtered.filter((r) => union.has(r.ticker));
     }
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters, activePresets]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
