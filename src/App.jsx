@@ -5818,6 +5818,19 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           if (scanFilters.minEif > 0 && eifVal < scanFilters.minEif) continue;
           if (scanFilters.minChg > 0 && (chg == null || chg < scanFilters.minChg)) continue;
         }
+        // ...and active presets/tags too — with T2/DE/etc. selected, injected
+        // α names that don't match the preset are exactly what the user
+        // filtered OUT (the "α names that aren't part of T2" bug).
+        if (activePresets && activePresets.size > 0) {
+          let pass = true;
+          for (const k of activePresets) { const pr = PRESETS[k]; if (pr && s && !pr.test(s)) { pass = false; break; } if (pr && !s) { pass = false; break; } }
+          if (!pass) continue;
+        }
+        if (activeTags && activeTags.size > 0) {
+          let pass = true;
+          for (const k of activeTags) { if (k === "9M") continue; const tg = TAG_PREDICATES[k]; if (tg && (!s || !tg.test(s))) { pass = false; break; } }
+          if (!pass) continue;
+        }
         const liveVol = q?.volume;
         const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
         let rvol = null;
@@ -5926,7 +5939,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         erDays: s?.earnings_days ?? null,
       };
     });
-  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap, pfOnly, portfolio, fcOnly, focus]);
+  }, [scanRows, allChainTickers, liveQuotes, stockMap, tickerStrengthMap, alphaMode, spyReturns, scanFilters, ownedSet, apiZvrMap, prevZvrMap, pfOnly, portfolio, fcOnly, focus, activePresets, activeTags]);
 
   // Regime context for setup thresholds: scale ZVR bars by today's tape.
   // zFactor = universe median |ZVR| / 60 (baseline), clamped 0.8–1.4 so a hot
