@@ -9060,16 +9060,16 @@ function ChartPanelInline({
 
   // CANSLIM composite + within-sector EPS/Rev growth percentiles for the perf bar.
   const canslimGrade = useMemo(() => canslimComposite(stockInfo, annuals, stockMap), [stockInfo, annuals, stockMap]);
-  const sectorPct = useCallback((field) => {
-    const sector = stockInfo.sector, mine = stockInfo[field];
-    if (!sector || mine == null || !stockMap) return null;
-    const peers = Object.values(stockMap).filter((s) => s && s.sector === sector && s[field] != null);
-    if (peers.length < 3) return null;
+  const globalPct = useCallback((field) => {
+    const mine = stockInfo[field];
+    if (mine == null || !stockMap) return null;
+    const peers = Object.values(stockMap).filter((s) => s && s[field] != null);
+    if (peers.length < 10) return null;
     const better = peers.filter((s) => s[field] > mine).length;
     return Math.round((1 - better / peers.length) * 100);
   }, [stockInfo, stockMap]);
-  const epsSectorPct = useMemo(() => sectorPct("eps_yoy"), [sectorPct]);
-  const revSectorPct = useMemo(() => sectorPct("sales_yoy"), [sectorPct]);
+  const epsPct = useMemo(() => globalPct("eps_yoy"), [globalPct]);
+  const revPct = useMemo(() => globalPct("sales_yoy"), [globalPct]);
 
   // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
   const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
@@ -9182,20 +9182,20 @@ function ChartPanelInline({
         ) : null}
         <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
           <span style={{ color: ARIA.textMuted }}>Chg</span>
-          <span style={{ color: chgColor, fontWeight: 700 }}>{chgPct != null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "\u2014"}</span>
+          <span style={{ color: chgPct != null && Math.abs(chgPct) > 2 ? (chgPct > 0 ? ARIA.green : ARIA.red) : ARIA.textDim, fontWeight: chgPct != null && Math.abs(chgPct) > 2 ? 700 : 400 }}>{chgPct != null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "\u2014"}</span>
         </span>
         <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
           <span style={{ color: ARIA.textMuted }}>Intra</span>
-          <span style={{ color: o > 0 && c > 0 ? (c >= o ? ARIA.green : ARIA.red) : ARIA.textMuted, fontWeight: 700 }}>{o > 0 && c > 0 ? `${c >= o ? "+" : ""}${((c - o) / o * 100).toFixed(2)}%` : "\u2014"}</span>
+          <span style={{ color: (o > 0 && c > 0 && Math.abs((c - o) / o * 100) > 2) ? (c >= o ? ARIA.green : ARIA.red) : ARIA.textDim, fontWeight: (o > 0 && c > 0 && Math.abs((c - o) / o * 100) > 2) ? 700 : 400 }}>{o > 0 && c > 0 ? `${c >= o ? "+" : ""}${((c - o) / o * 100).toFixed(2)}%` : "\u2014"}</span>
         </span>
         <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
           <span style={{ color: ARIA.textMuted }}>ADR</span>
-          <span style={{ color: ARIA.cyan }}>{adr != null ? `${adr.toFixed(1)}%` : "\u2014"}</span>
+          <span style={{ color: adr != null && adr >= 4 ? ARIA.cyan : ARIA.textDim, fontWeight: adr != null && adr >= 4 ? 700 : 400 }}>{adr != null ? `${adr.toFixed(1)}%` : "\u2014"}</span>
         </span>
         {(nextErDisp) && (
           <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }} title="Next earnings date">
             <span style={{ color: ARIA.textMuted }}>ER</span>
-            <span style={{ color: ARIA.cyan, fontWeight: 700 }}>{nextErDisp}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
+            <span style={{ color: (erDaysRaw != null && erDaysRaw >= 0 && erDaysRaw <= 21) ? ARIA.cyan : ARIA.textDim, fontWeight: (erDaysRaw != null && erDaysRaw >= 0 && erDaysRaw <= 21) ? 700 : 400 }}>{nextErDisp}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -9219,13 +9219,6 @@ function ChartPanelInline({
       {/* Second thin row — grade · perf · 52W · Str (left), IPO (right) */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "3px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
       {(() => {
-        const perfColor = (v) =>
-          v == null ? ARIA.textMuted
-          : v >= 50  ? "#0d9163"
-          : v >= 20  ? "#22a37a"
-          : v >= 0   ? "#5a9a6a"
-          : v >= -20 ? "#a06030"
-          : "#c04040";
         const csColor = (l) => (l === "A+" || l === "A") ? ARIA.green : l === "B" ? ARIA.blue : l === "C" ? ARIA.yellow : l === "D" ? "#f59e0b" : l === "F" ? ARIA.red : ARIA.textMuted;
         const pctColor = (v) => v == null ? ARIA.textMuted : v >= 80 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 30 ? ARIA.yellow : ARIA.textDim;
         const rsRank = rsScoreMap.get(ticker) ?? stockInfo?.rs_rank ?? null;
@@ -9248,12 +9241,12 @@ function ChartPanelInline({
               </span>
             )}
             {stat("CANSLIM", <span style={{ color: csColor(canslimGrade), fontWeight: 700 }}>{canslimGrade}</span>, "CANSLIM composite — unweighted average of O'Neil/IBD's gradeable criteria (EPS growth, accel, 5Y EPS, sales, margin, ROE, inst flow, dist-from-high, industry rank)")}
-            {stat("EPS", <span style={{ color: pctColor(epsSectorPct), fontWeight: 700 }}>{epsSectorPct != null ? `P${epsSectorPct}` : "—"}</span>, "EPS growth (YoY) percentile within its sector")}
-            {stat("Rev", <span style={{ color: pctColor(revSectorPct), fontWeight: 700 }}>{revSectorPct != null ? `P${revSectorPct}` : "—"}</span>, "Revenue growth (YoY) percentile within its sector")}
+            {stat("EPS", <span style={{ color: pctColor(epsPct), fontWeight: 700 }}>{epsPct != null ? `P${epsPct}` : "—"}</span>, "EPS growth (YoY) percentile vs the full universe")}
+            {stat("Rev", <span style={{ color: pctColor(revPct), fontWeight: 700 }}>{revPct != null ? `P${revPct}` : "—"}</span>, "Revenue growth (YoY) percentile vs the full universe")}
             {perfs.map(({ label, val }) => (
               <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
                 <span style={{ color: ARIA.textMuted }}>{label}</span>
-                <span style={{ color: perfColor(val), fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
+                <span style={{ color: ARIA.textDim, fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
                   {val != null ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
                 </span>
               </span>
@@ -9261,7 +9254,7 @@ function ChartPanelInline({
             {fromHi != null && (
               <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
                 <span style={{ color: ARIA.textMuted }}>52W</span>
-                <span style={{ color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontWeight: 700 }}>
+                <span style={{ color: fromHi >= -20 ? ARIA.green : ARIA.textDim, fontWeight: fromHi >= -20 ? 700 : 400 }}>
                   {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
                 </span>
               </span>
