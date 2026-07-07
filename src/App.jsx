@@ -2225,6 +2225,13 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
   }, []);
   // stocks array for the embedded Earnings Calendar subtab (it expects the pipeline array shape)
   const stocksArr = useMemo(() => Object.values(stockMap || {}), [stockMap]);
+  // 👑 Apex evidence — walk-forward on-deck-vs-cold outcomes, written nightly by
+  // apex_tracker.py to /data/apex_evidence.json (the live test of the 63d backtest).
+  const [apexEv, setApexEv] = useState(null);
+  useEffect(() => {
+    fetch("/data/apex_evidence.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null)).then(setApexEv).catch(() => {});
+  }, []);
   // Let Market Conditions' rotation dots (or anything) drive the chart symbol.
   useEffect(() => {
     const onSym = (e) => {
@@ -2668,11 +2675,68 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
                 {tabBtn("emerging", "Emerging")}
                 {tabBtn("trends", "Trends")}
                 {tabBtn("playbook", "Playbook")}
+                {tabBtn("apex", "👑 Apex")}
                 {tabBtn("ercal", "ER Cal")}
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
+            if (rsTab === "apex") {
+              const ev = apexEv;
+              const liveRet = (t, entryPx) => { const q = liveQuotes?.[t]?.price ?? stockMap?.[t]?.price ?? stockMap?.[t]?.close; return (q && entryPx) ? (q / entryPx - 1) * 100 : null; };
+              const fmt = (v, d = 1) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
+              const col = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+              const box = { border: `1px solid ${ARIA.border}`, borderRadius: 4, padding: "6px 8px", background: ARIA.bgCard };
+              const stat = (lbl, o, accent) => (
+                <div style={{ ...box, flex: 1, minWidth: 120 }}>
+                  <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.4, color: accent || ARIA.textMuted, fontWeight: 800 }}>{lbl}</div>
+                  {o && o.n > 0
+                    ? <div style={{ fontSize: 11, fontWeight: 700, color: ARIA.text, marginTop: 2 }}>{o.winRate}% win · <span style={{ color: col(o.avgRet) }}>{fmt(o.avgRet)}</span> <span style={{ fontSize: 8, color: ARIA.textMuted, fontWeight: 400 }}>n={o.n}</span></div>
+                    : <div style={{ fontSize: 9, color: ARIA.textMuted, marginTop: 3 }}>no closed campaigns yet</div>}
+                </div>
+              );
+              return (
+                <div style={{ overflowY: "auto", maxHeight: (parseInt(localStorage.getItem("tp-regime-h2") || "440", 10) || 440), padding: "2px 2px 8px", fontFamily: "monospace" }}>
+                  <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
+                    Walk-forward test of the Apex cohort (top-2 RS in top-5 layers). Each night <b style={{ color: ARIA.text }}>apex_tracker</b> tracks every promotion from entry to exit and splits closed returns by whether the name was seen <b style={{ color: ARIA.yellow }}>on-deck</b> before promotion vs a <b style={{ color: ARIA.textDim }}>cold</b> jump. Watchlist evidence — not signals. {ev?.updated ? `Updated ${ev.updated}.` : ""}
+                  </div>
+                  {!ev && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>Loading evidence…</div>}
+                  {ev && (<>
+                    <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "2px 0 4px" }}>Closed campaigns — on-deck vs cold</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                      {stat("All closed", ev.closed?.all)}
+                      {stat("↳ From on-deck", ev.closed?.fromOnDeck, ARIA.yellow)}
+                      {stat("↳ Cold jump", ev.closed?.cold, ARIA.textDim)}
+                    </div>
+                    <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "2px 0 4px" }}>Open campaigns ({(ev.open || []).length})</div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
+                      <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+                        {["Ticker", "Src", "Entered", "Ret", "Off-pk"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 2 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {(ev.open || []).map((c) => { const lr = liveRet(c.t, stockMap?.[c.t]?.__entryPx) ?? c.ret; return (
+                          <tr key={c.t} onClick={() => openTicker(c.t)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                            <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{c.t}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "right" }}>{c.ondeck ? <span title="Promoted from the on-deck queue" style={{ color: ARIA.yellow, fontWeight: 800, fontSize: 8 }}>⏳</span> : <span title="Cold promotion — not seen on-deck first" style={{ color: ARIA.textDim, fontSize: 8 }}>cold</span>}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textMuted, fontSize: 8 }}>{c.entered || "—"}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: col(c.ret) }}>{fmt(c.ret)}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "right", color: col(c.offPeak) }}>{fmt(c.offPeak)}</td>
+                          </tr>
+                        ); })}
+                        {!(ev.open || []).length && <tr><td colSpan={5} style={{ padding: 8, textAlign: "center", color: ARIA.textMuted, fontSize: 9 }}>no open campaigns</td></tr>}
+                      </tbody>
+                    </table>
+                    {(ev.todayOnDeck || []).length > 0 && (<>
+                      <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "10px 0 4px" }}>⏳ On-deck now — promotion queue</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {ev.todayOnDeck.map((t) => <span key={t} onClick={() => openTicker(t)} title="On-deck: #3 RS in a top-5 layer, or top RS in layers 6-10. Watchlist, not an entry — you're ready the day it promotes." style={{ cursor: "pointer", fontSize: 8, fontWeight: 700, color: ARIA.yellow, border: `1px solid ${ARIA.yellow}55`, background: `${ARIA.yellow}14`, borderRadius: 3, padding: "1px 5px" }}>{t}</span>)}
+                      </div>
+                    </>)}
+                  </>)}
+                </div>
+              );
+            }
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
