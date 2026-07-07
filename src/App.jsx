@@ -9500,7 +9500,6 @@ function ChartPanelInline({
                 <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
                 <MiniQBars quarters={series} accessor={(q) => q.ocf_ps} yoyAccessor={(q) => q.ocf_yoy} color={ARIA.yellow} labelFmt={(v) => v.toFixed(2)} title="Op Cash Flow/sh" ARIA={ARIA} passYoy={25} hotYoy={40} />
               </div>
-              <CanslimScorecard ticker={ticker} stockInfo={stockInfo} cfVsEpsPct={series[series.length - 1]?.cf_vs_eps_pct ?? null} annuals={effectiveAnnuals} stockMap={stockMap} ARIA={ARIA} />
             </div>
           </div>
         );
