@@ -1043,18 +1043,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
   const isBasket = Array.isArray(basket) && basket.length > 0;
   const label = isBasket ? (basketLabel || "Layer") : sym;
 
-  // SPY/QQQ overlays — rebased to the main series' first close in the window
-  // (1:1 comparison): divergence between the lines IS relative strength.
-  const [overlays, setOverlays] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("tp-regime-overlays") || "[]")); } catch { return new Set(); }
-  });
-  const toggleOverlay = (o) => setOverlays((prev) => {
-    const next = new Set(prev);
-    if (next.has(o)) next.delete(o); else next.add(o);
-    try { localStorage.setItem("tp-regime-overlays", JSON.stringify([...next])); } catch {}
-    return next;
-  });
-  const [ovMaps, setOvMaps] = useState({}); // { SPY: Map(date→close), QQQ: ... }
   // SPY closes (always loaded) — RS-line denominator for the new-high-before-price dots
   const [rsBench, setRsBench] = useState(null);
   useEffect(() => {
@@ -1062,17 +1050,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     fetchOhlcBars("SPY").then((bars) => { if (alive) setRsBench(new Map((bars || []).map((b) => [b.date, b.close]))); }).catch(() => {});
     return () => { alive = false; };
   }, []);
-  useEffect(() => {
-    let alive = true;
-    const want = [...overlays].filter((o) => !ovMaps[o]);
-    if (!want.length) return;
-    Promise.all(want.map((o) => fetchOhlcBars(o).then((bars) => [o, new Map(bars.map((b) => [b.date, b.close]))])))
-      .then((entries) => { if (alive) setOvMaps((prev) => ({ ...prev, ...Object.fromEntries(entries) })); })
-      .catch(() => {});
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlays]);
-
   // Load the chart series (basket or single ticker); compute regime coloring.
   const basketKey = isBasket ? basket.join(",") : "";
   useEffect(() => {
@@ -1119,27 +1096,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>{label} data unavailable</div>;
     const W = 640, H = chartH, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
     const bars = spy.regimeBars, wk = spy.wk20;
-    // Overlay series (SPY/QQQ) aligned to the main bars' dates and rebased so
-    // each starts at the main series' first close — a 1:1 relative-strength view.
-    const OV_COLORS = { SPY: "#9ca3af", QQQ: "#a78bfa" };
-    const ovSeries = [];
-    [...overlays].forEach((o) => {
-      if (!isBasket && o === sym) return; // overlaying a symbol on itself is a flat dup
-      const m = ovMaps[o];
-      if (!m) return;
-      // forward-fill missing dates; find the first bar with overlay data
-      let first = -1, lastV = null;
-      const raw = bars.map((b, i) => {
-        const v = m.get(b.date) ?? lastV;
-        if (v != null) { if (first < 0) first = i; lastV = v; }
-        return v;
-      });
-      if (first < 0 || raw[first] == null) return;
-      const base = bars[first].close / raw[first];
-      const vals = raw.map((v) => (v == null ? null : v * base));
-      ovSeries.push({ o, vals, first, color: OV_COLORS[o] || ARIA.textDim, rawFirst: raw[first], raw });
-    });
-    const ovFlat = ovSeries.flatMap((s) => s.vals.filter((v) => v != null));
+    const ovFlat = [];
     const lo = Math.min(...bars.map((x) => x.close), ...wk, ...(ovFlat.length ? ovFlat : [Infinity]));
     const hi = Math.max(...bars.map((x) => x.close), ...wk, ...(ovFlat.length ? ovFlat : [-Infinity]));
     const rng = hi - lo || 1;
@@ -1227,19 +1184,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         <line x1={padL} y1={axisY} x2={W - padX} y2={axisY} stroke={ARIA.border} strokeWidth={0.7} />
         {ticks}
         <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
-        {/* SPY/QQQ overlays — rebased 1:1; gap vs main line = relative strength */}
-        {ovSeries.map((s) => {
-          const path = s.vals.map((v, i) => (v == null ? "" : `${i === s.first ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`)).join(" ");
-          const lastV = [...s.vals].reverse().find((v) => v != null);
-          return (
-            <g key={s.o}>
-              <path d={path} fill="none" stroke={s.color} strokeWidth={1.2} opacity={0.85} />
-              {lastV != null && hoverIdx == null && (
-                <text x={W - 4} y={y(lastV) + 9} textAnchor="end" fontSize="8" fill={s.color} fontFamily="monospace">{s.o}</text>
-              )}
-            </g>
-          );
-        })}
         {segs}
         {/* RS line (subject ÷ SPY) + blue dots = RS new high before price */}
         {rsPath && <polyline points={rsPath} fill="none" stroke="#3b82f6" strokeWidth={1.1} opacity={0.85} />}
@@ -1257,12 +1201,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
             <text x={x(hoverIdx) <= W / 2 ? x(hoverIdx) + 6 : x(hoverIdx) - 6} y={padT + 9}
               textAnchor={x(hoverIdx) <= W / 2 ? "start" : "end"} fontSize="9" fontWeight="700" fill={ARIA.text} fontFamily="monospace">
               {h.date} · {label} {h.close.toFixed(isBasket ? 1 : 2)}
-              {ovSeries.map((s) => {
-                const v = s.vals[hoverIdx];
-                if (v == null || hoverIdx < s.first) return null;
-                const diff = ((h.close - v) / bars[s.first].close) * 100; // cumulative-return gap since window start
-                return ` · vs ${s.o} ${diff >= 0 ? "+" : ""}${diff.toFixed(1)}%`;
-              }).filter(Boolean).join("")}
             </text>
           </g>
         )}
@@ -1283,21 +1221,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         ) : (
           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }}>{sym}</span>
         )}
-        {/* 1:1 benchmark overlays — rebased to window start so the gap = RS */}
-        <span style={{ display: "inline-flex", gap: 3, marginLeft: 4 }}>
-          {["SPY", "QQQ"].map((o) => {
-            const c = o === "SPY" ? "#9ca3af" : "#a78bfa";
-            const on = overlays.has(o);
-            return (
-              <button key={o} onClick={() => toggleOverlay(o)}
-                title={`Overlay ${o} rebased to the window start — the gap between the lines is relative strength`}
-                style={{ fontSize: 7, fontWeight: 700, padding: "0 4px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace",
-                  border: `1px solid ${on ? c : ARIA.border}`, color: on ? c : ARIA.textMuted, background: on ? c + "22" : "transparent" }}>
-                {o}
-              </button>
-            );
-          })}
-        </span>
         <span style={{ fontSize: 7.5, color: ARIA.textDim, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 460 }}>
           {isBasket ? (LAYER_DESC[label] || "click a constituent (left) to drill in") : "click a ticker above to chart it"}
         </span>
