@@ -2913,6 +2913,8 @@ const COL_HELP = {
   zvr: "ZVR — pace-adjusted relative volume: today's volume ÷ (its 50d average × the fraction of the session elapsed), signed negative on down days. +100 = trading at exactly average pace; +200 = double pace. LIVE. Regime-scaled thresholds drive the setup badges.",
   cr: "CR% — closing range: where price sits in the day's high-low range (100 = closing on the high, 0 = on the low). Strong closes (≥60) confirm buyers held into the close.",
   rs: "EIF — Execution & Integrity Framework score (0-86): the slow, fundamental-ish quality score from the pipeline (theme membership + growth/acceleration + quality + earnings-call read). NOT price momentum — that's RS. Click a dotted EIF value for its drivers.",
+  rsWk: "RS Wk% — 1-week return minus SPY over the same week. Positive = outperformed the market over the past week.",
+  rsMth: "RS Mth% — 1-month return minus SPY over the same month. Positive = outperformed the market over the past month.",
   adr: "ADR% — average daily range: the stock's typical high-to-low swing (14d), a volatility gauge. Higher = bigger daily moves = more room, but wider stops.",
   str: "Str — subtheme setup score (0-100): how cleanly this name is set up within its sub-layer, blending trend, tightness and position. Higher = better-formed setup.",
   strScore: "Str — subtheme setup score (0-100): how cleanly this name is set up within its sub-layer. Higher = better-formed setup.",
@@ -9557,7 +9559,7 @@ function WatchlistSectionTable({
     arr.sort((a, b) => {
       let av = a[sortKey];
       let bv = b[sortKey];
-      if (sortKey === "ticker" || sortKey === "subtheme" || sortKey === "chain") {
+      if (sortKey === "ticker" || sortKey === "subtheme" || sortKey === "chain" || sortKey === "layer") {
         if (sortKey === "chain") {
           const ae = TICKER_CHAIN_MAP.get(a.ticker) || [];
           const be = TICKER_CHAIN_MAP.get(b.ticker) || [];
@@ -9616,11 +9618,14 @@ function WatchlistSectionTable({
   // Core columns match the Sector Rotation / Scan Watch tables: RS Day% · ZVR · CR% · EIF.
   const headers = [
     { k: "ticker", label: "Ticker", align: "left" },
+    { k: "layer", label: "Chain · Layer", align: "left" },
     { k: "change", label: "Chg%" },
     { k: "rsDay", label: "RS Day%" },
     { k: "zvr", label: "ZVR" },
     { k: "cr", label: "CR%" },
     { k: "rs", label: "EIF" },
+    { k: "rsWk", label: "RS Wk%" },
+    { k: "rsMth", label: "RS Mth%" },
     { k: "adr", label: "ADR" },
     { k: "strScore", label: "Str" },
     { k: "setupRank", label: "Setup" },
@@ -9715,6 +9720,7 @@ function WatchlistSectionTable({
                     <th
                       key={i}
                       onClick={() => h.k && toggleSort(h.k)}
+                      title={COL_HELP[h.k === "change" ? "chg" : h.k === "setupRank" ? "setup" : h.k === "layer" ? "theme" : h.k] || undefined}
                       style={{
                         padding: "3px 5px",
                         fontSize: 7,
@@ -9813,6 +9819,9 @@ function WatchlistSectionTable({
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                       </span>
                     </td>
+                    <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
+                      {r.layer || "\u2014"}
+                    </td>
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
                     <td style={{ ...cell, color: r.rsDay == null ? ARIA.textMuted : r.rsDay > 0 ? ARIA.green : r.rsDay < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>
                       {r.rsDay == null ? "\u2014" : (r.rsDay > 0 ? "+" : "") + r.rsDay.toFixed(2) + "%"}
@@ -9825,6 +9834,12 @@ function WatchlistSectionTable({
                     </td>
                     <td style={{ ...cell, color: r.rs >= 60 ? ARIA.green : r.rs >= 46 ? ARIA.blue : ARIA.textMuted, fontWeight: 700 }}>
                       {r.rs || "\u2014"}
+                    </td>
+                    <td style={{ ...cell, color: r.rsWk == null ? ARIA.textMuted : r.rsWk > 0 ? ARIA.green : r.rsWk < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>
+                      {r.rsWk == null ? "\u2014" : (r.rsWk > 0 ? "+" : "") + r.rsWk.toFixed(1) + "%"}
+                    </td>
+                    <td style={{ ...cell, color: r.rsMth == null ? ARIA.textMuted : r.rsMth > 0 ? ARIA.green : r.rsMth < 0 ? ARIA.red : ARIA.textMuted, fontWeight: 600 }}>
+                      {r.rsMth == null ? "\u2014" : (r.rsMth > 0 ? "+" : "") + r.rsMth.toFixed(1) + "%"}
                     </td>
                     <td style={{ ...cell, color: ARIA.cyan }}>
                       {r.adr ? r.adr.toFixed(1) + "%" : "\u2014"}
@@ -9965,6 +9980,18 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
       if (zvr != null && change != null && change < 0) zvr = -zvr;
       const eif = s.framework_score ?? s.rs_rank ?? 0;
       const strScore = tickerStrengthMap?.[ticker] ?? null;
+      // RS week/month vs SPY + the rotation layer — to mirror the Sector
+      // Rotation regime table per-stock columns (Layer, RS Day/Wk/Mth%).
+      const spyWk = stockMap?.SPY?.return_1w ?? 0;
+      const spyMth = stockMap?.SPY?.return_1m ?? 0;
+      const rsWk = s.return_1w != null ? Math.round((s.return_1w - spyWk) * 100) / 100 : null;
+      const rsMth = s.return_1m != null ? Math.round((s.return_1m - spyMth) * 100) / 100 : null;
+      const _tc = TICKER_CHAIN_MAP.get(ticker);
+      const _chainDisp = _tc && _tc.length
+        ? (DRAWER_SUBTHEMES.find((d) => d.themeId === _tc[0].themeId)?.theme ?? _tc[0].themeId)
+        : ((s.themes && s.themes[0] && s.themes[0].theme) || s.sector || "");
+      const _layerDisp = _tc && _tc.length ? _tc[0].layer : ((s.themes && s.themes[0] && s.themes[0].subtheme) || s.industry || "");
+      const layer = _chainDisp && _layerDisp ? `${_chainDisp} · ${_layerDisp}` : (_layerDisp || _chainDisp || "");
       const setup = chainSetup({
         rs: eif, rsRank: s.rs_rank, cr, zvr, alpha: rsDay, chg: change, str: strScore,
         erDays: s.earnings_days, off52: s.off_52w_high, d20: s.dist_20dma_atrx, d50: s.dist_50sma_atrx, adr: s.adr_pct,
@@ -9976,6 +10003,9 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         chg: change, // alias for ScanWatchTable
         chgOpen,
         rsDay,
+        rsWk,
+        rsMth,
+        layer,
         zvr,
         cr,
         rvol,
