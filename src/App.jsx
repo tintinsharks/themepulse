@@ -7611,6 +7611,47 @@ function computeRSRank(tResp, sResp) {
   const diffPct = (tRet - sRet) * 100;
   return Math.max(0, Math.min(99, Math.round(50 + 0.5 * diffPct)));
 }
+// Compact CANSLIM composite (letter A+..F) from synchronously-available
+// fields — same gradeBand thresholds as the full CanslimScorecard, dropping
+// the async 12mo-RS and CF-vs-EPS criteria. Used in the chart panel's perf bar.
+function canslimComposite(stockInfo, annuals, stockMap) {
+  if (!stockInfo) return "—";
+  const epsYoy = stockInfo.eps_yoy ?? null;
+  const epsYoyPrev = stockInfo.eps_yoy_prev ?? null;
+  const accel = (epsYoy != null && epsYoyPrev != null) ? epsYoy - epsYoyPrev : null;
+  let eps5y = null;
+  const tryW = (n) => {
+    if (!Array.isArray(annuals) || annuals.length < n) return null;
+    const a = annuals.slice(-n); const f = a[0]?.eps, l = a[a.length - 1]?.eps;
+    if (f == null || l == null || f <= 0 || l <= 0) return null;
+    return (Math.pow(l / f, 1 / (a.length - 1)) - 1) * 100;
+  };
+  for (const n of [5, 4, 3]) { const v = tryW(n); if (v != null) { eps5y = v; break; } }
+  if (eps5y == null) eps5y = stockInfo.eps_past_5y ?? null;
+  const salesYoy = stockInfo.sales_yoy ?? null;
+  const margin = (() => { const m = stockInfo.profit_margin ?? null; return m != null ? (m < 1 ? m * 100 : m) : null; })();
+  const roe = (() => { const r = stockInfo.roe ?? null; return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null; })();
+  const instTrans = stockInfo.inst_trans_pct ?? null;
+  const pctFromHigh = stockInfo.pct_from_high ?? stockInfo.off_52w_high ?? null;
+  const distFromHigh = pctFromHigh != null ? Math.abs(pctFromHigh) : null;
+  let industryPct = null;
+  const industry = stockInfo.industry, myRs = stockInfo.rs_rank;
+  if (industry && myRs != null && stockMap) {
+    const peers = Object.values(stockMap).filter((s) => s && s.industry === industry && s.rs_rank != null);
+    if (peers.length >= 3) { const better = peers.filter((s) => s.rs_rank > myRs).length; industryPct = Math.round((1 - better / peers.length) * 100); }
+  }
+  return avgLetter([
+    gradeBand(epsYoy, [100, 50, 25, 10, 0]),
+    gradeBand(accel, [30, 10, 0, -10, -25]),
+    gradeBand(eps5y, [40, 25, 15, 10, 0]),
+    gradeBand(salesYoy, [40, 25, 15, 10, 0]),
+    gradeBand(margin, [25, 18, 12, 7, 2]),
+    gradeBand(roe, [30, 17, 12, 8, 0]),
+    gradeBand(instTrans, [2, 1, 0.3, 0, -1]),
+    gradeBand(distFromHigh != null ? -distFromHigh : null, [-3, -10, -20, -35, -50]),
+    gradeBand(industryPct, [95, 85, 70, 50, 30]),
+  ]);
+}
 const fmtPct = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
 const fmtPp = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "pp";
 const fmtRank = (v) => v.toFixed(0);
@@ -9005,6 +9046,19 @@ function ChartPanelInline({
     return erCountdown ? `${dateStr} (${erCountdown})` : dateStr;
   }, [liveEarningsDate, stockInfo.earnings_display, erCountdown]);
 
+  // CANSLIM composite + within-sector EPS/Rev growth percentiles for the perf bar.
+  const canslimGrade = useMemo(() => canslimComposite(stockInfo, annuals, stockMap), [stockInfo, annuals, stockMap]);
+  const sectorPct = useCallback((field) => {
+    const sector = stockInfo.sector, mine = stockInfo[field];
+    if (!sector || mine == null || !stockMap) return null;
+    const peers = Object.values(stockMap).filter((s) => s && s.sector === sector && s[field] != null);
+    if (peers.length < 3) return null;
+    const better = peers.filter((s) => s[field] > mine).length;
+    return Math.round((1 - better / peers.length) * 100);
+  }, [stockInfo, stockMap]);
+  const epsSectorPct = useMemo(() => sectorPct("eps_yoy"), [sectorPct]);
+  const revSectorPct = useMemo(() => sectorPct("sales_yoy"), [sectorPct]);
+
   // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
   const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
   const riskEntry = c > 0 ? c : (ohlcBars[ohlcBars.length - 1]?.close ?? null);
@@ -9153,21 +9207,6 @@ function ChartPanelInline({
       {/* Second thin row — grade · perf · 52W · Str (left), IPO (right) */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "3px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
       {(() => {
-        const firstClose = ohlcBars.length > 1 ? ohlcBars[0]?.close : null;
-        const lastClose  = ohlcBars.length > 1 ? ohlcBars[ohlcBars.length - 1]?.close : null;
-        const ipoDate    = stockInfo?.ipo_date;
-        const ipoDaysAgo = ipoDate ? Math.floor((Date.now() - new Date(ipoDate).getTime()) / 86400000) : null;
-        const ipoLabel   = ipoDaysAgo != null && ipoDaysAgo <= 910 ? "IPO" : "2.5Y";
-        const ipoPerf    = firstClose && lastClose && firstClose > 0
-          ? ((lastClose - firstClose) / firstClose) * 100
-          : null;
-        const perfs = [
-          { label: "1M",     val: stockInfo?.return_1m },
-          { label: "3M",     val: stockInfo?.return_3m },
-          { label: "6M",     val: stockInfo?.return_6m },
-          { label: "1Y",     val: stockInfo?.return_1y },
-          { label: ipoLabel, val: ipoPerf },
-        ];
         const perfColor = (v) =>
           v == null ? ARIA.textMuted
           : v >= 50  ? "#0d9163"
@@ -9175,17 +9214,32 @@ function ChartPanelInline({
           : v >= 0   ? "#5a9a6a"
           : v >= -20 ? "#a06030"
           : "#c04040";
+        const csColor = (l) => (l === "A+" || l === "A") ? ARIA.green : l === "B" ? ARIA.blue : l === "C" ? ARIA.yellow : l === "D" ? "#f59e0b" : l === "F" ? ARIA.red : ARIA.textMuted;
+        const pctColor = (v) => v == null ? ARIA.textMuted : v >= 80 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 30 ? ARIA.yellow : ARIA.textDim;
+        const rsRank = stockInfo?.rs_rank ?? null;
+        const rsColor = rsRank == null ? ARIA.textMuted : rsRank >= 90 ? ARIA.green : rsRank >= 70 ? ARIA.blue : rsRank >= 50 ? ARIA.yellow : ARIA.textDim;
+        const perfs = [
+          { label: "1M", val: stockInfo?.return_1m },
+          { label: "3M", val: stockInfo?.return_3m },
+          { label: "6M", val: stockInfo?.return_6m },
+        ];
+        const stat = (label, node, title) => (
+          <span title={title} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+            <span style={{ color: ARIA.textMuted }}>{label}</span>{node}
+          </span>
+        );
         return (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
-            {/* grade + perf metrics — aligned under the +WL/+PF/ER button block */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "nowrap", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "nowrap", flexShrink: 0 }}>
             {grade && (
-              <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
+              <span title="Overall grade" style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
                 {grade}
               </span>
             )}
+            {stat("CANSLIM", <span style={{ color: csColor(canslimGrade), fontWeight: 700 }}>{canslimGrade}</span>, "CANSLIM composite — unweighted average of O'Neil/IBD's gradeable criteria (EPS growth, accel, 5Y EPS, sales, margin, ROE, inst flow, dist-from-high, industry rank)")}
+            {stat("EPS", <span style={{ color: pctColor(epsSectorPct), fontWeight: 700 }}>{epsSectorPct != null ? `P${epsSectorPct}` : "—"}</span>, "EPS growth (YoY) percentile within its sector")}
+            {stat("Rev", <span style={{ color: pctColor(revSectorPct), fontWeight: 700 }}>{revSectorPct != null ? `P${revSectorPct}` : "—"}</span>, "Revenue growth (YoY) percentile within its sector")}
             {perfs.map(({ label, val }) => (
-              <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+              <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
                 <span style={{ color: ARIA.textMuted }}>{label}</span>
                 <span style={{ color: perfColor(val), fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
                   {val != null ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
@@ -9193,22 +9247,14 @@ function ChartPanelInline({
               </span>
             ))}
             {fromHi != null && (
-              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
                 <span style={{ color: ARIA.textMuted }}>52W</span>
                 <span style={{ color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontWeight: 700 }}>
                   {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
                 </span>
               </span>
             )}
-            {(() => { const str = ticker && tickerStrengthMap?.[ticker]; return str != null ? (
-              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-                <span style={{ color: ARIA.textMuted }}>Str</span>
-                <span style={{ color: str >= 65 ? ARIA.green : str >= 50 ? ARIA.blue : str >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
-                  {str}
-                </span>
-              </span>
-            ) : null; })()}
-            </div>
+            {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS Rating (rs_rank, 0-99) — the pipeline's relative-strength rank, same value used in the layer regime box")}
           </div>
         );
       })()}
