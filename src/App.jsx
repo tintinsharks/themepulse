@@ -299,9 +299,10 @@ const PRESETS = {
   tight: {
     label: "T2 Tight",
     desc:
-      "2-Days-Tight (Wiedmaier): the last two closes within 1% of each other AND today's range narrower than yesterday's, above the 50sma. Compression before the spring — tonight's list of tomorrow's breakout candidates. Pair with a range-expansion day for entry. \$Vol ≥ 10M.",
+      "2-Days-Tight + momentum leg (Wiedmaier): last two closes within 1% AND narrowing range, above the 50sma — AND a prior momentum leg (≥20%/1m, ≥10%/1w, or RS ≥ 85), per the book's 'minimum 20% leg before consolidation qualifies as a momentum setup'. The bull-flag coil: tonight's list of tomorrow's breakout candidates. \$Vol ≥ 10M.",
     color: "#f472b6",
-    test: (s) => !!s.two_day_tight && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5,
+    test: (s) => !!s.two_day_tight && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5 &&
+      ((s.return_1m || 0) >= 20 || (s.return_1w || 0) >= 10 || (s.rs_rank || 0) >= 85),
   },
   de: {
     label: "DE Ready",
