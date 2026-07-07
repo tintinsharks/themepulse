@@ -9132,7 +9132,22 @@ function ChartPanelInline({
             <span style={{ color: ARIA.cyan, fontWeight: 700 }}>{nextErDisp}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
           </span>
         )}
-        <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ marginLeft: "auto", width: 64, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none", flexShrink: 0 }} />
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {["D", "W"].map(tfOpt => (
+            <button key={tfOpt} onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
+              style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700, minWidth: 18 }}>
+              {tfOpt}
+            </button>
+          ))}
+          <button onClick={() => setShowTrade(prev => !prev)}
+            style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: showTrade ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: showTrade ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700 }}>
+            TRADE
+          </button>
+          <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inPF ? "✓PF" : "+PF"}</button>
+          <button onClick={toggleFC} title={inFC ? "Remove from Focus" : "Add to Focus (high-priority recent setups)"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inFC ? ARIA.bg : ARIA.cyan, background: inFC ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inFC ? "✓FC" : "⚡FC"}</button>
+          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inWL ? "✓WL" : "+WL"}</button>
+          <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 64, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
+        </div>
       </div>
 
       {/* SVG D/W Chart */}
@@ -9158,32 +9173,15 @@ function ChartPanelInline({
       {/* Ticker details — compact strip below the chart */}
       <div style={{ padding: "6px 14px", borderTop: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        {/* Logo */}
-        <div key={ticker} style={{ width: 36, height: 36, borderRadius: 6, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-          <img src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt={ticker} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} onError={e => { e.target.style.display = "none"; e.target.parentElement.style.background = "#2a2a40"; e.target.parentElement.style.color = "#c0c0d8"; e.target.parentElement.style.fontSize = "11px"; e.target.parentElement.style.fontWeight = "800"; e.target.parentElement.textContent = ticker; }} />
-        </div>
         {/* Meta block */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 14, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "#fff" }}>{ticker}</span>
-            {/* Layer membership (chain_layers.json — matches the RS Rotation Layers tab) */}
-            {tickerLayers.length > 0 ? tickerLayers.slice(0, 5).map((e, i) => (
-              <span key={`ly${i}`}
-                onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: e.themeId })); } catch {} }}
-                title={`${e.theme} — click to open value-chain drawer`}
-                style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap", cursor: "pointer" }}>
-                {e.layer}
-              </span>
-            )) : stockInfo.sector ? (
-              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, whiteSpace: "nowrap" }}>
-                {stockInfo.sector}
-              </span>
-            ) : null}
-            {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
-            {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
-            {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
-            {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
-          </div>
+          {(has9M || stockInfo.two_day_tight || stockInfo.de_ready) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
+              {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
+              {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
+              {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
+            </div>
+          )}
           {/* Company + IPO */}
           <div style={{ fontSize: 9, color: "#9090a0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {stockInfo.company || ""}
@@ -9197,23 +9195,7 @@ function ChartPanelInline({
         </div>
         {/* Right side: buttons + perf, stacked so perf starts under +WL */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5, flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-            {inPF ? "✓PF" : "+PF"}
-          </button>
-          <button onClick={toggleFC} title={inFC ? "Remove from Focus" : "Add to Focus (high-priority recent setups)"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inFC ? ARIA.bg : ARIA.cyan, background: inFC ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-            {inFC ? "✓FC" : "⚡FC"}
-          </button>
-          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700, flexShrink: 0 }}>
-            {inWL ? "✓WL" : "+WL"}
-          </button>
-          <span style={{ color: ARIA.borderLight, margin: "0 2px" }}>|</span>
-          <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-            <span style={{ color: ARIA.textMuted }}>RVol</span>
-            <span style={{ color: rvColor, fontWeight: rvol >= 1.5 ? 700 : 400 }}>{rvol != null ? `${rvol.toFixed(1)}x` : "—"}</span>
-          </span>
-        </div>
-      {/* Performance row — under the buttons, left edge under +WL */}
+      {/* Performance row */}
       {(() => {
         const firstClose = ohlcBars.length > 1 ? ohlcBars[0]?.close : null;
         const lastClose  = ohlcBars.length > 1 ? ohlcBars[ohlcBars.length - 1]?.close : null;
@@ -9274,26 +9256,14 @@ function ChartPanelInline({
           </div>
         );
       })()}
-        {/* Chart timeframe (D/W) + TRADE toggle + IPO date — under the perf line, right-aligned */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", alignSelf: "flex-end" }}>
-          {["D", "W"].map(tfOpt => (
-            <button key={tfOpt}
-              onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
-              style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700, minWidth: 18 }}>
-              {tfOpt}
-            </button>
-          ))}
-          <button onClick={() => setShowTrade(prev => !prev)}
-            style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: showTrade ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: showTrade ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700 }}>
-            TRADE
-          </button>
-          {stockInfo.ipo_date && (
+        {stockInfo.ipo_date && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-end" }}>
             <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3, fontFamily: "monospace", fontSize: 9 }}>
               <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>
               <span style={{ fontWeight: 700, color: ARIA.textDim }}>{stockInfo.ipo_date}</span>
             </span>
-          )}
-        </div>
+          </div>
+        )}
         </div>
       </div>
 
