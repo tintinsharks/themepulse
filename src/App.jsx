@@ -2837,6 +2837,27 @@ const SORT_BUTTONS = [
 // tape is (universe median |ZVR| vs a ~60 baseline, clamped 0.8–1.4) so the same
 // pill fires a similar number of names in a strong tape and a dead one. Absent
 // ctx → factor 1 → the fixed absolute thresholds.
+// Per-column metric explanations — shown on header hover across the ticker
+// tables (prepended to the sort-interaction hint). Keyed by sort key.
+const COL_HELP = {
+  ticker: "Ticker symbol. Click a row to load its chart + drawer.",
+  theme: "Chain → Layer: the theme group (chain) and the specific momentum layer this name belongs to. '+N more' = also a member of N other layers.",
+  chain: "Chain: the theme group this name belongs to (e.g. AI Infrastructure, Cybersecurity).",
+  subtheme: "Sub: the finest-grained sub-layer within the chain.",
+  chg: "Chg% — today's price change vs the prior close. LIVE during market hours.",
+  alpha: "RS (relative strength) = the stock's return minus SPY's over the selected window (DAY / WK / MTH — right-click to cycle). Positive = outperforming the market. This is α, not the 0-99 RS rank.",
+  zvr: "ZVR — pace-adjusted relative volume: today's volume ÷ (its 50d average × the fraction of the session elapsed), signed negative on down days. +100 = trading at exactly average pace; +200 = double pace. LIVE. Regime-scaled thresholds drive the setup badges.",
+  cr: "CR% — closing range: where price sits in the day's high-low range (100 = closing on the high, 0 = on the low). Strong closes (≥60) confirm buyers held into the close.",
+  rs: "EIF — Execution & Integrity Framework score (0-86): the slow, fundamental-ish quality score from the pipeline (theme membership + growth/acceleration + quality + earnings-call read). NOT price momentum — that's RS. Click a dotted EIF value for its drivers.",
+  adr: "ADR% — average daily range: the stock's typical high-to-low swing (14d), a volatility gauge. Higher = bigger daily moves = more room, but wider stops.",
+  str: "Str — subtheme setup score (0-100): how cleanly this name is set up within its sub-layer, blending trend, tightness and position. Higher = better-formed setup.",
+  strScore: "Str — subtheme setup score (0-100): how cleanly this name is set up within its sub-layer. Higher = better-formed setup.",
+  setup: "Setup — the live pattern badge (first match wins, priority order): DIST (distribution/exit), EP (post-earnings), BO (breakout entry, extension-guarded), ACC (accumulation), RST (leader reset at support), VCP (volume dry-up coil). Hover a badge for its exact trigger.",
+  erDays: "ER — trading days to (positive) or since (negative) the next/last earnings report. Yellow = within 7 days: event risk.",
+  rvol: "RV — relative volume: today's volume vs its average. >1 = heavier than usual participation. LIVE.",
+  liveVol: "Vol — today's share volume so far. LIVE during market hours.",
+};
+
 function chainSetup(r, ctx) {
   const { zvr, rs: eif, cr, str, alpha, erDays, chg, rsRank, off52, d20, d50, adr } = r;
   const f = ctx?.zFactor ?? 1;
@@ -6089,7 +6110,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     const arrow = on ? (sortSpec[idx].dir === "asc" ? " ▲" : " ▼") : "";
     return (
       <th onClick={(e) => toggleSort(k, e.shiftKey)}
-        title="Click to sort · Shift+click to add as secondary sort"
+        title={`${COL_HELP[k] ? COL_HELP[k] + "\n\n" : ""}Click to sort · Shift+click to add as secondary sort`}
         style={{
           padding: "3px 5px", fontSize: 7, fontWeight: 700,
           color: on ? ARIA.green : ARIA.textMuted,
@@ -6170,13 +6191,13 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         </button>
         <button
           onClick={() => setSetupsOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-setups-only", n ? "1" : "0"); } catch {} return n; })}
-          title="Show only rows with an active Setup badge (ACC / EP / VCP / DIST)"
+          title="Show only rows with an active Setup badge — DIST · EP · BO · ACC · RST · VCP (hover a badge for its trigger). ⚡ = something actionable is happening right now."
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: setupsOnly ? "#34d399" : ARIA.textMuted, background: setupsOnly ? "rgba(52,211,153,0.12)" : "transparent", border: `1px solid ${setupsOnly ? "rgba(52,211,153,0.45)" : ARIA.border}` }}>
           ⚡ SETUPS
         </button>
         <button
           onClick={() => setLeadersOnly((v) => { const n = !v; try { localStorage.setItem("tp-chain-leaders-only", n ? "1" : "0"); } catch {} return n; })}
-          title="Show only EIF leaders (starred — EIF ≥ 55, cross-referenced in Leaders)"
+          title="Show only quality leaders — EIF ≥ 55 with articulated drivers (the same names cross-referenced in the Leaders panel). ★ = is this name worth acting on."
           style={{ fontSize: 7, fontFamily: "monospace", fontWeight: 700, letterSpacing: 0.4, padding: "1px 6px", borderRadius: 3, cursor: "pointer", color: leadersOnly ? "#fbbf24" : ARIA.textMuted, background: leadersOnly ? "rgba(251,191,36,0.12)" : "transparent", border: `1px solid ${leadersOnly ? "rgba(251,191,36,0.45)" : ARIA.border}` }}>
           ★ LEADERS
         </button>
@@ -6220,7 +6241,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
               const aIdx = sortSpec.findIndex((s) => s.key === "alpha");
               return (
                 <th onClick={(e) => toggleSort("alpha", e.shiftKey)} onContextMenu={(e) => { e.preventDefault(); const next = alphaMode === "1d" ? "1w" : alphaMode === "1w" ? "1m" : "1d"; setAlphaMode(next); try { localStorage.setItem("tp-chain-heat-alpha", next); } catch {} }}
-                    title="Click to sort · Shift+click to add as secondary sort · Right-click to cycle α window (1d/1w/1m)"
+                    title={`${COL_HELP.alpha}\n\nClick to sort · Shift+click to add as secondary sort · Right-click to cycle α window (1d/1w/1m)`}
                     style={{ padding: "3px 5px", fontSize: 7, fontWeight: 700, color: aIdx >= 0 ? ARIA.green : ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, background: ARIA.bgCard, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
                   RS <span style={{ fontSize: 6, color: "#fbbf24", fontWeight: 800 }}>{alphaMode === "1d" ? "DAY" : alphaMode === "1w" ? "WK" : "MTH"}%</span>{aIdx >= 0 ? (sortSpec[aIdx].dir === "asc" ? " ▲" : " ▼") : ""}{aIdx >= 0 && sortSpec.length > 1 && <sup style={{ fontSize: 5, color: "#fbbf24", fontWeight: 800 }}>{aIdx + 1}</sup>}
                 </th>
@@ -6488,7 +6509,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
       <th
         onClick={() => handleHeaderClick(k)}
         onContextMenu={(e) => handleHeaderContext(e, k)}
-        title="Click = primary sort, right-click = secondary"
+        title={`${COL_HELP[k] ? COL_HELP[k] + "\n\n" : ""}Click = primary sort, right-click = secondary`}
         style={{
           padding: "4px 6px",
           fontSize: 8,
