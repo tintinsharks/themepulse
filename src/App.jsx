@@ -212,74 +212,6 @@ const MOM_LEGS = {
 };
 
 const PRESETS = {
-  "1w20": {
-    label: "1W 20%",
-    desc:
-      "Stocks up 20%+ in the last week. Price ≥ $5, avg volume ≥ 100K. Catches explosive breakouts early — the freshest momentum.",
-    color: "#0ea5e9",
-    test: MOM_LEGS["1w20"],
-  },
-  combo: {
-    label: "Combo",
-    desc:
-      "Sustained momentum conviction: matches 2+ of the five legs (1W 20%, 1M 20%, Strong, 3M ≥70%, 6M ≥100%). The overlap = highest conviction — replaces the old separate 1M/3M/6M pills.",
-    color: "#0ea5e9",
-    test: (s) => {
-      let hits = 0;
-      for (const k in MOM_LEGS) if (MOM_LEGS[k](s)) hits++;
-      return hits >= 2;
-    },
-  },
-  strongest: {
-    label: "Strong",
-    desc:
-      "70%+ above 52W low, EPS or Sales growth ≥ 25%, near moving averages (SMA20 -2% to 18%, SMA50 ≥ -3%). The fundamentals + buyable-position preset.",
-    color: "#0ea5e9",
-    test: MOM_LEGS.strongest,
-  },
-  gap4: {
-    label: "Gap4%+",
-    desc:
-      "Gapping up ≥ 4% today with volume > 1.1x average. MCap ≥ $300M, $Vol ≥ $50M. Episodic pivot candidates — the only intraday preset.",
-    color: "#22c55e",
-    test: (s) => {
-      const chg = s.change_pct || 0;
-      const rv = s.rel_volume || 0;
-      const mc = s.market_cap_raw || 0;
-      const dv = s.avg_dollar_vol_raw || 0;
-      return chg >= 4 && rv > 1.1 && mc >= 300e6 && dv >= 50e6;
-    },
-  },
-  accum: {
-    label: "Accum",
-    desc:
-      "Volume-before-price accumulation (Stealth ∪ ACCUM Stack merged): stealth_score ≥ 50 (20d $vol climbing much faster than price over 90d), OR 20d ADV up ≥ 100% crossed with insider cluster buying / 3+ EPS beats / RS ≥ 95. $Vol ≥ $20M, MCap ≥ $300M.",
-    color: "#a78bfa",
-    test: (s) => {
-      const dv = s.avg_dollar_vol_raw || 0;
-      const mc = s.market_cap_raw || 0;
-      if (dv < 20e6 || mc < 300e6) return false;
-      if ((s.stealth_score ?? -999) >= 50) return true;
-      const advUp = (s.adv_pct_90d || 0) >= 100;
-      const confirmed = !!s.insider_cluster_buy || (s.positive_surprise_streak || 0) >= 3 || (s.rs_rank || 0) >= 95;
-      return advUp && confirmed;
-    },
-  },
-  dryup: {
-    label: "Dry-Up",
-    desc:
-      "Volume dry-up setups: 5-day dollar volume < 80% of 20-day avg (dvol_ratio ≤ 0.8), flat week (1W < 5%), price above SMA20, above 52W low by 30%+, MCap ≥ $300M. Consolidating on declining volume — classic pre-breakout pattern.",
-    color: "#f59e0b",
-    test: (s) => {
-      const dvolRatio = s.dvol_ratio_5_20;
-      if (dvolRatio == null || dvolRatio > 0.8) return false;
-      const mc = s.market_cap_raw || 0;
-      const r1w = Math.abs(s.return_1w || 0);
-      const sma20 = s.sma20_pct || 0;
-      const aboveLow = s.above_52w_low || 0;
-      return mc >= 300e6 && r1w < 5 && sma20 >= 0 && aboveLow >= 30;
-    },
-  },
   reset: {
     label: "Reset",
     desc:
@@ -304,6 +236,46 @@ const PRESETS = {
     test: (s) => !!s.two_day_tight && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5 &&
       ((s.return_1m || 0) >= 20 || (s.return_1w || 0) >= 10 || (s.rs_rank || 0) >= 85),
   },
+  combo: {
+    label: "Combo",
+    desc:
+      "Sustained momentum conviction: matches 2+ of the five legs (1W 20%, 1M 20%, Strong, 3M ≥70%, 6M ≥100%). The overlap = highest conviction — replaces the old separate 1M/3M/6M pills.",
+    color: "#0ea5e9",
+    test: (s) => {
+      let hits = 0;
+      for (const k in MOM_LEGS) if (MOM_LEGS[k](s)) hits++;
+      return hits >= 2;
+    },
+  },
+  "1w20": {
+    label: "1W 20%",
+    desc:
+      "Stocks up 20%+ in the last week. Price ≥ $5, avg volume ≥ 100K. Catches explosive breakouts early — the freshest momentum.",
+    color: "#0ea5e9",
+    test: MOM_LEGS["1w20"],
+  },
+  strongest: {
+    label: "Strong",
+    desc:
+      "70%+ above 52W low, EPS or Sales growth ≥ 25%, near moving averages (SMA20 -2% to 18%, SMA50 ≥ -3%). The fundamentals + buyable-position preset.",
+    color: "#0ea5e9",
+    test: MOM_LEGS.strongest,
+  },
+  accum: {
+    label: "Accum",
+    desc:
+      "Volume-before-price accumulation (Stealth ∪ ACCUM Stack merged): stealth_score ≥ 50 (20d $vol climbing much faster than price over 90d), OR 20d ADV up ≥ 100% crossed with insider cluster buying / 3+ EPS beats / RS ≥ 95. $Vol ≥ $20M, MCap ≥ $300M.",
+    color: "#a78bfa",
+    test: (s) => {
+      const dv = s.avg_dollar_vol_raw || 0;
+      const mc = s.market_cap_raw || 0;
+      if (dv < 20e6 || mc < 300e6) return false;
+      if ((s.stealth_score ?? -999) >= 50) return true;
+      const advUp = (s.adv_pct_90d || 0) >= 100;
+      const confirmed = !!s.insider_cluster_buy || (s.positive_surprise_streak || 0) >= 3 || (s.rs_rank || 0) >= 95;
+      return advUp && confirmed;
+    },
+  },
   de: {
     label: "DE Ready",
     desc:
@@ -311,12 +283,18 @@ const PRESETS = {
     color: "#fb923c",
     test: (s) => !!s.de_ready,
   },
-  rsnh: {
-    label: "◆ RS↑",
+  gap4: {
+    label: "Gap4%+",
     desc:
-      "RS new high before price (IBD 'blue dot'): the relative-strength line (stock ÷ SPY) is at/near a new 52-week high WHILE price is still below its own high — the stock is leading the market up and often breaks out next. Computed in the pipeline as rs_line_new_high (RS line within 3% of its high + price >5% below its high). $Vol ≥ $10M.",
-    color: "#3b82f6",
-    test: (s) => !!s.rs_line_new_high && (s.avg_dollar_vol_raw || 0) >= 10e6 && (s.price || s.close || 0) >= 5,
+      "Gapping up ≥ 4% today with volume > 1.1x average. MCap ≥ $300M, $Vol ≥ $50M. Episodic pivot candidates — the only intraday preset.",
+    color: "#22c55e",
+    test: (s) => {
+      const chg = s.change_pct || 0;
+      const rv = s.rel_volume || 0;
+      const mc = s.market_cap_raw || 0;
+      const dv = s.avg_dollar_vol_raw || 0;
+      return chg >= 4 && rv > 1.1 && mc >= 300e6 && dv >= 50e6;
+    },
   },
 };
 
@@ -2080,9 +2058,6 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                 {rankCol && r.rsAcc1 != null && r.rsDay > 0 && r.rsAcc1 >= 5 && (
                   <span title={`Fresh inflection — today's pace (${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(1)}%/d) is running well ahead of its own week (${r.rsWk > 0 ? "+" : ""}${(r.rsWk ?? 0).toFixed(1)}%): day-one turn, not an extended continuation`} style={{ marginLeft: 3, fontSize: 8.5, fontWeight: 800, color: ARIA.green }}>↗</span>
                 )}
-                {rankCol && r.rsLineNewHigh && (
-                  <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ marginLeft: 3, fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>
-                )}
                 {rankCol && r.tt && (
                   <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2 }}>T2</span>
                 )}
@@ -2830,7 +2805,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
 //    ADR min/max inputs, $Vol input, Chg≥/RV≥ sliders)
 //  - Sort buttons with primary¹/secondary² (left-click = primary, right-click
 //    = secondary). Sort keys: RS, Chg%, RVol, Acc, MAG, BO, Open%
-//  - 10 presets: 1W20%, Combo, Strong, Gap4%+, Accum, Dry-Up, Reset, T2 Tight, DE Ready, ◆ RS↑
+//  - 8 presets, ordered by backtested edge (18mo, alpha vs SPY): Reset (+2.9%/5d,
+//    60% win) · T2 Tight (+1.2%/5d) · Combo/1W20 momentum · Strong · Accum ·
+//    DE Ready · Gap4%+ (weak — kept as EP context; prefer DE). Dry-Up and ◆ RS↑
+//    removed 2026-07 — backtested at/below baseline.
 //  - Filter description box (shows preset's explanation when active)
 //
 // Phase 2.3 will add: short presets (BD/DT/WK/FL/DC), tag filters
@@ -5041,7 +5019,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "3px 0 1px" }}>Row tints (your lists)</div>
           <div><span style={{ color: ARIA.yellow }}>■</span> Portfolio · <span style={{ color: ARIA.cyan }}>■</span> ⚡ Focus · <span style={{ color: ARIA.green }}>■</span> Watchlist</div>
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Ticker glyphs</div>
-          <div><span style={{ color: "#3b82f6", fontWeight: 800 }}>◆</span> RS new high before price (IBD) · <span style={{ color: ARIA.green, fontWeight: 800 }}>↗</span> fresh inflection (day pace ≫ its week)</div>
+          <div><span style={{ color: ARIA.green, fontWeight: 800 }}>↗</span> fresh inflection (day pace ≫ its week)</div>
           <div><span style={{ color: "#fbbf24", fontWeight: 800 }}>⚠Nd</span> earnings in N days · <span style={{ color: "#fbbf24", fontWeight: 800 }}>α</span> chain-only (high-alpha, below scan filters)</div>
           <div><span style={{ color: "#f472b6", fontWeight: 800 }}>T2</span> 2-days-tight (closes ≤1% apart + narrowing range) · <span style={{ color: "#fb923c", fontWeight: 800 }}>DE</span> delayed-entry-ready gapper (entry = trigger break)</div>
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Setup badges (live)</div>
@@ -6279,7 +6257,6 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
-                    {r.rsNH && <span title="RS new high before price (IBD) — RS line at a new high while price is still below its own high" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
                     {r.tt && <span title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                     {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                   </span>
@@ -9076,7 +9053,6 @@ function ChartPanelInline({
             ) : null}
             {rvol != null && rvol >= 1.5 && <span style={badgeStyle(ARIA.purple)}>RV {rvol.toFixed(1)}x</span>}
             {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
-            {!!stockInfo.rs_line_new_high && <span style={badgeStyle("#3b82f6")} title="RS new high before price (IBD 'blue dot') — the RS line (stock ÷ SPY) is at a new high while price is still below its own high. Leading breakout signal.">◆ RS↑</span>}
             {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
             {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
           </div>
@@ -9748,7 +9724,6 @@ function WatchlistSectionTable({
                             9M
                           </span>
                         )}
-                        {r.rsNH && <span title="RS new high before price (IBD)" style={{ fontSize: 8, fontWeight: 800, color: "#3b82f6" }}>◆</span>}
                         {r.tt && <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                       </span>
