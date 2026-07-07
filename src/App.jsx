@@ -8839,7 +8839,7 @@ function ChartPanelInline({
   const [quarters, setQuarters] = useState([]);
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
-  const [newsOpen, setNewsOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(true);
   const [description, setDescription] = useState("");
   const [peers, setPeers] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
@@ -9150,6 +9150,76 @@ function ChartPanelInline({
         </div>
       </div>
 
+      {/* Second thin row — grade · perf · 52W · Str (left), IPO (right) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "3px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
+      {(() => {
+        const firstClose = ohlcBars.length > 1 ? ohlcBars[0]?.close : null;
+        const lastClose  = ohlcBars.length > 1 ? ohlcBars[ohlcBars.length - 1]?.close : null;
+        const ipoDate    = stockInfo?.ipo_date;
+        const ipoDaysAgo = ipoDate ? Math.floor((Date.now() - new Date(ipoDate).getTime()) / 86400000) : null;
+        const ipoLabel   = ipoDaysAgo != null && ipoDaysAgo <= 910 ? "IPO" : "2.5Y";
+        const ipoPerf    = firstClose && lastClose && firstClose > 0
+          ? ((lastClose - firstClose) / firstClose) * 100
+          : null;
+        const perfs = [
+          { label: "1M",     val: stockInfo?.return_1m },
+          { label: "3M",     val: stockInfo?.return_3m },
+          { label: "6M",     val: stockInfo?.return_6m },
+          { label: "1Y",     val: stockInfo?.return_1y },
+          { label: ipoLabel, val: ipoPerf },
+        ];
+        const perfColor = (v) =>
+          v == null ? ARIA.textMuted
+          : v >= 50  ? "#0d9163"
+          : v >= 20  ? "#22a37a"
+          : v >= 0   ? "#5a9a6a"
+          : v >= -20 ? "#a06030"
+          : "#c04040";
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
+            {/* grade + perf metrics — aligned under the +WL/+PF/ER button block */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "nowrap", flexShrink: 0 }}>
+            {grade && (
+              <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
+                {grade}
+              </span>
+            )}
+            {perfs.map(({ label, val }) => (
+              <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ color: ARIA.textMuted }}>{label}</span>
+                <span style={{ color: perfColor(val), fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
+                  {val != null ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
+                </span>
+              </span>
+            ))}
+            {fromHi != null && (
+              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ color: ARIA.textMuted }}>52W</span>
+                <span style={{ color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontWeight: 700 }}>
+                  {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
+                </span>
+              </span>
+            )}
+            {(() => { const str = ticker && tickerStrengthMap?.[ticker]; return str != null ? (
+              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ color: ARIA.textMuted }}>Str</span>
+                <span style={{ color: str >= 65 ? ARIA.green : str >= 50 ? ARIA.blue : str >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
+                  {str}
+                </span>
+              </span>
+            ) : null; })()}
+            </div>
+          </div>
+        );
+      })()}
+        {stockInfo.ipo_date && (
+          <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "baseline", gap: 3, fontFamily: "monospace", fontSize: 9, flexShrink: 0 }}>
+            <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>
+            <span style={{ fontWeight: 700, color: ARIA.textDim }}>{stockInfo.ipo_date}</span>
+          </span>
+        )}
+      </div>
+
       {/* SVG D/W Chart */}
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         <ErrorBoundary>
@@ -9193,81 +9263,9 @@ function ChartPanelInline({
             </div>
           )}
         </div>
-        {/* Right side: buttons + perf, stacked so perf starts under +WL */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5, flexShrink: 0 }}>
-      {/* Performance row */}
-      {(() => {
-        const firstClose = ohlcBars.length > 1 ? ohlcBars[0]?.close : null;
-        const lastClose  = ohlcBars.length > 1 ? ohlcBars[ohlcBars.length - 1]?.close : null;
-        const ipoDate    = stockInfo?.ipo_date;
-        const ipoDaysAgo = ipoDate ? Math.floor((Date.now() - new Date(ipoDate).getTime()) / 86400000) : null;
-        const ipoLabel   = ipoDaysAgo != null && ipoDaysAgo <= 910 ? "IPO" : "2.5Y";
-        const ipoPerf    = firstClose && lastClose && firstClose > 0
-          ? ((lastClose - firstClose) / firstClose) * 100
-          : null;
-        const perfs = [
-          { label: "1M",     val: stockInfo?.return_1m },
-          { label: "3M",     val: stockInfo?.return_3m },
-          { label: "6M",     val: stockInfo?.return_6m },
-          { label: "1Y",     val: stockInfo?.return_1y },
-          { label: ipoLabel, val: ipoPerf },
-        ];
-        const perfColor = (v) =>
-          v == null ? ARIA.textMuted
-          : v >= 50  ? "#0d9163"
-          : v >= 20  ? "#22a37a"
-          : v >= 0   ? "#5a9a6a"
-          : v >= -20 ? "#a06030"
-          : "#c04040";
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {/* grade + perf metrics — aligned under the +WL/+PF/ER button block */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            {grade && (
-              <span style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
-                {grade}
-              </span>
-            )}
-            {perfs.map(({ label, val }) => (
-              <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-                <span style={{ color: ARIA.textMuted }}>{label}</span>
-                <span style={{ color: perfColor(val), fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
-                  {val != null ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
-                </span>
-              </span>
-            ))}
-            {fromHi != null && (
-              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-                <span style={{ color: ARIA.textMuted }}>52W</span>
-                <span style={{ color: fromHi >= -5 ? ARIA.green : fromHi >= -15 ? ARIA.yellow : ARIA.red, fontWeight: 700 }}>
-                  {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
-                </span>
-              </span>
-            )}
-            {(() => { const str = ticker && tickerStrengthMap?.[ticker]; return str != null ? (
-              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3 }}>
-                <span style={{ color: ARIA.textMuted }}>Str</span>
-                <span style={{ color: str >= 65 ? ARIA.green : str >= 50 ? ARIA.blue : str >= 35 ? ARIA.yellow : ARIA.textDim, fontWeight: 700 }}>
-                  {str}
-                </span>
-              </span>
-            ) : null; })()}
-            </div>
-          </div>
-        );
-      })()}
-        {stockInfo.ipo_date && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-end" }}>
-            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3, fontFamily: "monospace", fontSize: 9 }}>
-              <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>
-              <span style={{ fontWeight: 700, color: ARIA.textDim }}>{stockInfo.ipo_date}</span>
-            </span>
-          </div>
-        )}
-        </div>
       </div>
 
-      {/* News — same container as logo/ticker/info; collapsible, collapsed by default */}
+      {/* News — fills the freed bottom area; expanded by default */}
       {news.length > 0 && (
         <div style={{ marginTop: 4 }}>
           <div onClick={() => setNewsOpen(o => !o)}
@@ -9278,8 +9276,8 @@ function ChartPanelInline({
             News <span style={{ color: "#4a4a5a", fontWeight: 400 }}>({news.length})</span>
           </div>
           {newsOpen && (
-            <div style={{ maxHeight: 58, overflowY: "auto" }}>
-              {news.slice(0, 4).map((a, i) => (
+            <div style={{ maxHeight: 150, overflowY: "auto" }}>
+              {news.slice(0, 8).map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
                   onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
