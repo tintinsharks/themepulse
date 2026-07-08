@@ -8117,7 +8117,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
     const volGap = 6;
     // Price panel fills the available container height so the chart grows into
     // the panel (the ~24px reserve is the legend row + x-axis below the SVG).
-    const priceH = Math.max(220, Math.min(760, (containerH || 380) - volH - volGap - pad.t - pad.b - 24));
+    const priceH = Math.max(220, Math.min(900, (containerH || 380) - volH - volGap - pad.t - pad.b - 24));
     const totalH = priceH + volGap + volH + pad.t + pad.b;
     const chartRight = W - pad.r;
     const bw = Math.max(2, (chartRight - pad.l) / bars.length - 1);
