@@ -8500,9 +8500,9 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
               </circle>
             ))}
             {(chartData.rsRolls || []).map((d, i) => (
-              <text key={`rsroll${i}`} x={d.x} y={d.y} textAnchor="middle" fontSize={8} fill="#f59e0b" fontWeight={800}>
-                <title>RS lower high — relative strength rolling over (leadership fading)</title>▾
-              </text>
+              <polygon key={`rsroll${i}`} points={`${d.x - 5},${d.y - 9} ${d.x + 5},${d.y - 9} ${d.x},${d.y}`} fill="#f97316" stroke="#0a0a14" strokeWidth={0.8}>
+                <title>RS lower high — relative strength rolling over (leadership fading)</title>
+              </polygon>
             ))}
             {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS vs SPY</text>}
           </>
