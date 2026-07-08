@@ -8347,7 +8347,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
     // scaled to its own visible-window min/max. Blue dots = RS line makes a new
     // high; brighter/larger dot when price has NOT also made a new high ("RS new
     // high before price" — the bullish tell).
-    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null, rsEnd = null;
+    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [];
     if (benchMap && benchMap.size) {
       let lastSpy = null;
       const rsRaw = bars.map((b) => {
@@ -8363,7 +8363,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         const bandBot = pad.t + priceH - 3, bandTop = pad.t + priceH * 0.70;
         const rsY = (v) => bandBot - ((v - rsMin) / rsRange) * (bandBot - bandTop);
         const xC = (i) => pad.l + i * (bw + gap) + bw / 2;
-        rsLabelY = bandTop;
+        rsLabelY = bandTop; rsBandTop = bandTop; rsBandBot = bandBot;
         rsLinePts = rsRaw.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
         for (let i = rsRaw.length - 1; i >= 0; i--) { if (rsRaw[i] != null) { rsEnd = { x: xC(i), y: rsY(rsRaw[i]) }; break; } }
         let rsRunMax = -Infinity, pxRunMax = -Infinity;
@@ -8393,12 +8393,31 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
           if (prevPeak != null && v < prevPeak * 0.985) rsRolls.push({ x: xC(i), y: rsY(v) - 5 });
           prevPeak = v;
         }
+        // Slope divergence: over a ~21-bar window compare price % change vs RS
+        // % change. Opposite signs (each ≥ 3%) = divergence. Tint the RS band —
+        // green = bullish (price down / RS up), amber = bearish (price up / RS down).
+        const DW = 21, MINP = 0.03, MINR = 0.03;
+        let runType = null, runStart = -1;
+        for (let i = 0; i < rsRaw.length; i++) {
+          let type = null;
+          if (i >= DW && rsRaw[i] != null && rsRaw[i - DW] != null && rsRaw[i - DW] > 0) {
+            const pSlope = (bars[i].close - bars[i - DW].close) / bars[i - DW].close;
+            const rSlope = (rsRaw[i] - rsRaw[i - DW]) / rsRaw[i - DW];
+            if (pSlope > MINP && rSlope < -MINR) type = "bear";
+            else if (pSlope < -MINP && rSlope > MINR) type = "bull";
+          }
+          if (type !== runType) {
+            if (runType && runStart >= 0) divTint.push({ x0: xC(runStart) - bw / 2, x1: xC(i - 1) + bw / 2, type: runType });
+            runType = type; runStart = type ? i : -1;
+          }
+        }
+        if (runType && runStart >= 0) divTint.push({ x0: xC(runStart) - bw / 2, x1: xC(rsRaw.length - 1) + bw / 2, type: runType });
       }
     }
 
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
-      rsLinePts, rsDots, rsLabelY, rsEnd,
+      rsLinePts, rsDots, rsLabelY, rsEnd, rsBandTop, rsBandBot, divTint,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
       maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
@@ -8494,6 +8513,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         )}
         {showRS && chartData.rsLinePts && (
           <>
+            {(chartData.divTint || []).map((d, i) => (
+              <rect key={`div${i}`} x={d.x0} y={chartData.rsBandTop} width={Math.max(1, d.x1 - d.x0)} height={(chartData.rsBandBot || 0) - (chartData.rsBandTop || 0)} fill={d.type === "bull" ? "#22c55e" : "#f59e0b"} opacity={0.14}>
+                <title>{d.type === "bull" ? "Bullish RS divergence — price down/flat while RS rising (relative strength accumulating)" : "Bearish RS divergence — price rising while RS falling (relative strength deteriorating)"}</title>
+              </rect>
+            ))}
             <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} />
             {chartData.rsDots.map((d, i) => (
               <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={d.rsnhbp ? 3.4 : 3.0} fill={d.rsnhbp ? "#ec4899" : "#3b82f6"} stroke="#0a0a14" strokeWidth={0.7}>
