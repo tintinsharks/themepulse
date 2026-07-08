@@ -7948,7 +7948,7 @@ function calcRiskSize(stopPrice, entryPrice, accountSize, riskPct, maxAllocPct) 
 // pocket pivots, VCP tightness, +4% breakout hatching, dry-up dots, and
 // earnings markers. Ported from theme-leaderboard.html renderDailyChart.
 // ──────────────────────────────────────────────────────────────────────────
-function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = false }) {
+function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = false, rsRating = null, rsRatingColor = null }) {
   const MAX_BARS = 375;
   const DEFAULT_BARS = 113;
   const MIN_VISIBLE = 30;
@@ -8347,7 +8347,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
     // scaled to its own visible-window min/max. Blue dots = RS line makes a new
     // high; brighter/larger dot when price has NOT also made a new high ("RS new
     // high before price" — the bullish tell).
-    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null;
+    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null, rsEnd = null;
     if (benchMap && benchMap.size) {
       let lastSpy = null;
       const rsRaw = bars.map((b) => {
@@ -8365,6 +8365,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         const xC = (i) => pad.l + i * (bw + gap) + bw / 2;
         rsLabelY = bandTop;
         rsLinePts = rsRaw.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        for (let i = rsRaw.length - 1; i >= 0; i--) { if (rsRaw[i] != null) { rsEnd = { x: xC(i), y: rsY(rsRaw[i]) }; break; } }
         let rsRunMax = -Infinity, pxRunMax = -Infinity;
         rsRaw.forEach((v, i) => {
           const px = bars[i].close;
@@ -8397,7 +8398,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
 
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
-      rsLinePts, rsDots, rsLabelY,
+      rsLinePts, rsDots, rsLabelY, rsEnd,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
       maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
@@ -8505,6 +8506,17 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
               </polygon>
             ))}
             {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS vs SPY</text>}
+            {rsRating != null && chartData.rsEnd && (() => {
+              const w = rsRating >= 100 ? 21 : 16, bx = chartData.rsEnd.x + 3, by = chartData.rsEnd.y - 6;
+              return (
+                <g>
+                  <rect x={bx} y={by} width={w} height={12} rx={2} fill="#0a0a14" stroke={rsRatingColor || "#3b82f6"} strokeWidth={0.8} opacity={0.96}>
+                    <title>RS rating (0-100) — relative strength vs the market, same value as the perf bar</title>
+                  </rect>
+                  <text x={bx + w / 2} y={by + 9} textAnchor="middle" fontSize={8} fontWeight={800} fill={rsRatingColor || "#3b82f6"} fontFamily="ui-monospace,monospace">{rsRating}</text>
+                </g>
+              );
+            })()}
           </>
         )}
         <text x={chartData.padL + 3} y={10} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
@@ -8844,6 +8856,9 @@ function ChartPanelInline({
     }));
     return m;
   }, [rsRotation]);
+  // RS rating for the chart's end-of-line label — same value + coloring as the perf bar.
+  const rsRating = rsScoreMap.get(ticker) ?? stockInfo?.rs_rank ?? null;
+  const rsRatingColor = rsRating == null ? ARIA.textMuted : rsRating >= 90 ? ARIA.green : rsRating >= 70 ? ARIA.blue : rsRating >= 50 ? ARIA.yellow : ARIA.textDim;
 
   // CANSLIM composite + within-sector EPS/Rev growth percentiles for the perf bar.
   const canslimGrade = useMemo(() => canslimComposite(stockInfo, annuals, stockMap), [stockInfo, annuals, stockMap]);
@@ -9077,6 +9092,8 @@ function ChartPanelInline({
             quarters={quarters}
             height={height}
             owned={inPF || inFC || inWL}
+            rsRating={rsRating}
+            rsRatingColor={rsRatingColor}
             stopLines={[
               ...(showTrade && riskScenarios ? [
                 { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
