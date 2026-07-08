@@ -9888,7 +9888,6 @@ function WatchlistSectionTable({
                         )}
                         {r.tt && <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
-                        {r.viol && r.viol.length > 0 && <span title={`Sell-discipline warning — ${r.viol.join("; ")}`} style={{ fontSize: 8, lineHeight: "10px" }}>🔻</span>}
                       </span>
                     </td>
                     <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
@@ -10086,7 +10085,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         qmagScore: s.qmag_score || 0,
         strScore,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null, viol: heldViolations(s),
+        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null,
         rs: eif,
         setup,
         setupRank: setup?.rank ?? 0,
