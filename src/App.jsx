@@ -8605,10 +8605,9 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
           const px = bars[i].close;
           const rsNewHigh = v != null && v > rsRunMax + 1e-9 && i >= 10;
           const priceNewHigh = px != null && px > pxRunMax - 1e-9;
-          // IBD "blue dot": RS line at a new high while price has NOT — relative
-          // strength leading price (bullish). Sparse by design (skips plain
-          // uptrends where price and RS make new highs together).
-          if (rsNewHigh && !priceNewHigh) rsDots.push({ x: xC(i), y: rsY(v) });
+          // Blue = RS line new high. Pink = RS New High Before Price (RSNHBP):
+          // RS at a new high while price has NOT — relative strength leading price.
+          if (rsNewHigh) rsDots.push({ x: xC(i), y: rsY(v), rsnhbp: !priceNewHigh });
           if (v != null && v > rsRunMax) rsRunMax = v;
           if (px != null && px > pxRunMax) pxRunMax = px;
         });
@@ -8710,8 +8709,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
           <>
             <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} />
             {chartData.rsDots.map((d, i) => (
-              <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.6} fill="#3b82f6" stroke="#0a0a14" strokeWidth={0.6}>
-                <title>RS line new high before price — relative strength leading (bullish)</title>
+              <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={d.rsnhbp ? 3.4 : 3.0} fill={d.rsnhbp ? "#ec4899" : "#3b82f6"} stroke="#0a0a14" strokeWidth={0.7}>
+                <title>{d.rsnhbp ? "RS New High Before Price (RSNHBP) — relative strength leading price, bullish" : "RS line new high"}</title>
               </circle>
             ))}
             {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS vs SPY</text>}
