@@ -1018,7 +1018,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     setSelCon(t);
     onChartTicker?.(t);
     const el = conListRef.current?.querySelector(`[data-ct="${t}"]`);
-    if (el) el.scrollIntoView({ block: "nearest" });
+    if (el) scrollRowIntoScroller(el);
   }, [selCon, onChartTicker]);
   // Vertical size of the regime chart (drag handle at the box's bottom edge);
   // persisted so the box reopens at the same height. Tall by default so the
@@ -1945,7 +1945,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   }, [augmented, sort, sortable]);
   // Autoscroll the active row into view when it changes (reverse sync / select).
   useEffect(() => {
-    if (activeKey && activeRowRef.current) activeRowRef.current.scrollIntoView({ block: "nearest" });
+    if (activeKey && activeRowRef.current) scrollRowIntoScroller(activeRowRef.current);
   }, [activeKey, sorted]);
   // Layers (getTag) drop the Theme/identity column; the layer name itself is the
   // clickable, fixed-width title so the numeric columns get more room.
