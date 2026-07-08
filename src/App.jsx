@@ -1623,6 +1623,24 @@ function MarketConditionsPanel() {
 // RS Rotation Board — sector/industry relative-strength rank rotation
 // ──────────────────────────────────────────────────────────────────────────
 // Reads /data/rs_rotation.json (pipeline 10c_rs_rotation.py). Collapsible.
+// SPY daily closes (date -> close), cached once — RS-line denominator (stock / SPY)
+// for the IBD-style RS line on the ticker chart.
+let _spyClosesCache = null, _spyClosesFetching = false; const _spyClosesListeners = [];
+function useSpyCloses() {
+  const [m, setM] = useState(_spyClosesCache);
+  useEffect(() => {
+    if (_spyClosesCache) { setM(_spyClosesCache); return; }
+    if (_spyClosesFetching) { _spyClosesListeners.push(setM); return; }
+    _spyClosesFetching = true;
+    fetchOhlcBars("SPY").then((bars) => {
+      const map = new Map((bars || []).map((b) => [b.date, b.close]));
+      _spyClosesCache = map; setM(map);
+      _spyClosesListeners.forEach((fn) => fn(map)); _spyClosesListeners.length = 0;
+    }).catch(() => { _spyClosesFetching = false; });
+  }, []);
+  return m;
+}
+
 let _rsRotCache = null, _rsRotFetching = false; const _rsRotListeners = [];
 function useRsRotation() {
   const [d, setD] = useState(_rsRotCache);
@@ -8206,6 +8224,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
   const [containerW, setContainerW] = useState(900);
   const [containerH, setContainerH] = useState(380);
   const [volSubTab, setVolSubTab] = useState("vol");
+  const [showRS, setShowRS] = useState(() => { try { return localStorage.getItem("tp-chart-rs") !== "0"; } catch { return true; } });
+  const benchMap = useSpyCloses();
 
   // Measure container width + height (chart price panel grows to fill height)
   useEffect(() => {
@@ -8558,8 +8578,46 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       ? `M${rsiXOf(0).toFixed(1)},${y40.toFixed(1)} ${osBottomPts.join(" ")} L${rsiXOf(rsiSlice.length - 1).toFixed(1)},${y40.toFixed(1)} Z`
       : null;
 
+    // ── IBD RS line: stock / SPY, drawn in a bottom band of the price panel,
+    // scaled to its own visible-window min/max. Blue dots = RS line makes a new
+    // high; brighter/larger dot when price has NOT also made a new high ("RS new
+    // high before price" — the bullish tell).
+    let rsLinePts = "", rsDots = [], rsLabelY = null;
+    if (benchMap && benchMap.size) {
+      let lastSpy = null;
+      const rsRaw = bars.map((b) => {
+        const sp = benchMap.get(b.date);
+        if (sp != null) lastSpy = sp;
+        const use = sp != null ? sp : lastSpy;
+        return (use != null && use > 0 && b.close != null) ? b.close / use : null;
+      });
+      const valid = rsRaw.filter((v) => v != null);
+      if (valid.length > 2) {
+        const rsMin = Math.min(...valid), rsMax = Math.max(...valid);
+        const rsRange = (rsMax - rsMin) || 1;
+        const bandBot = pad.t + priceH - 3, bandTop = pad.t + priceH * 0.70;
+        const rsY = (v) => bandBot - ((v - rsMin) / rsRange) * (bandBot - bandTop);
+        const xC = (i) => pad.l + i * (bw + gap) + bw / 2;
+        rsLabelY = bandTop;
+        rsLinePts = rsRaw.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        let rsRunMax = -Infinity, pxRunMax = -Infinity;
+        rsRaw.forEach((v, i) => {
+          const px = bars[i].close;
+          const rsNewHigh = v != null && v > rsRunMax + 1e-9 && i >= 10;
+          const priceNewHigh = px != null && px > pxRunMax - 1e-9;
+          // IBD "blue dot": RS line at a new high while price has NOT — relative
+          // strength leading price (bullish). Sparse by design (skips plain
+          // uptrends where price and RS make new highs together).
+          if (rsNewHigh && !priceNewHigh) rsDots.push({ x: xC(i), y: rsY(v) });
+          if (v != null && v > rsRunMax) rsRunMax = v;
+          if (px != null && px > pxRunMax) pxRunMax = px;
+        });
+      }
+    }
+
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
+      rsLinePts, rsDots, rsLabelY,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
       maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
@@ -8570,7 +8628,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -8648,6 +8706,22 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
         {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
         {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
         {chartData.candleElements}
+        {showRS && chartData.rsLinePts && (
+          <>
+            <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} />
+            {chartData.rsDots.map((d, i) => (
+              <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.6} fill="#3b82f6" stroke="#0a0a14" strokeWidth={0.6}>
+                <title>RS line new high before price — relative strength leading (bullish)</title>
+              </circle>
+            ))}
+            {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS vs SPY</text>}
+          </>
+        )}
+        <text x={chartData.padL + 3} y={10} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+          fill={showRS ? "#3b82f6" : "#4a4a5a"} style={{ cursor: "pointer" }}
+          onClick={() => setShowRS((v) => { const n = !v; try { localStorage.setItem("tp-chart-rs", n ? "1" : "0"); } catch {} return n; })}>
+          <title>Toggle the IBD-style RS line (stock ÷ SPY)</title>RS
+        </text>
         {volSubTab === "vol" && chartData.volElements}
         {volSubTab === "vol" && chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
         {volSubTab === "rsi" && (() => {
