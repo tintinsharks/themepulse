@@ -3068,9 +3068,11 @@ function ETFScanTable({ onTickerClick }) {
   const ownedTint = useOwnedTint();
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focus] = useLocalStorageList("themepulse-focus");
+  // Owned = portfolio ∪ focus ∪ watchlist; None = the complement.
   const ownedSet = useMemo(
-    () => new Set([...portfolio, ...watchlist]),
-    [portfolio, watchlist]
+    () => new Set([...portfolio, ...focus, ...watchlist]),
+    [portfolio, focus, watchlist]
   );
   const [etfMeta, setEtfMeta] = useState([]);
   const [filter, setFilter] = useState("all"); // all | index | sector | lev
@@ -3275,14 +3277,14 @@ function ETFScanTable({ onTickerClick }) {
         <button
           onClick={() => setOwnedView("owned")}
           style={pillStyle(ownedView === "owned", ARIA.yellow)}
-          title="Show only tickers already in portfolio or watchlist"
+          title="Show only tickers in portfolio, focus, or watchlist"
         >
           Only
         </button>
         <button
           onClick={() => setOwnedView("hide")}
           style={pillStyle(ownedView === "hide", ARIA.yellow)}
-          title="Hide tickers already in portfolio or watchlist"
+          title="Show only tickers NOT in portfolio, focus, or watchlist"
         >
           Hide
         </button>
@@ -4672,9 +4674,11 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   useEffect(() => { scanTableHRef.current = scanTableH; }, [scanTableH]);
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
+  const [focus] = useLocalStorageList("themepulse-focus");
+  // Owned = portfolio ∪ focus ∪ watchlist; None = the complement.
   const ownedSet = useMemo(
-    () => new Set([...portfolio, ...watchlist]),
-    [portfolio, watchlist]
+    () => new Set([...portfolio, ...focus, ...watchlist]),
+    [portfolio, focus, watchlist]
   );
   const inPF = chartTicker && portfolio.includes(chartTicker);
   const inWL = chartTicker && watchlist.includes(chartTicker);
@@ -5232,14 +5236,14 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         <button
           onClick={() => updateFilter({ ownedView: "owned" })}
           style={pillStyle(filters.ownedView === "owned", ARIA.yellow)}
-          title="Show only tickers in portfolio or watchlist"
+          title="Show only tickers in portfolio, focus, or watchlist"
         >
           Owned
         </button>
         <button
           onClick={() => updateFilter({ ownedView: "hide" })}
           style={pillStyle(filters.ownedView === "hide", ARIA.yellow)}
-          title="Show only tickers NOT in portfolio or watchlist"
+          title="Show only tickers NOT in portfolio, focus, or watchlist"
         >
           None
         </button>
