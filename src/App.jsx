@@ -5562,7 +5562,7 @@ function ChainView({ stockMap, tickerStrengthMap, onLayerClick, onTickerClick, c
   useEffect(() => {
     const id = setTimeout(() => {
       const focusable = containerRef.current?.querySelector('[tabindex="0"]');
-      if (focusable && document.activeElement !== focusable) focusable.focus();
+      if (focusable && document.activeElement !== focusable) focusable.focus({ preventScroll: true });
     }, 50);
     return () => clearTimeout(id);
   }, []);
@@ -6274,7 +6274,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
               <tr
                 key={r.ticker}
                 data-ticker={r.ticker}
-                onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus(); }}
+                onClick={() => { setSelectedTicker(r.ticker); suppressChainScrollOnce(); onTickerClick && onTickerClick(r.ticker); wrapRef.current?.focus({ preventScroll: true }); }}
                 style={{ cursor: "pointer", background: sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg, outline: kbSel && !sel ? `1px solid ${ARIA.border}` : "none", outlineOffset: -1 }}
                 onMouseEnter={(e) => { if (!sel && !kbSel) e.currentTarget.style.background = ARIA.bgHover; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = sel ? `${c.color}26` : kbSel ? "rgba(255,255,255,0.06)" : baseBg; }}
