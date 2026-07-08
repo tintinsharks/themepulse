@@ -8397,6 +8397,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         // % change. Opposite signs (each ≥ 3%) = divergence. Tint the RS band —
         // green = bullish (price down / RS up), amber = bearish (price up / RS down).
         const DW = 21, MINP = 0.03, MINR = 0.03;
+        const raw = [];
         let runType = null, runStart = -1;
         for (let i = 0; i < rsRaw.length; i++) {
           let type = null;
@@ -8407,11 +8408,19 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
             else if (pSlope < -MINP && rSlope > MINR) type = "bull";
           }
           if (type !== runType) {
-            if (runType && runStart >= 0) divTint.push({ x0: xC(runStart) - bw / 2, x1: xC(i - 1) + bw / 2, type: runType });
+            if (runType && runStart >= 0) raw.push({ type: runType, from: runStart, to: i - 1 });
             runType = type; runStart = type ? i : -1;
           }
         }
-        if (runType && runStart >= 0) divTint.push({ x0: xC(runStart) - bw / 2, x1: xC(rsRaw.length - 1) + bw / 2, type: runType });
+        if (runType && runStart >= 0) raw.push({ type: runType, from: runStart, to: rsRaw.length - 1 });
+        // Bridge same-type segments split by brief threshold flicker into one zone.
+        const merged = [];
+        for (const seg of raw) {
+          const last = merged[merged.length - 1];
+          if (last && last.type === seg.type && seg.from - last.to <= 5) last.to = seg.to;
+          else merged.push({ ...seg });
+        }
+        divTint = merged.map((m) => ({ x0: xC(m.from) - bw / 2, x1: xC(m.to) + bw / 2, type: m.type }));
       }
     }
 
@@ -8514,7 +8523,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         {showRS && chartData.rsLinePts && (
           <>
             {(chartData.divTint || []).map((d, i) => (
-              <rect key={`div${i}`} x={d.x0} y={chartData.rsBandTop} width={Math.max(1, d.x1 - d.x0)} height={(chartData.rsBandBot || 0) - (chartData.rsBandTop || 0)} fill={d.type === "bull" ? "#22c55e" : "#f59e0b"} opacity={0.14}>
+              <rect key={`div${i}`} x={d.x0} y={chartData.rsBandTop} width={Math.max(1, d.x1 - d.x0)} height={(chartData.rsBandBot || 0) - (chartData.rsBandTop || 0)} fill={d.type === "bull" ? "#22c55e" : "#f59e0b"} opacity={0.28}>
                 <title>{d.type === "bull" ? "Bullish RS divergence — price down/flat while RS rising (relative strength accumulating)" : "Bearish RS divergence — price rising while RS falling (relative strength deteriorating)"}</title>
               </rect>
             ))}
