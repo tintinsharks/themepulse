@@ -9118,7 +9118,7 @@ function ChartPanelInline({
       </div>
 
       {/* SVG D/W Chart */}
-      <div style={{ flex: 1, minHeight: 500, overflow: "hidden" }}>
+      <div style={{ height: 640, overflow: "hidden", flexShrink: 0 }}>
         <ErrorBoundary>
           <DailyChartSVG
             ohlc={ohlcBars}
@@ -11127,7 +11127,7 @@ function ChartScanRow({
         marginBottom: 8,
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, alignSelf: "flex-start" }}>
         <ChartPanelInline
           ticker={chartTicker}
           onTickerChange={handleTickerClick}
