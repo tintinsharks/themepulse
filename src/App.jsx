@@ -9223,6 +9223,10 @@ function ChartPanelInline({
         const pctColor = (v) => v == null ? ARIA.textMuted : v >= 80 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 30 ? ARIA.yellow : ARIA.textDim;
         const rsRank = rsScoreMap.get(ticker) ?? stockInfo?.rs_rank ?? null;
         const rsColor = rsRank == null ? ARIA.textMuted : rsRank >= 90 ? ARIA.green : rsRank >= 70 ? ARIA.blue : rsRank >= 50 ? ARIA.yellow : ARIA.textDim;
+        // Extension from the 20-day MA in ATR multiples (swing anchor, days-weeks).
+        // ≤3× = near support / buyable; >5× = extended, wait for the next contraction.
+        const ext = stockInfo?.dist_20dma_atrx ?? null;
+        const extColor = ext == null ? ARIA.textMuted : ext > 5 ? ARIA.red : ext > 3 ? ARIA.yellow : ARIA.textDim;
         const perfs = [
           { label: "1M", val: stockInfo?.return_1m },
           { label: "3M", val: stockInfo?.return_3m },
@@ -9260,6 +9264,7 @@ function ChartPanelInline({
               </span>
             )}
             {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
+            {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). ≤3× = near support, buyable; 3-5× = getting extended; >5× = extended — don\'t chase, wait for the next contraction (Jack-in-the-Box).")}
           </div>
         );
       })()}
