@@ -2865,24 +2865,6 @@ const COL_HELP = {
   liveVol: "Vol — today's share volume so far. LIVE during market hours.",
 };
 
-// Sell-discipline violations for a held name (Momentum Masters): lost the moving-
-// average support, RS line rolling over, or climactic/extended. Returns [] or a
-// list of short warning strings — surfaced as a 🔻 flag on owned tickers.
-function heldViolations(s) {
-  if (!s) return [];
-  const v = [];
-  const d20 = s.dist_20dma_atrx, d50 = s.dist_50sma_atrx;
-  const rsOff = s.rs_line_pct_from_high;
-  // Only a "violation" if the long-term trend is still intact (above the 200-day):
-  // a leader cracking short-term support, not just any stock in a downtrend.
-  const upTrend = (s.dist_200sma_atrx ?? -1) > 0;
-  if (upTrend && d50 != null && d50 < 0) v.push("lost the 50-day");
-  else if (upTrend && d20 != null && d20 < 0) v.push("lost the 20-day");
-  if (rsOff != null && rsOff < -25) v.push("RS line rolling over");
-  if (d20 != null && d20 > 6 && (s.return_1w || 0) > 25) v.push("climactic/extended — tighten stop");
-  return v;
-}
-
 function chainSetup(r, ctx) {
   const { zvr, rs: eif, cr, str, alpha, erDays, chg, rsRank, off52, d20, d50, adr } = r;
   const f = ctx?.zFactor ?? 1;
@@ -7562,20 +7544,8 @@ function gradeColor(letter, ARIA) {
   if (letter === "F") return ARIA.red;
   return ARIA.textMuted;
 }
-// 12mo return proxy for IBD RS rating. Returns 0–99 or null.
-// Proprietary IBD formula is unavailable — directional proxy Nitin can
-// sanity-check against IBD's published RS later.
-function computeRSRank(tResp, sResp) {
-  const tBars = tResp?.ohlc, sBars = sResp?.ohlc;
-  if (!Array.isArray(tBars) || !Array.isArray(sBars)) return null;
-  if (tBars.length < 200 || sBars.length < 200) return null;
-  const tRet = tBars[tBars.length - 1].close / tBars[0].close - 1;
-  const sRet = sBars[sBars.length - 1].close / sBars[0].close - 1;
-  const diffPct = (tRet - sRet) * 100;
-  return Math.max(0, Math.min(99, Math.round(50 + 0.5 * diffPct)));
-}
 // Compact CANSLIM composite (letter A+..F) from synchronously-available
-// fields — same gradeBand thresholds as the full CanslimScorecard, dropping
+// fields — same gradeBand thresholds as the full IBD scorecard, dropping
 // the async 12mo-RS and CF-vs-EPS criteria. Used in the chart panel's perf bar.
 function canslimComposite(stockInfo, annuals, stockMap) {
   if (!stockInfo) return "—";
@@ -7616,260 +7586,6 @@ function canslimComposite(stockInfo, annuals, stockMap) {
   ]);
 }
 const fmtPct = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
-const fmtPp = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "pp";
-const fmtRank = (v) => v.toFixed(0);
-
-// CANSLIM scorecard — replaces the old Institutional QoQ third column.
-// Same flex:1.4 slot, same monospace style, driven entirely by the active
-// ticker's stockInfo (already loaded by ChartPanelInline) + one /api/ohlc
-// pair fetch for the 12mo RS proxy.
-function CanslimScorecard({ ticker, stockInfo, cfVsEpsPct, annuals, stockMap, ARIA }) {
-  const dvolHistory = useDvolHistory();
-  const [rsRank, setRsRank] = React.useState(null);
-  React.useEffect(() => {
-    if (!ticker) {
-      setRsRank(null);
-      return;
-    }
-    let cancelled = false;
-    setRsRank(null);
-    Promise.all([
-      fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`).then((r) =>
-        r.ok ? r.json() : null
-      ),
-      fetch(`/api/ohlc?ticker=SPY`).then((r) => (r.ok ? r.json() : null)),
-    ])
-      .then(([t, s]) => {
-        if (cancelled) return;
-        setRsRank(computeRSRank(t, s));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [ticker]);
-
-  // Derive inputs from stockInfo (same normalization ChartPanelInline uses
-  // above in its CANSLIM stats row for roe/margin fraction → percent).
-  const epsYoy = stockInfo?.eps_yoy ?? null;
-  const epsYoyPrev = stockInfo?.eps_yoy_prev ?? null;
-  const accel =
-    epsYoy != null && epsYoyPrev != null ? epsYoy - epsYoyPrev : null;
-  // EPS CAGR from FMP annual series. Try 5 years first; if we don't have
-  // 5 years or the window has a sign flip, fall back to 3 years (O'Neil's
-  // actual CANSLIM minimum). Label adapts to the window actually used.
-  // Finviz eps_past_5y is the last-resort fallback.
-  const { epsCagr: eps5y, epsCagrYears } = React.useMemo(() => {
-    const tryWindow = (n) => {
-      if (!Array.isArray(annuals) || annuals.length < n) return null;
-      const a = annuals.slice(-n);
-      const first = a[0]?.eps, last = a[a.length - 1]?.eps;
-      if (first == null || last == null || first <= 0 || last <= 0) return null;
-      return (Math.pow(last / first, 1 / (a.length - 1)) - 1) * 100;
-    };
-    for (const n of [5, 4, 3]) {
-      const v = tryWindow(n);
-      if (v != null) return { epsCagr: v, epsCagrYears: n };
-    }
-    const fallback = stockInfo?.eps_past_5y ?? null;
-    return { epsCagr: fallback, epsCagrYears: fallback != null ? 5 : null };
-  }, [annuals, stockInfo?.eps_past_5y]);
-  const salesYoy = stockInfo?.sales_yoy ?? null;
-  const margin = (() => {
-    const m = stockInfo?.profit_margin ?? null;
-    return m != null ? (m < 1 ? m * 100 : m) : null;
-  })();
-  const roe = (() => {
-    const r = stockInfo?.roe ?? null;
-    return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
-  })();
-  const instTrans = stockInfo?.inst_trans_pct ?? null;
-  const instFunds = stockInfo?.inst_holder_count ?? null;
-  const instNetFlow = stockInfo?.inst_net_change_pct ?? null;
-
-  // N (new high / product) — distance from 52w high. pct_from_high is
-  // negative (0 = at high, -50 = half off). Flip sign so the scorecard
-  // displays a familiar positive magnitude for "how far from breakout".
-  const pctFromHigh = stockInfo?.pct_from_high ?? null;
-  const distFromHigh = pctFromHigh != null ? Math.abs(pctFromHigh) : null;
-
-  // Industry rank — percentile of the ticker's rs_rank within its industry
-  // group. O'Neil wants top 10 of 27 industries; we approximate by mapping
-  // within-industry percentile to a letter grade. Memoized so large stockMaps
-  // don't recompute on every rerender.
-  const industryPct = React.useMemo(() => {
-    const industry = stockInfo?.industry;
-    const myRs = stockInfo?.rs_rank;
-    if (!industry || myRs == null || !stockMap) return null;
-    const peers = Object.values(stockMap).filter(
-      (s) => s && s.industry === industry && s.rs_rank != null
-    );
-    if (peers.length < 3) return null; // too few peers to rank meaningfully
-    const better = peers.filter((s) => s.rs_rank > myRs).length;
-    return Math.round((1 - better / peers.length) * 100);
-  }, [stockInfo?.industry, stockInfo?.rs_rank, stockMap]);
-
-  const criteria = [
-    { key: "C", label: "Qtr EPS", raw: epsYoy, fmt: fmtPct, grade: gradeBand(epsYoy, [100, 50, 25, 10, 0]) },
-    { key: "Δ", label: "Accel", raw: accel, fmt: fmtPp, grade: gradeBand(accel, [30, 10, 0, -10, -25]) },
-    { key: "A", label: epsCagrYears ? `${epsCagrYears}Y EPS` : "5Y EPS", raw: eps5y, fmt: fmtPct, grade: gradeBand(eps5y, [40, 25, 15, 10, 0]) },
-    { key: "S", label: "Sales", raw: salesYoy, fmt: fmtPct, grade: gradeBand(salesYoy, [40, 25, 15, 10, 0]) },
-    { key: "M", label: "Margin", raw: margin, fmt: fmtPct, grade: gradeBand(margin, [25, 18, 12, 7, 2]) },
-    { key: "R", label: "ROE", raw: roe, fmt: fmtPct, grade: gradeBand(roe, [30, 17, 12, 8, 0]) },
-    { key: "I", label: "Inst ΔQ", raw: instTrans, fmt: fmtPp, grade: gradeBand(instTrans, [2, 1, 0.3, 0, -1]) },
-    { key: "L", label: "RS 12mo", raw: rsRank, fmt: fmtRank, grade: gradeBand(rsRank, [95, 90, 80, 60, 40]) },
-    { key: "$", label: "CF vs EPS", raw: cfVsEpsPct, fmt: fmtPp, grade: gradeBand(cfVsEpsPct, [50, 30, 20, 0, -20]) },
-    // N grades the price portion of O'Neil's "new high / new product". Lower
-    // distance from 52w high = better. We negate distFromHigh for gradeBand
-    // (which grades descending) so "closer to high" → higher grade.
-    { key: "N", label: "From 52w hi", raw: distFromHigh != null ? -distFromHigh : null, fmt: (v) => (v).toFixed(1) + "%", grade: gradeBand(distFromHigh != null ? -distFromHigh : null, [-3, -10, -20, -35, -50]) },
-    { key: "#", label: "Ind rank", raw: industryPct, fmt: (v) => "P" + v.toFixed(0), grade: gradeBand(industryPct, [95, 85, 70, 50, 30]) },
-  ];
-  const composite = avgLetter(criteria.map((c) => c.grade));
-  const compColor = gradeColor(composite, ARIA);
-
-  const naCriteria = [];
-
-  return (
-    <div
-      style={{
-        flex: 0.45,
-        display: "flex",
-        flexDirection: "column",
-        minWidth: 0,
-        fontFamily: "monospace",
-      }}
-      title="CANSLIM scorecard — O'Neil/IBD's 7 gradeable criteria for growth stock winners. Each row is a letter grade from A+ (exceptional) to F (fails). Composite is unweighted average."
-    >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "12px 1fr auto 22px",
-          columnGap: 6,
-          rowGap: 2,
-          fontSize: 9,
-          alignItems: "center",
-        }}
-      >
-        {/* Composite + percentile ranks at top */}
-        <div
-          style={{
-            gridColumn: "1 / -1",
-            fontSize: 7,
-            color: ARIA.textMuted,
-            marginBottom: 4,
-            paddingBottom: 3,
-            borderBottom: `1px solid ${ARIA.border}`,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "center",
-            gap: 6,
-            lineHeight: 1,
-          }}
-        >
-          <span>CANSLIM</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: compColor, letterSpacing: 0, lineHeight: 1 }}>
-            {composite}
-          </span>
-          <span style={{ color: ARIA.textMuted }}>composite</span>
-        </div>
-        <PctileRanks ticker={ticker} stockMap={stockMap} ARIA={ARIA} />
-        {(instFunds != null || instNetFlow != null) && (
-          <React.Fragment>
-            <span style={{ color: ARIA.textMuted }}>·</span>
-            <span
-              style={{
-                gridColumn: "2 / span 3",
-                fontSize: 8,
-                display: "flex",
-                gap: 8,
-                alignItems: "baseline",
-                borderBottom: `1px solid ${ARIA.border}`,
-                paddingBottom: 3,
-                marginBottom: 2,
-              }}
-              title="Institutional fund count (13F filings) and net flow % vs prior quarter"
-            >
-              <span>
-                <span style={{ color: ARIA.textMuted }}>Funds </span>
-                <span style={{ color: ARIA.text, fontWeight: 700 }}>
-                  {instFunds != null ? instFunds.toLocaleString() : "—"}
-                </span>
-              </span>
-              <span>
-                <span style={{ color: ARIA.textMuted }}>Net flow </span>
-                <span
-                  style={{
-                    fontWeight: 700,
-                    color:
-                      instNetFlow == null
-                        ? ARIA.textMuted
-                        : instNetFlow >= 1
-                        ? ARIA.green
-                        : instNetFlow > 0
-                        ? ARIA.blue
-                        : instNetFlow > -1
-                        ? ARIA.textDim
-                        : ARIA.red,
-                  }}
-                >
-                  {instNetFlow == null
-                    ? "—"
-                    : (instNetFlow >= 0 ? "+" : "") + instNetFlow.toFixed(2) + "%"}
-                </span>
-              </span>
-            </span>
-          </React.Fragment>
-        )}
-        {/* Criteria rows */}
-        {criteria.map((c) => {
-          const clr = gradeColor(c.grade, ARIA);
-          return (
-            <React.Fragment key={c.key}>
-              <span style={{ color: ARIA.textMuted, fontWeight: 700 }}>{c.key}</span>
-              <span style={{ color: ARIA.textDim }}>{c.label}</span>
-              <span style={{ color: ARIA.text, textAlign: "right" }}>
-                {c.raw == null || !Number.isFinite(c.raw) ? "—" : c.fmt(c.raw)}
-              </span>
-              <span
-                style={{
-                  padding: "0 4px",
-                  borderRadius: 2,
-                  fontSize: 8,
-                  fontWeight: 700,
-                  background: c.grade === "—" ? "transparent" : clr + "22",
-                  color: clr,
-                  border: c.grade === "—" ? `1px solid ${ARIA.border}` : `1px solid ${clr}55`,
-                  textAlign: "center",
-                }}
-              >
-                {c.grade}
-              </span>
-            </React.Fragment>
-          );
-        })}
-        {naCriteria.map((l) => (
-          <React.Fragment key={l}>
-            <span style={{ color: ARIA.textMuted }}>·</span>
-            <span
-              style={{
-                color: ARIA.textMuted,
-                gridColumn: "2 / span 3",
-                fontStyle: "italic",
-                fontSize: 8,
-              }}
-            >
-              {l}
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // EPS & Revenue estimate percentile ranks — same logic as leaderboard drawer
 function PctileRanks({ ticker, stockMap, ARIA }) {
@@ -8631,7 +8347,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
     // scaled to its own visible-window min/max. Blue dots = RS line makes a new
     // high; brighter/larger dot when price has NOT also made a new high ("RS new
     // high before price" — the bullish tell).
-    let rsLinePts = "", rsDots = [], rsLabelY = null;
+    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null;
     if (benchMap && benchMap.size) {
       let lastSpy = null;
       const rsRaw = bars.map((b) => {
@@ -8660,6 +8376,22 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
           if (v != null && v > rsRunMax) rsRunMax = v;
           if (px != null && px > pxRunMax) pxRunMax = px;
         });
+        // RS rolling over: swing highs (3-bar) that are LOWER than the prior
+        // swing high — relative strength making lower highs (deteriorating).
+        // Amber ▾ counterpart to the blue/pink new-high dots.
+        const W3 = 2;
+        let prevPeak = null;
+        for (let i = W3; i < rsRaw.length - W3; i++) {
+          const v = rsRaw[i];
+          if (v == null) continue;
+          let isPeak = true;
+          for (let k = 1; k <= W3; k++) {
+            if (!(rsRaw[i - k] != null && rsRaw[i + k] != null && v >= rsRaw[i - k] && v >= rsRaw[i + k])) { isPeak = false; break; }
+          }
+          if (!isPeak) continue;
+          if (prevPeak != null && v < prevPeak * 0.985) rsRolls.push({ x: xC(i), y: rsY(v) - 5 });
+          prevPeak = v;
+        }
       }
     }
 
@@ -8672,7 +8404,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
-      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker,
+      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker, rsRolls,
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
@@ -8766,6 +8498,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
               <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={d.rsnhbp ? 3.4 : 3.0} fill={d.rsnhbp ? "#ec4899" : "#3b82f6"} stroke="#0a0a14" strokeWidth={0.7}>
                 <title>{d.rsnhbp ? "RS New High Before Price (RSNHBP) — relative strength leading price, bullish" : "RS line new high"}</title>
               </circle>
+            ))}
+            {(chartData.rsRolls || []).map((d, i) => (
+              <text key={`rsroll${i}`} x={d.x} y={d.y} textAnchor="middle" fontSize={8} fill="#f59e0b" fontWeight={800}>
+                <title>RS lower high — relative strength rolling over (leadership fading)</title>▾
+              </text>
             ))}
             {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS vs SPY</text>}
           </>
