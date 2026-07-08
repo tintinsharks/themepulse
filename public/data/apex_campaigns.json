@@ -62,7 +62,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 11.62,
-  "last_seen": "2026-07-07",
+  "last_seen": "2026-07-08",
   "ondeck": false
  },
  "ANRO": {
@@ -70,6 +70,14 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 25.7,
+  "last_seen": "2026-07-08",
+  "ondeck": true
+ },
+ "AMD": {
+  "entered": "2026-07-08",
+  "px": 508.43,
+  "layer": "Compute Silicon",
+  "peak": 508.43,
   "last_seen": "2026-07-08",
   "ondeck": true
  }
