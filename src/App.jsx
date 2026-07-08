@@ -2865,6 +2865,24 @@ const COL_HELP = {
   liveVol: "Vol — today's share volume so far. LIVE during market hours.",
 };
 
+// Sell-discipline violations for a held name (Momentum Masters): lost the moving-
+// average support, RS line rolling over, or climactic/extended. Returns [] or a
+// list of short warning strings — surfaced as a 🔻 flag on owned tickers.
+function heldViolations(s) {
+  if (!s) return [];
+  const v = [];
+  const d20 = s.dist_20dma_atrx, d50 = s.dist_50sma_atrx;
+  const rsOff = s.rs_line_pct_from_high;
+  // Only a "violation" if the long-term trend is still intact (above the 200-day):
+  // a leader cracking short-term support, not just any stock in a downtrend.
+  const upTrend = (s.dist_200sma_atrx ?? -1) > 0;
+  if (upTrend && d50 != null && d50 < 0) v.push("lost the 50-day");
+  else if (upTrend && d20 != null && d20 < 0) v.push("lost the 20-day");
+  if (rsOff != null && rsOff < -25) v.push("RS line rolling over");
+  if (d20 != null && d20 > 6 && (s.return_1w || 0) > 25) v.push("climactic/extended — tighten stop");
+  return v;
+}
+
 function chainSetup(r, ctx) {
   const { zvr, rs: eif, cr, str, alpha, erDays, chg, rsRank, off52, d20, d50, adr } = r;
   const f = ctx?.zFactor ?? 1;
@@ -9229,6 +9247,10 @@ function ChartPanelInline({
         // a name hugging the MA from just below is as tight as one just above it.
         const ext = stockInfo?.dist_20dma_atrx ?? null;
         const extColor = ext == null ? ARIA.textMuted : Math.abs(ext) <= 2 ? ARIA.green : ARIA.textDim;
+        const baseW = stockInfo?.base_weeks ?? null;
+        const basePos = stockInfo?.base_pos_pct ?? null;
+        const baseColor = !baseW ? ARIA.textMuted : (baseW >= 6 && (basePos == null || basePos >= 50)) ? ARIA.green : baseW >= 3 ? ARIA.blue : ARIA.textDim;
+        const viol = heldViolations(stockInfo);
         const perfs = [
           { label: "1M", val: stockInfo?.return_1m },
           { label: "3M", val: stockInfo?.return_3m },
@@ -9267,6 +9289,8 @@ function ChartPanelInline({
             )}
             {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
             {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). Green = coiled: within ~2 ATRs of the MA on either side (tight to it, above or below). Gray = not coiled: extended above (loose, don\'t chase) or well below the MA.")}
+            {stat("Base", <span style={{ color: baseColor, fontWeight: 700 }}>{baseW ? `${baseW % 1 === 0 ? baseW : baseW.toFixed(1)}w` : "—"}</span>, `Base quality — weeks consolidating near the highs (longer bases → bigger moves)${basePos != null ? `; price sits at the ${basePos}th %ile of the base range (${basePos >= 50 ? "upper" : "lower"} half)` : ""}.`)}
+            {viol.length > 0 && (inPF || inFC || inWL) && <span title={`Sell-discipline warning — ${viol.join("; ")}`} style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 800, color: ARIA.red, flexShrink: 0 }}>🔻{viol.length > 1 ? viol.length : ""}</span>}
           </div>
         );
       })()}
@@ -9308,6 +9332,7 @@ function ChartPanelInline({
               {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
               {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
               {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
+              {(() => { const vv = heldViolations(stockInfo); return (vv.length > 0 && (inPF || inFC || inWL)) ? <span style={badgeStyle(ARIA.red)} title={`Sell-discipline warning — ${vv.join("; ")}`}>🔻 {vv[0]}</span> : null; })()}
             </div>
           )}
           <div style={{ fontSize: 9, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
@@ -9863,6 +9888,7 @@ function WatchlistSectionTable({
                         )}
                         {r.tt && <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
+                        {r.viol && r.viol.length > 0 && <span title={`Sell-discipline warning — ${r.viol.join("; ")}`} style={{ fontSize: 8, lineHeight: "10px" }}>🔻</span>}
                       </span>
                     </td>
                     <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
@@ -10060,7 +10086,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         qmagScore: s.qmag_score || 0,
         strScore,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null,
+        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null, viol: heldViolations(s),
         rs: eif,
         setup,
         setupRank: setup?.rank ?? 0,
