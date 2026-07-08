@@ -8232,7 +8232,7 @@ function calcRiskSize(stopPrice, entryPrice, accountSize, riskPct, maxAllocPct) 
 // pocket pivots, VCP tightness, +4% breakout hatching, dry-up dots, and
 // earnings markers. Ported from theme-leaderboard.html renderDailyChart.
 // ──────────────────────────────────────────────────────────────────────────
-function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
+function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = false }) {
   const MAX_BARS = 375;
   const DEFAULT_BARS = 113;
   const MIN_VISIBLE = 30;
@@ -8376,6 +8376,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       ema21hi: calcEMA(fullH, 21),
       ema21close: calcEMA(fullC, 21),
       ema21lo: calcEMA(fullL, 21),
+      sma20: calcSMA(fullC, 20),
       sma50: calcSMA(fullC, 50),
       ema200: calcEMA(fullC, 200),
       volMA: calcSMA(fullV, 50),
@@ -8411,6 +8412,32 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
     const vMax = Math.max(...bars.map(b => b.volume)) || 1;
     const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
     const volTop = pad.t + priceH + volGap;
+
+    // Sell-discipline violation marker (held names only): the most recent bar
+    // where price closed below a key MA while still above the 200-day — a leader
+    // cracking support. Drawn as a 🔻 above that candle if it's in view.
+    let violMarker = null;
+    if (owned && total > 50) {
+      const s50 = precomputed.sma50, s20 = precomputed.sma20, e200 = precomputed.ema200;
+      const N = total - 1, lastC = ohlc[N].close;
+      const above200 = e200[N] != null && lastC > e200[N];
+      if (above200) {
+        let maArr = null, label = null;
+        if (s50[N] != null && lastC < s50[N]) { maArr = s50; label = "50-day"; }
+        else if (s20[N] != null && lastC < s20[N]) { maArr = s20; label = "20-day"; }
+        if (maArr) {
+          let crossFull = -1;
+          for (let i = N; i > 0; i--) {
+            if (maArr[i] != null && maArr[i - 1] != null && ohlc[i].close < maArr[i] && ohlc[i - 1].close >= maArr[i - 1]) { crossFull = i; break; }
+          }
+          if (crossFull < 0) crossFull = N;
+          const visIdx = crossFull - start;
+          if (visIdx >= 0 && visIdx < bars.length) {
+            violMarker = { x: pad.l + visIdx * (bw + gap) + bw / 2, y: py(ohlc[crossFull].high) - 6, label };
+          }
+        }
+      }
+    }
 
     // Slice MAs to visible window
     const sliceMA = (ma) => ma.slice(start, end);
@@ -8645,11 +8672,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
-      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH,
+      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker,
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -8727,6 +8754,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [] }) {
         {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
         {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
         {chartData.candleElements}
+        {chartData.violMarker && (
+          <text x={chartData.violMarker.x} y={chartData.violMarker.y} textAnchor="middle" fontSize={11} style={{ cursor: "default" }}>
+            <title>{`Sell-discipline violation — closed below the ${chartData.violMarker.label} (leader cracking support). Ryan's trailing-stop trigger.`}</title>🔻
+          </text>
+        )}
         {showRS && chartData.rsLinePts && (
           <>
             <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} />
@@ -9250,7 +9282,6 @@ function ChartPanelInline({
         const baseW = stockInfo?.base_weeks ?? null;
         const basePos = stockInfo?.base_pos_pct ?? null;
         const baseColor = !baseW ? ARIA.textMuted : (baseW >= 6 && (basePos == null || basePos >= 50)) ? ARIA.green : baseW >= 3 ? ARIA.blue : ARIA.textDim;
-        const viol = heldViolations(stockInfo);
         const perfs = [
           { label: "1M", val: stockInfo?.return_1m },
           { label: "3M", val: stockInfo?.return_3m },
@@ -9290,7 +9321,6 @@ function ChartPanelInline({
             {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
             {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). Green = coiled: within ~2 ATRs of the MA on either side (tight to it, above or below). Gray = not coiled: extended above (loose, don\'t chase) or well below the MA.")}
             {stat("Base", <span style={{ color: baseColor, fontWeight: 700 }}>{baseW ? `${baseW % 1 === 0 ? baseW : baseW.toFixed(1)}w` : "—"}</span>, `Base quality — weeks consolidating near the highs (longer bases → bigger moves)${basePos != null ? `; price sits at the ${basePos}th %ile of the base range (${basePos >= 50 ? "upper" : "lower"} half)` : ""}.`)}
-            {viol.length > 0 && (inPF || inFC || inWL) && <span title={`Sell-discipline warning — ${viol.join("; ")}`} style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 800, color: ARIA.red, flexShrink: 0 }}>🔻{viol.length > 1 ? viol.length : ""}</span>}
           </div>
         );
       })()}
@@ -9309,6 +9339,7 @@ function ChartPanelInline({
             ohlc={ohlcBars}
             quarters={quarters}
             height={height}
+            owned={inPF || inFC || inWL}
             stopLines={[
               ...(showTrade && riskScenarios ? [
                 { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
@@ -9332,7 +9363,6 @@ function ChartPanelInline({
               {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
               {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
               {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
-              {(() => { const vv = heldViolations(stockInfo); return (vv.length > 0 && (inPF || inFC || inWL)) ? <span style={badgeStyle(ARIA.red)} title={`Sell-discipline warning — ${vv.join("; ")}`}>🔻 {vv[0]}</span> : null; })()}
             </div>
           )}
           <div style={{ fontSize: 9, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
