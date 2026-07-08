@@ -9118,7 +9118,7 @@ function ChartPanelInline({
       </div>
 
       {/* SVG D/W Chart */}
-      <div style={{ height: 640, overflow: "hidden", flexShrink: 0 }}>
+      <div style={{ height: 600, overflow: "hidden", flexShrink: 0 }}>
         <ErrorBoundary>
           <DailyChartSVG
             ohlc={ohlcBars}
