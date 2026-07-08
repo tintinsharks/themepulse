@@ -9224,10 +9224,11 @@ function ChartPanelInline({
         const rsRank = rsScoreMap.get(ticker) ?? stockInfo?.rs_rank ?? null;
         const rsColor = rsRank == null ? ARIA.textMuted : rsRank >= 90 ? ARIA.green : rsRank >= 70 ? ARIA.blue : rsRank >= 50 ? ARIA.yellow : ARIA.textDim;
         // Extension from the 20-day MA in ATR multiples (swing anchor, days-weeks).
-        // Coiled (0-3× above the MA, tight to support) = green/buyable; loose/
-        // extended (>3×) or below the MA (<0) = gray.
+        // Coiled = tight to the 20-day MA on EITHER side (|ext| ≤ 2 ATRs) = green;
+        // loose/extended above OR well below the MA = gray. Proximity is symmetric —
+        // a name hugging the MA from just below is as tight as one just above it.
         const ext = stockInfo?.dist_20dma_atrx ?? null;
-        const extColor = ext == null ? ARIA.textMuted : (ext >= 0 && ext <= 3) ? ARIA.green : ARIA.textDim;
+        const extColor = ext == null ? ARIA.textMuted : Math.abs(ext) <= 2 ? ARIA.green : ARIA.textDim;
         const perfs = [
           { label: "1M", val: stockInfo?.return_1m },
           { label: "3M", val: stockInfo?.return_3m },
@@ -9265,7 +9266,7 @@ function ChartPanelInline({
               </span>
             )}
             {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
-            {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). Green = coiled: 0-3× above the MA, tight to support and buyable. Gray = not coiled: loose/extended (>3×, don\'t chase) or below the MA.")}
+            {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). Green = coiled: within ~2 ATRs of the MA on either side (tight to it, above or below). Gray = not coiled: extended above (loose, don\'t chase) or well below the MA.")}
           </div>
         );
       })()}
