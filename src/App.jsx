@@ -2000,7 +2000,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                   <span title={`Fresh inflection — today's pace (${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(1)}%/d) is running well ahead of its own week (${r.rsWk > 0 ? "+" : ""}${(r.rsWk ?? 0).toFixed(1)}%): day-one turn, not an extended continuation`} style={{ marginLeft: 3, fontSize: 8.5, fontWeight: 800, color: ARIA.green }}>↗</span>
                 )}
                 {rankCol && r.tt && (
-                  <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2 }}>T2</span>
+                  <span title={r.ttp ? "T2+ PRIME — tight coil in the upper half of a mature (>=6w) base" : "2-Days-Tight — closes within 1% + narrowing range. Breakout candidate"} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2 }}>{r.ttp ? "T2+" : "T2"}</span>
                 )}
                 {rankCol && r.de && (
                   <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2 }}>DE</span>
@@ -2395,7 +2395,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
         now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth,
         off52: s.off_52w_high ?? null, cr: computeCR(q, s), zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
         chg, adr: s.adr_pct ?? null, d20: s.dist_20dma_atrx ?? null, d50: s.dist_50sma_atrx ?? null, // for the Setup badge
-        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null };
+        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high, tt: !!s.two_day_tight, ttp: isPrimeTight(s), de: !!s.de_ready, deTrig: s.de_trigger ?? null };
     });
   };
 
@@ -2864,6 +2864,12 @@ const COL_HELP = {
   rvol: "RV — relative volume: today's volume vs its average. >1 = heavier than usual participation. LIVE.",
   liveVol: "Vol — today's share volume so far. LIVE during market hours.",
 };
+
+// T2+ "prime" coil (Momentum Masters/Ryan): 2-days-tight INSIDE a mature base
+// (>= 6 weeks near the highs) with price in the base's upper half. The gold tier.
+function isPrimeTight(s) {
+  return !!s?.two_day_tight && (s.base_weeks || 0) >= 6 && (s.base_pos_pct ?? 0) >= 50;
+}
 
 function chainSetup(r, ctx) {
   const { zvr, rs: eif, cr, str, alpha, erDays, chg, rsRank, off52, d20, d50, adr } = r;
@@ -5053,7 +5059,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Ticker glyphs</div>
           <div><span style={{ color: ARIA.green, fontWeight: 800 }}>↗</span> fresh inflection (day pace ≫ its week)</div>
           <div><span style={{ color: "#fbbf24", fontWeight: 800 }}>⚠Nd</span> earnings in N days · <span style={{ color: "#fbbf24", fontWeight: 800 }}>α</span> chain-only (high-alpha, below scan filters)</div>
-          <div><span style={{ color: "#f472b6", fontWeight: 800 }}>T2</span> 2-days-tight (closes ≤1% apart + narrowing range) · <span style={{ color: "#fb923c", fontWeight: 800 }}>DE</span> delayed-entry-ready gapper (entry = trigger break)</div>
+          <div><span style={{ color: "#f472b6", fontWeight: 800 }}>T2</span> 2-days-tight (closes ≤1% apart + narrowing range) · <span style={{ color: "#fbbf24", fontWeight: 800 }}>T2+</span> prime: tight in the upper half of a mature ≥6w base · <span style={{ color: "#fb923c", fontWeight: 800 }}>DE</span> delayed-entry-ready gapper (entry = trigger break)</div>
           <div style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, margin: "4px 0 1px" }}>Setup badges (live)</div>
           <div><span style={{ color: "#a855f7", fontWeight: 800 }}>BO</span> breakout entry · <span style={{ color: "#34d399", fontWeight: 800 }}>ACC</span> accumulation · <span style={{ color: "#22d3ee", fontWeight: 800 }}>EP</span> post-ER pivot</div>
           <div><span style={{ color: "#0ea5e9", fontWeight: 800 }}>RST</span> 🪃 leader reset at 20dma · <span style={{ color: "#fbbf24", fontWeight: 800 }}>VCP</span> volume dry-up · <span style={{ color: "#ef4444", fontWeight: 800 }}>DIST</span> distribution (exit)</div>
@@ -5788,7 +5794,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? sr.rs ?? s?.rs_rank ?? null, // EIF (framework score) — consistent with the column label
           rsRank: s?.rs_rank ?? null,                            // momentum RS rank (RST leader gate)
           off52: s?.off_52w_high ?? null,
-          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
@@ -5859,7 +5865,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? s?.rs_rank ?? null,
           rsRank: s?.rs_rank ?? null,
           off52: s?.off_52w_high ?? null,
-          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
@@ -5895,7 +5901,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             ticker: tk, themeId, theme, layer: layers[0] ?? null, layerCount: layers.length,
             chg, alpha: calcAlpha(chg, s), rvol,
             rs: s?.framework_score ?? s?.rs_rank ?? null, rsRank: s?.rs_rank ?? null,
-            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
             str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
             zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
             adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
@@ -5937,7 +5943,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         off52: s?.off_52w_high ?? null,
         d20: s?.dist_20dma_atrx ?? null,
         d50: s?.dist_50sma_atrx ?? null,
-        rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+        rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
@@ -6289,7 +6295,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
-                    {r.tt && <span title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
+                    {r.tt && <span title={r.ttp ? "T2+ PRIME — 2-days-tight in the UPPER HALF of a MATURE base (>=6 weeks near highs). The highest-quality coil." : "2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow"} style={{ fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>{r.ttp ? "T2+" : "T2"}</span>}
                     {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                   </span>
                 </td>
@@ -9160,7 +9166,7 @@ function ChartPanelInline({
           {(has9M || stockInfo.two_day_tight || stockInfo.de_ready) && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
               {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
-              {!!stockInfo.two_day_tight && <span style={badgeStyle("#f472b6")} title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate.">T2</span>}
+              {!!stockInfo.two_day_tight && <span style={badgeStyle(isPrimeTight(stockInfo) ? "#fbbf24" : "#f472b6")} title={isPrimeTight(stockInfo) ? "T2+ PRIME — 2-days-tight in the upper half of a mature (>=6w) base. The highest-quality coil." : "2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate."}>{isPrimeTight(stockInfo) ? "T2+" : "T2"}</span>}
               {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
             </div>
           )}
@@ -9715,7 +9721,7 @@ function WatchlistSectionTable({
                             9M
                           </span>
                         )}
-                        {r.tt && <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
+                        {r.tt && <span title={r.ttp ? "T2+ PRIME — tight coil in the upper half of a mature (>=6w) base" : "2-Days-Tight — closes within 1% + narrowing range. Breakout candidate"} style={{ fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>{r.ttp ? "T2+" : "T2"}</span>}
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                       </span>
                     </td>
@@ -9914,7 +9920,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         qmagScore: s.qmag_score || 0,
         strScore,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, de: !!s.de_ready, deTrig: s.de_trigger ?? null,
+        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, ttp: isPrimeTight(s), de: !!s.de_ready, deTrig: s.de_trigger ?? null,
         rs: eif,
         setup,
         setupRank: setup?.rank ?? 0,
@@ -10568,6 +10574,30 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
           </button>
         </div>
       </div>
+
+      {/* ⚠ Earnings-risk sweep — held names reporting within 5 trading days.
+          Zanger: sell a full day before ER; Ryan: never hold size through it. */}
+      {(() => {
+        const held = [...new Set([...portfolio, ...focus])];
+        const atRisk = held
+          .map((t) => ({ t, d: stockMap?.[t]?.earnings_days, timing: stockMap?.[t]?.er_timing || "" }))
+          .filter((x) => x.d != null && x.d >= 0 && x.d <= 5)
+          .sort((a, b) => a.d - b.d);
+        if (!atRisk.length) return null;
+        return (
+          <div style={{ padding: "4px 8px", borderBottom: `1px solid ${ARIA.border}`, background: "rgba(239,68,68,0.07)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontFamily: "monospace" }}>
+            <span style={{ fontSize: 8, fontWeight: 800, color: ARIA.red, textTransform: "uppercase", letterSpacing: 0.4 }}>⚠ Earnings risk</span>
+            {atRisk.map((x) => (
+              <span key={x.t} onClick={() => onTickerClick && onTickerClick(x.t)}
+                title={`${x.t} reports in ${x.d === 0 ? "0 days (TODAY)" : `${x.d} day${x.d > 1 ? "s" : ""}`}${x.timing ? ` ${x.timing}` : ""} — you hold it (${portfolio.includes(x.t) ? "portfolio" : "focus"}). Zanger: sell a full day before; Ryan: never hold size through earnings.`}
+                style={{ cursor: "pointer", fontSize: 8, fontWeight: 700, color: ARIA.red, border: `1px solid ${ARIA.red}66`, background: "rgba(239,68,68,0.12)", borderRadius: 3, padding: "1px 6px" }}>
+                {x.t} {x.d === 0 ? "TODAY" : `${x.d}d`}{x.timing ? ` ${x.timing}` : ""}
+              </span>
+            ))}
+            <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>reduce / exit before the report</span>
+          </div>
+        );
+      })()}
 
       {/* List view */}
       {view === "list" && (
@@ -11756,6 +11786,116 @@ function SetupJournal({ stockMap, onTickerClick }) {
   );
 }
 
+// ── Trade alerts: polls live quotes for portfolio ∪ focus during RTH and fires
+// when (a) a name crosses its DE trigger, (b) a focus/held name fires BO
+// conditions, (c) a PORTFOLIO name shows heavy distribution. Deduped per
+// ticker+type per day; optional desktop notifications. Signal-free.
+function useTradeAlerts(stockMap) {
+  const [portfolio] = useLocalStorageList("themepulse-portfolio");
+  const [focus] = useLocalStorageList("themepulse-focus");
+  const [alerts, setAlerts] = useState([]);
+  const seenKey = () => `tp-alerts-seen-${new Date().toISOString().slice(0, 10)}`;
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const mins = et.getHours() * 60 + et.getMinutes();
+      if (mins < 570 || mins >= 960) return; // RTH only
+      const names = [...new Set([...portfolio, ...focus])].filter((t) => stockMap?.[t]);
+      if (!names.length) return;
+      try {
+        const r = await fetch(`/api/live?universe=${encodeURIComponent(names.join(","))}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const qs = d.theme_universe || d.universe || [];
+        const frac = Math.max(0.02, sessionVolFraction(mins - 570));
+        let seen; try { seen = new Set(JSON.parse(localStorage.getItem(seenKey()) || "[]")); } catch { seen = new Set(); }
+        const fresh = [];
+        const push = (t, type, msg) => {
+          const k = `${t}|${type}`;
+          if (seen.has(k)) return;
+          seen.add(k); fresh.push({ t, type, msg, time: et.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) });
+        };
+        qs.forEach((q) => {
+          const t = q?.ticker; if (!t) return;
+          const st = stockMap[t] || {};
+          const price = q.price, chg = q.change, vol = q.volume, avg = st.avg_volume_raw || q.avgVolume || 0;
+          let zvr = null;
+          if (vol && avg > 0) { zvr = Math.round((vol / (avg * frac)) * 100); if (chg != null && chg < 0) zvr = -zvr; }
+          const cr = computeCR(q, st);
+          // (a) DE trigger break
+          if (st.de_ready && st.de_trigger && price != null && price >= st.de_trigger)
+            push(t, "DE", `crossed its DE trigger ${st.de_trigger} — delayed-entry breakout`);
+          // (b) BO firing (focus or portfolio)
+          if ((st.off_52w_high ?? -100) >= -6 && chg != null && chg > 0 && chg >= (st.adr_pct || 4) &&
+              zvr != null && zvr >= 130 && cr != null && cr >= 60)
+            push(t, "BO", `breakout conditions firing (+${chg.toFixed(1)}%, ZVR ${zvr}%)`);
+          // (c) DIST on a portfolio holding
+          if (portfolio.includes(t) && zvr != null && zvr <= -180)
+            push(t, "DIST", `heavy distribution (ZVR ${zvr}%) — holdings guard`);
+        });
+        if (fresh.length && !stop) {
+          try { localStorage.setItem(seenKey(), JSON.stringify([...seen])); } catch { /* noop */ }
+          setAlerts((prev) => [...fresh, ...prev].slice(0, 30));
+          if (typeof window.Notification !== "undefined" && window.Notification.permission === "granted" &&
+              localStorage.getItem("tp-alerts-desktop") === "1") {
+            fresh.forEach((a) => { try { new window.Notification(`${a.t} — ${a.type}`, { body: a.msg }); } catch { /* noop */ } });
+          }
+        }
+      } catch { /* ignore */ }
+    };
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => { stop = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portfolio.join(","), focus.join(","), stockMap]);
+  return alerts;
+}
+
+function AlertsBell({ alerts, onTicker, ARIA }) {
+  const [open, setOpen] = useState(false);
+  const [desk, setDesk] = useState(() => localStorage.getItem("tp-alerts-desktop") === "1");
+  const toggleDesk = async () => {
+    if (!desk && typeof window.Notification !== "undefined" && window.Notification.permission !== "granted") {
+      const perm = await window.Notification.requestPermission();
+      if (perm !== "granted") return;
+    }
+    const n = !desk; setDesk(n);
+    try { localStorage.setItem("tp-alerts-desktop", n ? "1" : "0"); } catch { /* noop */ }
+  };
+  const C = { DE: "#fb923c", BO: "#a855f7", DIST: "#ef4444" };
+  return (
+    <div style={{ position: "fixed", bottom: 16, right: 16, zIndex: 60, fontFamily: "monospace" }}>
+      {open && (
+        <div style={{ position: "absolute", bottom: 40, right: 0, width: 280, maxHeight: 320, overflowY: "auto", background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", padding: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.5 }}>Trade alerts</span>
+            <button onClick={toggleDesk} title="Fire desktop notifications when new alerts arrive" style={{ fontSize: 7, padding: "1px 6px", borderRadius: 3, cursor: "pointer", fontFamily: "monospace", border: `1px solid ${desk ? ARIA.green : ARIA.border}`, color: desk ? ARIA.green : ARIA.textMuted, background: "transparent" }}>
+              {desk ? "✓ desktop" : "desktop off"}
+            </button>
+          </div>
+          {alerts.length === 0 && <div style={{ fontSize: 8.5, color: ARIA.textMuted, padding: "6px 0" }}>No alerts today. Watches portfolio + focus during market hours: DE trigger breaks, BO firing, distribution on holdings.</div>}
+          {alerts.map((a, i) => (
+            <div key={i} onClick={() => { onTicker && onTicker(a.t); setOpen(false); }}
+              style={{ display: "flex", alignItems: "baseline", gap: 6, padding: "3px 4px", borderRadius: 4, cursor: "pointer", fontSize: 9 }}
+              onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+              <span style={{ fontSize: 7, fontWeight: 800, color: C[a.type] || ARIA.text, border: `1px solid ${(C[a.type] || ARIA.border)}66`, borderRadius: 2, padding: "0 3px", flexShrink: 0 }}>{a.type}</span>
+              <span style={{ fontWeight: 700, color: ARIA.text, flexShrink: 0 }}>{a.t}</span>
+              <span style={{ color: ARIA.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.msg}</span>
+              <span style={{ color: ARIA.textMuted, fontSize: 7.5, marginLeft: "auto", flexShrink: 0 }}>{a.time}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={() => setOpen((v) => !v)} title="Trade alerts — DE trigger breaks, BO firing, distribution on holdings (portfolio + focus, market hours)"
+        style={{ width: 34, height: 34, borderRadius: 17, cursor: "pointer", background: ARIA.bgCard, border: `1px solid ${alerts.length ? "#fb923c" : ARIA.border}`, color: alerts.length ? "#fb923c" : ARIA.textMuted, fontSize: 14, position: "relative", boxShadow: "0 2px 10px rgba(0,0,0,0.4)" }}>
+        🔔
+        {alerts.length > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7, background: "#fb923c", color: "#0a0a14", fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>{alerts.length}</span>}
+      </button>
+    </div>
+  );
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -11780,6 +11920,7 @@ function AppMain() {
     setChartTicker(ticker);
     localStorage.setItem("themepulse-chart-ticker", ticker);
   }, []);
+
   // Listen for ETF pill clicks from the Themes view (or anywhere else
   // that wants to load a chart without prop-drilling).
   // Also catches postMessage from chain/leaderboard iframes.
@@ -11834,6 +11975,8 @@ function AppMain() {
     });
     return m;
   }, [stocks, frameworkScoresRaw, data.pipeline?.ep_signals]);
+  // 🔔 Trade alerts (portfolio + focus, RTH): DE trigger breaks, BO firing, DIST on holdings
+  const tradeAlerts = useTradeAlerts(stockMap);
 
   // Subtheme setup score per ticker — used in Scan Watch "Str" column.
   // Formula mirrors computeDailySetupScore in SubthemeRotation.jsx.
@@ -11920,6 +12063,7 @@ function AppMain() {
           "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
       }}
     >
+      <AlertsBell alerts={tradeAlerts} onTicker={handleTickerClick} ARIA={ARIA} />
       {/* Topbar */}
       <div
         style={{
