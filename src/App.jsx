@@ -808,19 +808,19 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
       const vc = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.red : chg < 0 ? ARIA.green : ARIA.textMuted;
       return (
         <div key={idx.ticker} title="CBOE Volatility Index — up = risk-off"
-          style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-          <span style={{ fontWeight: 700, fontSize: 11, color: ARIA.text }}>VIX</span>
-          <span style={{ fontWeight: 700, fontSize: 11, color: vc }}>{price != null ? price.toFixed(1) : "—"}</span>
-          {chg != null && <span style={{ fontSize: 9, color: vc }}>{arrow}{Math.abs(chg).toFixed(1)}%</span>}
+          style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+          <span style={{ fontWeight: 700, fontSize: 9, color: ARIA.text }}>VIX</span>
+          <span style={{ fontWeight: 700, fontSize: 9, color: vc }}>{price != null ? price.toFixed(1) : "—"}</span>
+          {chg != null && <span style={{ fontSize: 8, color: vc }}>{arrow}{Math.abs(chg).toFixed(1)}%</span>}
         </div>
       );
     }
     const c = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
     return (
-      <div key={idx.ticker} onClick={() => onTickerClick && onTickerClick(idx.ticker)}
-        style={{ display: "flex", alignItems: "baseline", gap: 5, cursor: "pointer" }}>
-        <span style={{ fontWeight: 700, fontSize: 11, color: ARIA.text }}>{idx.name}</span>
-        <span style={{ fontWeight: 700, fontSize: 11, color: c }}>
+      <div key={idx.ticker} onClick={(e) => { e.stopPropagation(); onTickerClick && onTickerClick(idx.ticker); }}
+        style={{ display: "flex", alignItems: "baseline", gap: 4, cursor: "pointer" }}>
+        <span style={{ fontWeight: 700, fontSize: 9, color: ARIA.text }}>{idx.name}</span>
+        <span style={{ fontWeight: 700, fontSize: 9, color: c }}>
           {chg == null ? "—" : `${arrow} ${Math.abs(chg).toFixed(2)}%`}
         </span>
       </div>
@@ -833,8 +833,8 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 4,
-        fontSize: 10,
+        gap: 3,
+        fontSize: 8,
         cursor: "help",
       }}
     >
@@ -869,30 +869,21 @@ function MarketBreadthBar({ stocks, onTickerClick }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 14,
-        padding: "6px 14px",
-        marginBottom: 8,
-        background: ARIA.bgRow,
-        borderRadius: 6,
-        border: `1px solid ${ARIA.border}`,
+        gap: 12,
         flexWrap: "wrap",
         fontFamily: "monospace",
-        fontSize: 11,
+        fontSize: 9,
       }}
     >
-      <span style={{ color: ARIA.textMuted, fontSize: 10 }}>
-        {new Date().toISOString().slice(0, 10)}
-      </span>
-      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 11, alignItems: "center" }}>
         {INDEX_LIST.map(renderIndex)}
       </div>
       {breadth && (
         <div
           style={{
             display: "flex",
-            gap: 12,
+            gap: 10,
             alignItems: "center",
-            marginLeft: "auto",
           }}
           title="Breadth of the top-500 (by $vol) universe, live — since previous close. A/D % is relative to advancers+decliners; H/L % to 52W highs+lows."
         >
@@ -1392,7 +1383,7 @@ function useBriefing(intervalMs = 60000) {
   return b;
 }
 
-function MarketConditionsPanel() {
+function MarketConditionsPanel({ stocks, onTickerClick }) {
   const ARIA = useAriaTheme();
   const bd = useBreadthData();
   const briefing = useBriefing(60000);
@@ -1527,6 +1518,8 @@ function MarketConditionsPanel() {
             );
           })()}
           ⚖ {expo.level}</span>
+        <span style={{ color: ARIA.border }}>|</span>
+        <MarketBreadthBar stocks={stocks} onTickerClick={onTickerClick} />
         {/* broad-glance chips */}
         {(() => {
           const chip = (label, val, color) => (
@@ -1541,9 +1534,6 @@ function MarketConditionsPanel() {
           const fmtChg = (v) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(2) + "%";
           return (
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              {liveActive && chip("SPY", fmtChg(liveSpyChg), idxC(liveSpyChg))}
-              {liveActive && chip("QQQ", fmtChg(liveQqqChg), idxC(liveQqqChg))}
-              {liveActive && <span style={{ color: ARIA.border }}>|</span>}
               {dd.SPY && chip("Dist", `SPY ${dd.SPY.today} · QQQ ${dd.QQQ.today}`, distC)}
               {dd.SPY?.label && <span style={{ fontSize: 8, fontWeight: 700, color: distC }}>{dd.SPY.label}</span>}
               <span style={{ color: ARIA.border }}>|</span>
@@ -1551,7 +1541,6 @@ function MarketConditionsPanel() {
               {chip(">200", g.sma200 == null ? "—" : g.sma200.toFixed(0) + "%", trendC(g.sma200))}
               <span style={{ color: ARIA.border }}>|</span>
               {chip("1M", pf.m1 == null ? "—" : (pf.m1 > 0 ? "+" : "") + pf.m1.toFixed(1) + "%", m1c)}
-              {chip("VIX", pf.vix == null ? "—" : pf.vix.toFixed(1), pf.vix == null ? ARIA.textDim : pf.vix > 25 ? ARIA.red : pf.vix < 16 ? ARIA.green : ARIA.textDim)}
             </div>
           );
         })()}
@@ -12314,12 +12303,9 @@ function AppMain() {
           />
         ) : (
           <>
-            {/* Top: Market Breadth Bar (full width) */}
-            <MarketBreadthBar stocks={stocks} onTickerClick={handleTickerClick} />
-
-            {/* Market Conditions — distribution days, SMA trend, performance, verdict */}
+            {/* Market Conditions — verdict + exposure + live indexes/breadth in one bar */}
             <ErrorBoundary>
-              <MarketConditionsPanel />
+              <MarketConditionsPanel stocks={stocks} onTickerClick={handleTickerClick} />
             </ErrorBoundary>
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
