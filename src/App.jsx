@@ -2450,39 +2450,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
         <span style={{ fontSize: 8, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
         <span style={{ fontSize: 8, color: ARIA.textDim }}>what's rotating in / out · {d.universe} ETFs</span>
-      {/* 💼 MY LAYERS — where the portfolio sits in the rotation landscape */}
-      {open && Object.keys(heldByLayer).length > 0 && (() => {
-        const chips = Object.entries(heldByLayer).map(([k, tks]) => {
-          const [tid, name] = k.split("|");
-          const lyr = (d.layers || []).find((l) => l.themeId === tid && l.name === name);
-          return lyr ? { lyr, tks: [...new Set(tks)] } : null;
-        }).filter(Boolean).sort((a, b) => (b.lyr.now ?? -1) - (a.lyr.now ?? -1));
-        if (!chips.length) return null;
-        const totalHeld = heldSet.size || 1;
-        const maxShare = Math.max(...chips.map((c) => c.tks.length)) / totalHeld;
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", fontSize: 8 }}>
-            <span style={{ color: ARIA.yellow, fontWeight: 800 }}>💼 MY LAYERS</span>
-            {chips.map(({ lyr, tks }) => {
-              const qc = lyr.now == null || lyr.w1 == null ? ARIA.blue
-                : lyr.now >= 50 ? (lyr.now - lyr.w1 >= 0 ? ARIA.green : ARIA.yellow)
-                : (lyr.now - lyr.w1 >= 0 ? ARIA.blue : ARIA.red);
-              return (
-                <button key={lyr.themeId + lyr.name} onClick={(e) => { e.stopPropagation(); applyLayer(lyr, false, true); }}
-                  title={`${lyr.theme} · ${lyr.name} — rank ${lyr.now} · holding: ${tks.join(", ")} (click to load)`}
-                  style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 6px", borderRadius: 3,
-                    color: ARIA.text, background: "transparent", border: `1px solid ${qc}` }}>
-                  {lyr.name} <span style={{ color: qc }}>{lyr.now}</span> <span style={{ color: ARIA.yellow }}>·{tks.length}</span>
-                </button>
-              );
-            })}
-            {maxShare >= 0.4 && heldSet.size >= 3 && (
-              <span title="Over 40% of your holdings sit in one layer — correlated positions behave like one oversized position on a layer-level red day"
-                style={{ color: "#fbbf24", fontWeight: 800 }}>⚠ concentrated</span>
-            )}
-          </div>
-        );
-      })()}
         {!open && (() => {
           const ar = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
           const sc = ar.filter((r) => r.d1 != null).map((r) => ({ ...r, pts: r.now - r.d1 }));
