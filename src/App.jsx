@@ -9110,7 +9110,7 @@ function ChartPanelInline({
       {/* Thin header bar — ticker · layer · Chg · Intraday · ADR · Next ER (left), ticker input (right) */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
         <img key={ticker} src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt="" onError={(e) => { e.target.style.display = "none"; }}
-          style={{ width: 15, height: 15, borderRadius: 3, background: "#ffffff", objectFit: "contain", padding: 1, flexShrink: 0 }} />
+          style={{ width: 20, height: 20, borderRadius: 4, background: "#ffffff", objectFit: "contain", padding: 1.5, flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
         {tickerLayers.length > 0 ? (
           <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: tickerLayers[0].themeId })); } catch {} }}
@@ -12187,11 +12187,12 @@ function AppMain() {
           style={{
             fontSize: 16,
             fontWeight: 800,
-            background: `linear-gradient(135deg, ${ARIA.green}, ${ARIA.cyan})`,
+            background: `linear-gradient(135deg, ${ARIA.brand1 || ARIA.green}, ${ARIA.brand2 || ARIA.cyan})`,
             backgroundClip: "text",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
-            letterSpacing: -0.3,
+            letterSpacing: 0.2,
+            WebkitFontSmoothing: "antialiased",
           }}
         >
           THEMEPULSE{" "}

@@ -50,6 +50,8 @@ export const ARIA_DARK = {
   glass:        "rgba(255, 255, 255, 0.03)",
   vignette:     "radial-gradient(1100px 700px at 18% -8%, #14141d 0%, #0a0a0f 60%)",
   shadow:       "0 4px 24px rgba(0, 0, 0, 0.35)",
+  brand1:       "#6ee7b7",
+  brand2:       "#67e8f9",
 };
 
 export const ARIA_LIGHT = {
@@ -72,6 +74,8 @@ export const ARIA_LIGHT = {
   glass:        "rgba(0, 0, 0, 0.02)",
   vignette:     "radial-gradient(1100px 700px at 18% -8%, #ffffff 0%, #f8f9fc 60%)",
   shadow:       "0 4px 20px rgba(30, 40, 70, 0.10)",
+  brand1:       "#059669",
+  brand2:       "#0891b2",
 };
 
 // Default export for backwards compat — points at the dark palette so any
