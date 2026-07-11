@@ -62,8 +62,10 @@ export const ARIA_LIGHT = {
   border:       "rgba(0, 0, 0, 0.06)",
   borderLight:  "rgba(0, 0, 0, 0.1)",
   text:         "#0f0f14",
-  textDim:      "#4a4a5a",
-  textMuted:    "#7a7a8e",
+  // Light-mode data values read near-black (gray washes out on white);
+  // labels/headers stay gray so the hierarchy holds.
+  textDim:      "#26262f",
+  textMuted:    "#6d6d80",
   green:        "#059669",
   red:          "#dc2626",
   yellow:       "#d97706",
