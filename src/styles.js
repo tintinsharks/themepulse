@@ -48,6 +48,8 @@ export const ARIA_DARK = {
   cyan:         "#22d3ee",
   glowGreen:    "rgba(52, 211, 153, 0.15)",
   glass:        "rgba(255, 255, 255, 0.03)",
+  vignette:     "radial-gradient(1100px 700px at 18% -8%, #14141d 0%, #0a0a0f 60%)",
+  shadow:       "0 4px 24px rgba(0, 0, 0, 0.35)",
 };
 
 export const ARIA_LIGHT = {
@@ -68,6 +70,8 @@ export const ARIA_LIGHT = {
   cyan:         "#0891b2",
   glowGreen:    "rgba(5, 150, 105, 0.1)",
   glass:        "rgba(0, 0, 0, 0.02)",
+  vignette:     "radial-gradient(1100px 700px at 18% -8%, #ffffff 0%, #f8f9fc 60%)",
+  shadow:       "0 4px 20px rgba(30, 40, 70, 0.10)",
 };
 
 // Default export for backwards compat — points at the dark palette so any

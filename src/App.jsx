@@ -319,10 +319,10 @@ const numInputStyle = {
   width: 32,
   fontSize: 9,
   padding: "2px 4px",
-  background: ARIA.bg,
-  border: `1px solid ${ARIA.border}`,
+  background: "rgba(128,128,128,0.14)",
+  border: "1px solid rgba(128,128,128,0.25)",
   borderRadius: 3,
-  color: ARIA.cyan,
+  color: "inherit",
   fontFamily: "monospace",
   textAlign: "center",
   outline: "none",
@@ -1492,17 +1492,41 @@ function MarketConditionsPanel() {
     score += c.verdict === "Positive" ? 1 : c.verdict === "Negative" ? -2 : 0;
     const level = score >= 3 ? "FULL" : score >= 1 ? "75% SIZE" : score >= -1 ? "HALF SIZE" : "NO NEW BUYS";
     const color = score >= 3 ? ARIA.green : score >= 1 ? ARIA.blue : score >= -1 ? ARIA.yellow : ARIA.red;
-    return { level, color, dd };
+    return { level, color, dd, score };
   })();
   return (
-    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${verdictC}`, marginBottom: 8, fontFamily: "monospace" }}>
+    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${verdictC}`, marginBottom: 8, fontFamily: "monospace", boxShadow: ARIA.shadow }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap", background: verdictC + "14" }}>
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
         <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Market Conditions</span>
         <span style={{ fontSize: 9, fontWeight: 800, color: verdictC, background: verdictC + "1c", border: `1px solid ${verdictC}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>{c.verdict}</span>
         <span style={{ fontSize: 8, fontWeight: 700, color: verdictC, textTransform: "uppercase", letterSpacing: 0.5 }}>{posture}</span>
         <span title={`Progressive-exposure dial — ${expo.dd} distribution days + verdict ${c.verdict}. Position sizing throttle for new buys (the Signal scans add a recent-win-rate term on top).`}
-          style={{ fontSize: 8, fontWeight: 800, color: expo.color, background: expo.color + "1c", border: `1px solid ${expo.color}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>⚖ {expo.level}</span>
+          style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 8, fontWeight: 800, color: expo.color, background: expo.color + "1c", border: `1px solid ${expo.color}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>
+          {(() => {
+            // arc gauge: score −4..+4 → needle sweep 180°..0° across red/yellow/blue/green
+            const clamped = Math.max(-4, Math.min(4, expo.score));
+            const ang = Math.PI * (1 - (clamped + 4) / 8); // rad: −4 → π (left), +4 → 0 (right)
+            const cxg = 11, cyg = 10, rr = 8;
+            const nx = cxg + rr * 0.82 * Math.cos(ang), ny = cyg - rr * 0.82 * Math.sin(ang);
+            const seg = (a0, a1, col) => {
+              const x0 = cxg + rr * Math.cos(a0), y0 = cyg - rr * Math.sin(a0);
+              const x1 = cxg + rr * Math.cos(a1), y1 = cyg - rr * Math.sin(a1);
+              return <path d={`M${x0.toFixed(1)},${y0.toFixed(1)} A${rr},${rr} 0 0 1 ${x1.toFixed(1)},${y1.toFixed(1)}`} fill="none" stroke={col} strokeWidth={2.6} strokeLinecap="butt" />;
+            };
+            const P = Math.PI;
+            return (
+              <svg width={22} height={12} viewBox="0 0 22 12" style={{ flexShrink: 0 }}>
+                {seg(P, P * 0.75, ARIA.red)}
+                {seg(P * 0.75, P * 0.5, ARIA.yellow)}
+                {seg(P * 0.5, P * 0.25, ARIA.blue)}
+                {seg(P * 0.25, 0, ARIA.green)}
+                <line x1={cxg} y1={cyg} x2={nx.toFixed(1)} y2={ny.toFixed(1)} stroke={ARIA.text} strokeWidth={1.2} strokeLinecap="round" />
+                <circle cx={cxg} cy={cyg} r={1.3} fill={ARIA.text} />
+              </svg>
+            );
+          })()}
+          ⚖ {expo.level}</span>
         {/* broad-glance chips */}
         {(() => {
           const chip = (label, val, color) => (
@@ -2502,7 +2526,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: liveOn ? ARIA.green : "#555", display: "inline-block" }} />
                   <span style={{ color: spyChg == null ? ARIA.textMuted : spyChg >= 0 ? ARIA.green : ARIA.red }}>
-                    Live: SPY {spyChg != null ? (spyChg >= 0 ? "+" : "") + Number(spyChg).toFixed(2) + "%" : "—"}
+                    <span className="tp-livedot" style={{ display: "inline-block" }}>●</span> Live: SPY {spyChg != null ? (spyChg >= 0 ? "+" : "") + Number(spyChg).toFixed(2) + "%" : "—"}
                   </span>
                 </span>
               </>
@@ -5040,7 +5064,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         >
           {liveUpdated
             ? `Live · ${liveUpdated.toLocaleTimeString()}`
-            : "Loading live quotes…"}
+            : <span className="tp-shimmer" style={{ display: "inline-block", width: 96, height: 8, borderRadius: 4, verticalAlign: "middle" }} title="Loading live quotes…" />}
           <button data-legend-pop onClick={() => setLegendOpen((v) => !v)} title="Color & glyph legend"
             style={{ fontSize: 8, fontWeight: 800, width: 14, height: 14, lineHeight: "12px", padding: 0, borderRadius: "50%", cursor: "pointer", fontFamily: "monospace",
               border: `1px solid ${legendOpen ? ARIA.cyan : ARIA.border}`, color: legendOpen ? ARIA.cyan : ARIA.textMuted, background: "transparent" }}>?</button>
@@ -7968,6 +7992,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
   const [containerW, setContainerW] = useState(900);
   const [containerH, setContainerH] = useState(380);
   const [volSubTab, setVolSubTab] = useState("vol");
+  const [hoverI, setHoverI] = useState(null); // crosshair bar index (visible window)
+  const CH_ARIA = useAriaTheme();
   const [showRS, setShowRS] = useState(() => { try { return localStorage.getItem("tp-chart-rs") !== "0"; } catch { return true; } });
   const benchMap = useSpyCloses();
 
@@ -8196,13 +8222,14 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
       const bodyH = Math.max(1, bodyBot - bodyTop);
       const wickX = x + bw / 2;
       candleElements.push(
-        <line key={`w${i}`} x1={wickX} y1={py(b.high)} x2={wickX} y2={py(b.low)} stroke={candleColor} strokeWidth={0.8} />,
-        <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH} fill={candleColor} rx={0.5} />
+        <line key={`w${i}`} x1={wickX} y1={py(b.high)} x2={wickX} y2={py(b.low)} stroke={candleColor} strokeWidth={0.9} opacity={0.9} />,
+        <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH} fill={candleColor} rx={Math.min(1, bw / 4)} stroke="rgba(0,0,0,0.35)" strokeWidth={0.4} />
       );
       const vol = b.volume || 0;
+      const chLight = CH_ARIA.bg === "#f8f9fc";
       let vColor;
       if (!isUp) {
-        vColor = "#6b7280cc";
+        vColor = chLight ? "#94a3b8cc" : "#6b7280cc";
       } else {
         const downVols = [];
         for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
@@ -8213,7 +8240,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
           vColor = "#0d9488";
         } else {
-          vColor = "#ffffffcc";
+          vColor = chLight ? "#64748bcc" : "#ffffffcc";
         }
       }
       const vh = Math.max(0.5, (vol / vMax) * volH);
@@ -8291,8 +8318,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
       const y = py(v);
       if (y < pad.t + 8 || y > pad.t + priceH - 4) continue;
       yAxisElements.push(
-        <line key={`yg${v}`} x1={pad.l} y1={y} x2={chartRight} y2={y} stroke="#2a2a3a" strokeWidth={0.5} />,
-        <text key={`yl${v}`} x={chartRight + 4} y={y + 3} fontSize={8} fill="#6a6a7a" fontFamily="ui-monospace,monospace">${fmtPrice(v)}</text>
+        <line key={`yg${v}`} x1={pad.l} y1={y} x2={chartRight} y2={y} stroke={CH_ARIA.border} strokeWidth={0.5} />,
+        <text key={`yl${v}`} x={chartRight + 4} y={y + 3} fontSize={8} fill={CH_ARIA.textMuted} fontFamily="ui-monospace,monospace">${fmtPrice(v)}</text>
       );
     }
 
@@ -8312,7 +8339,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         if (x > pad.l + 10 && x < chartRight - 20) {
           const label = m === 0 ? `${MONTHS[m]} '${String(y).slice(2)}` : MONTHS[m];
           xAxisElements.push(
-            <line key={`xg${key}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke="#2a2a3a" strokeWidth={0.5} strokeDasharray="2,4" />,
+            <line key={`xg${key}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke={CH_ARIA.border} strokeWidth={0.5} strokeDasharray="2,4" />,
             <text key={`xl${key}`} x={x} y={pad.t - 4} fontSize={8} fill="#6a6a7a" fontFamily="ui-monospace,monospace" textAnchor="start">{label}</text>
           );
         }
@@ -8353,7 +8380,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
     // scaled to its own visible-window min/max. Blue dots = RS line makes a new
     // high; brighter/larger dot when price has NOT also made a new high ("RS new
     // high before price" — the bullish tell).
-    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [];
+    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [], rsAreaD = null;
     if (benchMap && benchMap.size) {
       let lastSpy = null;
       const rsRaw = bars.map((b) => {
@@ -8372,6 +8399,10 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         rsLabelY = bandTop; rsBandTop = bandTop; rsBandBot = bandBot;
         rsLinePts = rsRaw.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
         for (let i = rsRaw.length - 1; i >= 0; i--) { if (rsRaw[i] != null) { rsEnd = { x: xC(i), y: rsY(rsRaw[i]) }; break; } }
+        // area fill under the RS line (gradient fades to transparent at band bottom)
+        let firstRs = -1;
+        for (let i = 0; i < rsRaw.length; i++) { if (rsRaw[i] != null) { firstRs = i; break; } }
+        if (firstRs >= 0 && rsEnd) rsAreaD = `M${xC(firstRs).toFixed(1)},${bandBot.toFixed(1)} L${rsLinePts.split(" ").join(" L")} L${rsEnd.x.toFixed(1)},${bandBot.toFixed(1)} Z`;
         let rsRunMax = -Infinity, pxRunMax = -Infinity;
         rsRaw.forEach((v, i) => {
           const px = bars[i].close;
@@ -8432,7 +8463,9 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
 
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
-      rsLinePts, rsDots, rsLabelY, rsEnd, rsBandTop, rsBandBot, divTint,
+      rsLinePts, rsDots, rsLabelY, rsEnd, rsBandTop, rsBandBot, divTint, rsAreaD,
+      barsVis: bars, bwPx: bw, gapPx: gap,
+      lastDot: bars.length ? { x: pad.l + (bars.length - 1) * (bw + gap) + bw / 2, y: py(bars[bars.length - 1].close), color: bars[bars.length - 1].close >= bars[bars.length - 1].open ? "#2bb886" : "#f87171" } : null,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
       maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
       maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
@@ -8443,7 +8476,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -8489,7 +8522,10 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
 
   if (!chartData) {
     return (
-      <div ref={containerRef} style={{ display: "flex", alignItems: "center", justifyContent: "center", height: height || 400, color: "#6a6a7a", fontSize: 11, fontFamily: "monospace", width: "100%" }}>
+      <div ref={containerRef} style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center", justifyContent: "center", height: height || 400, color: CH_ARIA.textMuted, fontSize: 11, fontFamily: "monospace", width: "100%" }}>
+        <svg width="120" height="36" viewBox="0 0 120 36" style={{ opacity: 0.35 }}>
+          <polyline points="2,28 18,22 32,26 46,14 60,18 74,8 90,13 104,5 118,9" fill="none" stroke={CH_ARIA.textMuted} strokeWidth="1.6" strokeLinecap="round" strokeDasharray="3,3" />
+        </svg>
         No chart data
       </div>
     );
@@ -8499,8 +8535,25 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
     <div ref={containerRef} style={{ width: "100%", height: "100%", padding: "0 4px" }}>
       <svg ref={svgRef} width={chartData.W} height={chartData.totalH}
         style={{ display: "block", cursor: dragRef.current ? "grabbing" : "grab" }}
-        onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}>
+        onWheel={handleWheel} onMouseDown={handleMouseDown} onDoubleClick={handleDblClick}
+        onMouseMove={(e) => {
+          if (dragRef.current) return;
+          const rect = svgRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          const mx = e.clientX - rect.left;
+          const i = Math.floor((mx - chartData.padL) / (chartData.bwPx + chartData.gapPx));
+          setHoverI(i >= 0 && i < chartData.barCount ? i : null);
+        }}
+        onMouseLeave={() => setHoverI(null)}>
         <defs>
+          <linearGradient id="rsAreaGrad" x1="0" y1={chartData.rsBandTop || 0} x2="0" y2={chartData.rsBandBot || 1} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+          <filter id="tpGlow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="1.6" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
           <linearGradient id="rsiObGrad" x1="0" y1={chartData.volTop} x2="0" y2={chartData.y60} gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#4ade80" stopOpacity="0.45" />
             <stop offset="100%" stopColor="#4ade80" stopOpacity="0" />
@@ -8512,8 +8565,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         </defs>
         {chartData.xAxisElements}
         {chartData.yAxisElements}
-        <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke="#2a2a3a" strokeWidth={0.5} />
-        <line x1={chartData.chartRight} y1={0} x2={chartData.chartRight} y2={chartData.totalH} stroke="#2a2a3a" strokeWidth={0.5} />
+        <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke={CH_ARIA.borderLight} strokeWidth={0.5} />
+        <line x1={chartData.chartRight} y1={0} x2={chartData.chartRight} y2={chartData.totalH} stroke={CH_ARIA.borderLight} strokeWidth={0.5} />
         {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
         {chartData.maEma21lo && <polyline points={chartData.maEma21lo} fill="none" stroke="#80808060" strokeWidth={1} />}
         {chartData.maEma21close && <polyline points={chartData.maEma21close} fill="none" stroke="#808080" strokeWidth={1.5} />}
@@ -8521,6 +8574,37 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
         {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
         {chartData.candleElements}
+        {chartData.lastDot && (
+          <circle cx={chartData.lastDot.x} cy={chartData.lastDot.y} r={2.6} fill={chartData.lastDot.color} filter="url(#tpGlow)">
+            <animate attributeName="opacity" values="1;0.35;1" dur="2.2s" repeatCount="indefinite" />
+          </circle>
+        )}
+        {hoverI != null && chartData.barsVis[hoverI] && (() => {
+          const b = chartData.barsVis[hoverI];
+          const cx = chartData.padL + hoverI * (chartData.bwPx + chartData.gapPx) + chartData.bwPx / 2;
+          const pyv = (v) => chartData.padT + (1 - (v - chartData.pMin) / chartData.pRange) * chartData.priceH;
+          const cy = pyv(b.close);
+          const prev = hoverI > 0 ? chartData.barsVis[hoverI - 1] : null;
+          const chg = prev && prev.close ? ((b.close / prev.close - 1) * 100) : null;
+          const up = chg == null ? b.close >= b.open : chg >= 0;
+          const fmtP = (v) => v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2);
+          const fmtV = (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : String(v || 0);
+          const txt = `${b.date}   O ${fmtP(b.open)}  H ${fmtP(b.high)}  L ${fmtP(b.low)}  C ${fmtP(b.close)}${chg != null ? `  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}  V ${fmtV(b.volume)}`;
+          const tw = txt.length * 5.1 + 12;
+          const left = cx <= chartData.chartRight / 2;
+          const bx = left ? Math.min(cx + 10, chartData.chartRight - tw - 4) : Math.max(4, cx - 10 - tw);
+          return (
+            <g pointerEvents="none">
+              <line x1={cx} y1={chartData.padT} x2={cx} y2={chartData.volTop + chartData.volH} stroke={CH_ARIA.textDim} strokeWidth={0.7} strokeDasharray="3,3" opacity={0.55} />
+              <line x1={chartData.padL} y1={cy} x2={chartData.chartRight} y2={cy} stroke={CH_ARIA.textDim} strokeWidth={0.6} strokeDasharray="3,3" opacity={0.4} />
+              <circle cx={cx} cy={cy} r={2.6} fill={up ? "#2bb886" : "#f87171"} stroke={CH_ARIA.bg} strokeWidth={0.8} />
+              <rect x={bx} y={chartData.padT + 2} width={tw} height={15} rx={3} fill={CH_ARIA.bg} opacity={0.94} stroke={CH_ARIA.borderLight} strokeWidth={0.6} />
+              <text x={bx + 6} y={chartData.padT + 12.5} fontSize={8} fill={CH_ARIA.text} fontFamily="ui-monospace,monospace">
+                {b.date}   O {fmtP(b.open)}  H {fmtP(b.high)}  L {fmtP(b.low)}  C <tspan fill={up ? "#2bb886" : "#f87171"} fontWeight="700">{fmtP(b.close)}</tspan>{chg != null ? <tspan fill={up ? "#2bb886" : "#f87171"}>{`  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}</tspan> : null}  V {fmtV(b.volume)}
+              </text>
+            </g>
+          );
+        })()}
         {chartData.violMarker && (
           <text x={chartData.violMarker.x} y={chartData.violMarker.y} textAnchor="middle" fontSize={11} style={{ cursor: "default" }}>
             <title>{`Sell-discipline violation — closed below the ${chartData.violMarker.label} (leader cracking support). Ryan's trailing-stop trigger.`}</title>🔻
@@ -8533,7 +8617,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
                 <title>{d.type === "bull" ? "Bullish RS divergence — price down/flat while RS rising (relative strength accumulating)" : "Bearish RS divergence — price rising while RS falling (relative strength deteriorating)"}</title>
               </rect>
             ))}
-            <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} />
+            {chartData.rsAreaD && <path d={chartData.rsAreaD} fill="url(#rsAreaGrad)" />}
+            <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} filter="url(#tpGlow)" />
             {chartData.rsDots.map((d, i) => (
               <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={d.rsnhbp ? 3.4 : 3.0} fill={d.rsnhbp ? "#ec4899" : "#3b82f6"} stroke="#0a0a14" strokeWidth={0.7}>
                 <title>{d.rsnhbp ? "RS New High Before Price (RSNHBP) — relative strength leading price, bullish" : "RS line new high"}</title>
@@ -9019,11 +9104,14 @@ function ChartPanelInline({
         minWidth: 0,
         display: "flex",
         flexDirection: "column",
+        boxShadow: ARIA.shadow,
       }}
     >
       {/* Thin header bar — ticker · layer · Chg · Intraday · ADR · Next ER (left), ticker input (right) */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{ticker}</span>
+        <img key={ticker} src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt="" onError={(e) => { e.target.style.display = "none"; }}
+          style={{ width: 15, height: 15, borderRadius: 3, background: "#ffffff", objectFit: "contain", padding: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
         {tickerLayers.length > 0 ? (
           <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: tickerLayers[0].themeId })); } catch {} }}
             title={`${tickerLayers[0].theme} — click to open value-chain drawer${tickerLayers.length > 1 ? ` (+${tickerLayers.length - 1} more layer${tickerLayers.length - 1 > 1 ? "s" : ""})` : ""}`}
@@ -11896,6 +11984,21 @@ function AlertsBell({ alerts, onTicker, ARIA }) {
   );
 }
 
+// One-time global CSS: tabular numerals (stable number columns), the loading
+// shimmer, and the live-dot pulse. Injected once at module load.
+if (typeof document !== "undefined" && !document.getElementById("tp-visual-css")) {
+  const st = document.createElement("style");
+  st.id = "tp-visual-css";
+  st.textContent = `
+    body { font-variant-numeric: tabular-nums; }
+    @keyframes tpShimmer { 0% { background-position: -140px 0; } 100% { background-position: 140px 0; } }
+    .tp-shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.05) 75%); background-size: 280px 100%; animation: tpShimmer 1.3s linear infinite; }
+    @keyframes tpPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+    .tp-livedot { animation: tpPulse 2s ease-in-out infinite; }
+  `;
+  document.head.appendChild(st);
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -12057,7 +12160,8 @@ function AppMain() {
     <div
       style={{
         minHeight: "100vh",
-        background: ARIA.bg,
+        background: ARIA.vignette || ARIA.bg,
+        backgroundAttachment: "fixed",
         color: ARIA.text,
         fontFamily:
           "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
@@ -12084,6 +12188,7 @@ function AppMain() {
             fontSize: 16,
             fontWeight: 800,
             background: `linear-gradient(135deg, ${ARIA.green}, ${ARIA.cyan})`,
+            backgroundClip: "text",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             letterSpacing: -0.3,
