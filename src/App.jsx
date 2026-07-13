@@ -2016,7 +2016,10 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                   <span title={r.ttp ? "T2+ PRIME — tight coil in the upper half of a mature (>=6w) base" : "2-Days-Tight — closes within 1% + narrowing range. Breakout candidate"} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2 }}>{r.ttp ? "T2+" : "T2"}</span>
                 )}
                 {rankCol && r.de && (
-                  <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2 }}>DE</span>
+                  <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2 }}>DE</span>
+                )}
+                {rankCol && r.news && (
+                  <span title={r.news.slice(0, 3).join("\n")} style={{ marginLeft: 3, fontSize: 7, opacity: 0.65, cursor: "help" }}>📰</span>
                 )}
                 {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
                   <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
@@ -2157,7 +2160,7 @@ function RrgQuadrant({ layers, onLayer, ARIA, compact = false }) {
   );
 }
 
-function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta }) {
+function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, movers = [] }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
@@ -2408,7 +2411,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
         now: layer.now, d1: layer.d1, w1: layer.w1, m1: layer.m1, rsDay, rsWk, rsMth,
         off52: s.off_52w_high ?? null, cr: computeCR(q, s), zvr, eif: s.framework_score ?? null, rsRank: s.rs_rank ?? null,
         chg, adr: s.adr_pct ?? null, d20: s.dist_20dma_atrx ?? null, d50: s.dist_50sma_atrx ?? null, // for the Setup badge
-        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high, tt: !!s.two_day_tight, ttp: isPrimeTight(s), de: !!s.de_ready, deTrig: s.de_trigger ?? null };
+        erDays: s.earnings_days ?? null, rsLineNewHigh: !!s.rs_line_new_high, tt: !!s.two_day_tight, ttp: isPrimeTight(s), de: !!s.de_ready, deTrig: s.de_trigger ?? null, deHold: s.de_hold ?? null, news: s._newsPipe ?? null };
     });
   };
 
@@ -2597,11 +2600,51 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta })
                 {tabBtn("trends", "Trends")}
                 {tabBtn("playbook", "Playbook")}
                 {tabBtn("apex", "👑 Apex")}
+                {tabBtn("inplay", "⚡ In Play")}
                 {tabBtn("ercal", "ER Cal")}
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
+            if (rsTab === "inplay") {
+              const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
+              const rows2 = movers
+                .filter((m) => m.in_universe && m.ticker)
+                .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
+                .slice(0, 15);
+              const qColor = (l) => l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
+              const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
+              return (
+                <div style={{ overflowY: "auto", maxHeight: (parseInt(localStorage.getItem("tp-regime-h2") || "440", 10) || 440), padding: "2px 2px 8px", fontFamily: "monospace" }}>
+                  <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
+                    Today's in-universe movers (earnings + stocks-in-play), quality-scored by the EP pipeline. This is a PREP list — the evidence says stalk (DE), don't chase: gap-day entries backtest at 46% win. {rows2.length} of {movers.length} movers pass the universe gate.
+                  </div>
+                  {rows2.length === 0 && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>No in-universe movers this session.</div>}
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
+                    <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+                      {["Ticker", "Src", "Chg%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 6 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {rows2.map((m) => {
+                        const hl = (m.recent_headlines || m.headlines || [])[0] || stockMap?.[m.ticker]?._newsPipe?.[0] || "";
+                        return (
+                          <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                            <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
+                            <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
+                            <td title="Pipeline sizing guide for this EP" style={{ padding: "2px 5px", textAlign: "right", color: m.sizing_guide === "FULL" ? ARIA.green : ARIA.textDim }}>{m.sizing_guide || "—"}</td>
+                            <td style={{ padding: "2px 5px", textAlign: "right", color: (m.rs_rank || 0) >= 88 ? ARIA.green : ARIA.textDim, fontWeight: (m.rs_rank || 0) >= 88 ? 700 : 400 }}>{m.rs_rank ?? "—"}</td>
+                            <td title={hl} style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textDim, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl || "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            }
             if (rsTab === "apex") {
               const ev = apexEv;
               const liveRet = (t, entryPx) => { const q = liveQuotes?.[t]?.price ?? stockMap?.[t]?.price ?? stockMap?.[t]?.close; return (q && entryPx) ? (q / entryPx - 1) * 100 : null; };
@@ -5774,7 +5817,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? sr.rs ?? s?.rs_rank ?? null, // EIF (framework score) — consistent with the column label
           rsRank: s?.rs_rank ?? null,                            // momentum RS rank (RST leader gate)
           off52: s?.off_52w_high ?? null,
-          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null, deHold: s?.de_hold ?? null, news: s?._newsPipe ?? null,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[sr.ticker] ?? null,
@@ -5845,7 +5888,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           rs: s?.framework_score ?? s?.rs_rank ?? null,
           rsRank: s?.rs_rank ?? null,
           off52: s?.off_52w_high ?? null,
-          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+          rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null, deHold: s?.de_hold ?? null, news: s?._newsPipe ?? null,
           d20: s?.dist_20dma_atrx ?? null,
           d50: s?.dist_50sma_atrx ?? null,
           str: tickerStrengthMap?.[tk] ?? null,
@@ -5881,7 +5924,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             ticker: tk, themeId, theme, layer: layers[0] ?? null, layerCount: layers.length,
             chg, alpha: calcAlpha(chg, s), rvol,
             rs: s?.framework_score ?? s?.rs_rank ?? null, rsRank: s?.rs_rank ?? null,
-            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+            off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null, deHold: s?.de_hold ?? null, news: s?._newsPipe ?? null,
             str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
             zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
             adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
@@ -5923,7 +5966,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         off52: s?.off_52w_high ?? null,
         d20: s?.dist_20dma_atrx ?? null,
         d50: s?.dist_50sma_atrx ?? null,
-        rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null,
+        rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, ttp: isPrimeTight(s), de: !!s?.de_ready, deTrig: s?.de_trigger ?? null, deHold: s?.de_hold ?? null, news: s?._newsPipe ?? null,
         str: tickerStrengthMap?.[tk] ?? null,
         cr,
         zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg),
@@ -6276,7 +6319,8 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     {r.ticker}
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                     {r.tt && <span title={r.ttp ? "T2+ PRIME — 2-days-tight in the UPPER HALF of a MATURE base (>=6 weeks near highs). The highest-quality coil." : "2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow"} style={{ fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>{r.ttp ? "T2+" : "T2"}</span>}
-                    {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
+                    {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
+                    {r.news && <span title={r.news.slice(0, 3).join("\n")} style={{ fontSize: 7, opacity: 0.65, lineHeight: "10px", cursor: "help" }}>📰</span>}
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
@@ -9211,7 +9255,7 @@ function ChartPanelInline({
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
               {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
               {!!stockInfo.two_day_tight && <span style={badgeStyle(isPrimeTight(stockInfo) ? "#fbbf24" : "#f472b6")} title={isPrimeTight(stockInfo) ? "T2+ PRIME — 2-days-tight in the upper half of a mature (>=6w) base. The highest-quality coil." : "2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Breakout candidate."}>{isPrimeTight(stockInfo) ? "T2+" : "T2"}</span>}
-              {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}</span>}
+              {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}${stockInfo.de_hold ? ` · gap ${stockInfo.de_hold} (${stockInfo.de_hold_score}/5)` : ""}${stockInfo._epq ? ` · EP quality ${stockInfo._epq}` : ""}${stockInfo._newsPipe ? `\nCatalyst: ${stockInfo._newsPipe[0]}` : ""}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}{stockInfo.de_hold === "HELD" ? " ✓" : ""}</span>}
             </div>
           )}
           <div style={{ fontSize: 9, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
@@ -9228,9 +9272,18 @@ function ChartPanelInline({
             onMouseEnter={e => { if (news.length > 0) e.currentTarget.style.color = "#9090a0"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "#6a6a7a"; }}>
             {news.length > 0 && <span style={{ fontSize: 7 }}>{newsOpen ? "▼" : "▶"}</span>}
-            News <span style={{ color: "#4a4a5a", fontWeight: 400 }}>({news.length})</span>
+            News <span style={{ color: "#4a4a5a", fontWeight: 400 }}>({news.length || stockInfo._newsPipe?.length || 0})</span>
           </div>
-          {news.length === 0 && <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
+          {news.length === 0 && !(stockInfo._newsPipe?.length) && <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
+          {news.length === 0 && stockInfo._newsPipe?.length > 0 && (
+            <div style={{ maxHeight: 150, overflowY: "auto" }}>
+              {stockInfo._newsPipe.map((h, i) => (
+                <div key={i} title={h} style={{ fontSize: 8.5, color: "#9090a0", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                  <span style={{ color: "#5a5a6a", marginRight: 4 }}>⛭</span>{h}
+                </div>
+              ))}
+            </div>
+          )}
           {newsOpen && news.length > 0 && (
             <div style={{ maxHeight: 150, overflowY: "auto" }}>
               {news.slice(0, 8).map((a, i) => (
@@ -9760,7 +9813,8 @@ function WatchlistSectionTable({
                           </span>
                         )}
                         {r.tt && <span title={r.ttp ? "T2+ PRIME — tight coil in the upper half of a mature (>=6w) base" : "2-Days-Tight — closes within 1% + narrowing range. Breakout candidate"} style={{ fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>{r.ttp ? "T2+" : "T2"}</span>}
-                        {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
+                        {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
+                        {r.news && <span title={r.news.slice(0, 3).join("\n")} style={{ fontSize: 7, opacity: 0.65, lineHeight: "10px", cursor: "help" }}>📰</span>}
                       </span>
                     </td>
                     <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
@@ -9958,7 +10012,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         qmagScore: s.qmag_score || 0,
         strScore,
         is9m: !!(liveVol && liveVol >= 8.9e6 && (avgVol || 0) < 8.9e6),
-        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, ttp: isPrimeTight(s), de: !!s.de_ready, deTrig: s.de_trigger ?? null,
+        rsNH: !!s.rs_line_new_high, tt: !!s.two_day_tight, ttp: isPrimeTight(s), de: !!s.de_ready, deTrig: s.de_trigger ?? null, deHold: s.de_hold ?? null, news: s._newsPipe ?? null,
         rs: eif,
         setup,
         setupRank: setup?.rank ?? 0,
@@ -12025,10 +12079,26 @@ function AppMain() {
         m[sig.ticker].de_ready = true;
         m[sig.ticker].de_trigger = c.de_trigger ?? null;
         m[sig.ticker].de_days = c.days_since ?? null;
+        m[sig.ticker].de_hold = c.gap_hold_label || null;      // HELD / BASING / FADING
+        m[sig.ticker].de_hold_score = c.gap_hold_score ?? null; // 0-5
+      }
+    });
+    // Catalyst headlines (09h scrape) — stamp the top few per ticker so every
+    // table row / the drawer can answer "why did this move?" without a fetch.
+    const hl = data.pipeline?.headlines || {};
+    Object.entries(hl).forEach(([t, v]) => {
+      const arr = v?.headlines;
+      if (m[t] && Array.isArray(arr) && arr.length) m[t]._newsPipe = arr.slice(0, 4);
+    });
+    // Mover EP-quality (earnings/SIP movers) — which gappers are worth stalking.
+    [...(data.pipeline?.earnings_movers || []), ...(data.pipeline?.pm_sip_movers || []), ...(data.pipeline?.ah_sip_movers || [])].forEach((mv) => {
+      if (mv?.ticker && m[mv.ticker] && mv.ep_quality_label) {
+        m[mv.ticker]._epq = mv.ep_quality_label;
+        m[mv.ticker]._epSizing = mv.sizing_guide || null;
       }
     });
     return m;
-  }, [stocks, frameworkScoresRaw, data.pipeline?.ep_signals]);
+  }, [stocks, frameworkScoresRaw, data.pipeline?.ep_signals, data.pipeline?.headlines, data.pipeline?.earnings_movers, data.pipeline?.pm_sip_movers, data.pipeline?.ah_sip_movers]);
   // 🔔 Trade alerts (portfolio + focus, RTH): DE trigger breaks, BO firing, DIST on holdings
   const tradeAlerts = useTradeAlerts(stockMap);
 
@@ -12277,7 +12347,7 @@ function AppMain() {
 
             {/* RS rotation board — sector/industry relative strength (collapsible) */}
             <ErrorBoundary>
-              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} />
+              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} movers={[...(data.pipeline?.earnings_movers || []).map((m) => ({ ...m, _src: "ER" })), ...(data.pipeline?.pm_sip_movers || []).map((m) => ({ ...m, _src: "PM" })), ...(data.pipeline?.ah_sip_movers || []).map((m) => ({ ...m, _src: "AH" }))]} />
             </ErrorBoundary>
 
             {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
