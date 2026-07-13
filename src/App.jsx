@@ -1021,8 +1021,10 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         </span>
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
-        {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
-        <div style={{ width: holdingsOverride ? 316 : 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
+        {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
+            Constant width in both modes so the column doesn't jump when
+            switching between a layer basket and a single ticker/ETF. */}
+        <div style={{ width: 316, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
