@@ -2008,7 +2008,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
     // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends/tech/ex-tech
-    applyLayer(best, false, ["trends", "tech", "extech", "playbook"].includes(rsTab));
+    applyLayer(best, false, ["trends", "tech", "extech"].includes(rsTab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
@@ -2348,11 +2348,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {tabBtn("layers", "Layers", ["tech", "extech"])}
                 {tabBtn("leadersall", "Leaders", ["leaders", "emerging"])}
                 {tabBtn("inplay", "⚡ In Play")}
-                {tabBtn("playbook", "Playbook")}
                 <button onClick={() => setMoreOpen((v) => !v)}
                   style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
                     color: showResearch ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none", borderLeft: `1px solid ${ARIA.border}` }}
-                  title="Research tier — sector/industry rotation, trends, playbook, Apex, earnings calendar">
+                  title="Research tier — sector/industry rotation, trends, Apex, earnings calendar">
                   {showResearch ? "less ▴" : "more ▾"}
                 </button>
                 {/* research tier — pre/post-market analysis */}
@@ -2402,7 +2401,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   {rsTab === "trends" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>quadrants: RS level × 1-wk momentum (Improving = watchlist only — backtest: no edge until leadership) · sparklines: multi-day rank trajectories</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
-                  {rsTab === "playbook" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>rank × weekly momentum × live day (tech vs QQQ, ex-tech vs SPY) → action buckets · % = off 52w high</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "ercal" ? (
                       <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTickerNoSync} chartTicker={chartTicker} />
@@ -2411,8 +2409,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                         <RrgQuadrant compact layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
                         <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
                       </>
-                    ) : rsTab === "playbook" ? (
-                      <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
                     ) : rsTab === "inplay" ? (
                       (() => {
                         const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
