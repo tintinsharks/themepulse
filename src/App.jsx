@@ -1096,27 +1096,57 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
     const axisY = H - padB;
 
-    // ── RS line (subject ÷ SPY) + IBD "new high before price" dots ──
-    // Normalized to its own range, drawn in the bottom band so it doesn't clash
-    // with the regime line. Blue dot where RS makes a new window-high while the
-    // subject's price is still >3% below its own high. Skipped when the subject
-    // IS SPY (RS would be a flat 1).
-    let rsPath = null; const rsDots = []; let rsBandTop = 0, rsBandH = 0;
+    // ── Mansfield RS oscillator (subject ÷ SPY, vs its own 21d MA) ──
+    // Zero-centered in the bottom band: above zero = outperformance trend,
+    // below = underperforming. ▲/▼ at zero-crosses (the turn). Pink dot =
+    // RS new high while price is still >3% below its own high (RSNHBP).
+    // Skipped when the subject IS SPY (RS would be a flat 1).
+    let rsPath = null; const rsDots = []; const rsCross = []; let rsBandTop = 0, rsBandH = 0, rsZeroY = null, rsPosD = null, rsNegD = null;
     if (rsBench && !(!isBasket && sym === "SPY")) {
       const rsv = bars.map((b) => { const sp = rsBench.get(b.date); return (sp && b.close != null && sp > 0) ? b.close / sp : null; });
-      const vals = rsv.filter((v) => v != null);
+      const MW = 21;
+      let mSum = 0, mN = 0;
+      const osc = rsv.map((v, i) => {
+        if (v == null) return null;
+        mSum += v; mN++;
+        if (mN > MW) { const old = rsv[i - MW]; if (old != null) { mSum -= old; mN--; } }
+        if (mN < MW) return null;
+        const ma = mSum / mN;
+        return ma > 0 ? (v / ma - 1) * 100 : null;
+      });
+      const vals = osc.filter((v) => v != null);
       if (vals.length >= 2) {
-        const rMin = Math.min(...vals), rMax = Math.max(...vals), rRng = (rMax - rMin) || 1;
+        const amp = Math.max(1, ...vals.map((v) => Math.abs(v)));
         const plotH = H - padT - padB;
         rsBandTop = padT + plotH * 0.70; rsBandH = plotH * 0.26;
-        const rsY = (v) => rsBandTop + (1 - (v - rMin) / rRng) * rsBandH;
-        rsPath = rsv.map((v, i) => (v == null ? "" : `${x(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        const mid = rsBandTop + rsBandH / 2;
+        rsZeroY = mid;
+        const rsY = (v) => mid - (v / amp) * (rsBandH / 2);
+        rsPath = osc.map((v, i) => (v == null ? "" : `${x(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        let firstO = -1, lastO = -1;
+        osc.forEach((v, i) => { if (v != null) { if (firstO < 0) firstO = i; lastO = i; } });
+        if (firstO >= 0) {
+          const side = (clampFn) => osc.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${rsY(clampFn(v)).toFixed(1)}`)).filter(Boolean).join(" L");
+          rsPosD = `M${x(firstO).toFixed(1)},${mid.toFixed(1)} L${side((v) => Math.max(0, v))} L${x(lastO).toFixed(1)},${mid.toFixed(1)} Z`;
+          rsNegD = `M${x(firstO).toFixed(1)},${mid.toFixed(1)} L${side((v) => Math.min(0, v))} L${x(lastO).toFixed(1)},${mid.toFixed(1)} Z`;
+        }
+        let above = 0, below = 0;
+        osc.forEach((v, i) => {
+          if (v == null) return;
+          if (v > 0) {
+            if (below >= 3) rsCross.push({ x: x(i), y: rsY(v), up: true });
+            above++; below = 0;
+          } else {
+            if (above >= 3) rsCross.push({ x: x(i), y: rsY(v), up: false });
+            below++; above = 0;
+          }
+        });
         let rsRun = -Infinity, pxRun = -Infinity;
         rsv.forEach((v, i) => {
           const pc = bars[i].close;
           const rsNewHigh = v != null && v > rsRun;
           const priceBelow = pc != null && pxRun > 0 && (pc / pxRun - 1) <= -0.03;
-          if (v != null && rsNewHigh && priceBelow && i > 2) rsDots.push({ x: x(i), y: rsY(v) });
+          if (v != null && rsNewHigh && priceBelow && i > 2 && osc[i] != null) rsDots.push({ x: x(i), y: rsY(osc[i]) });
           if (v != null && v > rsRun) rsRun = v;
           if (pc != null && pc > pxRun) pxRun = pc;
         });
@@ -1176,11 +1206,21 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         {ticks}
         <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
         {segs}
-        {/* RS line (subject ÷ SPY) + blue dots = RS new high before price */}
+        {/* Mansfield RS oscillator: sign fills + zero line + turn markers */}
+        {rsPosD && <path d={rsPosD} fill="#22c55e" opacity={0.2} />}
+        {rsNegD && <path d={rsNegD} fill="#ef4444" opacity={0.2} />}
+        {rsZeroY != null && <line x1={padL} y1={rsZeroY} x2={W - padX} y2={rsZeroY} stroke="#3b82f6" strokeWidth={0.5} strokeDasharray="3 3" opacity={0.5} />}
         {rsPath && <polyline points={rsPath} fill="none" stroke="#3b82f6" strokeWidth={1.1} opacity={0.85} />}
-        {rsPath && <text x={padL + 2} y={rsBandTop - 2} fontSize="7" fill="#3b82f6" fontFamily="monospace" opacity={0.9}>RS vs SPY {rsDots.length > 0 ? "●↑" : ""}</text>}
+        {rsPath && <text x={padL + 2} y={rsBandTop - 2} fontSize="7" fill="#3b82f6" fontFamily="monospace" opacity={0.9}>RS TREND (÷21d)<title>Mansfield RS: (subject÷SPY) vs its own 21-day average. Green = outperformance trend, red = underperforming. ▲/▼ = zero-cross turns; pink dot = RS new high before price.</title></text>}
+        {rsCross.map((d, i) => (
+          <polygon key={`rsx${i}`}
+            points={d.up ? `${d.x - 3.5},${d.y + 8} ${d.x + 3.5},${d.y + 8} ${d.x},${d.y + 2}` : `${d.x - 3.5},${d.y - 8} ${d.x + 3.5},${d.y - 8} ${d.x},${d.y - 2}`}
+            fill={d.up ? "#22c55e" : "#f59e0b"} stroke={ARIA.bg} strokeWidth={0.7}>
+            <title>{d.up ? "RS turn UP — crossed above its 21d trend: entering outperformance" : "RS turn DOWN — crossed below its 21d trend: losing leadership"}</title>
+          </polygon>
+        ))}
         {rsDots.map((d, i) => (
-          <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.4} fill="#3b82f6" stroke={ARIA.bg} strokeWidth={0.6}>
+          <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.6} fill="#ec4899" stroke={ARIA.bg} strokeWidth={0.6}>
             <title>RS new high before price</title>
           </circle>
         ))}
@@ -8345,11 +8385,12 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
       ? `M${rsiXOf(0).toFixed(1)},${y40.toFixed(1)} ${osBottomPts.join(" ")} L${rsiXOf(rsiSlice.length - 1).toFixed(1)},${y40.toFixed(1)} Z`
       : null;
 
-    // ── IBD RS line: stock / SPY, drawn in a bottom band of the price panel,
-    // scaled to its own visible-window min/max. Blue dots = RS line makes a new
-    // high; brighter/larger dot when price has NOT also made a new high ("RS new
-    // high before price" — the bullish tell).
-    let rsLinePts = "", rsDots = [], rsRolls = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [], rsAreaD = null;
+    // ── Mansfield RS oscillator: (stock/SPY) ÷ its own 21-day MA − 1, drawn
+    // zero-centered in a bottom band of the price panel. Above zero (green
+    // fill) = in an outperformance trend; below (red fill) = underperforming.
+    // The zero-cross IS the turn: ▲ = fresh cross into leadership, ▼ = lost it.
+    // Pink dots = RS New High Before Price (raw RS leading price — bullish).
+    let rsLinePts = "", rsDots = [], rsCross = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [], rsPosD = null, rsNegD = null, rsZeroY = null;
     if (benchMap && benchMap.size) {
       let lastSpy = null;
       const rsRaw = bars.map((b) => {
@@ -8358,47 +8399,59 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         const use = sp != null ? sp : lastSpy;
         return (use != null && use > 0 && b.close != null) ? b.close / use : null;
       });
-      const valid = rsRaw.filter((v) => v != null);
-      if (valid.length > 2) {
-        const rsMin = Math.min(...valid), rsMax = Math.max(...valid);
-        const rsRange = (rsMax - rsMin) || 1;
+      // Mansfield transform: % distance of the RS ratio from its 21d SMA.
+      const MW = 21;
+      let mSum = 0, mN = 0;
+      const osc = rsRaw.map((v, i) => {
+        if (v == null) return null;
+        mSum += v; mN++;
+        if (mN > MW) { const old = rsRaw[i - MW]; if (old != null) { mSum -= old; mN--; } }
+        if (mN < MW) return null;
+        const ma = mSum / mN;
+        return ma > 0 ? (v / ma - 1) * 100 : null;
+      });
+      const validO = osc.filter((v) => v != null);
+      if (validO.length > 2) {
+        const amp = Math.max(1, ...validO.map((v) => Math.abs(v))); // symmetric scale keeps zero centered
         const bandBot = pad.t + priceH - 3, bandTop = pad.t + priceH * 0.70;
-        const rsY = (v) => bandBot - ((v - rsMin) / rsRange) * (bandBot - bandTop);
+        const mid = (bandTop + bandBot) / 2, half = (bandBot - bandTop) / 2;
+        const rsY = (v) => mid - (v / amp) * half;
         const xC = (i) => pad.l + i * (bw + gap) + bw / 2;
-        rsLabelY = bandTop; rsBandTop = bandTop; rsBandBot = bandBot;
-        rsLinePts = rsRaw.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
-        for (let i = rsRaw.length - 1; i >= 0; i--) { if (rsRaw[i] != null) { rsEnd = { x: xC(i), y: rsY(rsRaw[i]) }; break; } }
-        // area fill under the RS line (gradient fades to transparent at band bottom)
-        let firstRs = -1;
-        for (let i = 0; i < rsRaw.length; i++) { if (rsRaw[i] != null) { firstRs = i; break; } }
-        if (firstRs >= 0 && rsEnd) rsAreaD = `M${xC(firstRs).toFixed(1)},${bandBot.toFixed(1)} L${rsLinePts.split(" ").join(" L")} L${rsEnd.x.toFixed(1)},${bandBot.toFixed(1)} Z`;
+        rsLabelY = bandTop; rsBandTop = bandTop; rsBandBot = bandBot; rsZeroY = mid;
+        rsLinePts = osc.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        for (let i = osc.length - 1; i >= 0; i--) { if (osc[i] != null) { rsEnd = { x: xC(i), y: rsY(osc[i]) }; break; } }
+        // Sign fills: area between the osc curve (clamped to one side) and zero.
+        let firstO = -1;
+        for (let i = 0; i < osc.length; i++) { if (osc[i] != null) { firstO = i; break; } }
+        if (firstO >= 0 && rsEnd) {
+          const side = (clampFn) => osc.map((v, i) => (v == null ? null : `${xC(i).toFixed(1)},${rsY(clampFn(v)).toFixed(1)}`)).filter(Boolean).join(" L");
+          rsPosD = `M${xC(firstO).toFixed(1)},${mid.toFixed(1)} L${side((v) => Math.max(0, v))} L${rsEnd.x.toFixed(1)},${mid.toFixed(1)} Z`;
+          rsNegD = `M${xC(firstO).toFixed(1)},${mid.toFixed(1)} L${side((v) => Math.min(0, v))} L${rsEnd.x.toFixed(1)},${mid.toFixed(1)} Z`;
+        }
+        // Zero-cross turn markers — require ≥3 bars on the prior side so
+        // whipsaw flicker around zero doesn't spray arrows.
+        let above = 0, below = 0;
+        osc.forEach((v, i) => {
+          if (v == null) return;
+          if (v > 0) {
+            if (below >= 3) rsCross.push({ x: xC(i), y: rsY(v), up: true });
+            above++; below = 0;
+          } else {
+            if (above >= 3) rsCross.push({ x: xC(i), y: rsY(v), up: false });
+            below++; above = 0;
+          }
+        });
+        // RSNHBP dots (kept from the old line): raw RS at a new visible-window
+        // high while price is NOT — relative strength leading price.
         let rsRunMax = -Infinity, pxRunMax = -Infinity;
         rsRaw.forEach((v, i) => {
           const px = bars[i].close;
           const rsNewHigh = v != null && v > rsRunMax + 1e-9 && i >= 10;
           const priceNewHigh = px != null && px > pxRunMax - 1e-9;
-          // Blue = RS line new high. Pink = RS New High Before Price (RSNHBP):
-          // RS at a new high while price has NOT — relative strength leading price.
-          if (rsNewHigh) rsDots.push({ x: xC(i), y: rsY(v), rsnhbp: !priceNewHigh });
+          if (rsNewHigh && !priceNewHigh && osc[i] != null) rsDots.push({ x: xC(i), y: rsY(osc[i]), rsnhbp: true });
           if (v != null && v > rsRunMax) rsRunMax = v;
           if (px != null && px > pxRunMax) pxRunMax = px;
         });
-        // RS rolling over: swing highs (3-bar) that are LOWER than the prior
-        // swing high — relative strength making lower highs (deteriorating).
-        // Amber ▾ counterpart to the blue/pink new-high dots.
-        const W3 = 2;
-        let prevPeak = null;
-        for (let i = W3; i < rsRaw.length - W3; i++) {
-          const v = rsRaw[i];
-          if (v == null) continue;
-          let isPeak = true;
-          for (let k = 1; k <= W3; k++) {
-            if (!(rsRaw[i - k] != null && rsRaw[i + k] != null && v >= rsRaw[i - k] && v >= rsRaw[i + k])) { isPeak = false; break; }
-          }
-          if (!isPeak) continue;
-          if (prevPeak != null && v < prevPeak * 0.985) rsRolls.push({ x: xC(i), y: rsY(v) - 5 });
-          prevPeak = v;
-        }
         // Slope divergence: over a ~21-bar window compare price % change vs RS
         // % change. Opposite signs (each ≥ 3%) = divergence. Tint the RS band —
         // green = bullish (price down / RS up), amber = bearish (price up / RS down).
@@ -8432,7 +8485,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
 
     return {
       W, totalH, sepY, barCount: bars.length, totalBars: total, chartRight,
-      rsLinePts, rsDots, rsLabelY, rsEnd, rsBandTop, rsBandBot, divTint, rsAreaD,
+      rsLinePts, rsDots, rsCross, rsLabelY, rsEnd, rsBandTop, rsBandBot, divTint, rsPosD, rsNegD, rsZeroY,
       barsVis: bars, bwPx: bw, gapPx: gap,
       lastDot: bars.length ? { x: pad.l + (bars.length - 1) * (bw + gap) + bw / 2, y: py(bars[bars.length - 1].close), color: bars[bars.length - 1].close >= bars[bars.length - 1].open ? "#2bb886" : "#f87171" } : null,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
@@ -8441,7 +8494,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
       maSma50: maPoints(sma50), maEma200: maPoints(ema200),
       volMaPts: volMaPoints(),
       startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
-      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker, rsRolls,
+      pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker,
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
@@ -8515,10 +8568,6 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         }}
         onMouseLeave={() => setHoverI(null)}>
         <defs>
-          <linearGradient id="rsAreaGrad" x1="0" y1={chartData.rsBandTop || 0} x2="0" y2={chartData.rsBandBot || 1} gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-          </linearGradient>
           <filter id="tpGlow" x="-40%" y="-40%" width="180%" height="180%">
             <feGaussianBlur stdDeviation="1.6" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -8586,19 +8635,23 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
                 <title>{d.type === "bull" ? "Bullish RS divergence — price down/flat while RS rising (relative strength accumulating)" : "Bearish RS divergence — price rising while RS falling (relative strength deteriorating)"}</title>
               </rect>
             ))}
-            {chartData.rsAreaD && <path d={chartData.rsAreaD} fill="url(#rsAreaGrad)" />}
+            {chartData.rsPosD && <path d={chartData.rsPosD} fill="#22c55e" opacity={0.22} />}
+            {chartData.rsNegD && <path d={chartData.rsNegD} fill="#ef4444" opacity={0.22} />}
+            {chartData.rsZeroY != null && <line x1={chartData.padL} y1={chartData.rsZeroY} x2={chartData.chartRight} y2={chartData.rsZeroY} stroke="#3b82f6" strokeWidth={0.6} strokeDasharray="3 3" opacity={0.5} />}
             <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} filter="url(#tpGlow)" />
-            {chartData.rsDots.map((d, i) => (
-              <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={d.rsnhbp ? 3.4 : 3.0} fill={d.rsnhbp ? "#ec4899" : "#3b82f6"} stroke="#0a0a14" strokeWidth={0.7}>
-                <title>{d.rsnhbp ? "RS New High Before Price (RSNHBP) — relative strength leading price, bullish" : "RS line new high"}</title>
-              </circle>
-            ))}
-            {(chartData.rsRolls || []).map((d, i) => (
-              <polygon key={`rsroll${i}`} points={`${d.x - 5},${d.y - 9} ${d.x + 5},${d.y - 9} ${d.x},${d.y}`} fill="#f97316" stroke="#0a0a14" strokeWidth={0.8}>
-                <title>RS lower high — relative strength rolling over (leadership fading)</title>
+            {(chartData.rsCross || []).map((d, i) => (
+              <polygon key={`rsx${i}`}
+                points={d.up ? `${d.x - 4},${d.y + 9} ${d.x + 4},${d.y + 9} ${d.x},${d.y + 2}` : `${d.x - 4},${d.y - 9} ${d.x + 4},${d.y - 9} ${d.x},${d.y - 2}`}
+                fill={d.up ? "#22c55e" : "#f59e0b"} stroke="#0a0a14" strokeWidth={0.8}>
+                <title>{d.up ? "RS turn UP — crossed above its 21d trend: entering outperformance" : "RS turn DOWN — crossed below its 21d trend: losing leadership"}</title>
               </polygon>
             ))}
-            {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS vs SPY</text>}
+            {chartData.rsDots.map((d, i) => (
+              <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={3.4} fill="#ec4899" stroke="#0a0a14" strokeWidth={0.7}>
+                <title>RS New High Before Price (RSNHBP) — relative strength leading price, bullish</title>
+              </circle>
+            ))}
+            {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS TREND (÷21d)<title>Mansfield RS: (stock÷SPY) relative to its own 21-day average. Green fill = in an outperformance trend, red = underperforming. ▲/▼ mark the zero-cross turns; pink dots = RS new high before price.</title></text>}
             {rsRating != null && chartData.rsEnd && (() => {
               const w = rsRating >= 100 ? 21 : 16, bx = chartData.rsEnd.x + 3, by = chartData.rsEnd.y - 6;
               return (
