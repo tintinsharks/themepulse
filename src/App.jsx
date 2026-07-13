@@ -2617,48 +2617,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               </div>
             );
             const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
-            if (rsTab === "inplay") {
-              const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
-              const rows2 = movers
-                .filter((m) => m.in_universe && m.ticker)
-                .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
-                .slice(0, 15);
-              const qColor = (l) => l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
-              const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
-              return (
-                <div>
-                {tabRow}
-                <div style={{ overflowY: "auto", maxHeight: (parseInt(localStorage.getItem("tp-regime-h2") || "440", 10) || 440), padding: "2px 2px 8px", fontFamily: "monospace" }}>
-                  <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
-                    Today's in-universe movers (earnings + stocks-in-play), quality-scored by the EP pipeline. This is a PREP list — the evidence says stalk (DE), don't chase: gap-day entries backtest at 46% win. {rows2.length} of {movers.length} movers pass the universe gate.
-                  </div>
-                  {rows2.length === 0 && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>No in-universe movers this session.</div>}
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
-                    <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
-                      {["Ticker", "Src", "Chg%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 6 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {rows2.map((m) => {
-                        const hl = (m.recent_headlines || m.headlines || [])[0] || stockMap?.[m.ticker]?._newsPipe?.[0] || "";
-                        return (
-                          <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                            <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}</td>
-                            <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
-                            <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
-                            <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
-                            <td title="Pipeline sizing guide for this EP" style={{ padding: "2px 5px", textAlign: "right", color: m.sizing_guide === "FULL" ? ARIA.green : ARIA.textDim }}>{m.sizing_guide || "—"}</td>
-                            <td style={{ padding: "2px 5px", textAlign: "right", color: (m.rs_rank || 0) >= 88 ? ARIA.green : ARIA.textDim, fontWeight: (m.rs_rank || 0) >= 88 ? 700 : 400 }}>{m.rs_rank ?? "—"}</td>
-                            <td title={hl} style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textDim, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl || "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                </div>
-              );
-            }
             if (rsTab === "apex") {
               const ev = apexEv;
               const liveRet = (t, entryPx) => { const q = liveQuotes?.[t]?.price ?? stockMap?.[t]?.price ?? stockMap?.[t]?.close; return (q && entryPx) ? (q / entryPx - 1) * 100 : null; };
@@ -2843,6 +2801,46 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                       </>
                     ) : rsTab === "playbook" ? (
                       <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
+                    ) : rsTab === "inplay" ? (
+                      (() => {
+                        const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
+                        const rows2 = movers
+                          .filter((m) => m.in_universe && m.ticker)
+                          .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
+                          .slice(0, 15);
+                        const qColor = (l) => l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
+                        const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
+                        return (
+                          <div style={{ fontFamily: "monospace" }}>
+                            <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
+                              Today's in-universe movers (earnings + stocks-in-play), quality-scored by the EP pipeline. This is a PREP list — the evidence says stalk (DE), don't chase: gap-day entries backtest at 46% win. {rows2.length} of {movers.length} movers pass the universe gate.
+                            </div>
+                            {rows2.length === 0 && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>No in-universe movers this session.</div>}
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
+                              <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+                                {["Ticker", "Src", "Chg%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 6 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
+                              </tr></thead>
+                              <tbody>
+                                {rows2.map((m) => {
+                                  const hl = (m.recent_headlines || m.headlines || [])[0] || stockMap?.[m.ticker]?._newsPipe?.[0] || "";
+                                  return (
+                                    <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                                      <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}</td>
+                                      <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
+                                      <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
+                                      <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
+                                      <td title="Pipeline sizing guide for this EP" style={{ padding: "2px 5px", textAlign: "right", color: m.sizing_guide === "FULL" ? ARIA.green : ARIA.textDim }}>{m.sizing_guide || "—"}</td>
+                                      <td style={{ padding: "2px 5px", textAlign: "right", color: (m.rs_rank || 0) >= 88 ? ARIA.green : ARIA.textDim, fontWeight: (m.rs_rank || 0) >= 88 ? 700 : 400 }}>{m.rs_rank ?? "—"}</td>
+                                      <td title={hl} style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textDim, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl || "—"}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()
                     ) : (
                     <RsTable
                       key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
