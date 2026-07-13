@@ -2260,11 +2260,12 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                               </tr></thead>
                               <tbody>
                                 {rows2.map((m) => {
-                                  const hl = (m.recent_headlines || m.headlines || [])[0] || stockMap?.[m.ticker]?._newsPipe?.[0] || "";
+                                  const items = (m.recent_headlines?.length ? m.recent_headlines : m.headlines?.length ? m.headlines : stockMap?.[m.ticker]?._newsPipe) || [];
+                                  const hl = items[0] || "";
                                   return (
                                     <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
                                       onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                                      <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}</td>
+                                      <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}{items.length > 0 && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: m.ticker, items } })); }} title="Click for catalyst headlines" style={{ marginLeft: 4, fontSize: 9, opacity: 0.85, cursor: "pointer" }}>📰</span>}</td>
                                       <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
                                       <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
                                       <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
