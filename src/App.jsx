@@ -1462,97 +1462,6 @@ function useRsRotation() {
   return d;
 }
 
-// daily rank history (date → {sectors, industries, layers}) — written by
-// 10c_rs_rotation.py, rolling ~90 sessions. Fuels the Trends tab.
-let _rankHistCache = null;
-function useRankHistory() {
-  const [h, setH] = useState(_rankHistCache);
-  useEffect(() => {
-    if (_rankHistCache) return;
-    fetch("/data/rank_history.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j) { _rankHistCache = j; setH(j); } })
-      .catch(() => {});
-  }, []);
-  return h;
-}
-
-// tiny rank sparkline (0-100 scale) — green climbing, red fading
-function TrendSpark({ vals, ARIA }) {
-  if (!vals || vals.length < 2) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
-  const W = 72, H = 16;
-  const x = (i) => (i / (vals.length - 1)) * (W - 2) + 1;
-  const y = (v) => H - 2 - (v / 100) * (H - 4);
-  const up = vals[vals.length - 1] >= vals[0];
-  const c = up ? ARIA.green : ARIA.red;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, display: "block" }}>
-      <polyline points={vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}
-        fill="none" stroke={c} strokeWidth="1.3" strokeLinejoin="round" />
-      <circle cx={x(vals.length - 1)} cy={y(vals[vals.length - 1])} r="1.8" fill={c} />
-    </svg>
-  );
-}
-
-// ── Trends: multi-day rank trajectories for sectors/industries/layers ───────
-// Spots groups grinding UP the ranks over days/weeks BEFORE they reach
-// leadership. score = rank change over the window × step consistency; the
-// pre-breakout flag (🎯) = strong climb while still below rank 75.
-function TrendsBoard({ hist, d, onLayer, onTicker, ARIA }) {
-  if (!hist || !d) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rank history yet — accumulates one point per pipeline run.</div>;
-  const dates = Object.keys(hist).sort().slice(-21); // ~1 month of sessions
-  const series = (group, key) => dates.map((dt) => hist[dt]?.[group]?.[key]).filter((v) => v != null);
-  const rows = [];
-  const push = (group, key, name, tag, ref) => {
-    const vals = series(group, key);
-    if (vals.length < 2) return;
-    const delta = vals[vals.length - 1] - vals[0];
-    let ups = 0;
-    for (let i = 1; i < vals.length; i++) if (vals[i] >= vals[i - 1]) ups++;
-    const consistency = ups / (vals.length - 1);
-    rows.push({ name, tag, ref, vals, now: vals[vals.length - 1], delta,
-      score: delta * (0.4 + 0.6 * consistency),
-      pre: vals[vals.length - 1] < 75 && delta >= 10 && consistency >= 0.5 });
-  };
-  (d.sectors || []).forEach((r) => push("sectors", r.ticker, r.name, "SECT", r));
-  (d.industries || []).forEach((r) => push("industries", r.ticker, r.name, "IND", r));
-  (d.layers || []).forEach((r) => push("layers", `${r.themeId || ""}|${r.name}`, r.name, "LYR", r));
-  const climb = [...rows].sort((a, b) => b.score - a.score).slice(0, 22);
-  const fade = [...rows].sort((a, b) => a.score - b.score).slice(0, 8);
-  const span = `${dates[0]?.slice(5)} → ${dates[dates.length - 1]?.slice(5)}`;
-  const TAGC = { SECT: "#fbbf24", IND: "#22d3ee", LYR: ARIA.blue };
-  const row = (r, i) => (
-    <div key={r.tag + r.name} onClick={() => (r.tag === "LYR" ? onLayer?.(r.ref) : onTicker?.(r.ref.ticker))}
-      title={`${r.name} — rank ${r.vals[0]} → ${r.now} over ${r.vals.length} sessions (click to load)`}
-      style={{ display: "flex", alignItems: "center", gap: 7, padding: "1.5px 8px", borderBottom: `1px solid ${ARIA.border}25`, cursor: "pointer", fontSize: 9 }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-      <span style={{ width: 14, textAlign: "right", color: ARIA.textMuted, flexShrink: 0 }}>{i + 1}</span>
-      <span style={{ fontSize: 6.5, fontWeight: 800, color: TAGC[r.tag], width: 24, flexShrink: 0 }}>{r.tag}</span>
-      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>
-        {r.name}{r.pre && <span title="Pre-breakout: strong consistent climb, still below rank 75" style={{ marginLeft: 4 }}>🎯</span>}
-      </span>
-      <TrendSpark vals={r.vals} ARIA={ARIA} />
-      <RsRankBox v={r.now} ARIA={ARIA} />
-      <span style={{ width: 34, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.delta > 0 ? ARIA.green : r.delta < 0 ? ARIA.red : ARIA.textMuted }}>{r.delta > 0 ? "▲" : r.delta < 0 ? "▼" : ""}{Math.abs(r.delta)}</span>
-    </div>
-  );
-  return (
-    <div style={{ fontFamily: "monospace" }}>
-      <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 3px" }}>rank trajectory over {dates.length} sessions ({span}) · 🎯 = climbing hard, not yet a leader (watchlist — backtest: entries pay AFTER leadership, not before) · click to load</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-        <div style={{ border: `1px solid ${ARIA.border}`, borderTop: `2px solid ${ARIA.green}`, borderRadius: 5, overflow: "hidden" }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: ARIA.green, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, textTransform: "uppercase", letterSpacing: 0.5 }}>Climbing</div>
-          <div style={{ maxHeight: 320, overflowY: "auto" }}>{climb.map(row)}</div>
-        </div>
-        <div style={{ border: `1px solid ${ARIA.border}`, borderTop: `2px solid ${ARIA.red}`, borderRadius: 5, overflow: "hidden" }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: ARIA.red, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}`, textTransform: "uppercase", letterSpacing: 0.5 }}>Fading</div>
-          <div style={{ maxHeight: 320, overflowY: "auto" }}>{fade.map(row)}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // themes considered "tech" — shared by the Tech / Ex-Tech tabs and the Playbook
 const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "internet", "robotics", "fintech"]);
 
@@ -1860,67 +1769,6 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   );
 }
 
-// ── RRG: Relative Rotation Graph for layers ─────────────────────────────────
-// x = RS level (now rank), y = RS momentum (now − w1, weekly rank change). Four
-// quadrants: Leading (strong+rising), Weakening (strong+falling), Lagging
-// (weak+falling), Improving (weak+rising — catch a theme before it's a leader).
-// Short tail = last week's position → now. Click a dot to load that layer.
-function RrgQuadrant({ layers, onLayer, ARIA, compact = false }) {
-  const pts = (layers || []).filter((l) => l.now != null && l.w1 != null).map((l) => ({ l, x: l.now, y: l.now - l.w1 }));
-  if (!pts.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12 }}>No rotation data.</div>;
-  const buckets = { Improving: [], Leading: [], Lagging: [], Weakening: [] };
-  pts.forEach((p) => {
-    const k = p.x >= 50 ? (p.y >= 0 ? "Leading" : "Weakening") : (p.y >= 0 ? "Improving" : "Lagging");
-    buckets[k].push(p);
-  });
-  buckets.Improving.sort((a, b) => b.y - a.y);   // fastest risers first
-  buckets.Leading.sort((a, b) => b.x - a.x);     // strongest first
-  buckets.Weakening.sort((a, b) => a.y - b.y);   // fastest fallers first
-  buckets.Lagging.sort((a, b) => a.x - b.x);     // weakest first
-  const meta = {
-    Improving: { c: ARIA.blue, desc: "weak but rising — pre-breakout watch" },
-    Leading: { c: ARIA.green, desc: "strong & rising" },
-    Lagging: { c: ARIA.red, desc: "weak & falling — avoid" },
-    Weakening: { c: ARIA.yellow, desc: "strong but rolling over" },
-  };
-  const box = (key) => {
-    const mt = meta[key], rows = buckets[key];
-    return (
-      <div style={{ border: `1px solid ${ARIA.border}`, borderTop: `2px solid ${mt.c}`, borderRadius: 5, overflow: "hidden", display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: mt.c, textTransform: "uppercase", letterSpacing: 0.5 }}>{key}</span>
-          {!compact && <span style={{ fontSize: 7.5, color: ARIA.textMuted }}>{mt.desc}</span>}
-          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto" }}>{rows.length}</span>
-        </div>
-        <div style={{ maxHeight: compact ? 64 : 168, overflowY: "auto" }}>
-          {rows.slice(0, compact ? 6 : 14).map((p, i) => {
-            const yc = p.y > 0 ? ARIA.green : p.y < 0 ? ARIA.red : ARIA.textMuted;
-            return (
-              <div key={i} onClick={() => onLayer?.(p.l)} title={`${p.l.theme} · ${p.l.name} — RS ${p.x}, ${p.y >= 0 ? "+" : ""}${p.y} 1wk${p.l.n ? ` · ${p.l.n} names` : ""}`}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 8px", borderBottom: `1px solid ${ARIA.border}25`, cursor: "pointer", fontSize: 9 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{p.l.name}{p.l.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{p.l.n}</span> : ""}</span>
-                <RsRankBox v={p.x} ARIA={ARIA} />
-                <span style={{ width: 32, textAlign: "right", fontWeight: 700, color: yc, flexShrink: 0 }}>{p.y > 0 ? "▲" : p.y < 0 ? "▼" : ""}{Math.abs(p.y)}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-  return compact ? (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, fontFamily: "monospace", marginBottom: 6 }}>
-      {box("Leading")}{box("Improving")}{box("Weakening")}{box("Lagging")}
-    </div>
-  ) : (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontFamily: "monospace" }}>
-      {box("Improving")}{box("Leading")}
-      {box("Lagging")}{box("Weakening")}
-    </div>
-  );
-}
-
 function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, movers = [] }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
@@ -1932,7 +1780,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
   const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers | leaders
-  const [moreOpen, setMoreOpen] = useState(false); // research-tier tab group reveal
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
   const [moversOpen, setMoversOpen] = useState(() => { try { return localStorage.getItem("tp-rs-movers-open") === "1"; } catch { return false; } });
@@ -2007,8 +1854,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     const matches = d.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`));
     if (!matches.length) return;
     const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
-    // don't re-chart (avoids a feedback loop); keep the tab when on rrg/trends/tech/ex-tech
-    applyLayer(best, false, ["trends", "tech", "extech"].includes(rsTab));
+    // don't re-chart (avoids a feedback loop); keep the tab when on tech/ex-tech
+    applyLayer(best, false, ["tech", "extech"].includes(rsTab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTicker, d, stockMap]);
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
@@ -2043,7 +1890,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const zvrUniverse = useMemo(() => (open && layerHolds ? layerHolds.map((h) => h.t) : []), [open, layerHolds]);
   const { cur: zvrMap } = useZVR(zvrUniverse);
   const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
-  const rankHist = useRankHistory(); // daily rank history for the Trends tab
   const qqqRet = useBenchReturns("QQQ"); // Tech tab: convert Wk/Mth columns to vs-QQQ
   const [pfList] = useLocalStorageList("themepulse-portfolio"); // held names → 💼 markers
   if (!d) return null; // all hooks run above this guard
@@ -2340,27 +2186,16 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             const isEmerging = rsTab === "emerging";
             const isCombined = rsTab === "leadersall";
             const isStockTab = isLeaders || isEmerging || isCombined;
-            const researchTabs = ["sectors", "industries", "trends", "apex", "ercal"];
-            const showResearch = moreOpen || researchTabs.includes(rsTab);
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
-                {/* trade-live tier — what you watch during RTH */}
                 {tabBtn("layers", "Layers", ["tech", "extech"])}
                 {tabBtn("leadersall", "Leaders", ["leaders", "emerging"])}
                 {tabBtn("inplay", "⚡ In Play")}
-                <button onClick={() => setMoreOpen((v) => !v)}
-                  style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
-                    color: showResearch ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none", borderLeft: `1px solid ${ARIA.border}` }}
-                  title="Research tier — sector/industry rotation, trends, Apex, earnings calendar">
-                  {showResearch ? "less ▴" : "more ▾"}
-                </button>
-                {/* research tier — pre/post-market analysis */}
-                {showResearch && tabBtn("sectors", "Sector Leaders")}
-                {showResearch && tabBtn("industries", "Industries")}
-                {showResearch && tabBtn("trends", "Trends")}
-                {showResearch && tabBtn("apex", "👑 Apex")}
-                {showResearch && tabBtn("ercal", "ER Cal")}
-                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
+                {tabBtn("sectors", "Sector Leaders")}
+                {tabBtn("industries", "Industries")}
+                {tabBtn("apex", "👑 Apex")}
+                {tabBtn("ercal", "ER Cal")}
+                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
             const stockRows = isCombined ? combinedRows : isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
@@ -2398,17 +2233,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                     </div>
                   )}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
-                  {rsTab === "trends" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>quadrants: RS level × 1-wk momentum (Improving = watchlist only — backtest: no edge until leadership) · sparklines: multi-day rank trajectories</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "ercal" ? (
                       <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTickerNoSync} chartTicker={chartTicker} />
-                    ) : rsTab === "trends" ? (
-                      <>
-                        <RrgQuadrant compact layers={d.layers} onLayer={openLayerStay} ARIA={ARIA} />
-                        <TrendsBoard hist={rankHist} d={d} onLayer={openLayerStay} onTicker={openTickerNoSync} ARIA={ARIA} />
-                      </>
                     ) : rsTab === "inplay" ? (
                       (() => {
                         const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
