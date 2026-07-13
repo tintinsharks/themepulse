@@ -2256,18 +2256,33 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                             {rows2.length === 0 && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>No in-universe movers this session.</div>}
                             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
                               <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
-                                {["Ticker", "Src", "Chg%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 6 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
+                                {["Ticker", "Src", "Chg%", "RS Day%", "ZVR", "CR%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 9 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>)}
                               </tr></thead>
                               <tbody>
                                 {rows2.map((m) => {
                                   const items = (m.recent_headlines?.length ? m.recent_headlines : m.headlines?.length ? m.headlines : stockMap?.[m.ticker]?._newsPipe) || [];
                                   const hl = items[0] || "";
+                                  // Live metrics — same construction as the layer/leaders tables
+                                  const s = stockMap?.[m.ticker] || {}; const q = liveQuotes.get(m.ticker);
+                                  const lchg = q?.change ?? s.change_pct ?? m.change_pct ?? null;
+                                  const rsDay = lchg != null ? +(lchg - (spyChg ?? 0)).toFixed(2) : null;
+                                  let zvr = null; const lv = q?.volume, av = s.avg_volume_raw || q?.avgVolume || 0;
+                                  if (lv && av > 0) zvr = Math.round((lv / (av * _elapsed)) * 100);
+                                  else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+                                  if (zvr != null && lchg != null && lchg < 0) zvr = -zvr;
+                                  const cr = computeCR(q, s);
+                                  const rsDayC = rsDay == null ? ARIA.textMuted : Math.abs(rsDay) > 2 ? (rsDay > 0 ? ARIA.green : ARIA.red) : ARIA.textDim;
+                                  const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim;
+                                  const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr <= 30 ? ARIA.red : ARIA.textDim;
                                   return (
                                     <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
                                       onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                                       <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}{items.length > 0 && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: m.ticker, items } })); }} title="Click for catalyst headlines" style={{ marginLeft: 4, fontSize: 9, opacity: 0.85, cursor: "pointer" }}>📰</span>}</td>
                                       <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
                                       <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
+                                      <td title="Today's move vs SPY (live)" style={{ padding: "2px 5px", textAlign: "right", fontWeight: rsDay != null && Math.abs(rsDay) > 2 ? 700 : 400, color: rsDayC }}>{rsDay != null ? `${rsDay > 0 ? "+" : ""}${rsDay.toFixed(2)}%` : "—"}</td>
+                                      <td title="Pace-adjusted relative volume, signed negative on down days" style={{ padding: "2px 5px", textAlign: "right", fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400, color: zvrC }}>{zvr != null ? `${zvr}%` : "—"}</td>
+                                      <td title="Closing range: where price sits in the day's range (100 = at the high)" style={{ padding: "2px 5px", textAlign: "right", fontWeight: cr != null && (cr >= 70 || cr <= 30) ? 700 : 400, color: crC }}>{cr ?? "—"}</td>
                                       <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
                                       <td title="Pipeline sizing guide for this EP" style={{ padding: "2px 5px", textAlign: "right", color: m.sizing_guide === "FULL" ? ARIA.green : ARIA.textDim }}>{m.sizing_guide || "—"}</td>
                                       <td style={{ padding: "2px 5px", textAlign: "right", color: (m.rs_rank || 0) >= 88 ? ARIA.green : ARIA.textDim, fontWeight: (m.rs_rank || 0) >= 88 ? 700 : 400 }}>{m.rs_rank ?? "—"}</td>
