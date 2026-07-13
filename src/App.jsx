@@ -1271,6 +1271,10 @@ function MarketConditionsPanel({ stocks, onTickerClick }) {
     );
   };
   const p = c.perf || {};
+  // Per-index perf table (SPY/QQQ/IWM) from the pipeline; SPY falls back to the
+  // live-adjusted `p` so the row keeps its intraday m1/vix. QQQ/IWM show "—"
+  // until the pipeline has emitted perf_indices.
+  const pIdx = c.perf_indices || { SPY: p };
   const distCard = (tk) => {
     const dd = c.dist_days?.[tk]; if (!dd) return null;
     const lc = dd.label === "Correction" ? ARIA.red : dd.label === "Under Pressure" ? ARIA.yellow : ARIA.green;
@@ -1406,15 +1410,18 @@ function MarketConditionsPanel({ stocks, onTickerClick }) {
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Market Performance (SPY)</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {perfCell("YTD", p.ytd, rStat(p.ytd), p.ytd == null ? "—" : (p.ytd > 0 ? "+" : "") + p.ytd.toFixed(2) + "%")}
-              {perfCell("1W", p.w1, rStat(p.w1), p.w1 == null ? "—" : (p.w1 > 0 ? "+" : "") + p.w1.toFixed(2) + "%")}
-              {perfCell("1M", p.m1, rStat(p.m1), p.m1 == null ? "—" : (p.m1 > 0 ? "+" : "") + p.m1.toFixed(2) + "%")}
-              {perfCell("1Y", p.y1, rStat(p.y1), p.y1 == null ? "—" : (p.y1 > 0 ? "+" : "") + p.y1.toFixed(2) + "%")}
-              {perfCell("52W High", p.off52, p.off52 == null ? "neu" : p.off52 > -3 ? "pos" : p.off52 < -8 ? "neg" : "neu", p.off52 == null ? "—" : p.off52.toFixed(2) + "%")}
-              {perfCell("VIX", p.vix, p.vix == null ? "neu" : p.vix < 16 ? "pos" : p.vix > 25 ? "neg" : "neu", p.vix == null ? "—" : p.vix.toFixed(2))}
-            </div>
+            <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Market Performance</div>
+            {[["SPY", p, true], ["QQQ", pIdx.QQQ || {}, false], ["IWM", pIdx.IWM || {}, false]].map(([sym, pp, isSpy]) => (
+              <div key={sym} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "stretch", marginBottom: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minWidth: 42, fontSize: 10, fontWeight: 800, color: ARIA.textDim, fontFamily: "monospace", letterSpacing: 0.5 }}>{sym}</div>
+                {perfCell("YTD", pp.ytd, rStat(pp.ytd), pp.ytd == null ? "—" : (pp.ytd > 0 ? "+" : "") + pp.ytd.toFixed(2) + "%")}
+                {perfCell("1W", pp.w1, rStat(pp.w1), pp.w1 == null ? "—" : (pp.w1 > 0 ? "+" : "") + pp.w1.toFixed(2) + "%")}
+                {perfCell("1M", pp.m1, rStat(pp.m1), pp.m1 == null ? "—" : (pp.m1 > 0 ? "+" : "") + pp.m1.toFixed(2) + "%")}
+                {perfCell("1Y", pp.y1, rStat(pp.y1), pp.y1 == null ? "—" : (pp.y1 > 0 ? "+" : "") + pp.y1.toFixed(2) + "%")}
+                {perfCell("52W High", pp.off52, pp.off52 == null ? "neu" : pp.off52 > -3 ? "pos" : pp.off52 < -8 ? "neg" : "neu", pp.off52 == null ? "—" : pp.off52.toFixed(2) + "%")}
+                {isSpy && perfCell("VIX", pp.vix, pp.vix == null ? "neu" : pp.vix < 16 ? "pos" : pp.vix > 25 ? "neg" : "neu", pp.vix == null ? "—" : pp.vix.toFixed(2))}
+              </div>
+            ))}
           </div>
           {/* Risk-on vs Defensive rotation — click a ticker to chart it in Sector Rotation */}
           {bd.rotation && (() => {
