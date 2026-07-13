@@ -1294,14 +1294,17 @@ function MarketConditionsPanel({ stocks, onTickerClick }) {
 
   const posture = c.verdict === "Positive" ? "risk-on" : c.verdict === "Negative" ? "risk-off" : "caution";
   // ⚖️ exposure dial (matches the Signal scanner's exposure_state, minus the
-  // ledger term which lives on the local machine): dist days + verdict.
+  // ledger term which lives on the local machine): dist days + verdict +
+  // Qullamaggie light (index 10/21-EMA check, net H/L trend, McClellan).
   const expo = (() => {
     const dd = Math.max(c.dist_days?.SPY?.today ?? 0, c.dist_days?.QQQ?.today ?? 0);
     let score = dd <= 2 ? 2 : dd <= 4 ? 1 : dd <= 6 ? -1 : -2;
     score += c.verdict === "Positive" ? 1 : c.verdict === "Negative" ? -2 : 0;
+    const ql = c.qulla?.light;
+    score += ql === "GREEN" ? 1 : ql === "RED" ? -2 : 0;
     const level = score >= 3 ? "FULL" : score >= 1 ? "75% SIZE" : score >= -1 ? "HALF SIZE" : "NO NEW BUYS";
     const color = score >= 3 ? ARIA.green : score >= 1 ? ARIA.blue : score >= -1 ? ARIA.yellow : ARIA.red;
-    return { level, color, dd, score };
+    return { level, color, dd, score, ql };
   })();
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${verdictC}`, marginBottom: 8, fontFamily: "monospace", boxShadow: ARIA.shadow }}>
@@ -1310,7 +1313,7 @@ function MarketConditionsPanel({ stocks, onTickerClick }) {
         <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Market Conditions</span>
         <span style={{ fontSize: 9, fontWeight: 800, color: verdictC, background: verdictC + "1c", border: `1px solid ${verdictC}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>{c.verdict}</span>
         <span style={{ fontSize: 8, fontWeight: 700, color: verdictC, textTransform: "uppercase", letterSpacing: 0.5 }}>{posture}</span>
-        <span title={`Progressive-exposure dial — ${expo.dd} distribution days + verdict ${c.verdict}. Position sizing throttle for new buys (the Signal scans add a recent-win-rate term on top).`}
+        <span title={`Progressive-exposure dial — ${expo.dd} distribution days + verdict ${c.verdict}${expo.ql ? ` + Q-light ${expo.ql} (index 10/21 EMAs · net H/L · McClellan)` : ""}. Position sizing throttle for new buys (the Signal scans add a recent-win-rate term on top).`}
           style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 8, fontWeight: 800, color: expo.color, background: expo.color + "1c", border: `1px solid ${expo.color}55`, borderRadius: 3, padding: "1px 7px", letterSpacing: 0.4 }}>
           {(() => {
             // arc gauge: score −4..+4 → needle sweep 180°..0° across red/yellow/blue/green
@@ -1423,6 +1426,82 @@ function MarketConditionsPanel({ stocks, onTickerClick }) {
               </div>
             ))}
           </div>
+          {/* Qullamaggie market-environment check: light + index EMA check + net H/L + NASI proxy */}
+          {(c.qulla || c.index_trends) && (() => {
+            const q = c.qulla || {};
+            const it = c.index_trends || {};
+            const LC = { GREEN: ARIA.green, YELLOW: ARIA.yellow, RED: ARIA.red };
+            const DOTC = { green: ARIA.green, yellow: ARIA.yellow, red: ARIA.red };
+            const spark = (series, color, zero = false) => {
+              if (!series || series.length < 2) return null;
+              const W = 84, H = 22;
+              const mn = Math.min(...series, zero ? 0 : Infinity), mx = Math.max(...series, zero ? 0 : -Infinity);
+              const rng = (mx - mn) || 1;
+              const x = (i) => (i / (series.length - 1)) * (W - 2) + 1;
+              const y = (v) => H - 2 - ((v - mn) / rng) * (H - 4);
+              return (
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, display: "block" }}>
+                  {zero && mn < 0 && mx > 0 && <line x1={1} y1={y(0)} x2={W - 1} y2={y(0)} stroke={ARIA.textMuted} strokeWidth={0.5} strokeDasharray="2 2" opacity={0.6} />}
+                  <polyline points={series.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")} fill="none" stroke={color} strokeWidth={1.2} strokeLinejoin="round" />
+                  <circle cx={x(series.length - 1)} cy={y(series[series.length - 1])} r={1.8} fill={color} />
+                </svg>
+              );
+            };
+            const box = { border: `1px solid ${ARIA.border}`, borderRadius: 5, padding: "4px 8px" };
+            const hl = q.net_hl, mc = q.mcclellan;
+            return (
+              <div>
+                <div style={{ fontSize: 7.5, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 4 }}>Market Indicators</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "stretch" }}>
+                  {q.light && (
+                    <div title={`Aggregate market-environment signal (QQQ weighted most, + IWM/SPY EMA checks, net H/L trend, McClellan). GREEN = aggressive, YELLOW = caution, RED = high cash.`}
+                      style={{ ...box, display: "flex", alignItems: "center", gap: 8, borderLeft: `3px solid ${LC[q.light]}` }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: LC[q.light], fontFamily: "monospace" }}>{q.light}</span>
+                      <span style={{ fontSize: 8.5, color: ARIA.textDim, maxWidth: 210, lineHeight: 1.35 }}>{q.action}</span>
+                    </div>
+                  )}
+                  <div style={{ ...box, display: "flex", alignItems: "center", gap: 10 }}
+                    title="Qullamaggie index check: price above the 10 & 21 EMA with both EMAs rising = green; above 21 but mixed = yellow; below 21 EMA = red. QQQ matters most.">
+                    <span style={{ fontSize: 7, color: ARIA.textMuted, textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.4 }}>10/21 EMA</span>
+                    {["QQQ", "IWM", "SPY"].map((sym) => {
+                      const t = it[sym];
+                      return (
+                        <span key={sym} title={t ? `${sym}: close ${t.close} vs EMA10 ${t.e10} / EMA21 ${t.e21} · EMA10 ${t.e10_rising ? "rising" : "falling"}, EMA21 ${t.e21_rising ? "rising" : "falling"}` : `${sym}: no data yet`}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: t ? DOTC[t.status] : ARIA.textMuted }} />
+                          <span style={{ fontSize: 9.5, fontWeight: sym === "QQQ" ? 800 : 700, color: ARIA.textDim, fontFamily: "monospace" }}>{sym}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div style={{ ...box, display: "flex", alignItems: "center", gap: 8 }}
+                    title="Net new highs vs lows across the universe (within 2% of 52w extremes). Neutral-to-green trend = more stocks making highs than lows — a key ingredient of a durable uptrend. 10-day average drives the color.">
+                    <div>
+                      <div style={{ fontSize: 7, color: ARIA.textMuted, textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.4 }}>Net H/L</div>
+                      {hl ? (
+                        <div style={{ fontSize: 11, fontWeight: 800, fontFamily: "monospace", color: DOTC[hl.trend === "neutral" ? "yellow" : hl.trend] }}>
+                          {hl.net > 0 ? "+" : ""}{hl.net} <span style={{ fontSize: 7.5, color: ARIA.textMuted, fontWeight: 400 }}>10d {hl.avg10 > 0 ? "+" : ""}{hl.avg10}</span>
+                        </div>
+                      ) : <div style={{ fontSize: 8.5, color: ARIA.textMuted }}>accumulating…</div>}
+                    </div>
+                    {hl && spark(hl.series, DOTC[hl.trend === "neutral" ? "yellow" : hl.trend], true)}
+                  </div>
+                  <div style={{ ...box, display: "flex", alignItems: "center", gap: 8 }}
+                    title="McClellan Summation computed over our ~3k universe (ratio-adjusted 19/39 EMA of net advances, cumulative) — a NASI proxy. Rising = buy (black) signal; falling = sell.">
+                    <div>
+                      <div style={{ fontSize: 7, color: ARIA.textMuted, textTransform: "uppercase", fontWeight: 700, letterSpacing: 0.4 }}>McClellan Σ</div>
+                      {mc ? (
+                        <div style={{ fontSize: 11, fontWeight: 800, fontFamily: "monospace", color: mc.rising ? ARIA.green : ARIA.red }}>
+                          {mc.signal} {mc.rising ? "▲" : "▼"} <span style={{ fontSize: 7.5, color: ARIA.textMuted, fontWeight: 400 }}>{mc.summation > 0 ? "+" : ""}{mc.summation}</span>
+                        </div>
+                      ) : <div style={{ fontSize: 8.5, color: ARIA.textMuted }}>accumulating…</div>}
+                    </div>
+                    {mc && spark(mc.series, mc.rising ? ARIA.green : ARIA.red)}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {/* Risk-on vs Defensive rotation — click a ticker to chart it in Sector Rotation */}
           {bd.rotation && (() => {
             const DOT = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
