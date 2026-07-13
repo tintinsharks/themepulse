@@ -1840,10 +1840,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(t);
   };
-  // Chart a ticker WITHOUT the reverse-sync auto-switching the board to its
-  // layer — used by the Leaders tab so a click charts the name but stays put.
-  const suppressSyncRef = useRef(false);
-  const openTickerNoSync = (t) => { suppressSyncRef.current = true; openTicker(t); };
   // Load a layer (EW basket + constituents). `doChart` charts its lead below;
   // `keepTab` loads the basket but stays on the current subtab (Leaders/Emerging).
   const applyLayer = (r, doChart, keepTab) => {
@@ -1860,25 +1856,9 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   // From Leaders/Emerging: load the layer basket but don't switch to Layers and
   // don't chart a ticker (which would trip reverse-sync) — stay put.
   const openLayerStay = (r) => applyLayer(r, false, true);
-  // Reverse sync: when a ticker is charted elsewhere (manual input / click),
-  // map it to its layer(s) via chainsForStock (same logic as Scan Watch → Chain,
-  // full universe incl. unscored names) and switch the board to the highest-RS
-  // one — unless it's already inside the layer on screen.
-  useEffect(() => {
-    if (suppressSyncRef.current) { suppressSyncRef.current = false; return; } // Leaders-tab click — stay put
-    const t = (chartTicker || "").toUpperCase();
-    if (!t || !d?.layers) return;
-    const chains = chainsForStock(t, stockMap?.[t]) || [];
-    if (!chains.length) return;                              // ticker not in any chain
-    const keys = new Set(chains.map((c) => `${c.themeId}|${c.layer}`));
-    if (selectedLayerKey && keys.has(selectedLayerKey)) return; // already on a containing layer
-    const matches = d.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`));
-    if (!matches.length) return;
-    const best = matches.reduce((a, b) => (b.now > a.now ? b : a));
-    // don't re-chart (avoids a feedback loop); keep the tab when on tech/ex-tech
-    applyLayer(best, false, ["tech", "extech"].includes(rsTab));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartTicker, d, stockMap]);
+  // (Reverse sync removed 2026-07: charting a ticker no longer auto-loads its
+  // layer or switches the subtab — clicks stay wherever you are. The "{t} is
+  // in:" chips remain the explicit way to jump to a containing layer.)
   // Auto-select the top layer (by RS Acc², the default sort) once on load, so the
   // regime chart shows a layer basket instead of SPY. Doesn't open the board or
   // change the main chart; user clicks still take over.
@@ -2258,7 +2238,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "ercal" ? (
-                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTickerNoSync} chartTicker={chartTicker} />
+                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTicker} chartTicker={chartTicker} />
                     ) : rsTab === "inplay" ? (
                       (() => {
                         const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
@@ -2360,7 +2340,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                     <RsTable
                       key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
                       rows={stockRows}
-                      sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
+                      sortable onTicker={isStockTab ? openTicker : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
                       heldSet={heldSet} heldByLayer={heldByLayer}
                       onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
