@@ -932,14 +932,6 @@ const INDEX_INFO = {
   PSQ: { name: "Inverse Nasdaq-100 (−1x)", role: "Hedge", roleColor: "#f472b6", blurb: "Rises when QQQ falls. Green = the short hedge is working; red = tech still bid. Tactical, not buy-and-hold (decays sideways)." },
 };
 
-function emaSeries(values, period) {
-  if (!values.length) return [];
-  const k = 2 / (period + 1);
-  const out = [values[0]];
-  for (let i = 1; i < values.length; i++) out.push(values[i] * k + out[i - 1] * (1 - k));
-  return out;
-}
-
 // Cached daily OHLC fetch (shared across chart selections).
 const _ohlcCache = new Map();
 async function fetchOhlcBars(ticker) {
@@ -956,42 +948,11 @@ async function fetchOhlcBars(ticker) {
   }
 }
 
-// True equal-weight (daily-rebalanced / constant-mix) basket index from the
-// constituent tickers: each day the basket return = mean of constituents' daily
-// returns, so weights stay equal and no single winner dominates the regime.
-async function buildBasketSeries(tickers) {
-  const lists = await Promise.all(tickers.slice(0, 15).map(fetchOhlcBars));
-  const maps = lists.map((bars) => {
-    const m = new Map();
-    bars.slice(-160).forEach((b) => m.set(b.date, b.close));
-    return m;
-  });
-  const dateSet = new Set();
-  maps.forEach((m) => m.forEach((_, d) => dateSet.add(d)));
-  const dates = [...dateSet].sort();
-  const out = [];
-  let idx = 100;
-  for (let i = 0; i < dates.length; i++) {
-    const d = dates[i];
-    if (i > 0) {
-      const pd = dates[i - 1];
-      const rets = [];
-      maps.forEach((m) => { if (m.has(d) && m.has(pd) && m.get(pd)) rets.push(m.get(d) / m.get(pd) - 1); });
-      if (rets.length) idx *= 1 + rets.reduce((a, b) => a + b, 0) / rets.length;
-    }
-    out.push({ date: d, close: idx });
-  }
-  return out;
-}
-
-// IndexRegimeChart — regime line (price vs weekly-20 & daily 10/20) + top-10
-// holdings + blurb for one index/ETF. Controlled by `sym`/`setSym` so the RS
-// rotation board (which embeds it) and Market Conditions can drive the symbol.
+// IndexRegimeChart — layer/index constituents panel + the rotation board's
+// right panel. (The regime price graph itself was removed 2026-07 — the ticker
+// chart covers charting; this box is now the list + tables container.)
 function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint }) {
   const ARIA = useAriaTheme();
-  const [spy, setSpy] = useState(null);     // { regimeBars: [{close, regime, date}], wk20: [...] }
-  const [spyLoading, setSpyLoading] = useState(false);
-  const [hoverIdx, setHoverIdx] = useState(null);
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
   const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort (default RS desc)
   // Keyboard nav for the left constituents list: ↑/↓ move a selection and chart it.
@@ -1029,38 +990,10 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     };
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
   };
-  // What's plotted: an equal-weight basket of the layer's constituents, or a
-  // single ticker/ETF. The basket is the honest picture of a layer.
+  // Labeling: an equal-weight basket of the layer's constituents, or a
+  // single ticker/ETF.
   const isBasket = Array.isArray(basket) && basket.length > 0;
   const label = isBasket ? (basketLabel || "Layer") : sym;
-
-  // Load the chart series (basket or single ticker); compute regime coloring.
-  const basketKey = isBasket ? basket.join(",") : "";
-  useEffect(() => {
-    let alive = true;
-    setSpyLoading(true);
-    setHoverIdx(null);
-    const load = isBasket ? buildBasketSeries(basket) : fetchOhlcBars(sym);
-    Promise.resolve(load)
-      .then((bars) => {
-        if (!alive) return;
-        const arr = bars || [];
-        if (!arr.length) { setSpy({ regimeBars: [], wk20: [] }); return; }
-        const closes = arr.map((x) => x.close);
-        const e10 = emaSeries(closes, 10);
-        const e20 = emaSeries(closes, 20);
-        const wk20 = emaSeries(closes, 100); // ~20 weeks ≈ weekly-20 on daily
-        const regimeBars = closes.map((c, i) => {
-          const regime = c < wk20[i] ? "red" : e10[i] < e20[i] ? "yellow" : "green";
-          return { close: c, regime, date: arr[i].date || null };
-        });
-        setSpy({ regimeBars: regimeBars.slice(-130), wk20: wk20.slice(-130) });
-      })
-      .catch(() => { if (alive) setSpy({ regimeBars: [], wk20: [] }); })
-      .finally(() => { if (alive) setSpyLoading(false); });
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sym, basketKey, isBasket]);
 
   // Top holdings by weight for the selected index (skipped when a layer's
   // constituents are supplied via holdingsOverride).
@@ -1073,96 +1006,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
       .catch(() => setHoldings({ sym, list: [] }));
   }, [sym, holdings, holdingsOverride]);
 
-  // regime SVG — colored polyline segments + dashed weekly-20.
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const Chart = () => {
-    if (spyLoading) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>Loading {label} regime…</div>;
-    if (!spy || !spy.regimeBars.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: "8px 4px" }}>{label} data unavailable</div>;
-    const W = 640, H = chartH, padX = 4, padT = 8, padB = 16, padL = 34; // padL: y-axis price labels, padB: x-axis dates
-    const bars = spy.regimeBars, wk = spy.wk20;
-    const ovFlat = [];
-    const lo = Math.min(...bars.map((x) => x.close), ...wk, ...(ovFlat.length ? ovFlat : [Infinity]));
-    const hi = Math.max(...bars.map((x) => x.close), ...wk, ...(ovFlat.length ? ovFlat : [-Infinity]));
-    const rng = hi - lo || 1;
-    const x = (i) => padL + (i / (bars.length - 1)) * (W - padL - padX);
-    const y = (v) => padT + (1 - (v - lo) / rng) * (H - padT - padB);
-    const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
-    const axisY = H - padB;
-
-    // (RS oscillator removed here — the ticker chart carries the Mansfield
-    // RS band; duplicating it on the regime chart added clutter.)
-
-    // y-axis price gridlines — 4 intervals between lo and hi
-    const yTicks = [];
-    for (let j = 0; j <= 4; j++) {
-      const v = lo + (rng * j) / 4;
-      yTicks.push(
-        <g key={`y${j}`}>
-          <line x1={padL} y1={y(v)} x2={W - padX} y2={y(v)} stroke={ARIA.border} strokeWidth={0.5} opacity={0.35} />
-          <text x={padL - 4} y={y(v) + 3} textAnchor="end" fontSize="8" fill={ARIA.textMuted} fontFamily="monospace">{Math.round(v)}</text>
-        </g>
-      );
-    }
-    const segs = [];
-    for (let i = 1; i < bars.length; i++) {
-      segs.push(<line key={i} x1={x(i - 1)} y1={y(bars[i - 1].close)} x2={x(i)} y2={y(bars[i].close)}
-        stroke={CMAP[bars[i].regime]} strokeWidth={2} strokeLinecap="round" />);
-    }
-    const wkPath = wk.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-
-    // x-axis month ticks — mark the first bar of each calendar month
-    const ticks = [];
-    for (let i = 0; i < bars.length; i++) {
-      const d = bars[i].date;
-      if (!d) continue;
-      const mo = d.slice(5, 7), prevMo = i > 0 ? bars[i - 1].date?.slice(5, 7) : null;
-      if (i === 0 || mo !== prevMo) {
-        const lbl = MONTHS[parseInt(mo, 10) - 1] + (mo === "01" ? ` '${d.slice(2, 4)}` : "");
-        ticks.push(
-          <g key={`t${i}`}>
-            <line x1={x(i)} y1={padT} x2={x(i)} y2={axisY} stroke={ARIA.border} strokeWidth={0.5} opacity={0.4} />
-            <text x={x(i)} y={H - 4} textAnchor="middle" fontSize="8" fill={ARIA.textMuted} fontFamily="monospace">{lbl}</text>
-          </g>
-        );
-      }
-    }
-
-    const onMove = (e) => {
-      const r = e.currentTarget.getBoundingClientRect();
-      const px = ((e.clientX - r.left) / (r.width || 1)) * W; // → viewBox coords
-      const frac = (px - padL) / (W - padL - padX);           // within plot area
-      const i = Math.max(0, Math.min(bars.length - 1, Math.round(frac * (bars.length - 1))));
-      setHoverIdx(i);
-    };
-    const h = hoverIdx != null && hoverIdx < bars.length ? bars[hoverIdx] : null;
-    const lastClose = bars[bars.length - 1].close;
-
-    return (
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: chartH, display: "block", cursor: "crosshair" }}
-        onMouseMove={onMove} onMouseLeave={() => setHoverIdx(null)}>
-        {yTicks}
-        <line x1={padL} y1={axisY} x2={W - padX} y2={axisY} stroke={ARIA.border} strokeWidth={0.7} />
-        {ticks}
-        <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
-        {segs}
-        {/* hover crosshair + readout */}
-        {h && (
-          <g>
-            <line x1={x(hoverIdx)} y1={padT} x2={x(hoverIdx)} y2={axisY} stroke={ARIA.textDim} strokeWidth={1} strokeDasharray="2 2" opacity={0.8} />
-            <circle cx={x(hoverIdx)} cy={y(h.close)} r={3} fill={CMAP[h.regime]} stroke={ARIA.bg} strokeWidth={1} />
-            <text x={x(hoverIdx) <= W / 2 ? x(hoverIdx) + 6 : x(hoverIdx) - 6} y={padT + 9}
-              textAnchor={x(hoverIdx) <= W / 2 ? "start" : "end"} fontSize="9" fontWeight="700" fill={ARIA.text} fontFamily="monospace">
-              {h.date} · {label} {h.close.toFixed(isBasket ? 1 : 2)}
-            </text>
-          </g>
-        )}
-        {!h && (
-          <text x={W - 4} y={y(lastClose) - 4} textAnchor="end" fontSize="9" fill={ARIA.textDim} fontFamily="monospace">{label} {lastClose.toFixed(0)}</text>
-        )}
-      </svg>
-    );
-  };
-
   return (
     <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
@@ -1174,13 +1017,12 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }}>{sym}</span>
         )}
         <span style={{ fontSize: 7.5, color: ARIA.textDim, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 460 }}>
-          {isBasket ? (LAYER_DESC[label] || "click a constituent (right) to drill in") : "click a ticker above to chart it"}
+          {isBasket ? (LAYER_DESC[label] || "click a constituent (left) to chart it below") : ""}
         </span>
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
-        {/* Right: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
-        <div style={{ width: holdingsOverride ? 316 : 132, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column" }}>
+        {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
+        <div style={{ width: holdingsOverride ? 316 : 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
@@ -1286,7 +1128,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         {/* Right: caller-provided panel (Sectors/Industries tabs) — pinned to the
             chart height so its table flex-fills when the box is resized taller */}
         {rightPanel && (
-          <div style={{ width: 640, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column", minWidth: 600, height: chartH, overflow: "hidden" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 600, height: chartH, overflow: "hidden" }}>
             {rightPanel}
           </div>
         )}
@@ -1297,7 +1139,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         )}
       </div>
       {/* Drag handle — resize the chart vertically; height persists across sessions */}
-      <div onMouseDown={startResize} title="Drag to resize chart height"
+      <div onMouseDown={startResize} title="Drag to resize panel height"
         style={{ height: 8, cursor: "ns-resize", display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
         onMouseEnter={(e) => (e.currentTarget.firstChild.style.background = ARIA.textMuted)}
         onMouseLeave={(e) => (e.currentTarget.firstChild.style.background = ARIA.border)}>
