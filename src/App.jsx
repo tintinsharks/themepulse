@@ -1213,12 +1213,13 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }}>{sym}</span>
         )}
         <span style={{ fontSize: 7.5, color: ARIA.textDim, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 460 }}>
-          {isBasket ? (LAYER_DESC[label] || "click a constituent (left) to drill in") : "click a ticker above to chart it"}
+          {isBasket ? (LAYER_DESC[label] || "click a constituent (right) to drill in") : "click a ticker above to chart it"}
         </span>
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
-        {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
-        <div style={{ width: holdingsOverride ? 316 : 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
+        {/* Right: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR) */}
+        <div style={{ width: holdingsOverride ? 316 : 132, flexShrink: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 10, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
@@ -1321,7 +1322,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
             </>
           )}
         </div>
-        <div style={{ flex: 1, minWidth: 260 }}>{Chart()}</div>
         {/* Right: caller-provided panel (Sectors/Industries tabs) — pinned to the
             chart height so its table flex-fills when the box is resized taller */}
         {rightPanel && (
