@@ -2171,6 +2171,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
   const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers | leaders
+  const [moreOpen, setMoreOpen] = useState(false); // research-tier tab group reveal
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
   const [moversOpen, setMoversOpen] = useState(() => { try { return localStorage.getItem("tp-rs-movers-open") === "1"; } catch { return false; } });
@@ -2591,19 +2592,29 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             const isLeaders = rsTab === "leaders";
             const isEmerging = rsTab === "emerging";
             const isStockTab = isLeaders || isEmerging;
+            const researchTabs = ["sectors", "industries", "trends", "playbook", "apex", "ercal"];
+            const showResearch = moreOpen || researchTabs.includes(rsTab);
             const tabRow = (
-              <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
-                {tabBtn("sectors", "Sector Leaders")}
-                {tabBtn("industries", "Industries")}
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
+                {/* trade-live tier — what you watch during RTH */}
                 {tabBtn("layers", "Layers")}
+                {tabBtn("leaders", "Leaders", ["emerging"])}
                 {tabBtn("tech", "Tech")}
                 {tabBtn("extech", "Ex-Tech")}
-                {tabBtn("leaders", "Leaders", ["emerging"])}
-                {tabBtn("trends", "Trends")}
-                {tabBtn("playbook", "Playbook")}
-                {tabBtn("apex", "👑 Apex")}
                 {tabBtn("inplay", "⚡ In Play")}
-                {tabBtn("ercal", "ER Cal")}
+                <button onClick={() => setMoreOpen((v) => !v)}
+                  style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
+                    color: showResearch ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none", borderLeft: `1px solid ${ARIA.border}` }}
+                  title="Research tier — sector/industry rotation, trends, playbook, Apex, earnings calendar">
+                  {showResearch ? "less ▴" : "more ▾"}
+                </button>
+                {/* research tier — pre/post-market analysis */}
+                {showResearch && tabBtn("sectors", "Sector Leaders")}
+                {showResearch && tabBtn("industries", "Industries")}
+                {showResearch && tabBtn("trends", "Trends")}
+                {showResearch && tabBtn("playbook", "Playbook")}
+                {showResearch && tabBtn("apex", "👑 Apex")}
+                {showResearch && tabBtn("ercal", "ER Cal")}
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
