@@ -1966,7 +1966,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   // identity columns, matching Scan Watch. RS Wk%/Mth% + acceleration follow as
   // the rotation-specific extras; stock tabs append a live Setup badge.
   const coreCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["cr", "CR%"], ["eif", "EIF"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"]];
-  const withRank = rankCol ? [["lead", "#"], ...coreCols, ["setup", "Setup"]] : coreCols;
+  const withRank = rankCol ? [["lead", rows.some((r) => r._tier) ? "◆" : "#"], ...coreCols, ["setup", "Setup"]] : coreCols;
   const cols = getTag ? withRank.filter(([k]) => k !== "ticker") : withRank;
   const TITLES = {
     rsAcc1: "RS acceleration (day→week), LIVE: today's relative pace projected to a week (RS Day% × 5) minus the actual weekly relative return. High positive = fresh inflection TODAY (strong day after a quiet/weak week); negative = today lags its own week (extended or cooling).",
@@ -2001,7 +2001,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
             style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : ((getTag ? heldByLayer?.[`${r.themeId}|${r.name}`]?.length : heldSet?.has(r.ticker)) ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
-            {rankCol && <td style={{ textAlign: "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r.lead}</td>}
+            {rankCol && <td style={{ textAlign: r._tier ? "center" : "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r._tier ? <span title={r._tier === "L" ? "True leader — established name in a top layer" : "Emerging — quality name breaking into leadership"} style={{ fontSize: 10 }}>{r._tier === "L" ? "⭐" : "🌱"}</span> : r.lead}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
@@ -2425,7 +2425,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
     + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 40);
   const leaderSet = new Set(leaderTop.map((r) => r.ticker));
-  const leaderRows = isLeadersFamily ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
+  const leaderRows = isLeadersFamily ? leaderTop.map((r, i) => ({ ...r, lead: i + 1, _tier: "L" })) : [];
 
   // Emerging: quality names near a 52w high (or RS-line new high) that AREN'T
   // already established leaders. Scans a BROADER pool (top ~36 layers) than
@@ -2445,7 +2445,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
       + 0.10 * (r.rsLineNewHigh ? 100 : 0)                                                             // RS-line new high = early
       + 0.10 * (r.rsDay != null ? clampPct(50 + r.rsDay * 8) : 50) }));                                // today's relative strength
     rows.sort((a, b) => b._score - a._score);
-    rows.forEach((r, i) => { r.lead = i + 1; });
+    rows.forEach((r, i) => { r.lead = i + 1; r._tier = "E"; });
     return rows.slice(0, 40);
   })();
   // Combined "All" — leaders + emerging as one unified leaderboard (non-overlapping
