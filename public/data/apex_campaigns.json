@@ -5,7 +5,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 96.08,
-  "last_seen": "2026-07-10"
+  "last_seen": "2026-07-13"
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -13,7 +13,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 432.74,
-  "last_seen": "2026-07-10"
+  "last_seen": "2026-07-13"
  },
  "SNDK": {
   "entered": "2026-07-02",
@@ -21,7 +21,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1900.7,
-  "last_seen": "2026-07-10"
+  "last_seen": "2026-07-13"
  },
  "MU": {
   "entered": "2026-07-02",
@@ -29,7 +29,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1017.79,
-  "last_seen": "2026-07-10"
+  "last_seen": "2026-07-13"
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -37,7 +37,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-10"
+  "last_seen": "2026-07-13"
  },
  "INTC": {
   "entered": "2026-07-02",
@@ -53,7 +53,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 144.65,
-  "last_seen": "2026-07-10",
+  "last_seen": "2026-07-13",
   "ondeck": false
  },
  "ABSI": {
@@ -78,7 +78,7 @@
   "px": 508.43,
   "layer": "Compute Silicon",
   "peak": 555.61,
-  "last_seen": "2026-07-10",
+  "last_seen": "2026-07-13",
   "ondeck": true
  }
 }
