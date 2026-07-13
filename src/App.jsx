@@ -427,26 +427,47 @@ function useDashboardData() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/dashboard_data.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((pipeline) => {
-        if (cancelled) return;
-        setData({
-          loading: false,
-          error: pipeline ? null : "Failed to load dashboard_data.json",
-          pipeline,
+    let lastFetchMs = 0;
+    // The pipeline refreshes dashboard_data.json every ~30 min, 6:00 AM–5:30 PM
+    // ET Mon–Fri. Poll on that cadence so an open tab picks up new movers/EP/
+    // scan data without a manual reload; skip polls outside the pipeline window.
+    const inPipelineWindow = () => {
+      const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const day = et.getDay(), mins = et.getHours() * 60 + et.getMinutes();
+      return day >= 1 && day <= 5 && mins >= 360 && mins <= 1050; // 6:00–17:30 ET
+    };
+    const load = (isRefresh = false) => {
+      lastFetchMs = Date.now();
+      fetch("/dashboard_data.json", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((pipeline) => {
+          if (cancelled) return;
+          setData((prev) => {
+            // On background refreshes, only re-render when the pipeline
+            // actually produced a new run (avoids churn on no-op polls).
+            if (isRefresh && pipeline && prev.pipeline &&
+                pipeline.pipeline_meta?.last_run === prev.pipeline.pipeline_meta?.last_run) return prev;
+            if (isRefresh && !pipeline) return prev; // keep stale data over an error blip
+            return { loading: false, error: pipeline ? null : "Failed to load dashboard_data.json", pipeline };
+          });
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setData((prev) => (isRefresh && prev.pipeline) ? prev
+            : { loading: false, error: "Failed to load dashboard_data.json", pipeline: null });
         });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setData({
-          loading: false,
-          error: "Failed to load dashboard_data.json",
-          pipeline: null,
-        });
-      });
+    };
+    load();
+    const iv = setInterval(() => { if (inPipelineWindow()) load(true); }, 30 * 60 * 1000);
+    // Coming back to the tab after a while → catch up immediately.
+    const onVis = () => {
+      if (document.visibilityState === "visible" && inPipelineWindow() && Date.now() - lastFetchMs > 10 * 60 * 1000) load(true);
+    };
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       cancelled = true;
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 
