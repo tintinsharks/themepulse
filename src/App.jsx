@@ -1024,7 +1024,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
             Constant width in both modes so the column doesn't jump when
             switching between a layer basket and a single ticker/ETF. */}
-        <div style={{ width: 316, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
+        <div style={{ width: 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
@@ -1065,37 +1065,25 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
               return (
                 <>
                   <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
-                    {hCell("t", "Layer", 36, false)}
-                    {hCell("adr", "ADR", 24, false)}
+                    {hCell("t", "Tkr", 36, false)}
                     {hCell("rs", "RS", 0, true)}
-                    {hCell("eif", "EIF", 22, false)}
                     {hCell("chg", "Chg", 38, false)}
-                    {hCell("zvr", "ZVR", 40, false)}
-                    {hCell("cr", "CR", 26, false)}
                   </div>
                   <div ref={conListRef} tabIndex={0} onKeyDown={onConKey} title="Click then use ↑/↓ to step through constituents (charts each below)"
                     style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
-                      const { chg, cr, zvr, eif, adr } = h;
-                      const adrC = adr == null ? ARIA.textMuted : adr >= 5 ? "#fbbf24" : adr >= 3 ? ARIA.green : ARIA.textDim;
+                      const { chg, cr, zvr, eif } = h;
                       const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
-                      const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
-                      const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr >= 40 ? ARIA.textDim : ARIA.red;
-                      const eifC = eif == null ? ARIA.textMuted : eif >= 55 ? ARIA.green : ARIA.textDim;
                       return (
                         <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
                           onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
-                          <span style={{ color: adrC, width: 24, textAlign: "right", flexShrink: 0, fontWeight: adr != null && adr >= 5 ? 700 : 400 }}>{adr == null ? "—" : adr.toFixed(1)}</span>
                           <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
                             <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
                           </div>
                           <span style={{ color: ARIA.textDim, width: 16, textAlign: "right", flexShrink: 0 }}>{h.s ?? "—"}</span>
-                          <span style={{ color: eifC, width: 22, textAlign: "right", flexShrink: 0, fontWeight: eif != null && eif >= 55 ? 700 : 400 }}>{eif == null ? "—" : eif}</span>
                           <span style={{ color: chgC, width: 38, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
-                          <span style={{ color: zvrC, width: 40, textAlign: "right", flexShrink: 0, fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400 }}>{zvr == null ? "—" : zvr + "%"}</span>
-                          <span style={{ color: crC, width: 26, textAlign: "right", flexShrink: 0 }}>{cr == null ? "—" : cr}</span>
                         </div>
                       );
                     })}
