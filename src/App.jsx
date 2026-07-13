@@ -2418,20 +2418,21 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
 
   // Leaders: strongest established names in the top-N layers (RS + EIF + near-
   // high + volume). The top-40 also form an exclusion set for Emerging.
-  const leaderPool = (rsTab === "leaders" || rsTab === "emerging") ? buildStocks(sortedLayers(topLayers)) : [];
+  const isLeadersFamily = rsTab === "leaders" || rsTab === "emerging" || rsTab === "leadersall";
+  const leaderPool = isLeadersFamily ? buildStocks(sortedLayers(topLayers)) : [];
   const leaderTop = leaderPool.map((r) => ({ ...r, _score:
     0.40 * (r.rsRank ?? 0) + 0.30 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
     + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
     + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 40);
   const leaderSet = new Set(leaderTop.map((r) => r.ticker));
-  const leaderRows = (rsTab === "leaders" || rsTab === "emerging") ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
+  const leaderRows = isLeadersFamily ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
 
   // Emerging: quality names near a 52w high (or RS-line new high) that AREN'T
   // already established leaders. Scans a BROADER pool (top ~36 layers) than
   // Leaders so it surfaces the mid-tier names rotating up — never the same
   // tickers as Leaders. Volume is a score bonus, not a hard gate.
   const emergingRows = (() => {
-    if (rsTab !== "leaders" && rsTab !== "emerging") return [];
+    if (!isLeadersFamily) return [];
     const pool = buildStocks(sortedLayers(Math.max(36, topLayers)));
     const cand = pool.filter((r) =>
       !leaderSet.has(r.ticker) &&                                  // not already in Leaders
@@ -2447,6 +2448,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     rows.forEach((r, i) => { r.lead = i + 1; });
     return rows.slice(0, 40);
   })();
+  // Combined "All" — leaders + emerging as one unified leaderboard (non-overlapping
+  // by construction), re-ranked by RS so the strongest float to the top.
+  const combinedRows = rsTab === "leadersall"
+    ? [...leaderRows, ...emergingRows].sort((a, b) => (b.rsRank ?? 0) - (a.rsRank ?? 0)).map((r, i) => ({ ...r, lead: i + 1 }))
+    : [];
   const liveOn = spyChg != null;
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
@@ -2591,14 +2597,15 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             );
             const isLeaders = rsTab === "leaders";
             const isEmerging = rsTab === "emerging";
-            const isStockTab = isLeaders || isEmerging;
+            const isCombined = rsTab === "leadersall";
+            const isStockTab = isLeaders || isEmerging || isCombined;
             const researchTabs = ["sectors", "industries", "trends", "apex", "ercal"];
             const showResearch = moreOpen || researchTabs.includes(rsTab);
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                 {/* trade-live tier — what you watch during RTH */}
                 {tabBtn("layers", "Layers", ["tech", "extech"])}
-                {tabBtn("leaders", "Leaders", ["emerging"])}
+                {tabBtn("leadersall", "Leaders", ["leaders", "emerging"])}
                 {tabBtn("inplay", "⚡ In Play")}
                 {tabBtn("playbook", "Playbook")}
                 <button onClick={() => setMoreOpen((v) => !v)}
@@ -2616,7 +2623,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
-            const stockRows = isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
+            const stockRows = isCombined ? combinedRows : isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
@@ -2703,7 +2710,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   {tabRow}
                   {isStockTab && (
                     <div style={{ display: "flex", gap: 4, padding: "2px 2px 4px" }}>
-                      {[["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]].map(([k, lbl, n]) => (
+                      {[["leadersall", "◆ All", leaderRows.length + emergingRows.length], ["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]].map(([k, lbl, n]) => (
                         <button key={k} onClick={() => setRsTab(k)}
                           style={{ fontSize: 8, fontWeight: 700, letterSpacing: 0.3, padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
                             color: rsTab === k ? ARIA.text : ARIA.textMuted,
@@ -2841,7 +2848,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                       })()
                     ) : (
                     <RsTable
-                      key={isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
+                      key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
                       rows={stockRows}
                       sortable onTicker={isStockTab ? openTickerNoSync : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
