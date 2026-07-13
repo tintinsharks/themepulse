@@ -2423,14 +2423,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
     + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 40);
   const leaderSet = new Set(leaderTop.map((r) => r.ticker));
-  const leaderRows = rsTab === "leaders" ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
+  const leaderRows = (rsTab === "leaders" || rsTab === "emerging") ? leaderTop.map((r, i) => ({ ...r, lead: i + 1 })) : [];
 
   // Emerging: quality names near a 52w high (or RS-line new high) that AREN'T
   // already established leaders. Scans a BROADER pool (top ~36 layers) than
   // Leaders so it surfaces the mid-tier names rotating up — never the same
   // tickers as Leaders. Volume is a score bonus, not a hard gate.
   const emergingRows = (() => {
-    if (rsTab !== "emerging") return [];
+    if (rsTab !== "leaders" && rsTab !== "emerging") return [];
     const pool = buildStocks(sortedLayers(Math.max(36, topLayers)));
     const cand = pool.filter((r) =>
       !leaderSet.has(r.ticker) &&                                  // not already in Leaders
@@ -2569,12 +2569,15 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
           })()}
           {/* Regime chart (left) + tabbed Sectors/Industries table (right of the graph) */}
           {(() => {
-            const tabBtn = (key, label) => (
-              <button onClick={() => setRsTab(key)}
-                style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
-                  color: rsTab === key ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none",
-                  borderBottom: `2px solid ${rsTab === key ? ARIA.blue : "transparent"}` }}>{label}</button>
-            );
+            const tabBtn = (key, label, alsoActive = []) => {
+              const active = rsTab === key || alsoActive.includes(rsTab);
+              return (
+                <button onClick={() => setRsTab(key)}
+                  style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
+                    color: active ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none",
+                    borderBottom: `2px solid ${active ? ARIA.blue : "transparent"}` }}>{label}</button>
+              );
+            };
             const layerBtns = (
               <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}>
                 <span style={{ fontSize: 7, color: ARIA.textMuted }}>top layers</span>
@@ -2595,8 +2598,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {tabBtn("layers", "Layers")}
                 {tabBtn("tech", "Tech")}
                 {tabBtn("extech", "Ex-Tech")}
-                {tabBtn("leaders", "Leaders")}
-                {tabBtn("emerging", "Emerging")}
+                {tabBtn("leaders", "Leaders", ["emerging"])}
                 {tabBtn("trends", "Trends")}
                 {tabBtn("playbook", "Playbook")}
                 {tabBtn("apex", "👑 Apex")}
@@ -2791,6 +2793,19 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 rightPanel={
                 <>
                   {tabRow}
+                  {isStockTab && (
+                    <div style={{ display: "flex", gap: 4, padding: "2px 2px 4px" }}>
+                      {[["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]].map(([k, lbl, n]) => (
+                        <button key={k} onClick={() => setRsTab(k)}
+                          style={{ fontSize: 8, fontWeight: 700, letterSpacing: 0.3, padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
+                            color: rsTab === k ? ARIA.text : ARIA.textMuted,
+                            background: rsTab === k ? ARIA.blue + "22" : "transparent",
+                            border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
+                          {lbl}{n ? <span style={{ opacity: 0.55, fontWeight: 400 }}> {n}</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
                   {rsTab === "trends" && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>quadrants: RS level × 1-wk momentum (Improving = watchlist only — backtest: no edge until leadership) · sparklines: multi-day rank trajectories</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
