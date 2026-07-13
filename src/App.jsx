@@ -2019,7 +2019,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
                   <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ marginLeft: 3, fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2 }}>DE</span>
                 )}
                 {rankCol && r.news && (
-                  <span title={r.news.slice(0, 3).join("\n")} style={{ marginLeft: 3, fontSize: 7, opacity: 0.65, cursor: "help" }}>📰</span>
+                  <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: r.ticker, items: r.news } })); }} title="Click for catalyst headlines" style={{ marginLeft: 3, fontSize: 7, opacity: 0.7, cursor: "pointer" }}>📰</span>
                 )}
                 {r.erDays != null && r.erDays >= 0 && r.erDays <= 7 && (
                   <span title={`Reports earnings in ${r.erDays} day${r.erDays === 1 ? "" : "s"} — avoid initiating into the print`} style={{ marginLeft: 3, fontSize: 7.5, fontWeight: 700, color: "#fbbf24" }}>⚠{r.erDays}d</span>
@@ -2615,6 +2615,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               const qColor = (l) => l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
               const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
               return (
+                <div>
+                {tabRow}
                 <div style={{ overflowY: "auto", maxHeight: (parseInt(localStorage.getItem("tp-regime-h2") || "440", 10) || 440), padding: "2px 2px 8px", fontFamily: "monospace" }}>
                   <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
                     Today's in-universe movers (earnings + stocks-in-play), quality-scored by the EP pipeline. This is a PREP list — the evidence says stalk (DE), don't chase: gap-day entries backtest at 46% win. {rows2.length} of {movers.length} movers pass the universe gate.
@@ -2643,6 +2645,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                     </tbody>
                   </table>
                 </div>
+                </div>
               );
             }
             if (rsTab === "apex") {
@@ -2660,6 +2663,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 </div>
               );
               return (
+                <div>
+                {tabRow}
                 <div style={{ overflowY: "auto", maxHeight: (parseInt(localStorage.getItem("tp-regime-h2") || "440", 10) || 440), padding: "2px 2px 8px", fontFamily: "monospace" }}>
                   <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
                     Walk-forward test of the Apex cohort (top-2 RS in top-5 layers). Each night <b style={{ color: ARIA.text }}>apex_tracker</b> tracks every promotion from entry to exit and splits closed returns by whether the name was seen <b style={{ color: ARIA.yellow }}>on-deck</b> before promotion vs a <b style={{ color: ARIA.textDim }}>cold</b> jump. Watchlist evidence — not signals. {ev?.updated ? `Updated ${ev.updated}.` : ""}
@@ -2698,6 +2703,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                       </div>
                     </>)}
                   </>)}
+                </div>
                 </div>
               );
             }
@@ -6320,7 +6326,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                     {r.tt && <span title={r.ttp ? "T2+ PRIME — 2-days-tight in the UPPER HALF of a MATURE base (>=6 weeks near highs). The highest-quality coil." : "2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow"} style={{ fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>{r.ttp ? "T2+" : "T2"}</span>}
                     {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
-                    {r.news && <span title={r.news.slice(0, 3).join("\n")} style={{ fontSize: 7, opacity: 0.65, lineHeight: "10px", cursor: "help" }}>📰</span>}
+                    {r.news && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: r.ticker, items: r.news } })); }} title="Click for catalyst headlines" style={{ fontSize: 7, opacity: 0.7, lineHeight: "10px", cursor: "pointer" }}>📰</span>}
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
@@ -9814,7 +9820,7 @@ function WatchlistSectionTable({
                         )}
                         {r.tt && <span title={r.ttp ? "T2+ PRIME — tight coil in the upper half of a mature (>=6w) base" : "2-Days-Tight — closes within 1% + narrowing range. Breakout candidate"} style={{ fontSize: 6, fontWeight: 800, color: r.ttp ? "#fbbf24" : "#f472b6", border: `1px solid ${r.ttp ? "#fbbf24" : "#f472b680"}`, background: r.ttp ? "rgba(251,191,36,0.16)" : "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>{r.ttp ? "T2+" : "T2"}</span>}
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
-                        {r.news && <span title={r.news.slice(0, 3).join("\n")} style={{ fontSize: 7, opacity: 0.65, lineHeight: "10px", cursor: "help" }}>📰</span>}
+                        {r.news && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: r.ticker, items: r.news } })); }} title="Click for catalyst headlines" style={{ fontSize: 7, opacity: 0.7, lineHeight: "10px", cursor: "pointer" }}>📰</span>}
                       </span>
                     </td>
                     <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
@@ -12004,6 +12010,33 @@ if (typeof document !== "undefined" && !document.getElementById("tp-visual-css")
   document.head.appendChild(st);
 }
 
+// Click-popover for the 📰 catalyst glyphs — native title tooltips on a 7px
+// glyph are unusable. Glyphs dispatch "tp-news-pop"; any outside click/scroll
+// dismisses (glyph clicks stopPropagation, so they don't self-dismiss).
+function NewsPopover({ ARIA }) {
+  const [pop, setPop] = useState(null);
+  useEffect(() => {
+    const on = (e) => setPop(e.detail);
+    const off = () => setPop(null);
+    window.addEventListener("tp-news-pop", on);
+    window.addEventListener("click", off);
+    window.addEventListener("scroll", off, true);
+    return () => { window.removeEventListener("tp-news-pop", on); window.removeEventListener("click", off); window.removeEventListener("scroll", off, true); };
+  }, []);
+  if (!pop) return null;
+  const W = 340;
+  const left = Math.min(pop.x + 8, (window.innerWidth || 1200) - W - 12);
+  const top = Math.min(pop.y + 8, (window.innerHeight || 800) - 160);
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{ position: "fixed", left, top, width: W, zIndex: 80, background: ARIA.bgCard, border: `1px solid ${ARIA.borderLight}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", padding: "8px 10px", fontFamily: "monospace", backdropFilter: "blur(14px)" }}>
+      <div style={{ fontSize: 9, fontWeight: 800, color: ARIA.text, marginBottom: 4 }}>📰 {pop.ticker} — catalyst headlines</div>
+      {(pop.items || []).map((h, i) => (
+        <div key={i} style={{ fontSize: 9, color: ARIA.textDim, lineHeight: 1.45, padding: "3px 0", borderBottom: i < pop.items.length - 1 ? `1px solid ${ARIA.border}` : "none" }}>{h}</div>
+      ))}
+    </div>
+  );
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -12189,6 +12222,7 @@ function AppMain() {
       }}
     >
       <AlertsBell alerts={tradeAlerts} onTicker={handleTickerClick} ARIA={ARIA} />
+      <NewsPopover ARIA={ARIA} />
       {/* Topbar */}
       <div
         style={{
