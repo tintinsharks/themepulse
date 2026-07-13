@@ -1034,13 +1034,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
   const isBasket = Array.isArray(basket) && basket.length > 0;
   const label = isBasket ? (basketLabel || "Layer") : sym;
 
-  // SPY closes (always loaded) — RS-line denominator for the new-high-before-price dots
-  const [rsBench, setRsBench] = useState(null);
-  useEffect(() => {
-    let alive = true;
-    fetchOhlcBars("SPY").then((bars) => { if (alive) setRsBench(new Map((bars || []).map((b) => [b.date, b.close]))); }).catch(() => {});
-    return () => { alive = false; };
-  }, []);
   // Load the chart series (basket or single ticker); compute regime coloring.
   const basketKey = isBasket ? basket.join(",") : "";
   useEffect(() => {
@@ -1096,62 +1089,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     const CMAP = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
     const axisY = H - padB;
 
-    // ── Mansfield RS oscillator (subject ÷ SPY, vs its own 21d MA) ──
-    // Zero-centered in the bottom band: above zero = outperformance trend,
-    // below = underperforming. ▲/▼ at zero-crosses (the turn). Pink dot =
-    // RS new high while price is still >3% below its own high (RSNHBP).
-    // Skipped when the subject IS SPY (RS would be a flat 1).
-    let rsPath = null; const rsDots = []; const rsCross = []; let rsBandTop = 0, rsBandH = 0, rsZeroY = null, rsPosD = null, rsNegD = null;
-    if (rsBench && !(!isBasket && sym === "SPY")) {
-      const rsv = bars.map((b) => { const sp = rsBench.get(b.date); return (sp && b.close != null && sp > 0) ? b.close / sp : null; });
-      const MW = 21;
-      let mSum = 0, mN = 0;
-      const osc = rsv.map((v, i) => {
-        if (v == null) return null;
-        mSum += v; mN++;
-        if (mN > MW) { const old = rsv[i - MW]; if (old != null) { mSum -= old; mN--; } }
-        if (mN < MW) return null;
-        const ma = mSum / mN;
-        return ma > 0 ? (v / ma - 1) * 100 : null;
-      });
-      const vals = osc.filter((v) => v != null);
-      if (vals.length >= 2) {
-        const amp = Math.max(1, ...vals.map((v) => Math.abs(v)));
-        const plotH = H - padT - padB;
-        rsBandTop = padT + plotH * 0.70; rsBandH = plotH * 0.26;
-        const mid = rsBandTop + rsBandH / 2;
-        rsZeroY = mid;
-        const rsY = (v) => mid - (v / amp) * (rsBandH / 2);
-        rsPath = osc.map((v, i) => (v == null ? "" : `${x(i).toFixed(1)},${rsY(v).toFixed(1)}`)).filter(Boolean).join(" ");
-        let firstO = -1, lastO = -1;
-        osc.forEach((v, i) => { if (v != null) { if (firstO < 0) firstO = i; lastO = i; } });
-        if (firstO >= 0) {
-          const side = (clampFn) => osc.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${rsY(clampFn(v)).toFixed(1)}`)).filter(Boolean).join(" L");
-          rsPosD = `M${x(firstO).toFixed(1)},${mid.toFixed(1)} L${side((v) => Math.max(0, v))} L${x(lastO).toFixed(1)},${mid.toFixed(1)} Z`;
-          rsNegD = `M${x(firstO).toFixed(1)},${mid.toFixed(1)} L${side((v) => Math.min(0, v))} L${x(lastO).toFixed(1)},${mid.toFixed(1)} Z`;
-        }
-        let above = 0, below = 0;
-        osc.forEach((v, i) => {
-          if (v == null) return;
-          if (v > 0) {
-            if (below >= 3) rsCross.push({ x: x(i), y: rsY(v), up: true });
-            above++; below = 0;
-          } else {
-            if (above >= 3) rsCross.push({ x: x(i), y: rsY(v), up: false });
-            below++; above = 0;
-          }
-        });
-        let rsRun = -Infinity, pxRun = -Infinity;
-        rsv.forEach((v, i) => {
-          const pc = bars[i].close;
-          const rsNewHigh = v != null && v > rsRun;
-          const priceBelow = pc != null && pxRun > 0 && (pc / pxRun - 1) <= -0.03;
-          if (v != null && rsNewHigh && priceBelow && i > 2 && osc[i] != null) rsDots.push({ x: x(i), y: rsY(osc[i]) });
-          if (v != null && v > rsRun) rsRun = v;
-          if (pc != null && pc > pxRun) pxRun = pc;
-        });
-      }
-    }
+    // (RS oscillator removed here — the ticker chart carries the Mansfield
+    // RS band; duplicating it on the regime chart added clutter.)
 
     // y-axis price gridlines — 4 intervals between lo and hi
     const yTicks = [];
@@ -1206,24 +1145,6 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         {ticks}
         <path d={wkPath} fill="none" stroke="#b1374a" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
         {segs}
-        {/* Mansfield RS oscillator: sign fills + zero line + turn markers */}
-        {rsPosD && <path d={rsPosD} fill="#22c55e" opacity={0.2} />}
-        {rsNegD && <path d={rsNegD} fill="#ef4444" opacity={0.2} />}
-        {rsZeroY != null && <line x1={padL} y1={rsZeroY} x2={W - padX} y2={rsZeroY} stroke="#3b82f6" strokeWidth={0.5} strokeDasharray="3 3" opacity={0.5} />}
-        {rsPath && <polyline points={rsPath} fill="none" stroke="#3b82f6" strokeWidth={1.1} opacity={0.85} />}
-        {rsPath && <text x={padL + 2} y={rsBandTop - 2} fontSize="7" fill="#3b82f6" fontFamily="monospace" opacity={0.9}>RS TREND (÷21d)<title>Mansfield RS: (subject÷SPY) vs its own 21-day average. Green = outperformance trend, red = underperforming. ▲/▼ = zero-cross turns; pink dot = RS new high before price.</title></text>}
-        {rsCross.map((d, i) => (
-          <polygon key={`rsx${i}`}
-            points={d.up ? `${d.x - 3.5},${d.y + 8} ${d.x + 3.5},${d.y + 8} ${d.x},${d.y + 2}` : `${d.x - 3.5},${d.y - 8} ${d.x + 3.5},${d.y - 8} ${d.x},${d.y - 2}`}
-            fill={d.up ? "#22c55e" : "#f59e0b"} stroke={ARIA.bg} strokeWidth={0.7}>
-            <title>{d.up ? "RS turn UP — crossed above its 21d trend: entering outperformance" : "RS turn DOWN — crossed below its 21d trend: losing leadership"}</title>
-          </polygon>
-        ))}
-        {rsDots.map((d, i) => (
-          <circle key={`rsd${i}`} cx={d.x} cy={d.y} r={2.6} fill="#ec4899" stroke={ARIA.bg} strokeWidth={0.6}>
-            <title>RS new high before price</title>
-          </circle>
-        ))}
         {/* hover crosshair + readout */}
         {h && (
           <g>
