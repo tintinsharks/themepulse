@@ -1067,7 +1067,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                   <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
                     {hCell("t", "Tkr", 36, false)}
                     {hCell("rs", "RS", 0, true)}
-                    {hCell("chg", "Chg", 38, false)}
+                    {hCell("chg", "Chg", 34, false)}
+                    {hCell("zvr", "ZVR", 36, false)}
                   </div>
                   <div ref={conListRef} tabIndex={0} onKeyDown={onConKey} title="Click then use ↑/↓ to step through constituents (charts each below)"
                     style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
@@ -1075,15 +1076,14 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                       const { chg, cr, zvr, eif } = h;
                       const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
+                      const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
                       return (
                         <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click to chart below)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
                           onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
-                          <div style={{ flex: 1, height: 4, background: ARIA.border, borderRadius: 2, overflow: "hidden", minWidth: 14 }}>
-                            <div style={{ width: `${Math.min(100, h.s || 0)}%`, height: "100%", background: rc }} />
-                          </div>
-                          <span style={{ color: ARIA.textDim, width: 16, textAlign: "right", flexShrink: 0 }}>{h.s ?? "—"}</span>
-                          <span style={{ color: chgC, width: 38, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
+                          <span style={{ color: rc, flex: 1, textAlign: "right", fontWeight: h.s != null && h.s >= 88 ? 700 : 400 }}>{h.s ?? "—"}</span>
+                          <span style={{ color: chgC, width: 34, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
+                          <span style={{ color: zvrC, width: 36, textAlign: "right", flexShrink: 0, fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400 }}>{zvr == null ? "—" : zvr + "%"}</span>
                         </div>
                       );
                     })}
