@@ -10999,15 +10999,18 @@ function ChartScanRow({
   themeHealth,
   stocks,
   tickerStrengthMap,
+  rotationBoard,
 }) {
-  // Default 320px to match Aria's #sw-column initial width.
+  // Right column hosts the rotation board + Scan Watch — default ~half the
+  // screen. (New storage key: the old scan-width default of 400px is far too
+  // narrow now that the rotation tables live here.)
   const [scanW, setScanW] = useState(() => {
-    const saved = parseFloat(localStorage.getItem("themepulse-scan-width") || "");
-    return Number.isFinite(saved) && saved >= 150 && saved <= 900 ? saved : 400;
+    const saved = parseFloat(localStorage.getItem("themepulse-scan-width2") || "");
+    return Number.isFinite(saved) && saved >= 320 && saved <= 1300 ? saved : 950;
   });
   const rowRef = React.useRef(null);
   useEffect(() => {
-    localStorage.setItem("themepulse-scan-width", String(scanW));
+    localStorage.setItem("themepulse-scan-width2", String(scanW));
   }, [scanW]);
   const startDrag = useCallback((e) => {
     e.preventDefault();
@@ -11017,7 +11020,7 @@ function ChartScanRow({
     function onMove(ev) {
       // Right column width = distance from right edge of row to mouse
       const w = rect.right - (ev.clientX || 0);
-      setScanW(Math.max(150, Math.min(900, w)));
+      setScanW(Math.max(320, Math.min(1300, w)));
     }
     function onUp() {
       document.removeEventListener("mousemove", onMove);
@@ -11069,13 +11072,14 @@ function ChartScanRow({
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       />
       <div style={{
-        width: scanW, flexShrink: 0, minWidth: 150,
+        width: scanW, flexShrink: 0, minWidth: 320,
         display: "flex", flexDirection: "column",
-        // Pin to viewport so the watchlist/scan stays visible when the
-        // left chart panel scrolls past the fold
+        // Pin to viewport so the rotation board + watchlist/scan stay visible
+        // when the left chart panel scrolls past the fold
         position: "sticky", top: 0, alignSelf: "flex-start",
         maxHeight: "100vh", overflowY: "auto",
       }}>
+        {rotationBoard}
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
       </div>
     </div>
@@ -12167,12 +12171,7 @@ function AppMain() {
               <MarketConditionsPanel stocks={stocks} onTickerClick={handleTickerClick} />
             </ErrorBoundary>
 
-            {/* RS rotation board — sector/industry relative strength (collapsible) */}
-            <ErrorBoundary>
-              <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} movers={[...(data.pipeline?.earnings_movers || []).map((m) => ({ ...m, _src: "ER" })), ...(data.pipeline?.pm_sip_movers || []).map((m) => ({ ...m, _src: "PM" })), ...(data.pipeline?.ah_sip_movers || []).map((m) => ({ ...m, _src: "AH" }))]} />
-            </ErrorBoundary>
-
-            {/* Charts + Scan Watch row — chart left (flex 1), draggable divider, Scan Watch right (resizable) */}
+            {/* Two-box layout: ticker chart (left) · rotation board + Scan Watch stacked (right) */}
             <ChartScanRow
               chartTicker={chartTicker}
               handleTickerClick={handleTickerClick}
@@ -12180,6 +12179,11 @@ function AppMain() {
               themeHealth={data.pipeline?.theme_health || []}
               stocks={stocks}
               tickerStrengthMap={tickerStrengthMap}
+              rotationBoard={
+                <ErrorBoundary>
+                  <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} movers={[...(data.pipeline?.earnings_movers || []).map((m) => ({ ...m, _src: "ER" })), ...(data.pipeline?.pm_sip_movers || []).map((m) => ({ ...m, _src: "PM" })), ...(data.pipeline?.ah_sip_movers || []).map((m) => ({ ...m, _src: "AH" }))]} />
+                </ErrorBoundary>
+              }
             />
           </>
         )}
