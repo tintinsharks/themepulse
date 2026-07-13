@@ -1860,38 +1860,6 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   );
 }
 
-function RsMoverCard({ title, accent, rows, onRow, isLayer, ARIA }) {
-  return (
-    <div style={{ flex: 1, minWidth: 150, border: `1px solid ${ARIA.border}`, borderRadius: 5, overflow: "hidden", fontFamily: "monospace" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 7px", borderBottom: `1px solid ${ARIA.border}` }}>
-        <span style={{ width: 3, height: 11, background: accent, borderRadius: 2 }} />
-        <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{title}</span>
-      </div>
-      {/* Single-line rows — height for ~6 visible, 7th scrolls. */}
-      <div style={{ maxHeight: 150, overflowY: "auto" }}>
-        {(rows || []).map((m) => (
-          <div key={isLayer ? `${m.themeId}|${m.name}` : m.ticker}
-            title={isLayer ? `${m.theme} · ${m.name} — ${m.pts >= 0 ? "+" : ""}${m.pts} pts (click to load layer)` : `${m.ticker} · ${m.name} — $${m.price?.toFixed(2)} · ${m.pts >= 0 ? "+" : ""}${m.pts} pts`}
-            onClick={() => onRow?.(m)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "1.5px 7px", borderBottom: `1px solid ${ARIA.border}25`, cursor: "pointer" }}>
-            <RsRankBox v={m.now} ARIA={ARIA} />
-            {isLayer ? (
-              <span style={{ fontSize: 8.5, fontWeight: 700, color: ARIA.blue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}<span title={m.n < 3 ? `Only ${m.n} constituent${m.n === 1 ? "" : "s"} — rank can swing on one name` : undefined} style={{ color: m.n < 3 ? ARIA.yellow : ARIA.textMuted, fontWeight: m.n < 3 ? 700 : 400 }}> ·{m.n}</span></span>
-            ) : (
-              <>
-                <span style={{ color: ARIA.blue, fontWeight: 700, fontSize: 9, flexShrink: 0 }}>{m.ticker}</span>
-                <span style={{ fontSize: 7.5, color: ARIA.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{m.name}</span>
-                <span style={{ fontSize: 8, color: ARIA.textDim, flexShrink: 0 }}>${m.price?.toFixed(2)}</span>
-              </>
-            )}
-            <span style={{ fontSize: 8, fontWeight: 700, color: m.pts >= 0 ? ARIA.green : ARIA.red, flexShrink: 0, width: 42, textAlign: "right" }}>{m.pts >= 0 ? "+" : ""}{m.pts}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── RRG: Relative Rotation Graph for layers ─────────────────────────────────
 // x = RS level (now rank), y = RS momentum (now − w1, weekly rank change). Four
 // quadrants: Leading (strong+rising), Weakening (strong+falling), Lagging
@@ -2297,41 +2265,21 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Movers — computed from the ACTIVE tab's rows (sectors/industries/layers) */}
-          {rsTab !== "leaders" && rsTab !== "emerging" && (() => {
-            // rrg/trends also show LAYER rows in the mover cards — treat them as
-            // layers (load in place) rather than charting the lead ticker, which
-            // would trip reverse-sync and yank the tab to Layers.
-            const isLayer = rsTab === "layers" || rsTab === "tech" || rsTab === "extech" || rsTab === "trends" || rsTab === "playbook";
-            // Confidence-weight the rank change by constituent count so a thin
-            // layer (1–2 names) needs a much bigger move to surface, while a
-            // broad layer's modest shift still counts. Shrinkage conf = n/(n+K):
-            // n=1→0.25, 3→0.50, 6→0.67, 12→0.80, 30→0.91; ETF rows = 1.0.
-            const K = 3;
-            const conf = (r) => isLayer ? (r.n || 1) / ((r.n || 1) + K) : 1;
-            const mv = (prevKey, dir) => {
-              const scored = activeRows.filter((r) => r[prevKey] != null)
-                .map((r) => { const pts = r.now - r[prevKey]; return { ...r, pts, wpts: pts * conf(r) }; });
-              scored.sort((a, b) => (dir === "up" ? b.wpts - a.wpts : a.wpts - b.wpts));
-              return scored.slice(0, 7);
-            };
-            const onRow = isLayer ? (rsTab === "layers" ? openLayer : openLayerStay) : (r) => openTicker(r.ticker);
-            const toggleMovers = () => setMoversOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-movers-open", n ? "1" : "0"); } catch {} return n; });
+          {/* Playbook — always-available top board: rank × weekly momentum ×
+              live day → action buckets (collapsible; replaced Rank Movers) */}
+          {(() => {
+            const togglePlaybook = () => setMoversOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-movers-open", n ? "1" : "0"); } catch {} return n; });
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div onClick={toggleMovers} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 7.5 }}>
+                <div onClick={togglePlaybook} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 7.5 }}>
                   <span style={{ fontSize: 8, color: ARIA.textMuted }}>{moversOpen ? "▾" : "▸"}</span>
-                  <span style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: moversOpen ? ARIA.text : ARIA.textMuted }}>Rank movers</span>
-                  {isLayer && moversOpen && <span style={{ color: ARIA.textDim }} title="Each layer's rank change is multiplied by a confidence factor n/(n+3), so single-stock layers need a much larger move to surface. Thin (·<3) layers are flagged amber.">· confidence-weighted by ·constituents</span>}
-                  {!moversOpen && <span style={{ color: ARIA.textMuted }}>— click to expand</span>}
+                  <span style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: moversOpen ? ARIA.text : ARIA.textMuted }}>Playbook</span>
+                  {moversOpen
+                    ? <span style={{ color: ARIA.textDim }} title="Layers bucketed by RS rank × weekly momentum × today's live move (tech vs QQQ, ex-tech vs SPY) → Continuation / Rising / Stalk / Improving action buckets. % = off 52w high.">rank × weekly momentum × live day → action buckets</span>
+                    : <span style={{ color: ARIA.textMuted }}>— click to expand</span>}
                 </div>
                 {moversOpen && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-                    <RsMoverCard title="Daily Rank Up" accent={ARIA.green} rows={mv("d1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                    <RsMoverCard title="Weekly Rank Up" accent={ARIA.green} rows={mv("w1", "up")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                    <RsMoverCard title="Daily Rank Down" accent={ARIA.red} rows={mv("d1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                    <RsMoverCard title="Weekly Rank Down" accent={ARIA.red} rows={mv("w1", "down")} onRow={onRow} isLayer={isLayer} ARIA={ARIA} />
-                  </div>
+                  <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
                 )}
               </div>
             );
