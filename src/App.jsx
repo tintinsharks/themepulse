@@ -2597,10 +2597,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                 {/* trade-live tier — what you watch during RTH */}
-                {tabBtn("layers", "Layers")}
+                {tabBtn("layers", "Layers", ["tech", "extech"])}
                 {tabBtn("leaders", "Leaders", ["emerging"])}
-                {tabBtn("tech", "Tech")}
-                {tabBtn("extech", "Ex-Tech")}
                 {tabBtn("inplay", "⚡ In Play")}
                 <button onClick={() => setMoreOpen((v) => !v)}
                   style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
@@ -2813,6 +2811,19 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                             background: rsTab === k ? ARIA.blue + "22" : "transparent",
                             border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
                           {lbl}{n ? <span style={{ opacity: 0.55, fontWeight: 400 }}> {n}</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {isLayerLike && (
+                    <div style={{ display: "flex", gap: 4, padding: "2px 2px 4px" }}>
+                      {[["layers", "All Layers"], ["tech", "Tech"], ["extech", "Ex-Tech"]].map(([k, lbl]) => (
+                        <button key={k} onClick={() => setRsTab(k)}
+                          style={{ fontSize: 8, fontWeight: 700, letterSpacing: 0.3, padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
+                            color: rsTab === k ? ARIA.text : ARIA.textMuted,
+                            background: rsTab === k ? ARIA.blue + "22" : "transparent",
+                            border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
+                          {lbl}
                         </button>
                       ))}
                     </div>
