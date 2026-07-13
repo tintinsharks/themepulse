@@ -1011,6 +1011,21 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
     };
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
   };
+  // Width of the holdings/constituents column (drag handle on its right edge).
+  const [holdW, setHoldW] = useState(() => {
+    try { const v = parseInt(localStorage.getItem("tp-holdings-w") || "132", 10); return Math.max(100, Math.min(420, isNaN(v) ? 132 : v)); } catch { return 132; }
+  });
+  const startHoldResize = (e) => {
+    e.preventDefault();
+    const startX = e.clientX, startW = holdW;
+    const clampW = (w) => Math.max(100, Math.min(420, w));
+    const onMove = (ev) => setHoldW(clampW(startW + (ev.clientX - startX)));
+    const onUp = (ev) => {
+      try { localStorage.setItem("tp-holdings-w", String(clampW(startW + (ev.clientX - startX)))); } catch {}
+      window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
+  };
   // Labeling: an equal-weight basket of the layer's constituents, or a
   // single ticker/ETF.
   const isBasket = Array.isArray(basket) && basket.length > 0;
@@ -1043,9 +1058,9 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
       </div>
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
-            Constant width in both modes so the column doesn't jump when
-            switching between a layer basket and a single ticker/ETF. */}
-        <div style={{ width: 132, flexShrink: 0, borderRight: `1px solid ${ARIA.border}`, paddingRight: 10, display: "flex", flexDirection: "column" }}>
+            Same width in both modes (no jump when switching layer basket ↔
+            ticker/ETF); drag the right edge to resize, persisted. */}
+        <div style={{ width: holdW, flexShrink: 0, display: "flex", flexDirection: "column" }}>
           {holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
@@ -1136,6 +1151,11 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
             </>
           )}
         </div>
+        {/* Drag handle — resize the holdings column horizontally (persisted) */}
+        <div onMouseDown={startHoldResize} title="Drag to resize"
+          style={{ width: 6, cursor: "col-resize", flexShrink: 0, alignSelf: "stretch", margin: "0 -2px 0 -6px", borderRight: `1px solid ${ARIA.border}`, background: "transparent" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} />
         {/* Right: caller-provided panel (Sectors/Industries tabs) — pinned to the
             chart height so its table flex-fills when the box is resized taller */}
         {rightPanel && (
