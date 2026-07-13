@@ -2592,7 +2592,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             const isLeaders = rsTab === "leaders";
             const isEmerging = rsTab === "emerging";
             const isStockTab = isLeaders || isEmerging;
-            const researchTabs = ["sectors", "industries", "trends", "playbook", "apex", "ercal"];
+            const researchTabs = ["sectors", "industries", "trends", "apex", "ercal"];
             const showResearch = moreOpen || researchTabs.includes(rsTab);
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
@@ -2600,6 +2600,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {tabBtn("layers", "Layers", ["tech", "extech"])}
                 {tabBtn("leaders", "Leaders", ["emerging"])}
                 {tabBtn("inplay", "⚡ In Play")}
+                {tabBtn("playbook", "Playbook")}
                 <button onClick={() => setMoreOpen((v) => !v)}
                   style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
                     color: showResearch ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none", borderLeft: `1px solid ${ARIA.border}` }}
@@ -2610,7 +2611,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {showResearch && tabBtn("sectors", "Sector Leaders")}
                 {showResearch && tabBtn("industries", "Industries")}
                 {showResearch && tabBtn("trends", "Trends")}
-                {showResearch && tabBtn("playbook", "Playbook")}
                 {showResearch && tabBtn("apex", "👑 Apex")}
                 {showResearch && tabBtn("ercal", "ER Cal")}
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "trends" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
