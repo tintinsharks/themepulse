@@ -2344,15 +2344,15 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "ercal" ? (
-                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTicker} chartTicker={chartTicker} />
+                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTicker} chartTicker={chartTicker} movers={movers} />
                     ) : rsTab === "inplay" ? (
                       (() => {
-                        const qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
+                        const qOrd = { GENUINE: 5, ELITE: 4, EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
                         const rows2 = movers
                           .filter((m) => m.in_universe && m.ticker)
                           .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
                           .slice(0, 15);
-                        const qColor = (l) => l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
+                        const qColor = (l) => l === "GENUINE" ? "#fbbf24" : l === "ELITE" || l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
                         const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
                         return (
                           <div style={{ fontFamily: "monospace" }}>
@@ -3780,8 +3780,34 @@ function SupercycleMap({ chartTicker, onTickerClick: onTickerClickRaw }) {
 const ER_LOGO = (tk) => `https://images.financialmodelingprep.com/symbol/${tk}.png`;
 const erCalCache = {};
 
-function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedded = false }) {
+function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedded = false, movers = [] }) {
   const ARIA = useAriaTheme();
+  // Post-report mover lookup — prefer entries carrying er/MAGNA data.
+  const moverMap = useMemo(() => {
+    const m = {};
+    (movers || []).forEach((mv) => {
+      if (!mv?.ticker) return;
+      if (!m[mv.ticker] || (mv.er && !m[mv.ticker].er)) m[mv.ticker] = mv;
+    });
+    return m;
+  }, [movers]);
+  // EP assessment per reporter (MAGNA framework):
+  //   pre-ER  → the knowable-in-advance half: A-potential (sales accel) +
+  //             N (no 20% rally in + neglect evidence) + CAP10/IPO10 bonus
+  //   post-ER → the mover's MAGNA result; 4/4 = genuine EP (2-5/yr)
+  const epInfo = (tk) => {
+    const s = stockMap?.[tk] || {};
+    const aPot = s.sales_yoy != null && (s.sales_yoy >= 100 || (s.sales_yoy >= 39 && s.sales_yoy_prev != null && s.sales_yoy_prev >= 39));
+    const noRally = s.return_1m == null || s.return_1m < 20;
+    const negOwn = s.inst_own_pct == null || s.inst_own_pct < 40 || (s.inst_holder_count != null && s.inst_holder_count < 300);
+    const cap10 = s.market_cap_raw > 0 && s.market_cap_raw < 10e9;
+    const ipo10 = s.ipo_date ? (Date.now() - new Date(s.ipo_date).getTime()) < 3652 * 864e5 : false;
+    const setup = aPot && noRally && negOwn;
+    const mv = moverMap[tk];
+    const magna = mv?.magna_score ?? null;
+    const genuine = mv?.genuine_ep || magna === 4;
+    return { s, aPot, noRally, negOwn, cap10, ipo10, setup, mv, magna, genuine };
+  };
   // embedded (subtab) mode: always expanded, no collapse toggle
   const [expandedRaw, setExpanded] = useState(() => localStorage.getItem("tp-er-cal-open") === "1");
   const expanded = embedded || expandedRaw;
@@ -3940,6 +3966,10 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
         <div style={{ padding: embedded ? "0 2px 8px" : "0 12px 8px" }}>
           {loading && <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "4px 0" }}>Loading FMP calendar…</div>}
           {weekData.usingFallback && !loading && <div style={{ fontSize: 7, color: "#fbbf24", padding: "2px 0 4px" }}>Using pipeline data (FMP unavailable). Timing may be stale.</div>}
+          <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 0 5px", lineHeight: 1.5 }}
+            title="MAGNA: MA = massive acceleration (life-changing EPS beat ≥25% at ≥$0.10 scale, or sales ≥39% YoY) · G = gap 4%+ on 100K+ vol · N = neglect (no 20% rally into ER + low ownership/coverage) · A = sales accel (100% YoY, or 39% two quarters running — sales can't be waived). Bonus: mcap <$10B, IPO <10y.">
+            🎯 = pre-ER EP setup (sales accel + neglect, the knowable half of MAGNA) · <span style={{ color: "#fbbf24", fontWeight: 700 }}>gold = genuine EP (MAGNA 4/4)</span> — a life-changing catalyst, expect 2-5/yr · n/4 = reported, partial MAGNA · hover any chip for the full breakdown
+          </div>
           {weekData.days.map((day, di) => (
             <div key={di} style={{ marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
@@ -3948,9 +3978,34 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
               </div>
               {day.tickers.length > 0 ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 3, paddingLeft: 4 }}>
-                  {day.tickers.map((t) => {
+                  {[...day.tickers].sort((a, b) => {
+                    const rk = (tk) => { const e = epInfo(tk); return e.genuine ? 3 : e.mv ? 2 : e.setup ? 1 : 0; };
+                    return rk(b.ticker) - rk(a.ticker); // stable: mcap order kept within tiers
+                  }).map((t) => {
                     const sel = chartTicker === t.ticker;
                     const badge = timingBadge(t.timing);
+                    const ep = epInfo(t.ticker);
+                    const s = ep.s;
+                    const chg = ep.mv ? (ep.mv.change_pct ?? ep.mv.ext_hours_change_pct) : null;
+                    const borderC = sel ? ARIA.cyan
+                      : ep.genuine ? "#fbbf24"
+                      : ep.mv ? (chg > 0 ? ARIA.green + "88" : chg < 0 ? ARIA.red + "88" : ARIA.border)
+                      : t.inDrawer ? ARIA.border : "#2a2a3a";
+                    const tip = (() => {
+                      const bits = [];
+                      if (ep.mv) {
+                        bits.push(`REPORTED${chg != null ? ` ${chg > 0 ? "+" : ""}${(+chg).toFixed(1)}%` : ""} · MAGNA ${ep.magna ?? "—"}/4${(ep.mv.magna_flags || []).length ? ` [${ep.mv.magna_flags.join("·")}]` : ""}${ep.genuine ? " — GENUINE EP" : ""}`);
+                        if (ep.mv.ep_quality_label) bits.push(`quality: ${ep.mv.ep_quality_label}${ep.mv.sizing_guide ? ` · size ${ep.mv.sizing_guide}` : ""}`);
+                      } else {
+                        bits.push(`EP setup — sales accel ${ep.aPot ? "✓" : "✗"}${s.sales_yoy != null ? ` (${s.sales_yoy > 0 ? "+" : ""}${s.sales_yoy.toFixed(0)}% YoY${s.sales_yoy_prev != null ? `, prev ${s.sales_yoy_prev > 0 ? "+" : ""}${s.sales_yoy_prev.toFixed(0)}%` : ""})` : ""} · no rally-in ${ep.noRally ? "✓" : "✗"}${s.return_1m != null ? ` (1m ${s.return_1m > 0 ? "+" : ""}${s.return_1m.toFixed(0)}%)` : ""} · neglect ${ep.negOwn ? "✓" : "✗"}${s.inst_own_pct != null ? ` (inst ${s.inst_own_pct.toFixed(0)}%)` : ""}`);
+                        bits.push("still needs post-report: life-changing beat (M) + 4%/100K gap (G). Genuine EPs: 2-5/yr.");
+                      }
+                      const bon = [ep.cap10 && "CAP10", ep.ipo10 && "IPO<10y"].filter(Boolean).join(" · ");
+                      if (bon) bits.push(`bonus: ${bon}`);
+                      if (t.avgMove) bits.push(`avg ER move ±${t.avgMove.toFixed(1)}%`);
+                      if (t.grade) bits.push(t.grade);
+                      return `${t.ticker}${badge ? ` ${badge.label}` : ""}\n${bits.join("\n")}`;
+                    })();
                     return (
                       <button
                         key={t.ticker}
@@ -3958,15 +4013,18 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 3,
                           fontSize: 8, padding: "2px 5px", borderRadius: 3, cursor: "pointer",
-                          fontFamily: "monospace", fontWeight: sel ? 800 : t.inDrawer ? 700 : 500,
-                          background: sel ? ARIA.cyan : t.inDrawer ? "rgba(255,255,255,0.06)" : "transparent",
-                          border: `1px solid ${sel ? ARIA.cyan : t.inDrawer ? ARIA.border : "#2a2a3a"}`,
-                          color: sel ? ARIA.bg : t.inDrawer ? "#e0e0f0" : ARIA.textMuted,
+                          fontFamily: "monospace", fontWeight: sel ? 800 : (ep.genuine || ep.setup || t.inDrawer) ? 700 : 500,
+                          background: sel ? ARIA.cyan : ep.genuine ? "#fbbf2418" : t.inDrawer ? "rgba(255,255,255,0.06)" : "transparent",
+                          border: `1px solid ${borderC}`,
+                          color: sel ? ARIA.bg : ep.genuine ? "#fbbf24" : t.inDrawer ? "#e0e0f0" : ARIA.textMuted,
                         }}
-                        title={`${t.ticker}${badge ? ` ${badge.label}` : ""}${t.avgMove ? ` · avg ER move ±${t.avgMove.toFixed(1)}%` : ""}${t.grade ? ` · ${t.grade}` : ""}`}
+                        title={tip}
                       >
                         <img src={ER_LOGO(t.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                         {t.ticker}
+                        {ep.setup && !ep.mv && <span style={{ fontSize: 8 }}>🎯</span>}
+                        {ep.genuine && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, background: "#fbbf2426", color: "#fbbf24", border: "1px solid #fbbf2466", fontWeight: 800, lineHeight: "12px" }}>EP 4/4</span>}
+                        {!ep.genuine && ep.mv && ep.magna != null && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, color: chg > 0 ? ARIA.green : ARIA.red, border: `1px solid ${ARIA.border}`, fontWeight: 700, lineHeight: "12px" }}>{ep.magna}/4</span>}
                         {badge && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, fontWeight: 700, lineHeight: "12px" }}>{badge.label}</span>}
                       </button>
                     );
@@ -11802,7 +11860,7 @@ function AppMain() {
     });
     // "In play" set — mirrors the ⚡ In Play subtab (top-15 in-universe movers by
     // EP quality) so tables can gold-flag the catalyst glyph for stalkable names.
-    const _qOrd = { EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
+    const _qOrd = { GENUINE: 5, ELITE: 4, EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
     _allMovers
       .filter((mv) => mv.in_universe && mv.ticker)
       .sort((a, b) => (_qOrd[b.ep_quality_label] || 0) - (_qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
