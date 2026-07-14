@@ -969,10 +969,84 @@ async function fetchOhlcBars(ticker) {
   }
 }
 
+// ── MagnaDetail — MAGNA53 + CAP10*10 breakdown for one ER Cal reporter ──
+// Rendered in the regime box's left column when a calendar chip is clicked.
+// Reported names show the pipeline's actual flags; upcoming names show the
+// knowable-in-advance half (A + N) with M/G pending the report.
+function MagnaDetail({ ticker, mv, stockMap, ARIA, onClose, onChart }) {
+  const s = stockMap?.[ticker] || {};
+  const er = mv?.er || {};
+  const fmt = (v, d = 1) => v == null ? "—" : `${v > 0 ? "+" : ""}${(+v).toFixed(d)}`;
+  const sales = er.rev_growth_yoy ?? s.sales_yoy, salesPrev = s.sales_yoy_prev;
+  const epsG = er.eps_growth_yoy ?? s.eps_yoy;
+  const eps = er.eps, epsEst = er.eps_estimated ?? s.eps_estimated;
+  const revM = er.revenue != null ? er.revenue / 1e6 : null;
+  const surPct = (eps != null && epsEst != null && epsEst !== 0) ? (eps - epsEst) / Math.abs(epsEst) * 100 : null;
+  const surAbs = (eps != null && epsEst != null) ? eps - epsEst : null;
+  const reported = !!mv;
+  const flags = new Set(mv?.magna_flags || []);
+  const genuine = mv?.genuine_ep || mv?.magna_score === 4;
+  const chg = mv ? (mv.change_pct ?? mv.ext_hours_change_pct) : null;
+  // pre-ER checks mirror the pipeline thresholds
+  const aOk = reported ? flags.has("A") : (sales != null && (sales >= 25 || (sales >= 29 && salesPrev != null && salesPrev >= 29)));
+  const nOk = reported ? flags.has("N") : ((s.return_1m == null || s.return_1m < 20) && (s.inst_own_pct == null || s.inst_own_pct < 40 || (s.inst_holder_count != null && s.inst_holder_count < 300)));
+  const cap10 = s.market_cap_raw > 0 && s.market_cap_raw < 10e9;
+  const ipo10 = s.ipo_date ? (Date.now() - new Date(s.ipo_date).getTime()) < 3652 * 864e5 : false;
+  const bonus = [...new Set([cap10 && "CAP10", ipo10 && "IPO<10y", ...(mv?.magna_bonus || []).map((b) => b === "AN3" ? "3+ UPGRADES" : b === "IPO10" ? "IPO<10y" : b)].filter(Boolean))];
+  const erDays = s.earnings_days;
+  const Row = ({ ok, letter, label, detail }) => (
+    <div style={{ padding: "4px 0", borderBottom: `1px solid ${ARIA.border}40` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, width: 12, color: ok === true ? ARIA.green : ok === false ? ARIA.red : ARIA.textMuted }}>{letter}</span>
+        <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.textDim, flex: 1 }}>{label}</span>
+        <span style={{ fontSize: 9, fontWeight: 800, color: ok === true ? ARIA.green : ok === false ? ARIA.red : ARIA.textMuted }}>{ok === true ? "✓" : ok === false ? "✗" : "?"}</span>
+      </div>
+      <div style={{ fontSize: 7.5, color: ARIA.textMuted, lineHeight: 1.45, paddingLeft: 17 }}>{detail}</div>
+    </div>
+  );
+  return (
+    <div style={{ fontFamily: "monospace", overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+        <span onClick={() => onChart?.(ticker)} style={{ fontSize: 11, fontWeight: 800, color: ARIA.blue, cursor: "pointer" }} title="Chart it">{ticker}</span>
+        {reported
+          ? <span style={{ fontSize: 8, fontWeight: 800, color: genuine ? "#fbbf24" : (mv.magna_score ?? 0) >= 3 ? ARIA.green : ARIA.textDim }}>{genuine ? "GENUINE EP" : `MAGNA ${mv.magna_score ?? 0}/4`}</span>
+          : <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.cyan }}>{aOk && nOk ? "🎯 EP SETUP" : "PRE-ER"}</span>}
+        <span onClick={onClose} title="Back to holdings" style={{ marginLeft: "auto", fontSize: 9, color: ARIA.textMuted, cursor: "pointer", padding: "0 3px" }}>✕</span>
+      </div>
+      <div style={{ fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
+        {reported
+          ? <>reported {chg != null ? <span style={{ color: chg > 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>{fmt(chg, 1)}%</span> : ""}{mv.ep_quality_label ? ` · ${mv.ep_quality_label}` : ""}{mv.sizing_guide ? ` · size ${mv.sizing_guide}` : ""}</>
+          : <>reports {erDays == null ? "—" : erDays === 0 ? "today" : erDays > 0 ? `in ${erDays}d` : `${-erDays}d ago`}{s.avg_er_move ? ` · avg move ±${s.avg_er_move.toFixed(1)}%` : ""}</>}
+      </div>
+      <Row ok={reported ? flags.has("M") : null} letter="M" label="Massive acceleration"
+        detail={<>
+          EPS gr {fmt(epsG, 0)}% · sales {fmt(sales, 0)}%{revM != null ? ` on $${revM.toFixed(0)}M qtr` : ""}
+          {surPct != null ? <> · surprise {fmt(surPct, 0)}% ({fmt(surAbs, 2)}/sh)</> : null}
+          {reported ? null : <> — needs 100%+ on meaningful terms (or 29%+ ×2Q on $25M+ annual)</>}
+        </>} />
+      <Row ok={aOk} letter="A" label="Sales acceleration"
+        detail={<>sales {fmt(sales, 0)}% YoY, prev {fmt(salesPrev, 0)}% — need ≥25% (or 29%×2Q); turnaround waives</>} />
+      <Row ok={reported ? flags.has("G") : null} letter="G" label="Gap up"
+        detail={reported
+          ? <>moved {fmt(chg, 1)}%{mv.volume ? ` on ${(mv.volume / 1e6).toFixed(1)}M shares` : ""} — needs ≥4% on ≥100K</>
+          : <>unknown until report — needs ≥4% AH/PM gap on ≥100K volume</>} />
+      <Row ok={nOk} letter="N" label="Neglect"
+        detail={<>1m {fmt(s.return_1m, 0)}% (20%+ rally-in kills) · inst {s.inst_own_pct != null ? `${s.inst_own_pct.toFixed(0)}%` : "?"}{s.inst_holder_count != null ? ` · ${s.inst_holder_count} holders` : ""}</>} />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 5 }}>
+        {bonus.map((b) => <span key={b} style={{ fontSize: 6.5, fontWeight: 800, color: "#fbbf24", border: "1px solid #fbbf2455", background: "#fbbf2414", borderRadius: 3, padding: "1px 4px" }}>{b}</span>)}
+        <span title="Short-interest days-to-cover >5 — in the framework but unscored (no SI data on the current FMP plan)" style={{ fontSize: 6.5, color: ARIA.textMuted, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px" }}>SI5 n/a</span>
+      </div>
+      <div style={{ fontSize: 6.5, color: ARIA.textMuted, marginTop: 5, lineHeight: 1.5 }}>
+        MAGNA 4/4 = genuine EP (2-5/yr) · bonus nice-to-have · sales &gt; profitability
+      </div>
+    </div>
+  );
+}
+
 // IndexRegimeChart — layer/index constituents panel + the rotation board's
 // right panel. (The regime price graph itself was removed 2026-07 — the ticker
 // chart covers charting; this box is now the list + tables container.)
-function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint }) {
+function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint, erDetail, onErClose }) {
   const ARIA = useAriaTheme();
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
   const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort (default RS desc)
@@ -1060,8 +1134,10 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
             Same width in both modes (no jump when switching layer basket ↔
             ticker/ETF); drag the right edge to resize, persisted. */}
-        <div style={{ width: holdW, flexShrink: 0, display: "flex", flexDirection: "column" }}>
-          {holdingsOverride ? (
+        <div style={{ width: erDetail ? Math.max(holdW, 240) : holdW, flexShrink: 0, display: "flex", flexDirection: "column" }}>
+          {erDetail ? (
+            <MagnaDetail ticker={erDetail.ticker} mv={erDetail.mv} stockMap={stockMap} ARIA={ARIA} onClose={onErClose} onChart={onChartTicker} />
+          ) : holdingsOverride ? (
             (() => {
               // Enrich each constituent with live metrics, then sort by the
               // clicked header. Default RS desc.
@@ -1938,18 +2014,26 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     return () => window.removeEventListener("tp-breadth-sym", onSym);
   }, [setSymPersist]);
   const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
+  // ER Cal focus — when a calendar chip is clicked, the regime box's left
+  // column shows that reporter's MAGNA breakdown until dismissed or until
+  // any other navigation replaces it.
+  const [erFocus, setErFocus] = useState(null);
   // Click an ETF ticker (table / mover / dropdown) → chart it + ETF holdings.
   const openTicker = (t) => {
     if (!t) return;
+    setErFocus(null);
     setLayerHolds(null); setBasketMode(false); setSelectedLayerKey(null);
     setSymPersist(t);
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     onTickerClick?.(t);
   };
+  // ER Cal chip click: chart it AND show the MAGNA breakdown in the left box.
+  const openErTicker = (t) => { openTicker(t); setErFocus(t); };
   // Load a layer (EW basket + constituents). `doChart` charts its lead below;
   // `keepTab` loads the basket but stays on the current subtab (Leaders/Emerging).
   const applyLayer = (r, doChart, keepTab) => {
     if (!r?.ticker) return;
+    setErFocus(null);
     setLayerHolds(r.holds || []);
     setBasketLabel(r.name || ""); setBasketMode(true);
     setSelectedLayerKey(`${r.themeId}|${r.name}`);
@@ -1958,6 +2042,13 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
     if (doChart) onTickerClick?.(r.ticker);
   };
+  // Best mover match for the focused ER ticker (prefer entries carrying er data)
+  const erFocusMover = useMemo(() => {
+    if (!erFocus) return null;
+    let best = null;
+    (movers || []).forEach((mv) => { if (mv?.ticker === erFocus && (!best || (mv.er && !best.er))) best = mv; });
+    return best;
+  }, [erFocus, movers]);
   const openLayer = (r) => applyLayer(r, true);
   // From Leaders/Emerging: load the layer basket but don't switch to Layers and
   // don't chart a ticker (which would trip reverse-sync) — stay put.
@@ -2308,6 +2399,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             const stockRows = isCombined ? combinedRows : isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
             return (
               <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
+                erDetail={erFocus ? { ticker: erFocus, mv: erFocusMover } : null} onErClose={() => setErFocus(null)}
                 holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
                 basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
                 rightPanel={
@@ -2344,7 +2436,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
                   <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
                     {rsTab === "ercal" ? (
-                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openTicker} chartTicker={chartTicker} movers={movers} />
+                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openErTicker} chartTicker={chartTicker} movers={movers} />
                     ) : rsTab === "inplay" ? (
                       (() => {
                         const qOrd = { GENUINE: 5, ELITE: 4, EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
