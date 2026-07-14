@@ -3797,7 +3797,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
   //   post-ER → the mover's MAGNA result; 4/4 = genuine EP (2-5/yr)
   const epInfo = (tk) => {
     const s = stockMap?.[tk] || {};
-    const aPot = s.sales_yoy != null && (s.sales_yoy >= 100 || (s.sales_yoy >= 39 && s.sales_yoy_prev != null && s.sales_yoy_prev >= 39));
+    const aPot = s.sales_yoy != null && (s.sales_yoy >= 25 || (s.sales_yoy >= 29 && s.sales_yoy_prev != null && s.sales_yoy_prev >= 29));
     const noRally = s.return_1m == null || s.return_1m < 20;
     const negOwn = s.inst_own_pct == null || s.inst_own_pct < 40 || (s.inst_holder_count != null && s.inst_holder_count < 300);
     const cap10 = s.market_cap_raw > 0 && s.market_cap_raw < 10e9;
@@ -3967,8 +3967,8 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
           {loading && <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "4px 0" }}>Loading FMP calendar…</div>}
           {weekData.usingFallback && !loading && <div style={{ fontSize: 7, color: "#fbbf24", padding: "2px 0 4px" }}>Using pipeline data (FMP unavailable). Timing may be stale.</div>}
           <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 0 5px", lineHeight: 1.5 }}
-            title="MAGNA: MA = massive acceleration (life-changing EPS beat ≥25% at ≥$0.10 scale, or sales ≥39% YoY) · G = gap 4%+ on 100K+ vol · N = neglect (no 20% rally into ER + low ownership/coverage) · A = sales accel (100% YoY, or 39% two quarters running — sales can't be waived). Bonus: mcap <$10B, IPO <10y.">
-            🎯 = pre-ER EP setup (sales accel + neglect, the knowable half of MAGNA) · <span style={{ color: "#fbbf24", fontWeight: 700 }}>gold = genuine EP (MAGNA 4/4)</span> — a life-changing catalyst, expect 2-5/yr · n/4 = reported, partial MAGNA · hover any chip for the full breakdown
+            title={"MAGNA53 + CAP10*10 — MAGNA is necessary, the rest nice-to-have.\nMA = massive acceleration: 100%+ EPS growth on meaningful terms ($0.05→$0.20, not $0.01→$0.04), 100%+ sales on a ≥$10M base, a massive (100%+, ≥$0.10) earnings surprise, or 29%+ sales two quarters running on $25M+ annual sales.\nG = gap up ≥4% AH/PM on ≥100K volume.\nN = neglect: base of months-years (no 20%+ rally into ER) + low fund ownership.\nA = sales accel ≥25% (or 29%+ 2Q running); earnings growth without sales is questionable — waived only in a turnaround (loss→profit).\n5 = short-interest days-to-cover >5 (no SI data on current FMP plan — unscored).\n3 = 3+ analyst upgrades/PT raises in 30d (AN3, checked on near-genuine movers).\nCAP10 = mcap <$10B · *10 = IPO <10 years."}>
+            MAGNA53 + CAP10*10 · 🎯 = pre-ER EP setup (sales accel + neglect, the knowable half) · <span style={{ color: "#fbbf24", fontWeight: 700 }}>gold = genuine EP (MAGNA 4/4)</span> — life-changing catalyst, expect 2-5/yr · n/4 = reported, partial · hover for full breakdown
           </div>
           {weekData.days.map((day, di) => (
             <div key={di} style={{ marginBottom: 6 }}>
@@ -4000,7 +4000,7 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
                         bits.push(`EP setup — sales accel ${ep.aPot ? "✓" : "✗"}${s.sales_yoy != null ? ` (${s.sales_yoy > 0 ? "+" : ""}${s.sales_yoy.toFixed(0)}% YoY${s.sales_yoy_prev != null ? `, prev ${s.sales_yoy_prev > 0 ? "+" : ""}${s.sales_yoy_prev.toFixed(0)}%` : ""})` : ""} · no rally-in ${ep.noRally ? "✓" : "✗"}${s.return_1m != null ? ` (1m ${s.return_1m > 0 ? "+" : ""}${s.return_1m.toFixed(0)}%)` : ""} · neglect ${ep.negOwn ? "✓" : "✗"}${s.inst_own_pct != null ? ` (inst ${s.inst_own_pct.toFixed(0)}%)` : ""}`);
                         bits.push("still needs post-report: life-changing beat (M) + 4%/100K gap (G). Genuine EPs: 2-5/yr.");
                       }
-                      const bon = [ep.cap10 && "CAP10", ep.ipo10 && "IPO<10y"].filter(Boolean).join(" · ");
+                      const bon = [...new Set([ep.cap10 && "CAP10", ep.ipo10 && "IPO<10y", ...((ep.mv?.magna_bonus || []).map((b) => b === "AN3" ? "3+ upgrades/PT raises" : b === "IPO10" ? "IPO<10y" : b))].filter(Boolean))].join(" · ");
                       if (bon) bits.push(`bonus: ${bon}`);
                       if (t.avgMove) bits.push(`avg ER move ±${t.avgMove.toFixed(1)}%`);
                       if (t.grade) bits.push(t.grade);
