@@ -1,15 +1,15 @@
 {
   "date": "2026-07-14",
-  "generated": "2026-07-14 05:05",
-  "vix": 17.16,
+  "generated": "2026-07-14 14:31",
+  "vix": 16.58,
   "vixChg": null,
-  "tenYearYield": 4.609,
-  "yieldBps": 4,
-  "dxy": 101.012,
-  "dxyChg": -0.223,
+  "tenYearYield": 4.574,
+  "yieldBps": -4,
+  "dxy": 100.557,
+  "dxyChg": -0.678,
   "putCallRatio": null,
   "regime": "MIXED",
-  "regimeReason": "Leaning bullish but mixed: moderate vol",
+  "regimeReason": "Leaning bullish but mixed: moderate vol, dollar weak",
   "t2108": null,
   "ratio5d": null
 }

@@ -82,5 +82,21 @@
   "peak": 555.61,
   "last_seen": "2026-07-14",
   "ondeck": true
+ },
+ "TENB": {
+  "entered": "2026-07-14",
+  "px": 41.5,
+  "layer": "Threat Operations",
+  "peak": 41.5,
+  "last_seen": "2026-07-14",
+  "ondeck": true
+ },
+ "RPD": {
+  "entered": "2026-07-14",
+  "px": 12.56,
+  "layer": "Threat Operations",
+  "peak": 12.56,
+  "last_seen": "2026-07-14",
+  "ondeck": false
  }
 }
