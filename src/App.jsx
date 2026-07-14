@@ -296,7 +296,35 @@ const PRESETS = {
       return chg >= 4 && rv > 1.1 && mc >= 300e6 && dv >= 50e6;
     },
   },
+  tt8: {
+    label: "TT 8/8",
+    desc:
+      "Minervini Trend Template — passes ALL 8 stage-2 criteria: price > 150d & 200d MAs · 150d > 200d · 200d rising ≥1 month · 50d > 150d > 200d · price > 50d · ≥30% above the 52w low · within 25% of the 52w high · RS rank ≥ 70. A qualifier, not an entry signal — 99% of superperformance stocks were above their 200d BEFORE the big move. $Vol ≥ $10M.",
+    color: "#34d399",
+    test: (s) => ttCount(s) === 8 && (s.avg_dollar_vol_raw || 0) >= 10e6,
+  },
 };
+
+// ── Minervini Trend Template helpers — 7 price criteria arrive from the
+// pipeline as a bitmask (tt_mask); the 8th (RS rank ≥ 70) is applied here
+// where the cross-sectional rank lives. ttCount → 0-8 or null (no data yet).
+const TT_LABELS = [
+  "price > 150d & 200d MAs", "150d MA > 200d MA", "200d MA rising ≥1 month",
+  "50d > 150d > 200d", "price > 50d MA", "≥30% above 52w low",
+  "within 25% of 52w high", "RS rank ≥ 70",
+];
+function ttCount(s) {
+  if (s?.tt_mask == null) return null;
+  let n = 0;
+  for (let i = 0; i < 7; i++) if (s.tt_mask & (1 << i)) n++;
+  return n + ((s.rs_rank || 0) >= 70 ? 1 : 0);
+}
+function ttFails(s) {
+  const out = [];
+  for (let i = 0; i < 7; i++) if (!(s?.tt_mask & (1 << i))) out.push(TT_LABELS[i]);
+  if ((s?.rs_rank || 0) < 70) out.push(TT_LABELS[7]);
+  return out;
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // Style helpers (used by Scan Watch + future panels)
@@ -9033,6 +9061,13 @@ function ChartPanelInline({
             {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
             {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). Green = coiled: within ~2 ATRs of the MA on either side (tight to it, above or below). Gray = not coiled: extended above (loose, don\'t chase) or well below the MA.")}
             {stat("Base", <span style={{ color: baseColor, fontWeight: 700 }}>{baseW ? `${baseW % 1 === 0 ? baseW : baseW.toFixed(1)}w` : "—"}</span>, `Base quality — weeks consolidating near the highs (longer bases → bigger moves)${basePos != null ? `; price sits at the ${basePos}th %ile of the base range (${basePos >= 50 ? "upper" : "lower"} half)` : ""}.`)}
+            {(() => {
+              const tt = ttCount(stockInfo);
+              const ttColor = tt == null ? ARIA.textMuted : tt === 8 ? ARIA.green : tt >= 6 ? ARIA.textDim : ARIA.red;
+              const fails = tt != null && tt < 8 ? ` Failing: ${ttFails(stockInfo).join(" · ")}.` : tt === 8 ? " All eight pass — confirmed stage-2 uptrend." : "";
+              return stat("TT", <span style={{ color: ttColor, fontWeight: tt === 8 ? 700 : 400 }}>{tt == null ? "—" : `${tt}/8`}</span>,
+                `Minervini Trend Template (stage-2 qualifier): price > 150/200d · 150d > 200d · 200d rising 1mo+ · 50d > 150d > 200d · price > 50d · ≥30% above 52w low · within 25% of 52w high · RS ≥ 70.${fails}`);
+            })()}
           </div>
         );
       })()}
