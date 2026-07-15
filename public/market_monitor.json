@@ -1,21 +1,21 @@
 {
   "date": "2026-07-13",
-  "generated": "2026-07-15 05:22",
-  "total_stocks": 4544,
+  "generated": "2026-07-15 12:53",
+  "total_stocks": 3054,
   "current": {
     "date": "2026-07-13",
-    "up_4pct": 139,
-    "down_4pct": 119,
-    "up_25q": 791,
-    "down_25q": 239,
-    "up_25m": 209,
-    "down_25m": 116,
-    "up_50m": 36,
-    "down_50m": 8,
-    "up_13_34d": 894,
-    "down_13_34d": 611,
-    "t2108": 62.7,
-    "total_stocks": 4544,
+    "up_4pct": 92,
+    "down_4pct": 79,
+    "up_25q": 501,
+    "down_25q": 160,
+    "up_25m": 128,
+    "down_25m": 84,
+    "up_50m": 22,
+    "down_50m": 6,
+    "up_13_34d": 593,
+    "down_13_34d": 397,
+    "t2108": 62.9,
+    "total_stocks": 3054,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -253,81 +253,57 @@
   "history": [
     {
       "date": "2026-07-13",
-      "up_4pct": 139,
-      "down_4pct": 119,
-      "up_25q": 791,
-      "down_25q": 239,
-      "up_25m": 209,
-      "down_25m": 116,
-      "up_50m": 36,
-      "down_50m": 8,
-      "up_13_34d": 894,
-      "down_13_34d": 611,
-      "t2108": 62.7,
-      "total_stocks": 4544,
-      "ratio_5d": 1.17,
-      "ratio_10d": 1.17
+      "up_4pct": 92,
+      "down_4pct": 79,
+      "up_25q": 501,
+      "down_25q": 160,
+      "up_25m": 128,
+      "down_25m": 84,
+      "up_50m": 22,
+      "down_50m": 6,
+      "up_13_34d": 593,
+      "down_13_34d": 397,
+      "t2108": 62.9,
+      "total_stocks": 3054,
+      "ratio_5d": 1.16,
+      "ratio_10d": 1.16
     }
   ],
   "theme_breadth": [
     {
       "theme": "CYBER",
-      "up_4pct": 13,
+      "up_4pct": 5,
       "down_4pct": 0,
-      "net": 13
-    },
-    {
-      "theme": "ENERGY",
-      "up_4pct": 16,
-      "down_4pct": 5,
-      "net": 11
-    },
-    {
-      "theme": "DEFENSE",
-      "up_4pct": 7,
-      "down_4pct": 0,
-      "net": 7
-    },
-    {
-      "theme": "CLOUD",
-      "up_4pct": 6,
-      "down_4pct": 1,
       "net": 5
     },
     {
-      "theme": "INDUSTRIAL",
-      "up_4pct": 7,
+      "theme": "DEFENSE",
+      "up_4pct": 4,
+      "down_4pct": 0,
+      "net": 4
+    },
+    {
+      "theme": "ENERGY",
+      "up_4pct": 8,
       "down_4pct": 4,
+      "net": 4
+    },
+    {
+      "theme": "CLOUD",
+      "up_4pct": 4,
+      "down_4pct": 1,
       "net": 3
     },
     {
       "theme": "SOFTWARE",
-      "up_4pct": 13,
-      "down_4pct": 10,
+      "up_4pct": 9,
+      "down_4pct": 6,
       "net": 3
     },
     {
-      "theme": "AUTONOMOUS SYSTEMS",
-      "up_4pct": 3,
-      "down_4pct": 1,
-      "net": 2
-    },
-    {
-      "theme": "COMMODITIES",
-      "up_4pct": 2,
-      "down_4pct": 0,
-      "net": 2
-    },
-    {
-      "theme": "E-COMMERCE",
-      "up_4pct": 8,
-      "down_4pct": 6,
-      "net": 2
-    },
-    {
       "theme": "FINTECH",
-      "up_4pct": 9,
-      "down_4pct": 7,
+      "up_4pct": 7,
+      "down_4pct": 5,
       "net": 2
     },
     {
@@ -337,22 +313,58 @@
       "net": 2
     },
     {
-      "theme": "SPACE",
+      "theme": "AUTONOMOUS SYSTEMS",
       "up_4pct": 2,
       "down_4pct": 1,
       "net": 1
     },
     {
+      "theme": "COMMODITIES",
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
+    },
+    {
       "theme": "DIGITAL ENTERTAINMENT",
-      "up_4pct": 2,
-      "down_4pct": 2,
-      "net": 0
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
     },
     {
       "theme": "EV",
+      "up_4pct": 3,
+      "down_4pct": 2,
+      "net": 1
+    },
+    {
+      "theme": "INDUSTRIAL",
       "up_4pct": 4,
-      "down_4pct": 4,
+      "down_4pct": 3,
+      "net": 1
+    },
+    {
+      "theme": "TELECOM",
+      "up_4pct": 2,
+      "down_4pct": 1,
+      "net": 1
+    },
+    {
+      "theme": "CONSUMER",
+      "up_4pct": 1,
+      "down_4pct": 1,
       "net": 0
+    },
+    {
+      "theme": "SPACE",
+      "up_4pct": 1,
+      "down_4pct": 1,
+      "net": 0
+    },
+    {
+      "theme": "E-COMMERCE",
+      "up_4pct": 4,
+      "down_4pct": 5,
+      "net": -1
     },
     {
       "theme": "GLP-1 / OBESITY",
@@ -361,15 +373,15 @@
       "net": -1
     },
     {
-      "theme": "RESHORING",
+      "theme": "POWER GRID",
       "up_4pct": 0,
       "down_4pct": 1,
       "net": -1
     },
     {
-      "theme": "TRANSPORT & LOGISTICS",
-      "up_4pct": 2,
-      "down_4pct": 3,
+      "theme": "QUANTUM",
+      "up_4pct": 0,
+      "down_4pct": 1,
       "net": -1
     },
     {
@@ -377,18 +389,6 @@
       "up_4pct": 0,
       "down_4pct": 1,
       "net": -1
-    },
-    {
-      "theme": "POWER GRID",
-      "up_4pct": 0,
-      "down_4pct": 2,
-      "net": -2
-    },
-    {
-      "theme": "QUANTUM",
-      "up_4pct": 0,
-      "down_4pct": 2,
-      "net": -2
     },
     {
       "theme": "ROBOTICS",
@@ -403,34 +403,28 @@
       "net": -2
     },
     {
-      "theme": "TELECOM",
-      "up_4pct": 2,
-      "down_4pct": 4,
+      "theme": "TRANSPORT & LOGISTICS",
+      "up_4pct": 1,
+      "down_4pct": 3,
       "net": -2
     },
     {
-      "theme": "CONSUMER",
-      "up_4pct": 1,
-      "down_4pct": 4,
-      "net": -3
-    },
-    {
       "theme": "HEALTHCARE",
-      "up_4pct": 15,
-      "down_4pct": 26,
-      "net": -11
+      "up_4pct": 12,
+      "down_4pct": 17,
+      "net": -5
     },
     {
       "theme": "SEMICONDUCTORS",
       "up_4pct": 2,
-      "down_4pct": 15,
-      "net": -13
+      "down_4pct": 12,
+      "net": -10
     },
     {
       "theme": "AI INFRASTRUCTURE",
-      "up_4pct": 9,
-      "down_4pct": 25,
-      "net": -16
+      "up_4pct": 6,
+      "down_4pct": 18,
+      "net": -12
     }
   ],
   "theme_breadth_history": {
@@ -452,6 +446,12 @@
         "breadth": 50.0
       }
     ],
+    "DIGITAL ENTERTAINMENT": [
+      {
+        "date": "2026-07-13",
+        "breadth": 39.0
+      }
+    ],
     "SOFTWARE": [
       {
         "date": "2026-07-13",
@@ -462,12 +462,6 @@
       {
         "date": "2026-07-13",
         "breadth": 47.0
-      }
-    ],
-    "DIGITAL ENTERTAINMENT": [
-      {
-        "date": "2026-07-13",
-        "breadth": 38.0
       }
     ],
     "E-COMMERCE": [
