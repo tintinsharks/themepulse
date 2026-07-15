@@ -1923,16 +1923,36 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
       {label}{sortable && sort.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
   );
+  // ── Keyboard nav: click anywhere in the table, then ↑/↓ steps through the
+  // sorted rows firing the row's primary action (select layer / chart ticker).
+  const tableRef = useRef(null);
+  const navIdxRef = useRef(-1);
+  const rowPrimary = (r) => (onLayerSelect || ((rr) => onTicker?.(rr.ticker)))(r);
+  const onTableKey = (e) => {
+    if ((e.key !== "ArrowUp" && e.key !== "ArrowDown") || !sorted.length) return;
+    e.preventDefault();
+    const fromActive = activeKey != null ? sorted.findIndex((r) => rowKeyOf(r) === activeKey) : -1;
+    const cur = fromActive >= 0 ? fromActive : navIdxRef.current;
+    let next = cur < 0 ? 0 : cur + (e.key === "ArrowDown" ? 1 : -1);
+    next = Math.max(0, Math.min(sorted.length - 1, next));
+    navIdxRef.current = next;
+    rowPrimary(sorted[next]);
+    const el = tableRef.current?.querySelector(`tr[data-rk="${window.CSS.escape(rowKeyOf(sorted[next]))}"]`);
+    if (el) scrollRowIntoScroller(el);
+  };
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 9 }}>
+    <table ref={tableRef} tabIndex={0} onKeyDown={onTableKey}
+      onClick={() => setTimeout(() => tableRef.current?.focus({ preventScroll: true }), 0)}
+      style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 9, outline: "none" }}>
       <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>{cols.map(([k, l]) => hdr(k, l))}</tr></thead>
       <tbody>
-        {sorted.map((r) => {
+        {sorted.map((r, ri) => {
           const isActive = activeKey && rowKeyOf(r) === activeKey;
           const quadName = (r.now != null && r.w1 != null) ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : null;
           const nameTitle = quadName ? `${r.theme ? r.theme + " · " : ""}${r.name} — RRG: ${quadName}${onNameLayer ? " (click to load layer)" : ""}` : undefined;
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
+            data-rk={rowKeyOf(r)} onClickCapture={() => { navIdxRef.current = ri; }}
             style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : ((getTag ? heldByLayer?.[`${r.themeId}|${r.name}`]?.length : heldSet?.has(r.ticker)) ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
             {rankCol && <td style={{ textAlign: r._tier ? "center" : "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r._tier ? <span title={r._tier === "L" ? "True leader — established name in a top layer" : "Emerging — quality name breaking into leadership"} style={{ fontSize: 10 }}>{r._tier === "L" ? "⭐" : "🌱"}</span> : r.lead}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
