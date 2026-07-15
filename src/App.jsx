@@ -2683,7 +2683,7 @@ function chainSetup(r, ctx) {
   const notExtended = (d20 == null || d20 <= 3) && (d50 == null || d50 <= 5);
   if (off52 != null && off52 >= -6 && chg != null && chg > 0 && chg >= (adr || 4) &&
       zvr != null && zvr >= zBO && cr != null && cr >= 60 && eif != null && eif >= 50 && notExtended)
-    return { key: "BO", color: "#a855f7", rank: 7, desc: `Breakout: within 6% of the 52w high, up ≥ its ADR on ZVR ≥ ${Math.round(zBO)}% with a strong close (CR ≥ 60), and NOT extended (≤3 ATR from 20dma, ≤5 ATR from 50sma) — expansion near support, the actual buy.` };
+    return { key: "BO", color: "#a855f7", rank: 7, desc: `Breakout: within 6% of the 52w high, up ≥ its ADR on ZVR ≥ ${Math.round(zBO)}% with a strong close (CR ≥ 60), NOT extended (≤3/5 ATR from 20/50 MAs). CONFIRMATION ONLY — backtests negative (−0.6% +10d) as a standalone buy; valid as the trigger on a name already on your Reset/T2 list.` };
   // ACC: institutional accumulation in a leader — strong close on volume
   if (alpha != null && alpha > 0 && zvr != null && zvr >= zHi && cr != null && cr >= 70 && eif != null && eif >= 52)
     return { key: "ACC", color: "#34d399", rank: 6, desc: `Accumulation: α > 0, ZVR ≥ ${Math.round(zHi)}%, CR% ≥ 70, EIF ≥ 52. Buyers in control of a leader.` };
