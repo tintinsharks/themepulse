@@ -4966,6 +4966,27 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
             </button>
           );
         })}
+        {/* 9M promoted to the preset row (2026-07-15 tag audit: +0.77% +10d
+            alpha, ~3× baseline, only 27% Combo overlap — the one row tag with
+            unique yield). Toggles the existing live-volume tag mechanism. */}
+        {(() => {
+          const on = activeTags.has("9M");
+          return (
+            <button
+              onClick={() => toggleTag("9M")}
+              title="9M — today's volume ≥ 8.9M shares on a stock that averages under 8.9M: an institutional-footprint day. Backtest (2026-07-15): +0.77% +10d alpha vs +0.26% baseline, mostly unique vs the other presets. Live-volume based — populates during RTH."
+              style={{
+                fontSize: 7, padding: "1px 5px", borderRadius: 3, cursor: "pointer",
+                fontFamily: "monospace", fontWeight: on ? 700 : 400,
+                border: `1px solid ${on ? ARIA.yellow : ARIA.border}`,
+                color: on ? ARIA.yellow : ARIA.textMuted,
+                background: on ? `${ARIA.yellow}26` : "transparent",
+              }}
+            >
+              9M
+            </button>
+          );
+        })()}
         {/* divider between momentum/gap presets and tag filters (one row now) */}
         <span style={{ width: 1, alignSelf: "stretch", background: ARIA.border, margin: "0 4px" }} />
         {/* Tag filters live behind an expander — occasional-use vs the everyday
