@@ -1037,7 +1037,7 @@ function MagnaDetail({ ticker, mv, stockMap, ARIA, onClose, onChart }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
         <span onClick={() => onChart?.(ticker)} style={{ fontSize: 11, fontWeight: 800, color: ARIA.blue, cursor: "pointer" }} title="Chart it">{ticker}</span>
         {reported
-          ? <span style={{ fontSize: 8, fontWeight: 800, color: genuine ? "#fbbf24" : (mv.magna_score ?? 0) >= 3 ? ARIA.green : ARIA.textDim }}>{genuine ? "GENUINE EP" : `MAGNA ${mv.magna_score ?? 0}/4`}</span>
+          ? <span style={{ fontSize: 8, fontWeight: 800, color: genuine ? ARIA.yellow : (mv.magna_score ?? 0) >= 3 ? ARIA.green : ARIA.textDim }}>{genuine ? "GENUINE EP" : `MAGNA ${mv.magna_score ?? 0}/4`}</span>
           : <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.cyan }}>{aOk && nOk ? "🎯 EP SETUP" : "PRE-ER"}</span>}
         <span onClick={onClose} title="Back to holdings" style={{ marginLeft: "auto", fontSize: 9, color: ARIA.textMuted, cursor: "pointer", padding: "0 3px" }}>✕</span>
       </div>
@@ -1061,7 +1061,7 @@ function MagnaDetail({ ticker, mv, stockMap, ARIA, onClose, onChart }) {
       <Row ok={nOk} letter="N" label="Neglect"
         detail={<>1m {fmt(s.return_1m, 0)}% (20%+ rally-in kills) · inst {s.inst_own_pct != null ? `${s.inst_own_pct.toFixed(0)}%` : "?"}{s.inst_holder_count != null ? ` · ${s.inst_holder_count} holders` : ""}</>} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 5 }}>
-        {bonus.map((b) => <span key={b} style={{ fontSize: 6.5, fontWeight: 800, color: "#fbbf24", border: "1px solid #fbbf2455", background: "#fbbf2414", borderRadius: 3, padding: "1px 4px" }}>{b}</span>)}
+        {bonus.map((b) => <span key={b} style={{ fontSize: 6.5, fontWeight: 800, color: ARIA.yellow, border: `1px solid ${ARIA.yellow}55`, background: `${ARIA.yellow}14`, borderRadius: 3, padding: "1px 4px" }}>{b}</span>)}
         <span title="Short-interest days-to-cover >5 — in the framework but unscored (no SI data on the current FMP plan)" style={{ fontSize: 6.5, color: ARIA.textMuted, border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 4px" }}>SI5 n/a</span>
       </div>
       <div style={{ fontSize: 6.5, color: ARIA.textMuted, marginTop: 5, lineHeight: 1.5 }}>
@@ -2291,7 +2291,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
-        <span style={{ fontSize: 8, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
+        <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
         <span style={{ fontSize: 8, color: ARIA.textDim }}>what's rotating in / out · {d.universe} ETFs</span>
         {!open && (() => {
           const ar = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
@@ -2345,7 +2345,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div onClick={togglePlaybook} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 7.5 }}>
                   <span style={{ fontSize: 8, color: ARIA.textMuted }}>{moversOpen ? "▾" : "▸"}</span>
-                  <span style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: moversOpen ? ARIA.text : ARIA.textMuted }}>Playbook</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, color: moversOpen ? ARIA.text : ARIA.textMuted }}>Playbook</span>
                   {moversOpen
                     ? <span style={{ color: ARIA.textDim }} title="Layers bucketed by RS rank × weekly momentum × today's live move (tech vs QQQ, ex-tech vs SPY) → Continuation / Rising / Stalk / Improving action buckets. % = off 52w high.">rank × weekly momentum × live day → action buckets</span>
                     : <span style={{ color: ARIA.textMuted }}>— click to expand</span>}
@@ -2412,6 +2412,21 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             const isEmerging = rsTab === "emerging";
             const isCombined = rsTab === "leadersall";
             const isStockTab = isLeaders || isEmerging || isCombined;
+            // Sub-view pills render INLINE on the tab row (saves a header row).
+            const pill = (k, lbl, n) => (
+              <button key={k} onClick={() => setRsTab(k)}
+                style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 0.3, padding: "1px 6px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
+                  color: rsTab === k ? ARIA.text : ARIA.textMuted,
+                  background: rsTab === k ? ARIA.blue + "22" : "transparent",
+                  border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
+                {lbl}{n ? <span style={{ opacity: 0.55, fontWeight: 400 }}> {n}</span> : null}
+              </button>
+            );
+            const subPills = isStockTab
+              ? [["leadersall", "◆ All", leaderRows.length + emergingRows.length], ["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]]
+              : isLayerLike
+              ? [["layers", "All Layers"], ["tech", "Tech"], ["extech", "Ex-Tech"]]
+              : null;
             const tabRow = (
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
                 {tabBtn("layers", "Layers", ["tech", "extech"])}
@@ -2421,6 +2436,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {tabBtn("industries", "Industries")}
                 {tabBtn("apex", "👑 Apex")}
                 {tabBtn("ercal", "ER Cal")}
+                {subPills && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, paddingLeft: 8, borderLeft: `1px solid ${ARIA.border}` }}>
+                    {subPills.map(([k, lbl, n]) => pill(k, lbl, n))}
+                  </span>
+                )}
                 {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
               </div>
             );
@@ -2433,32 +2453,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 rightPanel={
                 <>
                   {tabRow}
-                  {isStockTab && (
-                    <div style={{ display: "flex", gap: 4, padding: "2px 2px 4px" }}>
-                      {[["leadersall", "◆ All", leaderRows.length + emergingRows.length], ["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]].map(([k, lbl, n]) => (
-                        <button key={k} onClick={() => setRsTab(k)}
-                          style={{ fontSize: 8, fontWeight: 700, letterSpacing: 0.3, padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
-                            color: rsTab === k ? ARIA.text : ARIA.textMuted,
-                            background: rsTab === k ? ARIA.blue + "22" : "transparent",
-                            border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
-                          {lbl}{n ? <span style={{ opacity: 0.55, fontWeight: 400 }}> {n}</span> : null}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {isLayerLike && (
-                    <div style={{ display: "flex", gap: 4, padding: "2px 2px 4px" }}>
-                      {[["layers", "All Layers"], ["tech", "Tech"], ["extech", "Ex-Tech"]].map(([k, lbl]) => (
-                        <button key={k} onClick={() => setRsTab(k)}
-                          style={{ fontSize: 8, fontWeight: 700, letterSpacing: 0.3, padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
-                            color: rsTab === k ? ARIA.text : ARIA.textMuted,
-                            background: rsTab === k ? ARIA.blue + "22" : "transparent",
-                            border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
-                          {lbl}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                   {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
                   {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
                   {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
@@ -2472,7 +2466,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                           .filter((m) => m.in_universe && m.ticker)
                           .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
                           .slice(0, 15);
-                        const qColor = (l) => l === "GENUINE" ? "#fbbf24" : l === "ELITE" || l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.yellow : ARIA.textMuted;
+                        const qColor = (l) => l === "GENUINE" ? ARIA.yellow : l === "ELITE" || l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.textDim : ARIA.textMuted;
                         const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
                         return (
                           <div style={{ fontFamily: "monospace" }}>
@@ -4085,10 +4079,10 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
       {expanded && (
         <div style={{ padding: embedded ? "0 2px 8px" : "0 12px 8px" }}>
           {loading && <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "4px 0" }}>Loading FMP calendar…</div>}
-          {weekData.usingFallback && !loading && <div style={{ fontSize: 7, color: "#fbbf24", padding: "2px 0 4px" }}>Using pipeline data (FMP unavailable). Timing may be stale.</div>}
+          {weekData.usingFallback && !loading && <div style={{ fontSize: 7, color: ARIA.yellow, padding: "2px 0 4px" }}>Using pipeline data (FMP unavailable). Timing may be stale.</div>}
           <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 0 5px", lineHeight: 1.5 }}
             title={"MAGNA53 + CAP10*10 — MAGNA is necessary, the rest nice-to-have.\nMA = massive acceleration: 100%+ EPS growth on meaningful terms ($0.05→$0.20, not $0.01→$0.04), 100%+ sales on a ≥$10M base, a massive (100%+, ≥$0.10) earnings surprise, or 29%+ sales two quarters running on $25M+ annual sales.\nG = gap up ≥4% AH/PM on ≥100K volume.\nN = neglect: base of months-years (no 20%+ rally into ER) + low fund ownership.\nA = sales accel ≥25% (or 29%+ 2Q running); earnings growth without sales is questionable — waived only in a turnaround (loss→profit).\n5 = short-interest days-to-cover >5 (no SI data on current FMP plan — unscored).\n3 = 3+ analyst upgrades/PT raises in 30d (AN3, checked on near-genuine movers).\nCAP10 = mcap <$10B · *10 = IPO <10 years."}>
-            MAGNA53 + CAP10*10 · 🎯 = pre-ER EP setup (sales accel + neglect, the knowable half) · <span style={{ color: "#fbbf24", fontWeight: 700 }}>gold = genuine EP (MAGNA 4/4)</span> — life-changing catalyst, expect 2-5/yr · n/4 = reported, partial · hover for full breakdown
+            MAGNA53 + CAP10*10 · 🎯 = pre-ER EP setup (sales accel + neglect, the knowable half) · <span style={{ color: ARIA.yellow, fontWeight: 700 }}>gold = genuine EP (MAGNA 4/4)</span> — life-changing catalyst, expect 2-5/yr · n/4 = reported, partial · hover for full breakdown
           </div>
           {weekData.days.map((day, di) => (
             <div key={di} style={{ marginBottom: 6 }}>
@@ -4108,9 +4102,9 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
                     const s = ep.s;
                     const chg = ep.mv ? (ep.mv.change_pct ?? ep.mv.ext_hours_change_pct) : null;
                     const borderC = sel ? ARIA.cyan
-                      : ep.genuine ? "#fbbf24"
+                      : ep.genuine ? ARIA.yellow
                       : ep.mv ? (chg > 0 ? ARIA.green + "88" : chg < 0 ? ARIA.red + "88" : ARIA.border)
-                      : t.inDrawer ? ARIA.border : "#2a2a3a";
+                      : t.inDrawer ? ARIA.border : ARIA.border;
                     const tip = (() => {
                       const bits = [];
                       if (ep.mv) {
@@ -4134,16 +4128,16 @@ function EarningsCalendar({ stocks, stockMap, onTickerClick, chartTicker, embedd
                           display: "inline-flex", alignItems: "center", gap: 3,
                           fontSize: 8, padding: "2px 5px", borderRadius: 3, cursor: "pointer",
                           fontFamily: "monospace", fontWeight: sel ? 800 : (ep.genuine || ep.setup || t.inDrawer) ? 700 : 500,
-                          background: sel ? ARIA.cyan : ep.genuine ? "#fbbf2418" : t.inDrawer ? "rgba(255,255,255,0.06)" : "transparent",
+                          background: sel ? ARIA.cyan : ep.genuine ? `${ARIA.yellow}18` : t.inDrawer ? ARIA.glass : "transparent",
                           border: `1px solid ${borderC}`,
-                          color: sel ? ARIA.bg : ep.genuine ? "#fbbf24" : t.inDrawer ? "#e0e0f0" : ARIA.textMuted,
+                          color: sel ? ARIA.bg : ep.genuine ? ARIA.yellow : t.inDrawer ? ARIA.text : ARIA.textMuted,
                         }}
                         title={tip}
                       >
                         <img src={ER_LOGO(t.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                         {t.ticker}
                         {ep.setup && !ep.mv && <span style={{ fontSize: 8 }}>🎯</span>}
-                        {ep.genuine && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, background: "#fbbf2426", color: "#fbbf24", border: "1px solid #fbbf2466", fontWeight: 800, lineHeight: "12px" }}>EP 4/4</span>}
+                        {ep.genuine && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, background: `${ARIA.yellow}26`, color: ARIA.yellow, border: `1px solid ${ARIA.yellow}66`, fontWeight: 800, lineHeight: "12px" }}>EP 4/4</span>}
                         {!ep.genuine && ep.mv && ep.magna != null && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, color: chg > 0 ? ARIA.green : ARIA.red, border: `1px solid ${ARIA.border}`, fontWeight: 700, lineHeight: "12px" }}>{ep.magna}/4</span>}
                         {badge && <span style={{ fontSize: 6, padding: "0 3px", borderRadius: 2, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, fontWeight: 700, lineHeight: "12px" }}>{badge.label}</span>}
                       </button>
@@ -4872,10 +4866,10 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         <span
           style={{
             fontSize: 9,
-            fontWeight: 700,
+            fontWeight: 800,
             textTransform: "uppercase",
-            letterSpacing: 0.5,
-            color: ARIA.textDim,
+            letterSpacing: 0.6,
+            color: ARIA.text,
           }}
         >
           Scan Watch
@@ -11882,7 +11876,7 @@ function NewsPopover({ ARIA }) {
   const left = Math.min(pop.x + 8, (window.innerWidth || 1200) - W - 12);
   const top = Math.min(pop.y + 8, (window.innerHeight || 800) - 160);
   return (
-    <div onClick={(e) => e.stopPropagation()} style={{ position: "fixed", left, top, width: W, zIndex: 80, background: ARIA.bgCard, border: `1px solid ${ARIA.borderLight}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.5)", padding: "8px 10px", fontFamily: "monospace", backdropFilter: "blur(14px)" }}>
+    <div onClick={(e) => e.stopPropagation()} style={{ position: "fixed", left, top, width: W, zIndex: 80, background: ARIA.bgCard, border: `1px solid ${ARIA.borderLight}`, borderRadius: 8, boxShadow: ARIA.shadow, padding: "8px 10px", fontFamily: "monospace", backdropFilter: "blur(14px)" }}>
       <div style={{ fontSize: 9, fontWeight: 800, color: ARIA.text, marginBottom: 4 }}>📰 {pop.ticker}</div>
       {(pop.items || []).map((h, i) => (
         <div key={i} style={{ fontSize: 9, color: ARIA.textDim, lineHeight: 1.45, padding: "3px 0", borderBottom: i < pop.items.length - 1 ? `1px solid ${ARIA.border}` : "none" }}>{h}</div>
