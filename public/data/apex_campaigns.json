@@ -5,7 +5,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 96.08,
-  "last_seen": "2026-07-14"
+  "last_seen": "2026-07-15"
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -29,7 +29,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1017.79,
-  "last_seen": "2026-07-14"
+  "last_seen": "2026-07-15"
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -37,7 +37,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-14"
+  "last_seen": "2026-07-15"
  },
  "INTC": {
   "entered": "2026-07-02",
@@ -95,7 +95,7 @@
   "entered": "2026-07-14",
   "px": 12.56,
   "layer": "Threat Operations",
-  "peak": 12.97,
+  "peak": 13.41,
   "last_seen": "2026-07-15",
   "ondeck": false
  },
@@ -114,5 +114,21 @@
   "peak": 281.17,
   "last_seen": "2026-07-15",
   "ondeck": false
+ },
+ "PANW": {
+  "entered": "2026-07-15",
+  "px": 355.64,
+  "layer": "Platform + Endpoint",
+  "peak": 355.64,
+  "last_seen": "2026-07-15",
+  "ondeck": true
+ },
+ "FTNT": {
+  "entered": "2026-07-15",
+  "px": 165.85,
+  "layer": "Platform + Endpoint",
+  "peak": 165.85,
+  "last_seen": "2026-07-15",
+  "ondeck": true
  }
 }
