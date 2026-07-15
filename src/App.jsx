@@ -8465,7 +8465,8 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
             {chartData.rsPosD && <path d={chartData.rsPosD} fill="#22c55e" opacity={0.22} />}
             {chartData.rsNegD && <path d={chartData.rsNegD} fill="#ef4444" opacity={0.22} />}
             {chartData.rsZeroY != null && <line x1={chartData.padL} y1={chartData.rsZeroY} x2={chartData.chartRight} y2={chartData.rsZeroY} stroke="#3b82f6" strokeWidth={0.6} strokeDasharray="3 3" opacity={0.5} />}
-            <polyline points={chartData.rsLinePts} fill="none" stroke="#3b82f6" strokeWidth={1.2} opacity={0.9} filter="url(#tpGlow)" />
+            {/* Top-decile leaders (RS rank ≥ 90) get a gold RS line */}
+            <polyline points={chartData.rsLinePts} fill="none" stroke={rsRating != null && rsRating >= 90 ? "#fbbf24" : "#3b82f6"} strokeWidth={rsRating != null && rsRating >= 90 ? 1.4 : 1.2} opacity={0.9} filter="url(#tpGlow)" />
             {(chartData.rsCross || []).map((d, i) => (
               <polygon key={`rsx${i}`}
                 points={d.up ? `${d.x - 4},${d.y + 9} ${d.x + 4},${d.y + 9} ${d.x},${d.y + 2}` : `${d.x - 4},${d.y - 9} ${d.x + 4},${d.y - 9} ${d.x},${d.y - 2}`}
@@ -8478,7 +8479,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
                 <title>RS New High Before Price (RSNHBP) — relative strength leading price, bullish</title>
               </circle>
             ))}
-            {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill="#3b82f6" fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS TREND (÷21d)<title>Mansfield RS: (stock÷SPY) relative to its own 21-day average. Green fill = in an outperformance trend, red = underperforming. ▲/▼ mark the zero-cross turns; pink dots = RS new high before price.</title></text>}
+            {chartData.rsLabelY != null && <text x={chartData.padL + 3} y={chartData.rsLabelY - 2} fontSize={7.5} fill={rsRating != null && rsRating >= 90 ? "#fbbf24" : "#3b82f6"} fontFamily="ui-monospace,monospace" fontWeight={700} opacity={0.85}>RS TREND (÷21d){rsRating != null && rsRating >= 90 ? " · TOP DECILE" : ""}<title>Mansfield RS: (stock÷SPY) relative to its own 21-day average. Green fill = in an outperformance trend, red = underperforming. ▲/▼ mark the zero-cross turns; pink dots = RS new high before price. Gold line = RS rank ≥ 90 (top decile of the universe).</title></text>}
             {rsRating != null && chartData.rsEnd && (() => {
               const w = rsRating >= 100 ? 21 : 16, bx = chartData.rsEnd.x + 3, by = chartData.rsEnd.y - 6;
               return (
