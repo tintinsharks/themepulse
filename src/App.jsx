@@ -2428,21 +2428,22 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   </div>
                 )}
                 {(() => {
-                  // Rank Δ over ~1 month (now vs m1), diverging bars — rotation as
-                  // magnitude, readable in one glance (replaced the lane spaghetti).
-                  const scored = lys.filter((l) => l.m1 != null && l.now != null).map((l) => ({ ...l, dlt: l.now - l.m1 }));
-                  const risers = scored.filter((l) => l.dlt >= 8).sort((a, b) => b.dlt - a.dlt).slice(0, 8);
-                  const fallers = scored.filter((l) => l.dlt <= -8).sort((a, b) => a.dlt - b.dlt).slice(0, 8);
+                  // Rank Δ over ~2 weeks (now vs w2, swing-trade horizon), diverging
+                  // bars — rotation as magnitude, readable in one glance. Falls back
+                  // to m1 until the pipeline emits w2.
+                  const scored = lys.filter((l) => (l.w2 ?? l.m1) != null && l.now != null).map((l) => ({ ...l, _base: l.w2 ?? l.m1, dlt: l.now - (l.w2 ?? l.m1) }));
+                  const risers = scored.filter((l) => l.dlt >= 6).sort((a, b) => b.dlt - a.dlt).slice(0, 8);
+                  const fallers = scored.filter((l) => l.dlt <= -6).sort((a, b) => a.dlt - b.dlt).slice(0, 8);
                   if (!risers.length && !fallers.length) return null;
                   const maxD = Math.max(...risers.map((l) => l.dlt), ...fallers.map((l) => -l.dlt), 10);
                   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
                   const rowEl = (l, dir) => (
                     <div key={`${l.themeId}|${l.name}`} onClick={() => openLayerStay(l)}
-                      title={`${l.theme} · ${l.name} — rank ${l.m1} → ${l.now} over ~1 month · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
+                      title={`${l.theme} · ${l.name} — rank ${l._base} → ${l.now} over ~2 weeks · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
                       style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 8, fontFamily: "monospace", padding: "1px 0" }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: RC[l.regime] || ARIA.textMuted }} />
                       <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontWeight: 700 }}>{l.name}</span>
-                      <span style={{ width: 44, flexShrink: 0, color: ARIA.textMuted }}>{l.m1}→<span style={{ color: ARIA.text, fontWeight: 700 }}>{l.now}</span></span>
+                      <span style={{ width: 44, flexShrink: 0, color: ARIA.textMuted }}>{l._base}→<span style={{ color: ARIA.text, fontWeight: 700 }}>{l.now}</span></span>
                       <div style={{ flex: 1, height: 6, position: "relative" }}>
                         <div style={{ position: "absolute", left: 0, top: 0, height: 6, borderRadius: 2, width: `${Math.abs(l.dlt) / maxD * 100}%`, background: dir > 0 ? ARIA.green + "cc" : ARIA.red + "cc" }} />
                       </div>
@@ -2452,11 +2453,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   return (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Rising — rank Δ 1mo</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Rising — rank Δ 2wk</div>
                         {risers.map((l) => rowEl(l, 1))}
                       </div>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Falling — rank Δ 1mo</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Falling — rank Δ 2wk</div>
                         {fallers.map((l) => rowEl(l, -1))}
                       </div>
                     </div>
