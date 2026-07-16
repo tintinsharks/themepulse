@@ -1992,9 +1992,12 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             {getTag ? (
               <td style={{ padding: "2px 6px" }}>
                 <button onClick={() => (onLayerSelect || ((rr) => onTicker?.(rr.ticker)))(r)}
-                  title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker} · RRG: ${r.now != null && r.w1 != null ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : "—"} (click to load)`}
-                  style={{ display: "block", width: 132, maxWidth: 132, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left", background: "none", border: "none", color: quadColor(r), fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
-                  {r.name}{r.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span> : ""}
+                  title={`${r.theme || ""} · ${r.name} — ${r.n || ""} tickers, lead ${r.ticker}${r.regime ? ` · structure: ${r.regime === "green" ? "INTACT (above trend)" : r.regime === "yellow" ? "DETERIORATING (10d EMA < 20d EMA)" : "BROKEN (basket below its ~20-week line)"}` : ""} · RRG: ${r.now != null && r.w1 != null ? (r.now >= 50 ? (r.now - r.w1 >= 0 ? "Leading" : "Weakening") : (r.now - r.w1 >= 0 ? "Improving" : "Lagging")) : "—"} (click to load)`}
+                  style={{ display: "flex", alignItems: "center", gap: 3, width: 132, maxWidth: 132, overflow: "hidden", textAlign: "left", background: "none", border: "none", color: quadColor(r), fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>
+                  {/* Structural regime dot — catches a high-NOW theme that's breaking:
+                      rank is a trailing 1/3/6-mo percentile; structure is current. */}
+                  {r.regime && <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: r.regime === "green" ? "#16a34a" : r.regime === "yellow" ? "#d9a441" : "#b1374a" }} />}
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}{r.n ? <span style={{ color: ARIA.textMuted, fontWeight: 400 }}> ·{r.n}</span> : ""}</span>
                 </button>
               </td>
             ) : (
