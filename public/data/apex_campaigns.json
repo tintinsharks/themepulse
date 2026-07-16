@@ -73,8 +73,8 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 28.03,
-  "last_seen": "2026-07-15",
+  "peak": 28.29,
+  "last_seen": "2026-07-16",
   "ondeck": true
  },
  "AMD": {
@@ -121,7 +121,7 @@
   "entered": "2026-07-15",
   "px": 355.64,
   "layer": "Platform + Endpoint",
-  "peak": 355.64,
+  "peak": 356.09,
   "last_seen": "2026-07-16",
   "ondeck": true
  },
