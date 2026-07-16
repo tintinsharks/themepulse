@@ -1582,6 +1582,25 @@ function MarketConditionsPanel({ stocks, onTickerClick }) {
                       style={{ ...box, display: "flex", alignItems: "center", gap: 8, borderLeft: `3px solid ${LC[q.light]}` }}>
                       <span style={{ fontSize: 13, fontWeight: 800, color: LC[q.light], fontFamily: "monospace" }}>{q.light}</span>
                       <span style={{ fontSize: 8.5, color: ARIA.textDim, maxWidth: 210, lineHeight: 1.35 }}>{q.action}</span>
+                      {(() => {
+                        // Index-vs-internals verdict: when the light (index EMAs) and
+                        // the internals (McClellan / net H/L) disagree, the tape is
+                        // SPLIT — historically where leaders-at-support (Reset)
+                        // entries appear, while breakouts underperform.
+                        if (!mc && !hl) return null;
+                        const internalsUp = mc?.signal === "BUY" || hl?.trend === "green";
+                        const internalsDn = mc?.signal === "SELL" || (hl?.trend === "red" && mc?.signal !== "BUY");
+                        const split = (q.light === "RED" && internalsUp) || (q.light === "GREEN" && internalsDn);
+                        const col = split ? ARIA.yellow : ARIA.textMuted;
+                        return (
+                          <span title={split
+                            ? `SPLIT TAPE — indexes say ${q.light} but internals disagree (${mc ? `McClellan ${mc.signal}` : ""}${hl ? ` · net H/L ${hl.trend}` : ""}). Leaders holding while indexes bleed = Reset conditions; don't read the light as a blanket no.`
+                            : `Indexes and internals agree${mc ? ` (McClellan ${mc.signal}` : ""}${hl ? ` · net H/L ${hl.trend})` : ")"}.`}
+                            style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.4, color: col, border: `1px solid ${col}55`, background: `${col}12`, borderRadius: 3, padding: "1px 5px", cursor: "help" }}>
+                            {split ? "SPLIT TAPE" : "CONFIRMED"}
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                   <div style={{ ...box, display: "flex", alignItems: "center", gap: 10 }}
@@ -1844,6 +1863,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             {!getTag && (
               <td style={{ padding: "2px 6px", whiteSpace: "nowrap" }}>
                 <button onClick={() => onTicker?.(r.ticker)} style={{ background: "none", border: "none", color: ARIA.blue, fontWeight: 700, fontFamily: "monospace", fontSize: 9, cursor: "pointer", padding: 0 }}>{r.ticker}</button>
+                {r.rsRank != null && r.rsRank >= 85 && r.rsWk != null && r.rsWk <= -2 && <span title={`Leader diverging — RS rank ${r.rsRank} but ${r.rsWk > 0 ? "+" : ""}${r.rsWk.toFixed(1)}% vs SPY THIS week. Trailing rank, disagreeing tape.`} style={{ marginLeft: 2, fontSize: 7, color: ARIA.yellow }}>⚠</span>}
                 {rankCol && r.rsAcc1 != null && r.rsDay > 0 && r.rsAcc1 >= 5 && (
                   <span title={`Fresh inflection — today's pace (${r.rsDay > 0 ? "+" : ""}${r.rsDay.toFixed(1)}%/d) is running well ahead of its own week (${r.rsWk > 0 ? "+" : ""}${(r.rsWk ?? 0).toFixed(1)}%): day-one turn, not an extended continuation`} style={{ marginLeft: 3, fontSize: 8.5, fontWeight: 800, color: ARIA.green }}>↗</span>
                 )}
@@ -2277,6 +2297,31 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                     {inL.length ? inL.map((l) => chip(l, ARIA.green)) : <span style={{ color: ARIA.textMuted }}>—</span>}
                   </div>
                 )}
+                {/* Holdings health — the divergence check on YOUR names: rank vs
+                    this-week RS vs 20dma structure. Sell-side application. */}
+                {(pfList || []).length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", fontSize: 8, fontFamily: "monospace" }}>
+                    <span title="Each held name: RS rank vs THIS week's RS vs 20dma structure. Green = confirmed (tape agrees) · amber = diverging (high rank but this week bleeding, or slipping under the 20dma) · red = breaking (>2 ATR below the 20dma or ≤−4% weekly RS). Deterioration shows here before the rank confirms."
+                      style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textMuted, cursor: "help" }}>Holdings</span>
+                    {(pfList || []).map((t) => {
+                      const st = stockMap?.[t];
+                      if (!st) return null;
+                      const wk = st.return_1w != null ? +(st.return_1w - (spyRet?.["1w"] ?? 0)).toFixed(1) : null;
+                      const d20 = st.dist_20dma_atrx;
+                      const rk = st.rs_rank;
+                      const state = (d20 != null && d20 <= -2) || (wk != null && wk <= -4) ? "red"
+                        : (wk != null && wk <= -1.5) || (d20 != null && d20 < 0 && d20 > -2) ? "yellow" : "green";
+                      const col = state === "red" ? ARIA.red : state === "yellow" ? ARIA.yellow : ARIA.green;
+                      return (
+                        <button key={t} onClick={() => openTicker(t)}
+                          title={`${t} — RS rank ${rk ?? "—"} · this week ${wk != null ? (wk > 0 ? "+" : "") + wk + "%" : "—"} vs SPY · ${d20 != null ? d20.toFixed(1) + " ATR from 20dma" : "20dma —"} · ${state === "green" ? "confirmed" : state === "yellow" ? "DIVERGING — tape disagrees with the rank" : (d20 != null && d20 <= -2 ? "BREAKING — structure gone" : "BREAKING — bleeding hard this week")} (click to chart)`}
+                          style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 6px", borderRadius: 3, color: col, background: `${col}14`, border: `1px solid ${col}44` }}>
+                          {t}{rk != null ? ` ${rk}` : ""}{state !== "green" ? (state === "red" ? " 🔻" : " ⚠") : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {(() => {
                   // Rank Δ over ~2 weeks (now vs w2, swing-trade horizon), diverging
                   // bars — rotation as magnitude, readable in one glance. Falls back
@@ -2320,12 +2365,18 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                         const wkC = wk == null ? ARIA.textMuted : wk >= 1.5 ? ARIA.green : wk <= -1.5 ? ARIA.red : ARIA.textDim;
                         const diverges = wk != null && ((dir > 0 && wk <= -1.5) || (dir < 0 && wk >= 1.5));
                         return (
+                          <>
                           <span title={`RS Wk ${wk != null ? (wk > 0 ? "+" : "") + wk.toFixed(1) + "%" : "—"} vs SPY (this week, continuous)${l.rsMth != null ? ` · RS Mth ${l.rsMth > 0 ? "+" : ""}${l.rsMth.toFixed(1)}%` : ""}${acc2 != null ? ` · Acc² ${acc2 > 0 ? "+" : ""}${acc2.toFixed(0)} (${acc2 >= 5 ? "accelerating" : acc2 <= -5 ? "decelerating" : "steady"})` : ""}${diverges ? " · ⚠ DIVERGES from the rank move — this week disagrees" : " — confirms"}`}
                             style={{ width: 46, flexShrink: 0, textAlign: "right", fontFamily: "monospace", fontSize: 7.5, color: wkC, fontWeight: wk != null && Math.abs(wk) >= 1.5 ? 700 : 400 }}>
                             {wk != null ? `${wk > 0 ? "+" : ""}${wk.toFixed(1)}%` : "—"}
                             {acc2 != null && Math.abs(acc2) >= 5 && <span style={{ marginLeft: 1, color: acc2 > 0 ? ARIA.green : ARIA.red }}>{acc2 > 0 ? "⤴" : "⤵"}</span>}
                             {diverges && <span style={{ marginLeft: 1, color: ARIA.yellow }}>⚠</span>}
                           </span>
+                          {l.dshift != null && Math.abs(l.dshift) >= 15 && (
+                            <span title={`$vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}% (5d vs 20d) — ${l.dshift > 0 ? "money flowing IN ahead of price" : "attention leaving"}`}
+                              style={{ flexShrink: 0, fontSize: 7, fontWeight: 800, color: l.dshift > 0 ? ARIA.green : ARIA.textMuted }}>{l.dshift > 0 ? "$↑" : "$↓"}</span>
+                          )}
+                          </>
                         );
                       })()}
                     </div>
@@ -4493,6 +4544,8 @@ function DrawerThemes({ onTickerClick, chartTicker, stockMap, tickerStrengthMap,
 }
 
 function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, tickerStrengthMap, chainFilters, clearChainFilters, removeChainFilter, onLayerClick }) {
+  const _spyRetSW = useSpyReturns(); // for the leader-divergence ⚠ (rank vs this-week RS)
+  const spyWk = _spyRetSW?.["1w"] ?? null;
   const ARIA = useAriaTheme();
   const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [panelH, setPanelH] = useState(() => parseInt(localStorage.getItem("tp-scan-panel-h") || "600"));
@@ -4735,6 +4788,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         qmagScore: s.qmag_score || 0,
         adr: s.adr_pct || 0,
         rs: s.framework_score ?? s.rs_rank ?? 0,
+        rsRank: s.rs_rank ?? null,
+        wkRs: s.return_1w != null ? +(s.return_1w - (spyWk ?? 0)).toFixed(2) : null,
         grade: s.grade || "",
         industry: s.industry || "",
         subtheme:
@@ -4774,7 +4829,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       filtered = filtered.filter((r) => union.has(r.ticker));
     }
     return filtered;
-  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters, activePresets]);
+  }, [topCandidates, liveQuotes, filters, sort, activeTags, activeSubtheme, ownedSet, chainFilters, activePresets, spyWk]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   const colorChg = (v) =>
@@ -6163,6 +6218,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     {r.tt && <span title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                     {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                     {r.news && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: r.ticker, items: r.news } })); }} title={r.inPlay ? "In play today — click for catalyst headlines" : "Click for catalyst headlines"} style={{ fontSize: r.inPlay ? 9 : 7, opacity: r.inPlay ? 1 : 0.7, lineHeight: "10px", cursor: "pointer", filter: r.inPlay ? "drop-shadow(0 0 3px #fbbf24) saturate(1.5)" : "none" }}>📰</span>}
+                    {r.rsRank != null && r.rsRank >= 85 && r.wkRs != null && r.wkRs <= -2 && <span title={`Leader diverging — RS rank ${r.rsRank} but ${r.wkRs > 0 ? "+" : ""}${r.wkRs}% vs SPY THIS week. The rank is trailing; the current tape disagrees.`} style={{ fontSize: 7, lineHeight: "10px", color: "#d9a441" }}>⚠</span>}
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
@@ -9677,6 +9733,7 @@ function WatchlistSectionTable({
                         {r.tt && <span title="2-Days-Tight — closes within 1% + narrowing range. Breakout candidate" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                         {r.de && <span title={`Delayed Entry ready — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
                         {r.news && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: r.ticker, items: r.news } })); }} title={r.inPlay ? "In play today — click for catalyst headlines" : "Click for catalyst headlines"} style={{ fontSize: r.inPlay ? 9 : 7, opacity: r.inPlay ? 1 : 0.7, lineHeight: "10px", cursor: "pointer", filter: r.inPlay ? "drop-shadow(0 0 3px #fbbf24) saturate(1.5)" : "none" }}>📰</span>}
+                    {r.rsRank != null && r.rsRank >= 85 && r.wkRs != null && r.wkRs <= -2 && <span title={`Leader diverging — RS rank ${r.rsRank} but ${r.wkRs > 0 ? "+" : ""}${r.wkRs}% vs SPY THIS week. The rank is trailing; the current tape disagrees.`} style={{ fontSize: 7, lineHeight: "10px", color: "#d9a441" }}>⚠</span>}
                       </span>
                     </td>
                     <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
