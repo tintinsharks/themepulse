@@ -1696,137 +1696,6 @@ function useRsRotation() {
 // themes considered "tech" — shared by the Tech / Ex-Tech tabs and the Playbook
 const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "internet", "robotics", "fintech"]);
 
-// ── Playbook: crosses trailing rank × weekly momentum × live day strength ──
-// into action buckets. Tech layers are ranked within tech (day vs QQQ);
-// ex-tech within ex-tech (day vs SPY). Same lens as a desk read:
-//   rank high + red today        → DISTRIBUTION (avoid/trim)
-//   rank high + rising + green   → CONTINUATION (hold/add on setups)
-//   rank mid  + rising + green   → BUY ZONE (look for entries)
-//   huge weekly rise + red today → STALK (wait for first tight day)
-//   rank low  + big green        → BOUNCE (watch only)
-function PlaybookBoard({ d, quotes, stockMap, heldByLayer, wAdjTech, onLayer, ARIA }) {
-  const [sorts, setSorts] = useState({}); // per-bucket header sort override
-  const spy = quotes.get("SPY")?.change ?? null;
-  const qqq = quotes.get("QQQ")?.change ?? null;
-  // session-elapsed fraction for pace-adjusted ZVR (same as the other tabs)
-  const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const _min = _et.getHours() * 60 + _et.getMinutes();
-  const _elapsed = (_min >= 570 && _min < 960) ? Math.max(0.02, sessionVolFraction(_min - 570)) : 1.0;
-  const tickerZvr = (t) => {
-    const q = quotes.get(t); const st = stockMap?.[t];
-    if (!q) return null;
-    const vol = q.volume; const avg = st?.avg_volume_raw || q.avgVolume || 0;
-    let v = null;
-    if (vol && avg > 0) v = (vol / (avg * _elapsed)) * 100;
-    else if (st?.rel_volume > 0) v = st.rel_volume * 100;
-    if (v == null) return null;
-    if (q.change != null && q.change < 0) v = -v;
-    return v;
-  };
-  const build = (pred, bench, tag) => {
-    const subset = (d.layers || []).filter((l) => pred(l) && l.now != null).map((l) => ({ ...l, tag }));
-    ["now", "w1"].forEach((k) => {
-      const order = subset.filter((l) => l[k] != null).sort((a, b) => a[k] - b[k]);
-      const n = (order.length - 1) || 1;
-      order.forEach((l, i) => { l["_" + k] = Math.round((i / n) * 100); });
-    });
-    subset.forEach((l) => {
-      const chgs = (l.holds || []).map((h) => quotes.get(h.t)?.change).filter((v) => v != null);
-      l.day = (chgs.length && bench != null) ? +(chgs.reduce((a, b) => a + b, 0) / chgs.length - bench).toFixed(2) : null;
-      const zvrs = (l.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
-      l.zvr = zvrs.length ? Math.round(zvrs.reduce((a, b) => a + b, 0) / zvrs.length) : null;
-      const crs = (l.holds || []).map((h) => computeCR(quotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
-      l.cr = crs.length ? Math.round(crs.reduce((a, b) => a + b, 0) / crs.length) : null;
-      l.mom = (l._now ?? 0) - (l._w1 ?? 0);
-      l.rank = l._now ?? null;
-      // Acc¹ = today's pace ×5 vs its own week — benchmark-consistent per group
-      const wk = l.rsWk != null ? l.rsWk + (tag === "TECH" && wAdjTech != null ? wAdjTech : 0) : null;
-      l.acc1 = (l.day != null && wk != null) ? +(l.day * 5 - wk).toFixed(1) : null;
-    });
-    return subset;
-  };
-  const rows = [
-    ...build((l) => TECH_THEMES.has(l.themeId), qqq, "TECH"),
-    ...build((l) => !TECH_THEMES.has(l.themeId), spy, "EX"),
-  ];
-  const BUCKETS = [
-    { key: "cont", label: "⭐ CONTINUATION", desc: "leaders still working — the backtested edge (+1.4%/21d vs SPY); add on setups", c: ARIA.green,
-      test: (r) => r.rank >= 88 && r.mom >= 0 && (r.day ?? 0) > 0, sort: (a, b) => (b.day ?? 0) - (a.day ?? 0) },
-    { key: "buy", label: "🟢 RISING", desc: "rising + confirmed today — watchlist tier (no edge until leadership, per backtest)", c: "#34d399",
-      test: (r) => r.mom >= 8 && (r.day ?? -9) > 0.5 && r.rank >= 35 && r.rank < 88, sort: (a, b) => b.mom - a.mom },
-    { key: "stalk", label: "🔭 STALK", desc: "violent weekly rotation, digesting — watch; act only if it reaches leadership", c: "#22d3ee",
-      test: (r) => r.mom >= 18 && (r.day ?? 0) <= 0.5, sort: (a, b) => b.mom - a.mom },
-    { key: "dist", label: "🔻 LEADERS RED TODAY", desc: "historically a group-level dip-buy (+1.2%/21d) — manage exits per-stock, not per-theme", c: ARIA.red,
-      test: (r) => r.rank >= 85 && (r.day ?? 0) <= -2, sort: (a, b) => (a.day ?? 0) - (b.day ?? 0) },
-    { key: "bounce", label: "🎣 BOUNCE", desc: "oversold pop in a low-rank group — watch only, needs repair", c: ARIA.yellow,
-      test: (r) => r.rank < 35 && (r.day ?? 0) >= 2, sort: (a, b) => (b.day ?? 0) - (a.day ?? 0) },
-  ];
-  const used = new Set();
-  const grouped = BUCKETS.map((b) => {
-    const hits = rows.filter((r) => !used.has(r) && b.test(r)).sort(b.sort).slice(0, 8);
-    hits.forEach((r) => used.add(r));
-    const s = sorts[b.key];
-    if (s) {
-      hits.sort((a, b2) => {
-        if (s.key === "name") { const av = a.name || "", bv = b2.name || ""; return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av); }
-        const an = a[s.key] ?? -9999, bn = b2[s.key] ?? -9999;
-        return s.dir === "asc" ? an - bn : bn - an;
-      });
-    }
-    return { ...b, hits };
-  });
-  const setSort = (bk, key) => setSorts((p) => {
-    const cur = p[bk];
-    return { ...p, [bk]: { key, dir: cur?.key === key && cur.dir === "desc" ? "asc" : "desc" } };
-  });
-  const hc = (bk, key, label, style) => {
-    const s = sorts[bk];
-    return (
-      <span onClick={(e) => { e.stopPropagation(); setSort(bk, key); }}
-        style={{ ...style, cursor: "pointer", userSelect: "none", color: s?.key === key ? ARIA.text : ARIA.textMuted }}>
-        {label}{s?.key === key ? (s.dir === "desc" ? " \u2193" : " \u2191") : ""}
-      </span>
-    );
-  };
-  const TAGC = { TECH: "#6cd5e8", EX: "#fbbf24" };
-  return (
-    <div style={{ fontFamily: "monospace", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, alignItems: "start" }}>
-      {grouped.map((b) => b.hits.length > 0 && (
-        <div key={b.key} style={{ border: `1px solid ${ARIA.border}`, borderLeft: `3px solid ${b.c}`, borderRadius: 5, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "2.5px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
-            <span style={{ fontSize: 8.5, fontWeight: 800, color: b.c, letterSpacing: 0.4 }}>{b.label}</span>
-            <span style={{ fontSize: 7, color: ARIA.textMuted }}>{b.desc}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "1px 6px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 6.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3 }}>
-            <span style={{ width: 8, flexShrink: 0 }} />
-            {hc(b.key, "name", "Layer", { flex: 1, minWidth: 0, textAlign: "left" })}
-            {hc(b.key, "day", "Day", { width: 32, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "zvr", "ZVR", { width: 34, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "cr", "CR", { width: 22, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "acc1", "A¹", { width: 32, textAlign: "right", flexShrink: 0 })}
-            {hc(b.key, "off52", "52W", { width: 30, textAlign: "right", flexShrink: 0 })}
-          </div>
-          {b.hits.map((r) => (
-            <div key={r.tag + r.name} onClick={() => onLayer?.(r)}
-              title={`${r.theme || ""} · ${r.name} — within-group rank ${r.rank} (${r.mom >= 0 ? "+" : ""}${r.mom}w) · today ${r.day == null ? "—" : (r.day >= 0 ? "+" : "") + r.day.toFixed(1)}% vs ${r.tag === "TECH" ? "QQQ" : "SPY"}${r.zvr != null ? ` · ZVR ${r.zvr}%` : ""}${r.cr != null ? ` · CR ${r.cr}` : ""} · ${r.off52 != null ? r.off52.toFixed(0) + "% off 52w high" : ""} (click to load)`}
-              style={{ display: "flex", alignItems: "center", gap: 4, padding: "1.5px 6px", borderBottom: `1px solid ${ARIA.border}20`, cursor: "pointer", fontSize: 8.5, background: heldByLayer?.[`${r.themeId || ""}|${r.name}`]?.length ? ARIA.yellow + "14" : "transparent" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-              <span title={r.tag === "TECH" ? "Tech (vs QQQ)" : "Ex-Tech (vs SPY)"} style={{ fontSize: 7, fontWeight: 800, color: TAGC[r.tag], width: 8, flexShrink: 0 }}>{r.tag === "TECH" ? "T" : "E"}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.blue, fontWeight: 700 }}>{r.name}</span>
-              <span style={{ width: 32, textAlign: "right", fontWeight: 700, flexShrink: 0, color: r.day == null ? ARIA.textMuted : r.day > 0 ? ARIA.green : ARIA.red }}>{r.day == null ? "—" : (r.day > 0 ? "+" : "") + r.day.toFixed(1)}</span>
-              <span style={{ width: 34, textAlign: "right", flexShrink: 0, fontWeight: r.zvr != null && Math.abs(r.zvr) >= 130 ? 700 : 400, color: r.zvr == null ? ARIA.textMuted : Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim }}>{r.zvr == null ? "—" : r.zvr}</span>
-              <span style={{ width: 22, textAlign: "right", flexShrink: 0, color: r.cr == null ? ARIA.textMuted : r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red }}>{r.cr == null ? "—" : r.cr}</span>
-              <span title="Acc¹ — today's pace ×5 vs its own week: high = fresh inflection, negative = lagging its week" style={{ width: 32, textAlign: "right", flexShrink: 0, fontWeight: r.acc1 != null && Math.abs(r.acc1) >= 10 ? 700 : 400, color: r.acc1 == null ? ARIA.textMuted : r.acc1 > 0 ? ARIA.green : ARIA.red }}>{r.acc1 == null ? "—" : (r.acc1 > 0 ? "+" : "") + r.acc1.toFixed(0)}</span>
-              <span style={{ width: 30, textAlign: "right", flexShrink: 0, color: r.off52 != null && r.off52 >= -15 ? ARIA.green : ARIA.textDim }}>{r.off52 == null ? "—" : r.off52.toFixed(0)}</span>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// colored 0-100 rank pill — green high, red low
 function RsRankBox({ v, ARIA }) {
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
   const c = v >= 88 ? "#16a34a" : v <= 12 ? "#b1374a" : ARIA.textMuted;
@@ -2050,7 +1919,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers | leaders
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
-  const [moversOpen, setMoversOpen] = useState(() => { try { return localStorage.getItem("tp-rs-movers-open") === "1"; } catch { return false; } });
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
   const [basketLabel, setBasketLabel] = useState("");
   const [selectedLayerKey, setSelectedLayerKey] = useState(null); // "themeId|layer" of current layer
@@ -2374,25 +2242,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Playbook — always-available top board: rank × weekly momentum ×
-              live day → action buckets (collapsible; replaced Rank Movers) */}
-          {(() => {
-            const togglePlaybook = () => setMoversOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-movers-open", n ? "1" : "0"); } catch {} return n; });
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div onClick={togglePlaybook} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", fontSize: 7.5 }}>
-                  <span style={{ fontSize: 8, color: ARIA.textMuted }}>{moversOpen ? "▾" : "▸"}</span>
-                  <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, color: moversOpen ? ARIA.text : ARIA.textMuted }}>Playbook</span>
-                  {moversOpen
-                    ? <span style={{ color: ARIA.textDim }} title="Layers bucketed by RS rank × weekly momentum × today's live move (tech vs QQQ, ex-tech vs SPY) → Continuation / Rising / Stalk / Improving action buckets. % = off 52w high.">rank × weekly momentum × live day → action buckets</span>
-                    : <span style={{ color: ARIA.textMuted }}>— click to expand</span>}
-                </div>
-                {moversOpen && (
-                  <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
-                )}
-              </div>
-            );
-          })()}
           {/* ── Rotation: OUT → IN strip + rank-trajectory lanes ──
               OUT = high-rank layers whose structure has gone yellow/red (money
               leaving); IN = sub-88 structurally-green layers climbing rank
