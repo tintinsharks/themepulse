@@ -2218,6 +2218,27 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
         <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
         <span style={{ fontSize: 8, color: ARIA.textDim }}>what's rotating in / out · {d.universe} ETFs</span>
+        {(() => {
+          // Structural breadth: regime distribution across all layers — the
+          // layer-level Net H/L. Mostly green = broad uptrend; red past ~1/3 =
+          // the rotation is really distribution.
+          const lys = d.layers || [];
+          const c = { green: 0, yellow: 0, red: 0 };
+          lys.forEach((l) => { if (c[l.regime] != null) c[l.regime]++; });
+          const tot = c.green + c.yellow + c.red;
+          if (!tot) return null;
+          return (
+            <span onClick={(e) => e.stopPropagation()} title={`Structural breadth across ${tot} layers: ${c.green} green (trend intact) · ${c.yellow} yellow (10d EMA < 20d — deteriorating) · ${c.red} red (below the ~20-week line). Layer-level Net H/L: mostly green = broad uptrend; red past a third = rotation is distribution.`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "help" }}>
+              <span style={{ display: "inline-flex", width: 64, height: 5, borderRadius: 2, overflow: "hidden" }}>
+                <span style={{ width: `${c.green / tot * 100}%`, background: "#16a34a" }} />
+                <span style={{ width: `${c.yellow / tot * 100}%`, background: "#d9a441" }} />
+                <span style={{ width: `${c.red / tot * 100}%`, background: "#b1374a" }} />
+              </span>
+              <span style={{ fontSize: 7, color: ARIA.textMuted, fontFamily: "monospace" }}>{c.green}·{c.yellow}·{c.red}</span>
+            </span>
+          );
+        })()}
         {!open && (() => {
           const ar = rsTab === "sectors" ? d.sectors : rsTab === "industries" ? d.industries : (d.layers || []);
           const sc = ar.filter((r) => r.d1 != null).map((r) => ({ ...r, pts: r.now - r.d1 }));
@@ -2350,6 +2371,27 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                     .map((l) => ({ ...l, _promo: l._base >= 88 && l.now < 88 }))
                     .sort((a, b) => Math.max(b._base, b.now) - Math.max(a._base, a.now)).slice(0, 14);
                   if (!risers.length && !fallers.length) return null;
+                  // "New today" dot: diff board membership against the previous
+                  // session's snapshot (localStorage, frontend-only) — answers
+                  // "what changed overnight?" without re-reading all 28 rows.
+                  // Same-day membership accumulates as a union so a row that
+                  // flickers intraday still counts as "seen today" tomorrow.
+                  let prevSet = null;
+                  try {
+                    const NEWKEY = "tp-stack-snapshot";
+                    const today = new Date().toISOString().slice(0, 10);
+                    const members = [...risers, ...fallers].map((l) => `${l.themeId}|${l.name}`).sort();
+                    const snap = JSON.parse(localStorage.getItem(NEWKEY) || "null");
+                    if (!snap || snap.date !== today) {
+                      localStorage.setItem(NEWKEY, JSON.stringify({ date: today, members, prev: snap ? snap.members : null }));
+                      if (snap && snap.members) prevSet = new Set(snap.members);
+                    } else {
+                      const union = Array.from(new Set([...(snap.members || []), ...members])).sort();
+                      if (union.length !== (snap.members || []).length) localStorage.setItem(NEWKEY, JSON.stringify({ ...snap, members: union }));
+                      if (snap.prev) prevSet = new Set(snap.prev);
+                    }
+                  } catch { /* private mode etc. — just skip the dot */ }
+                  const isNew = (l) => !!prevSet && !prevSet.has(`${l.themeId}|${l.name}`);
                   const maxD = Math.max(...risers.map((l) => l.dlt), ...fallers.map((l) => -l.dlt), 10);
                   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
                   const rowEl = (l, dir) => (
@@ -2357,7 +2399,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                       title={`${l.theme} · ${l.name} — rank ${l._base} → ${l.now} over ~2 weeks${l.rsDay != null ? ` · RS Day ${l.rsDay > 0 ? "+" : ""}${l.rsDay.toFixed(2)}%${dayPct(l.rsDay) >= 95 ? " (top 5% today)" : dayPct(l.rsDay) <= 5 ? " (bottom 5% today)" : ""}` : ""} · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
                       style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 8, fontFamily: "monospace", padding: "1px 0" }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: RC[l.regime] || ARIA.textMuted }} />
-                      <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontWeight: 700, background: dayHeat(l), borderRadius: 2, padding: "0 2px" }}>{l._promo ? (dir > 0 ? "↗ " : "↘ ") : ""}{l.name}</span>
+                      <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontWeight: 700, background: dayHeat(l), borderRadius: 2, padding: "0 2px" }}>{l._promo ? (dir > 0 ? "↗ " : "↘ ") : ""}{l.name}{isNew(l) && <span title="new on the board today (was not here last session)" style={{ color: ARIA.cyan, fontWeight: 800 }}> •</span>}</span>
                       <span style={{ width: 44, flexShrink: 0, color: ARIA.textMuted }}>{l._base}→<span style={{ color: ARIA.text, fontWeight: 700 }}>{l.now}</span></span>
                       <div style={{ flex: 1, height: 6, position: "relative" }}>
                         <div style={{ position: "absolute", left: 0, top: 0, height: 6, borderRadius: 2, width: `${Math.abs(l.dlt) / maxD * 100}%`, background: dir > 0 ? ARIA.green + "cc" : ARIA.red + "cc" }} />
