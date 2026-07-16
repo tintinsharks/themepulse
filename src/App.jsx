@@ -2436,10 +2436,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   // tradeable rotation events (layer backtest: entries pay after
                   // leadership) — pin them first. Percentile compression otherwise
                   // buries them: 79→98 (+19) is a bigger deal than 14→65 (+51).
-                  const promoted = scored.filter((l) => l._base < 88 && l.now >= 88 && l.dlt >= 4).map((l) => ({ ...l, _promo: true })).sort((a, b) => b.now - a.now);
-                  const demoted = scored.filter((l) => l._base >= 88 && l.now < 88 && l.dlt <= -4).map((l) => ({ ...l, _promo: true })).sort((a, b) => a.now - b.now);
-                  const risers = [...promoted, ...scored.filter((l) => l.dlt >= 6 && !(l._base < 88 && l.now >= 88)).sort((a, b) => b.dlt - a.dlt)].slice(0, 8);
-                  const fallers = [...demoted, ...scored.filter((l) => l.dlt <= -6 && !(l._base >= 88 && l.now < 88)).sort((a, b) => a.dlt - b.dlt)].slice(0, 8);
+                  // Rising ordered by DESTINATION (current rank) — rising names
+                  // ranked by proximity to/into leadership, so a 70→86 knocking on
+                  // the door outranks a 14→65 churner. Falling ordered by ORIGIN
+                  // (how high it fell from). ↗/↘ mark actual 88-line crossings.
+                  const mark = (l) => ({ ...l, _promo: l._base < 88 && l.now >= 88 });
+                  const markD = (l) => ({ ...l, _promo: l._base >= 88 && l.now < 88 });
+                  const risers = scored.filter((l) => l.dlt >= 6).map(mark).sort((a, b) => b.now - a.now).slice(0, 12);
+                  const fallers = scored.filter((l) => l.dlt <= -6).map(markD).sort((a, b) => b._base - a._base).slice(0, 12);
                   if (!risers.length && !fallers.length) return null;
                   const maxD = Math.max(...risers.map((l) => l.dlt), ...fallers.map((l) => -l.dlt), 10);
                   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
@@ -2459,11 +2463,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   return (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Rising — rank Δ 2wk · ↗ = crossed into leadership (88)</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Rising — Δ2wk ≥ +6, nearest leadership first · ↗ = crossed 88</div>
                         {risers.map((l) => rowEl(l, 1))}
                       </div>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Falling — rank Δ 2wk · ↘ = lost leadership</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Falling — Δ2wk ≤ −6, highest origin first · ↘ = lost 88</div>
                         {fallers.map((l) => rowEl(l, -1))}
                       </div>
                     </div>
