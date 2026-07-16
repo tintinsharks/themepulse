@@ -2336,6 +2336,12 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   // the weakness stack: decliners (Δ2wk ≤ −6) + leaders whose
                   // structure has gone yellow/red even while still ranked (the
                   // Memory+Storage case), from the top down. ↗/↘ = 88 crossings.
+                  // Same intraday heat as the layers table: RS Day% in the top 5%
+                  // of layers → green name tint (bottom 5% → red), so today's
+                  // leaders read across both surfaces identically.
+                  const _dayVals = lys.filter((l) => l.rsDay != null).map((l) => l.rsDay).sort((a, b) => a - b);
+                  const dayPct = (v) => (v == null || !_dayVals.length) ? null : Math.round(_dayVals.filter((x) => x <= v).length / _dayVals.length * 100);
+                  const dayHeat = (l) => { const p = dayPct(l.rsDay); return p == null ? "transparent" : p >= 95 ? "rgba(13,145,99,0.32)" : p <= 5 ? "rgba(239,68,68,0.32)" : "transparent"; };
                   const weak = (l) => l.dlt <= -6 || ((l.now ?? 0) >= 88 && (l.regime === "yellow" || l.regime === "red"));
                   const risers = scored.filter((l) => !weak(l) && ((l.now ?? 0) >= 88 || l.dlt >= 6))
                     .map((l) => ({ ...l, _promo: l._base < 88 && l.now >= 88 }))
@@ -2348,10 +2354,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
                   const rowEl = (l, dir) => (
                     <div key={`${l.themeId}|${l.name}`} onClick={() => openLayerStay(l)}
-                      title={`${l.theme} · ${l.name} — rank ${l._base} → ${l.now} over ~2 weeks · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
+                      title={`${l.theme} · ${l.name} — rank ${l._base} → ${l.now} over ~2 weeks${l.rsDay != null ? ` · RS Day ${l.rsDay > 0 ? "+" : ""}${l.rsDay.toFixed(2)}%${dayPct(l.rsDay) >= 95 ? " (top 5% today)" : dayPct(l.rsDay) <= 5 ? " (bottom 5% today)" : ""}` : ""} · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
                       style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 8, fontFamily: "monospace", padding: "1px 0" }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: RC[l.regime] || ARIA.textMuted }} />
-                      <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: l._promo ? ARIA.text : ARIA.textDim, fontWeight: 700 }}>{l._promo ? (dir > 0 ? "↗ " : "↘ ") : ""}{l.name}</span>
+                      <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: l._promo ? ARIA.text : ARIA.textDim, fontWeight: 700, background: dayHeat(l), borderRadius: 2, padding: "0 2px" }}>{l._promo ? (dir > 0 ? "↗ " : "↘ ") : ""}{l.name}</span>
                       <span style={{ width: 44, flexShrink: 0, color: ARIA.textMuted }}>{l._base}→<span style={{ color: ARIA.text, fontWeight: 700 }}>{l.now}</span></span>
                       <div style={{ flex: 1, height: 6, position: "relative" }}>
                         <div style={{ position: "absolute", left: 0, top: 0, height: 6, borderRadius: 2, width: `${Math.abs(l.dlt) / maxD * 100}%`, background: dir > 0 ? ARIA.green + "cc" : ARIA.red + "cc" }} />
