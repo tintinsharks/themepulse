@@ -5,7 +5,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 96.08,
-  "last_seen": "2026-07-15"
+  "last_seen": "2026-07-16"
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -13,7 +13,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 432.74,
-  "last_seen": "2026-07-15"
+  "last_seen": "2026-07-16"
  },
  "SNDK": {
   "entered": "2026-07-02",
@@ -21,7 +21,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1900.7,
-  "last_seen": "2026-07-15"
+  "last_seen": "2026-07-16"
  },
  "MU": {
   "entered": "2026-07-02",
@@ -29,7 +29,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1017.79,
-  "last_seen": "2026-07-15"
+  "last_seen": "2026-07-16"
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -37,7 +37,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-15"
+  "last_seen": "2026-07-16"
  },
  "INTC": {
   "entered": "2026-07-02",
@@ -55,7 +55,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 144.65,
-  "last_seen": "2026-07-15",
+  "last_seen": "2026-07-16",
   "ondeck": false
  },
  "ABSI": {
@@ -65,7 +65,9 @@
   "layer": "Biotech Momentum",
   "peak": 11.62,
   "last_seen": "2026-07-10",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-07-16",
+  "exit_px": 9.76
  },
  "ANRO": {
   "entered": "2026-07-08",
@@ -88,7 +90,7 @@
   "px": 41.5,
   "layer": "Threat Operations",
   "peak": 42.65,
-  "last_seen": "2026-07-15",
+  "last_seen": "2026-07-16",
   "ondeck": true
  },
  "RPD": {
@@ -96,7 +98,7 @@
   "px": 12.56,
   "layer": "Threat Operations",
   "peak": 13.41,
-  "last_seen": "2026-07-15",
+  "last_seen": "2026-07-16",
   "ondeck": false
  },
  "AAOI": {
@@ -120,7 +122,7 @@
   "px": 355.64,
   "layer": "Platform + Endpoint",
   "peak": 355.64,
-  "last_seen": "2026-07-15",
+  "last_seen": "2026-07-16",
   "ondeck": true
  },
  "FTNT": {
@@ -128,7 +130,7 @@
   "px": 165.85,
   "layer": "Platform + Endpoint",
   "peak": 165.85,
-  "last_seen": "2026-07-15",
+  "last_seen": "2026-07-16",
   "ondeck": true
  }
 }
