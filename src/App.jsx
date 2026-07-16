@@ -1955,7 +1955,17 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             data-rk={rowKeyOf(r)} onClickCapture={() => { navIdxRef.current = ri; }}
             style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : ((getTag ? heldByLayer?.[`${r.themeId}|${r.name}`]?.length : heldSet?.has(r.ticker)) ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
             {rankCol && <td style={{ textAlign: r._tier ? "center" : "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r._tier ? <span title={r._tier === "L" ? "True leader — established name in a top layer" : "Emerging — quality name breaking into leadership"} style={{ fontSize: 10 }}>{r._tier === "L" ? "⭐" : "🌱"}</span> : r.lead}</td>}
-            <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.now} ARIA={ARIA} /></td>
+            <td style={{ textAlign: "right", padding: "2px 6px", whiteSpace: "nowrap" }}>
+              {/* Leader trend tell (4.5yr backtest): rank ≥88 + rank holding/rising
+                  vs 1w = +0.41%/5d (55% win); fading = +0.24%/5d but +1.18%/21d —
+                  weaker near-term, NOT a short. Level is the edge; trend is the timing. */}
+              {r.now != null && r.now >= 88 && r.w1 != null && (
+                r.now >= r.w1
+                  ? <span title="Rising/holding leader — rank ≥88 and not below its 1-week-ago rank. Backtest: +0.41%/5d alpha, 55% win — the strongest layer cohort." style={{ fontSize: 7, color: ARIA.green, marginRight: 2 }}>▲</span>
+                  : <span title="Fading leader — rank ≥88 but below its 1-week-ago rank (e.g. a 99 that's breaking down). Backtest: half the near-term alpha of rising leaders (+0.24%/5d) but still positive and +1.18%/21d — digestion more often than a top. Weaker near-term hold, not an exit signal by itself." style={{ fontSize: 7, color: ARIA.yellow, marginRight: 2 }}>▼</span>
+              )}
+              <RsRankBox v={r.now} ARIA={ARIA} />
+            </td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.d1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.w1} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><RsRankBox v={r.m1} ARIA={ARIA} /></td>
@@ -2595,6 +2605,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                     ) : (
                     <RsTable
                       key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
+                      initialSort={isLayerLike ? { key: "now", dir: "desc" } : undefined}
                       rows={stockRows}
                       sortable onTicker={isStockTab ? openTicker : openTicker} ARIA={ARIA}
                       rankCol={isStockTab}
