@@ -1900,8 +1900,11 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   // the rotation-specific extras; stock tabs append a live Setup badge.
   const coreCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["cr", "CR%"], ["eif", "EIF"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"]];
   const withRank = rankCol ? [["lead", rows.some((r) => r._tier) ? "◆" : "#"], ...coreCols, ["setup", "Setup"]] : coreCols;
-  const cols = getTag ? withRank.filter(([k]) => k !== "ticker") : withRank;
+  const cols = getTag
+    ? withRank.filter(([k]) => k !== "ticker").flatMap((c) => (c[0] === "eif" ? [c, ["b20", "B%"]] : [c]))
+    : withRank;
   const TITLES = {
+    b20: "Layer internals breadth: % of constituents above their own 20-day MA. Rank (NOW) is a trailing-return percentile and lags; internals firm up first — a layer at rank 55 with B% jumping is rising strength before the rank knows it. Hover a cell for near-high % and $vol share shift.",
     rsAcc1: "RS acceleration (day→week), LIVE: today's relative pace projected to a week (RS Day% × 5) minus the actual weekly relative return. High positive = fresh inflection TODAY (strong day after a quiet/weak week); negative = today lags its own week (extended or cooling).",
     rsRoc2: "RS acceleration (weekly→monthly): projects the last week's relative pace to a month (RS Wk% × 4.2) and subtracts the actual monthly relative return. Positive = relative strength accelerating; negative = rolling over.",
     zvr: "Normalized ZVR: signed relative volume (rel-vol × 100, negative on down days) averaged across the layer's constituents — count-independent, so layers of different sizes are comparable. Live during market hours.",
@@ -2012,6 +2015,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{Math.round(r.cr)}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.eif == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.eif >= 55 ? ARIA.green : ARIA.textDim, fontWeight: r.eif >= 55 ? 700 : 400 }}>{Math.round(r.eif)}</span>}</td>
+            {getTag && <td title={`Layer internals: % of constituents above their own 20dma${r.nh15 != null ? ` · ${r.nh15}% within 15% of 52w highs` : ""}${r.dshift != null ? ` · $vol share 5d vs 20d ${r.dshift > 0 ? "+" : ""}${r.dshift}%` : ""} — breadth firms up BEFORE the return-based rank moves`} style={{ textAlign: "right", padding: "2px 6px" }}>{r.b20 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.b20 >= 70 ? ARIA.green : r.b20 <= 30 ? ARIA.red : ARIA.textDim, fontWeight: r.b20 >= 70 || r.b20 <= 30 ? 700 : 400 }}>{r.b20}%</span>}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsMth)}</td>
             <td title={r.rsAcc1 == null ? undefined : `RS Acc¹ ${r.rsAcc1 > 0 ? "+" : ""}${r.rsAcc1.toFixed(1)} · ${acc1Pct.get(r)}th pct among ${getTag ? "layers" : "names"} — day pace vs its own week`}
@@ -2030,6 +2034,69 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
         })}
       </tbody>
     </table>
+  );
+}
+
+// Lean rank-history hook (10c writes ~90 sessions to rank_history.json) —
+// fuels the rotation lanes bump chart. Cached at module level per session.
+let _rkHistCache = null, _rkHistFetching = false;
+function useRankHistoryLean() {
+  const [h, setH] = useState(_rkHistCache);
+  useEffect(() => {
+    if (_rkHistCache || _rkHistFetching) return;
+    _rkHistFetching = true;
+    fetch("/data/rank_history.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j) { _rkHistCache = j; setH(j); } })
+      .catch(() => {});
+  }, []);
+  return h;
+}
+
+// ── Rotation lanes — bump chart of layer rank trajectories (last ~21 sessions).
+// Lanes are the current top layers; line color = the layer's structural regime
+// (green intact / amber deteriorating / red broken). Crossings ARE the rotation.
+function RotationLanes({ hist, layers, onLayer, ARIA }) {
+  if (!hist || !layers?.length) return null;
+  const dates = Object.keys(hist).sort().slice(-21);
+  if (dates.length < 5) return null;
+  const lkey = (l) => `${l.themeId}|${l.name}`;
+  const lanes = [...layers].sort((a, b) => (b.now ?? -1) - (a.now ?? -1)).slice(0, 12)
+    .map((l) => ({ l, vals: dates.map((d) => hist[d]?.layers?.[lkey(l)]) }))
+    .filter((x) => x.vals.filter((v) => v != null).length >= 5);
+  if (!lanes.length) return null;
+  const W = 920, H = 130, padL = 4, padR = 150, padY = 8;
+  const x = (i) => padL + (i / (dates.length - 1)) * (W - padL - padR);
+  const y = (v) => padY + (1 - v / 100) * (H - 2 * padY);
+  const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+  // stagger right-edge labels to avoid collisions
+  const ends = lanes.map((x_) => { const vs = x_.vals.filter((v) => v != null); return { ...x_, endV: vs[vs.length - 1] }; })
+    .sort((a, b) => b.endV - a.endV);
+  let lastY = -99;
+  ends.forEach((e) => { let ly = y(e.endV); if (ly - lastY < 9) ly = lastY + 9; e.labelY = ly; lastY = ly; });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxWidth: W, height: H, display: "block" }}>
+      {[88, 50].map((g) => (
+        <g key={g}>
+          <line x1={padL} y1={y(g)} x2={W - padR} y2={y(g)} stroke={ARIA.border} strokeWidth={0.6} strokeDasharray="3 3" opacity={0.6} />
+          <text x={padL + 2} y={y(g) - 2} fontSize="6.5" fill={ARIA.textMuted} fontFamily="monospace">{g === 88 ? "leadership (88)" : "50"}</text>
+        </g>
+      ))}
+      {ends.map(({ l, vals, endV, labelY }) => {
+        const pts = vals.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`)).filter(Boolean).join(" ");
+        const c = RC[l.regime] || ARIA.blue;
+        return (
+          <g key={lkey(l)} style={{ cursor: "pointer" }} onClick={() => onLayer?.(l)}>
+            <polyline points={pts} fill="none" stroke={c} strokeWidth={l.now >= 88 ? 1.6 : 1} opacity={l.now >= 88 ? 0.95 : 0.55}>
+              <title>{`${l.name} — rank ${vals.find((v) => v != null)} → ${endV} over ${dates.length} sessions · structure ${l.regime || "—"} (click to load)`}</title>
+            </polyline>
+            <text x={W - padR + 6} y={labelY + 2} fontSize="7" fontWeight="700" fill={c} fontFamily="monospace" style={{ cursor: "pointer" }}>
+              {endV} {l.name.length > 16 ? l.name.slice(0, 15) + "…" : l.name}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -2149,6 +2216,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const zvrUniverse = useMemo(() => (open && layerHolds ? layerHolds.map((h) => h.t) : []), [open, layerHolds]);
   const { cur: zvrMap } = useZVR(zvrUniverse);
   const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
+  const rankHistLean = useRankHistoryLean(); // rank trajectories for the rotation lanes
   const qqqRet = useBenchReturns("QQQ"); // Tech tab: convert Wk/Mth columns to vs-QQQ
   const [pfList] = useLocalStorageList("themepulse-portfolio"); // held names → 💼 markers
   if (!d) return null; // all hooks run above this guard
@@ -2386,6 +2454,44 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 {moversOpen && (
                   <PlaybookBoard d={d} quotes={liveQuotes} stockMap={stockMap} heldByLayer={heldByLayer} wAdjTech={(spyRet?.["1w"] != null && qqqRet?.["1w"] != null) ? spyRet["1w"] - qqqRet["1w"] : null} onLayer={openLayerStay} ARIA={ARIA} />
                 )}
+              </div>
+            );
+          })()}
+          {/* ── Rotation: OUT → IN strip + rank-trajectory lanes ──
+              OUT = high-rank layers whose structure has gone yellow/red (money
+              leaving); IN = sub-88 structurally-green layers climbing rank
+              fastest (destinations). Watch/prep context — per the layer
+              backtest, entries only pay AFTER leadership (rank ≥88). */}
+          {(() => {
+            const lys = d.layers || [];
+            if (!lys.length) return null;
+            const outL = lys.filter((l) => (l.now ?? 0) >= 88 && (l.regime === "yellow" || l.regime === "red"))
+              .sort((a, b) => (b.now ?? 0) - (a.now ?? 0)).slice(0, 4);
+            let inL = lys.filter((l) => (l.now ?? 0) < 88 && l.regime === "green" && l.w1 != null && l.now - l.w1 >= 8)
+              .sort((a, b) => (b.now - b.w1) - (a.now - a.w1)).slice(0, 4);
+            if (!inL.length) inL = lys.filter((l) => (l.now ?? 0) < 88 && l.regime === "green" && l.w1 != null && l.now - l.w1 >= 5)
+              .sort((a, b) => (b.now - b.w1) - (a.now - a.w1)).slice(0, 3);
+            const chip = (l, col) => (
+              <button key={`${l.themeId}|${l.name}`} onClick={() => openLayerStay(l)}
+                title={`${l.theme} · ${l.name} — rank ${l.now}${l.w1 != null ? ` (1w ago ${l.w1})` : ""} · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
+                style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 6px", borderRadius: 3, color: col, background: `${col}14`, border: `1px solid ${col}44` }}>
+                {l.name} {l.now}
+              </button>
+            );
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {(outL.length > 0 || inL.length > 0) && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", fontSize: 8, fontFamily: "monospace" }}>
+                    <span title="Rotation read: OUT = rank ≥88 with deteriorating/broken structure · IN = sub-88, structure intact, climbing rank fastest (≥8 pts/wk). Prep context — entries pay after leadership, not before."
+                      style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textMuted, cursor: "help" }}>Rotation</span>
+                    <span style={{ color: ARIA.red, fontWeight: 700 }}>OUT</span>
+                    {outL.length ? outL.map((l) => chip(l, ARIA.red)) : <span style={{ color: ARIA.textMuted }}>—</span>}
+                    <span style={{ color: ARIA.textMuted, margin: "0 3px" }}>→</span>
+                    <span style={{ color: ARIA.green, fontWeight: 700 }}>IN</span>
+                    {inL.length ? inL.map((l) => chip(l, ARIA.green)) : <span style={{ color: ARIA.textMuted }}>—</span>}
+                  </div>
+                )}
+                <RotationLanes hist={rankHistLean} layers={lys} onLayer={openLayerStay} ARIA={ARIA} />
               </div>
             );
           })()}
