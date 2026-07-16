@@ -2333,11 +2333,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   return (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Leaders + Rising — strongest first · ↗ = crossed 88 (2wk)</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Leaders + Rising — strongest first · ↗ = crossed 88 · cols: Δrank 2wk | RS this wk (⚠ = they disagree)</div>
                         {risers.map((l) => rowEl(l, 1))}
                       </div>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Weakening + Falling — from the top · ↘ = lost 88 · incl. leaders w/ broken structure</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Weakening + Falling — from the top · ↘ = lost 88 · cols: Δrank 2wk | RS this wk</div>
                         {fallers.map((l) => rowEl(l, -1))}
                       </div>
                     </div>
