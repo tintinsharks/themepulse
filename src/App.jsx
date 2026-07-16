@@ -2436,14 +2436,18 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   // tradeable rotation events (layer backtest: entries pay after
                   // leadership) — pin them first. Percentile compression otherwise
                   // buries them: 79→98 (+19) is a bigger deal than 14→65 (+51).
-                  // Rising ordered by DESTINATION (current rank) — rising names
-                  // ranked by proximity to/into leadership, so a 70→86 knocking on
-                  // the door outranks a 14→65 churner. Falling ordered by ORIGIN
-                  // (how high it fell from). ↗/↘ mark actual 88-line crossings.
-                  const mark = (l) => ({ ...l, _promo: l._base < 88 && l.now >= 88 });
-                  const markD = (l) => ({ ...l, _promo: l._base >= 88 && l.now < 88 });
-                  const risers = scored.filter((l) => l.dlt >= 6).map(mark).sort((a, b) => b.now - a.now).slice(0, 12);
-                  const fallers = scored.filter((l) => l.dlt <= -6).map(markD).sort((a, b) => b._base - a._base).slice(0, 12);
+                  // Left = the strength stack: current leaders (≥88, structure not
+                  // deteriorating) + risers (Δ2wk ≥ +6), strongest first. Right =
+                  // the weakness stack: decliners (Δ2wk ≤ −6) + leaders whose
+                  // structure has gone yellow/red even while still ranked (the
+                  // Memory+Storage case), from the top down. ↗/↘ = 88 crossings.
+                  const weak = (l) => l.dlt <= -6 || ((l.now ?? 0) >= 88 && (l.regime === "yellow" || l.regime === "red"));
+                  const risers = scored.filter((l) => !weak(l) && ((l.now ?? 0) >= 88 || l.dlt >= 6))
+                    .map((l) => ({ ...l, _promo: l._base < 88 && l.now >= 88 }))
+                    .sort((a, b) => b.now - a.now).slice(0, 14);
+                  const fallers = scored.filter(weak)
+                    .map((l) => ({ ...l, _promo: l._base >= 88 && l.now < 88 }))
+                    .sort((a, b) => Math.max(b._base, b.now) - Math.max(a._base, a.now)).slice(0, 14);
                   if (!risers.length && !fallers.length) return null;
                   const maxD = Math.max(...risers.map((l) => l.dlt), ...fallers.map((l) => -l.dlt), 10);
                   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
@@ -2457,17 +2461,17 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                       <div style={{ flex: 1, height: 6, position: "relative" }}>
                         <div style={{ position: "absolute", left: 0, top: 0, height: 6, borderRadius: 2, width: `${Math.abs(l.dlt) / maxD * 100}%`, background: dir > 0 ? ARIA.green + "cc" : ARIA.red + "cc" }} />
                       </div>
-                      <span style={{ width: 28, flexShrink: 0, textAlign: "right", fontWeight: 800, color: dir > 0 ? ARIA.green : ARIA.red }}>{l.dlt > 0 ? "+" : ""}{l.dlt}</span>
+                      <span style={{ width: 28, flexShrink: 0, textAlign: "right", fontWeight: 800, color: l.dlt > 0 ? ARIA.green : l.dlt < 0 ? ARIA.red : ARIA.textMuted }}>{l.dlt > 0 ? "+" : ""}{l.dlt}</span>
                     </div>
                   );
                   return (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Rising — Δ2wk ≥ +6, nearest leadership first · ↗ = crossed 88</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Leaders + Rising — strongest first · ↗ = crossed 88 (2wk)</div>
                         {risers.map((l) => rowEl(l, 1))}
                       </div>
                       <div>
-                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Falling — Δ2wk ≤ −6, highest origin first · ↘ = lost 88</div>
+                        <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red, marginBottom: 2 }}>Weakening + Falling — from the top · ↘ = lost 88 · incl. leaders w/ broken structure</div>
                         {fallers.map((l) => rowEl(l, -1))}
                       </div>
                     </div>
