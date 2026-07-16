@@ -2394,12 +2394,19 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   const isNew = (l) => !!prevSet && !prevSet.has(`${l.themeId}|${l.name}`);
                   const maxD = Math.max(...risers.map((l) => l.dlt), ...fallers.map((l) => -l.dlt), 10);
                   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
-                  const rowEl = (l, dir) => (
+                  const rowEl = (l, dir) => {
+                    // Leader red day = dip-buy, not a crack: the layer backtest
+                    // found green-structure leaders' weak days paid (+1.18%/21d
+                    // even on fading leaders). The red heat tint alone reads as
+                    // a warning — flip it when structure is intact.
+                    const _dp = dayPct(l.rsDay);
+                    const dip = dir > 0 && l.regime === "green" && (l.now ?? 0) >= 88 && _dp != null && _dp <= 5;
+                    return (
                     <div key={`${l.themeId}|${l.name}`} onClick={() => openLayerStay(l)}
                       title={`${l.theme} · ${l.name} — rank ${l._base} → ${l.now} over ~2 weeks${l.rsDay != null ? ` · RS Day ${l.rsDay > 0 ? "+" : ""}${l.rsDay.toFixed(2)}%${dayPct(l.rsDay) >= 95 ? " (top 5% today)" : dayPct(l.rsDay) <= 5 ? " (bottom 5% today)" : ""}` : ""} · structure ${l.regime || "—"}${l.b20 != null ? ` · ${l.b20}% above 20dma` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}%` : ""} (click to load)`}
                       style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 8, fontFamily: "monospace", padding: "1px 0" }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: RC[l.regime] || ARIA.textMuted }} />
-                      <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontWeight: 700, background: dayHeat(l), borderRadius: 2, padding: "0 2px" }}>{l._promo ? (dir > 0 ? "↗ " : "↘ ") : ""}{l.name}{isNew(l) && <span title="new on the board today (was not here last session)" style={{ color: ARIA.cyan, fontWeight: 800 }}> •</span>}</span>
+                      <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontWeight: 700, background: dayHeat(l), borderRadius: 2, padding: "0 2px" }}>{l._promo ? (dir > 0 ? "↗ " : "↘ ") : ""}{l.name}{isNew(l) && <span title="new on the board today (was not here last session)" style={{ color: ARIA.cyan, fontWeight: 800 }}> •</span>}{dip && <span title="DIP-BUY tell: red day on a structurally intact leader (green regime, rank ≥88, bottom 5% RS today). Layer backtest: leaders’ red days are dip-buys, not cracks." style={{ color: ARIA.green, fontWeight: 800 }}> ◦</span>}</span>
                       <span style={{ width: 44, flexShrink: 0, color: ARIA.textMuted }}>{l._base}→<span style={{ color: ARIA.text, fontWeight: 700 }}>{l.now}</span></span>
                       <div style={{ flex: 1, height: 6, position: "relative" }}>
                         <div style={{ position: "absolute", left: 0, top: 0, height: 6, borderRadius: 2, width: `${Math.abs(l.dlt) / maxD * 100}%`, background: dir > 0 ? ARIA.green + "cc" : ARIA.red + "cc" }} />
@@ -2427,7 +2434,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                         );
                       })()}
                     </div>
-                  );
+                    );
+                  };
                   return (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                       <div>
