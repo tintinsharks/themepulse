@@ -11260,7 +11260,10 @@ function ChartScanRow({
         marginBottom: 8,
       }}
     >
-      <div style={{ flex: 1, minWidth: 0, alignSelf: "flex-start" }}>
+      {/* Left column (chart) pinned: sticks to the viewport and scrolls its own
+          content internally, so the graph stays put while the right column
+          (rotation + scan) scrolls independently. */}
+      <div style={{ flex: 1, minWidth: 0, position: "sticky", top: 0, alignSelf: "flex-start", maxHeight: "100vh", overflowY: "auto", overscrollBehavior: "contain" }}>
         <ChartPanelInline
           ticker={chartTicker}
           onTickerChange={handleTickerClick}
