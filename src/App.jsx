@@ -2252,9 +2252,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             if (!lys.length) return null;
             const outL = lys.filter((l) => (l.now ?? 0) >= 88 && (l.regime === "yellow" || l.regime === "red"))
               .sort((a, b) => (b.now ?? 0) - (a.now ?? 0)).slice(0, 4);
-            let inL = lys.filter((l) => (l.now ?? 0) < 88 && l.regime === "green" && l.w1 != null && l.now - l.w1 >= 8)
+            const wkOk = (l) => l.rsWk == null || l.rsWk > 0; // current week must agree
+            let inL = lys.filter((l) => (l.now ?? 0) < 88 && l.regime === "green" && l.w1 != null && l.now - l.w1 >= 8 && wkOk(l))
               .sort((a, b) => (b.now - b.w1) - (a.now - a.w1)).slice(0, 4);
-            if (!inL.length) inL = lys.filter((l) => (l.now ?? 0) < 88 && l.regime === "green" && l.w1 != null && l.now - l.w1 >= 5)
+            if (!inL.length) inL = lys.filter((l) => (l.now ?? 0) < 88 && l.regime === "green" && l.w1 != null && l.now - l.w1 >= 5 && wkOk(l))
               .sort((a, b) => (b.now - b.w1) - (a.now - a.w1)).slice(0, 3);
             const chip = (l, col) => (
               <button key={`${l.themeId}|${l.name}`} onClick={() => openLayerStay(l)}
@@ -2311,6 +2312,22 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                         <div style={{ position: "absolute", left: 0, top: 0, height: 6, borderRadius: 2, width: `${Math.abs(l.dlt) / maxD * 100}%`, background: dir > 0 ? ARIA.green + "cc" : ARIA.red + "cc" }} />
                       </div>
                       <span style={{ width: 28, flexShrink: 0, textAlign: "right", fontWeight: 800, color: l.dlt > 0 ? ARIA.green : l.dlt < 0 ? ARIA.red : ARIA.textMuted }}>{l.dlt > 0 ? "+" : ""}{l.dlt}</span>
+                      {(() => {
+                        // Current-week RS (continuous, no percentile compression) as
+                        // confirmation: does THIS week agree with the rank move?
+                        const wk = l.rsWk;
+                        const acc2 = (wk != null && l.rsMth != null) ? wk * 4.2 - l.rsMth : null;
+                        const wkC = wk == null ? ARIA.textMuted : wk >= 1.5 ? ARIA.green : wk <= -1.5 ? ARIA.red : ARIA.textDim;
+                        const diverges = wk != null && ((dir > 0 && wk <= -1.5) || (dir < 0 && wk >= 1.5));
+                        return (
+                          <span title={`RS Wk ${wk != null ? (wk > 0 ? "+" : "") + wk.toFixed(1) + "%" : "—"} vs SPY (this week, continuous)${l.rsMth != null ? ` · RS Mth ${l.rsMth > 0 ? "+" : ""}${l.rsMth.toFixed(1)}%` : ""}${acc2 != null ? ` · Acc² ${acc2 > 0 ? "+" : ""}${acc2.toFixed(0)} (${acc2 >= 5 ? "accelerating" : acc2 <= -5 ? "decelerating" : "steady"})` : ""}${diverges ? " · ⚠ DIVERGES from the rank move — this week disagrees" : " — confirms"}`}
+                            style={{ width: 46, flexShrink: 0, textAlign: "right", fontFamily: "monospace", fontSize: 7.5, color: wkC, fontWeight: wk != null && Math.abs(wk) >= 1.5 ? 700 : 400 }}>
+                            {wk != null ? `${wk > 0 ? "+" : ""}${wk.toFixed(1)}%` : "—"}
+                            {acc2 != null && Math.abs(acc2) >= 5 && <span style={{ marginLeft: 1, color: acc2 > 0 ? ARIA.green : ARIA.red }}>{acc2 > 0 ? "⤴" : "⤵"}</span>}
+                            {diverges && <span style={{ marginLeft: 1, color: ARIA.yellow }}>⚠</span>}
+                          </span>
+                        );
+                      })()}
                     </div>
                   );
                   return (
