@@ -2359,23 +2359,22 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                       <span style={{ width: 28, flexShrink: 0, textAlign: "right", fontWeight: 800, color: l.dlt > 0 ? ARIA.green : l.dlt < 0 ? ARIA.red : ARIA.textMuted }}>{l.dlt > 0 ? "+" : ""}{l.dlt}</span>
                       {(() => {
                         // Current-week RS (continuous, no percentile compression) as
-                        // confirmation: does THIS week agree with the rank move?
+                        // confirmation. Tidy fixed columns: wk% + ONE flag slot
+                        // (⚠ divergence beats $ money-flow; accel lives in the tooltip).
                         const wk = l.rsWk;
                         const acc2 = (wk != null && l.rsMth != null) ? wk * 4.2 - l.rsMth : null;
                         const wkC = wk == null ? ARIA.textMuted : wk >= 1.5 ? ARIA.green : wk <= -1.5 ? ARIA.red : ARIA.textDim;
                         const diverges = wk != null && ((dir > 0 && wk <= -1.5) || (dir < 0 && wk >= 1.5));
+                        const money = l.dshift != null && l.dshift >= 15;
+                        const tip = `RS Wk ${wk != null ? (wk > 0 ? "+" : "") + wk.toFixed(1) + "%" : "—"} vs SPY (this week)${l.rsMth != null ? ` · Mth ${l.rsMth > 0 ? "+" : ""}${l.rsMth.toFixed(1)}%` : ""}${acc2 != null ? ` · ${acc2 >= 5 ? "accelerating" : acc2 <= -5 ? "decelerating" : "steady pace"}` : ""}${l.dshift != null ? ` · $vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}% (5d vs 20d)` : ""}${diverges ? " · ⚠ this week DISAGREES with the rank move" : ""}`;
                         return (
                           <>
-                          <span title={`RS Wk ${wk != null ? (wk > 0 ? "+" : "") + wk.toFixed(1) + "%" : "—"} vs SPY (this week, continuous)${l.rsMth != null ? ` · RS Mth ${l.rsMth > 0 ? "+" : ""}${l.rsMth.toFixed(1)}%` : ""}${acc2 != null ? ` · Acc² ${acc2 > 0 ? "+" : ""}${acc2.toFixed(0)} (${acc2 >= 5 ? "accelerating" : acc2 <= -5 ? "decelerating" : "steady"})` : ""}${diverges ? " · ⚠ DIVERGES from the rank move — this week disagrees" : " — confirms"}`}
-                            style={{ width: 46, flexShrink: 0, textAlign: "right", fontFamily: "monospace", fontSize: 7.5, color: wkC, fontWeight: wk != null && Math.abs(wk) >= 1.5 ? 700 : 400 }}>
-                            {wk != null ? `${wk > 0 ? "+" : ""}${wk.toFixed(1)}%` : "—"}
-                            {acc2 != null && Math.abs(acc2) >= 5 && <span style={{ marginLeft: 1, color: acc2 > 0 ? ARIA.green : ARIA.red }}>{acc2 > 0 ? "⤴" : "⤵"}</span>}
-                            {diverges && <span style={{ marginLeft: 1, color: ARIA.yellow }}>⚠</span>}
-                          </span>
-                          {l.dshift != null && Math.abs(l.dshift) >= 15 && (
-                            <span title={`$vol share ${l.dshift > 0 ? "+" : ""}${l.dshift}% (5d vs 20d) — ${l.dshift > 0 ? "money flowing IN ahead of price" : "attention leaving"}`}
-                              style={{ flexShrink: 0, fontSize: 7, fontWeight: 800, color: l.dshift > 0 ? ARIA.green : ARIA.textMuted }}>{l.dshift > 0 ? "$↑" : "$↓"}</span>
-                          )}
+                            <span title={tip} style={{ width: 40, flexShrink: 0, textAlign: "right", fontFamily: "monospace", fontSize: 7.5, color: wkC, fontWeight: wk != null && Math.abs(wk) >= 1.5 ? 700 : 400 }}>
+                              {wk != null ? `${wk > 0 ? "+" : ""}${wk.toFixed(1)}%` : "—"}
+                            </span>
+                            <span title={tip} style={{ width: 11, flexShrink: 0, textAlign: "center", fontSize: 7.5, fontWeight: 800, color: diverges ? ARIA.yellow : ARIA.green }}>
+                              {diverges ? "⚠" : money ? "$" : ""}
+                            </span>
                           </>
                         );
                       })()}
