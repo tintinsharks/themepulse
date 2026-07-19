@@ -1075,6 +1075,7 @@ function MagnaDetail({ ticker, mv, stockMap, ARIA, onClose, onChart }) {
 // right panel. (The regime price graph itself was removed 2026-07 — the ticker
 // chart covers charting; this box is now the list + tables container.)
 function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint, erDetail, onErClose }) {
+  const deckSet = useOnDeckSet();
   const ARIA = useAriaTheme();
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
   const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort (default RS desc)
@@ -1218,8 +1219,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
                       const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
                       const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
                       return (
-                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); conListRef.current?.focus({ preventScroll: true }); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click, then ↑/↓ to step through)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
-                          onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
+                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); conListRef.current?.focus({ preventScroll: true }); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click, then ↑/↓ to step through)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
+                          onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                           <span style={{ color: rc, flex: 1, textAlign: "right", fontWeight: h.s != null && h.s >= 88 ? 700 : 400 }}>{h.s ?? "—"}</span>
                           <span style={{ color: chgC, width: 34, textAlign: "right", flexShrink: 0 }}>{chg == null ? "—" : (chg > 0 ? "+" : "") + chg.toFixed(1)}</span>
@@ -1725,6 +1726,7 @@ function RsRankBox({ v, ARIA }) {
 }
 
 function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTag, onLayerSelect, activeKey, rankCol = false, initialSort, onNameLayer, heldSet, heldByLayer }) {
+  const deckSet = useOnDeckSet();
   const [sort, setSort] = useState(initialSort || { key: "rsDay", dir: "desc" });
   const rowKeyOf = (r) => (getTag ? `${r.themeId}|${r.name}` : r.ticker);
   const activeRowRef = useRef(null);
@@ -1844,7 +1846,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
           return (
           <tr key={`${r.ticker}|${r.name || ""}|${r.theme || ""}`} ref={isActive ? activeRowRef : null}
             data-rk={rowKeyOf(r)} onClickCapture={() => { navIdxRef.current = ri; }}
-            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : ((getTag ? heldByLayer?.[`${r.themeId}|${r.name}`]?.length : heldSet?.has(r.ticker)) ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
+            style={{ borderBottom: `1px solid ${ARIA.border}40`, background: isActive ? ARIA.blue + "26" : (!getTag && deckSet.has(r.ticker)) ? ARIA.gold + "2e" : ((getTag ? heldByLayer?.[`${r.themeId}|${r.name}`]?.length : heldSet?.has(r.ticker)) ? ARIA.yellow + "14" : "transparent"), boxShadow: isActive ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}>
             {rankCol && <td style={{ textAlign: r._tier ? "center" : "right", padding: "2px 6px", color: ARIA.textMuted, fontWeight: 700 }}>{r._tier ? <span title={r._tier === "L" ? "True leader — established name in a top layer" : "Emerging — quality name breaking into leadership"} style={{ fontSize: 10 }}>{r._tier === "L" ? "⭐" : "🌱"}</span> : r.lead}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px", whiteSpace: "nowrap" }}>
               {/* Leader trend tell (4.5yr backtest): rank ≥88 + rank holding/rising
@@ -6779,7 +6781,7 @@ const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // mirrors server-side filter
 const ANALYZED_MAX = 50;
 
 function emptyServerState() {
-  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], updated_at: null };
+  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], ondeck: [], updated_at: null };
 }
 
 function loadCachedState() {
@@ -6861,6 +6863,7 @@ async function _pushToServer() {
         watchlist: s.watchlist,
         portfolio: s.portfolio,
         focus: s.focus,
+        ondeck: s.ondeck,
       }),
     });
     if (!r.ok) return;
@@ -7026,6 +7029,8 @@ function useLocalStorageList(key) {
       ? "portfolio"
       : key === "themepulse-focus"
       ? "focus"
+      : key === "themepulse-ondeck"
+      ? "ondeck"
       : null;
   const list = field ? state[field] || [] : [];
   const update = useCallback(
@@ -7050,18 +7055,28 @@ function useOwnedTint() {
   const [portfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist] = useLocalStorageList("themepulse-watchlist");
   const [focus] = useLocalStorageList("themepulse-focus");
+  const [ondeck] = useLocalStorageList("themepulse-ondeck");
   return useMemo(() => {
     const pf = new Set(portfolio);
     const wl = new Set(watchlist);
     const fc = new Set(focus);
+    const od = new Set(ondeck);
     return (ticker, ARIA) => {
       if (!ticker) return "transparent";
+      if (od.has(ticker)) return `${ARIA.gold}2e`;
       if (pf.has(ticker)) return `${ARIA.yellow}1f`;
       if (fc.has(ticker)) return `${ARIA.cyan}1f`;
       if (wl.has(ticker)) return `${ARIA.green}1f`;
       return "transparent";
     };
-  }, [portfolio, watchlist, focus]);
+  }, [portfolio, watchlist, focus, ondeck]);
+}
+
+// On Deck membership as a Set — for tables that tint rows without the full
+// owned-tint hook (RsTable, constituents strip, watch panel). Gold beats all.
+function useOnDeckSet() {
+  const [ondeck] = useLocalStorageList("themepulse-ondeck");
+  return useMemo(() => new Set(ondeck), [ondeck]);
 }
 
 // Aria-style colored mini-badge (used in chart header for 9M / VOL / HI / Grade)
@@ -9485,8 +9500,10 @@ function WatchlistSectionTable({
   removeTicker,
   tickerStrengthMap,
   onChainClick,
+  promoteTicker,
 }) {
   const ARIA = useAriaTheme();
+  const deckSet = useOnDeckSet();
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
@@ -9623,7 +9640,7 @@ function WatchlistSectionTable({
             userSelect: "none",
           }}
         >
-          {collapsed ? "▶" : "▼"} {list === "portfolio" ? "Portfolio" : list === "focus" ? "⚡ Focus" : "Watchlist"}
+          {collapsed ? "▶" : "▼"} {list === "portfolio" ? "Portfolio" : list === "ondeck" ? "◆ On Deck" : list === "focus" ? "⚡ Focus" : "Watchlist"}
         </span>
         <span style={{ color: ARIA.textMuted, fontSize: 9 }}>({count})</span>
         {rows.length < count && (
@@ -9756,14 +9773,14 @@ function WatchlistSectionTable({
                     }}
                     style={{
                       cursor: "pointer",
-                      background: isSel ? `${ARIA.cyan}26` : "transparent",
+                      background: isSel ? `${ARIA.cyan}26` : deckSet.has(r.ticker) ? `${ARIA.gold}1f` : "transparent",
                       borderLeft: "2px solid transparent",
                     }}
                     onMouseEnter={(e) => {
                       if (!isSel) e.currentTarget.style.background = ARIA.bgHover;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : "transparent";
+                      e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : deckSet.has(r.ticker) ? `${ARIA.gold}1f` : "transparent";
                     }}
                   >
                     <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text }}>
@@ -9824,13 +9841,22 @@ function WatchlistSectionTable({
                         ? <span title={r.setup.desc} style={{ fontSize: 7, fontWeight: 800, color: r.setup.color, background: `${r.setup.color}1f`, border: `1px solid ${r.setup.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>{r.setup.key}</span>
                         : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>{"\u2014"}</span>}
                     </td>
-                    <td style={{ ...cell, padding: "2px 4px" }}>
+                    <td style={{ ...cell, padding: "2px 4px", whiteSpace: "nowrap" }}>
+                      {promoteTicker && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); promoteTicker(r.ticker); }}
+                          title="Promote to On Deck — next in line to buy (moves out of Focus, gold-highlighted everywhere)"
+                          style={{ background: "transparent", border: "none", color: ARIA.gold, cursor: "pointer", fontSize: 10, padding: 0, marginRight: 4, lineHeight: 1 }}
+                        >
+                          ◆
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           removeTicker(list, r.ticker);
                         }}
-                        title="Remove"
+                        title={list === "ondeck" ? "Send back to Focus" : "Remove"}
                         style={{
                           background: "transparent",
                           border: "none",
@@ -9867,6 +9893,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
   const [focus, setFocus] = useLocalStorageList("themepulse-focus");
+  const [ondeck, setOndeck] = useLocalStorageList("themepulse-ondeck");
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
   const [chgPosFilter, setChgPosFilter] = useState(
     () => localStorage.getItem("themepulse-pw-chgpos") === "true"
@@ -9902,11 +9929,21 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   const addManyFocus = useCallback((tks) => {
     setFocus((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
   }, [setFocus]);
+  // On Deck is a tier ABOVE Focus, picked from it: promoting moves the ticker
+  // up (out of Focus), removing from On Deck sends it back down to Focus.
+  const addManyOndeck = useCallback((tks) => {
+    setOndeck((prev) => { const s = new Set(prev); tks.forEach((t) => s.add(t)); return [...s]; });
+    setFocus((prev) => prev.filter((x) => !tks.includes(x)));
+  }, [setOndeck, setFocus]);
+  const promoteToDeck = useCallback((t) => addManyOndeck([t]), [addManyOndeck]);
   const removeTicker = useCallback((list, t) => {
     if (list === "portfolio") {
       setPortfolio((prev) => prev.filter((x) => x !== t));
     } else if (list === "focus") {
       setFocus((prev) => prev.filter((x) => x !== t));
+    } else if (list === "ondeck") {
+      setOndeck((prev) => prev.filter((x) => x !== t));
+      setFocus((prev) => (prev.includes(t) ? prev : [...prev, t]));
     } else {
       setWatchlist((prev) => prev.filter((x) => x !== t));
     }
@@ -9914,9 +9951,9 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
 
   // Live quotes for all unique tickers
   const allTickers = useMemo(() => {
-    const set = new Set([...portfolio, ...focus, ...watchlist, "SPY"]); // SPY for RS Day% vs-market
+    const set = new Set([...portfolio, ...ondeck, ...focus, ...watchlist, "SPY"]); // SPY for RS Day% vs-market
     return Array.from(set);
-  }, [portfolio, focus, watchlist]);
+  }, [portfolio, ondeck, focus, watchlist]);
   const { quotes } = useLiveQuotes(allTickers, 60000);
 
   // Per-row data merging static + live
@@ -10008,6 +10045,10 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   const focusRows = useMemo(
     () => focus.map(buildRow),
     [focus, buildRow]
+  );
+  const ondeckRows = useMemo(
+    () => ondeck.map(buildRow),
+    [ondeck, buildRow]
   );
   const watchRows = useMemo(
     () => watchlist.map(buildRow),
@@ -10644,7 +10685,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
       {/* ⚠ Earnings-risk sweep — held names reporting within 5 trading days.
           Zanger: sell a full day before ER; Ryan: never hold size through it. */}
       {(() => {
-        const held = [...new Set([...portfolio, ...focus])];
+        const held = [...new Set([...portfolio, ...ondeck, ...focus])];
         const atRisk = held
           .map((t) => ({ t, d: stockMap?.[t]?.earnings_days, timing: stockMap?.[t]?.er_timing || "" }))
           .filter((x) => x.d != null && x.d >= 0 && x.d <= 5)
@@ -10655,7 +10696,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             <span style={{ fontSize: 8, fontWeight: 800, color: ARIA.red, textTransform: "uppercase", letterSpacing: 0.4 }}>⚠ Earnings risk</span>
             {atRisk.map((x) => (
               <span key={x.t} onClick={() => onTickerClick && onTickerClick(x.t)}
-                title={`${x.t} reports in ${x.d === 0 ? "0 days (TODAY)" : `${x.d} day${x.d > 1 ? "s" : ""}`}${x.timing ? ` ${x.timing}` : ""} — you hold it (${portfolio.includes(x.t) ? "portfolio" : "focus"}). Zanger: sell a full day before; Ryan: never hold size through earnings.`}
+                title={`${x.t} reports in ${x.d === 0 ? "0 days (TODAY)" : `${x.d} day${x.d > 1 ? "s" : ""}`}${x.timing ? ` ${x.timing}` : ""} — you hold it (${portfolio.includes(x.t) ? "portfolio" : ondeck.includes(x.t) ? "on deck" : "focus"}). Zanger: sell a full day before; Ryan: never hold size through earnings.`}
                 style={{ cursor: "pointer", fontSize: 8, fontWeight: 700, color: ARIA.red, border: `1px solid ${ARIA.red}66`, background: "rgba(239,68,68,0.12)", borderRadius: 3, padding: "1px 6px" }}>
                 {x.t} {x.d === 0 ? "TODAY" : `${x.d}d`}{x.timing ? ` ${x.timing}` : ""}
               </span>
@@ -10692,6 +10733,18 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             onChainClick={onChainClick}
           />
           <WatchlistSectionTable
+            rows={chgPosFilter ? ondeckRows.filter((r) => (r.change || 0) > 0) : ondeckRows}
+            accent={ARIA.gold}
+            list="ondeck"
+            count={ondeck.length}
+            onAddMany={addManyOndeck}
+            universe={universeSet}
+            onTickerClick={onTickerClick}
+            removeTicker={removeTicker}
+            tickerStrengthMap={tickerStrengthMap}
+            onChainClick={onChainClick}
+          />
+          <WatchlistSectionTable
             rows={chgPosFilter ? focusRows.filter((r) => (r.change || 0) > 0) : focusRows}
             accent={ARIA.cyan}
             list="focus"
@@ -10702,6 +10755,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             removeTicker={removeTicker}
             tickerStrengthMap={tickerStrengthMap}
             onChainClick={onChainClick}
+            promoteTicker={promoteToDeck}
           />
           <WatchlistSectionTable
             rows={chgPosFilter ? watchRows.filter((r) => (r.change || 0) > 0) : watchRows}

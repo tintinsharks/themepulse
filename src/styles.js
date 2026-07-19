@@ -23,6 +23,7 @@ export const COLOR = {
   textDefault:"#d4d4e0",  // default text (37 occurrences)
   border:     "#2a2a38",  // standard border color (9 occurrences)
   cyan:       "#22d3ee",  // Earnings Intel accent
+  gold:       "#e3b341",  // On Deck highlight
 };
 
 // ── Aria-faithful theme palettes (ported from Aria base.html) ──
@@ -46,6 +47,7 @@ export const ARIA_DARK = {
   blue:         "#60a5fa",
   purple:       "#c084fc",
   cyan:         "#22d3ee",
+  gold:         "#e3b341",
   glowGreen:    "rgba(52, 211, 153, 0.15)",
   glass:        "rgba(255, 255, 255, 0.03)",
   vignette:     "radial-gradient(1100px 700px at 18% -8%, #14141d 0%, #0a0a0f 60%)",
@@ -72,6 +74,7 @@ export const ARIA_LIGHT = {
   blue:         "#2563eb",
   purple:       "#7c3aed",
   cyan:         "#0891b2",
+  gold:         "#a16207",
   glowGreen:    "rgba(5, 150, 105, 0.1)",
   glass:        "rgba(0, 0, 0, 0.02)",
   vignette:     "radial-gradient(1100px 700px at 18% -8%, #ffffff 0%, #f8f9fc 60%)",

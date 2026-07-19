@@ -56,6 +56,7 @@ function emptyState() {
     watchlist: [],
     portfolio: [],
     focus: [],
+    ondeck: [],
     updated_at: null,
   };
 }
@@ -115,6 +116,7 @@ export default async function handler(req, res) {
           ? body.portfolio
           : existing.portfolio,
         focus: Array.isArray(body.focus) ? body.focus : existing.focus,
+        ondeck: Array.isArray(body.ondeck) ? body.ondeck : existing.ondeck,
         updated_at: new Date().toISOString(),
       };
 
