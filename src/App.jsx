@@ -9021,6 +9021,20 @@ function ChartPanelInline({
       ? { epsYoy, salesYoy, margin, hot: epsYoy >= 40 && salesYoy >= 40 }
       : null;
 
+  // Prior earnings responses — lazy-loaded from /api/earnings when opened
+  const [erHistOpen, setErHistOpen] = useState(() => { try { return localStorage.getItem("tp-erhist-open") === "1"; } catch { return false; } });
+  const [erHist, setErHist] = useState(null);
+  useEffect(() => {
+    if (!erHistOpen || !ticker) return;
+    if (erHist && erHist.ticker === ticker) return;
+    let dead = false;
+    fetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`)
+      .then((r) => r.json())
+      .then((d) => { if (!dead && d && Array.isArray(d.history)) setErHist({ ticker, history: d.history, next: d.next }); })
+      .catch(() => {});
+    return () => { dead = true; };
+  }, [erHistOpen, ticker, erHist]);
+
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
@@ -9291,6 +9305,56 @@ function ChartPanelInline({
           )}
         </div>
       </div>
+      </div>
+
+      {/* Prior earnings responses — EPS/Sales surprise + 1d/10d reaction */}
+      <div style={{ borderBottom: `1px solid ${ARIA.border}`, padding: "3px 14px 4px" }}>
+        <div onClick={() => setErHistOpen((o) => { const n = !o; try { localStorage.setItem("tp-erhist-open", n ? "1" : "0"); } catch {} return n; })}
+          style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none", fontSize: 8, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#9090a0"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#6a6a7a"; }}
+          title="Prior earnings responses: EPS/Sales surprise vs estimates + the price reaction (announcement day and 10 sessions incl. drift). How does this name treat its reports?">
+          <span style={{ fontSize: 7 }}>{erHistOpen ? "▼" : "▶"}</span>
+          Earnings History{erHist?.ticker === ticker && erHist.history.length ? ` (${erHist.history.length}q)` : ""}
+        </div>
+        {erHistOpen && (() => {
+          if (erHist?.ticker !== ticker) return <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", padding: "2px 0" }}>loading…</div>;
+          if (!erHist.history.length) return <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", padding: "2px 0" }}>No reported quarters.</div>;
+          const fmtRev = (v) => v == null ? "—" : v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : (v / 1e6).toFixed(0) + "M";
+          const surpC = (v) => v == null ? ARIA.textMuted : v >= 0 ? ARIA.green : ARIA.red;
+          const rxC = (v) => v == null ? ARIA.textMuted : Math.abs(v) < 2 ? ARIA.textDim : v > 0 ? ARIA.green : ARIA.red;
+          const sp = (v, dec = 1) => v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dec)}%`;
+          const th = { padding: "2px 6px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
+          const td = { padding: "1px 6px", fontSize: 8.5, fontFamily: "monospace", textAlign: "right", whiteSpace: "nowrap", borderBottom: `1px solid ${ARIA.border}40` };
+          return (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <thead><tr>
+                  <th style={{ ...th, textAlign: "left" }}>Qtr</th>
+                  <th style={th} title="Reported EPS (surprise vs consensus)">EPS</th>
+                  <th style={th} title="EPS beat/miss vs consensus estimate">Surp</th>
+                  <th style={th} title="Reported revenue (surprise vs consensus)">Sales</th>
+                  <th style={th} title="Revenue beat/miss vs consensus estimate">Surp</th>
+                  <th style={th} title="Announcement-day close-to-close move (BMO/AMC inferred from which session moved more)">1D</th>
+                  <th style={th} title="Close 10 sessions after the pre-ER close vs the pre-ER close — total response incl. drift">10D</th>
+                </tr></thead>
+                <tbody>
+                  {erHist.history.map((q) => (
+                    <tr key={q.date}>
+                      <td style={{ ...td, textAlign: "left", color: ARIA.textDim }}>{q.date?.slice(2)}</td>
+                      <td style={{ ...td, color: ARIA.textDim }}>{q.eps_actual != null ? q.eps_actual.toFixed(2) : "—"}</td>
+                      <td style={{ ...td, color: surpC(q.eps_surprise_pct), fontWeight: q.eps_surprise_pct != null && Math.abs(q.eps_surprise_pct) >= 10 ? 700 : 400 }}>{sp(q.eps_surprise_pct)}</td>
+                      <td style={{ ...td, color: ARIA.textDim }}>{fmtRev(q.revenue_actual)}</td>
+                      <td style={{ ...td, color: surpC(q.revenue_surprise_pct), fontWeight: q.revenue_surprise_pct != null && Math.abs(q.revenue_surprise_pct) >= 5 ? 700 : 400 }}>{sp(q.revenue_surprise_pct)}</td>
+                      <td style={{ ...td, color: rxC(q.day1_pct), fontWeight: q.day1_pct != null && Math.abs(q.day1_pct) >= 5 ? 700 : 400 }}>{sp(q.day1_pct)}</td>
+                      <td style={{ ...td, color: rxC(q.day10_pct), fontWeight: q.day10_pct != null && Math.abs(q.day10_pct) >= 5 ? 700 : 400 }}>{sp(q.day10_pct)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Risk Management Dashboard */}

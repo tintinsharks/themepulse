@@ -105,66 +105,65 @@ export default async function handler(req, res) {
   const cached = _tickerCache.get(ticker);
   if (cached && cached.expiry > Date.now()) return res.status(200).json(cached.data);
 
-  const [surprises, income, calendar, analyst, newsRaw] = await Promise.all([
-    fetchJson(`${FMP_BASE}/earnings-surprises?symbol=${ticker}&apikey=${fmpKey}`),
-    fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=8&apikey=${fmpKey}`),
+  // /stable/earnings has actual + estimated EPS AND revenue per announcement
+  // date (the old earnings-surprises endpoint 404s on this key). EOD closes
+  // around each date give the price reactions.
+  const eodFrom = new Date(Date.now() - 3.2 * 365 * 86400000).toISOString().split("T")[0];
+  const [earnings, calendar, newsRaw, eodRaw] = await Promise.all([
+    fetchJson(`${FMP_BASE}/earnings?symbol=${ticker}&limit=16&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/earnings-calendar?symbol=${ticker}&apikey=${fmpKey}`),
-    fetchJson(`${FMP_BASE}/analyst-estimates?symbol=${ticker}&period=quarter&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/news/stock?symbols=${ticker}&page=0&limit=10&apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/historical-price-eod/full?symbol=${ticker}&from=${eodFrom}&apikey=${fmpKey}`),
   ]);
 
-  const byDate = {};
+  const bars = (Array.isArray(eodRaw) ? eodRaw : eodRaw?.historical || [])
+    .filter((b) => b && b.date && b.close != null)
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const dates = bars.map((b) => b.date);
+  const closes = bars.map((b) => b.close);
+  const idxOnOrAfter = (d) => {
+    for (let i = 0; i < dates.length; i++) if (dates[i] >= d) return i;
+    return -1;
+  };
+  const pctc = (a, b) => (a != null && b != null && b !== 0 ? +(((a - b) / b) * 100).toFixed(2) : null);
 
-  if (Array.isArray(surprises)) {
-    surprises.slice(0, 8).forEach((s) => {
-      const date = s.date || s.fiscalDateEnding;
-      if (!date) return;
-      byDate[date] = byDate[date] || { date };
-      byDate[date].eps_actual = s.epsActual ?? s.eps ?? null;
-      byDate[date].eps_estimate = s.epsEstimated ?? s.estimatedEps ?? null;
-    });
-  }
-  if (Array.isArray(income)) {
-    income.slice(0, 8).forEach((i) => {
-      const date = i.date || i.fiscalDateEnding;
-      if (!date) return;
-      byDate[date] = byDate[date] || { date };
-      byDate[date].revenue_actual = i.revenue ?? null;
-      byDate[date].period = i.period || null;
-    });
-  }
-  if (Array.isArray(analyst)) {
-    analyst.slice(0, 12).forEach((a) => {
-      const date = a.date || a.fiscalDateEnding;
-      if (!date) return;
-      if (byDate[date]) {
-        byDate[date].revenue_estimate = a.revenueAvg ?? a.estimatedRevenueAvg ?? null;
-      }
-    });
-  }
-
-  const history = Object.values(byDate)
-    .filter((row) => row.eps_actual != null || row.revenue_actual != null)
+  const history = (Array.isArray(earnings) ? earnings : [])
+    .filter((q) => q && q.date && q.epsActual != null)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 8)
-    .map((row) => {
+    .map((q) => {
       const epsSurprise =
-        row.eps_estimate != null && row.eps_estimate !== 0
-          ? ((row.eps_actual - row.eps_estimate) / Math.abs(row.eps_estimate)) * 100
+        q.epsEstimated != null && Math.abs(q.epsEstimated) > 1e-9
+          ? ((q.epsActual - q.epsEstimated) / Math.abs(q.epsEstimated)) * 100
           : null;
       const revSurprise =
-        row.revenue_estimate != null && row.revenue_estimate !== 0
-          ? ((row.revenue_actual - row.revenue_estimate) / Math.abs(row.revenue_estimate)) * 100
+        q.revenueActual != null && q.revenueEstimated
+          ? ((q.revenueActual - q.revenueEstimated) / Math.abs(q.revenueEstimated)) * 100
           : null;
+      // Reaction: /stable/earnings carries no BMO/AMC flag, so take the
+      // larger-|%| of the ER-day move vs the next session's move as the
+      // announcement day. day1 = that close vs prior close; day10 = close 10
+      // sessions after the pre-ER close vs the pre-ER close (incl. drift).
+      let day1 = null, day10 = null;
+      const i = idxOnOrAfter(q.date);
+      if (i > 0) {
+        const onDay = pctc(closes[i], closes[i - 1]);
+        const nextDay = i + 1 < closes.length ? pctc(closes[i + 1], closes[i]) : null;
+        const r = nextDay != null && Math.abs(nextDay) > Math.abs(onDay ?? 0) ? i + 1 : i;
+        day1 = pctc(closes[r], closes[r - 1]);
+        if (r - 1 + 10 < closes.length) day10 = pctc(closes[r - 1 + 10], closes[r - 1]);
+      }
       return {
-        date: row.date,
-        period: row.period,
-        eps_actual: row.eps_actual ?? null,
-        eps_estimate: row.eps_estimate ?? null,
+        date: q.date,
+        period: null,
+        eps_actual: q.epsActual ?? null,
+        eps_estimate: q.epsEstimated ?? null,
         eps_surprise_pct: epsSurprise,
-        revenue_actual: row.revenue_actual ?? null,
-        revenue_estimate: row.revenue_estimate ?? null,
+        revenue_actual: q.revenueActual ?? null,
+        revenue_estimate: q.revenueEstimated ?? null,
         revenue_surprise_pct: revSurprise,
+        day1_pct: day1,
+        day10_pct: day10,
       };
     });
 
