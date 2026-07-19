@@ -6878,6 +6878,7 @@ async function _pushToServer() {
       watchlist: d.watchlist || [],
       portfolio: d.portfolio || [],
       focus: d.focus || [],
+      ondeck: d.ondeck || [],
       updated_at: d.updated_at || null,
     };
     saveCachedState(_moduleState);
@@ -6907,14 +6908,16 @@ function _pullFromServer() {
       const union = (a, b) => { const s = new Set(a || []); (b || []).forEach((t) => s.add(t)); return [...s]; };
       const mergedWl = union(d.watchlist, local.watchlist);
       const mergedPf = union(d.portfolio, local.portfolio);
-      const mergedFocus = union(d.focus, local.focus);
-      const serverMissing = mergedWl.length > (d.watchlist || []).length || mergedPf.length > (d.portfolio || []).length || mergedFocus.length > (d.focus || []).length;
+      const mergedOd = union(d.ondeck, local.ondeck);
+      const mergedFocus = union(d.focus, local.focus).filter((t) => !mergedOd.includes(t));
+      const serverMissing = mergedWl.length > (d.watchlist || []).length || mergedPf.length > (d.portfolio || []).length || mergedFocus.length > (d.focus || []).length || mergedOd.length > (d.ondeck || []).length;
       _moduleState = {
         ...emptyServerState(),
         analyzedPicks: d.analyzedPicks || [],
         watchlist: mergedWl,
         portfolio: mergedPf,
         focus: mergedFocus,
+        ondeck: mergedOd,
         updated_at: d.updated_at || null,
       };
       saveCachedState(_moduleState);
