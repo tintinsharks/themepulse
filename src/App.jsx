@@ -9790,6 +9790,10 @@ function WatchlistSectionTable({
 }) {
   const ARIA = useAriaTheme();
   const deckSet = useOnDeckSet();
+  // Portfolio membership — held tickers appearing in the other sections
+  // (On Deck / Focus / Watchlist) get a light-green row tint.
+  const [_pfList] = useLocalStorageList("themepulse-portfolio");
+  const pfSet = useMemo(() => new Set(_pfList), [_pfList]);
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
@@ -10059,14 +10063,14 @@ function WatchlistSectionTable({
                     }}
                     style={{
                       cursor: "pointer",
-                      background: isSel ? `${ARIA.cyan}26` : deckSet.has(r.ticker) ? `${ARIA.gold}1f` : "transparent",
+                      background: isSel ? `${ARIA.cyan}26` : deckSet.has(r.ticker) ? `${ARIA.gold}1f` : (list !== "portfolio" && pfSet.has(r.ticker)) ? `${ARIA.green}1f` : "transparent",
                       borderLeft: "2px solid transparent",
                     }}
                     onMouseEnter={(e) => {
                       if (!isSel) e.currentTarget.style.background = ARIA.bgHover;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : deckSet.has(r.ticker) ? `${ARIA.gold}1f` : "transparent";
+                      e.currentTarget.style.background = isSel ? `${ARIA.cyan}26` : deckSet.has(r.ticker) ? `${ARIA.gold}1f` : (list !== "portfolio" && pfSet.has(r.ticker)) ? `${ARIA.green}1f` : "transparent";
                     }}
                   >
                     <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text }}>
