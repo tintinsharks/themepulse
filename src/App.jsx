@@ -9522,26 +9522,17 @@ function ChartPanelInline({
               }))
             : [];
         // Same source of truth as the Earnings History table + chart markers:
-        // street-basis actuals from /api/earnings, oldest→newest. OCF/sh isn't
-        // in that feed, so it's grafted from the Finviz series by fiscal label.
-        const ocfByLabel = {};
-        quarters.forEach((q) => { if (q.label) ocfByLabel[q.label] = q; });
+        // street-basis actuals from /api/earnings, oldest→newest.
         const erQ = erHist?.ticker === ticker && erHist.history.length
-          ? [...erHist.history].reverse().map((q) => {
-              const label = q.fiscal_label || (q.date || "").slice(2, 7);
-              const f = ocfByLabel[label] || {};
-              return {
-                label,
-                period: q.fiscal_label ? q.fiscal_label.split("-")[0] : "",
-                eps: q.eps_actual,
-                eps_yoy: q.eps_yoy_pct,
-                revenue: q.revenue_actual != null ? q.revenue_actual / 1e6 : null,
-                revenue_yoy: q.revenue_yoy_pct,
-                net_margin: q.net_margin_pct,
-                ocf_ps: f.ocf_ps ?? null,
-                ocf_yoy: f.ocf_yoy ?? null,
-              };
-            })
+          ? [...erHist.history].reverse().map((q) => ({
+              label: q.fiscal_label || (q.date || "").slice(2, 7),
+              period: q.fiscal_label ? q.fiscal_label.split("-")[0] : "",
+              eps: q.eps_actual,
+              eps_yoy: q.eps_yoy_pct,
+              revenue: q.revenue_actual != null ? q.revenue_actual / 1e6 : null,
+              revenue_yoy: q.revenue_yoy_pct,
+              net_margin: q.net_margin_pct,
+            }))
           : null;
         const effectiveQuarters = erQ || (quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters));
         const effectiveAnnuals  = annuals.length  > 0 ? annuals  : normPipelineA(stockInfo?.annual);
@@ -9582,7 +9573,7 @@ function ChartPanelInline({
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                 <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
-                <MiniQBars quarters={series} accessor={(q) => q.ocf_ps} yoyAccessor={(q) => q.ocf_yoy} color={ARIA.yellow} labelFmt={(v) => v.toFixed(2)} title="Op Cash Flow/sh" ARIA={ARIA} passYoy={25} hotYoy={40} />
+
               </div>
             </div>
           </div>
