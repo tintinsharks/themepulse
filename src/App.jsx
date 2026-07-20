@@ -1940,10 +1940,14 @@ function ExtendedHoursBox({ pipeline, onTickerClick, stockMap }) {
   // + top setups), POSTed to /api/userdata?scope=pm-movers. Replaces the raw
   // scrape in the PM column whenever a blob for the current session exists.
   const [pmRoutine, setPmRoutine] = useState(null);
+  const [ahRoutine, setAhRoutine] = useState(null);
   useEffect(() => {
     let dead = false;
     fetch("/api/userdata?scope=pm-movers").then((r) => r.json())
       .then((d) => { if (!dead && d?.ok && d.data) setPmRoutine(d.data); })
+      .catch(() => {});
+    fetch("/api/userdata?scope=ah-movers").then((r) => r.json())
+      .then((d) => { if (!dead && d?.ok && d.data) setAhRoutine(d.data); })
       .catch(() => {});
     return () => { dead = true; };
   }, []);
@@ -1963,10 +1967,10 @@ function ExtendedHoursBox({ pipeline, onTickerClick, stockMap }) {
   // scrape morning (today, once the 6AM ET run lands); post-market = the most
   // recent session CLOSE before the scrape — e.g. Monday morning shows
   // Monday's premarket next to Friday's post-market.
-  const [pmDate, ahDate, pmSessionISO] = (() => {
+  const [pmDate, ahDate, pmSessionISO, ahSessionISO] = (() => {
     const lr = pipeline?.pipeline_meta?.last_run;
     const t = lr ? new Date(lr) : new Date();
-    if (isNaN(t.getTime())) return [null, null, null];
+    if (isNaN(t.getTime())) return [null, null, null, null];
     const prevTrading = (d) => { const x = new Date(d); do { x.setDate(x.getDate() - 1); } while (x.getDay() === 0 || x.getDay() === 6); return x; };
     const dow = t.getDay(), hr = t.getHours();
     let pmD, ahD;
@@ -1977,7 +1981,7 @@ function ExtendedHoursBox({ pipeline, onTickerClick, stockMap }) {
     }
     const fmt = (d) => `${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
     const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    return [fmt(pmD), fmt(ahD), iso(pmD)];
+    return [fmt(pmD), fmt(ahD), iso(pmD), iso(ahD)];
   })();
 
   const fmtVol = (v) => !v ? "" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : (v / 1e3).toFixed(0) + "K";
@@ -2009,16 +2013,18 @@ ${items[0]}` : ""} (click to chart)`}
     </div>
   );
   // Routine blob only replaces the raw scrape when it's for the CURRENT
-  // premarket session — yesterday's graded scan must not masquerade as today.
-  const routineFresh = pmRoutine && pmSessionISO && pmRoutine.date === pmSessionISO && pmRoutine.rows?.length;
+  // session — yesterday's graded scan must not masquerade as today.
   const GRADE_ORD = { A: 0, B: 1, C: 2, D: 3, F: 4 };
   const gradeC = (g) => g === "A" ? ARIA.green : g === "B" ? ARIA.blue : g === "C" ? ARIA.textDim : g === "F" ? ARIA.red : ARIA.textMuted;
-  const pmGraded = routineFresh ? (
+  const gradedCol = (blob, sessionISO, label, color) => {
+    const fresh = blob && sessionISO && blob.date === sessionISO && blob.rows?.length;
+    if (!fresh) return null;
+    return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.yellow, marginBottom: 2 }}>
-        Premarket · {pmDate} — graded scan ({pmRoutine.rows.length})
+      <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color, marginBottom: 2 }}>
+        {label} — graded scan ({blob.rows.length})
       </div>
-      {[...pmRoutine.rows].sort((a, b) => (GRADE_ORD[a.grade] ?? 9) - (GRADE_ORD[b.grade] ?? 9) || Math.abs(b.chg_pct ?? 0) - Math.abs(a.chg_pct ?? 0)).map((m) => (
+      {[...blob.rows].sort((a, b) => (GRADE_ORD[a.grade] ?? 9) - (GRADE_ORD[b.grade] ?? 9) || Math.abs(b.chg_pct ?? 0) - Math.abs(a.chg_pct ?? 0)).map((m) => (
         <div key={m.ticker} onClick={() => onTickerClick?.(m.ticker)}
           title={`${m.ticker} — EP grade ${m.grade ?? "—"}${m.chg_pct != null ? ` · ${m.chg_pct > 0 ? "+" : ""}${m.chg_pct.toFixed(1)}%` : ""}${m.catalyst ? `
 ${m.catalyst}` : ""} (click to chart)`}
@@ -2031,10 +2037,10 @@ ${m.catalyst}` : ""} (click to chart)`}
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontSize: 7.5 }}>{m.catalyst || ""}</span>
         </div>
       ))}
-      {pmRoutine.top_setups?.length > 0 && (
+      {blob.top_setups?.length > 0 && (
         <div style={{ marginTop: 5 }}>
           <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.green, marginBottom: 2 }}>Top Setups</div>
-          {pmRoutine.top_setups.map((t2) => (
+          {blob.top_setups.map((t2) => (
             <div key={t2.ticker} onClick={() => onTickerClick?.(t2.ticker)} title={`${t2.ticker}${t2.note ? ` — ${t2.note}` : ""} (click to chart)`}
               style={{ display: "flex", alignItems: "baseline", gap: 5, fontSize: 8.5, fontFamily: "monospace", cursor: "pointer", padding: "1px 2px", borderRadius: 2, background: ownedTint(t2.ticker, ARIA) }}>
               <span style={{ fontWeight: 700, color: ARIA.text, flexShrink: 0 }}>{t2.ticker}</span>
@@ -2044,7 +2050,10 @@ ${m.catalyst}` : ""} (click to chart)`}
         </div>
       )}
     </div>
-  ) : null;
+    );
+  };
+  const pmGraded = gradedCol(pmRoutine, pmSessionISO, pmDate ? `Premarket · ${pmDate}` : "Premarket", ARIA.yellow);
+  const ahGraded = gradedCol(ahRoutine, ahSessionISO, ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple);
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
@@ -2061,7 +2070,7 @@ ${m.catalyst}` : ""} (click to chart)`}
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {pmGraded || col(pmDate ? `Premarket · ${pmDate}` : "Premarket", ARIA.yellow, pm)}
-          {col(ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple, ah)}
+          {ahGraded || col(ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple, ah)}
         </div>
       )}
     </div>

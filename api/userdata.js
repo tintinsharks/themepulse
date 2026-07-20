@@ -74,15 +74,17 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── Scope: pm-movers — the 6AM premarket-movers routine's graded results.
-  // GET returns the latest blob; POST (bearer RVOL_SCANNER_TOKEN, same token
-  // as the old agent-picks cron) stores { date, generated_at, rows[], top_setups[] }.
-  // Piggybacked here because the api/ dir is at Vercel's 12-function cap.
-  if (req.query && req.query.scope === "pm-movers") {
+  // ── Scopes: pm-movers / ah-movers — the graded movers-scan routine's
+  // results (6AM premarket / 8PM after-hours). GET returns the latest blob;
+  // POST (bearer RVOL_SCANNER_TOKEN, same token as the old agent-picks cron)
+  // stores { date, generated_at, rows[], top_setups[] }. Piggybacked here
+  // because the api/ dir is at Vercel's 12-function cap.
+  if (req.query && (req.query.scope === "pm-movers" || req.query.scope === "ah-movers")) {
+    const kvKey = `themepulse:${req.query.scope}`;
     try {
       if (req.method === "GET") {
         res.setHeader("Cache-Control", "private, s-maxage=60, stale-while-revalidate=300");
-        const r = await redisCmd("GET", "themepulse:pm-movers");
+        const r = await redisCmd("GET", kvKey);
         return res.status(200).json({ ok: true, data: r.result ? JSON.parse(r.result) : null });
       }
       if (req.method === "POST") {
@@ -101,7 +103,7 @@ export default async function handler(req, res) {
           rows: b.rows.slice(0, 60),
           top_setups: Array.isArray(b.top_setups) ? b.top_setups.slice(0, 12) : [],
         };
-        await redisCmd("SET", "themepulse:pm-movers", JSON.stringify(blob));
+        await redisCmd("SET", kvKey, JSON.stringify(blob));
         return res.status(200).json({ ok: true, count: blob.rows.length });
       }
       return res.status(405).json({ ok: false, error: "Method not allowed" });
