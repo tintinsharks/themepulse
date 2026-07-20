@@ -122,12 +122,11 @@ export default async function handler(req, res) {
   const incomeQ = (Array.isArray(incomeRaw) ? incomeRaw : [])
     .filter((i) => i && i.date && i.revenue)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
-  const marginFor = (reportDate) => {
+  const incomeFor = (reportDate) => {
     for (const i of incomeQ) {
       if (i.date < reportDate) {
         const gapDays = (new Date(reportDate) - new Date(i.date)) / 86400000;
-        if (gapDays > 100) return null; // stale — no matching quarter filed
-        return i.netIncome != null ? +((i.netIncome / i.revenue) * 100).toFixed(2) : null;
+        return gapDays > 100 ? null : i; // stale — no matching quarter filed
       }
     }
     return null;
@@ -190,7 +189,23 @@ export default async function handler(req, res) {
         revenue_surprise_pct: revSurprise,
         eps_yoy_pct: epsYoy,
         revenue_yoy_pct: revYoy,
-        net_margin_pct: marginFor(q.date),
+        // Fiscal label from the matching income-statement quarter (Q3-26 =
+        // the company's own fiscal naming, matching the chart markers) +
+        // ADJUSTED net margin: street-basis EPS × diluted shares / revenue,
+        // so one-time GAAP items can't fake margin acceleration (WDC's 96%
+        // GAAP quarter reads ~31% adjusted). GAAP fallback if shares missing.
+        ...(() => {
+          const inc = incomeFor(q.date);
+          const shares = inc?.weightedAverageShsOutDil || inc?.weightedAverageShsOut;
+          const adjMargin = shares && q.revenueActual
+            ? +(((q.epsActual * shares) / q.revenueActual) * 100).toFixed(2)
+            : inc?.netIncome != null && inc?.revenue ? +((inc.netIncome / inc.revenue) * 100).toFixed(2) : null;
+          const fy = inc?.fiscalYear ?? inc?.calendarYear;
+          return {
+            fiscal_label: inc?.period && fy ? `${inc.period}-${String(fy).slice(2)}` : null,
+            net_margin_pct: adjMargin,
+          };
+        })(),
         day1_pct: day1,
         day10_pct: day10,
       };

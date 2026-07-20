@@ -9025,7 +9025,7 @@ function ChartPanelInline({
   const [erHistOpen, setErHistOpen] = useState(() => { try { return localStorage.getItem("tp-erhist-open") === "1"; } catch { return false; } });
   const [erHist, setErHist] = useState(null);
   useEffect(() => {
-    if (!erHistOpen || !ticker) return;
+    if (!ticker) return;
     if (erHist && erHist.ticker === ticker) return;
     let dead = false;
     fetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`)
@@ -9033,7 +9033,7 @@ function ChartPanelInline({
       .then((d) => { if (!dead && d && Array.isArray(d.history)) setErHist({ ticker, history: d.history, next: d.next }); })
       .catch(() => {});
     return () => { dead = true; };
-  }, [erHistOpen, ticker, erHist]);
+  }, [ticker, erHist]);
 
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
@@ -9233,7 +9233,9 @@ function ChartPanelInline({
         <ErrorBoundary>
           <DailyChartSVG
             ohlc={ohlcBars}
-            quarters={quarters}
+            quarters={erHist?.ticker === ticker && erHist.history.length
+              ? erHist.history.map((q) => ({ report_date: q.date, label: q.fiscal_label || "", eps_yoy: q.eps_yoy_pct, sales_yoy: q.revenue_yoy_pct }))
+              : quarters}
             height={height}
             owned={inPF || inFC || inWL}
             rsRating={rsRating}
@@ -9364,7 +9366,7 @@ function ChartPanelInline({
                   <th style={th} title="Reported revenue (surprise vs consensus)">Sales</th>
                   <th style={th} title="Revenue growth vs the same quarter a year ago">YoY</th>
                   <th style={th} title="Revenue beat/miss vs consensus estimate">Surp</th>
-                  <th style={th} title="Net profit margin for the reported quarter (net income / revenue). Minervini Code 33: three straight quarters where EPS YoY, Sales YoY AND net margin all accelerate — those rows glow light blue.">NM%</th>
+                  <th style={th} title="ADJUSTED net margin for the reported quarter (street-basis EPS × diluted shares / revenue) — one-time GAAP items can't fake acceleration. Minervini Code 33: three straight quarters where EPS YoY, Sales YoY AND net margin all accelerate — those rows glow light blue.">NM%</th>
                   <th style={th} title="Announcement-day close-to-close move (BMO/AMC inferred from which session moved more)">1D</th>
                   <th style={th} title="Close 10 sessions after the pre-ER close vs the pre-ER close — total response incl. drift">10D</th>
                 </tr></thead>
@@ -9374,7 +9376,7 @@ function ChartPanelInline({
                   ) : null}
                   {erHist.history.map((q, qi) => (
                     <tr key={q.date} style={{ background: code33[qi] ? `${ARIA.blue}1f` : "transparent" }} title={code33[qi] ? "Part of a Code 33 run — EPS YoY, Sales YoY and net margin all accelerating for 3+ consecutive quarters" : undefined}>
-                      <td style={{ ...td, textAlign: "left", color: ARIA.textDim }}>{q.date?.slice(2)}{qtrTag(q.date) ? <span style={{ color: ARIA.textMuted }}> ({qtrTag(q.date)})</span> : null}</td>
+                      <td style={{ ...td, textAlign: "left", color: ARIA.textDim }}>{q.date?.slice(2)}{(q.fiscal_label || qtrTag(q.date)) ? <span style={{ color: ARIA.textMuted }} title="Company fiscal quarter (matches the chart's ER markers)"> ({q.fiscal_label || qtrTag(q.date)})</span> : null}</td>
                       <td style={{ ...td, color: ARIA.textDim }}>{q.eps_actual != null ? q.eps_actual.toFixed(2) : "—"}</td>
                       <td style={{ ...td, color: surpC(q.eps_yoy_pct), fontWeight: q.eps_yoy_pct != null && q.eps_yoy_pct >= 25 ? 700 : 400 }}>{yoy(q.eps_yoy_pct)}</td>
                       <td style={{ ...td, color: surpC(q.eps_surprise_pct), fontWeight: q.eps_surprise_pct != null && Math.abs(q.eps_surprise_pct) >= 10 ? 700 : 400 }}>{sp(q.eps_surprise_pct)}</td>
