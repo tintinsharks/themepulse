@@ -127,11 +127,20 @@ export default async function handler(req, res) {
   };
   const pctc = (a, b) => (a != null && b != null && b !== 0 ? +(((a - b) / b) * 100).toFixed(2) : null);
 
-  const history = (Array.isArray(earnings) ? earnings : [])
+  const reported = (Array.isArray(earnings) ? earnings : [])
     .filter((q) => q && q.date && q.epsActual != null)
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  const history = reported
     .slice(0, 8)
-    .map((q) => {
+    .map((q, qi) => {
+      // YoY growth: same fiscal quarter a year ago = 4 reports earlier
+      const yr = reported[qi + 4];
+      const epsYoy = yr && yr.epsActual != null && Math.abs(yr.epsActual) > 1e-9
+        ? ((q.epsActual - yr.epsActual) / Math.abs(yr.epsActual)) * 100
+        : null;
+      const revYoy = yr && q.revenueActual != null && yr.revenueActual
+        ? ((q.revenueActual - yr.revenueActual) / Math.abs(yr.revenueActual)) * 100
+        : null;
       const epsSurprise =
         q.epsEstimated != null && Math.abs(q.epsEstimated) > 1e-9
           ? ((q.epsActual - q.epsEstimated) / Math.abs(q.epsEstimated)) * 100
@@ -162,6 +171,8 @@ export default async function handler(req, res) {
         revenue_actual: q.revenueActual ?? null,
         revenue_estimate: q.revenueEstimated ?? null,
         revenue_surprise_pct: revSurprise,
+        eps_yoy_pct: epsYoy,
+        revenue_yoy_pct: revYoy,
         day1_pct: day1,
         day10_pct: day10,
       };
