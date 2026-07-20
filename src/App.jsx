@@ -7636,8 +7636,14 @@ function PctileRanks({ ticker, stockMap, ARIA }) {
 function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, ARIA, passYoy, hotYoy }) {
   const values = quarters.map(accessor).filter((v) => v != null && Number.isFinite(v));
   if (values.length === 0) return null;
-  const max = Math.max(...values, 0);
-  const min = Math.min(...values, 0);
+  // Bars scale by the %-CHANGE (YoY / delta), not the metric's level — the
+  // acceleration is the signal; the level lives in the label above each bar.
+  // Falls back to level-scaling when no change series exists (first quarters).
+  const pcts = yoyAccessor ? quarters.map(yoyAccessor).filter((v) => v != null && Number.isFinite(v)) : [];
+  const scaleByPct = pcts.length > 0;
+  const scaleVals = scaleByPct ? pcts : values;
+  const max = Math.max(...scaleVals, 0);
+  const min = Math.min(...scaleVals, 0);
   const range = max - min || 1;
   const barAreaH = 52;
   return (
@@ -7668,8 +7674,9 @@ function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, AR
           const yoy = yoyAccessor ? yoyAccessor(q) : null;
           const yoyColor =
             yoy == null ? ARIA.textMuted : yoy >= 0 ? ARIA.green : ARIA.red;
-          const hPos = v == null || v <= 0 ? 0 : (v / range) * barAreaH;
-          const hNeg = v == null || v >= 0 ? 0 : (Math.abs(v) / range) * barAreaH;
+          const sv = scaleByPct ? yoy : v;
+          const hPos = sv == null || sv <= 0 ? 0 : (sv / range) * barAreaH;
+          const hNeg = sv == null || sv >= 0 ? 0 : (Math.abs(sv) / range) * barAreaH;
           const zeroLine = (max / range) * barAreaH; // space above zero
           return (
             <div
