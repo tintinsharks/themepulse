@@ -74,6 +74,42 @@ export default async function handler(req, res) {
     });
   }
 
+  // ── Scope: pm-movers — the 6AM premarket-movers routine's graded results.
+  // GET returns the latest blob; POST (bearer RVOL_SCANNER_TOKEN, same token
+  // as the old agent-picks cron) stores { date, generated_at, rows[], top_setups[] }.
+  // Piggybacked here because the api/ dir is at Vercel's 12-function cap.
+  if (req.query && req.query.scope === "pm-movers") {
+    try {
+      if (req.method === "GET") {
+        res.setHeader("Cache-Control", "private, s-maxage=60, stale-while-revalidate=300");
+        const r = await redisCmd("GET", "themepulse:pm-movers");
+        return res.status(200).json({ ok: true, data: r.result ? JSON.parse(r.result) : null });
+      }
+      if (req.method === "POST") {
+        const auth = req.headers.authorization || "";
+        const expected = process.env.RVOL_SCANNER_TOKEN;
+        if (!expected || auth !== `Bearer ${expected}`) {
+          return res.status(401).json({ ok: false, error: "unauthorized" });
+        }
+        const b = req.body || {};
+        if (!b.date || !Array.isArray(b.rows)) {
+          return res.status(400).json({ ok: false, error: "need { date, rows[] }" });
+        }
+        const blob = {
+          date: String(b.date),
+          generated_at: new Date().toISOString(),
+          rows: b.rows.slice(0, 60),
+          top_setups: Array.isArray(b.top_setups) ? b.top_setups.slice(0, 12) : [],
+        };
+        await redisCmd("SET", "themepulse:pm-movers", JSON.stringify(blob));
+        return res.status(200).json({ ok: true, count: blob.rows.length });
+      }
+      return res.status(405).json({ ok: false, error: "Method not allowed" });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
   try {
     if (req.method === "GET") {
       // Short cache so multiple browser tabs don't hammer KV
