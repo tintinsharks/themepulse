@@ -4604,7 +4604,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
   const _spyRetSW = useSpyReturns(); // for the leader-divergence ⚠ (rank vs this-week RS)
   const spyWk = _spyRetSW?.["1w"] ?? null;
   const ARIA = useAriaTheme();
-  const [swView, setSwView] = useState("chain"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
+  const [swView, setSwView] = useState("watchlist"); // "scan" | "etf" | "watchlist" | "themes" | "subflow" | "leaderboard" | "chain"
   const [panelH, setPanelH] = useState(() => parseInt(localStorage.getItem("tp-scan-panel-h") || "600"));
   const panelHRef = useRef(600);
   useEffect(() => { panelHRef.current = panelH; }, [panelH]);
