@@ -9521,7 +9521,29 @@ function ChartPanelInline({
                 ocf_yoy: null,
               }))
             : [];
-        const effectiveQuarters = quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters);
+        // Same source of truth as the Earnings History table + chart markers:
+        // street-basis actuals from /api/earnings, oldest→newest. OCF/sh isn't
+        // in that feed, so it's grafted from the Finviz series by fiscal label.
+        const ocfByLabel = {};
+        quarters.forEach((q) => { if (q.label) ocfByLabel[q.label] = q; });
+        const erQ = erHist?.ticker === ticker && erHist.history.length
+          ? [...erHist.history].reverse().map((q) => {
+              const label = q.fiscal_label || (q.date || "").slice(2, 7);
+              const f = ocfByLabel[label] || {};
+              return {
+                label,
+                period: q.fiscal_label ? q.fiscal_label.split("-")[0] : "",
+                eps: q.eps_actual,
+                eps_yoy: q.eps_yoy_pct,
+                revenue: q.revenue_actual != null ? q.revenue_actual / 1e6 : null,
+                revenue_yoy: q.revenue_yoy_pct,
+                net_margin: q.net_margin_pct,
+                ocf_ps: f.ocf_ps ?? null,
+                ocf_yoy: f.ocf_yoy ?? null,
+              };
+            })
+          : null;
+        const effectiveQuarters = erQ || (quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters));
         const effectiveAnnuals  = annuals.length  > 0 ? annuals  : normPipelineA(stockInfo?.annual);
         const baseSeries = qbarsMode === "annual" ? effectiveAnnuals : effectiveQuarters;
         const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
@@ -9546,7 +9568,7 @@ function ChartPanelInline({
           <div style={{ padding: "6px 14px 10px", borderTop: `1px solid ${ARIA.border}`, background: ARIA.glass || "transparent" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontFamily: "monospace" }}>
               <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
-                Last {series.length} Quarter{series.length === 1 ? "" : "s"} · {quarters.length > 0 ? "Finviz Actuals" : "Pipeline Data"}
+                Last {series.length} Quarter{series.length === 1 ? "" : "s"} · {qbarsMode !== "annual" && erQ ? "Street Actuals (adjusted)" : quarters.length > 0 ? "Finviz Actuals" : "Pipeline Data"}
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
                 <button onClick={() => setQbarsModePersist("quarter")} style={pillStyle(qbarsMode === "quarter", ARIA.blue)}>Quarterly</button>
