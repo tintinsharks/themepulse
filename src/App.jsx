@@ -9325,6 +9325,16 @@ function ChartPanelInline({
           const rxC = (v) => v == null ? ARIA.textMuted : Math.abs(v) < 2 ? ARIA.textDim : v > 0 ? ARIA.green : ARIA.red;
           const sp = (v, dec = 1) => v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dec)}%`;
           const yoy = (v) => v == null ? "—" : Math.abs(v) >= 1000 ? `${v > 0 ? ">+999" : "<-999"}%` : `${v > 0 ? "+" : ""}${v.toFixed(0)}%`;
+          // Calendar-quarter shorthand: the quarter that ENDED most recently
+          // before the report date (a 05/20/26 report covers Q1 26').
+          const qtrTag = (d) => {
+            if (!d) return null;
+            const [y, m] = d.split("-").map(Number);
+            const qEnd = Math.floor((m - 1) / 3); // 0 = Jan-Mar report → prior Q4
+            const q = qEnd === 0 ? 4 : qEnd;
+            const yr = qEnd === 0 ? y - 1 : y;
+            return `Q${q} ${String(yr).slice(2)}'`;
+          };
           const th = { padding: "2px 6px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
           const td = { padding: "1px 6px", fontSize: 8.5, fontFamily: "monospace", textAlign: "right", whiteSpace: "nowrap", borderBottom: `1px solid ${ARIA.border}40` };
           return (
@@ -9344,7 +9354,7 @@ function ChartPanelInline({
                 <tbody>
                   {erHist.history.map((q) => (
                     <tr key={q.date}>
-                      <td style={{ ...td, textAlign: "left", color: ARIA.textDim }}>{q.date?.slice(2)}</td>
+                      <td style={{ ...td, textAlign: "left", color: ARIA.textDim }}>{q.date?.slice(2)}{qtrTag(q.date) ? <span style={{ color: ARIA.textMuted }}> ({qtrTag(q.date)})</span> : null}</td>
                       <td style={{ ...td, color: ARIA.textDim }}>{q.eps_actual != null ? q.eps_actual.toFixed(2) : "—"}</td>
                       <td style={{ ...td, color: surpC(q.eps_yoy_pct), fontWeight: q.eps_yoy_pct != null && q.eps_yoy_pct >= 25 ? 700 : 400 }}>{yoy(q.eps_yoy_pct)}</td>
                       <td style={{ ...td, color: surpC(q.eps_surprise_pct), fontWeight: q.eps_surprise_pct != null && Math.abs(q.eps_surprise_pct) >= 10 ? 700 : 400 }}>{sp(q.eps_surprise_pct)}</td>
