@@ -9335,6 +9335,22 @@ function ChartPanelInline({
             const yr = qEnd === 0 ? y - 1 : y;
             return `Q${q} ${String(yr).slice(2)}'`;
           };
+          // Minervini Code 33: a quarter "accelerates" when EPS YoY, Sales YoY
+          // and net margin are ALL higher than the prior quarter's. Three
+          // consecutive accelerating quarters = Code 33 → light-blue rows.
+          const H = erHist.history; // newest first
+          const accel = H.map((q, i) => {
+            const p = H[i + 1];
+            return !!(p && q.eps_yoy_pct != null && p.eps_yoy_pct != null && q.revenue_yoy_pct != null && p.revenue_yoy_pct != null && q.net_margin_pct != null && p.net_margin_pct != null
+              && q.eps_yoy_pct > p.eps_yoy_pct && q.revenue_yoy_pct > p.revenue_yoy_pct && q.net_margin_pct > p.net_margin_pct);
+          });
+          const code33 = H.map((_, i) => {
+            for (let k = Math.max(0, i - 2); k <= i; k++) {
+              if (accel[k] && accel[k + 1] && accel[k + 2]) return true;
+            }
+            return false;
+          });
+          const liveCode33 = accel[0] && accel[1] && accel[2];
           const th = { padding: "2px 6px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
           const td = { padding: "1px 6px", fontSize: 8.5, fontFamily: "monospace", textAlign: "right", whiteSpace: "nowrap", borderBottom: `1px solid ${ARIA.border}40` };
           return (
@@ -9348,12 +9364,16 @@ function ChartPanelInline({
                   <th style={th} title="Reported revenue (surprise vs consensus)">Sales</th>
                   <th style={th} title="Revenue growth vs the same quarter a year ago">YoY</th>
                   <th style={th} title="Revenue beat/miss vs consensus estimate">Surp</th>
+                  <th style={th} title="Net profit margin for the reported quarter (net income / revenue). Minervini Code 33: three straight quarters where EPS YoY, Sales YoY AND net margin all accelerate — those rows glow light blue.">NM%</th>
                   <th style={th} title="Announcement-day close-to-close move (BMO/AMC inferred from which session moved more)">1D</th>
                   <th style={th} title="Close 10 sessions after the pre-ER close vs the pre-ER close — total response incl. drift">10D</th>
                 </tr></thead>
                 <tbody>
-                  {erHist.history.map((q) => (
-                    <tr key={q.date}>
+                  {liveCode33 ? (
+                    <tr><td colSpan={10} style={{ padding: "2px 6px", fontSize: 7.5, fontWeight: 800, color: ARIA.blue, background: `${ARIA.blue}14`, letterSpacing: 0.4 }} title="EPS YoY, Sales YoY and net margin have ALL accelerated for 3 straight quarters — Minervini's 'hitting on all cylinders' condition">CODE 33 — sales, earnings & margins accelerating 3 straight quarters</td></tr>
+                  ) : null}
+                  {erHist.history.map((q, qi) => (
+                    <tr key={q.date} style={{ background: code33[qi] ? `${ARIA.blue}1f` : "transparent" }} title={code33[qi] ? "Part of a Code 33 run — EPS YoY, Sales YoY and net margin all accelerating for 3+ consecutive quarters" : undefined}>
                       <td style={{ ...td, textAlign: "left", color: ARIA.textDim }}>{q.date?.slice(2)}{qtrTag(q.date) ? <span style={{ color: ARIA.textMuted }}> ({qtrTag(q.date)})</span> : null}</td>
                       <td style={{ ...td, color: ARIA.textDim }}>{q.eps_actual != null ? q.eps_actual.toFixed(2) : "—"}</td>
                       <td style={{ ...td, color: surpC(q.eps_yoy_pct), fontWeight: q.eps_yoy_pct != null && q.eps_yoy_pct >= 25 ? 700 : 400 }}>{yoy(q.eps_yoy_pct)}</td>
@@ -9361,6 +9381,7 @@ function ChartPanelInline({
                       <td style={{ ...td, color: ARIA.textDim }}>{fmtRev(q.revenue_actual)}</td>
                       <td style={{ ...td, color: surpC(q.revenue_yoy_pct), fontWeight: q.revenue_yoy_pct != null && q.revenue_yoy_pct >= 20 ? 700 : 400 }}>{yoy(q.revenue_yoy_pct)}</td>
                       <td style={{ ...td, color: surpC(q.revenue_surprise_pct), fontWeight: q.revenue_surprise_pct != null && Math.abs(q.revenue_surprise_pct) >= 5 ? 700 : 400 }}>{sp(q.revenue_surprise_pct)}</td>
+                      <td style={{ ...td, color: accel[qi] ? ARIA.blue : ARIA.textDim, fontWeight: accel[qi] ? 700 : 400 }}>{q.net_margin_pct != null ? `${q.net_margin_pct.toFixed(1)}%` : "—"}</td>
                       <td style={{ ...td, color: rxC(q.day1_pct), fontWeight: q.day1_pct != null && Math.abs(q.day1_pct) >= 5 ? 700 : 400 }}>{sp(q.day1_pct)}</td>
                       <td style={{ ...td, color: rxC(q.day10_pct), fontWeight: q.day10_pct != null && Math.abs(q.day10_pct) >= 5 ? 700 : 400 }}>{sp(q.day10_pct)}</td>
                     </tr>

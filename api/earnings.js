@@ -109,12 +109,29 @@ export default async function handler(req, res) {
   // date (the old earnings-surprises endpoint 404s on this key). EOD closes
   // around each date give the price reactions.
   const eodFrom = new Date(Date.now() - 3.2 * 365 * 86400000).toISOString().split("T")[0];
-  const [earnings, calendar, newsRaw, eodRaw] = await Promise.all([
+  const [earnings, calendar, newsRaw, eodRaw, incomeRaw] = await Promise.all([
     fetchJson(`${FMP_BASE}/earnings?symbol=${ticker}&limit=16&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/earnings-calendar?symbol=${ticker}&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/news/stock?symbols=${ticker}&page=0&limit=10&apikey=${fmpKey}`),
     fetchJson(`${FMP_BASE}/historical-price-eod/full?symbol=${ticker}&from=${eodFrom}&apikey=${fmpKey}`),
+    fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=16&apikey=${fmpKey}`),
   ]);
+
+  // Quarterly net profit margin, matched to each report by fiscal-period end
+  // (income-statement dates are quarter ends, ~4-8 weeks before the report).
+  const incomeQ = (Array.isArray(incomeRaw) ? incomeRaw : [])
+    .filter((i) => i && i.date && i.revenue)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  const marginFor = (reportDate) => {
+    for (const i of incomeQ) {
+      if (i.date < reportDate) {
+        const gapDays = (new Date(reportDate) - new Date(i.date)) / 86400000;
+        if (gapDays > 100) return null; // stale — no matching quarter filed
+        return i.netIncome != null ? +((i.netIncome / i.revenue) * 100).toFixed(2) : null;
+      }
+    }
+    return null;
+  };
 
   const bars = (Array.isArray(eodRaw) ? eodRaw : eodRaw?.historical || [])
     .filter((b) => b && b.date && b.close != null)
@@ -173,6 +190,7 @@ export default async function handler(req, res) {
         revenue_surprise_pct: revSurprise,
         eps_yoy_pct: epsYoy,
         revenue_yoy_pct: revYoy,
+        net_margin_pct: marginFor(q.date),
         day1_pct: day1,
         day10_pct: day10,
       };
