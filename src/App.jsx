@@ -1928,6 +1928,76 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   );
 }
 
+// ── Extended-hours box: premarket (left) · post-market (right) movers ──
+// Sits above Sector Rotation. Rows come from the TheStockCatalyst scrape
+// (earnings + stocks-in-play per session), biggest |move| first.
+function ExtendedHoursBox({ pipeline, onTickerClick, stockMap }) {
+  const ARIA = useAriaTheme();
+  const ownedTint = useOwnedTint();
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("tp-exthours-collapsed") !== "1"; } catch { return true; } });
+  const toggle = () => setOpen((o) => { const n = !o; try { localStorage.setItem("tp-exthours-collapsed", n ? "0" : "1"); } catch {} return n; });
+  const mk = (ers, sips) => {
+    const seen = new Set(); const out = [];
+    [...(ers || []).map((m) => ({ ...m, _t: "ER" })), ...(sips || []).map((m) => ({ ...m, _t: "SIP" }))].forEach((m) => {
+      if (!m.ticker || seen.has(m.ticker)) return;
+      seen.add(m.ticker); out.push(m);
+    });
+    return out.sort((a, b) => Math.abs(b.ext_hours_change_pct ?? b.change_pct ?? 0) - Math.abs(a.ext_hours_change_pct ?? a.change_pct ?? 0)).slice(0, 12);
+  };
+  const pm = mk(pipeline?.pm_earnings_movers, pipeline?.pm_sip_movers);
+  const ah = mk(pipeline?.ah_earnings_movers, pipeline?.ah_sip_movers);
+  if (!pm.length && !ah.length) return null;
+  const fmtVol = (v) => !v ? "" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : (v / 1e3).toFixed(0) + "K";
+  const col = (title, color, rows) => (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color, marginBottom: 2 }}>{title} ({rows.length})</div>
+      {rows.length === 0 && <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "2px 0" }}>no movers scraped this session</div>}
+      {rows.map((m) => {
+        const chg = m.ext_hours_change_pct ?? m.change_pct;
+        const items = (m.recent_headlines?.length ? m.recent_headlines : m.headlines) || [];
+        const inU = !!stockMap?.[m.ticker];
+        return (
+          <div key={m.ticker} onClick={() => onTickerClick?.(m.ticker)}
+            title={`${m.name || m.ticker} — ${chg != null ? (chg > 0 ? "+" : "") + chg.toFixed(1) + "%" : "—"}${m.volume ? ` · vol ${fmtVol(m.volume)}` : ""}${m._t === "ER" ? " · earnings mover" : ""}${inU ? "" : " · NOT in universe"}${items[0] ? `
+${items[0]}` : ""} (click to chart)`}
+            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 8.5, fontFamily: "monospace", cursor: "pointer", padding: "1px 2px", borderRadius: 2, background: ownedTint(m.ticker, ARIA) }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = ownedTint(m.ticker, ARIA); }}>
+            <span style={{ width: 44, flexShrink: 0, fontWeight: 700, color: inU ? ARIA.text : ARIA.textMuted }}>{m.ticker}</span>
+            <span style={{ width: 48, flexShrink: 0, textAlign: "right", fontWeight: 700, color: chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : ARIA.red }}>{chg != null ? `${chg > 0 ? "+" : ""}${chg.toFixed(1)}%` : "—"}</span>
+            <span style={{ width: 38, flexShrink: 0, textAlign: "right", color: ARIA.textMuted }}>{fmtVol(m.volume)}</span>
+            {m._t === "ER" && <span style={{ fontSize: 6.5, fontWeight: 800, color: ARIA.cyan, border: `1px solid ${ARIA.cyan}55`, borderRadius: 2, padding: "0 2px", flexShrink: 0 }}>ER</span>}
+            {items.length > 0 && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: m.ticker, items } })); }}
+              title="Click for catalyst headlines" style={{ fontSize: 8, opacity: 0.8, cursor: "pointer", flexShrink: 0 }}>📰</span>}
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontSize: 7.5 }}>{items[0] || ""}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+  return (
+    <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
+      <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
+        <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Extended Hours</span>
+        <span style={{ fontSize: 8, color: ARIA.textDim }}>premarket · post-market movers</span>
+        {!open && (
+          <span style={{ fontSize: 8, color: ARIA.textMuted, marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+            <span style={{ color: ARIA.yellow }}>PM {pm.slice(0, 3).map((m) => m.ticker).join(" ")}</span>
+            {"  "}<span style={{ color: ARIA.purple }}>AH {ah.slice(0, 3).map((m) => m.ticker).join(" ")}</span>
+          </span>
+        )}
+      </div>
+      {open && (
+        <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {col("Premarket", ARIA.yellow, pm)}
+          {col("Post-market", ARIA.purple, ah)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, movers = [] }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
@@ -12564,6 +12634,7 @@ function AppMain() {
               tickerStrengthMap={tickerStrengthMap}
               rotationBoard={
                 <ErrorBoundary>
+                  <ExtendedHoursBox pipeline={data.pipeline} onTickerClick={handleTickerClick} stockMap={stockMap} />
                   <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} movers={[...(data.pipeline?.earnings_movers || []).map((m) => ({ ...m, _src: "ER" })), ...(data.pipeline?.pm_sip_movers || []).map((m) => ({ ...m, _src: "PM" })), ...(data.pipeline?.ah_sip_movers || []).map((m) => ({ ...m, _src: "AH" }))]} />
                 </ErrorBoundary>
               }
