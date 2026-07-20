@@ -1934,6 +1934,22 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
 function ExtendedHoursBox({ pipeline, onTickerClick, stockMap }) {
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
+  // Rotation layers (module-cached fetch) — gives graded movers their BASE
+  // context: RS rank + layer + structural regime. The routine's web research
+  // grades the catalyst; this is the other half of the EP framework.
+  const rot = useRsRotation();
+  const layerCtx = (t) => {
+    const st = stockMap?.[t];
+    if (!st) return null;
+    const chains = chainsForStock(t, st) || [];
+    let lay = null;
+    if (chains.length && rot?.layers) {
+      const keys = new Set(chains.map((c) => `${c.themeId}|${c.layer}`));
+      const matches = rot.layers.filter((l) => keys.has(`${l.themeId}|${l.name}`));
+      if (matches.length) lay = matches.sort((a, b) => (b.now ?? -1) - (a.now ?? -1))[0];
+    }
+    return { rs: st.rs_rank ?? null, lay };
+  };
   const [open, setOpen] = useState(() => { try { return localStorage.getItem("tp-exthours-collapsed") !== "1"; } catch { return true; } });
   const toggle = () => setOpen((o) => { const n = !o; try { localStorage.setItem("tp-exthours-collapsed", n ? "0" : "1"); } catch {} return n; });
   // Graded premarket feed from the 6AM movers routine (EP grades + catalysts
@@ -2034,6 +2050,22 @@ ${m.catalyst}` : ""} (click to chart)`}
           <span style={{ width: 13, flexShrink: 0, fontWeight: 800, color: gradeC(m.grade) }}>{m.grade || "—"}</span>
           <span style={{ width: 44, flexShrink: 0, fontWeight: 700, color: stockMap?.[m.ticker] ? ARIA.text : ARIA.textMuted }}>{m.ticker}</span>
           <span style={{ width: 48, flexShrink: 0, textAlign: "right", fontWeight: 700, color: m.chg_pct == null ? ARIA.textMuted : m.chg_pct > 0 ? ARIA.green : ARIA.red }}>{m.chg_pct != null ? `${m.chg_pct > 0 ? "+" : ""}${m.chg_pct.toFixed(1)}%` : "—"}</span>
+          {(() => {
+            const ctx = layerCtx(m.ticker);
+            if (!ctx) return null;
+            const RC2 = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+            return (
+              <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 3, fontSize: 7 }}
+                title={`${m.ticker} base context: RS rank ${ctx.rs ?? "—"}${ctx.lay ? ` · ${ctx.lay.theme} / ${ctx.lay.name} — layer rank ${ctx.lay.now}, structure ${ctx.lay.regime || "—"}` : " · no layer"}. Catalyst grade × base quality = the full EP read.`}>
+                {ctx.rs != null && <span style={{ fontWeight: 700, color: ctx.rs >= 90 ? ARIA.green : ctx.rs <= 30 ? ARIA.red : ARIA.textMuted }}>RS{ctx.rs}</span>}
+                {ctx.lay && <span style={{ display: "inline-flex", alignItems: "center", gap: 2, color: ARIA.textMuted }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: RC2[ctx.lay.regime] || ARIA.textMuted, flexShrink: 0 }} />
+                  <span style={{ maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ctx.lay.name}</span>
+                  <span style={{ fontWeight: 700, color: (ctx.lay.now ?? 0) >= 88 ? ARIA.green : ARIA.textDim }}>{ctx.lay.now}</span>
+                </span>}
+              </span>
+            );
+          })()}
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: ARIA.textDim, fontSize: 7.5 }}>{m.catalyst || ""}</span>
         </div>
       ))}
