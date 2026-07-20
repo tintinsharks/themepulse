@@ -8247,6 +8247,7 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
 
     const erMarkers = [];
     if (quarters && quarters.length) {
+      const chLight = CH_ARIA.bg === "#f8f9fc";
       const barDateIdx = {};
       bars.forEach((b, i) => { barDateIdx[b.date] = i; });
       for (const q of quarters) {
@@ -8268,7 +8269,11 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
         erMarkers.push(
           <line key={`erl${q.report_date}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke={dotColor} strokeWidth={0.5} strokeDasharray="2,3" opacity={0.5} />,
           <text key={`ert${q.report_date}`} x={x} y={pad.t + priceH - 10} textAnchor="middle" fontSize={7} fontWeight={700} fill={dotColor} opacity={0.9} fontFamily="ui-monospace,monospace">{q.label || ""}</text>,
-          <text key={`ers${q.report_date}`} x={x} y={pad.t + priceH - 2} textAnchor="middle" fontSize={6.5} fontWeight={600} fill="#c0c0d8" opacity={0.8} fontFamily="ui-monospace,monospace">{ePct} | {sPct}</text>
+          <text key={`ers${q.report_date}`} x={x} y={pad.t + priceH - 2} textAnchor="middle" fontSize={6.5} fontWeight={600} opacity={0.9} fontFamily="ui-monospace,monospace">
+            <tspan fill={q.eps_yoy == null ? "#c0c0d8" : q.eps_yoy >= 0 ? (chLight ? "#059669" : "#34d399") : (chLight ? "#dc2626" : "#f87171")}>{ePct}</tspan>
+            <tspan fill="#8a8a9a"> | </tspan>
+            <tspan fill={q.sales_yoy == null ? "#c0c0d8" : q.sales_yoy >= 0 ? (chLight ? "#059669" : "#34d399") : (chLight ? "#dc2626" : "#f87171")}>{sPct}</tspan>
+          </text>
         );
       }
     }
