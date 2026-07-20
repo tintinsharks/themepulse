@@ -9532,6 +9532,7 @@ function ChartPanelInline({
               revenue: q.revenue_actual != null ? q.revenue_actual / 1e6 : null,
               revenue_yoy: q.revenue_yoy_pct,
               net_margin: q.net_margin_pct,
+              gross_margin: q.gross_margin_pct,
             }))
           : null;
         const effectiveQuarters = erQ || (quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters));
@@ -9544,7 +9545,12 @@ function ChartPanelInline({
             p.net_margin != null && prevMargin != null
               ? p.net_margin - prevMargin
               : null;
-          if (i < 2) return { ...p, _code33: false, _marginDelta: marginDelta };
+          const prevGross = i > 0 ? arr[i - 1].gross_margin : null;
+          const grossDelta =
+            p.gross_margin != null && prevGross != null
+              ? +(p.gross_margin - prevGross).toFixed(2)
+              : null;
+          if (i < 2) return { ...p, _code33: false, _marginDelta: marginDelta, _grossDelta: grossDelta };
           const a = arr[i - 2], b = arr[i - 1], c = p;
           const accel = (x, y, z) =>
             x != null && y != null && z != null && z > y && y > x;
@@ -9552,7 +9558,7 @@ function ChartPanelInline({
             accel(a.eps_yoy, b.eps_yoy, c.eps_yoy) &&
             accel(a.revenue_yoy, b.revenue_yoy, c.revenue_yoy) &&
             accel(a.net_margin, b.net_margin, c.net_margin);
-          return { ...p, _code33: c33, _marginDelta: marginDelta };
+          return { ...p, _code33: c33, _marginDelta: marginDelta, _grossDelta: grossDelta };
         });
         if (series.length === 0) return null;
         return (
@@ -9573,6 +9579,7 @@ function ChartPanelInline({
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                 <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
+                <MiniQBars quarters={series} accessor={(q) => q.gross_margin} yoyAccessor={(q) => q._grossDelta} color={ARIA.green} labelFmt={(v) => v.toFixed(1) + "%"} title="Gross Margin" ARIA={ARIA} passYoy={2} hotYoy={5} />
 
               </div>
             </div>

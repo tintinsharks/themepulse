@@ -204,6 +204,7 @@ export default async function handler(req, res) {
           return {
             fiscal_label: inc?.period && fy ? `${inc.period}-${String(fy).slice(2)}` : null,
             net_margin_pct: adjMargin,
+            gross_margin_pct: inc?.grossProfit != null && inc?.revenue ? +((inc.grossProfit / inc.revenue) * 100).toFixed(2) : null,
           };
         })(),
         day1_pct: day1,
