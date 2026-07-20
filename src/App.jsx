@@ -1947,6 +1947,26 @@ function ExtendedHoursBox({ pipeline, onTickerClick, stockMap }) {
   const pm = mk(pipeline?.pm_earnings_movers, pipeline?.pm_sip_movers);
   const ah = mk(pipeline?.ah_earnings_movers, pipeline?.ah_sip_movers);
   if (!pm.length && !ah.length) return null;
+  // Which SESSION each column belongs to, derived from the scrape time
+  // (pipeline_meta.last_run, ET-naive). Premarket = the trading day of the
+  // scrape morning (today, once the 6AM ET run lands); post-market = the most
+  // recent session CLOSE before the scrape — e.g. Monday morning shows
+  // Monday's premarket next to Friday's post-market.
+  const [pmDate, ahDate] = (() => {
+    const lr = pipeline?.pipeline_meta?.last_run;
+    const t = lr ? new Date(lr) : new Date();
+    if (isNaN(t.getTime())) return [null, null];
+    const prevTrading = (d) => { const x = new Date(d); do { x.setDate(x.getDate() - 1); } while (x.getDay() === 0 || x.getDay() === 6); return x; };
+    const dow = t.getDay(), hr = t.getHours();
+    let pmD, ahD;
+    if (dow === 0 || dow === 6) { pmD = ahD = prevTrading(t); }
+    else {
+      pmD = hr >= 4 ? t : prevTrading(t);
+      ahD = hr >= 16 ? t : prevTrading(t);
+    }
+    const fmt = (d) => `${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
+    return [fmt(pmD), fmt(ahD)];
+  })();
   const fmtVol = (v) => !v ? "" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : (v / 1e3).toFixed(0) + "K";
   const col = (title, color, rows) => (
     <div style={{ minWidth: 0 }}>
@@ -1990,8 +2010,8 @@ ${items[0]}` : ""} (click to chart)`}
       </div>
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {col("Premarket", ARIA.yellow, pm)}
-          {col("Post-market", ARIA.purple, ah)}
+          {col(pmDate ? `Premarket · ${pmDate}` : "Premarket", ARIA.yellow, pm)}
+          {col(ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple, ah)}
         </div>
       )}
     </div>
