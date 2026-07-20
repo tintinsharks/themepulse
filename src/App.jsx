@@ -2086,6 +2086,29 @@ ${m.catalyst}` : ""} (click to chart)`}
   };
   const pmGraded = gradedCol(pmRoutine, pmSessionISO, pmDate ? `Premarket · ${pmDate}` : "Premarket", ARIA.yellow);
   const ahGraded = gradedCol(ahRoutine, ahSessionISO, ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple);
+  // "Reporting tonight" — today's AMC reporters, shown atop the post-market
+  // column until the 8PM graded scan covers them. Doubles as the Zanger
+  // sell-before-ER check for held names.
+  const tonight = (() => {
+    if (!stockMap) return [];
+    return Object.values(stockMap)
+      .filter((st) => st.earnings_days === 0 && (st.er_timing == null || /amc|after/i.test(st.er_timing)))
+      .sort((a, b) => (b.avg_dollar_vol_raw || 0) - (a.avg_dollar_vol_raw || 0))
+      .slice(0, 12);
+  })();
+  const tonightRow = tonight.length > 0 ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+      <span style={{ fontSize: 7, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.red }}>Reporting tonight</span>
+      {tonight.map((st) => (
+        <button key={st.ticker} onClick={() => onTickerClick?.(st.ticker)}
+          title={`${st.ticker} reports after the close today${st.rs_rank != null ? ` · RS ${st.rs_rank}` : ""} — the 8PM scan will grade the print. Zanger: sell a full day before; Ryan: never hold size through earnings. (click to chart)`}
+          style={{ fontSize: 7.5, fontWeight: 700, fontFamily: "monospace", cursor: "pointer", padding: "1px 5px", borderRadius: 3,
+            color: ARIA.text, border: `1px solid ${ARIA.border}`, background: ownedTint(st.ticker, ARIA) }}>
+          {st.ticker}
+        </button>
+      ))}
+    </div>
+  ) : null;
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
@@ -2102,7 +2125,10 @@ ${m.catalyst}` : ""} (click to chart)`}
       {open && (
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "6px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {pmGraded || col(pmDate ? `Premarket · ${pmDate}` : "Premarket", ARIA.yellow, pm)}
-          {ahGraded || col(ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple, ah)}
+          <div style={{ minWidth: 0 }}>
+            {tonightRow}
+            {ahGraded || col(ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple, ah)}
+          </div>
         </div>
       )}
     </div>

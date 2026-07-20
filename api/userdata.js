@@ -84,6 +84,10 @@ export default async function handler(req, res) {
     try {
       if (req.method === "GET") {
         res.setHeader("Cache-Control", "private, s-maxage=60, stale-while-revalidate=300");
+        if (req.query.history) {
+          const hr = await redisCmd("GET", `${kvKey}:history`);
+          return res.status(200).json({ ok: true, history: hr.result ? JSON.parse(hr.result) : [] });
+        }
         const r = await redisCmd("GET", kvKey);
         return res.status(200).json({ ok: true, data: r.result ? JSON.parse(r.result) : null });
       }
@@ -104,6 +108,20 @@ export default async function handler(req, res) {
           top_setups: Array.isArray(b.top_setups) ? b.top_setups.slice(0, 12) : [],
         };
         await redisCmd("SET", kvKey, JSON.stringify(blob));
+        // Bank the blob into a capped per-scope history (last 30 sessions,
+        // deduped by date — same-day re-pushes replace) so grade follow-
+        // through can be audited later. Failures here never fail the POST.
+        try {
+          const histKey = `${kvKey}:history`;
+          const hr = await redisCmd("GET", histKey);
+          let hist = [];
+          try { hist = JSON.parse(hr.result || "[]"); } catch { hist = []; }
+          if (!Array.isArray(hist)) hist = [];
+          hist = hist.filter((h) => h && h.date !== blob.date);
+          hist.push(blob);
+          hist.sort((a, b) => (a.date < b.date ? -1 : 1));
+          await redisCmd("SET", histKey, JSON.stringify(hist.slice(-30)));
+        } catch { /* history is best-effort */ }
         return res.status(200).json({ ok: true, count: blob.rows.length });
       }
       return res.status(405).json({ ok: false, error: "Method not allowed" });
