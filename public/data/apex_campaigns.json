@@ -104,14 +104,12 @@
   "ondeck": false
  },
  "AAOI": {
-  "entered": "2026-07-15",
-  "px": 125.45,
+  "entered": "2026-07-21",
+  "px": 113.91,
   "layer": "AI Connectivity",
-  "peak": 125.45,
-  "last_seen": "2026-07-15",
-  "ondeck": true,
-  "exited": "2026-07-21",
-  "exit_px": 103.02
+  "peak": 113.91,
+  "last_seen": "2026-07-21",
+  "ondeck": true
  },
  "ARM": {
   "entered": "2026-07-15",
@@ -143,7 +141,7 @@
   "entered": "2026-07-17",
   "px": 63.72,
   "layer": "Refining",
-  "peak": 64.64,
+  "peak": 65.7,
   "last_seen": "2026-07-21",
   "ondeck": true
  },
@@ -154,5 +152,13 @@
   "peak": 63.85,
   "last_seen": "2026-07-21",
   "ondeck": false
+ },
+ "VRNS": {
+  "entered": "2026-07-21",
+  "px": 46.21,
+  "layer": "Threat Operations",
+  "peak": 46.21,
+  "last_seen": "2026-07-21",
+  "ondeck": true
  }
 }
