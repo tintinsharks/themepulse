@@ -2105,10 +2105,13 @@ ${m.catalyst}` : ""} (click to chart)`}
     // Calendar dates are confirmed but its timing field comes back empty on
     // this FMP tier — use the pipeline's er_timing for the AMC/BMO split
     // (timing estimates hold up even when its date estimates drift).
+    // Names already in today's PM earnings movers reported BMO — the print
+    // is out, they're not "tonight" (er_timing is often null for them).
+    const reported = new Set((pipeline?.pm_earnings_movers || []).map((m) => m.ticker));
     return tonightEvents
       .filter((e) => {
         const st = stockMap[e.ticker];
-        return st && (st.er_timing == null || /amc|after/i.test(st.er_timing));
+        return st && !reported.has(e.ticker) && (st.er_timing == null || /amc|after/i.test(st.er_timing));
       })
       .map((e) => stockMap[e.ticker])
       .sort((a, b) => (b.avg_dollar_vol_raw || 0) - (a.avg_dollar_vol_raw || 0))
