@@ -5,7 +5,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 96.08,
-  "last_seen": "2026-07-20"
+  "last_seen": "2026-07-21"
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -13,7 +13,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 432.74,
-  "last_seen": "2026-07-20"
+  "last_seen": "2026-07-21"
  },
  "SNDK": {
   "entered": "2026-07-02",
@@ -21,7 +21,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1900.7,
-  "last_seen": "2026-07-20"
+  "last_seen": "2026-07-21"
  },
  "MU": {
   "entered": "2026-07-02",
@@ -29,7 +29,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1017.79,
-  "last_seen": "2026-07-20"
+  "last_seen": "2026-07-21"
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -37,7 +37,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-20"
+  "last_seen": "2026-07-21"
  },
  "INTC": {
   "entered": "2026-07-02",
@@ -55,7 +55,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 144.65,
-  "last_seen": "2026-07-20",
+  "last_seen": "2026-07-21",
   "ondeck": false
  },
  "ABSI": {
@@ -92,7 +92,7 @@
   "px": 41.5,
   "layer": "Threat Operations",
   "peak": 42.65,
-  "last_seen": "2026-07-20",
+  "last_seen": "2026-07-21",
   "ondeck": true
  },
  "RPD": {
@@ -100,7 +100,7 @@
   "px": 12.56,
   "layer": "Threat Operations",
   "peak": 13.41,
-  "last_seen": "2026-07-20",
+  "last_seen": "2026-07-21",
   "ondeck": false
  },
  "AAOI": {
@@ -109,7 +109,9 @@
   "layer": "AI Connectivity",
   "peak": 125.45,
   "last_seen": "2026-07-15",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-07-21",
+  "exit_px": 103.02
  },
  "ARM": {
   "entered": "2026-07-15",
@@ -117,7 +119,9 @@
   "layer": "Compute Silicon",
   "peak": 281.17,
   "last_seen": "2026-07-15",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-07-21",
+  "exit_px": 269.61
  },
  "PANW": {
   "entered": "2026-07-15",
@@ -139,16 +143,16 @@
   "entered": "2026-07-17",
   "px": 63.72,
   "layer": "Refining",
-  "peak": 63.72,
-  "last_seen": "2026-07-20",
+  "peak": 64.64,
+  "last_seen": "2026-07-21",
   "ondeck": true
  },
  "PBF": {
   "entered": "2026-07-17",
   "px": 63.34,
   "layer": "Refining",
-  "peak": 63.34,
-  "last_seen": "2026-07-20",
+  "peak": 63.85,
+  "last_seen": "2026-07-21",
   "ondeck": false
  }
 }
