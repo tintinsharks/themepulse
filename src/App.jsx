@@ -2086,13 +2086,31 @@ ${m.catalyst}` : ""} (click to chart)`}
   };
   const pmGraded = gradedCol(pmRoutine, pmSessionISO, pmDate ? `Premarket · ${pmDate}` : "Premarket", ARIA.yellow);
   const ahGraded = gradedCol(ahRoutine, ahSessionISO, ahDate ? `Post-market · ${ahDate}` : "Post-market", ARIA.purple);
-  // "Reporting tonight" — today's AMC reporters, shown atop the post-market
-  // column until the 8PM graded scan covers them. Doubles as the Zanger
-  // sell-before-ER check for held names.
+  // "Reporting tonight" — today's AMC reporters from the FMP earnings
+  // calendar (confirmed dates; the pipeline's earnings_days is an estimate
+  // that reads 0 for TOMORROW's reporters when computed intraday). Shown
+  // atop the post-market column until the 8PM graded scan covers them.
+  const [tonightEvents, setTonightEvents] = useState(null);
+  useEffect(() => {
+    let dead = false;
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const iso = `${et.getFullYear()}-${String(et.getMonth() + 1).padStart(2, "0")}-${String(et.getDate()).padStart(2, "0")}`;
+    fetch(`/api/earnings?from=${iso}&to=${iso}`).then((r) => r.json())
+      .then((d2) => { if (!dead && Array.isArray(d2?.events)) setTonightEvents(d2.events); })
+      .catch(() => {});
+    return () => { dead = true; };
+  }, []);
   const tonight = (() => {
-    if (!stockMap) return [];
-    return Object.values(stockMap)
-      .filter((st) => st.earnings_days === 0 && (st.er_timing == null || /amc|after/i.test(st.er_timing)))
+    if (!tonightEvents || !stockMap) return [];
+    // Calendar dates are confirmed but its timing field comes back empty on
+    // this FMP tier — use the pipeline's er_timing for the AMC/BMO split
+    // (timing estimates hold up even when its date estimates drift).
+    return tonightEvents
+      .filter((e) => {
+        const st = stockMap[e.ticker];
+        return st && (st.er_timing == null || /amc|after/i.test(st.er_timing));
+      })
+      .map((e) => stockMap[e.ticker])
       .sort((a, b) => (b.avg_dollar_vol_raw || 0) - (a.avg_dollar_vol_raw || 0))
       .slice(0, 12);
   })();
