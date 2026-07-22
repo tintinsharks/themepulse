@@ -40,14 +40,12 @@
   "last_seen": "2026-07-22"
  },
  "INTC": {
-  "entered": "2026-07-02",
-  "px": 120.35,
-  "spy": 744.78,
+  "entered": "2026-07-22",
+  "px": 106.09,
   "layer": "Compute Silicon",
-  "peak": 122.2,
-  "last_seen": "2026-07-08",
-  "exited": "2026-07-14",
-  "exit_px": 103.12
+  "peak": 106.09,
+  "last_seen": "2026-07-22",
+  "ondeck": true
  },
  "ABVX": {
   "entered": "2026-07-03",
@@ -78,14 +76,12 @@
   "ondeck": true
  },
  "AMD": {
-  "entered": "2026-07-08",
-  "px": 508.43,
+  "entered": "2026-07-22",
+  "px": 551.81,
   "layer": "Compute Silicon",
-  "peak": 555.61,
-  "last_seen": "2026-07-14",
-  "ondeck": true,
-  "exited": "2026-07-20",
-  "exit_px": 509.38
+  "peak": 551.81,
+  "last_seen": "2026-07-22",
+  "ondeck": true
  },
  "TENB": {
   "entered": "2026-07-14",
@@ -141,7 +137,7 @@
   "entered": "2026-07-17",
   "px": 63.72,
   "layer": "Refining",
-  "peak": 67.19,
+  "peak": 67.35,
   "last_seen": "2026-07-22",
   "ondeck": true
  },
@@ -149,7 +145,7 @@
   "entered": "2026-07-17",
   "px": 63.34,
   "layer": "Refining",
-  "peak": 66.05,
+  "peak": 66.65,
   "last_seen": "2026-07-22",
   "ondeck": false
  },
