@@ -5,7 +5,7 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 96.08,
-  "last_seen": "2026-07-21"
+  "last_seen": "2026-07-22"
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -21,7 +21,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1900.7,
-  "last_seen": "2026-07-21"
+  "last_seen": "2026-07-22"
  },
  "MU": {
   "entered": "2026-07-02",
@@ -29,7 +29,7 @@
   "spy": 744.78,
   "layer": "Memory + Storage",
   "peak": 1017.79,
-  "last_seen": "2026-07-21"
+  "last_seen": "2026-07-22"
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -37,7 +37,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-21"
+  "last_seen": "2026-07-22"
  },
  "INTC": {
   "entered": "2026-07-02",
@@ -55,7 +55,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 144.65,
-  "last_seen": "2026-07-21",
+  "last_seen": "2026-07-22",
   "ondeck": false
  },
  "ABSI": {
@@ -92,7 +92,7 @@
   "px": 41.5,
   "layer": "Threat Operations",
   "peak": 42.65,
-  "last_seen": "2026-07-21",
+  "last_seen": "2026-07-22",
   "ondeck": true
  },
  "RPD": {
@@ -107,8 +107,8 @@
   "entered": "2026-07-21",
   "px": 113.91,
   "layer": "AI Connectivity",
-  "peak": 113.91,
-  "last_seen": "2026-07-21",
+  "peak": 119.26,
+  "last_seen": "2026-07-22",
   "ondeck": true
  },
  "ARM": {
@@ -141,16 +141,16 @@
   "entered": "2026-07-17",
   "px": 63.72,
   "layer": "Refining",
-  "peak": 65.7,
-  "last_seen": "2026-07-21",
+  "peak": 67.19,
+  "last_seen": "2026-07-22",
   "ondeck": true
  },
  "PBF": {
   "entered": "2026-07-17",
   "px": 63.34,
   "layer": "Refining",
-  "peak": 63.85,
-  "last_seen": "2026-07-21",
+  "peak": 66.05,
+  "last_seen": "2026-07-22",
   "ondeck": false
  },
  "VRNS": {
@@ -158,7 +158,7 @@
   "px": 46.21,
   "layer": "Threat Operations",
   "peak": 46.21,
-  "last_seen": "2026-07-21",
+  "last_seen": "2026-07-22",
   "ondeck": true
  }
 }
