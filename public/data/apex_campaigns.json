@@ -118,24 +118,20 @@
   "exit_px": 269.61
  },
  "PANW": {
-  "entered": "2026-07-15",
-  "px": 355.64,
+  "entered": "2026-07-24",
+  "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 364.08,
-  "last_seen": "2026-07-18",
-  "ondeck": true,
-  "exited": "2026-07-24",
-  "exit_px": 325.63
+  "peak": 326.03,
+  "last_seen": "2026-07-24",
+  "ondeck": true
  },
  "FTNT": {
-  "entered": "2026-07-15",
-  "px": 165.85,
+  "entered": "2026-07-24",
+  "px": 152.47,
   "layer": "Platform + Endpoint",
-  "peak": 165.85,
-  "last_seen": "2026-07-18",
-  "ondeck": true,
-  "exited": "2026-07-24",
-  "exit_px": 151.54
+  "peak": 152.47,
+  "last_seen": "2026-07-24",
+  "ondeck": true
  },
  "DK": {
   "entered": "2026-07-17",
