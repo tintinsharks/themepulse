@@ -1,21 +1,21 @@
 {
   "date": "2026-07-23",
-  "generated": "2026-07-25 05:52",
-  "total_stocks": 4505,
+  "generated": "2026-07-26 22:29",
+  "total_stocks": 4511,
   "current": {
     "date": "2026-07-23",
-    "up_4pct": 31,
-    "down_4pct": 96,
-    "up_25q": 501,
+    "up_4pct": 32,
+    "down_4pct": 101,
+    "up_25q": 502,
     "down_25q": 358,
     "up_25m": 94,
-    "down_25m": 110,
+    "down_25m": 111,
     "up_50m": 14,
     "down_50m": 10,
     "up_13_34d": 661,
-    "down_13_34d": 678,
+    "down_13_34d": 677,
     "t2108": 52.0,
-    "total_stocks": 4505,
+    "total_stocks": 4511,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -253,18 +253,18 @@
   "history": [
     {
       "date": "2026-07-23",
-      "up_4pct": 31,
-      "down_4pct": 96,
-      "up_25q": 501,
+      "up_4pct": 32,
+      "down_4pct": 101,
+      "up_25q": 502,
       "down_25q": 358,
       "up_25m": 94,
-      "down_25m": 110,
+      "down_25m": 111,
       "up_50m": 14,
       "down_50m": 10,
       "up_13_34d": 661,
-      "down_13_34d": 678,
+      "down_13_34d": 677,
       "t2108": 52.0,
-      "total_stocks": 4505,
+      "total_stocks": 4511,
       "ratio_5d": 0.32,
       "ratio_10d": 0.32
     }
@@ -313,12 +313,6 @@
       "net": -1
     },
     {
-      "theme": "CONSUMER",
-      "up_4pct": 0,
-      "down_4pct": 1,
-      "net": -1
-    },
-    {
       "theme": "CYBER",
       "up_4pct": 0,
       "down_4pct": 1,
@@ -349,6 +343,12 @@
       "net": -2
     },
     {
+      "theme": "CONSUMER",
+      "up_4pct": 0,
+      "down_4pct": 2,
+      "net": -2
+    },
+    {
       "theme": "SOCIAL MEDIA",
       "up_4pct": 0,
       "down_4pct": 2,
@@ -367,16 +367,16 @@
       "net": -3
     },
     {
+      "theme": "HEALTHCARE",
+      "up_4pct": 5,
+      "down_4pct": 8,
+      "net": -3
+    },
+    {
       "theme": "INDUSTRIAL",
       "up_4pct": 3,
       "down_4pct": 6,
       "net": -3
-    },
-    {
-      "theme": "HEALTHCARE",
-      "up_4pct": 4,
-      "down_4pct": 8,
-      "net": -4
     },
     {
       "theme": "E-COMMERCE",
@@ -399,8 +399,8 @@
     {
       "theme": "FINTECH",
       "up_4pct": 2,
-      "down_4pct": 9,
-      "net": -7
+      "down_4pct": 10,
+      "net": -8
     },
     {
       "theme": "SOFTWARE",
@@ -428,22 +428,28 @@
         "breadth": 4.0
       }
     ],
-    "COMMODITIES": [
-      {
-        "date": "2026-07-23",
-        "breadth": 1.0
-      }
-    ],
     "DIGITAL ENTERTAINMENT": [
       {
         "date": "2026-07-23",
         "breadth": 6.0
       }
     ],
+    "COMMODITIES": [
+      {
+        "date": "2026-07-23",
+        "breadth": 1.0
+      }
+    ],
     "SOFTWARE": [
       {
         "date": "2026-07-23",
         "breadth": 4.0
+      }
+    ],
+    "E-COMMERCE": [
+      {
+        "date": "2026-07-23",
+        "breadth": 3.0
       }
     ],
     "ROBOTICS": [
@@ -453,12 +459,6 @@
       }
     ],
     "CONSUMER": [
-      {
-        "date": "2026-07-23",
-        "breadth": 3.0
-      }
-    ],
-    "E-COMMERCE": [
       {
         "date": "2026-07-23",
         "breadth": 3.0
@@ -512,13 +512,13 @@
         "breadth": 0.0
       }
     ],
-    "EV": [
+    "DEFENSE": [
       {
         "date": "2026-07-23",
         "breadth": 0.0
       }
     ],
-    "DEFENSE": [
+    "EV": [
       {
         "date": "2026-07-23",
         "breadth": 0.0
