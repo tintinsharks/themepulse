@@ -13,7 +13,9 @@
   "spy": 744.78,
   "layer": "AI Connectivity",
   "peak": 432.74,
-  "last_seen": "2026-07-21"
+  "last_seen": "2026-07-21",
+  "exited": "2026-07-27",
+  "exit_px": 271.45
  },
  "SNDK": {
   "entered": "2026-07-02",
@@ -97,7 +99,9 @@
   "layer": "Threat Operations",
   "peak": 13.41,
   "last_seen": "2026-07-21",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-07-27",
+  "exit_px": 9.86
  },
  "AAOI": {
   "entered": "2026-07-21",
