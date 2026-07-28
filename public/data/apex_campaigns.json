@@ -165,7 +165,7 @@
   "entered": "2026-07-28",
   "px": 78.64,
   "layer": "Refining",
-  "peak": 78.64,
+  "peak": 78.89,
   "last_seen": "2026-07-28",
   "ondeck": true
  },
@@ -173,7 +173,7 @@
   "entered": "2026-07-28",
   "px": 53.67,
   "layer": "Staffing + HR",
-  "peak": 53.67,
+  "peak": 56.22,
   "last_seen": "2026-07-28",
   "ondeck": true
  },
@@ -200,5 +200,29 @@
   "peak": 81.23,
   "last_seen": "2026-07-28",
   "ondeck": false
+ },
+ "RHI": {
+  "entered": "2026-07-28",
+  "px": 40.78,
+  "layer": "Staffing + HR",
+  "peak": 40.78,
+  "last_seen": "2026-07-28",
+  "ondeck": true
+ },
+ "NTAP": {
+  "entered": "2026-07-28",
+  "px": 169.85,
+  "layer": "Compute Hardware",
+  "peak": 169.85,
+  "last_seen": "2026-07-28",
+  "ondeck": false
+ },
+ "CRSR": {
+  "entered": "2026-07-28",
+  "px": 10.43,
+  "layer": "Compute Hardware",
+  "peak": 10.43,
+  "last_seen": "2026-07-28",
+  "ondeck": true
  }
 }
