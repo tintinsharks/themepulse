@@ -39,7 +39,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-24"
+  "last_seen": "2026-07-28"
  },
  "INTC": {
   "entered": "2026-07-22",
@@ -74,7 +74,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 28.29,
-  "last_seen": "2026-07-24",
+  "last_seen": "2026-07-28",
   "ondeck": true
  },
  "AMD": {
@@ -90,7 +90,7 @@
   "px": 41.5,
   "layer": "Threat Operations",
   "peak": 42.65,
-  "last_seen": "2026-07-22",
+  "last_seen": "2026-07-28",
   "ondeck": true
  },
  "RPD": {
@@ -142,7 +142,7 @@
   "px": 63.72,
   "layer": "Refining",
   "peak": 67.35,
-  "last_seen": "2026-07-24",
+  "last_seen": "2026-07-28",
   "ondeck": true
  },
  "PBF": {
@@ -157,8 +157,48 @@
   "entered": "2026-07-21",
   "px": 46.21,
   "layer": "Threat Operations",
-  "peak": 46.21,
-  "last_seen": "2026-07-22",
+  "peak": 46.67,
+  "last_seen": "2026-07-28",
   "ondeck": true
+ },
+ "PARR": {
+  "entered": "2026-07-28",
+  "px": 78.64,
+  "layer": "Refining",
+  "peak": 78.64,
+  "last_seen": "2026-07-28",
+  "ondeck": true
+ },
+ "MAN": {
+  "entered": "2026-07-28",
+  "px": 53.67,
+  "layer": "Staffing + HR",
+  "peak": 53.67,
+  "last_seen": "2026-07-28",
+  "ondeck": true
+ },
+ "KFRC": {
+  "entered": "2026-07-28",
+  "px": 58.13,
+  "layer": "Staffing + HR",
+  "peak": 58.13,
+  "last_seen": "2026-07-28",
+  "ondeck": false
+ },
+ "DDOG": {
+  "entered": "2026-07-28",
+  "px": 251.86,
+  "layer": "DevOps + Observability",
+  "peak": 251.86,
+  "last_seen": "2026-07-28",
+  "ondeck": true
+ },
+ "FROG": {
+  "entered": "2026-07-28",
+  "px": 81.23,
+  "layer": "DevOps + Observability",
+  "peak": 81.23,
+  "last_seen": "2026-07-28",
+  "ondeck": false
  }
 }
