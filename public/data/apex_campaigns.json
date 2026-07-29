@@ -167,7 +167,7 @@
   "entered": "2026-07-28",
   "px": 78.64,
   "layer": "Refining",
-  "peak": 79.09,
+  "peak": 81.73,
   "last_seen": "2026-07-29",
   "ondeck": true
  },
@@ -183,7 +183,7 @@
   "entered": "2026-07-28",
   "px": 58.13,
   "layer": "Staffing + HR",
-  "peak": 58.49,
+  "peak": 60.9,
   "last_seen": "2026-07-29",
   "ondeck": false
  },
@@ -191,8 +191,8 @@
   "entered": "2026-07-28",
   "px": 251.86,
   "layer": "DevOps + Observability",
-  "peak": 251.86,
-  "last_seen": "2026-07-28",
+  "peak": 256.55,
+  "last_seen": "2026-07-29",
   "ondeck": true
  },
  "FROG": {
@@ -200,7 +200,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 81.23,
-  "last_seen": "2026-07-28",
+  "last_seen": "2026-07-29",
   "ondeck": false
  },
  "RHI": {
