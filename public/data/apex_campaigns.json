@@ -155,7 +155,7 @@
   "entered": "2026-07-17",
   "px": 63.72,
   "layer": "Refining",
-  "peak": 67.35,
+  "peak": 67.95,
   "last_seen": "2026-07-30",
   "ondeck": true
  },
@@ -181,7 +181,7 @@
   "entered": "2026-07-28",
   "px": 78.64,
   "layer": "Refining",
-  "peak": 83.07,
+  "peak": 85.91,
   "last_seen": "2026-07-30",
   "ondeck": true
  },
@@ -240,5 +240,21 @@
   "peak": 10.74,
   "last_seen": "2026-07-30",
   "ondeck": true
+ },
+ "CDNA": {
+  "entered": "2026-07-30",
+  "px": 35.39,
+  "layer": "Diagnostics",
+  "peak": 35.39,
+  "last_seen": "2026-07-30",
+  "ondeck": true
+ },
+ "GH": {
+  "entered": "2026-07-30",
+  "px": 152.78,
+  "layer": "Diagnostics",
+  "peak": 152.78,
+  "last_seen": "2026-07-30",
+  "ondeck": false
  }
 }
