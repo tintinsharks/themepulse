@@ -7009,7 +7009,7 @@ const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // mirrors server-side filter
 const ANALYZED_MAX = 50;
 
 function emptyServerState() {
-  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], ondeck: [], updated_at: null };
+  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], ondeck: [], listOps: {}, updated_at: null };
 }
 
 function loadCachedState() {
@@ -7035,6 +7035,47 @@ function saveCachedState(state) {
     localStorage.setItem(SERVER_STATE_KEY, JSON.stringify(state));
     window.dispatchEvent(new CustomEvent("tp-server-state-changed"));
   } catch {}
+}
+
+// ── List sync: LWW-element-set ────────────────────────────────────────────
+// Lists used to merge by UNION, which meant a delete could never propagate:
+// any device/tab holding a stale cached list would re-add every ticker you
+// had deleted and push it back to the server ("names I deleted keep coming
+// back"). Now every add/remove writes a timestamped op to `listOps` keyed
+// "field:TICKER"; merges take the NEWEST op per key and drop anything whose
+// latest op is a delete. Adds still never get lost — a re-add is simply a
+// newer op than the delete it supersedes.
+const OPS_TTL_MS = 120 * 24 * 60 * 60 * 1000; // forget ops after ~4 months
+const OPS_MAX = 800;
+
+function mergeListOps(a, b) {
+  const out = { ...(a || {}) };
+  for (const [k, v] of Object.entries(b || {})) {
+    if (!out[k] || (v?.at || "") > (out[k]?.at || "")) out[k] = v;
+  }
+  const cutoff = new Date(Date.now() - OPS_TTL_MS).toISOString();
+  const kept = Object.entries(out)
+    .filter(([, v]) => v && v.at && v.at >= cutoff)
+    .sort((x, y) => (y[1].at > x[1].at ? 1 : -1))
+    .slice(0, OPS_MAX);
+  return Object.fromEntries(kept);
+}
+
+// Drop items whose most recent op for this field is a delete.
+function applyListOps(field, list, ops) {
+  if (!ops) return list || [];
+  return (list || []).filter((t) => ops[`${field}:${t}`]?.op !== "del");
+}
+
+// Record adds/removes by diffing a list mutation.
+function opsForChange(field, prev, next, ops) {
+  const before = new Set(prev || []);
+  const after = new Set(next || []);
+  const at = new Date().toISOString();
+  const out = { ...(ops || {}) };
+  before.forEach((t) => { if (!after.has(t)) out[`${field}:${t}`] = { op: "del", at }; });
+  after.forEach((t) => { if (!before.has(t)) out[`${field}:${t}`] = { op: "add", at }; });
+  return mergeListOps(out, {});
 }
 
 // Module-level singleton so all components share the same in-memory state.
@@ -7092,6 +7133,7 @@ async function _pushToServer() {
         portfolio: s.portfolio,
         focus: s.focus,
         ondeck: s.ondeck,
+        listOps: s.listOps,
       }),
     });
     if (!r.ok) return;
@@ -7107,6 +7149,7 @@ async function _pushToServer() {
       portfolio: d.portfolio || [],
       focus: d.focus || [],
       ondeck: d.ondeck || [],
+      listOps: d.listOps || {},
       updated_at: d.updated_at || null,
     };
     saveCachedState(_moduleState);
@@ -7128,17 +7171,21 @@ function _pullFromServer() {
       // If user mutated state while we were fetching, discard server snapshot.
       if (_localTick !== tickAtStart) return;
       const local = _getState();
-      // MERGE, don't replace: union the server's lists with local. A stale
-      // device/tab pushing its old whole-state can no longer erase adds made
-      // elsewhere (the old replace-on-pull silently dropped them — the
-      // "my portfolio keeps losing names" bug). If local had items the server
-      // lacks, push the merged state back up.
+      // Union the lists so an add is never lost, then let the merged op log
+      // decide membership: anything whose newest op is a delete is dropped,
+      // so a stale device can no longer resurrect deleted tickers (and a
+      // re-add, being newer than its delete, still wins).
+      const ops = mergeListOps(d.listOps, local.listOps);
       const union = (a, b) => { const s = new Set(a || []); (b || []).forEach((t) => s.add(t)); return [...s]; };
-      const mergedWl = union(d.watchlist, local.watchlist);
-      const mergedPf = union(d.portfolio, local.portfolio);
-      const mergedOd = union(d.ondeck, local.ondeck);
-      const mergedFocus = union(d.focus, local.focus).filter((t) => !mergedOd.includes(t));
-      const serverMissing = mergedWl.length > (d.watchlist || []).length || mergedPf.length > (d.portfolio || []).length || mergedFocus.length > (d.focus || []).length || mergedOd.length > (d.ondeck || []).length;
+      const resolve = (field) => applyListOps(field, union(d[field], local[field]), ops);
+      const mergedWl = resolve("watchlist");
+      const mergedPf = resolve("portfolio");
+      const mergedOd = resolve("ondeck");
+      const mergedFocus = resolve("focus").filter((t) => !mergedOd.includes(t));
+      // Push back if our view differs from the server's in either direction
+      // (extra items to add, or deletes the server hasn't applied yet).
+      const differs = (mine, theirs) => mine.length !== (theirs || []).length || mine.some((t) => !(theirs || []).includes(t));
+      const serverStale = differs(mergedWl, d.watchlist) || differs(mergedPf, d.portfolio) || differs(mergedFocus, d.focus) || differs(mergedOd, d.ondeck);
       _moduleState = {
         ...emptyServerState(),
         analyzedPicks: d.analyzedPicks || [],
@@ -7146,11 +7193,12 @@ function _pullFromServer() {
         portfolio: mergedPf,
         focus: mergedFocus,
         ondeck: mergedOd,
+        listOps: ops,
         updated_at: d.updated_at || null,
       };
       saveCachedState(_moduleState);
       _notify();
-      if (serverMissing) {
+      if (serverStale) {
         if (_debounceTimer) clearTimeout(_debounceTimer);
         _debounceTimer = setTimeout(_pushToServer, 800);
       }
@@ -7270,7 +7318,7 @@ function useLocalStorageList(key) {
       _setState((s) => {
         const cur = s[field] || [];
         const value = typeof next === "function" ? next(cur) : next;
-        return { ...s, [field]: value };
+        return { ...s, [field]: value, listOps: opsForChange(field, cur, value, s.listOps) };
       });
     },
     [field]

@@ -57,8 +57,35 @@ function emptyState() {
     portfolio: [],
     focus: [],
     ondeck: [],
+    listOps: {},
     updated_at: null,
   };
+}
+
+// ── LWW-element-set for the ticker lists ──────────────────────────────────
+// `listOps` maps "field:TICKER" -> { op: "add"|"del", at: ISO }. Merges keep
+// the NEWEST op per key and lists are filtered by it, so a stale client that
+// POSTs an old list can't resurrect tickers deleted on another device.
+const OPS_TTL_MS = 120 * 24 * 60 * 60 * 1000;
+const OPS_MAX = 800;
+
+function mergeListOps(a, b) {
+  const out = { ...(a || {}) };
+  for (const [k, v] of Object.entries(b || {})) {
+    if (!v || !v.at) continue;
+    if (!out[k] || v.at > out[k].at) out[k] = v;
+  }
+  const cutoff = new Date(Date.now() - OPS_TTL_MS).toISOString();
+  return Object.fromEntries(
+    Object.entries(out)
+      .filter(([, v]) => v && v.at && v.at >= cutoff)
+      .sort((x, y) => (y[1].at > x[1].at ? 1 : -1))
+      .slice(0, OPS_MAX)
+  );
+}
+
+function applyListOps(field, list, ops) {
+  return (list || []).filter((t) => (ops || {})[`${field}:${t}`]?.op !== "del");
 }
 
 export default async function handler(req, res) {
@@ -144,6 +171,11 @@ export default async function handler(req, res) {
       const state = { ...emptyState(), ...(stored || {}) };
       // Apply 1-week TTL filter to analyzed picks at read time
       state.analyzedPicks = applyAnalyzedTtl(state.analyzedPicks);
+      // Honor deletes at read time too, in case a legacy write slipped a
+      // tombstoned ticker back into a stored list.
+      for (const f of ["watchlist", "portfolio", "focus", "ondeck"]) {
+        state[f] = applyListOps(f, state[f], state.listOps);
+      }
       return res.status(200).json({ ok: true, ...state });
     }
 
@@ -159,20 +191,20 @@ export default async function handler(req, res) {
         /* fall through with empty */
       }
 
+      const ops = mergeListOps(existing.listOps, body.listOps);
+      const pick = (field) =>
+        applyListOps(field, Array.isArray(body[field]) ? body[field] : existing[field], ops);
       const merged = {
         analyzedPicks: applyAnalyzedTtl(
           Array.isArray(body.analyzedPicks)
             ? body.analyzedPicks
             : existing.analyzedPicks
         ),
-        watchlist: Array.isArray(body.watchlist)
-          ? body.watchlist
-          : existing.watchlist,
-        portfolio: Array.isArray(body.portfolio)
-          ? body.portfolio
-          : existing.portfolio,
-        focus: Array.isArray(body.focus) ? body.focus : existing.focus,
-        ondeck: Array.isArray(body.ondeck) ? body.ondeck : existing.ondeck,
+        watchlist: pick("watchlist"),
+        portfolio: pick("portfolio"),
+        focus: pick("focus"),
+        ondeck: pick("ondeck"),
+        listOps: ops,
         updated_at: new Date().toISOString(),
       };
 
