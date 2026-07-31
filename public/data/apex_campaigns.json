@@ -140,15 +140,15 @@
   "px": 326.03,
   "layer": "Platform + Endpoint",
   "peak": 326.03,
-  "last_seen": "2026-07-29",
+  "last_seen": "2026-07-31",
   "ondeck": true
  },
  "FTNT": {
   "entered": "2026-07-24",
   "px": 152.47,
   "layer": "Platform + Endpoint",
-  "peak": 152.47,
-  "last_seen": "2026-07-29",
+  "peak": 157.45,
+  "last_seen": "2026-07-31",
   "ondeck": true
  },
  "DK": {
@@ -180,7 +180,7 @@
   "px": 78.64,
   "layer": "Refining",
   "peak": 85.91,
-  "last_seen": "2026-07-30",
+  "last_seen": "2026-07-31",
   "ondeck": true
  },
  "MAN": {
@@ -262,5 +262,13 @@
   "peak": 91.33,
   "last_seen": "2026-07-31",
   "ondeck": true
+ },
+ "SNOW": {
+  "entered": "2026-07-31",
+  "px": 296.7,
+  "layer": "Data Platforms",
+  "peak": 296.7,
+  "last_seen": "2026-07-31",
+  "ondeck": false
  }
 }
