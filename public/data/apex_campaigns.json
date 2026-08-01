@@ -45,7 +45,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-07-31"
+  "last_seen": "2026-08-01"
  },
  "INTC": {
   "entered": "2026-07-22",
@@ -84,7 +84,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 28.63,
-  "last_seen": "2026-07-31",
+  "last_seen": "2026-08-01",
   "ondeck": true
  },
  "AMD": {
@@ -139,16 +139,16 @@
   "entered": "2026-07-24",
   "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 326.03,
-  "last_seen": "2026-07-31",
+  "peak": 331.83,
+  "last_seen": "2026-08-01",
   "ondeck": true
  },
  "FTNT": {
   "entered": "2026-07-24",
   "px": 152.47,
   "layer": "Platform + Endpoint",
-  "peak": 157.45,
-  "last_seen": "2026-07-31",
+  "peak": 161.95,
+  "last_seen": "2026-08-01",
   "ondeck": true
  },
  "DK": {
@@ -156,7 +156,7 @@
   "px": 63.72,
   "layer": "Refining",
   "peak": 67.95,
-  "last_seen": "2026-07-31",
+  "last_seen": "2026-08-01",
   "ondeck": true
  },
  "PBF": {
@@ -179,8 +179,8 @@
   "entered": "2026-07-28",
   "px": 78.64,
   "layer": "Refining",
-  "peak": 85.91,
-  "last_seen": "2026-07-31",
+  "peak": 86.03,
+  "last_seen": "2026-08-01",
   "ondeck": true
  },
  "MAN": {
@@ -204,7 +204,7 @@
   "px": 251.86,
   "layer": "DevOps + Observability",
   "peak": 268.56,
-  "last_seen": "2026-07-31",
+  "last_seen": "2026-08-01",
   "ondeck": true
  },
  "FROG": {
@@ -212,7 +212,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 81.23,
-  "last_seen": "2026-07-31",
+  "last_seen": "2026-08-01",
   "ondeck": false
  },
  "RHI": {
@@ -268,7 +268,7 @@
   "px": 296.7,
   "layer": "Data Platforms",
   "peak": 296.7,
-  "last_seen": "2026-07-31",
+  "last_seen": "2026-08-01",
   "ondeck": false
  }
 }
