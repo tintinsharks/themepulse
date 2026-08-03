@@ -45,7 +45,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-02"
+  "last_seen": "2026-08-03"
  },
  "INTC": {
   "entered": "2026-07-22",
@@ -84,7 +84,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 28.63,
-  "last_seen": "2026-08-02",
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "AMD": {
@@ -103,7 +103,9 @@
   "layer": "Threat Operations",
   "peak": 42.65,
   "last_seen": "2026-07-28",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-03",
+  "exit_px": 34.34
  },
  "RPD": {
   "entered": "2026-07-14",
@@ -139,16 +141,16 @@
   "entered": "2026-07-24",
   "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 331.83,
-  "last_seen": "2026-08-02",
+  "peak": 337.25,
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "FTNT": {
   "entered": "2026-07-24",
   "px": 152.47,
   "layer": "Platform + Endpoint",
-  "peak": 161.95,
-  "last_seen": "2026-08-02",
+  "peak": 163.73,
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "DK": {
@@ -156,7 +158,7 @@
   "px": 63.72,
   "layer": "Refining",
   "peak": 67.95,
-  "last_seen": "2026-08-02",
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "PBF": {
@@ -173,14 +175,16 @@
   "layer": "Threat Operations",
   "peak": 46.67,
   "last_seen": "2026-07-28",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-03",
+  "exit_px": 41.3
  },
  "PARR": {
   "entered": "2026-07-28",
   "px": 78.64,
   "layer": "Refining",
-  "peak": 86.03,
-  "last_seen": "2026-08-02",
+  "peak": 86.08,
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "MAN": {
@@ -203,8 +207,8 @@
   "entered": "2026-07-28",
   "px": 251.86,
   "layer": "DevOps + Observability",
-  "peak": 268.56,
-  "last_seen": "2026-08-02",
+  "peak": 275.59,
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "FROG": {
@@ -221,7 +225,9 @@
   "layer": "Staffing + HR",
   "peak": 40.78,
   "last_seen": "2026-07-28",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-03",
+  "exit_px": 39.26
  },
  "NTAP": {
   "entered": "2026-07-28",
@@ -243,8 +249,8 @@
   "entered": "2026-07-30",
   "px": 35.39,
   "layer": "Diagnostics",
-  "peak": 38.1,
-  "last_seen": "2026-07-31",
+  "peak": 48.74,
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "GH": {
@@ -259,16 +265,16 @@
   "entered": "2026-07-31",
   "px": 91.33,
   "layer": "Diagnostics",
-  "peak": 91.33,
-  "last_seen": "2026-07-31",
+  "peak": 101.4,
+  "last_seen": "2026-08-03",
   "ondeck": true
  },
  "SNOW": {
   "entered": "2026-07-31",
   "px": 296.7,
   "layer": "Data Platforms",
-  "peak": 296.7,
-  "last_seen": "2026-08-02",
+  "peak": 313.16,
+  "last_seen": "2026-08-03",
   "ondeck": false
  }
 }
