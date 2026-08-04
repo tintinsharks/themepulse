@@ -72,10 +72,21 @@ function emptyState() {
 // applyListOps is re-applied to the lists at read time.
 const WHEEL_MAX = 2000;
 
+// A clear can never be dated in the future. A future tombstone — from clock
+// skew, or a client sending a day-end timestamp — would silently swallow
+// every subsequent import, and because the stamp only moves forward there
+// would be no way to undo it. Clamping to now both prevents that and heals a
+// bad value already in storage on the next write.
+function clampClear(clearedAt, nowIso = new Date().toISOString()) {
+  if (!clearedAt) return null;
+  return clearedAt > nowIso ? nowIso : clearedAt;
+}
+
 function applyWheelClear(trades, clearedAt) {
   if (!Array.isArray(trades)) return [];
-  const kept = clearedAt
-    ? trades.filter((t) => t && t.importedAt && t.importedAt > clearedAt)
+  const effective = clampClear(clearedAt);
+  const kept = effective
+    ? trades.filter((t) => t && t.importedAt && t.importedAt > effective)
     : trades;
   return kept.slice(0, WHEEL_MAX);
 }
@@ -215,8 +226,9 @@ export default async function handler(req, res) {
       const ops = mergeListOps(existing.listOps, body.listOps);
       const pick = (field) =>
         applyListOps(field, Array.isArray(body[field]) ? body[field] : existing[field], ops);
-      // A clear only ever moves forward, so an older client can't undo it.
-      const wheelClearedAt = newest(existing.wheelClearedAt, body.wheelClearedAt);
+      // A clear only ever moves forward, so an older client can't undo it —
+      // but never past now, so it can't swallow future imports.
+      const wheelClearedAt = clampClear(newest(existing.wheelClearedAt, body.wheelClearedAt));
       const merged = {
         wheelTrades: applyWheelClear(
           Array.isArray(body.wheelTrades) ? body.wheelTrades : existing.wheelTrades,
