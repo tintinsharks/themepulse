@@ -298,7 +298,8 @@ const looseKey = (t) => `${t.symbol}|${t.collected}|${t.paid}`;
  *    lot data has pairs differing by a single cent, so identical pairs are
  *    only a rounding coin-flip away.
  */
-export function mergeTrades(existing, incoming) {
+export function mergeTrades(existing, incoming, now) {
+  const stamp = now || new Date().toISOString();
   const store = (existing || []).map((t) => ({ ...t }));
   const claimed = new Set();
   let added = 0, enriched = 0, duplicates = 0;
@@ -326,12 +327,33 @@ export function mergeTrades(existing, incoming) {
       continue;
     }
 
-    store.push({ ...t });
+    // importedAt is what makes a cross-device "clear all" work: a clear
+    // records a timestamp, and anything imported before it is dropped.
+    store.push({ ...t, importedAt: t.importedAt || stamp });
     claimed.add(store.length - 1); // so a later identical row can't claim it
     added++;
   }
 
   return { trades: store, added, enriched, duplicates };
+}
+
+/**
+ * Drop trades imported before a "clear all".
+ *
+ * Without this, clearing on one device is undone the moment another device
+ * with a stale copy syncs — the union merge would faithfully restore every
+ * deleted trade. The timestamp acts as a tombstone: only imports newer than
+ * the clear survive. Trades predating the importedAt stamp have no timestamp
+ * and are therefore also cleared, which is the intent.
+ */
+export function applyClearTombstone(trades, clearedAt) {
+  if (!clearedAt) return trades || [];
+  return (trades || []).filter((t) => t && t.importedAt && t.importedAt > clearedAt);
+}
+
+/** Newest of a set of ISO timestamps, or null. */
+export function newestStamp(...stamps) {
+  return stamps.filter(Boolean).sort().pop() || null;
 }
 
 // ── Wheel bookkeeping ───────────────────────────────────────────────────────

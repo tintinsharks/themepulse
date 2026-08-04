@@ -17,7 +17,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { scrollRowIntoScroller } from "./utils.js";
-import { parseSchwabRealized, summarizeTrades, mergeTrades } from "./wheelTrades.js";
+import { parseSchwabRealized, summarizeTrades, mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
 import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
@@ -7010,7 +7010,7 @@ const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // mirrors server-side filter
 const ANALYZED_MAX = 50;
 
 function emptyServerState() {
-  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], ondeck: [], listOps: {}, updated_at: null };
+  return { analyzedPicks: [], watchlist: [], portfolio: [], focus: [], ondeck: [], listOps: {}, wheelTrades: [], wheelClearedAt: null, updated_at: null };
 }
 
 function loadCachedState() {
@@ -7135,6 +7135,8 @@ async function _pushToServer() {
         focus: s.focus,
         ondeck: s.ondeck,
         listOps: s.listOps,
+        wheelTrades: s.wheelTrades,
+        wheelClearedAt: s.wheelClearedAt,
       }),
     });
     if (!r.ok) return;
@@ -7151,6 +7153,8 @@ async function _pushToServer() {
       focus: d.focus || [],
       ondeck: d.ondeck || [],
       listOps: d.listOps || {},
+      wheelTrades: d.wheelTrades || [],
+      wheelClearedAt: d.wheelClearedAt || null,
       updated_at: d.updated_at || null,
     };
     saveCachedState(_moduleState);
@@ -7186,7 +7190,19 @@ function _pullFromServer() {
       // Push back if our view differs from the server's in either direction
       // (extra items to add, or deletes the server hasn't applied yet).
       const differs = (mine, theirs) => mine.length !== (theirs || []).length || mine.some((t) => !(theirs || []).includes(t));
-      const serverStale = differs(mergedWl, d.watchlist) || differs(mergedPf, d.portfolio) || differs(mergedFocus, d.focus) || differs(mergedOd, d.ondeck);
+      // Wheel trades are records, not tickers, so the op log doesn't apply:
+      // union them with the same claim-once merge the import path uses, then
+      // honour whichever device cleared most recently.
+      const wheelClearedAt = newestStamp(d.wheelClearedAt, local.wheelClearedAt);
+      const mergedWheel = applyClearTombstone(
+        mergeTrades(d.wheelTrades || [], local.wheelTrades || []).trades,
+        wheelClearedAt
+      );
+      const serverStale =
+        differs(mergedWl, d.watchlist) || differs(mergedPf, d.portfolio) ||
+        differs(mergedFocus, d.focus) || differs(mergedOd, d.ondeck) ||
+        mergedWheel.length !== (d.wheelTrades || []).length ||
+        wheelClearedAt !== (d.wheelClearedAt || null);
       _moduleState = {
         ...emptyServerState(),
         analyzedPicks: d.analyzedPicks || [],
@@ -7195,6 +7211,8 @@ function _pullFromServer() {
         focus: mergedFocus,
         ondeck: mergedOd,
         listOps: ops,
+        wheelTrades: mergedWheel,
+        wheelClearedAt,
         updated_at: d.updated_at || null,
       };
       saveCachedState(_moduleState);
@@ -12493,28 +12511,43 @@ function NewsPopover({ ARIA }) {
 // user's call. Data comes from /api/wheel (Schwab chain).
 // ──────────────────────────────────────────────────────────────────────────
 
-// Closed trades live in localStorage: they're personal position history, and
-// the Schwab app is scoped to Market Data only, so there is no server-side
-// source to sync against.
+// Closed trades ride the same server-state channel as the watchlist and
+// portfolio, so a history imported on one machine shows up on the others.
+// Schwab can't supply them (the app is Market Data scope only) — this syncs
+// what you've imported, it doesn't fetch anything from the broker.
+const LEGACY_WHEEL_KEY = "themepulse-wheel-trades";
+
 function useWheelTrades() {
-  const [trades, setTrades] = useState(() => {
+  const state = useServerState();
+
+  // One-time migration of anything imported before trades were synced.
+  useEffect(() => {
+    let legacy = null;
     try {
-      const raw = localStorage.getItem("themepulse-wheel-trades");
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const save = useCallback((next) => {
-    setTrades(next);
-    try { localStorage.setItem("themepulse-wheel-trades", JSON.stringify(next)); } catch {}
+      const raw = localStorage.getItem(LEGACY_WHEEL_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) legacy = parsed;
+    } catch { /* unreadable — nothing to migrate */ }
+    if (!legacy) { try { localStorage.removeItem(LEGACY_WHEEL_KEY); } catch {} return; }
+    _setState((s) => ({ ...s, wheelTrades: mergeTrades(s.wheelTrades || [], legacy).trades }));
+    try { localStorage.removeItem(LEGACY_WHEEL_KEY); } catch {}
   }, []);
-  return [trades, save];
+
+  const save = useCallback((next) => {
+    _setState((s) => ({ ...s, wheelTrades: next }));
+  }, []);
+
+  // Clearing stamps a tombstone so other devices don't sync the history back.
+  const clearAll = useCallback(() => {
+    _setState((s) => ({ ...s, wheelTrades: [], wheelClearedAt: new Date().toISOString() }));
+  }, []);
+
+  return [state.wheelTrades || [], save, clearAll];
 }
 
 function ClosedTrades({ symbol, ARIA }) {
-  const [trades, save] = useWheelTrades();
+  const [trades, save, clearAll] = useWheelTrades();
   const [paste, setPaste] = useState("");
   const [status, setStatus] = useState(null);
   const [scopeAll, setScopeAll] = useState(false);
@@ -12587,7 +12620,7 @@ function ClosedTrades({ symbol, ARIA }) {
             IMPORT
           </button>
           {trades.length > 0 && (
-            <button onClick={() => { if (confirm(`Delete all ${trades.length} imported trades?`)) { save([]); setStatus(null); } }}
+            <button onClick={() => { if (confirm(`Delete all ${trades.length} imported trades? This clears them on every device.`)) { clearAll(); setStatus(null); } }}
               style={{ background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textDim, padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace", fontSize: 9 }}>
               clear all ({trades.length})
             </button>

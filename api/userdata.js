@@ -58,9 +58,29 @@ function emptyState() {
     focus: [],
     ondeck: [],
     listOps: {},
+    wheelTrades: [],
+    wheelClearedAt: null,
     updated_at: null,
   };
 }
+
+// ── Wheel closed trades ───────────────────────────────────────────────────
+// Unlike the ticker lists these are records, not strings, so the LWW op log
+// doesn't apply. The client unions them (see mergeTrades in wheelTrades.js)
+// and posts the result; the server's job is to enforce the clear tombstone
+// so a stale device can't resurrect a cleared history, mirroring how
+// applyListOps is re-applied to the lists at read time.
+const WHEEL_MAX = 2000;
+
+function applyWheelClear(trades, clearedAt) {
+  if (!Array.isArray(trades)) return [];
+  const kept = clearedAt
+    ? trades.filter((t) => t && t.importedAt && t.importedAt > clearedAt)
+    : trades;
+  return kept.slice(0, WHEEL_MAX);
+}
+
+const newest = (...stamps) => stamps.filter(Boolean).sort().pop() || null;
 
 // ── LWW-element-set for the ticker lists ──────────────────────────────────
 // `listOps` maps "field:TICKER" -> { op: "add"|"del", at: ISO }. Merges keep
@@ -176,6 +196,7 @@ export default async function handler(req, res) {
       for (const f of ["watchlist", "portfolio", "focus", "ondeck"]) {
         state[f] = applyListOps(f, state[f], state.listOps);
       }
+      state.wheelTrades = applyWheelClear(state.wheelTrades, state.wheelClearedAt);
       return res.status(200).json({ ok: true, ...state });
     }
 
@@ -194,7 +215,14 @@ export default async function handler(req, res) {
       const ops = mergeListOps(existing.listOps, body.listOps);
       const pick = (field) =>
         applyListOps(field, Array.isArray(body[field]) ? body[field] : existing[field], ops);
+      // A clear only ever moves forward, so an older client can't undo it.
+      const wheelClearedAt = newest(existing.wheelClearedAt, body.wheelClearedAt);
       const merged = {
+        wheelTrades: applyWheelClear(
+          Array.isArray(body.wheelTrades) ? body.wheelTrades : existing.wheelTrades,
+          wheelClearedAt
+        ),
+        wheelClearedAt,
         analyzedPicks: applyAnalyzedTtl(
           Array.isArray(body.analyzedPicks)
             ? body.analyzedPicks
