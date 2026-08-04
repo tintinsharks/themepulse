@@ -12604,12 +12604,49 @@ function WheelStat({ label, value, color, hint }) {
   );
 }
 
-function WheelView({ onTickerClick }) {
+// Resolve the next earnings date for a symbol, preferring FMP's confirmed
+// date from /api/wheel and falling back to the pipeline's estimate.
+//
+// This fallback exists because FMP's forward calendar is frequently empty —
+// NVDA had no `next` date at all while sitting ~2 weeks from a report. An
+// absent ER badge would then look identical to "checked, and it's clear",
+// which is the wrong way for a wheel screener to fail. The pipeline carries
+// `earnings_display` (e.g. "~8/18/2026", the ~ marking it approximate), so
+// we use it and label the result as an estimate rather than showing nothing.
+function resolveEarnings(apiEarnings, stockMap, symbol) {
+  if (apiEarnings?.date) {
+    return { date: apiEarnings.date, estimated: false, timing: apiEarnings.timing || null };
+  }
+  const row = stockMap?.[symbol] || stockMap?.[String(symbol || "").toUpperCase()];
+  const disp = row?.earnings_display;
+  if (disp) {
+    const m = String(disp).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) {
+      const [, mo, d, y] = m;
+      return {
+        date: `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+        estimated: String(disp).includes("~"),
+        timing: row?.er_timing || null,
+      };
+    }
+  }
+  return null;
+}
+
+function WheelView({ onTickerClick, stockMap }) {
   const ARIA = useAriaTheme();
   const [cfg, update] = useWheelSettings();
   const [nonce, setNonce] = useState(0);
   const [leg, setLeg] = useState("puts");
   const { loading, data, error, needsAuth } = useWheel(cfg, nonce);
+
+  const er = useMemo(
+    () => resolveEarnings(data?.earnings, stockMap, data?.symbol || cfg.symbol),
+    [data, stockMap, cfg.symbol]
+  );
+  // Recompute per row rather than trusting the server flag, so the fallback
+  // date is applied consistently across both legs.
+  const erInCycle = useCallback((row) => Boolean(er?.date && er.date <= row.expiration), [er]);
 
   const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
   const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
@@ -12649,14 +12686,16 @@ function WheelView({ onTickerClick }) {
                 color={ARIA.textDim}
                 hint="Where ATM IV sits within THIS chain's strikes — not a 52-week IV rank. Schwab's chain endpoint carries no vol history."
               />
-              {data.earnings?.date && (
-                <WheelStat
-                  label="Earnings"
-                  value={`${data.earnings.date}${data.earnings.days_until != null ? ` (${data.earnings.days_until}d)` : ""}`}
-                  color={ARIA.yellow}
-                  hint="Cycles that span this date are flagged ER below"
-                />
-              )}
+              <WheelStat
+                label={er ? (er.estimated ? "Earnings (est)" : "Earnings") : "Earnings"}
+                value={er ? `${er.estimated ? "~" : ""}${er.date}${er.timing ? ` ${String(er.timing).toUpperCase()}` : ""}` : "UNKNOWN"}
+                color={er ? ARIA.yellow : ARIA.red}
+                hint={
+                  er
+                    ? `Cycles spanning this date are flagged ER below.${er.estimated ? " This date is the pipeline's estimate, not a confirmed report date — verify before selling into it." : ""}`
+                    : "No earnings date from either source — absence of ER flags below does NOT mean the cycle is clear. Verify manually."
+                }
+              />
             </div>
           )}
         </div>
@@ -12711,6 +12750,16 @@ function WheelView({ onTickerClick }) {
         <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: 8 }}>
           yield is annualized on <b>extrinsic</b> value · premium assumes a fill at the bid
         </span>
+        {data && !er && (
+          <span title="Neither FMP nor the pipeline returned an earnings date for this symbol" style={{ fontSize: 8, fontWeight: 700, color: ARIA.red, background: `${ARIA.red}1f`, border: `1px solid ${ARIA.red}55`, borderRadius: 3, padding: "1px 6px", marginLeft: 8, fontFamily: "monospace" }}>
+            ⚠ NO EARNINGS DATE — ER FLAGS UNAVAILABLE
+          </span>
+        )}
+        {data && er?.estimated && (
+          <span title={`Pipeline estimate (${er.date}), not a confirmed report date — verify before selling into a flagged cycle`} style={{ fontSize: 8, fontWeight: 700, color: ARIA.yellow, background: `${ARIA.yellow}1f`, border: `1px solid ${ARIA.yellow}55`, borderRadius: 3, padding: "1px 6px", marginLeft: 8, fontFamily: "monospace" }}>
+            ER? = estimated date
+          </span>
+        )}
         {data?.meta?.cached && (
           <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: "auto" }}>cached</span>
         )}
@@ -12819,8 +12868,8 @@ function WheelView({ onTickerClick }) {
                     <td style={{ ...cell, color: ARIA.textDim }}>{r.iv.toFixed(1)}</td>
                     <td style={{ ...cell, color: ARIA.textDim }}>{r.oi >= 1000 ? `${(r.oi / 1000).toFixed(1)}k` : r.oi}</td>
                     <td style={{ ...cell, textAlign: "left" }}>
-                      {r.earningsInCycle && (
-                        <span title="Earnings falls inside this expiration cycle — assignment risk is not normal-distribution risk here" style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.yellow, background: `${ARIA.yellow}1f`, border: `1px solid ${ARIA.yellow}55`, borderRadius: 2, padding: "0 4px", marginRight: 4 }}>ER</span>
+                      {erInCycle(r) && (
+                        <span title={`Earnings${er?.estimated ? " (estimated " + er.date + ")" : ""} falls inside this expiration cycle — assignment risk here is not normal-distribution risk`} style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.yellow, background: `${ARIA.yellow}1f`, border: `1px solid ${ARIA.yellow}55`, borderRadius: 2, padding: "0 4px", marginRight: 4 }}>{er?.estimated ? "ER?" : "ER"}</span>
                       )}
                       {r.itm && (
                         <span title="In the money" style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.purple, background: `${ARIA.purple}1f`, border: `1px solid ${ARIA.purple}55`, borderRadius: 2, padding: "0 4px", marginRight: 4 }}>ITM</span>
@@ -13203,7 +13252,7 @@ function AppMain() {
           />
         ) : mainView === "wheel" ? (
           <ErrorBoundary>
-            <WheelView onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }} />
+            <WheelView stockMap={stockMap} onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }} />
           </ErrorBoundary>
         ) : (
           <>
