@@ -1,13 +1,11 @@
 {
  "MXL": {
-  "entered": "2026-07-02",
-  "px": 93.12,
-  "spy": 744.78,
+  "entered": "2026-08-04",
+  "px": 72.49,
   "layer": "AI Connectivity",
-  "peak": 96.08,
-  "last_seen": "2026-07-24",
-  "exited": "2026-07-30",
-  "exit_px": 57.25
+  "peak": 72.49,
+  "last_seen": "2026-08-04",
+  "ondeck": true
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -45,7 +43,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-03"
+  "last_seen": "2026-08-04"
  },
  "INTC": {
   "entered": "2026-07-22",
@@ -84,7 +82,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 28.63,
-  "last_seen": "2026-08-03",
+  "last_seen": "2026-08-04",
   "ondeck": true
  },
  "AMD": {
@@ -118,14 +116,12 @@
   "exit_px": 9.86
  },
  "AAOI": {
-  "entered": "2026-07-21",
-  "px": 113.91,
+  "entered": "2026-08-04",
+  "px": 132.77,
   "layer": "AI Connectivity",
-  "peak": 119.26,
-  "last_seen": "2026-07-24",
-  "ondeck": true,
-  "exited": "2026-07-30",
-  "exit_px": 76.52
+  "peak": 132.77,
+  "last_seen": "2026-08-04",
+  "ondeck": false
  },
  "ARM": {
   "entered": "2026-07-15",
@@ -141,16 +137,16 @@
   "entered": "2026-07-24",
   "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 337.25,
-  "last_seen": "2026-08-03",
+  "peak": 359.8,
+  "last_seen": "2026-08-04",
   "ondeck": true
  },
  "FTNT": {
   "entered": "2026-07-24",
   "px": 152.47,
   "layer": "Platform + Endpoint",
-  "peak": 163.73,
-  "last_seen": "2026-08-03",
+  "peak": 166.21,
+  "last_seen": "2026-08-04",
   "ondeck": true
  },
  "DK": {
@@ -158,7 +154,7 @@
   "px": 63.72,
   "layer": "Refining",
   "peak": 67.95,
-  "last_seen": "2026-08-03",
+  "last_seen": "2026-08-04",
   "ondeck": true
  },
  "PBF": {
@@ -184,7 +180,7 @@
   "px": 78.64,
   "layer": "Refining",
   "peak": 86.08,
-  "last_seen": "2026-08-03",
+  "last_seen": "2026-08-04",
   "ondeck": true
  },
  "MAN": {
@@ -207,8 +203,8 @@
   "entered": "2026-07-28",
   "px": 251.86,
   "layer": "DevOps + Observability",
-  "peak": 275.59,
-  "last_seen": "2026-08-03",
+  "peak": 284.49,
+  "last_seen": "2026-08-04",
   "ondeck": true
  },
  "FROG": {
@@ -273,8 +269,8 @@
   "entered": "2026-07-31",
   "px": 296.7,
   "layer": "Data Platforms",
-  "peak": 313.16,
-  "last_seen": "2026-08-03",
+  "peak": 315.09,
+  "last_seen": "2026-08-04",
   "ondeck": false
  }
 }
