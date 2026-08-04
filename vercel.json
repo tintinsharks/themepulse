@@ -23,9 +23,6 @@
     "api/live.js": {
       "maxDuration": 30
     },
-    "api/options-bias.js": {
-      "maxDuration": 15
-    },
     "api/wheel.js": {
       "maxDuration": 20
     },

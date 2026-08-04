@@ -15,7 +15,7 @@
 //   { symbol, underlyingPrice, ivRank, atmIV, skew, earnings,
 //     puts: [...], calls: [...], meta: {...} }
 //
-// Env vars required (shared with api/options-bias.js):
+// Env vars required (shared with api/schwab-callback.js):
 //   SCHWAB_CLIENT_ID, SCHWAB_CLIENT_SECRET
 //   UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
 //   FMP_API_KEY  (earnings date — optional, degrades to null)
