@@ -71,6 +71,11 @@ export function parseMoney(v) {
   return neg ? -n : n;
 }
 
+const MONTHS = {
+  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+};
+
 export function parseDate(v) {
   if (!v) return null;
   const s = String(v).trim();
@@ -78,6 +83,14 @@ export function parseDate(v) {
   if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  // Month-name form — what the expanded lot view renders on screen
+  // ("Apr-09-2025", "Apr 9, 2025"). Only the CSV export uses MM/DD/YYYY, and
+  // copying off the screen is the likelier route for a one-off check.
+  m = s.match(/^([A-Za-z]{3,9})[-\s]+(\d{1,2}),?[-\s]+(\d{4})$/);
+  if (m) {
+    const mo = MONTHS[m[1].slice(0, 3).toLowerCase()];
+    if (mo) return `${m[3]}-${mo}-${m[2].padStart(2, "0")}`;
+  }
   return null;
 }
 
