@@ -389,15 +389,31 @@ export function summarizeTrades(trades, opts = {}) {
     const shares = t.contracts > 0 ? t.contracts * 100 : null;
     const premiumPerShare = shares ? (t.collected || 0) / shares : null;
     const netPerShare = shares ? (t.realized || 0) / shares : null;
+    const daysHeld = t.opened && t.closed
+      ? Math.round((new Date(t.closed) - new Date(t.opened)) / 86400000)
+      : null;
+
+    // Collateral is what the trade actually tied up. For a short put that's
+    // the cash securing it; a covered call is secured by shares, so its
+    // capital commitment isn't comparable and is left null rather than faked.
+    const collateral = t.type === "PUT" && t.short && shares ? t.strike * shares : null;
+    const roc = collateral ? (t.realized || 0) / collateral : null;
+    // Same-day trades still tie up collateral for a day — flooring at 1
+    // avoids a divide-by-zero producing an infinite rate.
+    const expDays = daysHeld != null ? Math.max(daysHeld, 1) : null;
+
     return {
       ...t,
       shares,
       premiumPerShare: r2(premiumPerShare),
       netPerShare: r2(netPerShare),
       capturePct: t.collected > 0 ? r2(((t.realized || 0) / t.collected) * 100) : null,
-      daysHeld: t.opened && t.closed
-        ? Math.round((new Date(t.closed) - new Date(t.opened)) / 86400000)
-        : null,
+      daysHeld,
+      collateral: collateral ? Math.round(collateral) : null,
+      rocPct: roc != null ? r2(roc * 100) : null,
+      annRocPct: roc != null && expDays ? r2(roc * (365 / expDays) * 100) : null,
+      perContract: t.contracts > 0 ? r2((t.realized || 0) / t.contracts) : null,
+      perDay: expDays ? r2((t.realized || 0) / expDays) : null,
       // Tax basis had THIS put been assigned instead of closed — its own
       // premium only.
       taxBasisOnAssignment: t.type === "PUT" && t.short && premiumPerShare != null
@@ -405,6 +421,20 @@ export function summarizeTrades(trades, opts = {}) {
         : null,
     };
   });
+
+  // Dollars first: rank by what was actually made, not by process quality.
+  perTrade.sort((a, b) => (b.realized || 0) - (a.realized || 0));
+
+  // Capital efficiency across the whole book. Collateral-days is the honest
+  // denominator — $200k tied up for one day and $9k for five are not the
+  // same commitment, and summing raw collateral would treat them alike.
+  const priced = perTrade.filter((t) => t.collateral);
+  const collateralDays = priced.reduce(
+    (s, t) => s + t.collateral * Math.max(t.daysHeld ?? 1, 1),
+    0
+  );
+  const pricedRealized = priced.reduce((s, t) => s + (t.realized || 0), 0);
+  const totalCollateral = priced.reduce((s, t) => s + t.collateral, 0);
 
   return {
     count: list.length,
@@ -415,6 +445,22 @@ export function summarizeTrades(trades, opts = {}) {
     paid: r2(paid),
     realized: r2(realized),
     capturePct: collected > 0 ? r2((realized / collected) * 100) : null,
+    // Dollar-productivity view
+    totalCollateral: totalCollateral ? Math.round(totalCollateral) : null,
+    rocPct: totalCollateral ? r2((pricedRealized / totalCollateral) * 100) : null,
+    annRocPct: collateralDays ? r2((pricedRealized / collateralDays) * 365 * 100) : null,
+    avgPerContract: (() => {
+      const n = list.reduce((s, t) => s + (t.contracts || 0), 0);
+      return n ? r2(realized / n) : null;
+    })(),
+    best: perTrade[0] || null,
+    // Share of total profit contributed by the top 3 trades — surfaces
+    // whether the P/L came from a few sized-up trades or the whole book.
+    top3SharePct: (() => {
+      if (perTrade.length < 3 || realized <= 0) return null;
+      const top3 = perTrade.slice(0, 3).reduce((s, t) => s + (t.realized || 0), 0);
+      return r2((top3 / realized) * 100);
+    })(),
     years,
     perTrade,
     missingQty,

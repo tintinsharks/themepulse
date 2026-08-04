@@ -12607,12 +12607,19 @@ function ClosedTrades({ symbol, ARIA }) {
         <>
           {/* Summary */}
           <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", gap: 22, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <WheelStat label="Trades" value={`${summary.count}`} hint="Closed option trades imported" />
-            <WheelStat label="Win rate" value={`${summary.winRatePct}%`} color={summary.winRatePct >= 70 ? ARIA.green : ARIA.text} hint={`${summary.wins}W / ${summary.losses}L`} />
-            <WheelStat label="Collected" value={money(summary.collected)} hint="Total premium received selling to open" />
-            <WheelStat label="Paid to close" value={money(summary.paid)} hint="Total debit paid buying to close" />
-            <WheelStat label="Realized" value={money(summary.realized)} color={summary.realized >= 0 ? ARIA.green : ARIA.red} hint="Net realized P/L" />
-            <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.text} hint="Share of collected premium actually kept — 100% means held to expiration worthless" />
+            <WheelStat label="Realized" value={money(summary.realized)} color={summary.realized >= 0 ? ARIA.green : ARIA.red} hint="Net realized P/L — the scoreboard" />
+            {summary.avgPerContract != null && (
+              <WheelStat label="$ / contract" value={money(summary.avgPerContract)} hint="Realized P/L divided by total contracts traded" />
+            )}
+            {summary.rocPct != null && (
+              <WheelStat label="Return on collat" value={`${summary.rocPct}%`} hint={`Realized P/L against ${money(summary.totalCollateral)} of cash collateral committed across these trades`} />
+            )}
+            {summary.annRocPct != null && (
+              <WheelStat label="Ann. on collat" value={`${summary.annRocPct}%`} color={ARIA.textDim} hint="Annualized on collateral-days — weights capital by how long it was actually tied up. Assumes the rate repeats all year; it will not." />
+            )}
+            <WheelStat label="Trades" value={`${summary.count}`} hint={`${summary.wins}W / ${summary.losses}L · ${summary.winRatePct}% win rate`} />
+            <WheelStat label="Collected" value={money(summary.collected)} color={ARIA.textDim} hint="Total premium received selling to open" />
+            <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.textMuted} hint="Share of collected premium kept. A process metric, not the scoreboard — a low-capture trade can still be the biggest dollar winner." />
           </div>
 
           {/* Per-year */}
@@ -12624,10 +12631,19 @@ function ClosedTrades({ symbol, ARIA }) {
                   <span style={{ color: ARIA.text, fontWeight: 700 }}>{y.n} trades</span>
                   <span style={{ color: ARIA.textDim, margin: "0 6px" }}>·</span>
                   <span style={{ color: y.realized >= 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>{money(y.realized)}</span>
-                  <span style={{ color: ARIA.textDim, margin: "0 6px" }}>·</span>
-                  <span style={{ color: ARIA.textDim }}>{y.capturePct}% capture</span>
+                  <span style={{ color: ARIA.textMuted, margin: "0 6px" }}>·</span>
+                  <span style={{ color: ARIA.textMuted }}>{y.capturePct}% cap</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {summary.top3SharePct != null && summary.best && (
+            <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.textDim, padding: "0 2px" }}>
+              Top 3 trades produced <b style={{ color: ARIA.text }}>{summary.top3SharePct}%</b> of realized P/L
+              {" · "}biggest single winner{" "}
+              <b style={{ color: ARIA.green }}>{summary.best.underlying} {summary.best.strike}{summary.best.type === "PUT" ? "P" : "C"} {money(summary.best.realized)}</b>
+              {summary.best.contracts ? ` on ${summary.best.contracts} contract${summary.best.contracts === 1 ? "" : "s"}` : ""}
             </div>
           )}
 
@@ -12648,10 +12664,13 @@ function ClosedTrades({ symbol, ARIA }) {
                     <th style={{ ...th, textAlign: "left" }}>Closed</th>
                     <th style={th}>Days</th>
                     <th style={th}>Qty</th>
+                    <th style={th}>Realized</th>
+                    <th style={th} title="Realized P/L per contract">$/ctr</th>
+                    <th style={th} title="Cash collateral this trade tied up (strike × 100 × contracts)">Collat</th>
+                    <th style={th} title="Realized P/L as a percentage of the collateral committed">ROC</th>
                     <th style={th}>Collected</th>
                     <th style={th}>Paid</th>
-                    <th style={th}>Realized</th>
-                    <th style={th}>Capture</th>
+                    <th style={th} title="Share of collected premium kept — process quality, not dollars">Capture</th>
                     <th style={th} title="Premium received per share">Prem/sh</th>
                     <th style={th} title="Tax basis had THIS put been assigned instead of closed: strike minus its own premium">Basis if assigned</th>
                   </tr>
@@ -12670,10 +12689,13 @@ function ClosedTrades({ symbol, ARIA }) {
                       <td style={{ ...cell, textAlign: "left", color: ARIA.textDim }}>{t.closed || "—"}</td>
                       <td style={{ ...cell, color: ARIA.textDim }}>{t.daysHeld ?? "—"}</td>
                       <td style={{ ...cell, color: t.contracts ? ARIA.textDim : ARIA.yellow }}>{t.contracts ?? "?"}</td>
-                      <td style={{ ...cell, color: ARIA.text }}>{money(t.collected)}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{money(t.paid)}</td>
                       <td style={{ ...cell, fontWeight: 800, color: (t.realized || 0) >= 0 ? ARIA.green : ARIA.red }}>{money(t.realized)}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>
+                      <td style={{ ...cell, color: ARIA.text }}>{t.perContract != null ? money(t.perContract) : "—"}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{t.collateral != null ? `$${(t.collateral / 1000).toFixed(1)}k` : "—"}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{t.rocPct != null ? `${t.rocPct}%` : "—"}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{money(t.collected)}</td>
+                      <td style={{ ...cell, color: ARIA.textMuted }}>{money(t.paid)}</td>
+                      <td style={{ ...cell, color: ARIA.textMuted }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>
                       <td style={{ ...cell, color: ARIA.textDim }}>{t.premiumPerShare != null ? `$${t.premiumPerShare}` : "—"}</td>
                       <td style={{ ...cell, color: t.taxBasisOnAssignment != null ? ARIA.text : ARIA.textMuted }}>
                         {t.taxBasisOnAssignment != null ? `$${t.taxBasisOnAssignment}` : "—"}
