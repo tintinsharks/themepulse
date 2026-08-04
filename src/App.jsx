@@ -12552,6 +12552,10 @@ function ClosedTrades({ symbol, ARIA }) {
   const [status, setStatus] = useState(null);
   const [scopeAll, setScopeAll] = useState(false);
   const [assumeQty, setAssumeQty] = useState("");
+  // The paste box only earns its space when there's nothing to look at yet.
+  const [showImport, setShowImport] = useState(false);
+  // Premium mechanics are diagnostic, not the headline — off by default.
+  const [detail, setDetail] = useState(false);
 
   const summary = useMemo(
     () => summarizeTrades(trades, scopeAll ? {} : { underlying: symbol }),
@@ -12587,175 +12591,221 @@ function ClosedTrades({ symbol, ARIA }) {
     });
   };
 
-  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
-  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
-  const money = (v) => (v == null ? "—" : `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  const money = (v, dp = 2) => (v == null ? "—" : `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp })}`);
+  const money0 = (v) => (v == null ? "—" : `${v < 0 ? "−" : ""}$${Math.round(Math.abs(v)).toLocaleString()}`);
 
   const qty = Number(assumeQty) > 0 ? Number(assumeQty) : null;
+  const rows = summary.perTrade;
+  // Bars are scaled to the largest winner so relative size reads instantly —
+  // the whole point of ranking by dollars is seeing which trades carried it.
+  const maxRealized = rows.reduce((m, t) => Math.max(m, Math.abs(t.realized || 0)), 0) || 1;
+
+  const th = { padding: "5px 10px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "right", fontFamily: "monospace", whiteSpace: "nowrap" };
+  const cell = { padding: "6px 10px", fontSize: 11, textAlign: "right", fontFamily: "monospace", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+  // A hairline before a column marks the start of a new group, so 14 columns
+  // read as four clusters instead of one undifferentiated wall.
+  const groupEdge = { borderLeft: `1px solid ${ARIA.border}` };
+  const dim = { color: ARIA.textMuted };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Import */}
-      <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", color: ARIA.text }}>IMPORT CLOSED TRADES</span>
-          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
-            Schwab → Accounts → Realized Gain/Loss → Export, then paste the CSV here. Include the header row.
-          </span>
-          <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, fontSize: 8, color: ARIA.textDim, fontFamily: "monospace", cursor: "pointer" }}>
-            <input type="checkbox" checked={scopeAll} onChange={(e) => setScopeAll(e.target.checked)} />
-            show all symbols
-          </label>
-        </div>
-        <textarea
-          value={paste}
-          onChange={(e) => setPaste(e.target.value)}
-          placeholder={`"Symbol","Name","Closed Date","Opened Date","Quantity","Proceeds","Cost Basis",...`}
-          spellCheck={false}
-          style={{ width: "100%", minHeight: 60, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 4, color: ARIA.text, fontFamily: "monospace", fontSize: 9, padding: 8, resize: "vertical" }}
-        />
-        <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
-          <button onClick={doImport} disabled={!paste.trim()}
-            style={{ background: paste.trim() ? "rgba(13,145,99,0.14)" : "transparent", border: `1px solid ${paste.trim() ? ARIA.green : ARIA.border}`, color: paste.trim() ? ARIA.green : ARIA.textMuted, padding: "4px 12px", borderRadius: 4, cursor: paste.trim() ? "pointer" : "default", fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6 }}>
-            IMPORT
-          </button>
-          {trades.length > 0 && (
-            <button onClick={() => { if (confirm(`Delete all ${trades.length} imported trades? This clears them on every device.`)) { clearAll(); setStatus(null); } }}
-              style={{ background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textDim, padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace", fontSize: 9 }}>
-              clear all ({trades.length})
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* ── Import: collapses out of the way once there is data ── */}
+      {(showImport || summary.count === 0) ? (
+        <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, padding: "12px 14px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, fontFamily: "monospace", color: ARIA.text, letterSpacing: 0.4 }}>IMPORT CLOSED TRADES</span>
+            <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
+              Schwab → Accounts → Realized Gain/Loss → Export, then paste the CSV including its header row.
+            </span>
+            {summary.count > 0 && (
+              <button onClick={() => setShowImport(false)}
+                style={{ marginLeft: "auto", background: "transparent", border: "none", color: ARIA.textMuted, cursor: "pointer", fontFamily: "monospace", fontSize: 9 }}>
+                ✕ close
+              </button>
+            )}
+          </div>
+          <textarea
+            value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            placeholder={`"Symbol","Name","Closed Date","Opened Date","Quantity","Proceeds","Cost Basis",...`}
+            spellCheck={false}
+            style={{ width: "100%", minHeight: 64, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 6, color: ARIA.text, fontFamily: "monospace", fontSize: 9, padding: 9, resize: "vertical", boxSizing: "border-box" }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={doImport} disabled={!paste.trim()}
+              style={{ background: paste.trim() ? "rgba(13,145,99,0.14)" : "transparent", border: `1px solid ${paste.trim() ? ARIA.green : ARIA.border}`, color: paste.trim() ? ARIA.green : ARIA.textMuted, padding: "5px 14px", borderRadius: 5, cursor: paste.trim() ? "pointer" : "default", fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6 }}>
+              IMPORT
             </button>
-          )}
-          {status && (
-            <span style={{ fontSize: 9, fontFamily: "monospace", color: status.bad ? ARIA.red : ARIA.green }}>{status.msg}</span>
-          )}
+            {status && (
+              <span style={{ fontSize: 9, fontFamily: "monospace", color: status.bad ? ARIA.red : ARIA.green }}>{status.msg}</span>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {summary.count === 0 ? (
-        <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: 24, textAlign: "center", fontFamily: "monospace", fontSize: 10, color: ARIA.textMuted, lineHeight: 1.6 }}>
+        <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, padding: 32, textAlign: "center", fontFamily: "monospace", fontSize: 10, color: ARIA.textMuted, lineHeight: 1.8 }}>
           No closed {scopeAll ? "option" : symbol} trades imported yet.<br />
-          Paste a Schwab Realized Gain/Loss export above to see premium collected, capture rate and effective basis.
+          Paste a Schwab Realized Gain/Loss export above to see premium collected and effective basis.
         </div>
       ) : (
         <>
-          {/* Summary */}
-          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", gap: 22, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <WheelStat label="Realized" value={money(summary.realized)} color={summary.realized >= 0 ? ARIA.green : ARIA.red} hint="Net realized P/L — the scoreboard" />
-            {summary.avgPerContract != null && (
-              <WheelStat label="$ / contract" value={money(summary.avgPerContract)} hint="Realized P/L divided by total contracts traded" />
-            )}
-            {summary.rocPct != null && (
-              <WheelStat label="Return on collat" value={`${summary.rocPct}%`} hint={`Realized P/L against ${money(summary.totalCollateral)} of cash collateral committed across these trades`} />
-            )}
-            {summary.annRocPct != null && (
-              <WheelStat label="Ann. on collat" value={`${summary.annRocPct}%`} color={ARIA.textDim} hint="Annualized on collateral-days — weights capital by how long it was actually tied up. Assumes the rate repeats all year; it will not." />
-            )}
-            <WheelStat label="Trades" value={`${summary.count}`} hint={`${summary.wins}W / ${summary.losses}L · ${summary.winRatePct}% win rate`} />
-            <WheelStat label="Collected" value={money(summary.collected)} color={ARIA.textDim} hint="Total premium received selling to open" />
-            <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.textMuted} hint="Share of collected premium kept. A process metric, not the scoreboard — a low-capture trade can still be the biggest dollar winner." />
+          {/* ── Hero: the number that matters, then supporting metrics ── */}
+          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>Realized P/L</div>
+              <div style={{ fontSize: 30, fontWeight: 800, fontFamily: "monospace", color: summary.realized >= 0 ? ARIA.green : ARIA.red, lineHeight: 1, letterSpacing: -0.5 }}>
+                {money(summary.realized)}
+              </div>
+              <div style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace", marginTop: 5 }}>
+                {summary.count} trades · {summary.wins}W/{summary.losses}L
+                {summary.years.length > 0 && " · "}
+                {summary.years.map((y, i) => (
+                  <span key={y.year}>
+                    {i > 0 && " · "}
+                    <span style={{ color: ARIA.textDim }}>{y.year}</span>{" "}
+                    <span style={{ color: y.realized >= 0 ? ARIA.green : ARIA.red }}>{money0(y.realized)}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 22, marginLeft: "auto", flexWrap: "wrap", alignItems: "flex-end" }}>
+              {summary.avgPerContract != null && <WheelStat label="$ / contract" value={money(summary.avgPerContract)} hint="Realized P/L divided by total contracts traded" />}
+              {summary.rocPct != null && <WheelStat label="On collateral" value={`${summary.rocPct}%`} hint={`Against ${money0(summary.totalCollateral)} of cash collateral committed`} />}
+              {summary.annRocPct != null && <WheelStat label="Annualized" value={`${summary.annRocPct}%`} color={ARIA.textDim} hint="On collateral-days — weights capital by how long it was tied up. Assumes the rate repeats all year; it will not." />}
+              <div style={{ width: 1, alignSelf: "stretch", background: ARIA.border }} />
+              <WheelStat label="Collected" value={money0(summary.collected)} color={ARIA.textDim} hint="Total premium received selling to open" />
+              <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.textMuted} hint="Share of collected premium kept. Process quality, not the scoreboard — a low-capture trade can still be the biggest dollar winner." />
+            </div>
           </div>
 
-          {/* Per-year */}
-          {summary.years.length > 1 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {summary.years.map((y) => (
-                <div key={y.year} style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, padding: "5px 10px", fontFamily: "monospace", fontSize: 9 }}>
-                  <span style={{ color: ARIA.textMuted, marginRight: 6 }}>{y.year}</span>
-                  <span style={{ color: ARIA.text, fontWeight: 700 }}>{y.n} trades</span>
-                  <span style={{ color: ARIA.textDim, margin: "0 6px" }}>·</span>
-                  <span style={{ color: y.realized >= 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>{money(y.realized)}</span>
-                  <span style={{ color: ARIA.textMuted, margin: "0 6px" }}>·</span>
-                  <span style={{ color: ARIA.textMuted }}>{y.capturePct}% cap</span>
-                </div>
-              ))}
+          {/* ── Toolbar ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontFamily: "monospace", fontSize: 9 }}>
+            {summary.top3SharePct != null && summary.best && (
+              <span style={{ color: ARIA.textDim }}>
+                Top 3 made <b style={{ color: ARIA.text }}>{summary.top3SharePct}%</b> of P/L · biggest{" "}
+                <b style={{ color: ARIA.green }}>{summary.best.strike}{summary.best.type === "PUT" ? "P" : "C"} {money0(summary.best.realized)}</b>
+                {summary.best.contracts ? ` on ${summary.best.contracts}` : ""}
+              </span>
+            )}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 5, color: ARIA.textDim, cursor: "pointer" }}>
+                <input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} />
+                premium detail
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 5, color: ARIA.textDim, cursor: "pointer" }}>
+                <input type="checkbox" checked={scopeAll} onChange={(e) => setScopeAll(e.target.checked)} />
+                all symbols
+              </label>
+              {!showImport && (
+                <button onClick={() => setShowImport(true)}
+                  style={{ background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textDim, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: "monospace", fontSize: 9 }}>
+                  + import
+                </button>
+              )}
+              <button onClick={() => { if (confirm(`Delete all ${trades.length} imported trades? This clears them on every device.`)) { clearAll(); setStatus(null); } }}
+                style={{ background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textMuted, padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: "monospace", fontSize: 9 }}>
+                clear all
+              </button>
             </div>
-          )}
-
-          {summary.top3SharePct != null && summary.best && (
-            <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.textDim, padding: "0 2px" }}>
-              Top 3 trades produced <b style={{ color: ARIA.text }}>{summary.top3SharePct}%</b> of realized P/L
-              {" · "}biggest single winner{" "}
-              <b style={{ color: ARIA.green }}>{summary.best.underlying} {summary.best.strike}{summary.best.type === "PUT" ? "P" : "C"} {money(summary.best.realized)}</b>
-              {summary.best.contracts ? ` on ${summary.best.contracts} contract${summary.best.contracts === 1 ? "" : "s"}` : ""}
-            </div>
-          )}
+          </div>
 
           {summary.missingQty > 0 && (
-            <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.yellow, background: `${ARIA.yellow}12`, border: `1px solid ${ARIA.yellow}44`, borderRadius: 4, padding: "5px 10px" }}>
+            <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.yellow, background: `${ARIA.yellow}12`, border: `1px solid ${ARIA.yellow}44`, borderRadius: 6, padding: "6px 11px" }}>
               ⚠ {summary.missingQty} trade{summary.missingQty === 1 ? " has" : "s have"} no contract quantity — per-share and basis figures are omitted for {summary.missingQty === 1 ? "it" : "them"}. Re-export including the Quantity column.
             </div>
           )}
 
-          {/* Trades */}
-          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ maxHeight: "calc(100vh - 460px)", overflow: "auto" }}>
+          {/* ── Trades ── */}
+          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ maxHeight: "calc(100vh - 430px)", overflow: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}>
-                  <tr>
+                  <tr style={{ borderBottom: `1px solid ${ARIA.borderLight}` }}>
                     <th style={{ ...th, textAlign: "left" }}>Contract</th>
-                    <th style={{ ...th, textAlign: "left" }}>Opened</th>
-                    <th style={{ ...th, textAlign: "left" }}>Closed</th>
-                    <th style={th}>Days</th>
+                    <th style={{ ...th, textAlign: "left" }}>Held</th>
                     <th style={th}>Qty</th>
-                    <th style={th}>Realized</th>
+                    <th style={{ ...th, ...groupEdge, textAlign: "left", paddingLeft: 14 }}>Realized</th>
                     <th style={th} title="Realized P/L per contract">$/ctr</th>
-                    <th style={th} title="Cash collateral this trade tied up (strike × 100 × contracts)">Collat</th>
-                    <th style={th} title="Realized P/L as a percentage of the collateral committed">ROC</th>
-                    <th style={th}>Collected</th>
-                    <th style={th}>Paid</th>
-                    <th style={th} title="Share of collected premium kept — process quality, not dollars">Capture</th>
-                    <th style={th} title="Premium received per share">Prem/sh</th>
-                    <th style={th} title="Tax basis had THIS put been assigned instead of closed: strike minus its own premium">Basis if assigned</th>
+                    <th style={{ ...th, ...groupEdge }} title="Cash collateral tied up (strike × 100 × contracts)">Collateral</th>
+                    <th style={th} title="Realized P/L as a percentage of collateral committed">ROC</th>
+                    {detail && <th style={{ ...th, ...groupEdge }}>Collected</th>}
+                    {detail && <th style={th}>Paid</th>}
+                    {detail && <th style={th} title="Share of collected premium kept">Capture</th>}
+                    {detail && <th style={th} title="Premium received per share">Prem/sh</th>}
+                    <th style={{ ...th, ...groupEdge }} title="Tax basis had THIS put been assigned instead of closed: strike minus its own premium">Basis if assigned</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.perTrade.map((t, i) => (
-                    <tr key={`${t.symbol}-${t.closed}-${i}`}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                      <td style={{ ...cell, textAlign: "left", color: ARIA.text, fontWeight: 700 }}>
-                        {t.short && <span title="Short position" style={{ color: ARIA.green, marginRight: 3 }}>−</span>}
-                        {t.underlying} {t.strike}{t.type === "PUT" ? "P" : "C"}
-                        <span style={{ color: ARIA.textMuted, fontWeight: 400, marginLeft: 5, fontSize: 9 }}>{t.expiry}</span>
-                      </td>
-                      <td style={{ ...cell, textAlign: "left", color: ARIA.textDim }}>{t.opened || "—"}</td>
-                      <td style={{ ...cell, textAlign: "left", color: ARIA.textDim }}>{t.closed || "—"}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{t.daysHeld ?? "—"}</td>
-                      <td style={{ ...cell, color: t.contracts ? ARIA.textDim : ARIA.yellow }}>{t.contracts ?? "?"}</td>
-                      <td style={{ ...cell, fontWeight: 800, color: (t.realized || 0) >= 0 ? ARIA.green : ARIA.red }}>{money(t.realized)}</td>
-                      <td style={{ ...cell, color: ARIA.text }}>{t.perContract != null ? money(t.perContract) : "—"}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{t.collateral != null ? `$${(t.collateral / 1000).toFixed(1)}k` : "—"}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{t.rocPct != null ? `${t.rocPct}%` : "—"}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{money(t.collected)}</td>
-                      <td style={{ ...cell, color: ARIA.textMuted }}>{money(t.paid)}</td>
-                      <td style={{ ...cell, color: ARIA.textMuted }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{t.premiumPerShare != null ? `$${t.premiumPerShare}` : "—"}</td>
-                      <td style={{ ...cell, color: t.taxBasisOnAssignment != null ? ARIA.text : ARIA.textMuted }}>
-                        {t.taxBasisOnAssignment != null ? `$${t.taxBasisOnAssignment}` : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((t, i) => {
+                    const pct = Math.abs(t.realized || 0) / maxRealized;
+                    const pos = (t.realized || 0) >= 0;
+                    return (
+                      <tr key={`${t.symbol}-${t.closed}-${i}`}
+                        style={{ borderBottom: `1px solid ${ARIA.border}` }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                        <td style={{ ...cell, textAlign: "left" }}>
+                          <span style={{ fontWeight: 800, color: ARIA.text, fontSize: 12 }}>
+                            {t.strike}{t.type === "PUT" ? "P" : "C"}
+                          </span>
+                          <span style={{ color: ARIA.textMuted, fontSize: 9, marginLeft: 7 }}>
+                            {scopeAll ? `${t.underlying} ` : ""}{t.expiry || "—"}
+                          </span>
+                        </td>
+                        <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, fontSize: 9 }}>
+                          {t.opened && t.closed ? (
+                            <>
+                              {t.opened.slice(5)} → {t.closed.slice(5)}
+                              <span style={{ color: ARIA.textMuted, marginLeft: 6 }}>{t.daysHeld}d</span>
+                            </>
+                          ) : "—"}
+                        </td>
+                        <td style={{ ...cell, color: t.contracts ? ARIA.textDim : ARIA.yellow }}>{t.contracts ?? "?"}</td>
+
+                        {/* Realized, with a magnitude bar behind it */}
+                        <td style={{ ...cell, ...groupEdge, textAlign: "left", paddingLeft: 14, position: "relative", minWidth: 150 }}>
+                          <div style={{ position: "absolute", left: 0, top: 3, bottom: 3, width: `${Math.max(pct * 100, 1.5)}%`, background: pos ? "rgba(52,211,153,0.13)" : "rgba(248,113,113,0.13)", borderLeft: `2px solid ${pos ? ARIA.green : ARIA.red}`, pointerEvents: "none" }} />
+                          <span style={{ position: "relative", fontWeight: 800, fontSize: 12, color: pos ? ARIA.green : ARIA.red }}>{money(t.realized)}</span>
+                        </td>
+                        <td style={{ ...cell, color: ARIA.text }}>{t.perContract != null ? money(t.perContract) : "—"}</td>
+
+                        <td style={{ ...cell, ...groupEdge, ...dim }}>{t.collateral != null ? money0(t.collateral) : "—"}</td>
+                        <td style={{ ...cell, ...dim }}>{t.rocPct != null ? `${t.rocPct}%` : "—"}</td>
+
+                        {detail && <td style={{ ...cell, ...groupEdge, ...dim }}>{money(t.collected)}</td>}
+                        {detail && <td style={{ ...cell, ...dim }}>{money(t.paid)}</td>}
+                        {detail && <td style={{ ...cell, ...dim }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>}
+                        {detail && <td style={{ ...cell, ...dim }}>{t.premiumPerShare != null ? money(t.premiumPerShare) : "—"}</td>}
+
+                        <td style={{ ...cell, ...groupEdge, color: t.taxBasisOnAssignment != null ? ARIA.text : ARIA.textMuted }}>
+                          {t.taxBasisOnAssignment != null ? money(t.taxBasisOnAssignment) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Basis calculator */}
-          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", color: ARIA.text, marginBottom: 6 }}>
-              EFFECTIVE BASIS IF ASSIGNED
+          {/* ── Basis calculator ── */}
+          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
+              Effective basis if assigned
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <WheelNum label="Contracts" value={assumeQty} onChange={setAssumeQty} width={80} hint="Contracts you'd be assigned on" />
-              <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.textDim, lineHeight: 1.7 }}>
+              <div style={{ fontSize: 10, fontFamily: "monospace", color: ARIA.textDim, lineHeight: 1.8 }}>
                 {qty ? (
                   <>
-                    Net premium {money(summary.realized)} over {qty * 100} shares ={" "}
-                    <b style={{ color: ARIA.green }}>${(summary.realized / (qty * 100)).toFixed(2)}/share</b> of basis offset.
+                    {money(summary.realized)} over {(qty * 100).toLocaleString()} shares ={" "}
+                    <b style={{ color: ARIA.green }}>{money(summary.realized / (qty * 100))}/share</b> of offset
                     <br />
                     <span style={{ color: ARIA.textMuted }}>
-                      e.g. assigned at $200 → economic basis{" "}
-                      <b style={{ color: ARIA.text }}>${(200 - summary.realized / (qty * 100)).toFixed(2)}</b>
+                      assigned at $200 → economic basis{" "}
+                      <b style={{ color: ARIA.text }}>{money(200 - summary.realized / (qty * 100))}</b>
                     </span>
                   </>
                 ) : (
@@ -12763,13 +12813,12 @@ function ClosedTrades({ symbol, ARIA }) {
                 )}
               </div>
             </div>
-            <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", lineHeight: 1.7, marginTop: 8, borderTop: `1px solid ${ARIA.border}`, paddingTop: 8 }}>
-              <b style={{ color: ARIA.yellow }}>These are two different numbers, deliberately.</b> The per-trade{" "}
-              <b>Basis if assigned</b> column is the <i>tax</i> basis for a single put: strike minus that put&apos;s own
-              premium. Premium from puts you already closed does not touch it — those are realized gains and have
-              been taxed. The calculator above is the <i>economic</i> view: strike minus all net premium ever
-              collected on the name, i.e. how much you&apos;re really in for. Useful for judging a wheel, but it is
-              not a tax basis and does not belong on a Schedule D. Not tax advice.
+            <div style={{ fontSize: 8.5, color: ARIA.textMuted, fontFamily: "monospace", lineHeight: 1.75, marginTop: 10, borderTop: `1px solid ${ARIA.border}`, paddingTop: 9 }}>
+              <b style={{ color: ARIA.yellow }}>Two different numbers, deliberately.</b> The per-trade{" "}
+              <b>basis if assigned</b> is the <i>tax</i> basis for a single put — strike minus that put&apos;s own
+              premium. Premium from puts already closed doesn&apos;t touch it; those are realized gains, already taxed.
+              The calculator is the <i>economic</i> view: strike minus all net premium ever collected on the name.
+              Useful for judging a wheel, but not a tax basis and not for a Schedule D. Not tax advice.
             </div>
           </div>
         </>
