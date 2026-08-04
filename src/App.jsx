@@ -17,6 +17,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { scrollRowIntoScroller } from "./utils.js";
+import { parseSchwabRealized, summarizeTrades } from "./wheelTrades.js";
 import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
@@ -12492,6 +12493,259 @@ function NewsPopover({ ARIA }) {
 // user's call. Data comes from /api/wheel (Schwab chain).
 // ──────────────────────────────────────────────────────────────────────────
 
+// Closed trades live in localStorage: they're personal position history, and
+// the Schwab app is scoped to Market Data only, so there is no server-side
+// source to sync against.
+function useWheelTrades() {
+  const [trades, setTrades] = useState(() => {
+    try {
+      const raw = localStorage.getItem("themepulse-wheel-trades");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const save = useCallback((next) => {
+    setTrades(next);
+    try { localStorage.setItem("themepulse-wheel-trades", JSON.stringify(next)); } catch {}
+  }, []);
+  return [trades, save];
+}
+
+function ClosedTrades({ symbol, ARIA }) {
+  const [trades, save] = useWheelTrades();
+  const [paste, setPaste] = useState("");
+  const [status, setStatus] = useState(null);
+  const [scopeAll, setScopeAll] = useState(false);
+  const [assumeQty, setAssumeQty] = useState("");
+
+  const summary = useMemo(
+    () => summarizeTrades(trades, scopeAll ? {} : { underlying: symbol }),
+    [trades, scopeAll, symbol]
+  );
+
+  const doImport = () => {
+    const { trades: parsed, errors, skippedNonOption } = parseSchwabRealized(paste);
+    if (!parsed.length) {
+      setStatus({ bad: true, msg: errors[0] || "No option trades found in that paste." });
+      return;
+    }
+    // De-dupe so re-pasting an overlapping export doesn't double-count premium.
+    //
+    // Keyed on contract + amounts, deliberately NOT on dates: the same trades
+    // pasted from the on-screen table (no dates) and then from a full export
+    // (with dates) must collapse, or premium gets counted twice — which
+    // understates basis, the more dangerous direction to be wrong in. Two
+    // genuinely distinct trades matching to the penny on both legs is far
+    // rarer than a re-import.
+    const key = (t) => `${t.symbol}|${t.collected}|${t.paid}`;
+
+    // On a duplicate, enrich rather than discard. Pasting the on-screen table
+    // first (no quantity or dates) and the full export later is the natural
+    // order to do this in, and dropping the second paste would strand the
+    // record without the quantity that per-share and basis math require.
+    const byKey = new Map(trades.map((t) => [key(t), { ...t }]));
+    let added = 0;
+    let enriched = 0;
+    for (const t of parsed) {
+      const k = key(t);
+      const existing = byKey.get(k);
+      if (!existing) { byKey.set(k, t); added++; continue; }
+      let changed = false;
+      for (const f of ["contracts", "opened", "closed", "realized"]) {
+        if ((existing[f] == null || existing[f] === "") && t[f] != null && t[f] !== "") {
+          existing[f] = t[f];
+          changed = true;
+        }
+      }
+      if (changed) enriched++;
+    }
+
+    save([...byKey.values()]);
+    setPaste("");
+    const dupes = parsed.length - added - enriched;
+    setStatus({
+      bad: false,
+      msg: [
+        `Imported ${added} trade${added === 1 ? "" : "s"}`,
+        enriched ? `${enriched} updated with new detail` : null,
+        dupes ? `${dupes} already present` : null,
+        skippedNonOption ? `${skippedNonOption} non-option row${skippedNonOption === 1 ? "" : "s"} skipped` : null,
+        errors.length ? `${errors.length} row error${errors.length === 1 ? "" : "s"}` : null,
+      ].filter(Boolean).join(" · "),
+    });
+  };
+
+  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+  const money = (v) => (v == null ? "—" : `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+  const qty = Number(assumeQty) > 0 ? Number(assumeQty) : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Import */}
+      <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", color: ARIA.text }}>IMPORT CLOSED TRADES</span>
+          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
+            Schwab → Accounts → Realized Gain/Loss → Export, then paste the CSV here. Include the header row.
+          </span>
+          <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, fontSize: 8, color: ARIA.textDim, fontFamily: "monospace", cursor: "pointer" }}>
+            <input type="checkbox" checked={scopeAll} onChange={(e) => setScopeAll(e.target.checked)} />
+            show all symbols
+          </label>
+        </div>
+        <textarea
+          value={paste}
+          onChange={(e) => setPaste(e.target.value)}
+          placeholder={`"Symbol","Name","Closed Date","Opened Date","Quantity","Proceeds","Cost Basis",...`}
+          spellCheck={false}
+          style={{ width: "100%", minHeight: 60, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 4, color: ARIA.text, fontFamily: "monospace", fontSize: 9, padding: 8, resize: "vertical" }}
+        />
+        <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
+          <button onClick={doImport} disabled={!paste.trim()}
+            style={{ background: paste.trim() ? "rgba(13,145,99,0.14)" : "transparent", border: `1px solid ${paste.trim() ? ARIA.green : ARIA.border}`, color: paste.trim() ? ARIA.green : ARIA.textMuted, padding: "4px 12px", borderRadius: 4, cursor: paste.trim() ? "pointer" : "default", fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6 }}>
+            IMPORT
+          </button>
+          {trades.length > 0 && (
+            <button onClick={() => { if (confirm(`Delete all ${trades.length} imported trades?`)) { save([]); setStatus(null); } }}
+              style={{ background: "transparent", border: `1px solid ${ARIA.border}`, color: ARIA.textDim, padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace", fontSize: 9 }}>
+              clear all ({trades.length})
+            </button>
+          )}
+          {status && (
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: status.bad ? ARIA.red : ARIA.green }}>{status.msg}</span>
+          )}
+        </div>
+      </div>
+
+      {summary.count === 0 ? (
+        <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: 24, textAlign: "center", fontFamily: "monospace", fontSize: 10, color: ARIA.textMuted, lineHeight: 1.6 }}>
+          No closed {scopeAll ? "option" : symbol} trades imported yet.<br />
+          Paste a Schwab Realized Gain/Loss export above to see premium collected, capture rate and effective basis.
+        </div>
+      ) : (
+        <>
+          {/* Summary */}
+          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px", display: "flex", gap: 22, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <WheelStat label="Trades" value={`${summary.count}`} hint="Closed option trades imported" />
+            <WheelStat label="Win rate" value={`${summary.winRatePct}%`} color={summary.winRatePct >= 70 ? ARIA.green : ARIA.text} hint={`${summary.wins}W / ${summary.losses}L`} />
+            <WheelStat label="Collected" value={money(summary.collected)} hint="Total premium received selling to open" />
+            <WheelStat label="Paid to close" value={money(summary.paid)} hint="Total debit paid buying to close" />
+            <WheelStat label="Realized" value={money(summary.realized)} color={summary.realized >= 0 ? ARIA.green : ARIA.red} hint="Net realized P/L" />
+            <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.text} hint="Share of collected premium actually kept — 100% means held to expiration worthless" />
+          </div>
+
+          {/* Per-year */}
+          {summary.years.length > 1 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {summary.years.map((y) => (
+                <div key={y.year} style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 6, padding: "5px 10px", fontFamily: "monospace", fontSize: 9 }}>
+                  <span style={{ color: ARIA.textMuted, marginRight: 6 }}>{y.year}</span>
+                  <span style={{ color: ARIA.text, fontWeight: 700 }}>{y.n} trades</span>
+                  <span style={{ color: ARIA.textDim, margin: "0 6px" }}>·</span>
+                  <span style={{ color: y.realized >= 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>{money(y.realized)}</span>
+                  <span style={{ color: ARIA.textDim, margin: "0 6px" }}>·</span>
+                  <span style={{ color: ARIA.textDim }}>{y.capturePct}% capture</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {summary.missingQty > 0 && (
+            <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.yellow, background: `${ARIA.yellow}12`, border: `1px solid ${ARIA.yellow}44`, borderRadius: 4, padding: "5px 10px" }}>
+              ⚠ {summary.missingQty} trade{summary.missingQty === 1 ? " has" : "s have"} no contract quantity — per-share and basis figures are omitted for {summary.missingQty === 1 ? "it" : "them"}. Re-export including the Quantity column.
+            </div>
+          )}
+
+          {/* Trades */}
+          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ maxHeight: "calc(100vh - 460px)", overflow: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}>
+                  <tr>
+                    <th style={{ ...th, textAlign: "left" }}>Contract</th>
+                    <th style={{ ...th, textAlign: "left" }}>Opened</th>
+                    <th style={{ ...th, textAlign: "left" }}>Closed</th>
+                    <th style={th}>Days</th>
+                    <th style={th}>Qty</th>
+                    <th style={th}>Collected</th>
+                    <th style={th}>Paid</th>
+                    <th style={th}>Realized</th>
+                    <th style={th}>Capture</th>
+                    <th style={th} title="Premium received per share">Prem/sh</th>
+                    <th style={th} title="Tax basis had THIS put been assigned instead of closed: strike minus its own premium">Basis if assigned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.perTrade.map((t, i) => (
+                    <tr key={`${t.symbol}-${t.closed}-${i}`}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                      <td style={{ ...cell, textAlign: "left", color: ARIA.text, fontWeight: 700 }}>
+                        {t.short && <span title="Short position" style={{ color: ARIA.green, marginRight: 3 }}>−</span>}
+                        {t.underlying} {t.strike}{t.type === "PUT" ? "P" : "C"}
+                        <span style={{ color: ARIA.textMuted, fontWeight: 400, marginLeft: 5, fontSize: 9 }}>{t.expiry}</span>
+                      </td>
+                      <td style={{ ...cell, textAlign: "left", color: ARIA.textDim }}>{t.opened || "—"}</td>
+                      <td style={{ ...cell, textAlign: "left", color: ARIA.textDim }}>{t.closed || "—"}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{t.daysHeld ?? "—"}</td>
+                      <td style={{ ...cell, color: t.contracts ? ARIA.textDim : ARIA.yellow }}>{t.contracts ?? "?"}</td>
+                      <td style={{ ...cell, color: ARIA.text }}>{money(t.collected)}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{money(t.paid)}</td>
+                      <td style={{ ...cell, fontWeight: 800, color: (t.realized || 0) >= 0 ? ARIA.green : ARIA.red }}>{money(t.realized)}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>
+                      <td style={{ ...cell, color: ARIA.textDim }}>{t.premiumPerShare != null ? `$${t.premiumPerShare}` : "—"}</td>
+                      <td style={{ ...cell, color: t.taxBasisOnAssignment != null ? ARIA.text : ARIA.textMuted }}>
+                        {t.taxBasisOnAssignment != null ? `$${t.taxBasisOnAssignment}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Basis calculator */}
+          <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", color: ARIA.text, marginBottom: 6 }}>
+              EFFECTIVE BASIS IF ASSIGNED
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <WheelNum label="Contracts" value={assumeQty} onChange={setAssumeQty} width={80} hint="Contracts you'd be assigned on" />
+              <div style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.textDim, lineHeight: 1.7 }}>
+                {qty ? (
+                  <>
+                    Net premium {money(summary.realized)} over {qty * 100} shares ={" "}
+                    <b style={{ color: ARIA.green }}>${(summary.realized / (qty * 100)).toFixed(2)}/share</b> of basis offset.
+                    <br />
+                    <span style={{ color: ARIA.textMuted }}>
+                      e.g. assigned at $200 → economic basis{" "}
+                      <b style={{ color: ARIA.text }}>${(200 - summary.realized / (qty * 100)).toFixed(2)}</b>
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ color: ARIA.textMuted }}>Enter a contract count to apply cumulative premium against a strike.</span>
+                )}
+              </div>
+            </div>
+            <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", lineHeight: 1.7, marginTop: 8, borderTop: `1px solid ${ARIA.border}`, paddingTop: 8 }}>
+              <b style={{ color: ARIA.yellow }}>These are two different numbers, deliberately.</b> The per-trade{" "}
+              <b>Basis if assigned</b> column is the <i>tax</i> basis for a single put: strike minus that put&apos;s own
+              premium. Premium from puts you already closed does not touch it — those are realized gains and have
+              been taxed. The calculator above is the <i>economic</i> view: strike minus all net premium ever
+              collected on the name, i.e. how much you&apos;re really in for. Useful for judging a wheel, but it is
+              not a tax basis and does not belong on a Schedule D. Not tax advice.
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const WHEEL_DEFAULTS = {
   symbol: "NVDA",
   capital: 100000,
@@ -12651,7 +12905,7 @@ function WheelView({ onTickerClick, stockMap }) {
   const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
   const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
 
-  const rows = data ? (leg === "puts" ? data.puts : data.calls) : [];
+  const rows = data && leg !== "closed" ? (leg === "puts" ? data.puts : data.calls) : [];
   const hasShares = Boolean(cfg.basis && cfg.shares);
 
   // Yield colouring is relative, not a verdict — high annualized yield on an
@@ -12732,7 +12986,7 @@ function WheelView({ onTickerClick, stockMap }) {
 
       {/* Leg tabs */}
       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        {[["puts", `① CASH-SECURED PUTS${data ? ` (${data.puts.length})` : ""}`], ["calls", `② COVERED CALLS${data ? ` (${data.calls.length})` : ""}`]].map(([k, label]) => (
+        {[["puts", `① CASH-SECURED PUTS${data ? ` (${data.puts.length})` : ""}`], ["calls", `② COVERED CALLS${data ? ` (${data.calls.length})` : ""}`], ["closed", "③ CLOSED TRADES"]].map(([k, label]) => (
           <button
             key={k}
             onClick={() => setLeg(k)}
@@ -12766,6 +13020,9 @@ function WheelView({ onTickerClick, stockMap }) {
       </div>
 
       {/* Table */}
+      {leg === "closed" ? (
+        <ClosedTrades symbol={cfg.symbol} ARIA={ARIA} />
+      ) : (
       <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
         {error && (
           <div style={{ padding: 20, fontFamily: "monospace", fontSize: 10, lineHeight: 1.6 }}>
@@ -12885,6 +13142,7 @@ function WheelView({ onTickerClick, stockMap }) {
           </div>
         )}
       </div>
+      )}
 
       <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", lineHeight: 1.7, padding: "0 2px" }}>
         Screener output, not a recommendation. Annualized yield assumes the position is repeated all year at the same

@@ -1,0 +1,331 @@
+// ── Closed option-trade parsing + wheel bookkeeping ──
+//
+// Parses Schwab's "Realized Gain/Loss" CSV export into closed option trades
+// and derives the numbers the wheel actually runs on: premium collected,
+// capture rate, and effective cost basis on assignment.
+//
+// Kept as a separate pure module so the parsing and the basis math can be
+// unit-tested without a browser. Schwab's export format is not documented and
+// has changed across versions, so the column mapping is deliberately fuzzy:
+// match on header substrings rather than exact names or fixed positions.
+
+// ── OCC-style option symbol ─────────────────────────────────────────────────
+// "-NVDA260812P200"  → short NVDA 08/12/2026 200 put
+// "NVDA  260812P00200000" (21-char OCC) is also accepted.
+//
+// The leading "-" is how Schwab marks a short position in this report, and it
+// is the only thing distinguishing a sold put from a bought one. Without it we
+// cannot tell a wheel trade from a long-put hedge, so it is preserved.
+export function parseOptionSymbol(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const isShort = s.startsWith("-");
+  const body = s.replace(/^-/, "").replace(/\s+/g, "");
+
+  // Canonical 21-char OCC: ROOT + YYMMDD + C/P + 8-digit strike (3 implied decimals)
+  let m = body.match(/^([A-Z.]{1,6})(\d{6})([CP])(\d{8})$/);
+  if (m) {
+    return {
+      underlying: m[1],
+      expiry: occDate(m[2]),
+      type: m[3] === "P" ? "PUT" : "CALL",
+      strike: Number(m[4]) / 1000,
+      short: isShort,
+    };
+  }
+
+  // Schwab's compact display form: ROOT + YYMMDD + C/P + plain strike
+  m = body.match(/^([A-Z.]{1,6})(\d{6})([CP])(\d+(?:\.\d+)?)$/);
+  if (m) {
+    return {
+      underlying: m[1],
+      expiry: occDate(m[2]),
+      type: m[3] === "P" ? "PUT" : "CALL",
+      strike: Number(m[4]),
+      short: isShort,
+    };
+  }
+
+  return null;
+}
+
+function occDate(yymmdd) {
+  const yy = Number(yymmdd.slice(0, 2));
+  // Options expiries are never pre-2000; a 2-digit year always means 20xx.
+  return `20${String(yy).padStart(2, "0")}-${yymmdd.slice(2, 4)}-${yymmdd.slice(4, 6)}`;
+}
+
+// ── Number / date coercion ──────────────────────────────────────────────────
+// Handles "$1,396.63", "(281.44)" for negatives, "--", "N/A", bare "".
+export function parseMoney(v) {
+  if (v == null) return null;
+  let s = String(v).trim();
+  if (!s || s === "--" || s === "-" || /^n\/?a$/i.test(s)) return null;
+  const neg = /^\(.*\)$/.test(s) || s.startsWith("-");
+  // Schwab writes gains with an explicit leading "+" ("+$1,096.68"), so the
+  // sign characters have to come off before the numeric test.
+  s = s.replace(/[()$,\s]/g, "").replace(/^[-+]/, "");
+  if (!s || !/^\d*\.?\d+$/.test(s)) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return neg ? -n : n;
+}
+
+export function parseDate(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return null;
+}
+
+// ── CSV ─────────────────────────────────────────────────────────────────────
+// Minimal RFC4180-ish splitter: handles quoted fields containing commas and
+// escaped double-quotes, which Schwab's "Name" column reliably contains.
+export function splitCsvLine(line) {
+  const out = [];
+  let cur = "";
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
+const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+
+// Column resolution by fuzzy header match. Order matters: the first matching
+// predicate wins, so more specific tests come first.
+const COLUMN_TESTS = [
+  ["symbol",    (h) => h === "symbol" || h.startsWith("symbol")],
+  ["name",      (h) => h === "name" || h.includes("description")],
+  ["closed",    (h) => h.includes("closed") && h.includes("date")],
+  ["opened",    (h) => h.includes("opened") && h.includes("date")],
+  ["quantity",  (h) => h === "quantity" || h === "qty" || h.includes("shares")],
+  ["proceeds",  (h) => h.includes("proceeds")],
+  ["cost",      (h) => h.includes("cost")],
+  // Term-specific gain columns must be tested before the generic one.
+  ["shortGain", (h) => h.includes("shortterm") && h.includes("gain")],
+  ["longGain",  (h) => h.includes("longterm") && h.includes("gain")],
+  ["gain",      (h) => h.includes("gain") && !h.includes("%") && !h.includes("percent")],
+];
+
+export function resolveColumns(headerCells) {
+  const map = {};
+  headerCells.forEach((raw, i) => {
+    const h = norm(raw);
+    if (!h) return;
+    for (const [key, test] of COLUMN_TESTS) {
+      if (map[key] === undefined && test(h)) { map[key] = i; return; }
+    }
+  });
+  return map;
+}
+
+const isTotalRow = (cells) => {
+  const first = String(cells[0] || "").toLowerCase();
+  return first.includes("total") || first.includes("subtotal") || first.startsWith("account");
+};
+
+/**
+ * Parse a pasted Schwab Realized Gain/Loss export.
+ *
+ * Tolerates the preamble lines Schwab puts above the header, total/subtotal
+ * rows, and stock rows mixed in with options (stock rows are reported
+ * separately as `skipped` rather than silently dropped — a wheel that took
+ * assignment will have both, and silently eating the stock rows would
+ * misstate the picture).
+ */
+export function parseSchwabRealized(text) {
+  const errors = [];
+  const trades = [];
+  let skippedNonOption = 0;
+
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return { trades, errors: ["Nothing pasted."], skippedNonOption };
+
+  // Find the header row: the first line that yields both a symbol and a
+  // proceeds/cost column.
+  let headerIdx = -1;
+  let cols = null;
+  for (let i = 0; i < Math.min(lines.length, 25); i++) {
+    const c = resolveColumns(splitCsvLine(lines[i]));
+    if (c.symbol !== undefined && (c.proceeds !== undefined || c.cost !== undefined)) {
+      headerIdx = i;
+      cols = c;
+      break;
+    }
+  }
+
+  if (headerIdx === -1) {
+    return {
+      trades,
+      errors: ["Could not find a header row with Symbol and Proceeds/Cost columns. Paste the full CSV including its header line."],
+      skippedNonOption,
+    };
+  }
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i]);
+    if (cells.length < 2 || isTotalRow(cells)) continue;
+
+    const rawSymbol = cells[cols.symbol];
+    if (!rawSymbol) continue;
+
+    const opt = parseOptionSymbol(rawSymbol);
+    if (!opt) { skippedNonOption++; continue; }
+
+    const proceeds = parseMoney(cells[cols.proceeds]);
+    const cost = parseMoney(cells[cols.cost]);
+
+    let gain = cols.gain !== undefined ? parseMoney(cells[cols.gain]) : null;
+    if (gain == null && cols.shortGain !== undefined) gain = parseMoney(cells[cols.shortGain]);
+    if (gain == null && cols.longGain !== undefined) gain = parseMoney(cells[cols.longGain]);
+    // Derive rather than fail — proceeds/cost are the authoritative pair.
+    // Round: binary floating point turns 2493.31 - 1396.63 into
+    // 1096.6799999999998, which would surface raw in the UI.
+    if (gain == null && proceeds != null && cost != null) {
+      gain = Math.round((proceeds - cost) * 100) / 100;
+    }
+
+    if (proceeds == null && cost == null) {
+      errors.push(`${rawSymbol}: no proceeds or cost value`);
+      continue;
+    }
+
+    // Quantity is absolute; the short/long distinction lives on the symbol.
+    const qtyRaw = cols.quantity !== undefined ? parseMoney(cells[cols.quantity]) : null;
+    const contracts = qtyRaw != null ? Math.abs(qtyRaw) : null;
+
+    trades.push({
+      symbol: String(rawSymbol).trim(),
+      underlying: opt.underlying,
+      type: opt.type,
+      strike: opt.strike,
+      expiry: opt.expiry,
+      short: opt.short,
+      contracts,
+      opened: cols.opened !== undefined ? parseDate(cells[cols.opened]) : null,
+      closed: cols.closed !== undefined ? parseDate(cells[cols.closed]) : null,
+      // For a short option Schwab reports proceeds = credit received on the
+      // sell-to-open and cost = debit paid on the buy-to-close.
+      collected: opt.short ? proceeds : cost,
+      paid: opt.short ? cost : proceeds,
+      realized: gain,
+    });
+  }
+
+  return { trades, errors, skippedNonOption };
+}
+
+// ── Wheel bookkeeping ───────────────────────────────────────────────────────
+
+const r2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
+
+/**
+ * Aggregate closed trades into wheel metrics.
+ *
+ * Two different "cost basis" numbers fall out of this, and conflating them is
+ * the classic wheel bookkeeping error, so both are returned explicitly:
+ *
+ *  - taxBasisOnAssignment — for a SINGLE put that gets assigned, the shares'
+ *    basis is strike minus that put's own premium. Premium from previously
+ *    CLOSED puts does not touch it; those are already realized gains and have
+ *    been taxed. This is the number that belongs on a Schedule D.
+ *
+ *  - economicBasis — strike minus ALL net premium ever collected on the name.
+ *    This is the "how much am I really in for" view a wheel trader thinks in.
+ *    It is not a tax basis and must never be reported as one.
+ */
+export function summarizeTrades(trades, opts = {}) {
+  const list = (trades || []).filter((t) => opts.underlying ? t.underlying === opts.underlying : true);
+
+  const collected = list.reduce((s, t) => s + (t.collected || 0), 0);
+  const paid = list.reduce((s, t) => s + (t.paid || 0), 0);
+  const realized = list.reduce((s, t) => s + (t.realized || 0), 0);
+  const wins = list.filter((t) => (t.realized || 0) > 0).length;
+
+  const byYear = {};
+  for (const t of list) {
+    const y = (t.closed || t.expiry || "").slice(0, 4) || "unknown";
+    if (!byYear[y]) byYear[y] = { year: y, n: 0, collected: 0, paid: 0, realized: 0 };
+    byYear[y].n++;
+    byYear[y].collected += t.collected || 0;
+    byYear[y].paid += t.paid || 0;
+    byYear[y].realized += t.realized || 0;
+  }
+  const years = Object.values(byYear)
+    .map((y) => ({
+      ...y,
+      collected: r2(y.collected),
+      paid: r2(y.paid),
+      realized: r2(y.realized),
+      capturePct: y.collected > 0 ? r2((y.realized / y.collected) * 100) : null,
+    }))
+    .sort((a, b) => (a.year < b.year ? -1 : 1));
+
+  // Per-share figures need contract counts; Schwab's screen view omits them,
+  // so treat them as unknown rather than assuming 1 contract.
+  const withQty = list.filter((t) => t.contracts > 0);
+  const missingQty = list.length - withQty.length;
+
+  const perTrade = list.map((t) => {
+    const shares = t.contracts > 0 ? t.contracts * 100 : null;
+    const premiumPerShare = shares ? (t.collected || 0) / shares : null;
+    const netPerShare = shares ? (t.realized || 0) / shares : null;
+    return {
+      ...t,
+      shares,
+      premiumPerShare: r2(premiumPerShare),
+      netPerShare: r2(netPerShare),
+      capturePct: t.collected > 0 ? r2(((t.realized || 0) / t.collected) * 100) : null,
+      daysHeld: t.opened && t.closed
+        ? Math.round((new Date(t.closed) - new Date(t.opened)) / 86400000)
+        : null,
+      // Tax basis had THIS put been assigned instead of closed — its own
+      // premium only.
+      taxBasisOnAssignment: t.type === "PUT" && t.short && premiumPerShare != null
+        ? r2(t.strike - premiumPerShare)
+        : null,
+    };
+  });
+
+  return {
+    count: list.length,
+    wins,
+    losses: list.length - wins,
+    winRatePct: list.length ? r2((wins / list.length) * 100) : null,
+    collected: r2(collected),
+    paid: r2(paid),
+    realized: r2(realized),
+    capturePct: collected > 0 ? r2((realized / collected) * 100) : null,
+    years,
+    perTrade,
+    missingQty,
+  };
+}
+
+/**
+ * Economic basis if assigned `contracts` at `strike`, after applying all net
+ * premium collected. Explicitly NOT a tax basis — see summarizeTrades.
+ */
+export function economicBasis(strike, contracts, netPremium) {
+  if (!(strike > 0) || !(contracts > 0)) return null;
+  const offset = netPremium / (contracts * 100);
+  return { offsetPerShare: r2(offset), basis: r2(strike - offset) };
+}
