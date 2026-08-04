@@ -12483,6 +12483,380 @@ function NewsPopover({ ARIA }) {
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// WheelView — cash-secured put / covered call screener for the wheel.
+//
+// A screener, not a recommender: it ranks contracts by annualized yield on
+// EXTRINSIC value and surfaces the risk flags (earnings inside the cycle,
+// thin liquidity, wide spread, strike under cost basis). Selection is the
+// user's call. Data comes from /api/wheel (Schwab chain).
+// ──────────────────────────────────────────────────────────────────────────
+
+const WHEEL_DEFAULTS = {
+  symbol: "NVDA",
+  capital: 100000,
+  minDte: 7,
+  maxDte: 60,
+  minDelta: 0.1,
+  maxDelta: 0.4,
+  minOi: 50,
+  basis: "",
+  shares: "",
+};
+
+function useWheelSettings() {
+  const [cfg, setCfg] = useState(() => {
+    try {
+      const raw = localStorage.getItem("themepulse-wheel-cfg");
+      return raw ? { ...WHEEL_DEFAULTS, ...JSON.parse(raw) } : WHEEL_DEFAULTS;
+    } catch {
+      return WHEEL_DEFAULTS;
+    }
+  });
+  const update = useCallback((patch) => {
+    setCfg((prev) => {
+      const next = { ...prev, ...patch };
+      try { localStorage.setItem("themepulse-wheel-cfg", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+  return [cfg, update];
+}
+
+function useWheel(cfg, nonce) {
+  const [state, setState] = useState({ loading: true, data: null, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState((s) => ({ ...s, loading: true, error: null }));
+
+    const qs = new URLSearchParams({
+      symbol: cfg.symbol,
+      capital: cfg.capital,
+      minDte: cfg.minDte,
+      maxDte: cfg.maxDte,
+      minDelta: cfg.minDelta,
+      maxDelta: cfg.maxDelta,
+      minOi: cfg.minOi,
+    });
+    // Only send the covered-call inputs when both are present — the endpoint
+    // skips the call leg otherwise.
+    if (cfg.basis && cfg.shares) {
+      qs.set("basis", cfg.basis);
+      qs.set("shares", cfg.shares);
+    }
+
+    fetch(`/api/wheel?${qs}`)
+      .then(async (r) => {
+        const j = await r.json().catch(() => null);
+        if (!r.ok) {
+          const e = new Error(j?.detail || j?.error || `HTTP ${r.status}`);
+          // Schwab refresh tokens last 7 days, so a 401 here is the routine
+          // weekly lapse rather than a bug — the UI offers a reconnect link.
+          if (r.status === 401) e.needsAuth = true;
+          throw e;
+        }
+        // A 200 that isn't a wheel payload means we didn't reach the function
+        // at all — in `vite dev` the SPA rewrite serves index.html for /api/*.
+        // Surfacing that as "no contracts matched" would be a lie.
+        if (!j || !Array.isArray(j.puts)) {
+          throw new Error("No wheel data returned — /api/wheel is only live on the deployed site.");
+        }
+        return j;
+      })
+      .then((d) => { if (!cancelled) setState({ loading: false, data: d, error: null }); })
+      .catch((e) => {
+        if (!cancelled) setState({ loading: false, data: null, error: String(e.message || e), needsAuth: Boolean(e.needsAuth) });
+      });
+
+    return () => { cancelled = true; };
+  }, [cfg, nonce]);
+
+  return state;
+}
+
+function WheelNum({ label, value, onChange, width = 78, step, hint }) {
+  const ARIA = useAriaTheme();
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 2 }} title={hint || label}>
+      <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</span>
+      <input
+        type="number"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 4,
+          color: ARIA.text, fontFamily: "monospace", fontSize: 10, padding: "3px 6px",
+        }}
+      />
+    </label>
+  );
+}
+
+function WheelStat({ label, value, color, hint }) {
+  const ARIA = useAriaTheme();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 1 }} title={hint || ""}>
+      <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: color || ARIA.text }}>{value}</span>
+    </div>
+  );
+}
+
+function WheelView({ onTickerClick }) {
+  const ARIA = useAriaTheme();
+  const [cfg, update] = useWheelSettings();
+  const [nonce, setNonce] = useState(0);
+  const [leg, setLeg] = useState("puts");
+  const { loading, data, error, needsAuth } = useWheel(cfg, nonce);
+
+  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
+
+  const rows = data ? (leg === "puts" ? data.puts : data.calls) : [];
+  const hasShares = Boolean(cfg.basis && cfg.shares);
+
+  // Yield colouring is relative, not a verdict — high annualized yield on an
+  // option is compensation for risk, not free money.
+  const yieldColor = (v) => (v >= 40 ? ARIA.green : v >= 20 ? ARIA.text : ARIA.textDim);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Header + controls */}
+      <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, padding: "10px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, fontFamily: "monospace", letterSpacing: 0.5, color: ARIA.text }}>🎡 WHEEL</span>
+          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>
+            sell cash-secured puts · take assignment · sell covered calls · repeat
+          </span>
+
+          {data && (
+            <div style={{ display: "flex", gap: 18, marginLeft: "auto", alignItems: "flex-end" }}>
+              <WheelStat
+                label={data.symbol}
+                value={`$${data.underlyingPrice?.toFixed(2)}`}
+                hint="Underlying last price from the Schwab chain"
+              />
+              <WheelStat
+                label="ATM IV"
+                value={data.atmIV != null ? `${data.atmIV}%` : "—"}
+                hint="At-the-money implied volatility"
+              />
+              <WheelStat
+                label="Chain IV rank"
+                value={data.ivRank != null ? data.ivRank : "—"}
+                color={ARIA.textDim}
+                hint="Where ATM IV sits within THIS chain's strikes — not a 52-week IV rank. Schwab's chain endpoint carries no vol history."
+              />
+              {data.earnings?.date && (
+                <WheelStat
+                  label="Earnings"
+                  value={`${data.earnings.date}${data.earnings.days_until != null ? ` (${data.earnings.days_until}d)` : ""}`}
+                  color={ARIA.yellow}
+                  hint="Cycles that span this date are flagged ER below"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Inputs */}
+        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.4, textTransform: "uppercase" }}>Symbol</span>
+            <input
+              value={cfg.symbol}
+              onChange={(e) => update({ symbol: e.target.value.toUpperCase().trim() })}
+              style={{ width: 70, background: ARIA.bgRow, border: `1px solid ${ARIA.border}`, borderRadius: 4, color: ARIA.text, fontFamily: "monospace", fontSize: 10, fontWeight: 700, padding: "3px 6px" }}
+            />
+          </label>
+          <WheelNum label="Capital" value={cfg.capital} onChange={(v) => update({ capital: v })} width={92} hint="Cash available to secure puts — drives the contract count" />
+          <WheelNum label="Min DTE" value={cfg.minDte} onChange={(v) => update({ minDte: v })} width={62} />
+          <WheelNum label="Max DTE" value={cfg.maxDte} onChange={(v) => update({ maxDte: v })} width={62} />
+          <WheelNum label="Min Δ" value={cfg.minDelta} onChange={(v) => update({ minDelta: v })} width={62} step="0.05" hint="Delta ≈ probability of finishing ITM (assignment odds)" />
+          <WheelNum label="Max Δ" value={cfg.maxDelta} onChange={(v) => update({ maxDelta: v })} width={62} step="0.05" />
+          <WheelNum label="Min OI" value={cfg.minOi} onChange={(v) => update({ minOi: v })} width={62} hint="Open interest floor — filters untradeable strikes" />
+
+          <div style={{ width: 1, alignSelf: "stretch", background: ARIA.border, margin: "0 2px" }} />
+          <WheelNum label="Cost basis" value={cfg.basis} onChange={(v) => update({ basis: v })} width={82} step="0.01" hint="Your NVDA cost basis — enables the covered-call leg" />
+          <WheelNum label="Shares" value={cfg.shares} onChange={(v) => update({ shares: v })} width={70} hint="Shares held — covered calls need 100+" />
+
+          <button
+            onClick={() => setNonce((n) => n + 1)}
+            style={{ background: "rgba(13,145,99,0.14)", border: `1px solid ${ARIA.green}`, color: ARIA.green, padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6 }}
+          >
+            {loading ? "…" : "REFRESH"}
+          </button>
+        </div>
+      </div>
+
+      {/* Leg tabs */}
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        {[["puts", `① CASH-SECURED PUTS${data ? ` (${data.puts.length})` : ""}`], ["calls", `② COVERED CALLS${data ? ` (${data.calls.length})` : ""}`]].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setLeg(k)}
+            style={{
+              background: leg === k ? "rgba(13,145,99,0.14)" : "transparent",
+              border: `1px solid ${leg === k ? ARIA.green : ARIA.border}`,
+              color: leg === k ? ARIA.green : ARIA.textDim,
+              padding: "3px 10px", borderRadius: 4, cursor: "pointer",
+              fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+        <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: 8 }}>
+          yield is annualized on <b>extrinsic</b> value · premium assumes a fill at the bid
+        </span>
+        {data?.meta?.cached && (
+          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: "auto" }}>cached</span>
+        )}
+      </div>
+
+      {/* Table */}
+      <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
+        {error && (
+          <div style={{ padding: 20, fontFamily: "monospace", fontSize: 10, lineHeight: 1.6 }}>
+            <div style={{ color: needsAuth ? ARIA.yellow : ARIA.red }}>{error}</div>
+            {needsAuth ? (
+              <>
+                <div style={{ color: ARIA.textMuted, marginTop: 6 }}>
+                  Schwab refresh tokens expire every 7 days — this is the routine weekly lapse, not a failure.
+                </div>
+                <a
+                  href="/api/schwab-callback"
+                  style={{ display: "inline-block", marginTop: 10, background: "rgba(13,145,99,0.14)", border: `1px solid ${ARIA.green}`, color: ARIA.green, padding: "4px 12px", borderRadius: 4, fontSize: 9, fontWeight: 700, letterSpacing: 0.6, textDecoration: "none" }}
+                >
+                  RECONNECT SCHWAB →
+                </a>
+              </>
+            ) : (
+              <div style={{ color: ARIA.textMuted, marginTop: 6 }}>
+                The wheel screen needs a linked Schwab account for the options chain, and only runs against the deployed API.
+              </div>
+            )}
+          </div>
+        )}
+        {!error && loading && (
+          <div style={{ padding: 24, textAlign: "center", fontFamily: "monospace", fontSize: 10, color: ARIA.textMuted }}>loading chain…</div>
+        )}
+        {!error && !loading && leg === "calls" && !hasShares && (
+          <div style={{ padding: 24, textAlign: "center", fontFamily: "monospace", fontSize: 10, color: ARIA.textMuted, lineHeight: 1.6 }}>
+            Covered calls are the post-assignment leg.<br />
+            Enter a <b>cost basis</b> and <b>share count</b> above once you're assigned.
+          </div>
+        )}
+        {!error && !loading && rows.length === 0 && !(leg === "calls" && !hasShares) && (
+          <div style={{ padding: 24, textAlign: "center", fontFamily: "monospace", fontSize: 10, color: ARIA.textMuted }}>
+            No contracts matched. Try widening the delta band or DTE range, or lowering min OI.
+          </div>
+        )}
+        {!error && !loading && rows.length > 0 && (
+          <div style={{ maxHeight: "calc(100vh - 300px)", overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ position: "sticky", top: 0, background: ARIA.bgCard, zIndex: 1 }}>
+                <tr>
+                  <th style={{ ...th, textAlign: "left" }}>Expiry</th>
+                  <th style={th}>DTE</th>
+                  <th style={th}>Strike</th>
+                  <th style={th} title="Delta ≈ probability of assignment">Δ</th>
+                  <th style={th}>Bid</th>
+                  <th style={th} title="Time value — the actual income; total premium minus intrinsic">Extrin</th>
+                  <th style={th} title="Annualized return on extrinsic value">Ann %</th>
+                  {leg === "puts" ? (
+                    <>
+                      <th style={th} title="Strike minus premium — the price you effectively own shares at">B/E</th>
+                      <th style={th} title="How far the stock can fall before you lose money">Cushion</th>
+                      <th style={th} title="Cash required to secure one contract">Collat</th>
+                      <th style={th} title="Contracts affordable with the capital entered">Qty</th>
+                    </>
+                  ) : (
+                    <>
+                      <th style={th} title="P/L if the shares are called away at this strike">If called</th>
+                      <th style={th}>OTM %</th>
+                      <th style={th}>Qty</th>
+                    </>
+                  )}
+                  <th style={th}>IV</th>
+                  <th style={th}>OI</th>
+                  <th style={{ ...th, textAlign: "left" }}>Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr
+                    key={`${r.expiration}-${r.strike}`}
+                    style={{ background: r.sweetSpot ? "rgba(52,211,153,0.05)" : "transparent" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = r.sweetSpot ? "rgba(52,211,153,0.05)" : "transparent"; }}
+                  >
+                    <td style={{ ...cell, textAlign: "left", color: ARIA.textDim }}>{r.expiration}</td>
+                    <td style={{ ...cell, color: ARIA.textDim }}>{r.dte}</td>
+                    <td style={{ ...cell, fontWeight: 800, color: ARIA.text }}>{r.strike}</td>
+                    <td style={{ ...cell, color: r.sweetSpot ? ARIA.green : ARIA.textDim, fontWeight: r.sweetSpot ? 700 : 400 }}>{r.delta.toFixed(2)}</td>
+                    <td style={{ ...cell, color: ARIA.text }}>{r.bid.toFixed(2)}</td>
+                    <td style={{ ...cell, color: r.itm ? ARIA.yellow : ARIA.textDim }}>{r.extrinsic.toFixed(2)}</td>
+                    <td style={{ ...cell, fontWeight: 800, color: yieldColor(r.annualizedPct) }}>{r.annualizedPct.toFixed(1)}%</td>
+                    {leg === "puts" ? (
+                      <>
+                        <td style={{ ...cell, color: ARIA.text }}>{r.breakeven.toFixed(2)}</td>
+                        <td style={{ ...cell, color: r.cushionPct >= 8 ? ARIA.green : r.cushionPct >= 4 ? ARIA.textDim : ARIA.red }}>{r.cushionPct.toFixed(1)}%</td>
+                        <td style={{ ...cell, color: ARIA.textDim }}>${(r.collateral / 1000).toFixed(1)}k</td>
+                        <td style={{ ...cell, color: r.maxContracts > 0 ? ARIA.text : ARIA.red }}>{r.maxContracts}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={{ ...cell, fontWeight: 700, color: r.calledAwayPL >= 0 ? ARIA.green : ARIA.red }}>
+                          {r.calledAwayPL >= 0 ? "+" : "−"}${Math.abs(r.calledAwayPL).toLocaleString()}
+                        </td>
+                        <td style={{ ...cell, color: ARIA.textDim }}>{r.otmPct.toFixed(1)}%</td>
+                        <td style={{ ...cell, color: ARIA.textDim }}>{r.contracts}</td>
+                      </>
+                    )}
+                    <td style={{ ...cell, color: ARIA.textDim }}>{r.iv.toFixed(1)}</td>
+                    <td style={{ ...cell, color: ARIA.textDim }}>{r.oi >= 1000 ? `${(r.oi / 1000).toFixed(1)}k` : r.oi}</td>
+                    <td style={{ ...cell, textAlign: "left" }}>
+                      {r.earningsInCycle && (
+                        <span title="Earnings falls inside this expiration cycle — assignment risk is not normal-distribution risk here" style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.yellow, background: `${ARIA.yellow}1f`, border: `1px solid ${ARIA.yellow}55`, borderRadius: 2, padding: "0 4px", marginRight: 4 }}>ER</span>
+                      )}
+                      {r.itm && (
+                        <span title="In the money" style={{ fontSize: 7.5, fontWeight: 800, color: ARIA.purple, background: `${ARIA.purple}1f`, border: `1px solid ${ARIA.purple}55`, borderRadius: 2, padding: "0 4px", marginRight: 4 }}>ITM</span>
+                      )}
+                      {(r.warnings || []).map((w, i) => (
+                        <span key={i} title={w} style={{ fontSize: 7.5, color: ARIA.red, marginRight: 5 }}>{w}</span>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", lineHeight: 1.7, padding: "0 2px" }}>
+        Screener output, not a recommendation. Annualized yield assumes the position is repeated all year at the same
+        rate — it will not be. A cash-secured put carries the full downside of owning {cfg.symbol || "the stock"} from
+        the breakeven down; a covered call caps your upside at the strike.
+        {onTickerClick && data?.symbol && (
+          <>
+            {" "}
+            <button
+              onClick={() => onTickerClick(data.symbol)}
+              style={{ background: "transparent", border: "none", color: ARIA.green, cursor: "pointer", fontFamily: "monospace", fontSize: 8, textDecoration: "underline", padding: 0 }}
+            >
+              chart {data.symbol} →
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -12715,7 +13089,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["dash", "DASH"]].map(([v, label]) => (
+          {[["dash", "DASH"], ["wheel", "WHEEL"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
@@ -12827,6 +13201,10 @@ function AppMain() {
             stockMap={stockMap}
             onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
           />
+        ) : mainView === "wheel" ? (
+          <ErrorBoundary>
+            <WheelView onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }} />
+          </ErrorBoundary>
         ) : (
           <>
             {/* Market Conditions — verdict + exposure + live indexes/breadth in one bar */}

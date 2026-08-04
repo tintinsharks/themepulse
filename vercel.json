@@ -26,6 +26,9 @@
     "api/options-bias.js": {
       "maxDuration": 15
     },
+    "api/wheel.js": {
+      "maxDuration": 20
+    },
     "api/schwab-callback.js": {
       "maxDuration": 15
     },
