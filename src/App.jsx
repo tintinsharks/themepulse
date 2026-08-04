@@ -17,7 +17,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { scrollRowIntoScroller } from "./utils.js";
-import { parseSchwabRealized, summarizeTrades } from "./wheelTrades.js";
+import { parseSchwabRealized, summarizeTrades, mergeTrades } from "./wheelTrades.js";
 import {
   LWChart as LegacyLWChart,
   IntradayChart as LegacyIntradayChart,
@@ -12539,32 +12539,9 @@ function ClosedTrades({ symbol, ARIA }) {
     // understates basis, the more dangerous direction to be wrong in. Two
     // genuinely distinct trades matching to the penny on both legs is far
     // rarer than a re-import.
-    const key = (t) => `${t.symbol}|${t.collected}|${t.paid}`;
-
-    // On a duplicate, enrich rather than discard. Pasting the on-screen table
-    // first (no quantity or dates) and the full export later is the natural
-    // order to do this in, and dropping the second paste would strand the
-    // record without the quantity that per-share and basis math require.
-    const byKey = new Map(trades.map((t) => [key(t), { ...t }]));
-    let added = 0;
-    let enriched = 0;
-    for (const t of parsed) {
-      const k = key(t);
-      const existing = byKey.get(k);
-      if (!existing) { byKey.set(k, t); added++; continue; }
-      let changed = false;
-      for (const f of ["contracts", "opened", "closed", "realized"]) {
-        if ((existing[f] == null || existing[f] === "") && t[f] != null && t[f] !== "") {
-          existing[f] = t[f];
-          changed = true;
-        }
-      }
-      if (changed) enriched++;
-    }
-
-    save([...byKey.values()]);
+    const { trades: merged, added, enriched, duplicates: dupes } = mergeTrades(trades, parsed);
+    save(merged);
     setPaste("");
-    const dupes = parsed.length - added - enriched;
     setStatus({
       bad: false,
       msg: [

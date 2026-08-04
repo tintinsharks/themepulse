@@ -112,6 +112,10 @@ const COLUMN_TESTS = [
   ["name",      (h) => h === "name" || h.includes("description")],
   ["closed",    (h) => h.includes("closed") && h.includes("date")],
   ["opened",    (h) => h.includes("opened") && h.includes("date")],
+  // Schwab's expanded lot detail labels its date columns by position
+  // mechanics ("Acquired" / "Date sold") rather than by trade lifecycle.
+  ["acquired",  (h) => h === "acquired" || h === "dateacquired"],
+  ["soldDate",  (h) => h === "datesold" || h === "solddate" || h === "sold"],
   ["quantity",  (h) => h === "quantity" || h === "qty" || h.includes("shares")],
   ["proceeds",  (h) => h.includes("proceeds")],
   ["cost",      (h) => h.includes("cost")],
@@ -131,6 +135,31 @@ export function resolveColumns(headerCells) {
     }
   });
   return map;
+}
+
+/**
+ * Resolve when a trade opened and closed.
+ *
+ * "Opened Date"/"Closed Date" are already lifecycle-semantic and used as-is.
+ * The lot-detail view instead gives "Acquired"/"Date sold", which describe
+ * share movement, not the trade. For a SHORT option that ordering is
+ * inverted: the sell-to-open comes first and the buy-to-close is the
+ * "acquire". Reading those columns literally would report a short put as
+ * closing before it opened and yield negative holding periods.
+ */
+export function lifecycleDates(cols, cells, isShort) {
+  const at = (i) => (i !== undefined ? parseDate(cells[i]) : null);
+  const opened = at(cols.opened);
+  const closed = at(cols.closed);
+  if (opened || closed) return { opened, closed };
+
+  const acquired = at(cols.acquired);
+  const sold = at(cols.soldDate);
+  if (!acquired && !sold) return { opened: null, closed: null };
+
+  return isShort
+    ? { opened: sold, closed: acquired }
+    : { opened: acquired, closed: sold };
 }
 
 const isTotalRow = (cells) => {
@@ -220,8 +249,7 @@ export function parseSchwabRealized(text) {
       expiry: opt.expiry,
       short: opt.short,
       contracts,
-      opened: cols.opened !== undefined ? parseDate(cells[cols.opened]) : null,
-      closed: cols.closed !== undefined ? parseDate(cells[cols.closed]) : null,
+      ...lifecycleDates(cols, cells, opt.short),
       // For a short option Schwab reports proceeds = credit received on the
       // sell-to-open and cost = debit paid on the buy-to-close.
       collected: opt.short ? proceeds : cost,
@@ -231,6 +259,66 @@ export function parseSchwabRealized(text) {
   }
 
   return { trades, errors, skippedNonOption };
+}
+
+// ── Merging imports ─────────────────────────────────────────────────────────
+
+const fullKey = (t) =>
+  `${t.symbol}|${t.opened || ""}|${t.closed || ""}|${t.contracts ?? ""}|${t.collected}|${t.paid}`;
+const looseKey = (t) => `${t.symbol}|${t.collected}|${t.paid}`;
+
+/**
+ * Merge newly parsed trades into the stored set.
+ *
+ * Every incoming row claims at most one stored slot, and a claimed slot can't
+ * be claimed again. That single rule handles three cases that otherwise
+ * conflict:
+ *
+ *  - Re-importing the same export: each row exactly matches a distinct stored
+ *    row, so nothing is added.
+ *  - Pasting the on-screen table (no quantity or dates) and later the full
+ *    export: no exact match exists, so the row enriches the thinner stored
+ *    record instead of duplicating it.
+ *  - Several genuinely separate lots of one contract that happen to carry
+ *    identical amounts: the first claims a slot, the rest find none free and
+ *    are appended. Collapsing them would silently understate premium — real
+ *    lot data has pairs differing by a single cent, so identical pairs are
+ *    only a rounding coin-flip away.
+ */
+export function mergeTrades(existing, incoming) {
+  const store = (existing || []).map((t) => ({ ...t }));
+  const claimed = new Set();
+  let added = 0, enriched = 0, duplicates = 0;
+
+  const findFree = (pred) => store.findIndex((s, i) => !claimed.has(i) && pred(s));
+
+  for (const t of incoming || []) {
+    const exact = findFree((s) => fullKey(s) === fullKey(t));
+    if (exact >= 0) { claimed.add(exact); duplicates++; continue; }
+
+    const thinner = findFree(
+      (s) =>
+        looseKey(s) === looseKey(t) &&
+        ((s.contracts == null && t.contracts != null) ||
+         (!s.opened && t.opened) ||
+         (!s.closed && t.closed))
+    );
+    if (thinner >= 0) {
+      claimed.add(thinner);
+      for (const f of ["contracts", "opened", "closed", "realized"]) {
+        const cur = store[thinner][f];
+        if ((cur == null || cur === "") && t[f] != null && t[f] !== "") store[thinner][f] = t[f];
+      }
+      enriched++;
+      continue;
+    }
+
+    store.push({ ...t });
+    claimed.add(store.length - 1); // so a later identical row can't claim it
+    added++;
+  }
+
+  return { trades: store, added, enriched, duplicates };
 }
 
 // ── Wheel bookkeeping ───────────────────────────────────────────────────────
