@@ -3,8 +3,8 @@
   "entered": "2026-08-04",
   "px": 72.49,
   "layer": "AI Connectivity",
-  "peak": 72.49,
-  "last_seen": "2026-08-04",
+  "peak": 72.72,
+  "last_seen": "2026-08-05",
   "ondeck": true
  },
  "ALAB": {
@@ -43,7 +43,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-04"
+  "last_seen": "2026-08-05"
  },
  "INTC": {
   "entered": "2026-07-22",
@@ -82,7 +82,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 28.63,
-  "last_seen": "2026-08-04",
+  "last_seen": "2026-08-05",
   "ondeck": true
  },
  "AMD": {
@@ -120,7 +120,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 132.77,
-  "last_seen": "2026-08-04",
+  "last_seen": "2026-08-05",
   "ondeck": false
  },
  "ARM": {
@@ -137,16 +137,16 @@
   "entered": "2026-07-24",
   "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 359.8,
-  "last_seen": "2026-08-04",
+  "peak": 366.34,
+  "last_seen": "2026-08-05",
   "ondeck": true
  },
  "FTNT": {
   "entered": "2026-07-24",
   "px": 152.47,
   "layer": "Platform + Endpoint",
-  "peak": 166.21,
-  "last_seen": "2026-08-04",
+  "peak": 168.29,
+  "last_seen": "2026-08-05",
   "ondeck": true
  },
  "DK": {
@@ -203,8 +203,8 @@
   "entered": "2026-07-28",
   "px": 251.86,
   "layer": "DevOps + Observability",
-  "peak": 284.49,
-  "last_seen": "2026-08-04",
+  "peak": 288.15,
+  "last_seen": "2026-08-05",
   "ondeck": true
  },
  "FROG": {
@@ -229,16 +229,16 @@
   "entered": "2026-07-28",
   "px": 169.85,
   "layer": "Compute Hardware",
-  "peak": 174.53,
-  "last_seen": "2026-07-30",
+  "peak": 190.46,
+  "last_seen": "2026-08-05",
   "ondeck": false
  },
  "CRSR": {
   "entered": "2026-07-28",
   "px": 10.43,
   "layer": "Compute Hardware",
-  "peak": 10.74,
-  "last_seen": "2026-07-30",
+  "peak": 11.37,
+  "last_seen": "2026-08-05",
   "ondeck": true
  },
  "CDNA": {
@@ -255,7 +255,9 @@
   "layer": "Diagnostics",
   "peak": 152.78,
   "last_seen": "2026-07-30",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-08-05",
+  "exit_px": 159.79
  },
  "TWST": {
   "entered": "2026-07-31",
@@ -269,8 +271,8 @@
   "entered": "2026-07-31",
   "px": 296.7,
   "layer": "Data Platforms",
-  "peak": 315.09,
-  "last_seen": "2026-08-04",
+  "peak": 316.77,
+  "last_seen": "2026-08-05",
   "ondeck": false
  }
 }
