@@ -159,7 +159,11 @@ export function computeIvContext(calls, puts, underlyingPrice) {
 
   const atmCall = nearest(calls);
   const atmPut = nearest(puts);
-  const atmIV = atmCall?.volatility || 0;
+  // The chain is fetched puts-only when the covered-call leg is idle, so there
+  // may be no ATM call at all. Falling back to the ATM put keeps IV rank
+  // meaningful — reading atmCall alone collapsed it to 0 and drove the rank
+  // negative.
+  const atmIV = atmCall?.volatility > 0 ? atmCall.volatility : (atmPut?.volatility || 0);
   const ivMin = Math.min(...ivs);
   const ivMax = Math.max(...ivs);
 
@@ -170,7 +174,12 @@ export function computeIvContext(calls, puts, underlyingPrice) {
     // not carry historical IV; a true IV rank needs a separate vol history feed.
     ivRank: ivMax > ivMin ? Math.round(((atmIV - ivMin) / (ivMax - ivMin)) * 100) : 50,
     atmIV: Math.round(atmIV * 100) / 100,
-    skew: Math.round(((atmPut?.volatility || 0) - atmIV) * 100) / 100,
+    // Skew is a call-vs-put comparison; a single-sided chain cannot express
+    // it, so report nothing rather than a difference against a missing leg.
+    skew:
+      atmCall?.volatility > 0 && atmPut?.volatility > 0
+        ? Math.round((atmPut.volatility - atmCall.volatility) * 100) / 100
+        : null,
   };
 }
 
