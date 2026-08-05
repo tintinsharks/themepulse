@@ -96,14 +96,12 @@
   "exit_px": 429.56
  },
  "TENB": {
-  "entered": "2026-07-14",
-  "px": 41.5,
+  "entered": "2026-08-05",
+  "px": 36.17,
   "layer": "Threat Operations",
-  "peak": 42.65,
-  "last_seen": "2026-07-28",
-  "ondeck": true,
-  "exited": "2026-08-03",
-  "exit_px": 34.34
+  "peak": 36.17,
+  "last_seen": "2026-08-05",
+  "ondeck": true
  },
  "RPD": {
   "entered": "2026-07-14",
@@ -119,7 +117,7 @@
   "entered": "2026-08-04",
   "px": 132.77,
   "layer": "AI Connectivity",
-  "peak": 132.77,
+  "peak": 132.86,
   "last_seen": "2026-08-05",
   "ondeck": false
  },
@@ -211,8 +209,8 @@
   "entered": "2026-07-28",
   "px": 81.23,
   "layer": "DevOps + Observability",
-  "peak": 81.23,
-  "last_seen": "2026-08-02",
+  "peak": 86.07,
+  "last_seen": "2026-08-05",
   "ondeck": false
  },
  "RHI": {
@@ -274,5 +272,13 @@
   "peak": 316.77,
   "last_seen": "2026-08-05",
   "ondeck": false
+ },
+ "QLYS": {
+  "entered": "2026-08-05",
+  "px": 188.52,
+  "layer": "Threat Operations",
+  "peak": 188.52,
+  "last_seen": "2026-08-05",
+  "ondeck": true
  }
 }
