@@ -12556,11 +12556,22 @@ function ClosedTrades({ symbol, ARIA }) {
   const [showImport, setShowImport] = useState(false);
   // Premium mechanics are diagnostic, not the headline — off by default.
   const [detail, setDetail] = useState(false);
+  // "short" = premium sold (the wheel). "long" = puts bought directionally.
+  const [side, setSide] = useState("short");
 
+  // Premium sold (the CSP program) and premium bought (discretionary
+  // directional puts) are separate books. Shown apart by default so a
+  // directional loss can't quietly net against income — and so capture rate,
+  // collateral and assignment basis, which only mean anything for sold
+  // premium, aren't computed across both.
+  const scope = scopeAll ? {} : { underlying: symbol };
   const summary = useMemo(
-    () => summarizeTrades(trades, scopeAll ? {} : { underlying: symbol }),
-    [trades, scopeAll, symbol]
+    () => summarizeTrades(trades, { ...scope, side: side === "all" ? undefined : side }),
+    [trades, scopeAll, symbol, side]
   );
+  const shortBook = useMemo(() => summarizeTrades(trades, { ...scope, side: "short" }), [trades, scopeAll, symbol]);
+  const longBook = useMemo(() => summarizeTrades(trades, { ...scope, side: "long" }), [trades, scopeAll, symbol]);
+  const isLong = side === "long";
 
   const doImport = () => {
     const { trades: parsed, errors, skippedNonOption } = parseSchwabRealized(paste);
@@ -12653,7 +12664,9 @@ function ClosedTrades({ symbol, ARIA }) {
           {/* ── Hero: the number that matters, then supporting metrics ── */}
           <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>Realized P/L</div>
+              <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>
+                {side === "all" ? "Realized P/L — both books" : isLong ? "Realized P/L — puts bought" : "Realized P/L — premium sold"}
+              </div>
               <div style={{ fontSize: 30, fontWeight: 800, fontFamily: "monospace", color: summary.realized >= 0 ? ARIA.green : ARIA.red, lineHeight: 1, letterSpacing: -0.5 }}>
                 {money(summary.realized)}
               </div>
@@ -12668,15 +12681,33 @@ function ClosedTrades({ symbol, ARIA }) {
                   </span>
                 ))}
               </div>
+              {/* Both books are always visible, so a directional loss can't hide
+                  behind income (or the reverse) just because a tab is selected. */}
+              {longBook.count > 0 && shortBook.count > 0 && (
+                <div style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace", marginTop: 6, paddingTop: 6, borderTop: `1px solid ${ARIA.border}` }}>
+                  sold <b style={{ color: shortBook.realized >= 0 ? ARIA.green : ARIA.red }}>{money0(shortBook.realized)}</b>
+                  {" · "}bought <b style={{ color: longBook.realized >= 0 ? ARIA.green : ARIA.red }}>{money0(longBook.realized)}</b>
+                  {" · "}net <b style={{ color: (shortBook.realized + longBook.realized) >= 0 ? ARIA.green : ARIA.red }}>{money0(shortBook.realized + longBook.realized)}</b>
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: 22, marginLeft: "auto", flexWrap: "wrap", alignItems: "flex-end" }}>
               {summary.avgPerContract != null && <WheelStat label="$ / contract" value={money(summary.avgPerContract)} hint="Realized P/L divided by total contracts traded" />}
-              {summary.rocPct != null && <WheelStat label="On collateral" value={`${summary.rocPct}%`} hint={`Against ${money0(summary.totalCollateral)} of cash collateral committed`} />}
-              {summary.annRocPct != null && <WheelStat label="Annualized" value={`${summary.annRocPct}%`} color={ARIA.textDim} hint="On collateral-days — weights capital by how long it was tied up. Assumes the rate repeats all year; it will not." />}
-              <div style={{ width: 1, alignSelf: "stretch", background: ARIA.border }} />
-              <WheelStat label="Collected" value={money0(summary.collected)} color={ARIA.textDim} hint="Total premium received selling to open" />
-              <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.textMuted} hint="Share of collected premium kept. Process quality, not the scoreboard — a low-capture trade can still be the biggest dollar winner." />
+              {isLong ? (
+                <>
+                  <WheelStat label="Premium paid" value={money0(summary.collected)} color={ARIA.textDim} hint="Total debit paid opening these long puts" />
+                  <WheelStat label="Return on premium" value={summary.capturePct != null ? `${summary.capturePct}%` : "—"} color={ARIA.textDim} hint="Realized P/L against the premium paid. 100% means the position doubled." />
+                </>
+              ) : (
+                <>
+                  {summary.rocPct != null && <WheelStat label="On collateral" value={`${summary.rocPct}%`} hint={`Against ${money0(summary.totalCollateral)} of cash collateral committed`} />}
+                  {summary.annRocPct != null && <WheelStat label="Annualized" value={`${summary.annRocPct}%`} color={ARIA.textDim} hint="On collateral-days — weights capital by how long it was tied up. Assumes the rate repeats all year; it will not." />}
+                  <div style={{ width: 1, alignSelf: "stretch", background: ARIA.border }} />
+                  <WheelStat label="Collected" value={money0(summary.collected)} color={ARIA.textDim} hint="Total premium received selling to open" />
+                  <WheelStat label="Capture" value={`${summary.capturePct}%`} color={ARIA.textMuted} hint="Share of collected premium kept. Process quality, not the scoreboard — a low-capture trade can still be the biggest dollar winner." />
+                </>
+              )}
             </div>
           </div>
 
@@ -12690,10 +12721,24 @@ function ClosedTrades({ symbol, ARIA }) {
               </span>
             )}
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 5, color: ARIA.textDim, cursor: "pointer" }}>
-                <input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} />
-                premium detail
-              </label>
+              <div style={{ display: "flex", gap: 2 }}>
+                {[["short", `SOLD${shortBook.count ? ` (${shortBook.count})` : ""}`], ["long", `BOUGHT${longBook.count ? ` (${longBook.count})` : ""}`], ["all", "ALL"]].map(([k, label]) => (
+                  <button key={k} onClick={() => setSide(k)}
+                    style={{
+                      background: side === k ? "rgba(13,145,99,0.14)" : "transparent",
+                      border: `1px solid ${side === k ? ARIA.green : ARIA.border}`,
+                      color: side === k ? ARIA.green : ARIA.textDim,
+                      padding: "3px 9px", borderRadius: 5, cursor: "pointer",
+                      fontFamily: "monospace", fontSize: 8.5, fontWeight: 700, letterSpacing: 0.5,
+                    }}>{label}</button>
+                ))}
+              </div>
+              {!isLong && (
+                <label style={{ display: "flex", alignItems: "center", gap: 5, color: ARIA.textDim, cursor: "pointer" }}>
+                  <input type="checkbox" checked={detail} onChange={(e) => setDetail(e.target.checked)} />
+                  premium detail
+                </label>
+              )}
               <label style={{ display: "flex", alignItems: "center", gap: 5, color: ARIA.textDim, cursor: "pointer" }}>
                 <input type="checkbox" checked={scopeAll} onChange={(e) => setScopeAll(e.target.checked)} />
                 all symbols
@@ -12728,13 +12773,23 @@ function ClosedTrades({ symbol, ARIA }) {
                     <th style={th}>Qty</th>
                     <th style={{ ...th, ...groupEdge, textAlign: "left", paddingLeft: 14 }}>Realized</th>
                     <th style={th} title="Realized P/L per contract">$/ctr</th>
-                    <th style={{ ...th, ...groupEdge }} title="Cash collateral tied up (strike × 100 × contracts)">Collateral</th>
-                    <th style={th} title="Realized P/L as a percentage of collateral committed">ROC</th>
-                    {detail && <th style={{ ...th, ...groupEdge }}>Collected</th>}
-                    {detail && <th style={th}>Paid</th>}
-                    {detail && <th style={th} title="Share of collected premium kept">Capture</th>}
-                    {detail && <th style={th} title="Premium received per share">Prem/sh</th>}
-                    <th style={{ ...th, ...groupEdge }} title="Tax basis had THIS put been assigned instead of closed: strike minus its own premium">Basis if assigned</th>
+                    {isLong ? (
+                      <>
+                        <th style={{ ...th, ...groupEdge }} title="Debit paid to open">Paid</th>
+                        <th style={th} title="Credit received on the close">Sold for</th>
+                        <th style={th} title="Realized P/L against premium paid — 100% means it doubled">Return</th>
+                      </>
+                    ) : (
+                      <>
+                        <th style={{ ...th, ...groupEdge }} title="Cash collateral tied up (strike × 100 × contracts)">Collateral</th>
+                        <th style={th} title="Realized P/L as a percentage of collateral committed">ROC</th>
+                        {detail && <th style={{ ...th, ...groupEdge }}>Collected</th>}
+                        {detail && <th style={th}>Paid</th>}
+                        {detail && <th style={th} title="Share of collected premium kept">Capture</th>}
+                        {detail && <th style={th} title="Premium received per share">Prem/sh</th>}
+                        <th style={{ ...th, ...groupEdge }} title="Tax basis had THIS put been assigned instead of closed: strike minus its own premium">Basis if assigned</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -12771,17 +12826,30 @@ function ClosedTrades({ symbol, ARIA }) {
                         </td>
                         <td style={{ ...cell, color: ARIA.text }}>{t.perContract != null ? money(t.perContract) : "—"}</td>
 
-                        <td style={{ ...cell, ...groupEdge, ...dim }}>{t.collateral != null ? money0(t.collateral) : "—"}</td>
-                        <td style={{ ...cell, ...dim }}>{t.rocPct != null ? `${t.rocPct}%` : "—"}</td>
+                        {t.short === false ? (
+                          <>
+                            {/* For a bought put the parser stores the opening
+                                debit in `collected` and the closing credit in
+                                `paid`; label them by what they actually are. */}
+                            <td style={{ ...cell, ...groupEdge, ...dim }}>{money(t.collected)}</td>
+                            <td style={{ ...cell, ...dim }}>{money(t.paid)}</td>
+                            <td style={{ ...cell, color: (t.capturePct || 0) >= 0 ? ARIA.textDim : ARIA.red }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ ...cell, ...groupEdge, ...dim }}>{t.collateral != null ? money0(t.collateral) : "—"}</td>
+                            <td style={{ ...cell, ...dim }}>{t.rocPct != null ? `${t.rocPct}%` : "—"}</td>
 
-                        {detail && <td style={{ ...cell, ...groupEdge, ...dim }}>{money(t.collected)}</td>}
-                        {detail && <td style={{ ...cell, ...dim }}>{money(t.paid)}</td>}
-                        {detail && <td style={{ ...cell, ...dim }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>}
-                        {detail && <td style={{ ...cell, ...dim }}>{t.premiumPerShare != null ? money(t.premiumPerShare) : "—"}</td>}
+                            {detail && <td style={{ ...cell, ...groupEdge, ...dim }}>{money(t.collected)}</td>}
+                            {detail && <td style={{ ...cell, ...dim }}>{money(t.paid)}</td>}
+                            {detail && <td style={{ ...cell, ...dim }}>{t.capturePct != null ? `${t.capturePct}%` : "—"}</td>}
+                            {detail && <td style={{ ...cell, ...dim }}>{t.premiumPerShare != null ? money(t.premiumPerShare) : "—"}</td>}
 
-                        <td style={{ ...cell, ...groupEdge, color: t.taxBasisOnAssignment != null ? ARIA.text : ARIA.textMuted }}>
-                          {t.taxBasisOnAssignment != null ? money(t.taxBasisOnAssignment) : "—"}
-                        </td>
+                            <td style={{ ...cell, ...groupEdge, color: t.taxBasisOnAssignment != null ? ARIA.text : ARIA.textMuted }}>
+                              {t.taxBasisOnAssignment != null ? money(t.taxBasisOnAssignment) : "—"}
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -12790,7 +12858,9 @@ function ClosedTrades({ symbol, ARIA }) {
             </div>
           </div>
 
-          {/* ── Basis calculator ── */}
+          {/* ── Basis calculator — sold premium only. A put you bought is
+                never assigned to you, so there is no basis to compute. ── */}
+          {!isLong && (
           <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 10, padding: "12px 14px" }}>
             <div style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
               Effective basis if assigned
@@ -12821,6 +12891,7 @@ function ClosedTrades({ symbol, ARIA }) {
               Useful for judging a wheel, but not a tax basis and not for a Schedule D. Not tax advice.
             </div>
           </div>
+          )}
         </>
       )}
     </div>

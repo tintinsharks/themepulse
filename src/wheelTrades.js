@@ -376,7 +376,16 @@ const r2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
  *    It is not a tax basis and must never be reported as one.
  */
 export function summarizeTrades(trades, opts = {}) {
-  const list = (trades || []).filter((t) => opts.underlying ? t.underlying === opts.underlying : true);
+  const list = (trades || []).filter((t) => {
+    if (opts.underlying && t.underlying !== opts.underlying) return false;
+    // Premium sold and premium bought are different businesses and must not be
+    // averaged. Blending them counts premium PAID as if it were RECEIVED,
+    // makes capture rate meaningless, and nets a directional loss against
+    // income so neither book's performance is visible.
+    if (opts.side === "short" && !t.short) return false;
+    if (opts.side === "long" && t.short) return false;
+    return true;
+  });
 
   const collected = list.reduce((s, t) => s + (t.collected || 0), 0);
   const paid = list.reduce((s, t) => s + (t.paid || 0), 0);
