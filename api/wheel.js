@@ -25,7 +25,8 @@ export const config = { maxDuration: 20 };
 const SCHWAB_TOKEN_URL = "https://api.schwabapi.com/v1/oauth/token";
 const SCHWAB_CHAINS_URL = "https://api.schwabapi.com/marketdata/v1/chains";
 const REDIS_KEY_TOKENS = "schwab:tokens";
-const CACHE_PREFIX = "wheel:";
+const CHAIN_PREFIX = "wheelchain:";
+const EARNINGS_PREFIX = "wheeler:";
 
 const DEFAULTS = {
   minDte: 7,
@@ -104,7 +105,7 @@ function isoDate(d) {
   return d.toISOString().slice(0, 10);
 }
 
-async function fetchChain(symbol, accessToken, minDte, maxDte) {
+async function fetchChain(symbol, accessToken, minDte, maxDte, contractType = "ALL") {
   const from = new Date();
   from.setDate(from.getDate() + minDte);
   const to = new Date();
@@ -112,7 +113,7 @@ async function fetchChain(symbol, accessToken, minDte, maxDte) {
 
   const params = new URLSearchParams({
     symbol,
-    contractType: "ALL",
+    contractType,
     strikeCount: 40,
     includeUnderlyingQuote: "TRUE",
     optionType: "STANDARD",
@@ -374,6 +375,21 @@ export function buildWheel(chain, opts) {
 }
 
 // ── Earnings lookup (best-effort) ───────────────────────────────────────────
+// Cached separately and for far longer than the chain: an earnings date moves
+// at most once a day, but was being refetched on every cold chain request.
+async function getEarnings(symbol, origin) {
+  const key = `${EARNINGS_PREFIX}${symbol}`;
+  const hit = await redis("GET", key).catch(() => ({}));
+  if (hit?.result) {
+    try { return JSON.parse(hit.result).v; } catch { /* corrupt — refetch */ }
+  }
+  const fresh = await fetchEarnings(symbol, origin);
+  // Cache the null too, so a symbol FMP has no forward date for doesn't retry
+  // on every request.
+  await redis("SET", key, JSON.stringify({ v: fresh }), "EX", 6 * 3600).catch(() => {});
+  return fresh;
+}
+
 async function fetchEarnings(symbol, origin) {
   try {
     const r = await fetch(`${origin}/api/earnings?ticker=${encodeURIComponent(symbol)}`, {
@@ -412,38 +428,60 @@ export default async function handler(req, res) {
     shares: num(q.shares, 0),
   };
 
-  // Cache key covers every input that changes the output.
-  const cacheKey =
-    CACHE_PREFIX +
-    [symbol, opts.capital, opts.minDte, opts.maxDte, opts.minDelta, opts.maxDelta, opts.minOi, opts.basis, opts.shares].join(":");
+  // Cache the RAW CHAIN, not the screened result.
+  //
+  // Only symbol and the DTE window reach Schwab. Delta band, min OI, capital,
+  // basis and share count are all applied after the chain arrives — capital
+  // never touches the options data at all, it just divides for contract count.
+  // Keying the cache on them meant every slider nudge triggered a fresh chain
+  // fetch: measured, 5 of 6 consecutive requests refetched needlessly.
+  //
+  // Screening the cached chain is pure arithmetic, so those now cost nothing.
+  const needCalls = opts.basis > 0 && opts.shares >= 100;
+  const chainKey = (type) => `${CHAIN_PREFIX}${symbol}:${opts.minDte}:${opts.maxDte}:${type}`;
 
-  try {
-    const cached = await redis("GET", cacheKey).catch(() => ({}));
-    if (cached?.result) {
-      const data = JSON.parse(cached.result);
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(200).json({ ...data, meta: { ...data.meta, cached: true } });
+  const readChain = async () => {
+    // An ALL chain satisfies a puts-only request, so a covered-call user's
+    // cached chain is reused rather than refetched.
+    const keys = needCalls ? [chainKey("ALL")] : [chainKey("PUT"), chainKey("ALL")];
+    for (const k of keys) {
+      const hit = await redis("GET", k).catch(() => ({}));
+      if (hit?.result) {
+        try { return { chain: JSON.parse(hit.result), cached: true }; } catch { /* corrupt — refetch */ }
+      }
     }
-  } catch {
-    // Cache miss or Redis down — fall through to a live fetch.
-  }
+    return null;
+  };
 
   try {
-    const accessToken = await getValidAccessToken();
     const proto = req.headers["x-forwarded-proto"] || "https";
     const host = req.headers["x-forwarded-host"] || req.headers.host;
     const origin = `${proto}://${host}`;
 
-    const [chain, earnings] = await Promise.all([
-      fetchChain(symbol, accessToken, opts.minDte, opts.maxDte),
-      fetchEarnings(symbol, origin),
-    ]);
+    let chain, chainCached = false;
+    const fromCache = await readChain();
+    if (fromCache) {
+      chain = fromCache.chain;
+      chainCached = true;
+    } else {
+      const accessToken = await getValidAccessToken();
+      // Skip the call side entirely when the covered-call leg is idle — it is
+      // roughly half the payload and this account has no shares to cover.
+      const type = needCalls ? "ALL" : "PUT";
+      chain = await fetchChain(symbol, accessToken, opts.minDte, opts.maxDte, type);
+      await redis("SET", chainKey(type), JSON.stringify(chain), "EX", cacheTTL()).catch(() => {});
+    }
+
+    const earnings = await getEarnings(symbol, origin);
 
     const result = buildWheel(chain, { ...opts, earningsDate: earnings?.date || null });
     result.earnings = earnings;
-    result.meta = { cached: false, generated: new Date().toISOString(), marketHours: isMarketHours() };
-
-    await redis("SET", cacheKey, JSON.stringify(result), "EX", cacheTTL()).catch(() => {});
+    result.meta = {
+      cached: chainCached,
+      generated: new Date().toISOString(),
+      marketHours: isMarketHours(),
+      chainContracts: needCalls ? "ALL" : "PUT",
+    };
 
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).json(result);
