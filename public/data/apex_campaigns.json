@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 72.72,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-06",
   "ondeck": true
  },
  "ALAB": {
@@ -43,17 +43,15 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-05"
+  "last_seen": "2026-08-06"
  },
  "INTC": {
-  "entered": "2026-07-22",
-  "px": 106.09,
+  "entered": "2026-08-06",
+  "px": 102.44,
   "layer": "Compute Silicon",
-  "peak": 106.09,
-  "last_seen": "2026-07-24",
-  "ondeck": true,
-  "exited": "2026-07-30",
-  "exit_px": 81.88
+  "peak": 102.44,
+  "last_seen": "2026-08-06",
+  "ondeck": true
  },
  "ABVX": {
   "entered": "2026-07-03",
@@ -81,8 +79,8 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 28.63,
-  "last_seen": "2026-08-05",
+  "peak": 29.14,
+  "last_seen": "2026-08-06",
   "ondeck": true
  },
  "AMD": {
@@ -100,7 +98,7 @@
   "px": 36.17,
   "layer": "Threat Operations",
   "peak": 36.17,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-06",
   "ondeck": true
  },
  "RPD": {
@@ -118,7 +116,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 132.86,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-06",
   "ondeck": false
  },
  "ARM": {
@@ -136,7 +134,7 @@
   "px": 326.03,
   "layer": "Platform + Endpoint",
   "peak": 366.34,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-06",
   "ondeck": true
  },
  "FTNT": {
@@ -144,7 +142,7 @@
   "px": 152.47,
   "layer": "Platform + Endpoint",
   "peak": 168.29,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-06",
   "ondeck": true
  },
  "DK": {
@@ -161,7 +159,9 @@
   "layer": "Refining",
   "peak": 73.1,
   "last_seen": "2026-07-31",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-06",
+  "exit_px": 61.44
  },
  "VRNS": {
   "entered": "2026-07-21",
@@ -187,7 +187,9 @@
   "layer": "Staffing + HR",
   "peak": 56.22,
   "last_seen": "2026-07-31",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-06",
+  "exit_px": 55.11
  },
  "KFRC": {
   "entered": "2026-07-28",
@@ -195,7 +197,9 @@
   "layer": "Staffing + HR",
   "peak": 60.9,
   "last_seen": "2026-07-31",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-08-06",
+  "exit_px": 58.16
  },
  "DDOG": {
   "entered": "2026-07-28",
@@ -278,7 +282,15 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 188.52,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-06",
+  "ondeck": true
+ },
+ "MRVL": {
+  "entered": "2026-08-06",
+  "px": 217.54,
+  "layer": "Compute Silicon",
+  "peak": 217.54,
+  "last_seen": "2026-08-06",
   "ondeck": true
  }
 }
