@@ -3,7 +3,7 @@
   "entered": "2026-08-04",
   "px": 72.49,
   "layer": "AI Connectivity",
-  "peak": 72.72,
+  "peak": 73.02,
   "last_seen": "2026-08-07",
   "ondeck": true
  },
@@ -115,7 +115,7 @@
   "entered": "2026-08-04",
   "px": 132.77,
   "layer": "AI Connectivity",
-  "peak": 132.86,
+  "peak": 143.75,
   "last_seen": "2026-08-07",
   "ondeck": false
  },
@@ -133,7 +133,7 @@
   "entered": "2026-07-24",
   "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 366.34,
+  "peak": 369.61,
   "last_seen": "2026-08-07",
   "ondeck": true
  },
@@ -213,8 +213,8 @@
   "entered": "2026-07-28",
   "px": 81.23,
   "layer": "DevOps + Observability",
-  "peak": 86.07,
-  "last_seen": "2026-08-05",
+  "peak": 89.33,
+  "last_seen": "2026-08-07",
   "ondeck": false
  },
  "RHI": {
@@ -292,5 +292,29 @@
   "peak": 217.54,
   "last_seen": "2026-08-07",
   "ondeck": true
+ },
+ "TEAM": {
+  "entered": "2026-08-07",
+  "px": 147.06,
+  "layer": "DevOps + Observability",
+  "peak": 147.06,
+  "last_seen": "2026-08-07",
+  "ondeck": false
+ },
+ "APPS": {
+  "entered": "2026-08-07",
+  "px": 14.81,
+  "layer": "Adtech",
+  "peak": 14.81,
+  "last_seen": "2026-08-07",
+  "ondeck": false
+ },
+ "MGNI": {
+  "entered": "2026-08-07",
+  "px": 25.37,
+  "layer": "Adtech",
+  "peak": 25.37,
+  "last_seen": "2026-08-07",
+  "ondeck": false
  }
 }
