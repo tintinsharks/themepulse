@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 72.72,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "ALAB": {
@@ -43,14 +43,14 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-06"
+  "last_seen": "2026-08-07"
  },
  "INTC": {
   "entered": "2026-08-06",
   "px": 102.44,
   "layer": "Compute Silicon",
   "peak": 102.44,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "ABVX": {
@@ -80,7 +80,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 29.14,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "AMD": {
@@ -98,7 +98,7 @@
   "px": 36.17,
   "layer": "Threat Operations",
   "peak": 36.17,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "RPD": {
@@ -116,7 +116,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 132.86,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": false
  },
  "ARM": {
@@ -134,7 +134,7 @@
   "px": 326.03,
   "layer": "Platform + Endpoint",
   "peak": 366.34,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "FTNT": {
@@ -142,7 +142,7 @@
   "px": 152.47,
   "layer": "Platform + Endpoint",
   "peak": 168.29,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "DK": {
@@ -282,7 +282,7 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 188.52,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  },
  "MRVL": {
@@ -290,7 +290,7 @@
   "px": 217.54,
   "layer": "Compute Silicon",
   "peak": 217.54,
-  "last_seen": "2026-08-06",
+  "last_seen": "2026-08-07",
   "ondeck": true
  }
 }
