@@ -11,8 +11,9 @@
 //   ● small dot       first bar of a setup zone (arming)
 //   SELL PUT label    trigger fired — label shows the suggested strike band
 //                     (5-8% OTM at signal). Hover for the full stats.
-//   Shaded box        that strike band drawn forward ~15 bars: the area
-//                     where the backtest says the put belongs
+//   Dashed lines      the strike band drawn forward ~15 bars — dashed line =
+//                     near strike (5% OTM), dotted = far (8%), faint wash
+//                     between. Where the backtest says the put belongs.
 //
 // EVIDENCE (27y, 6,928 bars): RSI-40 upcross above gate +3.8% med 10d / 67%
 // win (n=112); below gate −0.1% / 49% (n=114). 2023-26: +8.6% / 86%.
@@ -20,7 +21,7 @@
 // trigger survived 27 years — RSI-60 downcross is positive fwd in nearly
 // every era (n=335); optional gray dots mark it as context only.
 // ─────────────────────────────────────────────────────────────────────────────
-indicator("NVDA Put Entries — SELL PUT (200dma-gated)", overlay = true, max_labels_count = 300, max_boxes_count = 100)
+indicator("NVDA Put Entries — SELL PUT (200dma-gated)", overlay = true, max_labels_count = 300, max_lines_count = 400)
 
 // ── Inputs ──
 rsiLen   = input.int(14, "RSI length", minval = 2)
@@ -34,7 +35,7 @@ bandBars = input.int(15, "Extend strike band (bars)", minval = 3,
      tooltip = "Backtest edge peaks at 10-15 bars ≈ 3-4 week DTE")
 cooldown = input.int(5, "Cooldown bars between markers", minval = 0)
 showZone = input.bool(true, "Shade zones")
-showBand = input.bool(true, "Draw strike-band boxes")
+showBand = input.bool(true, "Draw strike-band lines")
 showCaut = input.bool(false, "RSI-60 downcross context dots (no measured edge)")
 showPanel= input.bool(true, "Show NOW/NEXT panel")
 
@@ -84,10 +85,11 @@ if sellSig and barstate.isconfirmed
          textcolor = color.new(color.black, 10),
          tooltip = (sellStrong ? "Trigger: RSI recrossed ↑ " + str.tostring(bullLvl) : "Trigger: MACD bull cross") + " · RSI " + str.tostring(r, "#.#") + "\n" + statsTip)
     if showBand
-        box.new(bar_index, kNear, bar_index + bandBars, kFar,
-             bgcolor = color.new(cGreen, 88), border_color = color.new(cGreen, 55), border_width = 1,
-             text = str.tostring(otmLo, "#.#") + "-" + str.tostring(otmHi, "#.#") + "% OTM",
-             text_color = color.new(cGreen, 35), text_size = size.tiny, text_halign = text.align_right, text_valign = text.align_bottom)
+        // Two thin dashed strike lines with a faint wash between them — the
+        // band without the slab. Strike values live in the label text.
+        lnTop = line.new(bar_index, kNear, bar_index + bandBars, kNear, color = color.new(cGreen, 40), style = line.style_dashed, width = 1)
+        lnBot = line.new(bar_index, kFar,  bar_index + bandBars, kFar,  color = color.new(cGreen, 60), style = line.style_dotted, width = 1)
+        linefill.new(lnTop, lnBot, color.new(cGreen, 95))
 
 plotshape(showCaut and rsiCaut, "RSI-60 downcross (context)", shape.circle, location.abovebar, color.new(cGray, 45), size = size.tiny)
 
@@ -120,7 +122,7 @@ if barstate.islast and showPanel
     table.cell(t, 2, 3, (macdLine > signalLine ? "bull" : "bear") + " · hist " + (histLine > histLine[1] ? "rising" : "falling"),
          text_color = macdLine > signalLine ? cGreen : cRed, text_size = size.small, text_halign = text.align_left)
     table.cell(t, 1, 4, "KEY",       text_color = cGray,         text_size = size.small)
-    table.cell(t, 2, 4, "green line/tint = live · red line + gray tint = stand down · box = strike band", text_color = cGray, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 2, 4, "green line/tint = live · red line + gray tint = stand down · dashed lines = strike band", text_color = cGray, text_size = size.small, text_halign = text.align_left)
 
 // ── Alerts ──
 alertcondition(sellSig, "SELL PUT signal", "NVDA SELL PUT — reversal trigger above the 200dma. 27y +3.8%/67%; 2023-26 +8.6%/86%. 5-8% OTM, 3-4wk DTE, skip if ER inside expiry; 5% OTM touched in 44% of windows.")
