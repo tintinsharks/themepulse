@@ -1,47 +1,48 @@
 //@version=6
 // ─────────────────────────────────────────────────────────────────────────────
-// NVDA Put Entries — SELL PUT signals, gated by the 200dma
-// Calibrated on 27 years of NVDA (1999-2026, 6,928 bars) + full VIX history.
+// NVDA Put Entries — SELL PUT, 200dma-gated · calibrated on 27y NVDA + VIX
 //
-// READING THE CHART
-//   Orange line       200-day SMA — the gate. Above it, signals are live.
-//   GREEN tint        sell-put setup FORMING (RSI < 40, above 200dma)
-//   "arming" tag      first bar of a setup zone
-//   SELL PUT label    RSI recrossed UP through 40 (large green) or MACD bull
-//                     cross (small teal) — while above the 200dma
-//   GRAY tint         below the 200dma — STAND DOWN, both sides go to
-//                     coin-flips (RSI-40 upcross below 200dma: −0.1% median,
-//                     49% win, n=114 over 27y; MACD bull cross in the 2022
-//                     bear: −9.7% median — bull traps)
-//   Panel             NOW = current state · NEXT = what fires from here
+// VISUAL KEY
+//   Gate line         200dma — GREEN when price is above (signals live),
+//                     RED when below (stand down)
+//   GREEN tint        setup forming: RSI < 40 while above the gate
+//   GRAY tint         below the gate — stand down (signals are coin-flips
+//                     here over 27y; 2022 bull crosses were −9.7% traps)
+//   ● small dot       first bar of a setup zone (arming)
+//   SELL PUT label    trigger fired — label shows the suggested strike band
+//                     (5-8% OTM at signal). Hover for the full stats.
+//   Shaded box        that strike band drawn forward ~15 bars: the area
+//                     where the backtest says the put belongs
 //
-// WHY THE NUMBERS
-//   RSI-40 upcross ABOVE 200dma (27y):  +3.8% median 10d, 67% win, n=112
-//   ...in 2023-26:                      +8.6% median, 86% win  (regime edge)
-//   ...BELOW 200dma (27y):              −0.1%, 49% — no trade
-//   5% OTM strike touched within 10 bars: 44% above the gate, 63% below.
-//   VIX>30 at signal: medians improve but 5th-pctile 10d outcome is −26.5%.
-//
-// NO BUY-PUT SIGNAL. The 2024-26 sample briefly supported RSI-60 downcross;
-// 27 years (n=335) show it POSITIVE forward in nearly every era. MACD bear
-// crosses paid only in 2008-09. Indicator-based put buying has no support in
-// this study — an optional off-by-default "caution" dot marks RSI-60
-// downcrosses for context only.
+// EVIDENCE (27y, 6,928 bars): RSI-40 upcross above gate +3.8% med 10d / 67%
+// win (n=112); below gate −0.1% / 49% (n=114). 2023-26: +8.6% / 86%.
+// 5% OTM strike touched in 44% of 10-bar windows above gate. No put-BUY
+// trigger survived 27 years — RSI-60 downcross is positive fwd in nearly
+// every era (n=335); optional gray dots mark it as context only.
 // ─────────────────────────────────────────────────────────────────────────────
-indicator("NVDA Put Entries — SELL PUT (200dma-gated, 27y-calibrated)", overlay = true)
+indicator("NVDA Put Entries — SELL PUT (200dma-gated)", overlay = true, max_labels_count = 300, max_boxes_count = 100)
 
 // ── Inputs ──
 rsiLen   = input.int(14, "RSI length", minval = 2)
 bullLvl  = input.int(40, "SELL PUT: RSI recross-up level", minval = 5, maxval = 50)
 fastLen  = input.int(12, "MACD fast"), slowLen = input.int(26, "MACD slow"), sigLen = input.int(9, "MACD signal")
 gateLen  = input.int(200, "Gate SMA length", minval = 20)
-useGate  = input.bool(true, "Gate signals by the 200dma",
-     tooltip = "27y: RSI-40 upcross above the 200dma +3.8% median 10d / 67% win; below it −0.1% / 49%. 2022 MACD bull crosses below it: −9.7% median.")
+useGate  = input.bool(true, "Gate signals by the 200dma")
+otmLo    = input.float(5.0, "Strike band: near edge (% OTM)", minval = 1, step = 0.5)
+otmHi    = input.float(8.0, "Strike band: far edge (% OTM)",  minval = 1, step = 0.5)
+bandBars = input.int(15, "Extend strike band (bars)", minval = 3,
+     tooltip = "Backtest edge peaks at 10-15 bars ≈ 3-4 week DTE")
 cooldown = input.int(5, "Cooldown bars between markers", minval = 0)
 showZone = input.bool(true, "Shade zones")
-showArm  = input.bool(true, "Tag zone starts ('arming')")
-showCaut = input.bool(false, "Show RSI-60 downcross caution dots (context only — no measured edge)")
+showBand = input.bool(true, "Draw strike-band boxes")
+showCaut = input.bool(false, "RSI-60 downcross context dots (no measured edge)")
 showPanel= input.bool(true, "Show NOW/NEXT panel")
+
+// ── Palette (ThemePulse) ──
+cGreen = #34d399
+cTeal  = #22d3ee
+cRed   = #f87171
+cGray  = color.gray
 
 // ── Indicators ──
 r = ta.rsi(close, rsiLen)
@@ -49,12 +50,11 @@ r = ta.rsi(close, rsiLen)
 gate = ta.sma(close, gateLen)
 aboveGate = not useGate or close > gate
 
-// ── Triggers (gated) ──
+// ── Triggers ──
 rsiBull  = ta.crossover(r, bullLvl) and aboveGate
 macdBull = ta.crossover(macdLine, signalLine) and aboveGate
-rsiCaut  = ta.crossunder(r, 60)     // context only — no measured edge in 27y
+rsiCaut  = ta.crossunder(r, 60)
 
-// ── Cooldown ──
 var int lastSell = -99999
 sellRaw = rsiBull or macdBull
 sellSig = sellRaw and (bar_index - lastSell > cooldown)
@@ -62,44 +62,68 @@ if sellSig
     lastSell := bar_index
 sellStrong = sellSig and rsiBull
 
-// ── Gate line + zones ──
-plot(gate, "200dma gate", color = color.new(color.orange, 30), linewidth = 2)
+// ── Gate line: state IS the color ──
+plot(gate, "200dma gate", color = close > gate ? color.new(cGreen, 25) : color.new(cRed, 20), linewidth = 2)
+
+// ── Zones ──
 inSellZone = r < bullLvl and aboveGate
 standDown  = useGate and close <= gate
-bgcolor(showZone and inSellZone ? color.new(color.green, 86) : na, title = "GREEN = sell-put setup forming (RSI<40, above gate)")
-bgcolor(showZone and standDown  ? color.new(color.gray, 88)  : na, title = "GRAY = below 200dma — stand down")
-plotshape(showArm and inSellZone and not inSellZone[1], "setup zone starts", shape.labelup, location.belowbar, color.new(color.green, 60), text = "arming", textcolor = color.new(color.white, 25), size = size.tiny)
+bgcolor(showZone and inSellZone ? color.new(cGreen, 87) : na, title = "GREEN = setup forming")
+bgcolor(showZone and standDown  ? color.new(cGray, 88)  : na, title = "GRAY = below gate, stand down")
+plotshape(inSellZone and not inSellZone[1], "zone arming", shape.circle, location.belowbar, color.new(cGreen, 40), size = size.tiny)
 
-// ── Markers ──
-plotshape(sellStrong,                 "SELL PUT (RSI trigger — strongest)", shape.labelup, location.belowbar, color.new(color.green, 0), text = "SELL\nPUT", textcolor = color.white, size = size.normal)
-plotshape(sellSig and not sellStrong, "SELL PUT (MACD trigger)",            shape.labelup, location.belowbar, color.new(color.teal, 0),  text = "SELL\nPUT", textcolor = color.white, size = size.small)
-plotshape(showCaut and rsiCaut,       "RSI-60 downcross (context only)",    shape.circle,  location.abovebar, color.new(color.gray, 45), size = size.tiny)
+// ── Signal labels + strike-band boxes (dynamic text, tooltips, drawn once) ──
+statsTip = "27y above gate: +3.8% med 10d · 67% win (n=112)\n2023-26: +8.6% · 86% win\nGuidance from backtest: 5-8% OTM · 3-4wk DTE\nskip if earnings inside expiry\n5% OTM touched in 44% of windows — expect to manage\nVIX>30 at signal: 5th-pctile 10d = −26.5%"
+if sellSig and barstate.isconfirmed
+    kNear = close * (1 - otmLo / 100)
+    kFar  = close * (1 - otmHi / 100)
+    txt = "SELL PUT\nK " + str.tostring(kFar, "#") + "–" + str.tostring(kNear, "#")
+    label.new(bar_index, low, txt,
+         style = label.style_label_up, size = size.small,
+         color = sellStrong ? color.new(cGreen, 10) : color.new(cTeal, 15),
+         textcolor = color.new(color.black, 10),
+         tooltip = (sellStrong ? "Trigger: RSI recrossed ↑ " + str.tostring(bullLvl) : "Trigger: MACD bull cross") + " · RSI " + str.tostring(r, "#.#") + "\n" + statsTip)
+    if showBand
+        box.new(bar_index, kNear, bar_index + bandBars, kFar,
+             bgcolor = color.new(cGreen, 88), border_color = color.new(cGreen, 55), border_width = 1,
+             text = str.tostring(otmLo, "#.#") + "-" + str.tostring(otmHi, "#.#") + "% OTM",
+             text_color = color.new(cGreen, 35), text_size = size.tiny, text_halign = text.align_right, text_valign = text.align_bottom)
+
+plotshape(showCaut and rsiCaut, "RSI-60 downcross (context)", shape.circle, location.abovebar, color.new(cGray, 45), size = size.tiny)
 
 // ── NOW / NEXT panel ──
-var table t = table.new(position.top_right, 2, 4, bgcolor = color.new(color.black, 15), border_width = 1, border_color = color.new(color.gray, 70))
+var table t = table.new(position.top_right, 3, 5, bgcolor = color.new(#12121a, 8), border_width = 1, border_color = color.new(cGray, 72))
 if barstate.islast and showPanel
     rising = r > r[1]
     gapPct = (close / gate - 1) * 100
-    nowTxt  = standDown  ? "STAND DOWN — " + str.tostring(-gapPct, "#.#") + "% below 200dma (signals are coin-flips here)" :
-              inSellZone ? "SELL-PUT setup forming — RSI " + str.tostring(r, "#.#") + (rising ? " ↑" : " ↓") + " below " + str.tostring(bullLvl) + ", above gate" :
-                           "no setup — RSI " + str.tostring(r, "#.#") + ", " + str.tostring(gapPct, "#.#") + "% above 200dma"
-    nowCol  = standDown ? color.gray : inSellZone ? color.lime : color.silver
-    nextTxt = standDown  ? "nothing fires until price reclaims the 200dma (" + str.tostring(gate, "#.##") + ")" :
-              inSellZone ? "SELL PUT fires when RSI crosses ↑ " + str.tostring(bullLvl) :
+    kN = close * (1 - otmLo / 100)
+    kF = close * (1 - otmHi / 100)
+    stNow = standDown ? 0 : inSellZone ? 1 : 2
+    nowTxt = stNow == 0 ? "STAND DOWN · " + str.tostring(-gapPct, "#.#") + "% below gate" :
+             stNow == 1 ? "setup forming · RSI " + str.tostring(r, "#.#") + (rising ? " ↑" : " ↓") + " < " + str.tostring(bullLvl) :
+                          "no setup · RSI " + str.tostring(r, "#.#") + " · +" + str.tostring(gapPct, "#.#") + "% vs gate"
+    nowCol = stNow == 0 ? cGray : stNow == 1 ? cGreen : color.silver
+    nextTxt = stNow == 0 ? "reclaim gate at " + str.tostring(gate, "#.##") + " → signals live" :
+              stNow == 1 ? "SELL PUT on RSI cross ↑ " + str.tostring(bullLvl) :
                            "RSI < " + str.tostring(bullLvl) + " arms the setup"
-    nextTxt := nextTxt + (not standDown and macdLine < signalLine ? " · MACD bull cross also fires SELL PUT" : "")
-    table.cell(t, 0, 0, "NOW",  text_color = color.gray,  text_size = size.small)
-    table.cell(t, 1, 0, nowTxt, text_color = nowCol,      text_size = size.small, text_halign = text.align_left)
-    table.cell(t, 0, 1, "NEXT", text_color = color.gray,  text_size = size.small)
-    table.cell(t, 1, 1, nextTxt, text_color = color.white, text_size = size.small, text_halign = text.align_left)
-    table.cell(t, 0, 2, "MACD", text_color = color.gray,  text_size = size.small)
-    table.cell(t, 1, 2, (macdLine > signalLine ? "bull" : "bear") + " · hist " + (histLine > histLine[1] ? "rising" : "falling"),
-         text_color = macdLine > signalLine ? color.lime : color.red, text_size = size.small, text_halign = text.align_left)
-    table.cell(t, 0, 3, "key",  text_color = color.gray,  text_size = size.small)
-    table.cell(t, 1, 3, "green bg = setup · gray bg = below gate, stand down · orange line = 200dma", text_color = color.gray, text_size = size.small, text_halign = text.align_left)
+    nextTxt := nextTxt + (stNow != 0 and macdLine < signalLine ? " · MACD cross also fires" : "")
+    table.cell(t, 0, 0, "●", text_color = nowCol,        text_size = size.normal)
+    table.cell(t, 1, 0, "NOW",       text_color = cGray,         text_size = size.small)
+    table.cell(t, 2, 0, nowTxt,      text_color = nowCol,        text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 1, 1, "NEXT",      text_color = cGray,         text_size = size.small)
+    table.cell(t, 2, 1, nextTxt,     text_color = color.white,   text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 1, 2, "STRIKE",    text_color = cGray,         text_size = size.small)
+    table.cell(t, 2, 2, stNow == 0 ? "—" : "if fired here: K " + str.tostring(kF, "#") + "–" + str.tostring(kN, "#") + "  (" + str.tostring(otmLo, "#") + "-" + str.tostring(otmHi, "#") + "% OTM, 3-4wk)",
+         text_color = stNow == 0 ? cGray : cGreen, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 0, 3, "●",     text_color = macdLine > signalLine ? cGreen : cRed, text_size = size.normal)
+    table.cell(t, 1, 3, "MACD",      text_color = cGray,         text_size = size.small)
+    table.cell(t, 2, 3, (macdLine > signalLine ? "bull" : "bear") + " · hist " + (histLine > histLine[1] ? "rising" : "falling"),
+         text_color = macdLine > signalLine ? cGreen : cRed, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 1, 4, "KEY",       text_color = cGray,         text_size = size.small)
+    table.cell(t, 2, 4, "green line/tint = live · red line + gray tint = stand down · box = strike band", text_color = cGray, text_size = size.small, text_halign = text.align_left)
 
 // ── Alerts ──
-alertcondition(sellSig, "SELL PUT signal", "NVDA SELL PUT — reversal trigger above the 200dma. 27y: +3.8% median 10d / 67% win; 2023-26: +8.6% / 86%. Suggested from backtest: 5-8% OTM, 3-4wk DTE, skip if earnings inside expiry. 5% OTM strikes were touched in 44% of windows — expect to manage.")
-alertcondition(inSellZone and not inSellZone[1], "Sell-put zone arming", "NVDA: RSI dropped below 40 while above the 200dma — setup forming. Trigger is the recross UP through 40.")
-alertcondition(ta.crossunder(close, gate), "Below 200dma — stand down", "NVDA closed below the 200dma. 27y: signals below the gate are coin-flips (RSI-40 recross −0.1% median / 49% win); 2022 MACD bull crosses were −9.7% bull traps. Stand down on signal-driven put selling.")
-alertcondition(ta.crossover(close, gate),  "Reclaimed 200dma — signals live", "NVDA reclaimed the 200dma — sell-put signals are live again.")
+alertcondition(sellSig, "SELL PUT signal", "NVDA SELL PUT — reversal trigger above the 200dma. 27y +3.8%/67%; 2023-26 +8.6%/86%. 5-8% OTM, 3-4wk DTE, skip if ER inside expiry; 5% OTM touched in 44% of windows.")
+alertcondition(inSellZone and not inSellZone[1], "Sell-put zone arming", "NVDA: RSI below 40 while above the 200dma — setup forming. Trigger = recross UP through 40.")
+alertcondition(ta.crossunder(close, gate), "Below 200dma — stand down", "NVDA closed below the 200dma. Signals below the gate are coin-flips over 27y; 2022 bull crosses were −9.7% traps. Stand down.")
+alertcondition(ta.crossover(close, gate),  "Reclaimed 200dma — signals live", "NVDA reclaimed the 200dma — sell-put signals live again.")
