@@ -3,8 +3,8 @@
   "entered": "2026-08-04",
   "px": 72.49,
   "layer": "AI Connectivity",
-  "peak": 73.02,
-  "last_seen": "2026-08-07",
+  "peak": 74.98,
+  "last_seen": "2026-08-08",
   "ondeck": true
  },
  "ALAB": {
@@ -43,7 +43,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-07"
+  "last_seen": "2026-08-08"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -80,7 +80,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 29.14,
-  "last_seen": "2026-08-07",
+  "last_seen": "2026-08-08",
   "ondeck": true
  },
  "AMD": {
@@ -116,7 +116,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 143.75,
-  "last_seen": "2026-08-07",
+  "last_seen": "2026-08-08",
   "ondeck": false
  },
  "ARM": {
@@ -134,7 +134,7 @@
   "px": 326.03,
   "layer": "Platform + Endpoint",
   "peak": 369.61,
-  "last_seen": "2026-08-07",
+  "last_seen": "2026-08-08",
   "ondeck": true
  },
  "FTNT": {
@@ -142,7 +142,7 @@
   "px": 152.47,
   "layer": "Platform + Endpoint",
   "peak": 168.29,
-  "last_seen": "2026-08-07",
+  "last_seen": "2026-08-08",
   "ondeck": true
  },
  "DK": {
@@ -213,8 +213,8 @@
   "entered": "2026-07-28",
   "px": 81.23,
   "layer": "DevOps + Observability",
-  "peak": 89.33,
-  "last_seen": "2026-08-07",
+  "peak": 89.52,
+  "last_seen": "2026-08-08",
   "ondeck": false
  },
  "RHI": {
@@ -232,15 +232,15 @@
   "px": 169.85,
   "layer": "Compute Hardware",
   "peak": 190.46,
-  "last_seen": "2026-08-05",
+  "last_seen": "2026-08-08",
   "ondeck": false
  },
  "CRSR": {
   "entered": "2026-07-28",
   "px": 10.43,
   "layer": "Compute Hardware",
-  "peak": 11.37,
-  "last_seen": "2026-08-05",
+  "peak": 14.35,
+  "last_seen": "2026-08-08",
   "ondeck": true
  },
  "CDNA": {
@@ -297,8 +297,8 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 147.06,
-  "last_seen": "2026-08-07",
+  "peak": 149.07,
+  "last_seen": "2026-08-08",
   "ondeck": false
  },
  "APPS": {
