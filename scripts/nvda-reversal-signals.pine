@@ -1,22 +1,23 @@
 //@version=6
 // ─────────────────────────────────────────────────────────────────────────────
-// NVDA Put Entries — SELL PUT / BUY PUT markers, calibrated to the 2024-26 backtest
+// NVDA Put Entries — SELL PUT / BUY PUT, calibrated to the 2024-26 backtest
 //
-// The chart states the trade, not the indicator. Two markers only:
+// READING THE CHART
+//   GREEN tint        sell-put setup FORMING (RSI below 40, no trade yet)
+//   "arming" tag      the bar where a tinted zone starts
+//   SELL PUT label    trigger fired: RSI recrossed UP through 40 (large,
+//                     +8.0% median 10d, 82% win) or MACD bull cross (small
+//                     teal, +3.2%, 73%)
+//   RED tint          buy-put setup ARMING (RSI above 60, no trade yet)
+//   BUY PUT label     trigger fired: RSI recrossed DOWN through 60
+//                     (−1.3% median 10d, only signal with bearish edge)
+//   Panel (top right) NOW = which state the chart is in right now
+//                     NEXT = exactly what would fire from here, at what level
 //
-//   SELL PUT (green label under bar) — bullish reversal trigger:
-//       RSI(14) recrossed UP through 40   n=23  10d median +8.0%  win 82%  (large label)
-//       MACD bullish cross                n=23  10d median +3.2%  win 73%  (small label)
-//   BUY PUT (red label above bar) — the ONLY trigger with measured bearish edge:
-//       RSI(14) recrossed DOWN through 60 n=24  10d median −1.3%  win 37%
-//
-// Deliberately absent: MACD bearish crosses and RSI-70 exits. In this sample
-// they were INVERTED — NVDA rose a median +6.7% / +5.1% over the next 10d, and
-// a put-buy sim on them lost $278/contract at a 14% win rate. Enable
-// "show inverted dip markers" to see them as faint gray dots for context.
-//
-// Baseline for all numbers: +1.65% median 10d forward, any random day,
-// 619 bars Feb 2024 → Aug 2026 (+222% drift — one regime; recheck in a downtrend).
+// Deliberately absent: MACD bearish crosses / RSI-70 exits — inverted in this
+// sample (NVDA rose +6.7% / +5.1% median 10d after them; put-buys lost
+// $278/ctr at 14% win). Toggle "show inverted dip markers" for faint dots.
+// Baseline: +1.65% median 10d, any day, 619 bars Feb-24→Aug-26 (+222% drift).
 // ─────────────────────────────────────────────────────────────────────────────
 indicator("NVDA Put Entries — SELL/BUY PUT (backtest-calibrated)", overlay = true)
 
@@ -25,24 +26,24 @@ rsiLen   = input.int(14, "RSI length", minval = 2)
 bullLvl  = input.int(40, "SELL PUT: RSI recross-up level", minval = 5,  maxval = 50)
 bearLvl  = input.int(60, "BUY PUT: RSI recross-down level", minval = 50, maxval = 95)
 fastLen  = input.int(12, "MACD fast"), slowLen = input.int(26, "MACD slow"), sigLen = input.int(9, "MACD signal")
-cooldown = input.int(5, "Cooldown bars between same-side markers", minval = 0,
-     tooltip = "Suppresses repeat markers within N bars so clusters read as one entry area.")
+cooldown = input.int(5, "Cooldown bars between same-side markers", minval = 0)
 showZone = input.bool(true, "Shade setup zones")
+showArm  = input.bool(true, "Tag the bar where a zone starts ('arming')")
 showInv  = input.bool(false, "Show inverted dip markers (gray — NOT put-buy triggers)")
-showPanel= input.bool(true, "Show state panel")
+showPanel= input.bool(true, "Show NOW/NEXT panel")
 
 // ── Indicators ──
 r = ta.rsi(close, rsiLen)
 [macdLine, signalLine, histLine] = ta.macd(close, fastLen, slowLen, sigLen)
 
-// ── Raw triggers ──
-rsiBull  = ta.crossover(r, bullLvl)          // strongest: +8.0% median 10d, 82% win
+// ── Triggers ──
+rsiBull  = ta.crossover(r, bullLvl)
 macdBull = ta.crossover(macdLine, signalLine)
-rsiBear  = ta.crossunder(r, bearLvl)         // only measured bearish edge
-macdBear = ta.crossunder(macdLine, signalLine)   // inverted — dip context only
-rsiExtDn = ta.crossunder(r, 70)                  // inverted — dip context only
+rsiBear  = ta.crossunder(r, bearLvl)
+macdBear = ta.crossunder(macdLine, signalLine)   // inverted — context only
+rsiExtDn = ta.crossunder(r, 70)                  // inverted — context only
 
-// ── Cooldown so clustered triggers read as one entry area ──
+// ── Cooldown: clustered triggers read as one entry ──
 var int lastSell = -99999
 var int lastBuy  = -99999
 sellRaw = rsiBull or macdBull
@@ -52,30 +53,50 @@ if sellSig
 buySig = rsiBear and (bar_index - lastBuy > cooldown)
 if buySig
     lastBuy := bar_index
-// Tag the stronger variant when RSI-40 drove the marker
 sellStrong = sellSig and rsiBull
 
-// ── Zones: where the setup is building, before the trigger ──
-bgcolor(showZone and r < bullLvl ? color.new(color.green, 87) : na, title = "SELL-PUT setup forming (RSI<40 — wait for recross up)")
-bgcolor(showZone and r > bearLvl ? color.new(color.red, 92)   : na, title = "BUY-PUT setup forming (RSI>60 — wait for recross down)")
+// ── Zones + the bar where each zone begins ──
+inSellZone = r < bullLvl
+inBuyZone  = r > bearLvl
+bgcolor(showZone and inSellZone ? color.new(color.green, 86) : na, title = "GREEN = sell-put setup forming (RSI<40)")
+bgcolor(showZone and inBuyZone  ? color.new(color.red, 90)   : na, title = "RED = buy-put setup arming (RSI>60)")
+plotshape(showArm and inSellZone and not inSellZone[1], "sell-put zone starts", shape.labelup,   location.belowbar, color.new(color.green, 60), text = "arming", textcolor = color.new(color.white, 25), size = size.tiny)
+plotshape(showArm and inBuyZone  and not inBuyZone[1],  "buy-put zone starts",  shape.labeldown, location.abovebar, color.new(color.red, 60),   text = "arming", textcolor = color.new(color.white, 25), size = size.tiny)
 
-// ── The trade markers ──
-plotshape(sellStrong,            "SELL PUT (RSI trigger — strongest)", shape.labelup,   location.belowbar, color.new(color.green, 0), text = "SELL\nPUT", textcolor = color.white, size = size.normal)
-plotshape(sellSig and not sellStrong, "SELL PUT (MACD trigger)",       shape.labelup,   location.belowbar, color.new(color.teal, 0),  text = "SELL\nPUT", textcolor = color.white, size = size.small)
-plotshape(buySig,                "BUY PUT",                            shape.labeldown, location.abovebar, color.new(color.red, 0),   text = "BUY\nPUT",  textcolor = color.white, size = size.normal)
+// ── Trade markers ──
+plotshape(sellStrong,                 "SELL PUT (RSI trigger — strongest)", shape.labelup,   location.belowbar, color.new(color.green, 0), text = "SELL\nPUT", textcolor = color.white, size = size.normal)
+plotshape(sellSig and not sellStrong, "SELL PUT (MACD trigger)",            shape.labelup,   location.belowbar, color.new(color.teal, 0),  text = "SELL\nPUT", textcolor = color.white, size = size.small)
+plotshape(buySig,                     "BUY PUT",                            shape.labeldown, location.abovebar, color.new(color.red, 0),   text = "BUY\nPUT",  textcolor = color.white, size = size.normal)
 plotshape(showInv and (macdBear or rsiExtDn), "Inverted (historical dip — not a put-buy)", shape.circle, location.abovebar, color.new(color.gray, 55), size = size.tiny)
 
-// ── State panel ──
-var table t = table.new(position.top_right, 2, 3, bgcolor = color.new(color.black, 20), border_width = 1, border_color = color.new(color.gray, 70))
+// ── NOW / NEXT panel ──
+var table t = table.new(position.top_right, 2, 5, bgcolor = color.new(color.black, 15), border_width = 1, border_color = color.new(color.gray, 70))
 if barstate.islast and showPanel
-    table.cell(t, 0, 0, "RSI",  text_color = color.gray, text_size = size.small)
-    table.cell(t, 1, 0, str.tostring(r, "#.#"), text_color = r < bullLvl ? color.green : r > bearLvl ? color.red : color.gray, text_size = size.small)
-    table.cell(t, 0, 1, "MACD", text_color = color.gray, text_size = size.small)
-    table.cell(t, 1, 1, macdLine > signalLine ? "bull" : "bear", text_color = macdLine > signalLine ? color.green : color.red, text_size = size.small)
-    table.cell(t, 0, 2, "next", text_color = color.gray, text_size = size.small)
-    nxt = r < bullLvl ? "SELL PUT on RSI > " + str.tostring(bullLvl) : r > bearLvl ? "BUY PUT on RSI < " + str.tostring(bearLvl) : "no setup forming"
-    table.cell(t, 1, 2, nxt, text_color = r < bullLvl ? color.green : r > bearLvl ? color.red : color.silver, text_size = size.small)
+    rising = r > r[1]
+    // NOW: which of the three states the chart is in
+    nowTxt  = inSellZone ? "SELL-PUT setup forming — RSI " + str.tostring(r, "#.#") + (rising ? " ↑" : " ↓") + " below " + str.tostring(bullLvl) :
+              inBuyZone  ? "BUY-PUT setup arming — RSI "  + str.tostring(r, "#.#") + (rising ? " ↑" : " ↓") + " above " + str.tostring(bearLvl) :
+                           "neutral — RSI " + str.tostring(r, "#.#") + " between levels"
+    nowCol  = inSellZone ? color.lime : inBuyZone ? color.orange : color.silver
+    // NEXT: exactly what fires from here
+    nextTxt = inSellZone ? "SELL PUT fires when RSI crosses ↑ " + str.tostring(bullLvl) :
+              inBuyZone  ? "BUY PUT fires when RSI crosses ↓ " + str.tostring(bearLvl) :
+                           "RSI < " + str.tostring(bullLvl) + " arms sell-put · RSI > " + str.tostring(bearLvl) + " arms buy-put"
+    nextTxt := nextTxt + (macdLine < signalLine ? "  ·  MACD bull cross also fires SELL PUT" : "")
+    table.cell(t, 0, 0, "NOW",   text_color = color.gray, text_size = size.small)
+    table.cell(t, 1, 0, nowTxt,  text_color = nowCol,     text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 0, 1, "NEXT",  text_color = color.gray, text_size = size.small)
+    table.cell(t, 1, 1, nextTxt, text_color = color.white, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 0, 2, "MACD",  text_color = color.gray, text_size = size.small)
+    table.cell(t, 1, 2, (macdLine > signalLine ? "bull" : "bear") + " · hist " + (histLine > histLine[1] ? "rising" : "falling"),
+         text_color = macdLine > signalLine ? color.lime : color.red, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 0, 3, "key",   text_color = color.gray, text_size = size.small)
+    table.cell(t, 1, 3, "green bg = sell-put setup · red bg = buy-put setup", text_color = color.gray, text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 0, 4, "",      text_color = color.gray, text_size = size.small)
+    table.cell(t, 1, 4, "labels = the trade · 'arming' = zone start", text_color = color.gray, text_size = size.small, text_halign = text.align_left)
 
 // ── Alerts ──
 alertcondition(sellSig, "SELL PUT signal", "NVDA SELL PUT — bullish reversal trigger (RSI-40 recross: +8.0% median 10d, 82% win; MACD cross: +3.2%, 73%).")
 alertcondition(buySig,  "BUY PUT signal",  "NVDA BUY PUT — RSI recrossed down through 60 (−1.3% median 10d, 37% win rate up). Only trigger with measured bearish edge; size accordingly.")
+alertcondition(inSellZone and not inSellZone[1], "Sell-put zone arming", "NVDA: RSI dropped below 40 — sell-put setup forming. Trigger is the recross UP through 40.")
+alertcondition(inBuyZone and not inBuyZone[1],   "Buy-put zone arming",  "NVDA: RSI rose above 60 — buy-put setup arming. Trigger is the recross DOWN through 60.")
