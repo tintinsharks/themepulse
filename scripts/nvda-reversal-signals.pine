@@ -1,0 +1,82 @@
+//@version=6
+// ─────────────────────────────────────────────────────────────────────────────
+// NVDA Reversal Signals — RSI/MACD, calibrated to the 2024-2026 backtest
+//
+// Thresholds here are NOT the textbook 30/70. They come from a study of 619
+// NVDA daily bars (Feb 2024 → Aug 2026, baseline +1.65% median 10d forward):
+//
+//   RSI crossed UP through 40    n=23  10d median +8.0%  win 82%   ← best signal
+//   MACD bullish cross           n=23  10d median +3.2%  win 73%
+//   RSI crossed DOWN through 60  n=24  10d median −1.3%  win 37%   ← only real bearish
+//   RSI crossed DOWN through 70  n=16  10d median +5.1%  win 69%   INVERTED
+//   MACD bearish cross           n=22  10d median +6.7%  win 76%   INVERTED
+//
+// "INVERTED" = in this regime those textbook-bearish signals marked dip-buys:
+// NVDA rose MORE than baseline after them. A put-buy sim on them lost
+// $278/contract with a 14% win rate. They are drawn in gray as dip context,
+// not as shorting triggers. One regime (+222% drift) — recheck in a downtrend.
+//
+// Markers on the price panel:
+//   ▲ green  below bar   RSI recrossed up through 40  → sell-put context
+//   ▲ teal   below bar   MACD bullish cross           → sell-put context
+//   ▼ red    above bar   RSI recrossed down through 60 → caution / put-buy context
+//   ◆ gray   above bar   MACD bear cross / RSI 70-exit → historically dip-buys here
+// Zones:
+//   green tint  RSI below 40 — setup forming, trigger is the recross UP
+//   amber tint  RSI above 70 — extended
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("NVDA Reversal Signals — RSI/MACD (backtest-calibrated)", overlay = true, max_labels_count = 200)
+
+// ── Inputs ──
+rsiLen    = input.int(14, "RSI length", minval = 2)
+bullLvl   = input.int(40, "RSI bullish recross level", minval = 5, maxval = 50,
+     tooltip = "Backtest: crossing UP through 40 → +8.0% median 10d, 82% win (n=23). Classic 30 fired once in 2.5y on NVDA.")
+bearLvl   = input.int(60, "RSI bearish recross level", minval = 50, maxval = 95,
+     tooltip = "Backtest: crossing DOWN through 60 → −1.3% median 10d, 37% win (n=24). The classic 70-recross was INVERTED (+5.1%).")
+extLvl    = input.int(70, "RSI extended level (zone + inverted marker)")
+fastLen   = input.int(12, "MACD fast"), slowLen = input.int(26, "MACD slow"), sigLen = input.int(9, "MACD signal")
+showInv   = input.bool(true,  "Show inverted signals (gray ◆ dip context)")
+showZones = input.bool(true,  "Shade RSI zones")
+showPanel = input.bool(true,  "Show state panel")
+
+// ── Indicators ──
+r = ta.rsi(close, rsiLen)
+[macdLine, signalLine, histLine] = ta.macd(close, fastLen, slowLen, sigLen)
+
+// ── Events ──
+rsiBull   = ta.crossover(r, bullLvl)         // up through 40  → sell-put context
+rsiBear   = ta.crossunder(r, bearLvl)        // down through 60 → caution / put-buy context
+macdBull  = ta.crossover(macdLine, signalLine)
+macdBear  = ta.crossunder(macdLine, signalLine)   // inverted in this regime
+rsiExtDn  = ta.crossunder(r, extLvl)              // inverted in this regime
+
+// ── Zones ──
+bgcolor(showZones and r < bullLvl ? color.new(color.green, 88) : na, title = "RSI setup zone (<40)")
+bgcolor(showZones and r > extLvl  ? color.new(color.orange, 90) : na, title = "RSI extended zone (>70)")
+
+// ── Markers ──
+plotshape(rsiBull,  "RSI 40 upcross — sell-put context",  shape.triangleup,   location.belowbar, color.new(color.green, 0), text = "RSI▲",  textcolor = color.new(color.green, 0), size = size.small)
+plotshape(macdBull, "MACD bull cross — sell-put context", shape.triangleup,   location.belowbar, color.new(color.teal, 0),  text = "MACD",  textcolor = color.new(color.teal, 0),  size = size.tiny)
+plotshape(rsiBear,  "RSI 60 downcross — caution",         shape.triangledown, location.abovebar, color.new(color.red, 0),   text = "RSI▼",  textcolor = color.new(color.red, 0),   size = size.small)
+plotshape(showInv and macdBear, "MACD bear cross (inverted → dip context)", shape.diamond, location.abovebar, color.new(color.gray, 30), text = "dip?", textcolor = color.new(color.gray, 30), size = size.tiny)
+plotshape(showInv and rsiExtDn, "RSI 70 exit (inverted → dip context)",     shape.diamond, location.abovebar, color.new(color.gray, 30), size = size.tiny)
+
+// ── State panel ──
+var table t = table.new(position.top_right, 2, 4, bgcolor = color.new(color.black, 20), border_width = 1, border_color = color.new(color.gray, 70))
+if barstate.islast and showPanel
+    rsiCol = r < bullLvl ? color.green : r > extLvl ? color.orange : color.gray
+    table.cell(t, 0, 0, "RSI(" + str.tostring(rsiLen) + ")", text_color = color.gray,  text_size = size.small)
+    table.cell(t, 1, 0, str.tostring(r, "#.#"),              text_color = rsiCol,      text_size = size.small)
+    table.cell(t, 0, 1, "MACD",                              text_color = color.gray,  text_size = size.small)
+    table.cell(t, 1, 1, macdLine > signalLine ? "bull" : "bear", text_color = macdLine > signalLine ? color.green : color.red, text_size = size.small)
+    table.cell(t, 0, 2, "hist",                              text_color = color.gray,  text_size = size.small)
+    table.cell(t, 1, 2, (histLine > histLine[1] ? "rising " : "falling ") + str.tostring(histLine, "#.##"), text_color = histLine > histLine[1] ? color.green : color.red, text_size = size.small)
+    table.cell(t, 0, 3, "context",                           text_color = color.gray,  text_size = size.small)
+    ctx = r < bullLvl ? "setup: watch 40 recross" : r > extLvl ? "extended" : macdLine > signalLine ? "bull trend" : "pullback"
+    table.cell(t, 1, 3, ctx, text_color = color.silver, text_size = size.small)
+
+// ── Alerts ──
+alertcondition(rsiBull,  "RSI 40 upcross (sell-put context)",  "NVDA: RSI crossed up through 40 — backtest +8.0% median 10d, 82% win. Sell-put context.")
+alertcondition(rsiBear,  "RSI 60 downcross (caution)",         "NVDA: RSI crossed down through 60 — backtest −1.3% median 10d, 37% win. Caution / put-buy context.")
+alertcondition(macdBull, "MACD bullish cross",                 "NVDA: MACD bullish cross — backtest +3.2% median 10d, 73% win.")
+alertcondition(macdBear, "MACD bearish cross (inverted)",      "NVDA: MACD bearish cross — INVERTED in 2024-26 regime (+6.7% median 10d). Historically a dip, not a short.")
