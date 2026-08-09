@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 74.98,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": true
  },
  "ALAB": {
@@ -43,7 +43,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-08"
+  "last_seen": "2026-08-09"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -80,7 +80,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 29.14,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": true
  },
  "AMD": {
@@ -116,7 +116,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 143.75,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": false
  },
  "ARM": {
@@ -134,7 +134,7 @@
   "px": 326.03,
   "layer": "Platform + Endpoint",
   "peak": 369.61,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": true
  },
  "FTNT": {
@@ -142,7 +142,7 @@
   "px": 152.47,
   "layer": "Platform + Endpoint",
   "peak": 168.29,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": true
  },
  "DK": {
@@ -214,7 +214,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 89.52,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": false
  },
  "RHI": {
@@ -232,7 +232,7 @@
   "px": 169.85,
   "layer": "Compute Hardware",
   "peak": 190.46,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": false
  },
  "CRSR": {
@@ -240,7 +240,7 @@
   "px": 10.43,
   "layer": "Compute Hardware",
   "peak": 14.35,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": true
  },
  "CDNA": {
@@ -249,7 +249,9 @@
   "layer": "Diagnostics",
   "peak": 48.74,
   "last_seen": "2026-08-03",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-09",
+  "exit_px": 46.69
  },
  "GH": {
   "entered": "2026-07-30",
@@ -267,7 +269,9 @@
   "layer": "Diagnostics",
   "peak": 101.4,
   "last_seen": "2026-08-03",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-09",
+  "exit_px": 115.67
  },
  "SNOW": {
   "entered": "2026-07-31",
@@ -298,7 +302,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 149.07,
-  "last_seen": "2026-08-08",
+  "last_seen": "2026-08-09",
   "ondeck": false
  },
  "APPS": {
