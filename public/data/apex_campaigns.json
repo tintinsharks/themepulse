@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 74.98,
-  "last_seen": "2026-08-09",
+  "last_seen": "2026-08-10",
   "ondeck": true
  },
  "ALAB": {
@@ -43,7 +43,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-09"
+  "last_seen": "2026-08-10"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -80,7 +80,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 29.14,
-  "last_seen": "2026-08-09",
+  "last_seen": "2026-08-10",
   "ondeck": true
  },
  "AMD": {
@@ -97,8 +97,8 @@
   "entered": "2026-08-05",
   "px": 36.17,
   "layer": "Threat Operations",
-  "peak": 36.17,
-  "last_seen": "2026-08-07",
+  "peak": 38.26,
+  "last_seen": "2026-08-10",
   "ondeck": true
  },
  "RPD": {
@@ -115,8 +115,8 @@
   "entered": "2026-08-04",
   "px": 132.77,
   "layer": "AI Connectivity",
-  "peak": 143.75,
-  "last_seen": "2026-08-09",
+  "peak": 144.0,
+  "last_seen": "2026-08-10",
   "ondeck": false
  },
  "ARM": {
@@ -133,8 +133,8 @@
   "entered": "2026-07-24",
   "px": 326.03,
   "layer": "Platform + Endpoint",
-  "peak": 369.61,
-  "last_seen": "2026-08-09",
+  "peak": 380.02,
+  "last_seen": "2026-08-10",
   "ondeck": true
  },
  "FTNT": {
@@ -142,7 +142,7 @@
   "px": 152.47,
   "layer": "Platform + Endpoint",
   "peak": 168.29,
-  "last_seen": "2026-08-09",
+  "last_seen": "2026-08-10",
   "ondeck": true
  },
  "DK": {
@@ -151,7 +151,9 @@
   "layer": "Refining",
   "peak": 67.95,
   "last_seen": "2026-08-04",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-10",
+  "exit_px": 60.52
  },
  "PBF": {
   "entered": "2026-07-31",
@@ -179,7 +181,9 @@
   "layer": "Refining",
   "peak": 86.08,
   "last_seen": "2026-08-04",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-10",
+  "exit_px": 71.0
  },
  "MAN": {
   "entered": "2026-07-28",
@@ -214,7 +218,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 89.52,
-  "last_seen": "2026-08-09",
+  "last_seen": "2026-08-10",
   "ondeck": false
  },
  "RHI": {
@@ -285,8 +289,8 @@
   "entered": "2026-08-05",
   "px": 188.52,
   "layer": "Threat Operations",
-  "peak": 188.52,
-  "last_seen": "2026-08-07",
+  "peak": 191.49,
+  "last_seen": "2026-08-10",
   "ondeck": true
  },
  "MRVL": {
@@ -301,8 +305,8 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 149.07,
-  "last_seen": "2026-08-09",
+  "peak": 150.04,
+  "last_seen": "2026-08-10",
   "ondeck": false
  },
  "APPS": {
