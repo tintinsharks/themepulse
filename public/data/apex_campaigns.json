@@ -102,14 +102,12 @@
   "ondeck": true
  },
  "RPD": {
-  "entered": "2026-07-14",
-  "px": 12.56,
+  "entered": "2026-08-11",
+  "px": 14.37,
   "layer": "Threat Operations",
-  "peak": 13.41,
-  "last_seen": "2026-07-21",
-  "ondeck": false,
-  "exited": "2026-07-27",
-  "exit_px": 9.86
+  "peak": 14.37,
+  "last_seen": "2026-08-11",
+  "ondeck": false
  },
  "AAOI": {
   "entered": "2026-08-04",
@@ -288,7 +286,7 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 191.49,
-  "last_seen": "2026-08-10",
+  "last_seen": "2026-08-11",
   "ondeck": true
  },
  "MRVL": {
@@ -303,7 +301,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 151.87,
+  "peak": 153.7,
   "last_seen": "2026-08-11",
   "ondeck": false
  },
