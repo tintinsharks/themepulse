@@ -3,8 +3,8 @@
   "entered": "2026-08-04",
   "px": 72.49,
   "layer": "AI Connectivity",
-  "peak": 74.98,
-  "last_seen": "2026-08-11",
+  "peak": 75.25,
+  "last_seen": "2026-08-12",
   "ondeck": true
  },
  "ALAB": {
@@ -114,7 +114,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 144.0,
-  "last_seen": "2026-08-11",
+  "last_seen": "2026-08-12",
   "ondeck": false
  },
  "ARM": {
@@ -216,7 +216,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 89.52,
-  "last_seen": "2026-08-10",
+  "last_seen": "2026-08-12",
   "ondeck": false
  },
  "RHI": {
@@ -319,6 +319,22 @@
   "layer": "Adtech",
   "peak": 25.37,
   "last_seen": "2026-08-07",
+  "ondeck": false
+ },
+ "FSLY": {
+  "entered": "2026-08-12",
+  "px": 30.06,
+  "layer": "CDN + Edge Cloud",
+  "peak": 30.06,
+  "last_seen": "2026-08-12",
+  "ondeck": true
+ },
+ "DOCN": {
+  "entered": "2026-08-12",
+  "px": 133.97,
+  "layer": "CDN + Edge Cloud",
+  "peak": 133.97,
+  "last_seen": "2026-08-12",
   "ondeck": false
  }
 }
