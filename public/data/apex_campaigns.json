@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 75.25,
-  "last_seen": "2026-08-12",
+  "last_seen": "2026-08-13",
   "ondeck": true
  },
  "ALAB": {
@@ -43,7 +43,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-12"
+  "last_seen": "2026-08-13"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -51,7 +51,9 @@
   "layer": "Compute Silicon",
   "peak": 102.44,
   "last_seen": "2026-08-07",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-13",
+  "exit_px": 100.95
  },
  "ABVX": {
   "entered": "2026-07-03",
@@ -79,8 +81,8 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 29.14,
-  "last_seen": "2026-08-12",
+  "peak": 29.18,
+  "last_seen": "2026-08-13",
   "ondeck": true
  },
  "AMD": {
@@ -114,7 +116,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 144.0,
-  "last_seen": "2026-08-12",
+  "last_seen": "2026-08-13",
   "ondeck": false
  },
  "ARM": {
@@ -216,7 +218,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 89.52,
-  "last_seen": "2026-08-12",
+  "last_seen": "2026-08-13",
   "ondeck": false
  },
  "RHI": {
@@ -249,8 +251,8 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 47.23,
-  "last_seen": "2026-08-12",
+  "peak": 47.31,
+  "last_seen": "2026-08-13",
   "ondeck": true
  },
  "GH": {
@@ -267,8 +269,8 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 124.88,
-  "last_seen": "2026-08-12",
+  "peak": 125.21,
+  "last_seen": "2026-08-13",
   "ondeck": false
  },
  "SNOW": {
@@ -295,14 +297,16 @@
   "layer": "Compute Silicon",
   "peak": 217.54,
   "last_seen": "2026-08-07",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-13",
+  "exit_px": 217.08
  },
  "TEAM": {
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 154.08,
-  "last_seen": "2026-08-12",
+  "peak": 155.24,
+  "last_seen": "2026-08-13",
   "ondeck": false
  },
  "APPS": {
@@ -310,7 +314,7 @@
   "px": 14.81,
   "layer": "Adtech",
   "peak": 14.81,
-  "last_seen": "2026-08-07",
+  "last_seen": "2026-08-13",
   "ondeck": false
  },
  "MGNI": {
@@ -319,7 +323,9 @@
   "layer": "Adtech",
   "peak": 25.37,
   "last_seen": "2026-08-07",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-08-13",
+  "exit_px": 24.34
  },
  "FSLY": {
   "entered": "2026-08-12",
@@ -335,6 +341,14 @@
   "layer": "CDN + Edge Cloud",
   "peak": 133.97,
   "last_seen": "2026-08-12",
+  "ondeck": false
+ },
+ "PUBM": {
+  "entered": "2026-08-13",
+  "px": 17.18,
+  "layer": "Adtech",
+  "peak": 17.18,
+  "last_seen": "2026-08-13",
   "ondeck": false
  }
 }
