@@ -3,7 +3,7 @@
   "entered": "2026-08-04",
   "px": 72.49,
   "layer": "AI Connectivity",
-  "peak": 75.25,
+  "peak": 76.19,
   "last_seen": "2026-08-13",
   "ondeck": true
  },
@@ -81,7 +81,7 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 29.18,
+  "peak": 30.33,
   "last_seen": "2026-08-13",
   "ondeck": true
  },
@@ -100,7 +100,7 @@
   "px": 36.17,
   "layer": "Threat Operations",
   "peak": 38.26,
-  "last_seen": "2026-08-12",
+  "last_seen": "2026-08-13",
   "ondeck": true
  },
  "RPD": {
@@ -288,7 +288,7 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 191.49,
-  "last_seen": "2026-08-12",
+  "last_seen": "2026-08-13",
   "ondeck": true
  },
  "MRVL": {
@@ -305,7 +305,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 155.24,
+  "peak": 157.24,
   "last_seen": "2026-08-13",
   "ondeck": false
  },
