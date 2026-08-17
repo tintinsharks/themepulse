@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 84.84,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": true
  },
  "ALAB": {
@@ -18,24 +18,20 @@
   "exit_px": 271.45
  },
  "SNDK": {
-  "entered": "2026-07-02",
-  "px": 1745,
-  "spy": 744.78,
+  "entered": "2026-08-17",
+  "px": 1641.11,
   "layer": "Memory + Storage",
-  "peak": 1900.7,
-  "last_seen": "2026-07-24",
-  "exited": "2026-07-30",
-  "exit_px": 1015.89
+  "peak": 1641.11,
+  "last_seen": "2026-08-17",
+  "ondeck": false
  },
  "MU": {
-  "entered": "2026-07-02",
-  "px": 975.56,
-  "spy": 744.78,
+  "entered": "2026-08-17",
+  "px": 971.66,
   "layer": "Memory + Storage",
-  "peak": 1017.79,
-  "last_seen": "2026-07-24",
-  "exited": "2026-07-30",
-  "exit_px": 739.0
+  "peak": 971.66,
+  "last_seen": "2026-08-17",
+  "ondeck": false
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -43,7 +39,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-16"
+  "last_seen": "2026-08-17"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -82,7 +78,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 32.3,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": true
  },
  "AMD": {
@@ -100,7 +96,7 @@
   "px": 36.17,
   "layer": "Threat Operations",
   "peak": 38.68,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": true
  },
  "RPD": {
@@ -116,7 +112,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 150.28,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": false
  },
  "ARM": {
@@ -218,7 +214,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 96.52,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": false
  },
  "RHI": {
@@ -288,7 +284,7 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 195.88,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": true
  },
  "MRVL": {
@@ -306,7 +302,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 165.98,
-  "last_seen": "2026-08-16",
+  "last_seen": "2026-08-17",
   "ondeck": false
  },
  "APPS": {
