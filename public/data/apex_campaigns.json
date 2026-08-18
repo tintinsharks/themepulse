@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 84.84,
-  "last_seen": "2026-08-17",
+  "last_seen": "2026-08-18",
   "ondeck": true
  },
  "ALAB": {
@@ -39,7 +39,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-17"
+  "last_seen": "2026-08-18"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -77,8 +77,8 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 32.3,
-  "last_seen": "2026-08-17",
+  "peak": 33.6,
+  "last_seen": "2026-08-18",
   "ondeck": true
  },
  "AMD": {
@@ -111,8 +111,8 @@
   "entered": "2026-08-04",
   "px": 132.77,
   "layer": "AI Connectivity",
-  "peak": 150.28,
-  "last_seen": "2026-08-17",
+  "peak": 154.89,
+  "last_seen": "2026-08-18",
   "ondeck": false
  },
  "ARM": {
@@ -139,7 +139,9 @@
   "layer": "Platform + Endpoint",
   "peak": 168.29,
   "last_seen": "2026-08-12",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-18",
+  "exit_px": 155.85
  },
  "DK": {
   "entered": "2026-07-17",
@@ -207,14 +209,16 @@
   "layer": "DevOps + Observability",
   "peak": 288.15,
   "last_seen": "2026-08-12",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-18",
+  "exit_px": 247.32
  },
  "FROG": {
   "entered": "2026-07-28",
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 96.52,
-  "last_seen": "2026-08-17",
+  "last_seen": "2026-08-18",
   "ondeck": false
  },
  "RHI": {
@@ -248,7 +252,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 47.31,
-  "last_seen": "2026-08-13",
+  "last_seen": "2026-08-18",
   "ondeck": true
  },
  "GH": {
@@ -266,7 +270,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 125.21,
-  "last_seen": "2026-08-13",
+  "last_seen": "2026-08-18",
   "ondeck": false
  },
  "SNOW": {
@@ -302,7 +306,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 165.98,
-  "last_seen": "2026-08-17",
+  "last_seen": "2026-08-18",
   "ondeck": false
  },
  "APPS": {
@@ -329,7 +333,9 @@
   "layer": "CDN + Edge Cloud",
   "peak": 30.06,
   "last_seen": "2026-08-12",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-18",
+  "exit_px": 29.04
  },
  "DOCN": {
   "entered": "2026-08-12",
@@ -337,7 +343,9 @@
   "layer": "CDN + Edge Cloud",
   "peak": 133.97,
   "last_seen": "2026-08-12",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-08-18",
+  "exit_px": 135.28
  },
  "PUBM": {
   "entered": "2026-08-13",
@@ -353,6 +361,14 @@
   "layer": "Platform + Endpoint",
   "peak": 154.95,
   "last_seen": "2026-08-14",
+  "ondeck": true
+ },
+ "AXTI": {
+  "entered": "2026-08-18",
+  "px": 95.97,
+  "layer": "Photonics",
+  "peak": 95.97,
+  "last_seen": "2026-08-18",
   "ondeck": true
  }
 }
