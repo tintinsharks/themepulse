@@ -4,7 +4,7 @@
   "px": 72.49,
   "layer": "AI Connectivity",
   "peak": 84.84,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": true
  },
  "ALAB": {
@@ -39,7 +39,7 @@
   "spy": 744.78,
   "layer": "Biotech Momentum",
   "peak": 14.98,
-  "last_seen": "2026-08-18"
+  "last_seen": "2026-08-19"
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -77,8 +77,8 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 33.6,
-  "last_seen": "2026-08-18",
+  "peak": 34.13,
+  "last_seen": "2026-08-19",
   "ondeck": true
  },
  "AMD": {
@@ -104,7 +104,7 @@
   "px": 14.37,
   "layer": "Threat Operations",
   "peak": 14.37,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "AAOI": {
@@ -112,7 +112,7 @@
   "px": 132.77,
   "layer": "AI Connectivity",
   "peak": 154.89,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "ARM": {
@@ -218,7 +218,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 96.52,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "RHI": {
@@ -288,7 +288,7 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 195.88,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": true
  },
  "MRVL": {
@@ -306,7 +306,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 165.98,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "APPS": {
@@ -314,7 +314,7 @@
   "px": 14.81,
   "layer": "Adtech",
   "peak": 14.81,
-  "last_seen": "2026-08-13",
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "MGNI": {
@@ -351,8 +351,8 @@
   "entered": "2026-08-13",
   "px": 17.18,
   "layer": "Adtech",
-  "peak": 17.18,
-  "last_seen": "2026-08-13",
+  "peak": 17.36,
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "OKTA": {
