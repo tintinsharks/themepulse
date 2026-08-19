@@ -77,7 +77,7 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 34.13,
+  "peak": 34.72,
   "last_seen": "2026-08-19",
   "ondeck": true
  },
@@ -252,7 +252,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 47.31,
-  "last_seen": "2026-08-18",
+  "last_seen": "2026-08-19",
   "ondeck": true
  },
  "GH": {
@@ -269,8 +269,8 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 125.21,
-  "last_seen": "2026-08-18",
+  "peak": 135.0,
+  "last_seen": "2026-08-19",
   "ondeck": false
  },
  "SNOW": {
@@ -292,20 +292,18 @@
   "ondeck": true
  },
  "MRVL": {
-  "entered": "2026-08-06",
-  "px": 217.54,
-  "layer": "Compute Silicon",
-  "peak": 217.54,
-  "last_seen": "2026-08-07",
-  "ondeck": true,
-  "exited": "2026-08-13",
-  "exit_px": 217.08
+  "entered": "2026-08-19",
+  "px": 236.17,
+  "layer": "AI Connectivity",
+  "peak": 236.17,
+  "last_seen": "2026-08-19",
+  "ondeck": true
  },
  "TEAM": {
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 165.98,
+  "peak": 166.62,
   "last_seen": "2026-08-19",
   "ondeck": false
  },
@@ -370,5 +368,13 @@
   "peak": 95.97,
   "last_seen": "2026-08-18",
   "ondeck": true
+ },
+ "MRNA": {
+  "entered": "2026-08-19",
+  "px": 123.2,
+  "layer": "Biotech Momentum",
+  "peak": 123.2,
+  "last_seen": "2026-08-19",
+  "ondeck": false
  }
 }
