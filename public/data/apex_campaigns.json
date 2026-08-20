@@ -77,8 +77,8 @@
   "entered": "2026-07-08",
   "px": 25.7,
   "layer": "Biotech Momentum",
-  "peak": 34.72,
-  "last_seen": "2026-08-19",
+  "peak": 34.89,
+  "last_seen": "2026-08-20",
   "ondeck": true
  },
  "AMD": {
@@ -131,7 +131,9 @@
   "layer": "Platform + Endpoint",
   "peak": 396.0,
   "last_seen": "2026-08-14",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-20",
+  "exit_px": 359.76
  },
  "FTNT": {
   "entered": "2026-07-24",
@@ -218,7 +220,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 96.52,
-  "last_seen": "2026-08-19",
+  "last_seen": "2026-08-20",
   "ondeck": false
  },
  "RHI": {
@@ -252,7 +254,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 47.31,
-  "last_seen": "2026-08-19",
+  "last_seen": "2026-08-20",
   "ondeck": true
  },
  "GH": {
@@ -269,8 +271,8 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 135.0,
-  "last_seen": "2026-08-19",
+  "peak": 142.39,
+  "last_seen": "2026-08-20",
   "ondeck": false
  },
  "SNOW": {
@@ -303,8 +305,8 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 166.62,
-  "last_seen": "2026-08-19",
+  "peak": 174.23,
+  "last_seen": "2026-08-20",
   "ondeck": false
  },
  "APPS": {
@@ -359,7 +361,9 @@
   "layer": "Platform + Endpoint",
   "peak": 154.95,
   "last_seen": "2026-08-14",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-20",
+  "exit_px": 141.21
  },
  "AXTI": {
   "entered": "2026-08-18",
@@ -373,8 +377,32 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 123.2,
-  "last_seen": "2026-08-19",
+  "peak": 174.38,
+  "last_seen": "2026-08-20",
+  "ondeck": false
+ },
+ "IBRX": {
+  "entered": "2026-08-20",
+  "px": 8.13,
+  "layer": "Oncology",
+  "peak": 8.13,
+  "last_seen": "2026-08-20",
+  "ondeck": false
+ },
+ "CRL": {
+  "entered": "2026-08-20",
+  "px": 290.0,
+  "layer": "CRO + Services",
+  "peak": 290.0,
+  "last_seen": "2026-08-20",
+  "ondeck": true
+ },
+ "IQV": {
+  "entered": "2026-08-20",
+  "px": 249.28,
+  "layer": "CRO + Services",
+  "peak": 249.28,
+  "last_seen": "2026-08-20",
   "ondeck": false
  }
 }
