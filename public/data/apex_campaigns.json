@@ -305,7 +305,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 174.23,
+  "peak": 177.84,
   "last_seen": "2026-08-20",
   "ondeck": false
  },
@@ -401,7 +401,23 @@
   "entered": "2026-08-20",
   "px": 249.28,
   "layer": "CRO + Services",
-  "peak": 249.28,
+  "peak": 250.0,
+  "last_seen": "2026-08-20",
+  "ondeck": false
+ },
+ "TXG": {
+  "entered": "2026-08-20",
+  "px": 61.4,
+  "layer": "Telemedicine / Health IT",
+  "peak": 61.4,
+  "last_seen": "2026-08-20",
+  "ondeck": true
+ },
+ "HTFL": {
+  "entered": "2026-08-20",
+  "px": 46.0,
+  "layer": "Telemedicine / Health IT",
+  "peak": 46.0,
   "last_seen": "2026-08-20",
   "ondeck": false
  }
