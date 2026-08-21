@@ -78,7 +78,7 @@
   "px": 25.7,
   "layer": "Biotech Momentum",
   "peak": 34.89,
-  "last_seen": "2026-08-20",
+  "last_seen": "2026-08-21",
   "ondeck": true
  },
  "AMD": {
@@ -220,7 +220,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 96.52,
-  "last_seen": "2026-08-20",
+  "last_seen": "2026-08-21",
   "ondeck": false
  },
  "RHI": {
@@ -254,7 +254,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 47.31,
-  "last_seen": "2026-08-20",
+  "last_seen": "2026-08-21",
   "ondeck": true
  },
  "GH": {
@@ -272,7 +272,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 142.39,
-  "last_seen": "2026-08-20",
+  "last_seen": "2026-08-21",
   "ondeck": false
  },
  "SNOW": {
@@ -306,7 +306,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 177.84,
-  "last_seen": "2026-08-20",
+  "last_seen": "2026-08-21",
   "ondeck": false
  },
  "APPS": {
@@ -378,7 +378,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-08-20",
+  "last_seen": "2026-08-21",
   "ondeck": false
  },
  "IBRX": {
@@ -393,32 +393,32 @@
   "entered": "2026-08-20",
   "px": 290.0,
   "layer": "CRO + Services",
-  "peak": 290.0,
-  "last_seen": "2026-08-20",
+  "peak": 291.45,
+  "last_seen": "2026-08-21",
   "ondeck": true
  },
  "IQV": {
   "entered": "2026-08-20",
   "px": 249.28,
   "layer": "CRO + Services",
-  "peak": 250.0,
-  "last_seen": "2026-08-20",
+  "peak": 256.05,
+  "last_seen": "2026-08-21",
   "ondeck": false
  },
  "TXG": {
   "entered": "2026-08-20",
   "px": 61.4,
   "layer": "Telemedicine / Health IT",
-  "peak": 61.4,
-  "last_seen": "2026-08-20",
+  "peak": 63.87,
+  "last_seen": "2026-08-21",
   "ondeck": true
  },
  "HTFL": {
   "entered": "2026-08-20",
   "px": 46.0,
   "layer": "Telemedicine / Health IT",
-  "peak": 46.0,
-  "last_seen": "2026-08-20",
+  "peak": 46.8,
+  "last_seen": "2026-08-21",
   "ondeck": false
  }
 }
