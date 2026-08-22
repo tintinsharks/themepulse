@@ -1,21 +1,21 @@
 {
-  "date": "2026-08-20",
-  "generated": "2026-08-21 13:53",
-  "total_stocks": 2408,
+  "date": "2026-08-21",
+  "generated": "2026-08-22 03:26",
+  "total_stocks": 2042,
   "current": {
-    "date": "2026-08-20",
-    "up_4pct": 52,
-    "down_4pct": 118,
-    "up_25q": 418,
-    "down_25q": 124,
-    "up_25m": 194,
-    "down_25m": 51,
-    "up_50m": 29,
-    "down_50m": 6,
+    "date": "2026-08-21",
+    "up_4pct": 101,
+    "down_4pct": 25,
+    "up_25q": 337,
+    "down_25q": 114,
+    "up_25m": 209,
+    "down_25m": 31,
+    "up_50m": 35,
+    "down_50m": 4,
     "up_13_34d": 430,
-    "down_13_34d": 365,
-    "t2108": 55.5,
-    "total_stocks": 2408,
+    "down_13_34d": 242,
+    "t2108": 57.8,
+    "total_stocks": 2042,
     "ratio_5d": 0,
     "ratio_10d": 0
   },
@@ -252,328 +252,304 @@
   },
   "history": [
     {
-      "date": "2026-08-20",
-      "up_4pct": 52,
-      "down_4pct": 118,
-      "up_25q": 418,
-      "down_25q": 124,
-      "up_25m": 194,
-      "down_25m": 51,
-      "up_50m": 29,
-      "down_50m": 6,
+      "date": "2026-08-21",
+      "up_4pct": 101,
+      "down_4pct": 25,
+      "up_25q": 337,
+      "down_25q": 114,
+      "up_25m": 209,
+      "down_25m": 31,
+      "up_50m": 35,
+      "down_50m": 4,
       "up_13_34d": 430,
-      "down_13_34d": 365,
-      "t2108": 55.5,
-      "total_stocks": 2408,
-      "ratio_5d": 0.44,
-      "ratio_10d": 0.44
+      "down_13_34d": 242,
+      "t2108": 57.8,
+      "total_stocks": 2042,
+      "ratio_5d": 4.04,
+      "ratio_10d": 4.04
     }
   ],
   "theme_breadth": [
     {
       "theme": "COMMODITIES",
-      "up_4pct": 4,
+      "up_4pct": 20,
+      "down_4pct": 0,
+      "net": 20
+    },
+    {
+      "theme": "HEALTHCARE",
+      "up_4pct": 14,
+      "down_4pct": 3,
+      "net": 11
+    },
+    {
+      "theme": "SOFTWARE",
+      "up_4pct": 11,
       "down_4pct": 1,
-      "net": 3
+      "net": 10
+    },
+    {
+      "theme": "ENERGY",
+      "up_4pct": 10,
+      "down_4pct": 1,
+      "net": 9
     },
     {
       "theme": "FINTECH",
-      "up_4pct": 6,
-      "down_4pct": 4,
-      "net": 2
+      "up_4pct": 9,
+      "down_4pct": 3,
+      "net": 6
     },
     {
-      "theme": "RESHORING",
+      "theme": "CONSUMER",
+      "up_4pct": 5,
+      "down_4pct": 0,
+      "net": 5
+    },
+    {
+      "theme": "DEFENSE",
+      "up_4pct": 3,
+      "down_4pct": 0,
+      "net": 3
+    },
+    {
+      "theme": "DIGITAL ENTERTAINMENT",
       "up_4pct": 2,
       "down_4pct": 0,
       "net": 2
     },
     {
-      "theme": "OTHER",
+      "theme": "AUTONOMOUS SYSTEMS",
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
+    },
+    {
+      "theme": "EV",
+      "up_4pct": 2,
+      "down_4pct": 1,
+      "net": 1
+    },
+    {
+      "theme": "INDUSTRIAL",
       "up_4pct": 1,
       "down_4pct": 0,
       "net": 1
     },
     {
       "theme": "QUANTUM",
-      "up_4pct": 0,
-      "down_4pct": 1,
-      "net": -1
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
     },
     {
-      "theme": "SEMICONDUCTORS",
-      "up_4pct": 0,
-      "down_4pct": 1,
-      "net": -1
+      "theme": "SPACE",
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
     },
     {
       "theme": "TRANSPORT & LOGISTICS",
-      "up_4pct": 0,
-      "down_4pct": 1,
+      "up_4pct": 1,
+      "down_4pct": 0,
+      "net": 1
+    },
+    {
+      "theme": "TELECOM",
+      "up_4pct": 2,
+      "down_4pct": 2,
+      "net": 0
+    },
+    {
+      "theme": "E-COMMERCE",
+      "up_4pct": 1,
+      "down_4pct": 2,
       "net": -1
     },
     {
       "theme": "AI INFRASTRUCTURE",
       "up_4pct": 1,
-      "down_4pct": 3,
-      "net": -2
-    },
-    {
-      "theme": "DIGITAL ENTERTAINMENT",
-      "up_4pct": 0,
-      "down_4pct": 2,
-      "net": -2
-    },
-    {
-      "theme": "GLP-1 / OBESITY",
-      "up_4pct": 0,
-      "down_4pct": 2,
-      "net": -2
-    },
-    {
-      "theme": "ROBOTICS",
-      "up_4pct": 0,
-      "down_4pct": 2,
-      "net": -2
-    },
-    {
-      "theme": "AUTONOMOUS SYSTEMS",
-      "up_4pct": 0,
-      "down_4pct": 3,
+      "down_4pct": 4,
       "net": -3
-    },
-    {
-      "theme": "EV",
-      "up_4pct": 0,
-      "down_4pct": 3,
-      "net": -3
-    },
-    {
-      "theme": "SOFTWARE",
-      "up_4pct": 0,
-      "down_4pct": 3,
-      "net": -3
-    },
-    {
-      "theme": "SPACE",
-      "up_4pct": 0,
-      "down_4pct": 3,
-      "net": -3
-    },
-    {
-      "theme": "CONSUMER",
-      "up_4pct": 2,
-      "down_4pct": 7,
-      "net": -5
-    },
-    {
-      "theme": "E-COMMERCE",
-      "up_4pct": 0,
-      "down_4pct": 6,
-      "net": -6
-    },
-    {
-      "theme": "ENERGY",
-      "up_4pct": 2,
-      "down_4pct": 8,
-      "net": -6
-    },
-    {
-      "theme": "INDUSTRIAL",
-      "up_4pct": 5,
-      "down_4pct": 11,
-      "net": -6
-    },
-    {
-      "theme": "HEALTHCARE",
-      "up_4pct": 8,
-      "down_4pct": 21,
-      "net": -13
-    },
-    {
-      "theme": "DEFENSE",
-      "up_4pct": 0,
-      "down_4pct": 16,
-      "net": -16
     }
   ],
   "theme_breadth_history": {
     "CLOUD": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 74.0
       }
     ],
     "CYBER": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 58.0
       }
     ],
     "HEALTHCARE": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 69.0
       }
     ],
     "OTHER": [
       {
-        "date": "2026-08-20",
-        "breadth": 72.0
+        "date": "2026-08-21",
+        "breadth": 73.0
       }
     ],
     "COMMODITIES": [
       {
-        "date": "2026-08-20",
-        "breadth": 73.0
+        "date": "2026-08-21",
+        "breadth": 77.0
       }
     ],
     "PHOTONICS": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 17.0
       }
     ],
     "TRANSPORT & LOGISTICS": [
       {
-        "date": "2026-08-20",
-        "breadth": 51.0
+        "date": "2026-08-21",
+        "breadth": 50.0
       }
     ],
     "FINTECH": [
       {
-        "date": "2026-08-20",
-        "breadth": 59.0
+        "date": "2026-08-21",
+        "breadth": 57.0
       }
     ],
     "SPACE": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 58.0
-      }
-    ],
-    "ENERGY": [
-      {
-        "date": "2026-08-20",
-        "breadth": 57.0
       }
     ],
     "SOFTWARE": [
       {
-        "date": "2026-08-20",
-        "breadth": 69.0
-      }
-    ],
-    "SEMICONDUCTORS": [
-      {
-        "date": "2026-08-20",
-        "breadth": 12.0
+        "date": "2026-08-21",
+        "breadth": 71.0
       }
     ],
     "DIGITAL ENTERTAINMENT": [
       {
-        "date": "2026-08-20",
-        "breadth": 61.0
+        "date": "2026-08-21",
+        "breadth": 63.0
       }
     ],
-    "VR/AR": [
+    "ENERGY": [
       {
-        "date": "2026-08-20",
-        "breadth": 60.0
+        "date": "2026-08-21",
+        "breadth": 56.0
+      }
+    ],
+    "SEMICONDUCTORS": [
+      {
+        "date": "2026-08-21",
+        "breadth": 12.0
       }
     ],
     "AUTONOMOUS SYSTEMS": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 63.0
+      }
+    ],
+    "QUANTUM": [
+      {
+        "date": "2026-08-21",
+        "breadth": 40.0
       }
     ],
     "ROBOTICS": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 48.0
       }
     ],
     "DEFENSE": [
       {
-        "date": "2026-08-20",
-        "breadth": 51.0
+        "date": "2026-08-21",
+        "breadth": 54.0
       }
     ],
     "INDUSTRIAL": [
       {
-        "date": "2026-08-20",
-        "breadth": 43.0
+        "date": "2026-08-21",
+        "breadth": 45.0
       }
     ],
     "GLP-1 / OBESITY": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 58.0
       }
     ],
-    "QUANTUM": [
+    "VR/AR": [
       {
-        "date": "2026-08-20",
-        "breadth": 20.0
-      }
-    ],
-    "AI INFRASTRUCTURE": [
-      {
-        "date": "2026-08-20",
-        "breadth": 24.0
+        "date": "2026-08-21",
+        "breadth": 60.0
       }
     ],
     "CONSUMER": [
       {
-        "date": "2026-08-20",
-        "breadth": 52.0
+        "date": "2026-08-21",
+        "breadth": 58.0
       }
     ],
     "RESHORING": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
+        "breadth": 22.0
+      }
+    ],
+    "AI INFRASTRUCTURE": [
+      {
+        "date": "2026-08-21",
         "breadth": 22.0
       }
     ],
     "E-COMMERCE": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 55.0
       }
     ],
     "TELECOM": [
       {
-        "date": "2026-08-20",
-        "breadth": 41.0
+        "date": "2026-08-21",
+        "breadth": 43.0
       }
     ],
     "EV": [
       {
-        "date": "2026-08-20",
-        "breadth": 38.0
+        "date": "2026-08-21",
+        "breadth": 39.0
       }
     ],
     "SOCIAL MEDIA": [
       {
-        "date": "2026-08-20",
+        "date": "2026-08-21",
         "breadth": 40.0
       }
     ],
     "POWER GRID": [
       {
-        "date": "2026-08-20",
-        "breadth": 7.0
+        "date": "2026-08-21",
+        "breadth": 10.0
       }
     ]
   },
   "indices": {
     "SPY": {
       "name": "S&P 500",
-      "price": 764.64,
-      "ema10": 767.4,
-      "ema21": 763.19,
-      "sma50": 751.54,
+      "price": 765.72,
+      "ema10": 767.59,
+      "ema21": 763.29,
+      "sma50": 751.56,
       "sma200": 704.98,
       "above_ema10": false,
       "above_ema21": true,
@@ -582,23 +558,23 @@
     },
     "QQQ": {
       "name": "NASDAQ 100",
-      "price": 711.07,
-      "ema10": 716.79,
-      "ema21": 713.98,
-      "sma50": 713.3,
-      "sma200": 651.73,
+      "price": 713.44,
+      "ema10": 717.22,
+      "ema21": 714.19,
+      "sma50": 713.35,
+      "sma200": 651.74,
       "above_ema10": false,
       "above_ema21": false,
-      "above_sma50": false,
+      "above_sma50": true,
       "above_sma200": true
     },
     "IWM": {
       "name": "Russell 2000",
-      "price": 299.61,
-      "ema10": 300.44,
-      "ema21": 299.12,
-      "sma50": 296.64,
-      "sma200": 269.11,
+      "price": 299.96,
+      "ema10": 300.5,
+      "ema21": 299.15,
+      "sma50": 296.65,
+      "sma200": 269.12,
       "above_ema10": false,
       "above_ema21": true,
       "above_sma50": true,
@@ -606,13 +582,13 @@
     },
     "DIA": {
       "name": "Dow Jones",
-      "price": 530.53,
-      "ema10": 532.96,
-      "ema21": 531.51,
-      "sma50": 525.29,
-      "sma200": 493.22,
+      "price": 532.22,
+      "ema10": 532.9,
+      "ema21": 531.26,
+      "sma50": 524.89,
+      "sma200": 492.82,
       "above_ema10": false,
-      "above_ema21": false,
+      "above_ema21": true,
       "above_sma50": true,
       "above_sma200": true
     }
