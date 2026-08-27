@@ -2391,13 +2391,17 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const _elapsed = _rthNow ? Math.max(0.02, sessionVolFraction(_et2Min - 570)) : 1.0;
   const tickerZvr = (t) => {
     const q = liveQuotes.get(t); const s = stockMap?.[t];
-    if (!q) return null;
-    const liveVol = q.volume; const avgVol = s?.avg_volume_raw || q.avgVolume || 0;
+    // No early bail on a missing quote: fall back to the pipeline's rel_volume
+    // signed by its change, exactly as the constituents panel already does.
+    // Bailing here is why layer-level ZVR (and the ZCR built on it) went blank
+    // while the same ticker showed a ZVR one column to the left.
+    const liveVol = q?.volume; const avgVol = s?.avg_volume_raw || q?.avgVolume || 0;
     let v = null;
     if (liveVol && avgVol > 0) v = (liveVol / (avgVol * _elapsed)) * 100;
     else if (s?.rel_volume > 0) v = s.rel_volume * 100;
     if (v == null) return null;
-    if (q.change != null && q.change < 0) v = -v;
+    const chg = q?.change ?? s?.change_pct ?? null;
+    if (chg != null && chg < 0) v = -v;
     return v;
   };
   const liveZvr = (r) => {
