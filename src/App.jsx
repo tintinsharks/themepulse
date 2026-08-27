@@ -5970,7 +5970,29 @@ const _EMPTY_ZVR_MAP = new Map();
 // ── ChainTickerTable: every ticker that lives in any value chain, with live
 // per-ticker metrics (Chg%, RV, RS, Str, CR%, ROC², $Vol, Mcap, ER days).
 // Sortable. Click ticker → load chart (no auto value-chain expand/scroll).
+// Guirao 5-step pre-breakout status from the nightly pipeline fields. Shared so
+// the Chain table and the watch panel render the identical badge.
+function guiraoOf(s) {
+  if (!s || s.ema_stack === undefined) return null;
+  const steps = [
+    { ok: !!(s.ema_stack && s.ema_open), label: "EMAs 8>20>50 stacked + opened" },
+    { ok: !!s.fresh_leg, label: "fresh trend leg (50 EMA reset, not extended)" },
+    { ok: !!s.cml_green, label: `linearity R\u00b2 ${s.cml_r2 ?? "?"} (CML)` },
+    { ok: !!s.consol_valid, label: `valid consolidation (${s.consol_days ?? 0}d vs 8/20 layer)` },
+  ];
+  return { met: steps.filter((x) => x.ok).length, full: s.guirao_setup === true, steps,
+    res: s.guirao_resistance ?? null, gap: s.gap_to_res_pct ?? null, consol: s.consol_days ?? 0, r2: s.cml_r2 ?? null };
+}
+
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, setPosOnly, scanRows, scanFilters, activeFilterNames, activePresets, activeTags }) {
+  // Layer leadership (rank + structural regime) — same source and grammar the
+  // watch panel uses, so a leader layer reads identically in both tables.
+  const rotLayersC = useRsRotation();
+  const layerMetaC = useMemo(() => {
+    const m = {};
+    (rotLayersC?.layers || []).forEach((l) => { m[`${l.themeId}|${l.name}`] = { now: l.now, regime: l.regime }; });
+    return m;
+  }, [rotLayersC]);
   const ARIA = useAriaTheme();
   const ownedTint = useOwnedTint();
   const eifReasons = useEifReasons();
@@ -6394,6 +6416,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
     });
     const sortVal = (r, key) => {
       if (key === "setup") return chainSetup(r, setupCtx)?.rank ?? 0;
+      if (key === "guirao") { const g = guiraoOf(stockMap?.[r.ticker]); return g ? (g.full ? 10 : g.met) : -1; }
       if (key === "is33") return r.is33 ? 1 : 0;
       if (key === "star") return (r.rs != null && r.rs >= 55) ? r.rs : -1;
       return r[key];
@@ -6582,7 +6605,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
         <thead style={{ position: "sticky", top: 0, zIndex: 2, background: ARIA.bgCard }}>
           <tr>
             <Th k="ticker" label="Ticker" align="left" />
-            <Th k="theme" label="Chain · Layer" align="left" />
+            <Th k="theme" label="Layer" align="left" />
             <Th k="chg" label="Chg%" />
             {(() => {
               const aIdx = sortSpec.findIndex((s) => s.key === "alpha");
@@ -6601,6 +6624,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             <Th k="adr" label="ADR" />
             <Th k="str" label="Str" />
             <Th k="setup" label="Setup" />
+            <Th k="guirao" label="Guirao" />
             <Th k="erDays" label="ER" />
           </tr>
         </thead>
@@ -6633,13 +6657,13 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                   </span>
                 </td>
                 <td style={{ ...cell, textAlign: "left", fontSize: 8, whiteSpace: "nowrap" }}>
-                  {r.themeId ? (
-                    <span style={{
-                      fontSize: 7, fontWeight: 400, color: ARIA.textDim,
-                      background: "transparent", border: `1px solid ${ARIA.borderLight}`,
-                      padding: "0 4px", borderRadius: 2, marginRight: 5,
-                    }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
-                  ) : null}
+                  {(() => {
+                    const meta = layerMetaC[`${r.themeId}|${r.layer}`];
+                    if (!meta?.regime) return null;
+                    const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+                    return <span title={`Layer structure: ${meta.regime === "green" ? "INTACT" : meta.regime === "yellow" ? "DETERIORATING (10d EMA < 20d)" : "BROKEN (below its ~20-week line)"}`}
+                      style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: RC[meta.regime], marginRight: 4, verticalAlign: "middle" }} />;
+                  })()}
                   {r.layer ? (
                     <span
                       onClick={(e) => {
@@ -6651,6 +6675,13 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                       {r.layer}
                     </span>
                   ) : (!r.themeId ? <span style={{ color: ARIA.textMuted }}>—</span> : null)}
+                  {(() => {
+                    const rank = layerMetaC[`${r.themeId}|${r.layer}`]?.now ?? null;
+                    if (rank == null) return null;
+                    const lead = rank >= 88;
+                    return <span title={lead ? `Layer rank ${rank} — LEADER (≥88): the layer backtest says entries only pay after leadership` : `Layer rank ${rank}`}
+                      style={{ marginLeft: 4, fontSize: 7.5, fontWeight: lead ? 800 : 400, color: lead ? ARIA.green : rank <= 12 ? ARIA.red : ARIA.textMuted }}>{rank}</span>;
+                  })()}
                   {r.layer && r.layerCount > 1 ? <span style={{ color: ARIA.textMuted }}> +{r.layerCount-1}</span> : null}
                 </td>
                 <td style={{ ...cell, color: chgColor(r.chg), fontWeight: r.chg != null && Math.abs(r.chg) > 2 ? 700 : 400 }}>
@@ -6730,6 +6761,21 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     return (
                       <span title={su.desc} style={{ fontSize: 7, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>
                         {su.key}
+                      </span>
+                    );
+                  })()}
+                </td>
+                <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}>
+                  {(() => {
+                    const g = guiraoOf(stockMap?.[r.ticker]);
+                    if (!g) return <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>;
+                    const col = g.full ? ARIA.green : g.met >= 3 ? ARIA.yellow : ARIA.textMuted;
+                    const tip = g.steps.map((x) => `${x.ok ? "✓" : "✗"} ${x.label}`).join("\n")
+                      + (g.res != null ? `\nresistance $${g.res}${g.gap != null ? ` (${g.gap > 0 ? "+" : ""}${g.gap}% away)` : ""}` : "")
+                      + (g.full ? "\n⭐ FULL SETUP — watch for the breakout candle" : "");
+                    return (
+                      <span title={tip} style={{ fontSize: 7, fontWeight: 800, color: col, background: `${col}1f`, border: `1px solid ${col}55`, borderRadius: 2, padding: "0 3px" }}>
+                        {g.full ? "⭐ " : ""}G {g.met}/4
                       </span>
                     );
                   })()}
