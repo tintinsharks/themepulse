@@ -73,7 +73,7 @@
   "px": 8.85,
   "layer": "Biotech Momentum",
   "peak": 9.63,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": true
  },
  "ANRO": {
@@ -82,7 +82,9 @@
   "layer": "Biotech Momentum",
   "peak": 34.89,
   "last_seen": "2026-08-21",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-27",
+  "exit_px": 36.53
  },
  "AMD": {
   "entered": "2026-07-22",
@@ -223,7 +225,7 @@
   "px": 81.23,
   "layer": "DevOps + Observability",
   "peak": 96.52,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "RHI": {
@@ -260,8 +262,8 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 50.8,
-  "last_seen": "2026-08-26",
+  "peak": 50.96,
+  "last_seen": "2026-08-27",
   "ondeck": true
  },
  "GH": {
@@ -279,7 +281,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 151.42,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "SNOW": {
@@ -315,7 +317,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 177.84,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "APPS": {
@@ -393,15 +395,15 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "IBRX": {
   "entered": "2026-08-20",
   "px": 8.13,
   "layer": "Oncology",
-  "peak": 8.19,
-  "last_seen": "2026-08-26",
+  "peak": 8.25,
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "CRL": {
@@ -410,7 +412,9 @@
   "layer": "CRO + Services",
   "peak": 291.45,
   "last_seen": "2026-08-21",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-08-27",
+  "exit_px": 295.1
  },
  "IQV": {
   "entered": "2026-08-20",
@@ -418,14 +422,16 @@
   "layer": "CRO + Services",
   "peak": 256.05,
   "last_seen": "2026-08-21",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-08-27",
+  "exit_px": 261.51
  },
  "TXG": {
   "entered": "2026-08-20",
   "px": 61.4,
   "layer": "Telemedicine / Health IT",
   "peak": 65.12,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": true
  },
  "HTFL": {
@@ -433,7 +439,7 @@
   "px": 46.0,
   "layer": "Telemedicine / Health IT",
   "peak": 50.52,
-  "last_seen": "2026-08-26",
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "PSNL": {
