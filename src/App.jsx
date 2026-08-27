@@ -2313,17 +2313,20 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   // Live intraday overlay: poll quotes for the active tab's tickers so RS Day%
   // reflects today's move vs SPY (like the Chain α column), not the last close.
   // Ranks / Wk / Mth / Acc² stay EOD (multi-day, barely move intraday).
+  // NOT gated on `open`: the Layer Regime box and its table now render in the
+  // left column whether or not the rotation board is expanded, so collapsing
+  // must not starve them of quotes (that showed up as stale RS Day%/CR%).
   const liveUniverse = useMemo(() => {
-    if (!open || !d) return [];
+    if (!d) return [];
     const s = new Set(["SPY", "QQQ"]); // QQQ = benchmark for the Tech tab's RS Day%
     if (rsTab === "sectors") (d.sectors || []).forEach((r) => r.ticker && s.add(r.ticker));
     else if (rsTab === "industries") (d.industries || []).forEach((r) => r.ticker && s.add(r.ticker));
     else (d.layers || []).forEach((l) => (l.holds || []).forEach((h) => h.t && s.add(h.t)));
     return [...s];
-  }, [open, rsTab, d]);
+  }, [rsTab, d]);
   const { quotes: liveQuotes } = useLiveQuotes(liveUniverse, 30000);
   // ZVR only feeds the selected layer's constituents panel — poll just those.
-  const zvrUniverse = useMemo(() => (open && layerHolds ? layerHolds.map((h) => h.t) : []), [open, layerHolds]);
+  const zvrUniverse = useMemo(() => (layerHolds ? layerHolds.map((h) => h.t) : []), [layerHolds]);
   const { cur: zvrMap } = useZVR(zvrUniverse);
   const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
   const qqqRet = useBenchReturns("QQQ"); // Tech tab: convert Wk/Mth columns to vs-QQQ
