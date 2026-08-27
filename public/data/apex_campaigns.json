@@ -1,13 +1,11 @@
 {
  "MXL": {
-  "entered": "2026-08-04",
-  "px": 72.49,
+  "entered": "2026-08-27",
+  "px": 63.42,
   "layer": "AI Connectivity",
-  "peak": 84.84,
-  "last_seen": "2026-08-19",
-  "ondeck": true,
-  "exited": "2026-08-25",
-  "exit_px": 62.78
+  "peak": 63.42,
+  "last_seen": "2026-08-27",
+  "ondeck": true
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -111,7 +109,7 @@
   "px": 14.37,
   "layer": "Threat Operations",
   "peak": 14.37,
-  "last_seen": "2026-08-25",
+  "last_seen": "2026-08-27",
   "ondeck": false
  },
  "AAOI": {
@@ -224,7 +222,7 @@
   "entered": "2026-07-28",
   "px": 81.23,
   "layer": "DevOps + Observability",
-  "peak": 96.52,
+  "peak": 104.03,
   "last_seen": "2026-08-27",
   "ondeck": false
  },
@@ -262,7 +260,7 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 50.96,
+  "peak": 52.36,
   "last_seen": "2026-08-27",
   "ondeck": true
  },
@@ -280,7 +278,7 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 151.42,
+  "peak": 153.1,
   "last_seen": "2026-08-27",
   "ondeck": false
  },
@@ -299,24 +297,22 @@
   "px": 188.52,
   "layer": "Threat Operations",
   "peak": 195.88,
-  "last_seen": "2026-08-25",
+  "last_seen": "2026-08-27",
   "ondeck": true
  },
  "MRVL": {
-  "entered": "2026-08-19",
-  "px": 236.17,
+  "entered": "2026-08-27",
+  "px": 241.45,
   "layer": "AI Connectivity",
-  "peak": 236.17,
-  "last_seen": "2026-08-19",
-  "ondeck": true,
-  "exited": "2026-08-25",
-  "exit_px": 229.29
+  "peak": 241.45,
+  "last_seen": "2026-08-27",
+  "ondeck": true
  },
  "TEAM": {
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 177.84,
+  "peak": 185.62,
   "last_seen": "2026-08-27",
   "ondeck": false
  },
