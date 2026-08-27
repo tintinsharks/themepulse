@@ -542,15 +542,19 @@ function useDvolHistory() {
 // cover, and is most meaningful after market close.
 // Always clamped to [0, 100], rounded to integer. Null when no usable data.
 function computeCR(q, s) {
-  if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
-    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
-  }
+  // LIVE quote first — CR has to move intraday. The pipeline's cr_pct is the
+  // fallback for whenever a quote is missing (outside market hours, before the
+  // first poll lands, or a ticker a batch missed), which is what kept CR — and
+  // the ZCR built on it — blank while every sibling column had a fallback.
   const price = q?.price ?? s?.price ?? s?.close ?? null;
   const high = q?.dayHigh ?? q?.high ?? null;
   const low = q?.dayLow ?? q?.low ?? null;
   if (price != null && high != null && low != null && high > low && !isNaN(price)) {
     const raw = ((price - low) / (high - low)) * 100;
     return Math.max(0, Math.min(100, Math.round(raw)));
+  }
+  if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
+    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
   }
   return null;
 }
