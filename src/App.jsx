@@ -2971,6 +2971,7 @@ const SORT_BUTTONS = [
 // tables (prepended to the sort-interaction hint). Keyed by sort key.
 const COL_HELP = {
   ticker: "Ticker symbol. Click a row to load its chart + drawer.",
+  guiraoRank: "Guirao 5-step breakout setup (nightly pipeline, as of last close). Steps counted: 1 fresh trend leg off the 50 EMA · 2 EMAs 8>20>50 stacked AND opened up · 3 CML linearity (log-price R\u00b2 \u2265 0.80, slope up) · 4 valid \u22657d VCP consolidation vs the 8/20 layer. \u2b50 4/4 = full setup awaiting its Step-5 breakout candle \u2014 tooltip shows resistance + gap.",
   theme: "Chain → Layer: the theme group (chain) and the specific momentum layer this name belongs to. '+N more' = also a member of N other layers.",
   chain: "Chain: the theme group this name belongs to (e.g. AI Infrastructure, Cybersecurity).",
   subtheme: "Sub: the finest-grained sub-layer within the chain.",
@@ -10058,6 +10059,7 @@ function WatchlistSectionTable({
     { k: "adr", label: "ADR" },
     { k: "strScore", label: "Str" },
     { k: "setupRank", label: "Setup" },
+    { k: "guiraoRank", label: "Guirao" },
     { k: null, label: "" },
   ];
 
@@ -10277,6 +10279,22 @@ function WatchlistSectionTable({
                         ? <span title={r.setup.desc} style={{ fontSize: 7, fontWeight: 800, color: r.setup.color, background: `${r.setup.color}1f`, border: `1px solid ${r.setup.color}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3 }}>{r.setup.key}</span>
                         : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>{"\u2014"}</span>}
                     </td>
+                    <td style={{ ...cell, textAlign: "center", padding: "2px 4px" }}>
+                      {r.guirao
+                        ? (() => {
+                            const g = r.guirao;
+                            const col = g.full ? ARIA.green : g.met >= 3 ? ARIA.yellow : ARIA.textMuted;
+                            const tip = g.steps.map(x => `${x.ok ? "\u2713" : "\u2717"} ${x.label}`).join("\n")
+                              + (g.res != null ? `\nresistance $${g.res}${g.gap != null ? ` (${g.gap > 0 ? "+" : ""}${g.gap}% away)` : ""}` : "")
+                              + (g.full ? "\n\u2b50 FULL SETUP \u2014 watch for the breakout candle" : "");
+                            return (
+                              <span title={tip} style={{ fontSize: 7, fontWeight: 800, color: col, background: `${col}1f`, border: `1px solid ${col}55`, borderRadius: 2, padding: "0 3px", letterSpacing: 0.3, whiteSpace: "nowrap" }}>
+                                {g.full ? "\u2b50 " : ""}G {g.met}/4
+                              </span>
+                            );
+                          })()
+                        : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>{"\u2014"}</span>}
+                    </td>
                     <td style={{ ...cell, padding: "2px 4px", whiteSpace: "nowrap" }}>
                       {promoteTicker && (
                         <button
@@ -10441,6 +10459,25 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         rs: eif, rsRank: s.rs_rank, cr, zvr, alpha: rsDay, chg: change, str: strScore,
         erDays: s.earnings_days, off52: s.off_52w_high, d20: s.dist_20dma_atrx, d50: s.dist_50sma_atrx, adr: s.adr_pct,
       });
+      // Guirao 5-step pre-breakout status (from the nightly pipeline export)
+      let guirao = null;
+      if (s.ema_stack !== undefined) {
+        const steps = [
+          { ok: !!(s.ema_stack && s.ema_open), label: "EMAs 8>20>50 stacked + opened" },
+          { ok: !!s.fresh_leg, label: "fresh trend leg (50 EMA reset, not extended)" },
+          { ok: !!s.cml_green, label: `linearity R\u00b2 ${s.cml_r2 ?? "?"} (CML)` },
+          { ok: !!s.consol_valid, label: `valid consolidation (${s.consol_days ?? 0}d vs 8/20 layer)` },
+        ];
+        guirao = {
+          met: steps.filter(x => x.ok).length,
+          full: s.guirao_setup === true,
+          steps,
+          res: s.guirao_resistance ?? null,
+          gap: s.gap_to_res_pct ?? null,
+          consol: s.consol_days ?? 0,
+          r2: s.cml_r2 ?? null,
+        };
+      }
       return {
         ticker,
         price,
@@ -10463,6 +10500,8 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         rs: eif,
         setup,
         setupRank: setup?.rank ?? 0,
+        guirao,
+        guiraoRank: guirao ? (guirao.full ? 5 : guirao.met) : -1,
         erDays: s.earnings_days ?? null,
         accel: s.accel || 0,
         grade: s.grade || "",
