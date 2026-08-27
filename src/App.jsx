@@ -14,7 +14,8 @@
 // Phase 5   — Cutover
 // ════════════════════════════════════════════════════════════════════════════
 
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef, useContext } from "react";
+import { createPortal } from "react-dom";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { scrollRowIntoScroller } from "./utils.js";
 import { parseSchwabRealized, summarizeTrades, mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
@@ -1105,8 +1106,15 @@ function MagnaDetail({ ticker, mv, stockMap, ARIA, onClose, onChart }) {
 // IndexRegimeChart — layer/index constituents panel + the rotation board's
 // right panel. (The regime price graph itself was removed 2026-07 — the ticker
 // chart covers charting; this box is now the list + tables container.)
+// Slot in the LEFT (chart) column that the Layer Regime box portals into, so
+// the constituents list sits above the chart and the right column is free to
+// show the rotation table and Scan Watch together. Null = render inline.
+const LayerRailContext = React.createContext(null);
+
 function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint, erDetail, onErClose }) {
   const deckSet = useOnDeckSet();
+  const railEl = useContext(LayerRailContext);
+  const inRail = !!railEl;
   const ARIA = useAriaTheme();
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
   const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort (default RS desc)
@@ -1176,13 +1184,15 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
       .catch(() => setHoldings({ sym, list: [] }));
   }, [sym, holdings, holdingsOverride]);
 
-  return (
-    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
+  // Header + constituents are one unit: when a left-column rail slot exists
+  // they portal into it (above the chart) so the rotation table and Scan
+  // Watch can share the right column; otherwise they render inline as before.
+  const headerBar = (
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
         <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
         <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{isBasket ? "Layer Regime" : "Index Regime"}</span>
         {isBasket ? (
-          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }} title={`Equal-weight basket of ${basket.length} constituents (top 15 by RS)`}>{label} · EW basket ({Math.min(15, basket.length)})</span>
+          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Equal-weight basket of ${basket.length} constituents (top 15 by RS)`}>{label} · EW basket ({Math.min(15, basket.length)})</span>
         ) : (
           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: ARIA.blue }}>{sym}</span>
         )}
@@ -1190,10 +1200,8 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
           {isBasket ? (LAYER_DESC[label] || "click a constituent (left) to chart it below") : ""}
         </span>
       </div>
-      <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
-        {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
-            Same width in both modes (no jump when switching layer basket ↔
-            ticker/ETF); drag the right edge to resize, persisted. */}
+  );
+  const railContent = (
         <div style={{ width: erDetail ? Math.max(holdW, 240) : holdW, flexShrink: 0, display: "flex", flexDirection: "column" }}>
           {erDetail ? (
             <MagnaDetail ticker={erDetail.ticker} mv={erDetail.mv} stockMap={stockMap} ARIA={ARIA} onClose={onErClose} onChart={onChartTicker} />
@@ -1236,21 +1244,23 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
               );
               return (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4, ...(inRail ? { width: holdW } : null) }}>
                     {hCell("t", "Tkr", 36, false)}
                     {hCell("rs", "RS", 0, true)}
                     {hCell("chg", "Chg", 34, false)}
                     {hCell("zvr", "ZVR", 36, false)}
                   </div>
                   <div ref={conListRef} tabIndex={0} onKeyDown={onConKey} title="Click then use ↑/↓ to step through constituents (charts each below)"
-                    style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
+                    style={inRail
+                      ? { maxHeight: 176, display: "flex", flexDirection: "column", flexWrap: "wrap", alignContent: "flex-start", columnGap: 14, rowGap: 2, overflowX: "auto", overflowY: "hidden", overscrollBehavior: "contain", outline: "none" }
+                      : { maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                       const { chg, cr, zvr, eif } = h;
                       const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
                       const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
                       return (
-                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); conListRef.current?.focus({ preventScroll: true }); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click, then ↑/↓ to step through)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
+                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); conListRef.current?.focus({ preventScroll: true }); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click, then ↑/↓ to step through)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, ...(inRail ? { width: holdW } : null), background: h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
                           onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                           <span style={{ color: rc, flex: 1, textAlign: "right", fontWeight: h.s != null && h.s >= 88 ? 700 : 400 }}>{h.s ?? "—"}</span>
@@ -1287,11 +1297,29 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
             </>
           )}
         </div>
-        {/* Drag handle — resize the holdings column horizontally (persisted) */}
-        <div onMouseDown={startHoldResize} title="Drag to resize"
-          style={{ width: 6, cursor: "col-resize", flexShrink: 0, alignSelf: "stretch", margin: "0 -2px 0 -6px", borderRight: `1px solid ${ARIA.border}`, background: "transparent" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} />
+  );
+  const railBox = (
+    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace", marginBottom: 8 }}>
+      {headerBar}
+      <div style={{ padding: "6px 8px" }}>{railContent}</div>
+    </div>
+  );
+  return (
+    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
+      {inRail ? createPortal(railBox, railEl) : headerBar}
+      <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
+        {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
+            Same width in both modes (no jump when switching layer basket ↔
+            ticker/ETF); drag the right edge to resize, persisted. */}
+        {!inRail && railContent}
+        {/* Drag handle — resize the holdings column horizontally (persisted).
+            Hidden in rail mode: the constituents live in the left column there. */}
+        {!inRail && (
+          <div onMouseDown={startHoldResize} title="Drag to resize"
+            style={{ width: 6, cursor: "col-resize", flexShrink: 0, alignSelf: "stretch", margin: "0 -2px 0 -6px", borderRight: `1px solid ${ARIA.border}`, background: "transparent" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} />
+        )}
         {/* Right: caller-provided panel (Sectors/Industries tabs) — pinned to the
             chart height so its table flex-fills when the box is resized taller */}
         {rightPanel && (
@@ -11806,6 +11834,10 @@ function ChartScanRow({
 
   // Chain filter — set when a layer/theme is clicked in DrawerThemes; restricts
   // the Scan tab to only those tickers. Click again on same to toggle off.
+  // DOM slot the Layer Regime box portals into — top of the left column, above
+  // the chart, so the right column can show the rotation table and Scan Watch
+  // at the same time.
+  const [railEl, setRailEl] = useState(null);
   const [chainFilters, setChainFilters] = useState([]);
   const handleLayerClick = useCallback((name, tickers) => {
     setChainFilters((prev) => {
@@ -11814,6 +11846,7 @@ function ChartScanRow({
     });
   }, []);
   return (
+    <LayerRailContext.Provider value={railEl}>
     <div
       ref={rowRef}
       style={{
@@ -11827,6 +11860,7 @@ function ChartScanRow({
           content internally, so the graph stays put while the right column
           (rotation + scan) scrolls independently. */}
       <div style={{ flex: 1, minWidth: 0, position: "sticky", top: 0, alignSelf: "flex-start", maxHeight: "100vh", overflowY: "auto", overscrollBehavior: "contain" }}>
+        <div ref={setRailEl} />
         <ChartPanelInline
           ticker={chartTicker}
           onTickerChange={handleTickerClick}
@@ -11860,6 +11894,7 @@ function ChartScanRow({
         <ScanWatch stocks={stocks} onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} themeHealth={themeHealth} tickerStrengthMap={tickerStrengthMap} chainFilters={chainFilters} clearChainFilters={() => setChainFilters([])} removeChainFilter={(name) => setChainFilters((p) => p.filter((f) => f.name !== name))} onLayerClick={handleLayerClick} />
       </div>
     </div>
+    </LayerRailContext.Provider>
   );
 }
 
