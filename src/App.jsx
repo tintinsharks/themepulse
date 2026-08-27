@@ -10107,6 +10107,8 @@ function WatchlistSectionTable({
   tickerStrengthMap,
   onChainClick,
   promoteTicker,
+  collapsed: collapsedProp,
+  onToggleCollapsed,
 }) {
   const ARIA = useAriaTheme();
   const deckSet = useOnDeckSet();
@@ -10127,9 +10129,12 @@ function WatchlistSectionTable({
   const [sortKey, setSortKey] = useState("change");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
-  const [collapsed, setCollapsed] = useState(() => {
+  // Collapse state is owned by the parent (it orders expanded sections first);
+  // fall back to local state if this table is ever rendered standalone.
+  const [collapsedLocal, setCollapsedLocal] = useState(() => {
     try { return localStorage.getItem(`themepulse-${list}-collapsed`) === "1"; } catch { return false; }
   });
+  const collapsed = collapsedProp !== undefined ? collapsedProp : collapsedLocal;
   // add box: local input + validation feedback ("added 2 · unknown: XYZQ")
   const [addVal, setAddVal] = useState("");
   const [addMsg, setAddMsg] = useState(null);
@@ -10153,12 +10158,13 @@ function WatchlistSectionTable({
     return out;
   }, [addVal, universe]);
   const toggleCollapsed = useCallback(() => {
-    setCollapsed(v => {
+    if (onToggleCollapsed) { onToggleCollapsed(); return; }
+    setCollapsedLocal((v) => {
       const next = !v;
       try { localStorage.setItem(`themepulse-${list}-collapsed`, next ? "1" : "0"); } catch {}
       return next;
     });
-  }, [list]);
+  }, [list, onToggleCollapsed]);
   const wrapRef = React.useRef(null);
 
   const colorChg = (v) =>
@@ -10561,6 +10567,23 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
   const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
   const [focus, setFocus] = useLocalStorageList("themepulse-focus");
   const [ondeck, setOndeck] = useLocalStorageList("themepulse-ondeck");
+  // Per-section collapse, owned here so expanded sections can be floated to the
+  // top while collapsed ones keep the canonical order.
+  const SECTION_KEYS = ["portfolio", "ondeck", "focus", "watchlist"];
+  const [collapsedMap, setCollapsedMap] = useState(() => {
+    const m = {};
+    SECTION_KEYS.forEach((k) => {
+      try { m[k] = localStorage.getItem(`themepulse-${k}-collapsed`) === "1"; } catch { m[k] = false; }
+    });
+    return m;
+  });
+  const toggleSection = useCallback((k) => {
+    setCollapsedMap((prev) => {
+      const next = { ...prev, [k]: !prev[k] };
+      try { localStorage.setItem(`themepulse-${k}-collapsed`, next[k] ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
   const [expandedThemes, setExpandedThemes] = useState(() => new Set());
   const [chgPosFilter, setChgPosFilter] = useState(
     () => localStorage.getItem("themepulse-pw-chgpos") === "true"
@@ -11417,55 +11440,39 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
             <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase" }}>Filter</span>
             <button onClick={toggleChgPos} style={pillStyle(chgPosFilter, ARIA.cyan || "#22d3ee")} title="Show only tickers with Chg% > 0">Chg&gt;0%</button>
           </div>
-          <WatchlistSectionTable
-            rows={chgPosFilter ? portRows.filter((r) => (r.change || 0) > 0) : portRows}
-            accent={ARIA.yellow}
-            list="portfolio"
-            count={portfolio.length}
-            onAddMany={addManyPortfolio}
-            universe={universeSet}
-            onTickerClick={onTickerClick}
-            removeTicker={removeTicker}
-            tickerStrengthMap={tickerStrengthMap}
-            onChainClick={onChainClick}
-          />
-          <WatchlistSectionTable
-            rows={chgPosFilter ? ondeckRows.filter((r) => (r.change || 0) > 0) : ondeckRows}
-            accent={ARIA.gold}
-            list="ondeck"
-            count={ondeck.length}
-            onAddMany={addManyOndeck}
-            universe={universeSet}
-            onTickerClick={onTickerClick}
-            removeTicker={removeTicker}
-            tickerStrengthMap={tickerStrengthMap}
-            onChainClick={onChainClick}
-          />
-          <WatchlistSectionTable
-            rows={chgPosFilter ? focusRows.filter((r) => (r.change || 0) > 0) : focusRows}
-            accent={ARIA.cyan}
-            list="focus"
-            count={focus.length}
-            onAddMany={addManyFocus}
-            universe={universeSet}
-            onTickerClick={onTickerClick}
-            removeTicker={removeTicker}
-            tickerStrengthMap={tickerStrengthMap}
-            onChainClick={onChainClick}
-            promoteTicker={promoteToDeck}
-          />
-          <WatchlistSectionTable
-            rows={chgPosFilter ? watchRows.filter((r) => (r.change || 0) > 0) : watchRows}
-            accent={ARIA.green}
-            list="watchlist"
-            count={watchlist.length}
-            onAddMany={addManyWatchlist}
-            universe={universeSet}
-            onTickerClick={onTickerClick}
-            removeTicker={removeTicker}
-            tickerStrengthMap={tickerStrengthMap}
-            onChainClick={onChainClick}
-          />
+          {(() => {
+            // Expanded sections float to the top; collapsed ones keep the
+            // canonical Portfolio → On Deck → Focus → Watchlist order (a stable
+            // sort on the collapsed flag preserves it within each group).
+            const defs = [
+              { list: "portfolio", rows: portRows, accent: ARIA.yellow, count: portfolio.length, onAddMany: addManyPortfolio },
+              { list: "ondeck", rows: ondeckRows, accent: ARIA.gold, count: ondeck.length, onAddMany: addManyOndeck },
+              { list: "focus", rows: focusRows, accent: ARIA.cyan, count: focus.length, onAddMany: addManyFocus, promoteTicker: promoteToDeck },
+              { list: "watchlist", rows: watchRows, accent: ARIA.green, count: watchlist.length, onAddMany: addManyWatchlist },
+            ];
+            const ordered = defs
+              .map((d, i) => ({ d, i }))
+              .sort((a, b) => (collapsedMap[a.d.list] ? 1 : 0) - (collapsedMap[b.d.list] ? 1 : 0) || a.i - b.i)
+              .map((x) => x.d);
+            return ordered.map((d) => (
+              <WatchlistSectionTable
+                key={d.list}
+                rows={chgPosFilter ? d.rows.filter((r) => (r.change || 0) > 0) : d.rows}
+                accent={d.accent}
+                list={d.list}
+                count={d.count}
+                onAddMany={d.onAddMany}
+                universe={universeSet}
+                onTickerClick={onTickerClick}
+                removeTicker={removeTicker}
+                tickerStrengthMap={tickerStrengthMap}
+                onChainClick={onChainClick}
+                promoteTicker={d.promoteTicker}
+                collapsed={collapsedMap[d.list]}
+                onToggleCollapsed={() => toggleSection(d.list)}
+              />
+            ));
+          })()}
         </div>
       )}
 
