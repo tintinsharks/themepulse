@@ -554,6 +554,36 @@ function computeCR(q, s) {
   return null;
 }
 
+// ── ZCR: volume effort × closing result, as one sortable number ──────────
+// ZVR is EFFORT (pace-adjusted relative volume, signed by the day's
+// direction); CR% is RESULT (where price closed inside the day's range).
+// Sorted alone, neither separates accumulation from distribution: heavy
+// volume closing on the low is the failed-gap pattern and it sorts
+// identically to heavy volume closing on the high.
+//   quality  = (CR - 50) / 50         → -1 (closed at low) … +1 (at high)
+//   pressure = min(|ZVR|, 300) / 300  →  0 (quiet) … 1 (3x+ pace)
+//   ZCR      = 100 × quality × pressure
+// +100 = closed on the high on 3x+ volume — buyers took it and held it.
+// -100 = closed on the low on 3x+ volume — supply overwhelmed the move.
+// Near 0 = a mid-range close OR a volume-less day: no conviction either way,
+// which is itself the point — it demotes the noise that a raw ZVR sort
+// floats to the top.
+function zcrScore(zvr, cr) {
+  if (zvr == null || cr == null || isNaN(zvr) || isNaN(cr)) return null;
+  return Math.round(100 * ((cr - 50) / 50) * (Math.min(Math.abs(zvr), 300) / 300));
+}
+
+// Shared cell renderer so ZCR reads identically in every table.
+function ZcrCell({ zvr, cr, ARIA }) {
+  const v = zcrScore(zvr, cr);
+  if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
+  const c = v >= 50 ? ARIA.green : v >= 20 ? "#4ade80" : v <= -50 ? ARIA.red : v <= -20 ? "#f87171" : ARIA.textDim;
+  return (
+    <span title={`ZCR ${v} — volume effort × closing result (ZVR ${zvr}% · CR ${Math.round(cr)}%). ${v >= 50 ? "Strong accumulation: closed near the high on heavy volume." : v >= 20 ? "Constructive close on above-average volume." : v <= -50 ? "Distribution: closed near the low on heavy volume — the failed-gap signature." : v <= -20 ? "Weak close on active volume." : "No conviction — mid-range close or light volume."}`}
+      style={{ color: c, fontWeight: Math.abs(v) >= 20 ? 700 : 400 }}>{v}</span>
+  );
+}
+
 // ── Centralized live-quote manager ──
 // All useLiveQuotes() calls register their tickers here. One batched fetch
 // runs every 30s during market hours (9:30-4 ET weekdays), 120s in extended
@@ -1741,6 +1771,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     // actual weekly relative return. Live intraday (rsDay is live). Positive =
     // fresh inflection today; negative = today lags its own week (extended).
     rsAcc1: (r.rsDay != null && r.rsWk != null) ? +(r.rsDay * 5 - r.rsWk).toFixed(2) : null,
+    zcr: zcrScore(r.zvr, r.cr),
   })), [rows]);
   // Percentile rank of RS Acc² among the current rows — drives a heatmap tint
   // behind each Acc² cell so a value's standing vs peers reads at a glance
@@ -1789,7 +1820,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   // Shared "strength core" (RS Day% · ZVR · CR% · EIF) sits right after the
   // identity columns, matching Scan Watch. RS Wk%/Mth% + acceleration follow as
   // the rotation-specific extras; stock tabs append a live Setup badge.
-  const coreCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["cr", "CR%"], ["eif", "EIF"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"]];
+  const coreCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["cr", "CR%"], ["zcr", "ZCR"], ["eif", "EIF"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"]];
   const withRank = rankCol ? [["lead", rows.some((r) => r._tier) ? "◆" : "#"], ...coreCols, ["setup", "Setup"]] : coreCols;
   const cols = getTag
     ? withRank.filter(([k]) => k !== "ticker").flatMap((c) => (c[0] === "eif" ? [c, ["b20", "B%"]] : [c]))
@@ -1906,6 +1937,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(rsDayPct.get(r)) }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{Math.round(r.cr)}%</span>}</td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.eif == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.eif >= 55 ? ARIA.green : ARIA.textDim, fontWeight: r.eif >= 55 ? 700 : 400 }}>{Math.round(r.eif)}</span>}</td>
             {getTag && <td title={`Layer internals: % of constituents above their own 20dma${r.nh15 != null ? ` · ${r.nh15}% within 15% of 52w highs` : ""}${r.dshift != null ? ` · $vol share 5d vs 20d ${r.dshift > 0 ? "+" : ""}${r.dshift}%` : ""} — breadth firms up BEFORE the return-based rank moves`} style={{ textAlign: "right", padding: "2px 6px" }}>{r.b20 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.b20 >= 70 ? ARIA.green : r.b20 <= 30 ? ARIA.red : ARIA.textDim, fontWeight: r.b20 >= 70 || r.b20 <= 30 ? 700 : 400 }}>{r.b20}%</span>}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
@@ -3064,6 +3096,8 @@ function rowSortValue(r, key) {
       return r.liveVol || 0;
     case "cr":
       return r.cr || 0;
+    case "zcr":
+      return zcrScore(r.zvr, r.cr) ?? -999;
     case "adr":
       return r.adr || 0;
     case "subtheme":
@@ -5062,6 +5096,17 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
       const gScore = Math.min(34, Math.max(0, gapPct > 0 ? (gapPct / 15) * 34 : 0));
       const magna = Math.round(mScore + aScore + gScore);
 
+      // Pace-adjusted signed relative volume (same construction the watch
+      // panel and Chain table use) — RV alone is not session-normalized and
+      // carries no direction, so ZCR needs this.
+      const _et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const _mins = _et.getHours() * 60 + _et.getMinutes();
+      const _frac = _mins >= 570 && _mins < 960 ? Math.max(0.02, sessionVolFraction(_mins - 570)) : 1.0;
+      let zvr = null;
+      if (liveVol && avgVol > 0) zvr = Math.round((liveVol / (avgVol * _frac)) * 100);
+      else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+      if (zvr != null && chg != null && chg < 0) zvr = -zvr;
+
       out.push({
         ticker: s.ticker,
         company: s.company || "",
@@ -5069,6 +5114,8 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         chg,
         chgOpen,
         rvol,
+        zvr,
+        zcr: zcrScore(zvr, cr),
         cr,
         accel: s.accel || 0,
         magna,
@@ -6007,6 +6054,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume, chg),
+          get zcr() { return zcrScore(this.zvr, this.cr); },
           zvrTrend: calcZvrTrend(sr.ticker),
           adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
@@ -6111,6 +6159,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null, deHold: s?.de_hold ?? null, news: s?._newsPipe ?? null, inPlay: !!s?._inPlay,
             str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
             zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
+            get zcr() { return zcrScore(this.zvr, this.cr); },
             adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
             mcap: s?.market_cap_raw ?? null, erDays: s?.earnings_days ?? null,
           });
@@ -6473,6 +6522,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             })()}
             <Th k="zvr" label="ZVR" />
             <Th k="cr" label="CR%" />
+            <Th k="zcr" label="ZCR" />
             <Th k="rs" label="EIF" />
             <Th k="adr" label="ADR" />
             <Th k="str" label="Str" />
@@ -6575,6 +6625,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     );
                   })()}
                 </td>
+                <td style={cell}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
                 {(() => {
                   const isEifLeader = r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length;
                   return (
@@ -6820,6 +6871,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
           <Th k="rvol" label="RV" />
           <Th k="liveVol" label="Vol" />
           <Th k="cr" label="CR%" />
+          <Th k="zcr" label="ZCR" />
           <Th k="adr" label="ADR" />
           <Th k="rs" label="EIF" />
           <Th k="chain" label="Chain" align="left" />
@@ -6912,6 +6964,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
               <td style={{ ...bodyCell, color: colorCr(r.cr) }}>
                 {r.cr != null ? r.cr + "%" : "—"}
               </td>
+              <td style={bodyCell}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
               <td style={{ ...bodyCell, color: ARIA.cyan }}>
                 {r.adr ? r.adr.toFixed(1) + "%" : "—"}
               </td>
@@ -10053,6 +10106,7 @@ function WatchlistSectionTable({
     { k: "rsDay", label: "RS Day%" },
     { k: "zvr", label: "ZVR" },
     { k: "cr", label: "CR%" },
+    { k: "zcr", label: "ZCR" },
     { k: "rs", label: "EIF" },
     { k: "rsWk", label: "RS Wk%" },
     { k: "rsMth", label: "RS Mth%" },
@@ -10259,6 +10313,7 @@ function WatchlistSectionTable({
                     <td style={{ ...cell, color: colorCr(r.cr) }}>
                       {r.cr != null ? Math.round(r.cr) + "%" : "\u2014"}
                     </td>
+                    <td style={cell}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
                     <td style={{ ...cell, color: r.rs >= 55 ? ARIA.green : ARIA.textDim, fontWeight: r.rs >= 55 ? 700 : 400 }}>
                       {r.rs || "\u2014"}
                     </td>
@@ -10482,6 +10537,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         ticker,
         price,
         change,
+        zcr: zcrScore(zvr, cr),
         chg: change, // alias for ScanWatchTable
         chgOpen,
         rsDay,
