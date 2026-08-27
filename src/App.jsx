@@ -10064,6 +10064,16 @@ function WatchlistSectionTable({
 }) {
   const ARIA = useAriaTheme();
   const deckSet = useOnDeckSet();
+  // Layer leadership for the Layer column: rank (level) + structural regime.
+  // Deliberately NOT a binary "leader" highlight — 3 of the 21 current leaders
+  // are yellow-regime, the "rates 99 while breaking down" case, and one green
+  // badge would call those identical to an intact leader.
+  const rotLayers = useRsRotation();
+  const layerMeta = useMemo(() => {
+    const m = {};
+    (rotLayers?.layers || []).forEach((l) => { m[`${l.themeId}|${l.name}`] = { now: l.now, regime: l.regime }; });
+    return m;
+  }, [rotLayers]);
   // Portfolio membership — held tickers appearing in the other sections
   // (On Deck / Focus / Watchlist) get a light-green row tint.
   const [_pfList] = useLocalStorageList("themepulse-portfolio");
@@ -10374,17 +10384,37 @@ function WatchlistSectionTable({
                     {r.rsRank != null && r.rsRank >= 85 && r.wkRs != null && r.wkRs <= -2 && <span title={`Leader diverging — RS rank ${r.rsRank} but ${r.wkRs > 0 ? "+" : ""}${r.wkRs}% vs SPY THIS week. The rank is trailing; the current tape disagrees.`} style={{ fontSize: 7, lineHeight: "10px", color: "#d9a441" }}>⚠</span>}
                       </span>
                     </td>
-                    <td style={{ ...cell, textAlign: "left", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}
-                      title={r.layerKey ? `${r.chainLayer} — click to load this layer into the Layer Regime box` : (r.chainLayer || r.layer)}>
-                      {r.layer
-                        ? (r.layerKey ? (
-                            <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-select-layer", { detail: r.layerKey })); }}
-                              style={{ color: ARIA.blue, cursor: "pointer" }}
-                              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}>{r.layer}</span>
-                          ) : <span style={{ color: ARIA.textDim }}>{r.layer}</span>)
-                        : <span style={{ color: ARIA.textDim }}>{"\u2014"}</span>}
-                    </td>
+                    {(() => {
+                      const meta = r.layerKey ? layerMeta[`${r.layerKey.themeId}|${r.layerKey.layer}`] : null;
+                      const rank = meta?.now ?? null;
+                      const lead = rank != null && rank >= 88;
+                      const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+                      const structure = meta?.regime === "green" ? "INTACT"
+                        : meta?.regime === "yellow" ? "DETERIORATING (10d EMA < 20d)"
+                        : meta?.regime === "red" ? "BROKEN (below its ~20-week line)" : null;
+                      const tip = !r.layer ? undefined
+                        : `${r.chainLayer}${rank != null ? ` — layer rank ${rank}` : ""}${structure ? `, structure ${structure}` : ""}${lead ? " · LEADER (rank ≥88) — the layer backtest says entries only pay after leadership" : ""}${r.layerKey ? " · click to load this layer" : ""}`;
+                      return (
+                        <td style={{ ...cell, textAlign: "left", maxWidth: 170 }} title={tip}>
+                          {!r.layer ? <span style={{ color: ARIA.textDim }}>{"—"}</span> : (
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, minWidth: 0 }}>
+                              {meta?.regime && <span style={{ width: 5, height: 5, borderRadius: "50%", flexShrink: 0, background: RC[meta.regime] || ARIA.textMuted }} />}
+                              <span
+                                onClick={r.layerKey ? (e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-select-layer", { detail: r.layerKey })); } : undefined}
+                                style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                  color: r.layerKey ? ARIA.blue : ARIA.textDim, cursor: r.layerKey ? "pointer" : "default",
+                                  fontWeight: lead ? 700 : 400 }}
+                                onMouseEnter={(e) => { if (r.layerKey) e.currentTarget.style.textDecoration = "underline"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}>{r.layer}</span>
+                              {rank != null && (
+                                <span style={{ flexShrink: 0, fontSize: 7.5, fontWeight: lead ? 800 : 400,
+                                  color: lead ? ARIA.green : rank <= 12 ? ARIA.red : ARIA.textMuted }}>{rank}</span>
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })()}
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
                     <td style={{ ...cell, color: r.rsDay == null || Math.abs(r.rsDay) <= 2 ? ARIA.textDim : r.rsDay > 0 ? ARIA.green : ARIA.red, fontWeight: r.rsDay != null && Math.abs(r.rsDay) > 2 ? 600 : 400 }}>
                       {r.rsDay == null ? "\u2014" : (r.rsDay > 0 ? "+" : "") + r.rsDay.toFixed(2) + "%"}
