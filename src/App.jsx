@@ -1111,7 +1111,7 @@ function MagnaDetail({ ticker, mv, stockMap, ARIA, onClose, onChart }) {
 // show the rotation table and Scan Watch together. Null = render inline.
 const LayerRailContext = React.createContext(null);
 
-function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint, erDetail, onErClose }) {
+function IndexRegimeChart({ hideWhenInline, sym, setSym, rightPanel, rightRail, holdingsOverride, basket, basketLabel, onChartTicker, liveQuotes, zvrMap, stockMap, heldTint, erDetail, onErClose }) {
   const deckSet = useOnDeckSet();
   const railEl = useContext(LayerRailContext);
   const inRail = !!railEl;
@@ -1244,23 +1244,21 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
               );
               return (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4, ...(inRail ? { width: holdW } : null) }}>
+                  <div style={{ display: "flex", alignItems: "center", fontSize: 7, textTransform: "uppercase", letterSpacing: 0.3, fontWeight: 700, marginBottom: 3, gap: 4 }}>
                     {hCell("t", "Tkr", 36, false)}
                     {hCell("rs", "RS", 0, true)}
                     {hCell("chg", "Chg", 34, false)}
                     {hCell("zvr", "ZVR", 36, false)}
                   </div>
                   <div ref={conListRef} tabIndex={0} onKeyDown={onConKey} title="Click then use ↑/↓ to step through constituents (charts each below)"
-                    style={inRail
-                      ? { maxHeight: 176, display: "flex", flexDirection: "column", flexWrap: "wrap", alignContent: "flex-start", columnGap: 14, rowGap: 2, overflowX: "auto", overflowY: "hidden", overscrollBehavior: "contain", outline: "none" }
-                      : { maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
+                    style={{ maxHeight: chartH - 26, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 2, overflowY: "auto", overscrollBehavior: "contain", outline: "none" }}>
                     {rows.map((h) => {
                       const rc = h.s == null ? ARIA.textMuted : h.s >= 67 ? ARIA.green : h.s >= 33 ? ARIA.blue : ARIA.textDim;
                       const { chg, cr, zvr, eif } = h;
                       const chgC = chg == null ? ARIA.textMuted : chg > 0 ? ARIA.green : chg < 0 ? ARIA.red : ARIA.textMuted;
                       const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textMuted;
                       return (
-                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); conListRef.current?.focus({ preventScroll: true }); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click, then ↑/↓ to step through)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, ...(inRail ? { width: holdW } : null), background: h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
+                        <div key={h.t} data-ct={h.t} onClick={() => { setSelCon(h.t); onChartTicker?.(h.t); conListRef.current?.focus({ preventScroll: true }); }} title={`${h.t} — RS ${h.s ?? "—"}${h.adr != null ? ` · ADR ${h.adr.toFixed(1)}%` : ""}${eif != null ? ` · EIF ${eif}` : ""}${chg != null ? ` · ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}${zvr != null ? ` · ZVR ${zvr}%` : ""}${cr != null ? ` · CR ${cr}` : ""} (click, then ↑/↓ to step through)`} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, cursor: "pointer", padding: "1px 2px", flexShrink: 0, borderRadius: 2, background: h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent", boxShadow: h.t === selCon ? `inset 2px 0 0 ${ARIA.blue}` : "none" }}
                           onMouseEnter={(e) => { if (h.t !== selCon) e.currentTarget.style.background = ARIA.bgHover || "rgba(255,255,255,0.05)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = h.t === selCon ? ARIA.blue + "26" : deckSet.has(h.t) ? ARIA.gold + "2e" : heldTint?.has(h.t) ? ARIA.yellow + "14" : "transparent"; }}>
                           <span style={{ fontWeight: 700, color: ARIA.blue, width: 36, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{h.t}</span>
                           <span style={{ color: rc, flex: 1, textAlign: "right", fontWeight: h.s != null && h.s >= 88 ? 700 : 400 }}>{h.s ?? "—"}</span>
@@ -1298,32 +1296,27 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
           )}
         </div>
   );
-  const railBox = (
-    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace", marginBottom: 8 }}>
+  // The whole box — header, constituents, and the tabbed layer table — lives
+  // in the left column above the chart when a rail slot exists, so the right
+  // column is free for the rotation narrative and Scan Watch.
+  if (!inRail && hideWhenInline) return null;
+  const box = (
+    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace", ...(inRail ? { marginBottom: 8 } : null) }}>
       {headerBar}
-      <div style={{ padding: "6px 8px" }}>{railContent}</div>
-    </div>
-  );
-  return (
-    <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace" }}>
-      {inRail ? createPortal(railBox, railEl) : headerBar}
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
             Same width in both modes (no jump when switching layer basket ↔
             ticker/ETF); drag the right edge to resize, persisted. */}
-        {!inRail && railContent}
-        {/* Drag handle — resize the holdings column horizontally (persisted).
-            Hidden in rail mode: the constituents live in the left column there. */}
-        {!inRail && (
-          <div onMouseDown={startHoldResize} title="Drag to resize"
-            style={{ width: 6, cursor: "col-resize", flexShrink: 0, alignSelf: "stretch", margin: "0 -2px 0 -6px", borderRight: `1px solid ${ARIA.border}`, background: "transparent" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} />
-        )}
+        {railContent}
+        {/* Drag handle — resize the holdings column horizontally (persisted) */}
+        <div onMouseDown={startHoldResize} title="Drag to resize"
+          style={{ width: 6, cursor: "col-resize", flexShrink: 0, alignSelf: "stretch", margin: "0 -2px 0 -6px", borderRight: `1px solid ${ARIA.border}`, background: "transparent" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#22d3ee44")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")} />
         {/* Right: caller-provided panel (Sectors/Industries tabs) — pinned to the
             chart height so its table flex-fills when the box is resized taller */}
         {rightPanel && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 600, height: chartH, overflow: "hidden" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: chartH, overflow: "hidden" }}>
             {rightPanel}
           </div>
         )}
@@ -1342,6 +1335,7 @@ function IndexRegimeChart({ sym, setSym, rightPanel, rightRail, holdingsOverride
       </div>
     </div>
   );
+  return inRail ? createPortal(box, railEl) : box;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -2774,212 +2768,215 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               </div>
             );
           })()}
-          {/* Regime chart (left) + tabbed Sectors/Industries table (right of the graph) */}
-          {(() => {
-            const tabBtn = (key, label, alsoActive = []) => {
-              const active = rsTab === key || alsoActive.includes(rsTab);
-              return (
-                <button onClick={() => setRsTab(key)}
-                  style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
-                    color: active ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none",
-                    borderBottom: `2px solid ${active ? ARIA.blue : "transparent"}` }}>{label}</button>
-              );
-            };
-            const layerBtns = (
-              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}>
-                <span style={{ fontSize: 7, color: ARIA.textMuted }}>top layers</span>
-                {[5, 8, 12].map((n) => (
-                  <button key={n} onClick={() => { setTopLayers(n); try { localStorage.setItem("tp-funnel-layers", String(n)); } catch {} }}
-                    style={{ fontSize: 7, fontWeight: 700, cursor: "pointer", padding: "0 4px", borderRadius: 3, fontFamily: "monospace",
-                      color: topLayers === n ? ARIA.text : ARIA.textMuted, background: topLayers === n ? ARIA.blue + "22" : "transparent", border: `1px solid ${topLayers === n ? ARIA.blue + "66" : ARIA.border}` }}>{n}</button>
-                ))}
-              </span>
-            );
-            const isLeaders = rsTab === "leaders";
-            const isEmerging = rsTab === "emerging";
-            const isCombined = rsTab === "leadersall";
-            const isStockTab = isLeaders || isEmerging || isCombined;
-            // Sub-view pills render INLINE on the tab row (saves a header row).
-            const pill = (k, lbl, n) => (
-              <button key={k} onClick={() => setRsTab(k)}
-                style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 0.3, padding: "1px 6px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
-                  color: rsTab === k ? ARIA.text : ARIA.textMuted,
-                  background: rsTab === k ? ARIA.blue + "22" : "transparent",
-                  border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
-                {lbl}{n ? <span style={{ opacity: 0.55, fontWeight: 400 }}> {n}</span> : null}
-              </button>
-            );
-            const subPills = isStockTab
-              ? [["leadersall", "◆ All", leaderRows.length + emergingRows.length], ["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]]
-              : isLayerLike
-              ? [["layers", "All Layers"], ["tech", "Tech"], ["extech", "Ex-Tech"]]
-              : null;
-            const tabRow = (
-              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
-                {tabBtn("layers", "Layers", ["tech", "extech"])}
-                {tabBtn("leadersall", "Leaders", ["leaders", "emerging"])}
-                {tabBtn("inplay", "⚡ In Play")}
-                {tabBtn("sectors", "Sector Leaders")}
-                {tabBtn("industries", "Industries")}
-                {tabBtn("apex", "👑 Apex")}
-                {tabBtn("ercal", "ER Cal")}
-                {subPills && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, paddingLeft: 8, borderLeft: `1px solid ${ARIA.border}` }}>
-                    {subPills.map(([k, lbl, n]) => pill(k, lbl, n))}
-                  </span>
-                )}
-                {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
-              </div>
-            );
-            const stockRows = isCombined ? combinedRows : isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
-            return (
-              <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
-                erDetail={erFocus ? { ticker: erFocus, mv: erFocusMover } : null} onErClose={() => setErFocus(null)}
-                holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
-                basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
-                rightPanel={
-                <>
-                  {tabRow}
-                  {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
-                  {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
-                  {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
-                  <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
-                    {rsTab === "ercal" ? (
-                      <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openErTicker} chartTicker={chartTicker} movers={movers} />
-                    ) : rsTab === "inplay" ? (
-                      (() => {
-                        const qOrd = { GENUINE: 5, ELITE: 4, EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
-                        const rows2 = movers
-                          .filter((m) => m.in_universe && m.ticker)
-                          .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
-                          .slice(0, 15);
-                        const qColor = (l) => l === "GENUINE" ? ARIA.yellow : l === "ELITE" || l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.textDim : ARIA.textMuted;
-                        const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
-                        return (
-                          <div style={{ fontFamily: "monospace" }}>
-                            <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
-                              Today's in-universe movers (earnings + stocks-in-play), quality-scored by the EP pipeline. This is a PREP list — the evidence says stalk (DE), don't chase: gap-day entries backtest at 46% win. {rows2.length} of {movers.length} movers pass the universe gate.
-                            </div>
-                            {rows2.length === 0 && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>No in-universe movers this session.</div>}
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
-                              <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
-                                {["Ticker", "Src", "Chg%", "RS Day%", "ZVR", "CR%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 9 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>)}
-                              </tr></thead>
-                              <tbody>
-                                {rows2.map((m) => {
-                                  const items = (m.recent_headlines?.length ? m.recent_headlines : m.headlines?.length ? m.headlines : stockMap?.[m.ticker]?._newsPipe) || [];
-                                  const hl = items[0] || "";
-                                  // Live metrics — same construction as the layer/leaders tables
-                                  const s = stockMap?.[m.ticker] || {}; const q = liveQuotes.get(m.ticker);
-                                  const lchg = q?.change ?? s.change_pct ?? m.change_pct ?? null;
-                                  const rsDay = lchg != null ? +(lchg - (spyChg ?? 0)).toFixed(2) : null;
-                                  let zvr = null; const lv = q?.volume, av = s.avg_volume_raw || q?.avgVolume || 0;
-                                  if (lv && av > 0) zvr = Math.round((lv / (av * _elapsed)) * 100);
-                                  else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
-                                  if (zvr != null && lchg != null && lchg < 0) zvr = -zvr;
-                                  const cr = computeCR(q, s);
-                                  const rsDayC = rsDay == null ? ARIA.textMuted : Math.abs(rsDay) > 2 ? (rsDay > 0 ? ARIA.green : ARIA.red) : ARIA.textDim;
-                                  const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim;
-                                  const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr <= 30 ? ARIA.red : ARIA.textDim;
-                                  return (
-                                    <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
-                                      onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                                      <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}{items.length > 0 && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: m.ticker, items } })); }} title="Click for catalyst headlines" style={{ marginLeft: 4, fontSize: 9, opacity: 0.85, cursor: "pointer" }}>📰</span>}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
-                                      <td title="Today's move vs SPY (live)" style={{ padding: "2px 5px", textAlign: "right", fontWeight: rsDay != null && Math.abs(rsDay) > 2 ? 700 : 400, color: rsDayC }}>{rsDay != null ? `${rsDay > 0 ? "+" : ""}${rsDay.toFixed(2)}%` : "—"}</td>
-                                      <td title="Pace-adjusted relative volume, signed negative on down days" style={{ padding: "2px 5px", textAlign: "right", fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400, color: zvrC }}>{zvr != null ? `${zvr}%` : "—"}</td>
-                                      <td title="Closing range: where price sits in the day's range (100 = at the high)" style={{ padding: "2px 5px", textAlign: "right", fontWeight: cr != null && (cr >= 70 || cr <= 30) ? 700 : 400, color: crC }}>{cr ?? "—"}</td>
-                                      <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
-                                      <td title="Pipeline sizing guide for this EP" style={{ padding: "2px 5px", textAlign: "right", color: m.sizing_guide === "FULL" ? ARIA.green : ARIA.textDim }}>{m.sizing_guide || "—"}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "right", color: (m.rs_rank || 0) >= 88 ? ARIA.green : ARIA.textDim, fontWeight: (m.rs_rank || 0) >= 88 ? 700 : 400 }}>{m.rs_rank ?? "—"}</td>
-                                      <td title={hl} style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textDim, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl || "—"}</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        );
-                      })()
-                    ) : rsTab === "apex" ? (
-                      (() => {
-                        const ev = apexEv;
-                        const liveRet = (t, entryPx) => { const q = liveQuotes?.[t]?.price ?? stockMap?.[t]?.price ?? stockMap?.[t]?.close; return (q && entryPx) ? (q / entryPx - 1) * 100 : null; };
-                        const fmt = (v, d = 1) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
-                        const col = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
-                        const box = { border: `1px solid ${ARIA.border}`, borderRadius: 4, padding: "6px 8px", background: ARIA.bgCard };
-                        const stat = (lbl, o, accent) => (
-                          <div style={{ ...box, flex: 1, minWidth: 120 }}>
-                            <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.4, color: accent || ARIA.textMuted, fontWeight: 800 }}>{lbl}</div>
-                            {o && o.n > 0
-                              ? <div style={{ fontSize: 11, fontWeight: 700, color: ARIA.text, marginTop: 2 }}>{o.winRate}% win · <span style={{ color: col(o.avgRet) }}>{fmt(o.avgRet)}</span> <span style={{ fontSize: 8, color: ARIA.textMuted, fontWeight: 400 }}>n={o.n}</span></div>
-                              : <div style={{ fontSize: 9, color: ARIA.textMuted, marginTop: 3 }}>no closed campaigns yet</div>}
-                          </div>
-                        );
-                        return (
-                          <div style={{ fontFamily: "monospace" }}>
-                            <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
-                              Walk-forward test of the Apex cohort (top-2 RS in top-5 layers). Each night <b style={{ color: ARIA.text }}>apex_tracker</b> tracks every promotion from entry to exit and splits closed returns by whether the name was seen <b style={{ color: ARIA.yellow }}>on-deck</b> before promotion vs a <b style={{ color: ARIA.textDim }}>cold</b> jump. Watchlist evidence — not signals. {ev?.updated ? `Updated ${ev.updated}.` : ""}
-                            </div>
-                            {!ev && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>Loading evidence…</div>}
-                            {ev && (<>
-                              <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "2px 0 4px" }}>Closed campaigns — on-deck vs cold</div>
-                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                                {stat("All closed", ev.closed?.all)}
-                                {stat("↳ From on-deck", ev.closed?.fromOnDeck, ARIA.yellow)}
-                                {stat("↳ Cold jump", ev.closed?.cold, ARIA.textDim)}
-                              </div>
-                              <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "2px 0 4px" }}>Open campaigns ({(ev.open || []).length})</div>
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
-                                <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
-                                  {["Ticker", "Src", "Entered", "Ret", "Off-pk"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 2 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
-                                </tr></thead>
-                                <tbody>
-                                  {(ev.open || []).map((c) => { const lr = liveRet(c.t, stockMap?.[c.t]?.__entryPx) ?? c.ret; return (
-                                    <tr key={c.t} onClick={() => openTicker(c.t)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
-                                      onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                                      <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{c.t}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "right" }}>{c.ondeck ? <span title="Promoted from the on-deck queue" style={{ color: ARIA.yellow, fontWeight: 800, fontSize: 8 }}>⏳</span> : <span title="Cold promotion — not seen on-deck first" style={{ color: ARIA.textDim, fontSize: 8 }}>cold</span>}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textMuted, fontSize: 8 }}>{c.entered || "—"}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: col(c.ret) }}>{fmt(lr)}</td>
-                                      <td style={{ padding: "2px 5px", textAlign: "right", color: col(c.offPeak) }}>{fmt(c.offPeak)}</td>
-                                    </tr>
-                                  ); })}
-                                  {!(ev.open || []).length && <tr><td colSpan={5} style={{ padding: 8, textAlign: "center", color: ARIA.textMuted, fontSize: 9 }}>no open campaigns</td></tr>}
-                                </tbody>
-                              </table>
-                              {(ev.todayOnDeck || []).length > 0 && (<>
-                                <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "10px 0 4px" }}>⏳ On-deck now — promotion queue</div>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                  {ev.todayOnDeck.map((t) => <span key={t} onClick={() => openTicker(t)} title="On-deck: #3 RS in a top-5 layer, or top RS in layers 6-10. Watchlist, not an entry — you're ready the day it promotes." style={{ cursor: "pointer", fontSize: 8, fontWeight: 700, color: ARIA.yellow, border: `1px solid ${ARIA.yellow}55`, background: `${ARIA.yellow}14`, borderRadius: 3, padding: "1px 5px" }}>{t}</span>)}
-                                </div>
-                              </>)}
-                            </>)}
-                          </div>
-                        );
-                      })()
-                    ) : (
-                    <RsTable
-                      key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
-                      initialSort={isLayerLike ? { key: "now", dir: "desc" } : undefined}
-                      rows={stockRows}
-                      sortable onTicker={isStockTab ? openTicker : openTicker} ARIA={ARIA}
-                      rankCol={isStockTab}
-                      heldSet={heldSet} heldByLayer={heldByLayer}
-                      onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
-                      tickerLabel={isLayerLike ? "Theme" : "Ticker"}
-                      getTag={isLayerLike ? ((r) => r.theme || "—") : undefined}
-                      onLayerSelect={rsTab === "layers" ? openLayer : (isTechTab || isExTab) ? ((r) => applyLayer(r, true, true)) : undefined}
-                      activeKey={isLayerLike ? selectedLayerKey : (isStockTab ? null : sym)} />
-                    )}
-                  </div>
-                </>
-              } />
-            );
-          })()}
         </div>
       )}
+      {/* Layer Regime box — always mounted: it portals into the left
+          column above the chart, so it stays readable with Sector Rotation
+          collapsed. Falls back to inline (and hidden when collapsed) if no
+          rail slot exists. */}
+      {(() => {
+        const tabBtn = (key, label, alsoActive = []) => {
+          const active = rsTab === key || alsoActive.includes(rsTab);
+          return (
+            <button onClick={() => setRsTab(key)}
+              style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px", cursor: "pointer",
+                color: active ? ARIA.text : ARIA.textMuted, background: "transparent", border: "none",
+                borderBottom: `2px solid ${active ? ARIA.blue : "transparent"}` }}>{label}</button>
+          );
+        };
+        const layerBtns = (
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 7, color: ARIA.textMuted }}>top layers</span>
+            {[5, 8, 12].map((n) => (
+              <button key={n} onClick={() => { setTopLayers(n); try { localStorage.setItem("tp-funnel-layers", String(n)); } catch {} }}
+                style={{ fontSize: 7, fontWeight: 700, cursor: "pointer", padding: "0 4px", borderRadius: 3, fontFamily: "monospace",
+                  color: topLayers === n ? ARIA.text : ARIA.textMuted, background: topLayers === n ? ARIA.blue + "22" : "transparent", border: `1px solid ${topLayers === n ? ARIA.blue + "66" : ARIA.border}` }}>{n}</button>
+            ))}
+          </span>
+        );
+        const isLeaders = rsTab === "leaders";
+        const isEmerging = rsTab === "emerging";
+        const isCombined = rsTab === "leadersall";
+        const isStockTab = isLeaders || isEmerging || isCombined;
+        // Sub-view pills render INLINE on the tab row (saves a header row).
+        const pill = (k, lbl, n) => (
+          <button key={k} onClick={() => setRsTab(k)}
+            style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 0.3, padding: "1px 6px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace",
+              color: rsTab === k ? ARIA.text : ARIA.textMuted,
+              background: rsTab === k ? ARIA.blue + "22" : "transparent",
+              border: `1px solid ${rsTab === k ? ARIA.blue + "66" : ARIA.border}` }}>
+            {lbl}{n ? <span style={{ opacity: 0.55, fontWeight: 400 }}> {n}</span> : null}
+          </button>
+        );
+        const subPills = isStockTab
+          ? [["leadersall", "◆ All", leaderRows.length + emergingRows.length], ["leaders", "⭐ Leaders", leaderRows.length], ["emerging", "🌱 Emerging", emergingRows.length]]
+          : isLayerLike
+          ? [["layers", "All Layers"], ["tech", "Tech"], ["extech", "Ex-Tech"]]
+          : null;
+        const tabRow = (
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, marginBottom: 2, borderBottom: `1px solid ${ARIA.border}` }}>
+            {tabBtn("layers", "Layers", ["tech", "extech"])}
+            {tabBtn("leadersall", "Leaders", ["leaders", "emerging"])}
+            {tabBtn("inplay", "⚡ In Play")}
+            {tabBtn("sectors", "Sector Leaders")}
+            {tabBtn("industries", "Industries")}
+            {tabBtn("apex", "👑 Apex")}
+            {tabBtn("ercal", "ER Cal")}
+            {subPills && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, paddingLeft: 8, borderLeft: `1px solid ${ARIA.border}` }}>
+                {subPills.map(([k, lbl, n]) => pill(k, lbl, n))}
+              </span>
+            )}
+            {isStockTab ? layerBtns : (rsTab !== "sectors" && rsTab !== "ercal" && <span style={{ fontSize: 7, color: ARIA.textMuted, marginLeft: "auto" }}>sort ↕ · scroll</span>)}
+          </div>
+        );
+        const stockRows = isCombined ? combinedRows : isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
+        return (
+          <IndexRegimeChart hideWhenInline={!open} sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
+            erDetail={erFocus ? { ticker: erFocus, mv: erFocusMover } : null} onErClose={() => setErFocus(null)}
+            holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
+            basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
+            rightPanel={
+            <>
+              {tabRow}
+              {isEmerging && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>breaking into leadership — near 52w high / RS-line high + quality (EIF); ranked by proximity + volume</div>}
+              {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
+              {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
+              <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
+                {rsTab === "ercal" ? (
+                  <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openErTicker} chartTicker={chartTicker} movers={movers} />
+                ) : rsTab === "inplay" ? (
+                  (() => {
+                    const qOrd = { GENUINE: 5, ELITE: 4, EXPLOSIVE: 4, STRONG: 3, DECENT: 2, WEAK: 1 };
+                    const rows2 = movers
+                      .filter((m) => m.in_universe && m.ticker)
+                      .sort((a, b) => (qOrd[b.ep_quality_label] || 0) - (qOrd[a.ep_quality_label] || 0) || Math.abs(b.change_pct || 0) - Math.abs(a.change_pct || 0))
+                      .slice(0, 15);
+                    const qColor = (l) => l === "GENUINE" ? ARIA.yellow : l === "ELITE" || l === "EXPLOSIVE" || l === "STRONG" ? ARIA.green : l === "DECENT" ? ARIA.textDim : ARIA.textMuted;
+                    const srcC = { ER: ARIA.cyan, PM: ARIA.yellow, AH: ARIA.purple };
+                    return (
+                      <div style={{ fontFamily: "monospace" }}>
+                        <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
+                          Today's in-universe movers (earnings + stocks-in-play), quality-scored by the EP pipeline. This is a PREP list — the evidence says stalk (DE), don't chase: gap-day entries backtest at 46% win. {rows2.length} of {movers.length} movers pass the universe gate.
+                        </div>
+                        {rows2.length === 0 && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>No in-universe movers this session.</div>}
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
+                          <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+                            {["Ticker", "Src", "Chg%", "RS Day%", "ZVR", "CR%", "EPQ", "Size", "RS", "Catalyst"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 9 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {rows2.map((m) => {
+                              const items = (m.recent_headlines?.length ? m.recent_headlines : m.headlines?.length ? m.headlines : stockMap?.[m.ticker]?._newsPipe) || [];
+                              const hl = items[0] || "";
+                              // Live metrics — same construction as the layer/leaders tables
+                              const s = stockMap?.[m.ticker] || {}; const q = liveQuotes.get(m.ticker);
+                              const lchg = q?.change ?? s.change_pct ?? m.change_pct ?? null;
+                              const rsDay = lchg != null ? +(lchg - (spyChg ?? 0)).toFixed(2) : null;
+                              let zvr = null; const lv = q?.volume, av = s.avg_volume_raw || q?.avgVolume || 0;
+                              if (lv && av > 0) zvr = Math.round((lv / (av * _elapsed)) * 100);
+                              else if (s.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
+                              if (zvr != null && lchg != null && lchg < 0) zvr = -zvr;
+                              const cr = computeCR(q, s);
+                              const rsDayC = rsDay == null ? ARIA.textMuted : Math.abs(rsDay) > 2 ? (rsDay > 0 ? ARIA.green : ARIA.red) : ARIA.textDim;
+                              const zvrC = zvr == null ? ARIA.textMuted : Math.abs(zvr) >= 200 ? (zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(zvr) >= 130 ? (zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim;
+                              const crC = cr == null ? ARIA.textMuted : cr >= 70 ? ARIA.green : cr <= 30 ? ARIA.red : ARIA.textDim;
+                              return (
+                                <tr key={m.ticker + m._src} onClick={() => openTicker(m.ticker)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                                  <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{m.ticker}{items.length > 0 && <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-news-pop", { detail: { x: e.clientX, y: e.clientY, ticker: m.ticker, items } })); }} title="Click for catalyst headlines" style={{ marginLeft: 4, fontSize: 9, opacity: 0.85, cursor: "pointer" }}>📰</span>}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "right", fontSize: 7, fontWeight: 800, color: srcC[m._src] || ARIA.textDim }}>{m._src}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: Math.abs(m.change_pct || 0) > 2 ? 700 : 400, color: Math.abs(m.change_pct || 0) > 2 ? ((m.change_pct || 0) > 0 ? ARIA.green : ARIA.red) : ARIA.textDim }}>{m.change_pct != null ? `${m.change_pct > 0 ? "+" : ""}${m.change_pct.toFixed(1)}%` : "—"}</td>
+                                  <td title="Today's move vs SPY (live)" style={{ padding: "2px 5px", textAlign: "right", fontWeight: rsDay != null && Math.abs(rsDay) > 2 ? 700 : 400, color: rsDayC }}>{rsDay != null ? `${rsDay > 0 ? "+" : ""}${rsDay.toFixed(2)}%` : "—"}</td>
+                                  <td title="Pace-adjusted relative volume, signed negative on down days" style={{ padding: "2px 5px", textAlign: "right", fontWeight: zvr != null && Math.abs(zvr) >= 130 ? 700 : 400, color: zvrC }}>{zvr != null ? `${zvr}%` : "—"}</td>
+                                  <td title="Closing range: where price sits in the day's range (100 = at the high)" style={{ padding: "2px 5px", textAlign: "right", fontWeight: cr != null && (cr >= 70 || cr <= 30) ? 700 : 400, color: crC }}>{cr ?? "—"}</td>
+                                  <td title="EP quality (pipeline): gap size, volume, base, neglect — which gappers are worth stalking" style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: qColor(m.ep_quality_label) }}>{m.ep_quality_label || "—"}</td>
+                                  <td title="Pipeline sizing guide for this EP" style={{ padding: "2px 5px", textAlign: "right", color: m.sizing_guide === "FULL" ? ARIA.green : ARIA.textDim }}>{m.sizing_guide || "—"}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "right", color: (m.rs_rank || 0) >= 88 ? ARIA.green : ARIA.textDim, fontWeight: (m.rs_rank || 0) >= 88 ? 700 : 400 }}>{m.rs_rank ?? "—"}</td>
+                                  <td title={hl} style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textDim, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hl || "—"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()
+                ) : rsTab === "apex" ? (
+                  (() => {
+                    const ev = apexEv;
+                    const liveRet = (t, entryPx) => { const q = liveQuotes?.[t]?.price ?? stockMap?.[t]?.price ?? stockMap?.[t]?.close; return (q && entryPx) ? (q / entryPx - 1) * 100 : null; };
+                    const fmt = (v, d = 1) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
+                    const col = (v) => v == null ? ARIA.textMuted : v > 0 ? ARIA.green : v < 0 ? ARIA.red : ARIA.textMuted;
+                    const box = { border: `1px solid ${ARIA.border}`, borderRadius: 4, padding: "6px 8px", background: ARIA.bgCard };
+                    const stat = (lbl, o, accent) => (
+                      <div style={{ ...box, flex: 1, minWidth: 120 }}>
+                        <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.4, color: accent || ARIA.textMuted, fontWeight: 800 }}>{lbl}</div>
+                        {o && o.n > 0
+                          ? <div style={{ fontSize: 11, fontWeight: 700, color: ARIA.text, marginTop: 2 }}>{o.winRate}% win · <span style={{ color: col(o.avgRet) }}>{fmt(o.avgRet)}</span> <span style={{ fontSize: 8, color: ARIA.textMuted, fontWeight: 400 }}>n={o.n}</span></div>
+                          : <div style={{ fontSize: 9, color: ARIA.textMuted, marginTop: 3 }}>no closed campaigns yet</div>}
+                      </div>
+                    );
+                    return (
+                      <div style={{ fontFamily: "monospace" }}>
+                        <div style={{ fontSize: 8, color: ARIA.textMuted, marginBottom: 6, lineHeight: 1.5 }}>
+                          Walk-forward test of the Apex cohort (top-2 RS in top-5 layers). Each night <b style={{ color: ARIA.text }}>apex_tracker</b> tracks every promotion from entry to exit and splits closed returns by whether the name was seen <b style={{ color: ARIA.yellow }}>on-deck</b> before promotion vs a <b style={{ color: ARIA.textDim }}>cold</b> jump. Watchlist evidence — not signals. {ev?.updated ? `Updated ${ev.updated}.` : ""}
+                        </div>
+                        {!ev && <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 12, textAlign: "center" }}>Loading evidence…</div>}
+                        {ev && (<>
+                          <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "2px 0 4px" }}>Closed campaigns — on-deck vs cold</div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                            {stat("All closed", ev.closed?.all)}
+                            {stat("↳ From on-deck", ev.closed?.fromOnDeck, ARIA.yellow)}
+                            {stat("↳ Cold jump", ev.closed?.cold, ARIA.textDim)}
+                          </div>
+                          <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "2px 0 4px" }}>Open campaigns ({(ev.open || []).length})</div>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
+                            <thead><tr style={{ borderBottom: `1px solid ${ARIA.border}` }}>
+                              {["Ticker", "Src", "Entered", "Ret", "Off-pk"].map((h, i) => <th key={h} style={{ textAlign: i === 0 || i === 2 ? "left" : "right", padding: "2px 5px", fontSize: 7, textTransform: "uppercase", color: ARIA.textMuted, fontWeight: 700 }}>{h}</th>)}
+                            </tr></thead>
+                            <tbody>
+                              {(ev.open || []).map((c) => { const lr = liveRet(c.t, stockMap?.[c.t]?.__entryPx) ?? c.ret; return (
+                                <tr key={c.t} onClick={() => openTicker(c.t)} style={{ cursor: "pointer", borderBottom: `1px solid ${ARIA.border}` }}
+                                  onMouseEnter={(e) => e.currentTarget.style.background = ARIA.bgHover} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                                  <td style={{ padding: "2px 5px", fontWeight: 700, color: ARIA.text }}>{c.t}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "right" }}>{c.ondeck ? <span title="Promoted from the on-deck queue" style={{ color: ARIA.yellow, fontWeight: 800, fontSize: 8 }}>⏳</span> : <span title="Cold promotion — not seen on-deck first" style={{ color: ARIA.textDim, fontSize: 8 }}>cold</span>}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "left", color: ARIA.textMuted, fontSize: 8 }}>{c.entered || "—"}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "right", fontWeight: 700, color: col(c.ret) }}>{fmt(lr)}</td>
+                                  <td style={{ padding: "2px 5px", textAlign: "right", color: col(c.offPeak) }}>{fmt(c.offPeak)}</td>
+                                </tr>
+                              ); })}
+                              {!(ev.open || []).length && <tr><td colSpan={5} style={{ padding: 8, textAlign: "center", color: ARIA.textMuted, fontSize: 9 }}>no open campaigns</td></tr>}
+                            </tbody>
+                          </table>
+                          {(ev.todayOnDeck || []).length > 0 && (<>
+                            <div style={{ fontSize: 7, textTransform: "uppercase", letterSpacing: 0.5, color: ARIA.textDim, fontWeight: 800, margin: "10px 0 4px" }}>⏳ On-deck now — promotion queue</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {ev.todayOnDeck.map((t) => <span key={t} onClick={() => openTicker(t)} title="On-deck: #3 RS in a top-5 layer, or top RS in layers 6-10. Watchlist, not an entry — you're ready the day it promotes." style={{ cursor: "pointer", fontSize: 8, fontWeight: 700, color: ARIA.yellow, border: `1px solid ${ARIA.yellow}55`, background: `${ARIA.yellow}14`, borderRadius: 3, padding: "1px 5px" }}>{t}</span>)}
+                            </div>
+                          </>)}
+                        </>)}
+                      </div>
+                    );
+                  })()
+                ) : (
+                <RsTable
+                  key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
+                  initialSort={isLayerLike ? { key: "now", dir: "desc" } : undefined}
+                  rows={stockRows}
+                  sortable onTicker={isStockTab ? openTicker : openTicker} ARIA={ARIA}
+                  rankCol={isStockTab}
+                  heldSet={heldSet} heldByLayer={heldByLayer}
+                  onNameLayer={isStockTab ? ((r) => { const lyr = (d.layers || []).find((l) => l.themeId === r.themeId && l.name === r.name); if (lyr) openLayerStay(lyr); }) : undefined}
+                  tickerLabel={isLayerLike ? "Theme" : "Ticker"}
+                  getTag={isLayerLike ? ((r) => r.theme || "—") : undefined}
+                  onLayerSelect={rsTab === "layers" ? openLayer : (isTechTab || isExTab) ? ((r) => applyLayer(r, true, true)) : undefined}
+                  activeKey={isLayerLike ? selectedLayerKey : (isStockTab ? null : sym)} />
+                )}
+              </div>
+            </>
+          } />
+        );
+      })()}
     </div>
   );
 }
