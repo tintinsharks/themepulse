@@ -2294,7 +2294,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const openErTicker = (t) => { openTicker(t); setErFocus(t); };
   // Load a layer (EW basket + constituents). `doChart` charts its lead below;
   // `keepTab` loads the basket but stays on the current subtab (Leaders/Emerging).
-  const applyLayer = (r, doChart, keepTab) => {
+  const applyLayer = (r, doChart, keepTab, skipExpand) => {
     if (!r?.ticker) return;
     setErFocus(null);
     setLayerHolds(r.holds || []);
@@ -2302,7 +2302,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     setSelectedLayerKey(`${r.themeId}|${r.name}`);
     if (!keepTab) setRsTab("layers");
     setSymPersist(r.ticker);
-    boardRef.current?.open();
+    if (!skipExpand) boardRef.current?.open();
     if (doChart) onTickerClick?.(r.ticker);
   };
   // Best mover match for the focused ER ticker (prefer entries carrying er data)
@@ -2312,6 +2312,20 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     (movers || []).forEach((mv) => { if (mv?.ticker === erFocus && (!best || (mv.er && !best.er))) best = mv; });
     return best;
   }, [erFocus, movers]);
+  // Cross-component layer selection: the watch panel's Layer column broadcasts
+  // {themeId, layer} and the box loads it. Doesn't expand the rotation
+  // narrative — the Layer Regime box is visible on its own now.
+  useEffect(() => {
+    const onSelect = (e) => {
+      const { themeId, layer } = e?.detail || {};
+      if (!themeId || !layer) return;
+      const match = (d?.layers || []).find((l) => l.themeId === themeId && l.name === layer);
+      if (match) applyLayer(match, false, true, true);
+    };
+    window.addEventListener("tp-select-layer", onSelect);
+    return () => window.removeEventListener("tp-select-layer", onSelect);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d]);
   const openLayer = (r) => applyLayer(r, true);
   // From Leaders/Emerging: load the layer basket but don't switch to Layers and
   // don't chart a ticker (which would trip reverse-sync) — stay put.
@@ -10360,8 +10374,16 @@ function WatchlistSectionTable({
                     {r.rsRank != null && r.rsRank >= 85 && r.wkRs != null && r.wkRs <= -2 && <span title={`Leader diverging — RS rank ${r.rsRank} but ${r.wkRs > 0 ? "+" : ""}${r.wkRs}% vs SPY THIS week. The rank is trailing; the current tape disagrees.`} style={{ fontSize: 7, lineHeight: "10px", color: "#d9a441" }}>⚠</span>}
                       </span>
                     </td>
-                    <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.chainLayer || r.layer}>
-                      {r.layer || "\u2014"}
+                    <td style={{ ...cell, textAlign: "left", maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}
+                      title={r.layerKey ? `${r.chainLayer} — click to load this layer into the Layer Regime box` : (r.chainLayer || r.layer)}>
+                      {r.layer
+                        ? (r.layerKey ? (
+                            <span onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("tp-select-layer", { detail: r.layerKey })); }}
+                              style={{ color: ARIA.blue, cursor: "pointer" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}>{r.layer}</span>
+                          ) : <span style={{ color: ARIA.textDim }}>{r.layer}</span>)
+                        : <span style={{ color: ARIA.textDim }}>{"\u2014"}</span>}
                     </td>
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
                     <td style={{ ...cell, color: r.rsDay == null || Math.abs(r.rsDay) <= 2 ? ARIA.textDim : r.rsDay > 0 ? ARIA.green : ARIA.red, fontWeight: r.rsDay != null && Math.abs(r.rsDay) > 2 ? 600 : 400 }}>
@@ -10574,6 +10596,8 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
       // row. Full "Chain · Layer" path survives in the cell tooltip.
       const layer = _layerDisp || _chainDisp || "";
       const chainLayer = _chainDisp && _layerDisp ? `${_chainDisp} · ${_layerDisp}` : layer;
+      // Identity for the click-to-load handoff to the Layer Regime box.
+      const layerKey = _tc && _tc.length ? { themeId: _tc[0].themeId, layer: _tc[0].layer } : null;
       const setup = chainSetup({
         rs: eif, rsRank: s.rs_rank, cr, zvr, alpha: rsDay, chg: change, str: strScore,
         erDays: s.earnings_days, off52: s.off_52w_high, d20: s.dist_20dma_atrx, d50: s.dist_50sma_atrx, adr: s.adr_pct,
@@ -10609,6 +10633,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         rsMth,
         layer,
         chainLayer,
+        layerKey,
         zvr,
         cr,
         rvol,
