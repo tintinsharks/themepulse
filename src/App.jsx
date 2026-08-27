@@ -10161,7 +10161,7 @@ function WatchlistSectionTable({
   // Core columns match the Sector Rotation / Scan Watch tables: RS Day% · ZVR · CR% · EIF.
   const headers = [
     { k: "ticker", label: "Ticker", align: "left" },
-    { k: "layer", label: "Chain · Layer", align: "left" },
+    { k: "layer", label: "Layer", align: "left" },
     { k: "change", label: "Chg%" },
     { k: "rsDay", label: "RS Day%" },
     { k: "zvr", label: "ZVR" },
@@ -10360,7 +10360,7 @@ function WatchlistSectionTable({
                     {r.rsRank != null && r.rsRank >= 85 && r.wkRs != null && r.wkRs <= -2 && <span title={`Leader diverging — RS rank ${r.rsRank} but ${r.wkRs > 0 ? "+" : ""}${r.wkRs}% vs SPY THIS week. The rank is trailing; the current tape disagrees.`} style={{ fontSize: 7, lineHeight: "10px", color: "#d9a441" }}>⚠</span>}
                       </span>
                     </td>
-                    <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.layer}>
+                    <td style={{ ...cell, textAlign: "left", color: ARIA.textDim, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }} title={r.chainLayer || r.layer}>
                       {r.layer || "\u2014"}
                     </td>
                     <td style={{ ...cell, color: colorChg(r.change) }}>{fmtChg(r.change)}</td>
@@ -10569,7 +10569,11 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         ? (DRAWER_SUBTHEMES.find((d) => d.themeId === _tc[0].themeId)?.theme ?? _tc[0].themeId)
         : ((s.themes && s.themes[0] && s.themes[0].theme) || s.sector || "");
       const _layerDisp = _tc && _tc.length ? _tc[0].layer : ((s.themes && s.themes[0] && s.themes[0].subtheme) || s.industry || "");
-      const layer = _chainDisp && _layerDisp ? `${_chainDisp} · ${_layerDisp}` : (_layerDisp || _chainDisp || "");
+      // Show the LAYER only, matching the Layer Regime table — the chain prefix
+      // ate most of a 150px column and truncated the part that identifies the
+      // row. Full "Chain · Layer" path survives in the cell tooltip.
+      const layer = _layerDisp || _chainDisp || "";
+      const chainLayer = _chainDisp && _layerDisp ? `${_chainDisp} · ${_layerDisp}` : layer;
       const setup = chainSetup({
         rs: eif, rsRank: s.rs_rank, cr, zvr, alpha: rsDay, chg: change, str: strScore,
         erDays: s.earnings_days, off52: s.off_52w_high, d20: s.dist_20dma_atrx, d50: s.dist_50sma_atrx, adr: s.adr_pct,
@@ -10604,6 +10608,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         rsWk,
         rsMth,
         layer,
+        chainLayer,
         zvr,
         cr,
         rvol,
