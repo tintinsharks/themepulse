@@ -14,7 +14,7 @@
 // Phase 5   — Cutover
 // ════════════════════════════════════════════════════════════════════════════
 
-import React, { useEffect, useState, useMemo, useCallback, useRef, useContext } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef, useContext, useImperativeHandle, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { scrollRowIntoScroller } from "./utils.js";
@@ -2215,12 +2215,32 @@ ${m.catalyst}` : ""} (click to chart)`}
   );
 }
 
+// Collapse state for the rotation board lives HERE, not in RsRotationBoard —
+// toggling used to re-render the whole board, and the Layer Regime box renders
+// from that same subtree, so opening/closing Sector Rotation visibly refreshed
+// it. Keeping `open` in this child means a toggle re-renders only the header
+// and the rotation narrative; the regime box above the chart is untouched.
+// Parent code that needs to expand the board calls boardRef.current.open().
+const RotationCollapse = forwardRef(function RotationCollapse({ renderHeader, body }, ref) {
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("tp-rs-board-open") === "1"; } catch { return false; }
+  });
+  const persist = (n) => { try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; };
+  const toggle = () => setOpen((v) => persist(!v));
+  useImperativeHandle(ref, () => ({ open: () => setOpen(() => persist(true)) }), []);
+  return (<>{renderHeader(open, toggle)}{open && body}</>);
+});
+
 function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, movers = [] }) {
   const ARIA = useAriaTheme();
   const d = useRsRotation();
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem("tp-rs-board-open") === "1"; } catch { return false; }
   });
+  // Collapse state lives in <RotationCollapse>; the parent only holds a handle
+  // to expand it, so toggling never re-renders this component — and the Layer
+  // Regime box it renders is left completely alone.
+  const boardRef = useRef(null);
   // Symbol for the embedded Index Regime chart (was the standalone Breadth Monitor).
   const [sym, setSym] = useState(() => {
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
@@ -2250,12 +2270,11 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
       if (!t) return;
       setLayerHolds(null); setBasketMode(false); setSelectedLayerKey(null);
       setSymPersist(t);
-      setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
+      boardRef.current?.open();
     };
     window.addEventListener("tp-breadth-sym", onSym);
     return () => window.removeEventListener("tp-breadth-sym", onSym);
   }, [setSymPersist]);
-  const toggle = () => setOpen((v) => { const n = !v; try { localStorage.setItem("tp-rs-board-open", n ? "1" : "0"); } catch {} return n; });
   // ER Cal focus — when a calendar chip is clicked, the regime box's left
   // column shows that reporter's MAGNA breakdown until dismissed or until
   // any other navigation replaces it.
@@ -2266,7 +2285,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     setErFocus(null);
     setLayerHolds(null); setBasketMode(false); setSelectedLayerKey(null);
     setSymPersist(t);
-    setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
+    boardRef.current?.open();
     onTickerClick?.(t);
   };
   // ER Cal chip click: chart it AND show the MAGNA breakdown in the left box.
@@ -2281,7 +2300,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     setSelectedLayerKey(`${r.themeId}|${r.name}`);
     if (!keepTab) setRsTab("layers");
     setSymPersist(r.ticker);
-    setOpen(true); try { localStorage.setItem("tp-rs-board-open", "1"); } catch {}
+    boardRef.current?.open();
     if (doChart) onTickerClick?.(r.ticker);
   };
   // Best mover match for the focused ER ticker (prefer entries carrying er data)
@@ -2506,6 +2525,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const liveOn = spyChg != null;
   return (
     <div style={{ background: ARIA.bgRow, borderRadius: 6, border: `1px solid ${ARIA.border}`, marginBottom: 8, fontFamily: "monospace" }}>
+      <RotationCollapse ref={boardRef}
+        renderHeader={(open, toggle) => (
       <div onClick={toggle} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}>
         <span style={{ fontSize: 9, color: ARIA.textMuted }}>{open ? "▾" : "▸"}</span>
         <span style={{ fontSize: 9, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 800 }}>Sector Rotation</span>
@@ -2573,7 +2594,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
           <span>{open ? "" : "click to expand"} · {d.date}</span>
         </span>
       </div>
-      {open && (
+        )}
+        body={(
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
           {/* ── Rotation: OUT → IN strip + rank-trajectory lanes ──
               OUT = high-rank layers whose structure has gone yellow/red (money
@@ -2776,7 +2798,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             );
           })()}
         </div>
-      )}
+        )} />
       {/* Layer Regime box — always mounted: it portals into the left
           column above the chart, so it stays readable with Sector Rotation
           collapsed. Falls back to inline (and hidden when collapsed) if no
@@ -2839,7 +2861,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
         );
         const stockRows = isCombined ? combinedRows : isLeaders ? leaderRows : isEmerging ? emergingRows : activeRows;
         return (
-          <IndexRegimeChart hideWhenInline={!open} sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
+          <IndexRegimeChart sym={sym} setSym={openTicker} onChartTicker={onTickerClick}
             erDetail={erFocus ? { ticker: erFocus, mv: erFocusMover } : null} onErClose={() => setErFocus(null)}
             holdingsOverride={layerHolds} liveQuotes={liveQuotes} zvrMap={zvrMap} stockMap={stockMap} heldTint={heldSet}
             basket={basketMode ? (layerHolds || []).map((h) => h.t) : null} basketLabel={basketLabel}
