@@ -2245,7 +2245,9 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const [sym, setSym] = useState(() => {
     try { return localStorage.getItem("tp-breadth-sym") || "SPY"; } catch { return "SPY"; }
   });
-  const [rsTab, setRsTab] = useState("layers"); // right-panel tab: sectors | industries | layers | leaders
+  // Default view: Leaders · All sorted by ZCR — the combined leaderboard ranked
+  // by volume-effort x closing-result, which is what the box gets opened for.
+  const [rsTab, setRsTab] = useState("leadersall"); // right-panel tab: sectors | industries | layers | leaders
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
   const [basketMode, setBasketMode] = useState(false); // chart = EW basket of layer vs single ticker
@@ -2994,7 +2996,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 ) : (
                 <RsTable
                   key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
-                  initialSort={isLayerLike ? { key: "now", dir: "desc" } : undefined}
+                  initialSort={isLayerLike ? { key: "now", dir: "desc" } : isStockTab ? { key: "zcr", dir: "desc" } : undefined}
                   rows={stockRows}
                   sortable onTicker={isStockTab ? openTicker : openTicker} ARIA={ARIA}
                   rankCol={isStockTab}
