@@ -2000,14 +2000,46 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   // Opens on the most recent sessions; scroll left to walk back the full window.
   const scrollRef = useRef(null);
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
-  // Ordered by NOW rank desc — today's strongest at the top, with the strip
+  // Defaults to NOW rank desc — today's strongest at the top, with the strip
   // beside each showing whether that strength is durable or a first visit.
   // (Persistence stays a tiebreak so equal-rank rows don't jitter daily.)
-  const rows = useMemo(() => (layers || [])
-    .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`))
-    .sort((a, b) => (b.now ?? -1) - (a.now ?? -1) || b.persist - a.persist || b.streak - a.streak), [layers]);
+  const [sort, setSort] = useState({ key: "now", dir: "desc" });
+  const base = useMemo(() => (layers || [])
+    .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`)), [layers]);
+  // Sorted outside the memo: the ZCR percentile moves with live quotes, so a
+  // memo keyed on `layers` alone would serve a stale order all session.
+  const sortVal = (l) => {
+    switch (sort.key) {
+      case "name": return l.name;
+      case "held": return l.persist;
+      case "streak": return l.streak;
+      case "zcr": return zcrRank?.(l)?.pct ?? -1;
+      default: return l.now;
+    }
+  };
+  const rows = [...base].sort((a, b) => {
+    const av = sortVal(a), bv = sortVal(b);
+    if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    const d = (bv ?? -Infinity) - (av ?? -Infinity);
+    // rank and percentile both tie often — durability is the stable tiebreak
+    const tie = (b.persist - a.persist) || (b.streak - a.streak);
+    return (sort.dir === "desc" ? d : -d) || tie;
+  });
+  const hCell = (key, label, w, align, title) => {
+    const on = sort.key === key;
+    return (
+      <span onClick={() => setSort((s) => s.key === key
+          ? { key, dir: s.dir === "desc" ? "asc" : "desc" }
+          : { key, dir: key === "name" ? "asc" : "desc" })}
+        title={`${title} · click to sort`}
+        style={{ width: w, flexShrink: 0, textAlign: align, cursor: "pointer", overflow: "hidden", whiteSpace: "nowrap",
+          color: on ? ARIA.green : ARIA.textMuted }}>
+        {label}{on ? (sort.dir === "desc" ? "▾" : "▴") : ""}
+      </span>
+    );
+  };
   if (!rows.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 10 }}>No leadership history yet — the pipeline builds it over the trailing quarter.</div>;
-  const N = rows[0].leadBits.length;
+  const N = Math.max(...rows.map((r) => r.leadBits.length));
   const CW = 4, H = 9, VIS = 30;
   const W = N * CW;                 // full strip
   const VW = Math.min(N, VIS) * CW;  // visible window: the most recent VIS sessions
@@ -2016,19 +2048,20 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
-        marginBottom: 4, width: 118 + VW + 73, boxSizing: "border-box" }}>
+        marginBottom: 4, width: 118 + VW + 98, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership seats</span>
         <span>~{seatsNow} seats · {rows.length} layers held one</span>
       </div>
-      {/* Column labels — the two numeric columns aren't self-evident: one is
-          how OFTEN it leads, the other whether it's leading RIGHT NOW. */}
+      {/* Column labels — the numeric columns aren't self-evident: one is how
+          OFTEN it leads, one whether it's leading RIGHT NOW, one where today's
+          volume effort ranks. All sortable. */}
       <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
-        <span style={{ width: 118, flexShrink: 0 }}>Layer</span>
-        <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
-        <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
-        <span title="Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Run</span>
-        <span title="Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution. Raw ZCR clusters in a narrow band, so the rank reads more cleanly than the value." style={{ width: 22, flexShrink: 0, textAlign: "right" }}>ZCR%</span>
+        {hCell("name", "Layer", 118, "left", "Sort alphabetically")}
+        {hCell("now", `Last ${VIS} · ← scroll`, VW, "left", "Sort by rank today (the default) — the strip is that leadership over time")}
+        {hCell("held", "Held", 21, "right", "Share of the window spent at rank ≥88 — durability")}
+        {hCell("streak", "Run", 16, "right", "Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)")}
+        {hCell("zcr", "ZCR%", 22, "right", "Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution")}
       </div>
       <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 98, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
