@@ -1885,6 +1885,7 @@ function useTickerSeats() {
 // strip says whether that strength is long-standing or brand new.
 function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
   const VISIBLE = 18, ROW = 11, H = 9, CW = 4, VIS = 30;
+  const [sort, setSort] = useState({ key: "rank", dir: "desc" });
   // Opens on the most recent sessions; scroll left for the full window.
   const scrollRef = useRef(null);
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
@@ -1896,26 +1897,58 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
       </div>
     );
   }
-  const rows = data.rows.slice(0, 60);
+  const base = data.rows.slice(0, 60);
+  // Default stays RS-rank desc (rank isn't its own column — the strip header
+  // sorts it, since the strip IS the leadership history).
+  const sortVal = (r) => {
+    switch (sort.key) {
+      case "ticker": return r.ticker;
+      case "held": return r.persist;
+      case "streak": return r.streak;
+      case "zcr": { const m = metricsOf?.(r.ticker); const v = m ? zcrScore(m.zvr, m.cr) : null; return v == null ? -9999 : v; }
+      default: return r.now;
+    }
+  };
+  const hCell = (key, label, w, align, title) => {
+    const on = sort.key === key;
+    return (
+      <span onClick={() => setSort((s) => s.key === key
+          ? { key, dir: s.dir === "desc" ? "asc" : "desc" }
+          : { key, dir: key === "ticker" ? "asc" : "desc" })}
+        title={`${title} · click to sort`}
+        style={{ width: w, flexShrink: 0, textAlign: align, cursor: "pointer", overflow: "hidden", whiteSpace: "nowrap",
+          color: on ? ARIA.green : ARIA.textMuted }}>
+        {label}{on ? (sort.dir === "desc" ? "▾" : "▴") : ""}
+      </span>
+    );
+  };
+  const rows = [...base].sort((a, b) => {
+    const av = sortVal(a), bv = sortVal(b);
+    if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    const d = (bv ?? -Infinity) - (av ?? -Infinity);
+    // rank ties are common (hundreds share a percentile) — durability breaks them
+    const tie = sort.key === "rank" ? b.persist - a.persist : 0;
+    return (sort.dir === "desc" ? d : -d) || tie;
+  });
   const N = Math.max(...rows.map((r) => r.leadBits.length));
   const W = N * CW;                 // full strip
   const VW = Math.min(N, VIS) * CW; // visible window: the most recent VIS sessions
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
-        marginBottom: 4, width: 48 + VW + 71, boxSizing: "border-box" }}>
+        marginBottom: 4, width: 48 + VW + 80, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Strongest tickers</span>
         <span>{data.seats} at RS ≥{data.lead}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
-        <span style={{ width: 48, flexShrink: 0 }}>Ticker</span>
-        <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
-        <span title="Share of the window at RS ≥ the lead line — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
-        <span title="Consecutive sessions ending today" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Now</span>
-        <span title="ZCR — today's volume effort x closing result (live)" style={{ width: 20, flexShrink: 0, textAlign: "right" }}>ZCR</span>
+        {hCell("ticker", "Ticker", 48, "left", "Sort alphabetically")}
+        {hCell("rank", `Last ${VIS} · ← scroll`, VW, "left", "Sort by RS rank today (the default) — the strip is that leadership over time")}
+        {hCell("held", "Held", 24, "right", "Share of the window at RS ≥ the lead line — durability")}
+        {hCell("streak", "Now", 20, "right", "Consecutive sessions ending today")}
+        {hCell("zcr", "ZCR", 22, "right", "ZCR — today's volume effort x closing result (live)")}
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 71, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 80, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
         {rows.map((r) => {
           const bits = r.leadBits;
           const held = bits[bits.length - 1] === "1";
@@ -1938,10 +1971,10 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
                   : null))}
               </svg>
               <span style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 1 }}>
-                <span style={{ width: 21, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
+                <span style={{ width: 24, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
                   color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
-                <span style={{ width: 16, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
-                <span style={{ width: 20, textAlign: "right", fontSize: 7 }}>
+                <span style={{ width: 20, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
+                <span style={{ width: 22, textAlign: "right", fontSize: 7 }}>
                   {(() => { const m = metricsOf?.(r.ticker); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} ARIA={ARIA} /> : null; })()}
                 </span>
               </span>
