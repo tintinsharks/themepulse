@@ -1801,6 +1801,18 @@ The strip is one bar per session, oldest→newest; filled = leading. A solid blo
   );
 }
 
+// Drug-development layers, excluded from Seats — not traded here. Healthcare
+// SERVICES layers stay (Telemedicine, Diagnostics, Managed Care, Providers,
+// CRO, Devices): those are names actually held, and they lead on their own.
+const SEATS_EXCLUDE = new Set([
+  "health|Biotech Momentum",
+  "health|Biotech",
+  "health|Biotech Leaders",
+  "health|Oncology",
+  "health|GLP-1 / Metabolic",
+  "health|Genomics / Gene Editing",
+]);
+
 // Leadership Seats — the visual answer to "which layers lead, and for how long".
 // Rank >=88 is a PERCENTILE, so there are only ~21 leadership seats at any
 // moment; 59 different layers have occupied one this quarter. Each row is a
@@ -1813,7 +1825,7 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
   // rows tall (the box's default height) and scrolls to the rest.
   const VISIBLE = 18, ROW = 11;  // explicit row height so 18 rows fit exactly
   const rows = useMemo(() => (layers || [])
-    .filter((l) => l.leadBits && l.persist > 0)
+    .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`))
     .sort((a, b) => b.persist - a.persist || b.streak - a.streak), [layers]);
   if (!rows.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 10 }}>No leadership history yet — the pipeline builds it over the trailing quarter.</div>;
   const N = rows[0].leadBits.length;
