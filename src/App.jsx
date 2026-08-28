@@ -1829,6 +1829,39 @@ const SEATS_EXCLUDE = new Set([
   "health|Genomics / Gene Editing",
 ]);
 
+// ── Layer-leader tiers, published by the Layer Regime panel ──────────────
+// The ⭐ Leader / 🌱 Emerging sets are scored inside RsRotationBoard from live
+// quotes + rotation ranks. Rather than recompute (and risk Scan Watch marking
+// a different set than the Leaders tab shows), that component publishes the
+// membership here and everything else subscribes.
+const _leaderTiers = { leaders: new Set(), emerging: new Set(), subs: new Set() };
+function publishLeaderTiers(leaders, emerging) {
+  _leaderTiers.leaders = leaders;
+  _leaderTiers.emerging = emerging;
+  _leaderTiers.subs.forEach((fn) => fn());
+}
+function useLeaderTiers() {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const fn = () => bump((n) => n + 1);
+    _leaderTiers.subs.add(fn);
+    return () => { _leaderTiers.subs.delete(fn); };
+  }, []);
+  return _leaderTiers;
+}
+// The mark itself — one glyph, same meaning everywhere it appears.
+function LeaderMark({ ticker, tiers }) {
+  if (!ticker) return null;
+  const L = tiers.leaders.has(ticker), E = !L && tiers.emerging.has(ticker);
+  if (!L && !E) return null;
+  return (
+    <span title={L
+      ? "⭐ Leader — established name in a top-ranked layer (Layer Regime → Leaders)"
+      : "🌱 Emerging — quality name near a 52w/RS-line high, breaking into leadership (Layer Regime → Leaders)"}
+      style={{ fontSize: 8, lineHeight: "10px", flexShrink: 0 }}>{L ? "⭐" : "🌱"}</span>
+  );
+}
+
 // Leadership Seats — the visual answer to "which layers lead, and for how long".
 // Rank >=88 is a PERCENTILE, so there are only ~21 leadership seats at any
 // moment; 59 different layers have occupied one this quarter. Each row is a
@@ -2500,6 +2533,15 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   const spyRet = useSpyReturns(); // SPY 1w/1m for per-stock relative returns (Leaders tab)
   const qqqRet = useBenchReturns("QQQ"); // Tech tab: convert Wk/Mth columns to vs-QQQ
   const [pfList] = useLocalStorageList("themepulse-portfolio"); // held names → 💼 markers
+  // Leader/Emerging tiers are computed further down (they need rows built from
+  // `d`), but hooks can't live after the guard — so the render assigns into
+  // this ref and a dep-less effect publishes when the membership signature
+  // actually changes.
+  const tierRef = useRef({ sig: "", published: null, leaders: new Set(), emerging: new Set() });
+  useEffect(() => {
+    const t = tierRef.current;
+    if (t.sig !== t.published) { t.published = t.sig; publishLeaderTiers(t.leaders, t.emerging); }
+  });
   if (!d) return null; // all hooks run above this guard
   const spyChg = liveQuotes.get("SPY")?.change;
   const qqqChg = liveQuotes.get("QQQ")?.change;
@@ -2637,21 +2679,22 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
 
   // Leaders: strongest established names in the top-N layers (RS + EIF + near-
   // high + volume). The top-40 also form an exclusion set for Emerging.
+  // NOT gated on the active tab any more: Scan Watch and the Chain table mark
+  // these tickers, so the sets have to exist whichever tab is showing.
   const isLeadersFamily = rsTab === "leaders" || rsTab === "emerging" || rsTab === "leadersall";
-  const leaderPool = isLeadersFamily ? buildStocks(sortedLayers(topLayers)) : [];
+  const leaderPool = buildStocks(sortedLayers(topLayers));
   const leaderTop = leaderPool.map((r) => ({ ...r, _score:
     0.40 * (r.rsRank ?? 0) + 0.30 * (r.eif != null ? clampPct(r.eif / 86 * 100) : 0)
     + 0.20 * (r.off52 != null ? clampPct(100 * (1 - Math.min(40, Math.max(0, -r.off52)) / 40)) : 50)
     + 0.10 * (r.zvr != null ? clampPct(50 + r.zvr / 3) : 50) })).sort((a, b) => b._score - a._score).slice(0, 40);
   const leaderSet = new Set(leaderTop.map((r) => r.ticker));
-  const leaderRows = isLeadersFamily ? leaderTop.map((r, i) => ({ ...r, lead: i + 1, _tier: "L" })) : [];
+  const leaderRows = leaderTop.map((r, i) => ({ ...r, lead: i + 1, _tier: "L" }));
 
   // Emerging: quality names near a 52w high (or RS-line new high) that AREN'T
   // already established leaders. Scans a BROADER pool (top ~36 layers) than
   // Leaders so it surfaces the mid-tier names rotating up — never the same
   // tickers as Leaders. Volume is a score bonus, not a hard gate.
   const emergingRows = (() => {
-    if (!isLeadersFamily) return [];
     const pool = buildStocks(sortedLayers(Math.max(36, topLayers)));
     const cand = pool.filter((r) =>
       !leaderSet.has(r.ticker) &&                                  // not already in Leaders
@@ -2667,6 +2710,10 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     rows.forEach((r, i) => { r.lead = i + 1; r._tier = "E"; });
     return rows.slice(0, 40);
   })();
+  tierRef.current.sig = leaderTop.map((r) => r.ticker).join(",") + "|" + emergingRows.map((r) => r.ticker).join(",");
+  tierRef.current.leaders = new Set(leaderTop.map((r) => r.ticker));
+  tierRef.current.emerging = new Set(emergingRows.map((r) => r.ticker));
+
   // Combined "All" — leaders + emerging as one unified leaderboard (non-overlapping
   // by construction), re-ranked by RS so the strongest float to the top.
   const combinedRows = rsTab === "leadersall"
@@ -6132,6 +6179,7 @@ function guiraoOf(s) {
 function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerClick, chartTicker, posOnly, setPosOnly, scanRows, scanFilters, activeFilterNames, activePresets, activeTags }) {
   // Layer leadership (rank + structural regime) — same source and grammar the
   // watch panel uses, so a leader layer reads identically in both tables.
+  const leaderTiers = useLeaderTiers();
   const rotLayersC = useRsRotation();
   const layerMetaC = useMemo(() => {
     const m = {};
@@ -6794,6 +6842,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 11, height: 11, borderRadius: 2 }} onError={(e) => { e.target.style.display = "none"; }} />
                     {r.ticker}
+                    <LeaderMark ticker={r.ticker} tiers={leaderTiers} />
                     {r.chainOnly && <span title="High-alpha chain ticker (didn't pass scan filters)" style={{ fontSize: 6, fontWeight: 800, color: "#fbbf24", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 2, padding: "0 2px", lineHeight: "10px" }}>α</span>}
                     {r.tt && <span title="2-Days-Tight — last two closes within 1% + narrowing range, above the 50sma. Compression: breakout candidate for tomorrow" style={{ fontSize: 6, fontWeight: 800, color: "#f472b6", border: "1px solid #f472b680", background: "rgba(244,114,182,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>T2</span>}
                     {r.de && <span title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA) — entry = break of ${r.deTrig ?? "recent highs"}${r.deHold ? ` · gap ${r.deHold}` : ""}${r.news ? `\nCatalyst: ${r.news[0]}` : ""}`} style={{ fontSize: 6, fontWeight: 800, color: "#fb923c", border: "1px solid #fb923c80", background: "rgba(251,146,60,0.12)", padding: "0 2px", borderRadius: 2, lineHeight: "10px" }}>DE</span>}
@@ -10257,6 +10306,7 @@ function WatchlistSectionTable({
 }) {
   const ARIA = useAriaTheme();
   const deckSet = useOnDeckSet();
+  const leaderTiers = useLeaderTiers();
   // Layer leadership for the Layer column: rank (level) + structural regime.
   // Deliberately NOT a binary "leader" highlight — 3 of the 21 current leaders
   // are yellow-regime, the "rates 99 while breaking down" case, and one green
@@ -10559,6 +10609,7 @@ function WatchlistSectionTable({
                     <td style={{ ...cell, textAlign: "left", fontWeight: 700, color: ARIA.text }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                         {r.ticker}
+                        <LeaderMark ticker={r.ticker} tiers={leaderTiers} />
                         {r.is9m && (
                           <span
                             title="9M — today's volume ≥ 8.9M but avg < 8.9M"
