@@ -196,8 +196,8 @@
   "entered": "2026-08-24",
   "px": 62.4,
   "layer": "Staffing + HR",
-  "peak": 62.4,
-  "last_seen": "2026-08-24",
+  "peak": 62.6,
+  "last_seen": "2026-08-28",
   "ondeck": true
  },
  "KFRC": {
@@ -205,7 +205,7 @@
   "px": 59.12,
   "layer": "Staffing + HR",
   "peak": 59.12,
-  "last_seen": "2026-08-24",
+  "last_seen": "2026-08-28",
   "ondeck": false
  },
  "DDOG": {
