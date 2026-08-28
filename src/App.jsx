@@ -1993,7 +1993,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
 // Shape is the message: an unbroken bar is a theme that never let go, a comb
 // is one that keeps visiting, a bar that stops is a leader that faded, one
 // that starts late is a new arrival. Sorted so the durable sit on top.
-function LeadershipSeats({ layers, onPick, metricsOf, ARIA }) {
+function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   // Every layer that held a seat is rendered; the list is just windowed to 18
   // rows tall (the box's default height) and scrolls to the rest.
   const VISIBLE = 18, ROW = 11;  // explicit row height so 18 rows fit exactly
@@ -2028,8 +2028,9 @@ function LeadershipSeats({ layers, onPick, metricsOf, ARIA }) {
         <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
         <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
         <span title="Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Run</span>
+        <span title="Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution. Raw ZCR clusters in a narrow band, so the rank reads more cleanly than the value." style={{ width: 22, flexShrink: 0, textAlign: "right" }}>ZCR%</span>
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 73, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 98, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
         const bits = l.leadBits;
         const held = bits[bits.length - 1] === "1";
@@ -2053,9 +2054,15 @@ function LeadershipSeats({ layers, onPick, metricsOf, ARIA }) {
               <span style={{ width: 21, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
                 color: l.persist >= 60 ? ARIA.green : l.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{l.persist}%</span>
               <span style={{ width: 16, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
-              <span style={{ width: 22, textAlign: "right", fontSize: 7 }}>
-                {(() => { const m = metricsOf?.(l); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} ARIA={ARIA} /> : null; })()}
-              </span>
+              {(() => {
+                const e = zcrRank?.(l);
+                if (!e) return <span style={{ width: 22, textAlign: "right", fontSize: 7, color: ARIA.textMuted }}>—</span>;
+                const c = e.pct >= 80 ? ARIA.green : e.pct >= 60 ? "#4ade80" : e.pct <= 20 ? ARIA.red : e.pct <= 40 ? "#f87171" : ARIA.textDim;
+                return (
+                  <span title={`ZCR ${e.z} (ZVR ${e.zvr}% · CR ${e.cr}%) — ${e.pct}th percentile of ${zcrN} layers today`}
+                    style={{ width: 22, textAlign: "right", fontSize: 7, fontWeight: e.pct >= 80 || e.pct <= 20 ? 800 : 400, color: c }}>{e.pct}</span>
+                );
+              })()}
             </span>
           </div>
         );
@@ -2743,6 +2750,36 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     if (q.change != null && q.change < 0) v = -v;
     return v;
   };
+  // ZCR percentile across ALL layers. Raw ZCR clusters in a narrow band on any
+  // given day (-27..+2 is a typical spread), so the absolute number is hard to
+  // read; the percentile says where a layer sits on today's board. Plain const,
+  // not a hook: tickerZvr/computeCR only exist below the `if (!d)` guard, and a
+  // memo up top can't see them (it also can't see liveQuotes — that crashed the
+  // board once already). ~2.6k Map lookups, same order as activeRows.
+  const layerZcrPct = (() => {
+    const byKey = {}, vals = [];
+    (d.layers || []).forEach((l) => {
+      const zs = (l.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
+      const cs = (l.holds || []).map((h) => computeCR(liveQuotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
+      const zvr = zs.length ? Math.round(zs.reduce((a, b) => a + b, 0) / zs.length) : null;
+      const cr = cs.length ? Math.round(cs.reduce((a, b) => a + b, 0) / cs.length) : null;
+      const z = zcrScore(zvr, cr);
+      byKey[`${l.themeId}|${l.name}`] = { z, zvr, cr };
+      if (z != null) vals.push(z);
+    });
+    vals.sort((a, b) => a - b);
+    return {
+      n: vals.length,
+      of: (l) => {
+        const e = byKey[`${l.themeId}|${l.name}`];
+        if (!e || e.z == null || !vals.length) return null;
+        let lo = 0, hi = vals.length;
+        while (lo < hi) { const m = (lo + hi) >> 1; if (vals[m] <= e.z) lo = m + 1; else hi = m; }
+        return { pct: Math.round((lo / vals.length) * 100), ...e };
+      },
+    };
+  })();
+
   // Tech tab: tech-theme layers only, RE-RANKED among themselves (0-100
   // percentile within tech) so leadership INSIDE the sector is visible even
   // when tech broadly sells off. Day% benchmarks vs QQQ (see liveDay).
@@ -2943,17 +2980,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
           {rotTab === "seats" && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "nowrap", overflowX: "auto", overscrollBehavior: "contain" }}>
               <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA}
-                metricsOf={(l) => {
-                  // Average the constituents, exactly as the layers table does.
-                  // NOT liveZvr(): that branches on the active tab, so it would
-                  // take the single-ETF path whenever a stock tab is showing.
-                  const zs = (l.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
-                  const cs = (l.holds || []).map((h) => computeCR(liveQuotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
-                  return {
-                    zvr: zs.length ? Math.round(zs.reduce((a, b) => a + b, 0) / zs.length) : null,
-                    cr: cs.length ? Math.round(cs.reduce((a, b) => a + b, 0) / cs.length) : null,
-                  };
-                }} />
+                zcrRank={layerZcrPct.of} zcrN={layerZcrPct.n} />
               <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA}
                 metricsOf={(t) => ({ zvr: tickerZvr(t), cr: computeCR(liveQuotes.get(t), stockMap?.[t]) })} />
             </div>
