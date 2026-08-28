@@ -1945,7 +1945,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
         {hCell("ticker", "Ticker", 48, "left", "Sort alphabetically")}
         {hCell("rank", `Last ${VIS} · ← scroll`, VW, "left", "Sort by RS rank today (the default) — the strip is that leadership over time")}
         {hCell("held", "Held", 24, "right", "Share of the window at RS ≥ the lead line — durability")}
-        {hCell("streak", "Now", 20, "right", "Consecutive sessions ending today")}
+        {hCell("streak", "Run", 20, "right", "Current run: consecutive sessions ending today with a seat — blank if it isn't holding one now. Not the rank (the layers table's NOW is rank)")}
         {hCell("zcr", "ZCR", 22, "right", "ZCR — today's volume effort x closing result (live)")}
       </div>
       <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 80, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
@@ -2027,7 +2027,7 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
         <span style={{ width: 118, flexShrink: 0 }}>Layer</span>
         <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
         <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
-        <span title="Consecutive sessions at rank ≥88 ending today — blank if it isn't leading now" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Now</span>
+        <span title="Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Run</span>
       </div>
       <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 48, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
