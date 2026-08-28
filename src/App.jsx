@@ -1828,6 +1828,15 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
         <span>{N} sessions · ~{seatsNow} seats at rank ≥88 · {rows.length} layers have held one</span>
         <span style={{ marginLeft: "auto" }}>oldest → today ▸</span>
       </div>
+      {/* Column labels — the two numeric columns aren't self-evident: one is
+          how OFTEN it leads, the other whether it's leading RIGHT NOW. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px",
+        fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
+        <span style={{ width: 118, flexShrink: 0 }}>Layer</span>
+        <span style={{ width: W, flexShrink: 0 }}>Sessions holding a leadership seat</span>
+        <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 26, flexShrink: 0, textAlign: "right" }}>Held</span>
+        <span title="Consecutive sessions at rank ≥88 ending today — blank if it isn't leading now" style={{ width: 22, flexShrink: 0, textAlign: "right" }}>Now</span>
+      </div>
       <div style={{ maxHeight: VISIBLE * ROW, overflowY: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
         const bits = l.leadBits;
