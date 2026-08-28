@@ -455,5 +455,21 @@
   "peak": 57.22,
   "last_seen": "2026-08-25",
   "ondeck": false
+ },
+ "INTA": {
+  "entered": "2026-08-28",
+  "px": 43.47,
+  "layer": "Vertical SaaS",
+  "peak": 43.47,
+  "last_seen": "2026-08-28",
+  "ondeck": false
+ },
+ "PAYC": {
+  "entered": "2026-08-28",
+  "px": 238.53,
+  "layer": "Vertical SaaS",
+  "peak": 238.53,
+  "last_seen": "2026-08-28",
+  "ondeck": false
  }
 }
