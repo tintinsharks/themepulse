@@ -1906,14 +1906,14 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Strongest tickers</span>
         <span>{data.window} sessions · {data.seats} at RS ≥{data.lead} today</span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px",
+      <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         <span style={{ width: 48, flexShrink: 0 }}>Ticker</span>
         <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
-        <span title="Share of the window at RS ≥ the lead line — durability" style={{ width: 26, flexShrink: 0, textAlign: "right" }}>Held</span>
-        <span title="Consecutive sessions ending today" style={{ width: 22, flexShrink: 0, textAlign: "right" }}>Now</span>
+        <span title="Share of the window at RS ≥ the lead line — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
+        <span title="Consecutive sessions ending today" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Now</span>
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 70, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 48, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
         {rows.map((r) => {
           const bits = r.leadBits;
           const held = bits[bits.length - 1] === "1";
@@ -1935,10 +1935,10 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
                   ? <rect key={i} x={i * CW} y="0" width={CW - 0.5} height={H} fill={col} opacity={held ? 1 : 0.55} />
                   : null))}
               </svg>
-              <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 5 }}>
-                <span style={{ width: 26, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
+              <span style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 1 }}>
+                <span style={{ width: 21, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
                   color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
-                <span style={{ width: 22, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
+                <span style={{ width: 16, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
               </span>
             </div>
           );
@@ -1984,14 +1984,14 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
       </div>
       {/* Column labels — the two numeric columns aren't self-evident: one is
           how OFTEN it leads, the other whether it's leading RIGHT NOW. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px",
+      <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         <span style={{ width: 118, flexShrink: 0 }}>Layer</span>
         <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
-        <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 26, flexShrink: 0, textAlign: "right" }}>Held</span>
-        <span title="Consecutive sessions at rank ≥88 ending today — blank if it isn't leading now" style={{ width: 22, flexShrink: 0, textAlign: "right" }}>Now</span>
+        <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
+        <span title="Consecutive sessions at rank ≥88 ending today — blank if it isn't leading now" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Now</span>
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 70, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 48, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
         const bits = l.leadBits;
         const held = bits[bits.length - 1] === "1";
@@ -2011,10 +2011,10 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
                 ? <rect key={i} x={i * CW} y="0" width={CW - 0.5} height={H} fill={col} opacity={held ? 1 : 0.55} />
                 : null))}
             </svg>
-            <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 5 }}>
-              <span style={{ width: 26, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
+            <span style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 1 }}>
+              <span style={{ width: 21, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
                 color: l.persist >= 60 ? ARIA.green : l.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{l.persist}%</span>
-              <span style={{ width: 22, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
+              <span style={{ width: 16, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
             </span>
           </div>
         );
