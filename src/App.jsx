@@ -1862,6 +1862,85 @@ function LeaderMark({ ticker, tiers }) {
   );
 }
 
+// Per-ticker leadership strips (public/data/ticker_seats.json, written by
+// 10d_ticker_seats.py). Module-cached: one fetch shared by every mount.
+let _tkSeatsCache = null, _tkSeatsFetching = false;
+const _tkSeatsSubs = [];
+function useTickerSeats() {
+  const [d, setD] = useState(_tkSeatsCache);
+  useEffect(() => {
+    if (_tkSeatsCache) { setD(_tkSeatsCache); return; }
+    if (_tkSeatsFetching) { _tkSeatsSubs.push(setD); return; }
+    _tkSeatsFetching = true;
+    fetch("/data/ticker_seats.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { _tkSeatsCache = j; setD(j); _tkSeatsSubs.forEach((fn) => fn(j)); _tkSeatsSubs.length = 0; })
+      .catch(() => { _tkSeatsFetching = false; });
+  }, []);
+  return d;
+}
+
+// Same strip, one row per TICKER: a seat is RS rank >= the file's `lead` (top
+// decile). Ordered by today's rank, so the strongest names sit on top and the
+// strip says whether that strength is long-standing or brand new.
+function TickerSeats({ data, onPick, tiers, ARIA }) {
+  const VISIBLE = 18, ROW = 11, H = 9, CW = 4;
+  if (!data?.rows?.length) {
+    return (
+      <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "14px 8px", maxWidth: 240 }}>
+        Ticker seats build on the next full pipeline run — they're backfilled
+        from price history, so the strips arrive fully populated.
+      </div>
+    );
+  }
+  const rows = data.rows.slice(0, 60);
+  const N = Math.max(...rows.map((r) => r.leadBits.length));
+  const W = N * CW;
+  return (
+    <div style={{ fontFamily: "monospace", padding: "2px 4px", minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
+        <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Strongest tickers</span>
+        <span>{data.window} sessions · {data.seats} at RS ≥{data.lead} today</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px",
+        fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
+        <span style={{ width: 48, flexShrink: 0 }}>Ticker</span>
+        <span style={{ width: W, flexShrink: 0 }}>Sessions in the top decile</span>
+        <span title="Share of the window at RS ≥ the lead line — durability" style={{ width: 26, flexShrink: 0, textAlign: "right" }}>Held</span>
+        <span title="Consecutive sessions ending today" style={{ width: 22, flexShrink: 0, textAlign: "right" }}>Now</span>
+      </div>
+      <div style={{ maxHeight: VISIBLE * ROW, overflowY: "auto", overscrollBehavior: "contain" }}>
+        {rows.map((r) => {
+          const bits = r.leadBits;
+          const held = bits[bits.length - 1] === "1";
+          const col = held ? "#16a34a" : ARIA.textMuted;
+          return (
+            <div key={r.ticker} onClick={() => onPick?.(r.ticker)}
+              title={`${r.ticker} — RS rank ${r.now}; held a top-decile seat ${r.persist}% of the last ${bits.length} sessions${r.streak ? `, ${r.streak} in a row now` : ", not today"} (click to chart)`}
+              style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", padding: "0 2px", borderRadius: 2, height: ROW, boxSizing: "border-box" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+              <span style={{ width: 48, flexShrink: 0, display: "flex", alignItems: "center", gap: 2, overflow: "hidden",
+                fontSize: 8, fontWeight: held ? 700 : 400, color: held ? ARIA.text : ARIA.textDim }}>
+                {r.ticker}<LeaderMark ticker={r.ticker} tiers={tiers} />
+              </span>
+              <svg width={W} height={H} style={{ display: "block", flexShrink: 0 }} aria-hidden="true">
+                <rect x="0" y="0" width={W} height={H} fill={ARIA.border} opacity="0.3" rx="1" />
+                {bits.split("").map((b, i) => (b === "1"
+                  ? <rect key={i} x={i * CW} y="0" width={CW - 0.5} height={H} fill={col} opacity={held ? 1 : 0.55} />
+                  : null))}
+              </svg>
+              <span style={{ width: 26, flexShrink: 0, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
+                color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
+              <span style={{ width: 22, flexShrink: 0, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Leadership Seats — the visual answer to "which layers lead, and for how long".
 // Rank >=88 is a PERCENTILE, so there are only ~21 leadership seats at any
 // moment; 59 different layers have occupied one this quarter. Each row is a
@@ -2410,6 +2489,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   // Sector Rotation box view: Seats (durable leadership) is the default read;
   // the rotation narrative is the churn layered on top of it.
   const [rotTab, setRotTab] = useState("seats");
+  const tickerSeats = useTickerSeats();
   const [rsTab, setRsTab] = useState("leadersall"); // right-panel tab: sectors | industries | layers | leaders
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
@@ -2805,7 +2885,12 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                   border: "none", borderBottom: `2px solid ${rotTab === k ? ARIA.blue : "transparent"}` }}>{lbl}</button>
             ))}
           </div>
-          {rotTab === "seats" && <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />}
+          {rotTab === "seats" && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
+              <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
+              <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA} />
+            </div>
+          )}
           {rotTab === "rotation" && (<>
           {/* ── Rotation: OUT → IN strip + rank-trajectory lanes ──
               OUT = high-rank layers whose structure has gone yellow/red (money
