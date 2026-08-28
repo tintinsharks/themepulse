@@ -567,7 +567,15 @@ function computeCR(q, s) {
 // identically to heavy volume closing on the high.
 //   quality  = (CR - 50) / 50         → -1 (closed at low) … +1 (at high)
 //   pressure = min(|ZVR|, 300) / 300  →  0 (quiet) … 1 (3x+ pace)
-//   ZCR      = 100 × quality × pressure
+//   ZCR      = 100 × quality × pressure × recovery
+// `recovery` is the down-day correction. CR is measured inside the day's OWN
+// range, so it knows nothing about the day's net move: PYPL falling 11.8% on
+// 3.5x volume and grinding up off the low prints CR 96 and, without this,
+// scored +92 — top of the board, on the day it was liquidated. A strong close
+// inside a DOWN day is absorption, not accumulation, so it counts a quarter.
+// Deliberately asymmetric: on an up day CR already tells the whole story, and
+// the up-day-closed-at-the-low case (-90) is the failed-gap signature this
+// column exists to catch. Damping that too would defeat the purpose.
 // +100 = closed on the high on 3x+ volume — buyers took it and held it.
 // -100 = closed on the low on 3x+ volume — supply overwhelmed the move.
 // Near 0 = a mid-range close OR a volume-less day: no conviction either way,
@@ -575,7 +583,10 @@ function computeCR(q, s) {
 // floats to the top.
 function zcrScore(zvr, cr) {
   if (zvr == null || cr == null || isNaN(zvr) || isNaN(cr)) return null;
-  return Math.round(100 * ((cr - 50) / 50) * (Math.min(Math.abs(zvr), 300) / 300));
+  const quality = (cr - 50) / 50;
+  const pressure = Math.min(Math.abs(zvr), 300) / 300;
+  const recovery = zvr < 0 && quality > 0 ? 0.25 : 1;
+  return Math.round(100 * quality * pressure * recovery);
 }
 
 // Shared cell renderer so ZCR reads identically in every table.
@@ -584,7 +595,7 @@ function ZcrCell({ zvr, cr, ARIA }) {
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
   const c = v >= 50 ? ARIA.green : v >= 20 ? "#4ade80" : v <= -50 ? ARIA.red : v <= -20 ? "#f87171" : ARIA.textDim;
   return (
-    <span title={`ZCR ${v} — volume effort × closing result (ZVR ${zvr}% · CR ${Math.round(cr)}%). ${v >= 50 ? "Strong accumulation: closed near the high on heavy volume." : v >= 20 ? "Constructive close on above-average volume." : v <= -50 ? "Distribution: closed near the low on heavy volume — the failed-gap signature." : v <= -20 ? "Weak close on active volume." : "No conviction — mid-range close or light volume."}`}
+    <span title={`ZCR ${v} — volume effort × closing result (ZVR ${zvr}% · CR ${Math.round(cr)}%). ${zvr < 0 && cr > 50 ? "Absorption, not accumulation: the day was DOWN and it closed off the low. Scored at a quarter weight — a recovery inside a loss is not buying." : v >= 50 ? "Strong accumulation: closed near the high on heavy volume." : v >= 20 ? "Constructive close on above-average volume." : v <= -50 ? "Distribution: closed near the low on heavy volume — the failed-gap signature." : v <= -20 ? "Weak close on active volume." : "No conviction — mid-range close or light volume."}`}
       style={{ color: c, fontWeight: Math.abs(v) >= 20 ? 700 : 400 }}>{v}</span>
   );
 }
