@@ -1773,6 +1773,34 @@ function useRsRotation() {
 // themes considered "tech" — shared by the Tech / Ex-Tech tabs and the Playbook
 const TECH_THEMES = new Set(["ai", "software", "cyber", "semis", "quantum", "internet", "robotics", "fintech"]);
 
+// Layer persistence — how DURABLE has this layer's leadership been?
+// leadBits is one char per session over the trailing quarter, "1" = rank >= 88
+// (the only level the layer backtest found an edge at). The strip shows the
+// SHAPE of that leadership — a solid block is a theme that never left, a comb
+// is one that keeps visiting — and the % is the same thing as one number.
+// Rank alone can't tell these apart: today's leaders run from 100% down to 5%.
+function PersistCell({ bits, persist, streak, ARIA }) {
+  if (!bits || persist == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
+  const n = bits.length;
+  const W = 54, H = 9;
+  const w = W / n;
+  const col = persist >= 60 ? "#16a34a" : persist >= 30 ? "#d9a441" : ARIA.textMuted;
+  return (
+    <span
+      title={`Leadership persistence: ${persist}% of the last ${n} sessions at rank ≥88${streak ? ` · ${streak}-session streak running now` : " · not leading today"}.
+The strip is one bar per session, oldest→newest; filled = leading. A solid block is a durable theme, a comb is one that keeps visiting. Rank alone can't separate them — layers leading today range from 100% to 5% persistence.`}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+      <svg width={W} height={H} style={{ display: "block", flexShrink: 0 }} aria-hidden="true">
+        <rect x="0" y="0" width={W} height={H} fill={ARIA.border} opacity="0.35" rx="1" />
+        {bits.split("").map((b, i) => (b === "1"
+          ? <rect key={i} x={i * w} y="0" width={Math.max(w, 0.9)} height={H} fill={col} />
+          : null))}
+      </svg>
+      <span style={{ fontSize: 7.5, fontWeight: persist >= 60 ? 800 : 400, color: col, minWidth: 18, textAlign: "right" }}>{persist}%</span>
+    </span>
+  );
+}
+
 function RsRankBox({ v, ARIA }) {
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
   const c = v >= 88 ? "#16a34a" : v <= 12 ? "#b1374a" : ARIA.textMuted;
@@ -1849,7 +1877,8 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
   const coreCols = [["now", "Now"], ["d1", "1D"], ["w1", "1W"], ["m1", "1M"], ["ticker", tickerLabel], ["name", getTag ? "Layer" : "Name"], ["rsDay", "RS Day%"], ["zvr", "ZVR"], ["cr", "CR%"], ["zcr", "ZCR"], ["eif", "EIF"], ["rsWk", "RS Wk%"], ["rsMth", "RS Mth%"], ["rsAcc1", "RS Acc¹"], ["rsRoc2", "RS Acc²"]];
   const withRank = rankCol ? [["lead", rows.some((r) => r._tier) ? "◆" : "#"], ...coreCols, ["setup", "Setup"]] : coreCols;
   const cols = getTag
-    ? withRank.filter(([k]) => k !== "ticker").flatMap((c) => (c[0] === "eif" ? [c, ["b20", "B%"]] : [c]))
+    ? withRank.filter(([k]) => k !== "ticker").flatMap((c) => (
+        c[0] === "zcr" ? [c, ["persist", "Persist"]] : c[0] === "eif" ? [c, ["b20", "B%"]] : [c]))
     : withRank;
   const TITLES = {
     b20: "Layer internals breadth: % of constituents above their own 20-day MA. Rank (NOW) is a trailing-return percentile and lags; internals firm up first — a layer at rank 55 with B% jumping is rising strength before the rank knows it. Hover a cell for near-high % and $vol share shift.",
@@ -1964,6 +1993,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{Math.round(r.cr)}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
+            {getTag && <td style={{ textAlign: "right", padding: "2px 6px", whiteSpace: "nowrap" }}><PersistCell bits={r.leadBits} persist={r.persist} streak={r.streak} ARIA={ARIA} /></td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.eif == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.eif >= 55 ? ARIA.green : ARIA.textDim, fontWeight: r.eif >= 55 ? 700 : 400 }}>{Math.round(r.eif)}</span>}</td>
             {getTag && <td title={`Layer internals: % of constituents above their own 20dma${r.nh15 != null ? ` · ${r.nh15}% within 15% of 52w highs` : ""}${r.dshift != null ? ` · $vol share 5d vs 20d ${r.dshift > 0 ? "+" : ""}${r.dshift}%` : ""} — breadth firms up BEFORE the return-based rank moves`} style={{ textAlign: "right", padding: "2px 6px" }}>{r.b20 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.b20 >= 70 ? ARIA.green : r.b20 <= 30 ? ARIA.red : ARIA.textDim, fontWeight: r.b20 >= 70 || r.b20 <= 30 ? 700 : 400 }}>{r.b20}%</span>}</td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{pctCell(r.rsWk)}</td>
