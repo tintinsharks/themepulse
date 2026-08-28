@@ -1801,6 +1801,59 @@ The strip is one bar per session, oldest→newest; filled = leading. A solid blo
   );
 }
 
+// Leadership Seats — the visual answer to "which layers lead, and for how long".
+// Rank >=88 is a PERCENTILE, so there are only ~21 leadership seats at any
+// moment; 59 different layers have occupied one this quarter. Each row is a
+// layer, each column a session (oldest→newest), filled where it held a seat.
+// Shape is the message: an unbroken bar is a theme that never let go, a comb
+// is one that keeps visiting, a bar that stops is a leader that faded, one
+// that starts late is a new arrival. Sorted so the durable sit on top.
+function LeadershipSeats({ layers, onPick, ARIA }) {
+  const rows = useMemo(() => (layers || [])
+    .filter((l) => l.leadBits && l.persist > 0)
+    .sort((a, b) => b.persist - a.persist || b.streak - a.streak)
+    .slice(0, 60), [layers]);
+  if (!rows.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 10 }}>No leadership history yet — the pipeline builds it over the trailing quarter.</div>;
+  const N = rows[0].leadBits.length;
+  const CW = 4, H = 9;
+  const W = N * CW;
+  const seatsNow = (layers || []).filter((l) => (l.now ?? 0) >= 88).length;
+  const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
+  return (
+    <div style={{ fontFamily: "monospace", padding: "2px 4px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
+        <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership seats</span>
+        <span>{N} sessions · ~{seatsNow} seats at rank ≥88 · {rows.length} layers have held one</span>
+        <span style={{ marginLeft: "auto" }}>oldest → today ▸</span>
+      </div>
+      {rows.map((l) => {
+        const bits = l.leadBits;
+        const held = bits[bits.length - 1] === "1";
+        const col = held ? (RC[l.regime] || "#16a34a") : ARIA.textMuted;
+        return (
+          <div key={`${l.themeId}|${l.name}`} onClick={() => onPick?.(l, false, true, true)}
+            title={`${l.theme} · ${l.name} — held a leadership seat ${l.persist}% of the last ${N} sessions${l.streak ? `, ${l.streak} in a row right now` : ", not holding one today"} · rank ${l.now}, structure ${l.regime || "—"} (click to load)`}
+            style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", padding: "0.5px 2px", borderRadius: 2 }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+            <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              fontSize: 8, fontWeight: held ? 700 : 400, color: held ? ARIA.text : ARIA.textDim }}>{l.name}</span>
+            <svg width={W} height={H} style={{ display: "block", flexShrink: 0 }} aria-hidden="true">
+              <rect x="0" y="0" width={W} height={H} fill={ARIA.border} opacity="0.3" rx="1" />
+              {bits.split("").map((b, i) => (b === "1"
+                ? <rect key={i} x={i * CW} y="0" width={CW - 0.5} height={H} fill={col} opacity={held ? 1 : 0.55} />
+                : null))}
+            </svg>
+            <span style={{ width: 26, flexShrink: 0, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
+              color: l.persist >= 60 ? ARIA.green : l.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{l.persist}%</span>
+            <span style={{ width: 22, flexShrink: 0, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RsRankBox({ v, ARIA }) {
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
   const c = v >= 88 ? "#16a34a" : v <= 12 ? "#b1374a" : ARIA.textMuted;
@@ -2901,6 +2954,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             {tabBtn("industries", "Industries")}
             {tabBtn("apex", "👑 Apex")}
             {tabBtn("ercal", "ER Cal")}
+            {tabBtn("seats", "⏱ Seats")}
             {subPills && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, paddingLeft: 8, borderLeft: `1px solid ${ARIA.border}` }}>
                 {subPills.map(([k, lbl, n]) => pill(k, lbl, n))}
@@ -2922,7 +2976,9 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
               {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
               <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
-                {rsTab === "ercal" ? (
+                {rsTab === "seats" ? (
+                  <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
+                ) : rsTab === "ercal" ? (
                   <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openErTicker} chartTicker={chartTicker} movers={movers} />
                 ) : rsTab === "inplay" ? (
                   (() => {
