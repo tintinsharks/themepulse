@@ -1809,10 +1809,14 @@ The strip is one bar per session, oldest→newest; filled = leading. A solid blo
 // is one that keeps visiting, a bar that stops is a leader that faded, one
 // that starts late is a new arrival. Sorted so the durable sit on top.
 function LeadershipSeats({ layers, onPick, ARIA }) {
-  const rows = useMemo(() => (layers || [])
+  // Top 18 only — that's the box's natural height, and past the top ~18 the
+  // rows are layers that held a seat for a handful of sessions, which is noise
+  // for "who leads". The header still reports how many held one at all.
+  const SHOW = 18;
+  const all = useMemo(() => (layers || [])
     .filter((l) => l.leadBits && l.persist > 0)
-    .sort((a, b) => b.persist - a.persist || b.streak - a.streak)
-    .slice(0, 60), [layers]);
+    .sort((a, b) => b.persist - a.persist || b.streak - a.streak), [layers]);
+  const rows = all.slice(0, SHOW);
   if (!rows.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 10 }}>No leadership history yet — the pipeline builds it over the trailing quarter.</div>;
   const N = rows[0].leadBits.length;
   const CW = 4, H = 9;
@@ -1823,7 +1827,7 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
     <div style={{ fontFamily: "monospace", padding: "2px 4px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership seats</span>
-        <span>{N} sessions · ~{seatsNow} seats at rank ≥88 · {rows.length} layers have held one</span>
+        <span>{N} sessions · ~{seatsNow} seats at rank ≥88 · top {rows.length} of {all.length} that held one</span>
         <span style={{ marginLeft: "auto" }}>oldest → today ▸</span>
       </div>
       {rows.map((l) => {
