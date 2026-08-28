@@ -2886,7 +2886,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             ))}
           </div>
           {rotTab === "seats" && (
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "nowrap", overflowX: "auto", overscrollBehavior: "contain" }}>
               <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
               <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA} />
             </div>
