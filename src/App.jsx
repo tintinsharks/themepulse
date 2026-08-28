@@ -1119,6 +1119,16 @@ function IndexRegimeChart({ hideWhenInline, sym, setSym, rightPanel, rightRail, 
   const deckSet = useOnDeckSet();
   const railEl = useContext(LayerRailContext);
   const inRail = !!railEl;
+  // Collapsible like the other boxes — click the header bar to fold the body
+  // down to just the title line. Persisted. Clicks on interactive children
+  // (buttons, links) don't toggle.
+  const [boxOpen, setBoxOpen] = useState(() => {
+    try { return localStorage.getItem("tp-regime-collapsed") !== "1"; } catch { return true; }
+  });
+  const toggleBox = (e) => {
+    if (e.target.closest("button, a, input, [data-no-collapse]")) return;
+    setBoxOpen((v) => { const n = !v; try { localStorage.setItem("tp-regime-collapsed", n ? "0" : "1"); } catch {} return n; });
+  };
   const ARIA = useAriaTheme();
   const [holdings, setHoldings] = useState(null); // { sym, list: [{ticker, weight, name}] }
   const [hSort, setHSort] = useState({ key: "rs", dir: "desc" }); // layer-constituents panel sort (default RS desc)
@@ -1192,7 +1202,9 @@ function IndexRegimeChart({ hideWhenInline, sym, setSym, rightPanel, rightRail, 
   // they portal into it (above the chart) so the rotation table and Scan
   // Watch can share the right column; otherwise they render inline as before.
   const headerBar = (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", borderBottom: `1px solid ${ARIA.border}` }}>
+      <div onClick={toggleBox} title={boxOpen ? "Click to collapse" : "Click to expand"}
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 8px", cursor: "pointer", userSelect: "none", borderBottom: boxOpen ? `1px solid ${ARIA.border}` : "none" }}>
+        <span style={{ fontSize: 8, color: ARIA.textMuted }}>{boxOpen ? "▾" : "▸"}</span>
         <span style={{ width: 3, height: 11, background: ARIA.blue, borderRadius: 2 }} />
         <span style={{ fontSize: 8, fontWeight: 700, color: ARIA.text, textTransform: "uppercase", letterSpacing: 0.4 }}>{isBasket ? "Layer Regime" : "Index Regime"}</span>
         {isBasket ? (
@@ -1307,6 +1319,7 @@ function IndexRegimeChart({ hideWhenInline, sym, setSym, rightPanel, rightRail, 
   const box = (
     <div style={{ border: `1px solid ${ARIA.border}`, borderRadius: 5, fontFamily: "monospace", ...(inRail ? { marginBottom: 8 } : null) }}>
       {headerBar}
+      {boxOpen && (
       <div style={{ padding: "6px 8px", display: "flex", gap: 10, alignItems: "stretch", flexWrap: "wrap" }}>
         {/* Left: ETF top-10 by weight, OR layer constituents (RS + live Chg/ZVR/CR).
             Same width in both modes (no jump when switching layer basket ↔
@@ -1330,13 +1343,16 @@ function IndexRegimeChart({ hideWhenInline, sym, setSym, rightPanel, rightRail, 
           </div>
         )}
       </div>
+      )}
       {/* Drag handle — resize the chart vertically; height persists across sessions */}
+      {boxOpen && (
       <div onMouseDown={startResize} title="Drag to resize panel height"
         style={{ height: 8, cursor: "ns-resize", display: "flex", alignItems: "center", justifyContent: "center", userSelect: "none" }}
         onMouseEnter={(e) => (e.currentTarget.firstChild.style.background = ARIA.textMuted)}
         onMouseLeave={(e) => (e.currentTarget.firstChild.style.background = ARIA.border)}>
         <div style={{ width: 44, height: 3, borderRadius: 2, background: ARIA.border }} />
       </div>
+      )}
     </div>
   );
   return inRail ? createPortal(box, railEl) : box;
