@@ -1884,7 +1884,10 @@ function useTickerSeats() {
 // decile). Ordered by today's rank, so the strongest names sit on top and the
 // strip says whether that strength is long-standing or brand new.
 function TickerSeats({ data, onPick, tiers, ARIA }) {
-  const VISIBLE = 18, ROW = 11, H = 9, CW = 4;
+  const VISIBLE = 18, ROW = 11, H = 9, CW = 4, VIS = 30;
+  // Opens on the most recent sessions; scroll left for the full window.
+  const scrollRef = useRef(null);
+  useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
   if (!data?.rows?.length) {
     return (
       <div style={{ fontSize: 8, color: ARIA.textMuted, padding: "14px 8px", maxWidth: 240 }}>
@@ -1895,7 +1898,8 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
   }
   const rows = data.rows.slice(0, 60);
   const N = Math.max(...rows.map((r) => r.leadBits.length));
-  const W = N * CW;
+  const W = N * CW;                 // full strip
+  const VW = Math.min(N, VIS) * CW; // visible window: the most recent VIS sessions
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
@@ -1905,11 +1909,11 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
       <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         <span style={{ width: 48, flexShrink: 0 }}>Ticker</span>
-        <span style={{ width: W, flexShrink: 0 }}>Sessions in the top decile</span>
+        <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
         <span title="Share of the window at RS ≥ the lead line — durability" style={{ width: 26, flexShrink: 0, textAlign: "right" }}>Held</span>
         <span title="Consecutive sessions ending today" style={{ width: 22, flexShrink: 0, textAlign: "right" }}>Now</span>
       </div>
-      <div style={{ maxHeight: VISIBLE * ROW, overflowY: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 70, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
         {rows.map((r) => {
           const bits = r.leadBits;
           const held = bits[bits.length - 1] === "1";
@@ -1917,10 +1921,11 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
           return (
             <div key={r.ticker} onClick={() => onPick?.(r.ticker)}
               title={`${r.ticker} — RS rank ${r.now}; held a top-decile seat ${r.persist}% of the last ${bits.length} sessions${r.streak ? `, ${r.streak} in a row now` : ", not today"} (click to chart)`}
-              style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", padding: "0 2px", borderRadius: 2, height: ROW, boxSizing: "border-box" }}
+              style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", padding: "0 2px", borderRadius: 2, height: ROW, boxSizing: "border-box", width: "max-content" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
               <span style={{ width: 48, flexShrink: 0, display: "flex", alignItems: "center", gap: 2, overflow: "hidden",
+                position: "sticky", left: 0, zIndex: 1, background: ARIA.bgRow,
                 fontSize: 8, fontWeight: held ? 700 : 400, color: held ? ARIA.text : ARIA.textDim }}>
                 {r.ticker}<LeaderMark ticker={r.ticker} tiers={tiers} />
               </span>
@@ -1930,9 +1935,11 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
                   ? <rect key={i} x={i * CW} y="0" width={CW - 0.5} height={H} fill={col} opacity={held ? 1 : 0.55} />
                   : null))}
               </svg>
-              <span style={{ width: 26, flexShrink: 0, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
-                color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
-              <span style={{ width: 22, flexShrink: 0, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 5 }}>
+                <span style={{ width: 26, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
+                  color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
+                <span style={{ width: 22, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
+              </span>
             </div>
           );
         })}
@@ -1952,6 +1959,9 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
   // Every layer that held a seat is rendered; the list is just windowed to 18
   // rows tall (the box's default height) and scrolls to the rest.
   const VISIBLE = 18, ROW = 11;  // explicit row height so 18 rows fit exactly
+  // Opens on the most recent sessions; scroll left to walk back the full window.
+  const scrollRef = useRef(null);
+  useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
   // Ordered by NOW rank desc — today's strongest at the top, with the strip
   // beside each showing whether that strength is durable or a first visit.
   // (Persistence stays a tiebreak so equal-rank rows don't jitter daily.)
@@ -1960,8 +1970,9 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
     .sort((a, b) => (b.now ?? -1) - (a.now ?? -1) || b.persist - a.persist || b.streak - a.streak), [layers]);
   if (!rows.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 10 }}>No leadership history yet — the pipeline builds it over the trailing quarter.</div>;
   const N = rows[0].leadBits.length;
-  const CW = 4, H = 9;
-  const W = N * CW;
+  const CW = 4, H = 9, VIS = 30;
+  const W = N * CW;                 // full strip
+  const VW = Math.min(N, VIS) * CW;  // visible window: the most recent VIS sessions
   const seatsNow = (layers || []).filter((l) => (l.now ?? 0) >= 88).length;
   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
   return (
@@ -1976,11 +1987,11 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
       <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         <span style={{ width: 118, flexShrink: 0 }}>Layer</span>
-        <span style={{ width: W, flexShrink: 0 }}>Sessions holding a leadership seat</span>
+        <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
         <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 26, flexShrink: 0, textAlign: "right" }}>Held</span>
         <span title="Consecutive sessions at rank ≥88 ending today — blank if it isn't leading now" style={{ width: 22, flexShrink: 0, textAlign: "right" }}>Now</span>
       </div>
-      <div style={{ maxHeight: VISIBLE * ROW, overflowY: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 70, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
         const bits = l.leadBits;
         const held = bits[bits.length - 1] === "1";
@@ -1988,10 +1999,11 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
         return (
           <div key={`${l.themeId}|${l.name}`} onClick={() => onPick?.(l, false, true, true)}
             title={`${l.theme} · ${l.name} — held a leadership seat ${l.persist}% of the last ${N} sessions${l.streak ? `, ${l.streak} in a row right now` : ", not holding one today"} · rank ${l.now}, structure ${l.regime || "—"} (click to load)`}
-            style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", padding: "0 2px", borderRadius: 2, height: ROW, boxSizing: "border-box" }}
+            style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", padding: "0 2px", borderRadius: 2, height: ROW, boxSizing: "border-box", width: "max-content" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
             <span style={{ width: 118, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              position: "sticky", left: 0, zIndex: 1, background: ARIA.bgRow,
               fontSize: 8, fontWeight: held ? 700 : 400, color: held ? ARIA.text : ARIA.textDim }}>{l.name}</span>
             <svg width={W} height={H} style={{ display: "block", flexShrink: 0 }} aria-hidden="true">
               <rect x="0" y="0" width={W} height={H} fill={ARIA.border} opacity="0.3" rx="1" />
@@ -1999,9 +2011,11 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
                 ? <rect key={i} x={i * CW} y="0" width={CW - 0.5} height={H} fill={col} opacity={held ? 1 : 0.55} />
                 : null))}
             </svg>
-            <span style={{ width: 26, flexShrink: 0, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
-              color: l.persist >= 60 ? ARIA.green : l.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{l.persist}%</span>
-            <span style={{ width: 22, flexShrink: 0, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, position: "sticky", right: 0, zIndex: 1, background: ARIA.bgRow, paddingLeft: 5 }}>
+              <span style={{ width: 26, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
+                color: l.persist >= 60 ? ARIA.green : l.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{l.persist}%</span>
+              <span style={{ width: 22, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
+            </span>
           </div>
         );
       })}
