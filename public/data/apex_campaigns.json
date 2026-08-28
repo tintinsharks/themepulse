@@ -312,7 +312,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 185.62,
+  "peak": 189.4,
   "last_seen": "2026-08-28",
   "ondeck": false
  },
@@ -427,7 +427,7 @@
   "px": 61.4,
   "layer": "Telemedicine / Health IT",
   "peak": 65.12,
-  "last_seen": "2026-08-27",
+  "last_seen": "2026-08-28",
   "ondeck": true
  },
  "HTFL": {
@@ -435,7 +435,7 @@
   "px": 46.0,
   "layer": "Telemedicine / Health IT",
   "peak": 50.52,
-  "last_seen": "2026-08-27",
+  "last_seen": "2026-08-28",
   "ondeck": false
  },
  "PSNL": {
