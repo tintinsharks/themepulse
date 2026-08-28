@@ -1840,9 +1840,12 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
   // Every layer that held a seat is rendered; the list is just windowed to 18
   // rows tall (the box's default height) and scrolls to the rest.
   const VISIBLE = 18, ROW = 11;  // explicit row height so 18 rows fit exactly
+  // Ordered by NOW rank desc — today's strongest at the top, with the strip
+  // beside each showing whether that strength is durable or a first visit.
+  // (Persistence stays a tiebreak so equal-rank rows don't jitter daily.)
   const rows = useMemo(() => (layers || [])
     .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`))
-    .sort((a, b) => b.persist - a.persist || b.streak - a.streak), [layers]);
+    .sort((a, b) => (b.now ?? -1) - (a.now ?? -1) || b.persist - a.persist || b.streak - a.streak), [layers]);
   if (!rows.length) return <div style={{ fontSize: 9, color: ARIA.textMuted, padding: 10 }}>No leadership history yet — the pipeline builds it over the trailing quarter.</div>;
   const N = rows[0].leadBits.length;
   const CW = 4, H = 9;
