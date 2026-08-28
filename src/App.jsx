@@ -1993,7 +1993,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
 // Shape is the message: an unbroken bar is a theme that never let go, a comb
 // is one that keeps visiting, a bar that stops is a leader that faded, one
 // that starts late is a new arrival. Sorted so the durable sit on top.
-function LeadershipSeats({ layers, onPick, ARIA }) {
+function LeadershipSeats({ layers, onPick, metricsOf, ARIA }) {
   // Every layer that held a seat is rendered; the list is just windowed to 18
   // rows tall (the box's default height) and scrolls to the rest.
   const VISIBLE = 18, ROW = 11;  // explicit row height so 18 rows fit exactly
@@ -2016,7 +2016,7 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
-        marginBottom: 4, width: 118 + VW + 48, boxSizing: "border-box" }}>
+        marginBottom: 4, width: 118 + VW + 73, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership seats</span>
         <span>~{seatsNow} seats · {rows.length} layers held one</span>
       </div>
@@ -2029,7 +2029,7 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
         <span title="Share of the window spent at rank ≥88 — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
         <span title="Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Run</span>
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 48, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 73, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
         const bits = l.leadBits;
         const held = bits[bits.length - 1] === "1";
@@ -2053,6 +2053,9 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
               <span style={{ width: 21, textAlign: "right", fontSize: 7.5, fontWeight: l.persist >= 60 ? 800 : 400,
                 color: l.persist >= 60 ? ARIA.green : l.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{l.persist}%</span>
               <span style={{ width: 16, textAlign: "right", fontSize: 7, color: l.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{l.streak || ""}</span>
+              <span style={{ width: 22, textAlign: "right", fontSize: 7 }}>
+                {(() => { const m = metricsOf?.(l); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} ARIA={ARIA} /> : null; })()}
+              </span>
             </span>
           </div>
         );
@@ -2939,7 +2942,18 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
           </div>
           {rotTab === "seats" && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "nowrap", overflowX: "auto", overscrollBehavior: "contain" }}>
-              <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
+              <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA}
+                metricsOf={(l) => {
+                  // Average the constituents, exactly as the layers table does.
+                  // NOT liveZvr(): that branches on the active tab, so it would
+                  // take the single-ETF path whenever a stock tab is showing.
+                  const zs = (l.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
+                  const cs = (l.holds || []).map((h) => computeCR(liveQuotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
+                  return {
+                    zvr: zs.length ? Math.round(zs.reduce((a, b) => a + b, 0) / zs.length) : null,
+                    cr: cs.length ? Math.round(cs.reduce((a, b) => a + b, 0) / cs.length) : null,
+                  };
+                }} />
               <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA}
                 metricsOf={(t) => ({ zvr: tickerZvr(t), cr: computeCR(liveQuotes.get(t), stockMap?.[t]) })} />
             </div>
