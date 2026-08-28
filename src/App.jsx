@@ -1881,11 +1881,14 @@ function useTickerSeats() {
 }
 
 // Same strip, one row per TICKER: a seat is RS rank >= the file's `lead` (top
-// decile). Ordered by today's rank, so the strongest names sit on top and the
-// strip says whether that strength is long-standing or brand new.
+// decile). Ordered by ZCR desc, so today's heaviest accumulation sits on top
+// and the strip says whether that strength is long-standing or brand new.
 function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
   const VISIBLE = 18, ROW = 11, H = 9, CW = 4, VIS = 30;
-  const [sort, setSort] = useState({ key: "rank", dir: "desc" });
+  // ZCR desc is the default across ThemePulse — the question these panels get
+  // asked first is where today's effort is going, and rank is already implied
+  // by which names have seats at all. Rank stays one click away on the strip.
+  const [sort, setSort] = useState({ key: "zcr", dir: "desc" });
   // Opens on the most recent sessions; scroll left for the full window.
   const scrollRef = useRef(null);
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
@@ -1898,8 +1901,8 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
     );
   }
   const base = data.rows.slice(0, 60);
-  // Default stays RS-rank desc (rank isn't its own column — the strip header
-  // sorts it, since the strip IS the leadership history).
+  // Rank isn't its own column — the strip header sorts it, since the strip IS
+  // the leadership history.
   const sortVal = (r) => {
     switch (sort.key) {
       case "ticker": return r.ticker;
@@ -1930,8 +1933,8 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
     const av = sortVal(a), bv = sortVal(b);
     if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
     const d = (bv ?? -Infinity) - (av ?? -Infinity);
-    // rank ties are common (hundreds share a percentile) — durability breaks them
-    const tie = sort.key === "rank" ? b.persist - a.persist : 0;
+    // rank and ZCR both tie often — durability breaks them so rows don't jitter
+    const tie = sort.key === "rank" || sort.key === "zcr" ? b.persist - a.persist : 0;
     return (sort.dir === "desc" ? d : -d) || tie;
   });
   const N = Math.max(...rows.map((r) => r.leadBits.length));
@@ -2004,10 +2007,12 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   // Opens on the most recent sessions; scroll left to walk back the full window.
   const scrollRef = useRef(null);
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
-  // Defaults to NOW rank desc — today's strongest at the top, with the strip
-  // beside each showing whether that strength is durable or a first visit.
-  // (Persistence stays a tiebreak so equal-rank rows don't jitter daily.)
-  const [sort, setSort] = useState({ key: "now", dir: "desc" });
+  // Defaults to ZCR percentile desc, matching the ticker panel and the rest of
+  // ThemePulse: the layers being accumulated hardest today sit on top, and the
+  // strip beside each says whether that is durable or a first visit. Rank is a
+  // click away on the strip header. (Persistence stays a tiebreak so tied rows
+  // don't jitter on every quote tick.)
+  const [sort, setSort] = useState({ key: "zcr", dir: "desc" });
   const base = useMemo(() => (layers || [])
     .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`)), [layers]);
   // Sorted outside the memo: the ZCR percentile moves with live quotes, so a
