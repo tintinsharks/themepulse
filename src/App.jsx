@@ -1917,6 +1917,10 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
           : { key, dir: key === "ticker" ? "asc" : "desc" })}
         title={`${title} · click to sort`}
         style={{ width: w, flexShrink: 0, textAlign: align, cursor: "pointer", overflow: "hidden", whiteSpace: "nowrap",
+          // 6.5px type gives a 22x8 hit target — too small to hit reliably.
+          // Pad the box vertically and pull it back with a negative margin so
+          // the click area grows without moving the label or the row height.
+          padding: "5px 0", margin: "-5px 0", lineHeight: 1,
           color: on ? ARIA.green : ARIA.textMuted }}>
         {label}{on ? (sort.dir === "desc" ? "▾" : "▴") : ""}
       </span>
@@ -2033,6 +2037,10 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
           : { key, dir: key === "name" ? "asc" : "desc" })}
         title={`${title} · click to sort`}
         style={{ width: w, flexShrink: 0, textAlign: align, cursor: "pointer", overflow: "hidden", whiteSpace: "nowrap",
+          // 6.5px type gives a 22x8 hit target — too small to hit reliably.
+          // Pad the box vertically and pull it back with a negative margin so
+          // the click area grows without moving the label or the row height.
+          padding: "5px 0", margin: "-5px 0", lineHeight: 1,
           color: on ? ARIA.green : ARIA.textMuted }}>
         {label}{on ? (sort.dir === "desc" ? "▾" : "▴") : ""}
       </span>
@@ -2055,13 +2063,21 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
       {/* Column labels — the numeric columns aren't self-evident: one is how
           OFTEN it leads, one whether it's leading RIGHT NOW, one where today's
           volume effort ranks. All sortable. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
+      {/* Mirrors the ROW's geometry, not its own: the rows' numeric tail is
+          sticky to the right edge of the scroll box, so a header laid out on
+          plain widths lands ~27px to its left and every label points at the
+          wrong column. Same total width + `marginLeft: auto` on the tail puts
+          each label over the numbers it names, which is also what makes the
+          sort targets hittable. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px", width: 118 + VW + 98, boxSizing: "border-box",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         {hCell("name", "Layer", 118, "left", "Sort alphabetically")}
         {hCell("now", `Last ${VIS} · ← scroll`, VW, "left", "Sort by rank today (the default) — the strip is that leadership over time")}
-        {hCell("held", "Held", 21, "right", "Share of the window spent at rank ≥88 — durability")}
-        {hCell("streak", "Run", 16, "right", "Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)")}
-        {hCell("zcr", "ZCR%", 22, "right", "Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution")}
+        <span style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto", paddingLeft: 1 }}>
+          {hCell("held", "Held", 21, "right", "Share of the window spent at rank ≥88 — durability")}
+          {hCell("streak", "Run", 16, "right", "Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)")}
+          {hCell("zcr", "ZCR%", 22, "right", "Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution")}
+        </span>
       </div>
       <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 98, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
