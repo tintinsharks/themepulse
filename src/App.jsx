@@ -163,7 +163,7 @@ const DEFAULT_FILTERS = {
   chgMode: "chg",      // "open" or "chg" — which column the gain filter & sort apply to (default chg per user request)
 };
 
-const DEFAULT_SORT = { primary: "rvol", secondary: "change" }; // Aria default
+const DEFAULT_SORT = { primary: "zcr", secondary: "change" }; // ZCR desc — volume effort x closing result
 
 // Momentum + gap presets — consolidated 2026-07: the 1M/3M/6M lookbacks and
 // Stealth/ACCUM-Stack pairs overlapped heavily (nested momentum lookbacks; same
@@ -3010,7 +3010,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 ) : (
                 <RsTable
                   key={isCombined ? "rs-combined" : isLeaders ? "rs-leaders" : isEmerging ? "rs-emerging" : "rs-rotation"}
-                  initialSort={isLayerLike ? { key: "now", dir: "desc" } : isStockTab ? { key: "zcr", dir: "desc" } : undefined}
+                  initialSort={isLayerLike || isStockTab ? { key: "zcr", dir: "desc" } : { key: "rsDay", dir: "desc" }}
                   rows={stockRows}
                   sortable onTicker={isStockTab ? openTicker : openTicker} ARIA={ARIA}
                   rankCol={isStockTab}
@@ -3055,6 +3055,7 @@ const SORT_BUTTONS = [
   { key: "rs", label: "EIF" },
   { key: "change", label: "Chg%" },
   { key: "rvol", label: "RVol" },
+  { key: "zcr", label: "ZCR" },
   { key: "accel", label: "Acc" },
   { key: "magna", label: "MAG" },
   { key: "qm_bo", label: "BO" },
@@ -6324,7 +6325,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
   // Shift+click = add/toggle as secondary/tertiary. Persisted.
   // Default chain: ZVR → CR% → EIF, all descending.
   const STRING_SORT_KEYS = ["ticker", "theme", "layer"];
-  const DEFAULT_CHAIN_SORT = [{ key: "zvr", dir: "desc" }, { key: "cr", dir: "desc" }, { key: "rs", dir: "desc" }];
+  const DEFAULT_CHAIN_SORT = [{ key: "zcr", dir: "desc" }, { key: "zvr", dir: "desc" }, { key: "rs", dir: "desc" }];
   const [sortSpec, setSortSpec] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem("tp-chain-sort"));
@@ -6467,7 +6468,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
       return next;
     });
   };
-  const SORT_LABELS = { zvr: "ZVR", setup: "SETUP", rs: "EIF", chg: "CHG%", alpha: "α", adr: "ADR", str: "STR", mcap: "MCAP", cr: "CR%", erDays: "ER", is33: "33", ticker: "TICKER", theme: "CHAIN", layer: "LAYER", rvol: "RV" };
+  const SORT_LABELS = { zcr: "ZCR", zvr: "ZVR", setup: "SETUP", rs: "EIF", chg: "CHG%", alpha: "α", adr: "ADR", str: "STR", mcap: "MCAP", cr: "CR%", erDays: "ER", is33: "33", ticker: "TICKER", theme: "CHAIN", layer: "LAYER", rvol: "RV" };
   const isDefaultSort = sortSpec.length === DEFAULT_CHAIN_SORT.length && sortSpec.every((s, i) => s.key === DEFAULT_CHAIN_SORT[i].key && s.dir === DEFAULT_CHAIN_SORT[i].dir);
 
   const strColor = (v) => v == null ? ARIA.textMuted : v >= 65 ? ARIA.green : ARIA.textDim;
@@ -10126,7 +10127,7 @@ function WatchlistSectionTable({
   // (On Deck / Focus / Watchlist) get a light-green row tint.
   const [_pfList] = useLocalStorageList("themepulse-portfolio");
   const pfSet = useMemo(() => new Set(_pfList), [_pfList]);
-  const [sortKey, setSortKey] = useState("change");
+  const [sortKey, setSortKey] = useState("zcr");
   const [sortDir, setSortDir] = useState("desc"); // "asc" | "desc"
   const [selectedTicker, setSelectedTicker] = useState(null);
   // Collapse state is owned by the parent (it orders expanded sections first);
