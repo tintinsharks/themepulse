@@ -2330,6 +2330,9 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
   });
   // Default view: Leaders · All sorted by ZCR — the combined leaderboard ranked
   // by volume-effort x closing-result, which is what the box gets opened for.
+  // Sector Rotation box view: Seats (durable leadership) is the default read;
+  // the rotation narrative is the churn layered on top of it.
+  const [rotTab, setRotTab] = useState("seats");
   const [rsTab, setRsTab] = useState("leadersall"); // right-panel tab: sectors | industries | layers | leaders
   const [layerHolds, setLayerHolds] = useState(null); // selected layer's constituents, or null (ETF mode)
   const [topLayers, setTopLayers] = useState(() => { const n = parseInt(localStorage.getItem("tp-funnel-layers") || "8", 10); return [5, 8, 12].includes(n) ? n : 8; });
@@ -2700,6 +2703,19 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
         )}
         body={(
         <div style={{ borderTop: `1px solid ${ARIA.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Seats first: which layers hold a leadership seat and for how
+              long is the durable read; the rotation narrative is the
+              day-to-day churn on top of it. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
+            {[["seats", "⏱ Seats"], ["rotation", "Rotation"]].map(([k, lbl]) => (
+              <button key={k} onClick={() => setRotTab(k)}
+                style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, padding: "2px 7px",
+                  cursor: "pointer", color: rotTab === k ? ARIA.text : ARIA.textMuted, background: "transparent",
+                  border: "none", borderBottom: `2px solid ${rotTab === k ? ARIA.blue : "transparent"}` }}>{lbl}</button>
+            ))}
+          </div>
+          {rotTab === "seats" && <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />}
+          {rotTab === "rotation" && (<>
           {/* ── Rotation: OUT → IN strip + rank-trajectory lanes ──
               OUT = high-rank layers whose structure has gone yellow/red (money
               leaving); IN = sub-88 structurally-green layers climbing rank
@@ -2900,6 +2916,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               </div>
             );
           })()}
+          </>)}
         </div>
         )} />
       {/* Layer Regime box — always mounted: it portals into the left
@@ -2954,7 +2971,6 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             {tabBtn("industries", "Industries")}
             {tabBtn("apex", "👑 Apex")}
             {tabBtn("ercal", "ER Cal")}
-            {tabBtn("seats", "⏱ Seats")}
             {subPills && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6, paddingLeft: 8, borderLeft: `1px solid ${ARIA.border}` }}>
                 {subPills.map(([k, lbl, n]) => pill(k, lbl, n))}
@@ -2976,9 +2992,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               {isTechTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>tech layers re-ranked among themselves · all RS columns vs QQQ — who's strong WITHIN tech</div>}
               {isExTab && <div style={{ fontSize: 7, color: ARIA.textDim, padding: "0 2px 2px" }}>non-tech layers re-ranked among themselves (vs SPY) — where money rotates when it leaves tech</div>}
               <div style={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "auto" }}>
-                {rsTab === "seats" ? (
-                  <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
-                ) : rsTab === "ercal" ? (
+                {rsTab === "ercal" ? (
                   <EarningsCalendar embedded stocks={stocksArr} stockMap={stockMap} onTickerClick={openErTicker} chartTicker={chartTicker} movers={movers} />
                 ) : rsTab === "inplay" ? (
                   (() => {
