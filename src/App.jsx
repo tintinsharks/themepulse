@@ -1883,7 +1883,7 @@ function useTickerSeats() {
 // Same strip, one row per TICKER: a seat is RS rank >= the file's `lead` (top
 // decile). Ordered by today's rank, so the strongest names sit on top and the
 // strip says whether that strength is long-standing or brand new.
-function TickerSeats({ data, onPick, tiers, ARIA }) {
+function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
   const VISIBLE = 18, ROW = 11, H = 9, CW = 4, VIS = 30;
   // Opens on the most recent sessions; scroll left for the full window.
   const scrollRef = useRef(null);
@@ -1903,7 +1903,7 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
-        marginBottom: 4, width: 48 + VW + 48, boxSizing: "border-box" }}>
+        marginBottom: 4, width: 48 + VW + 71, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Strongest tickers</span>
         <span>{data.seats} at RS ≥{data.lead}</span>
       </div>
@@ -1913,8 +1913,9 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
         <span style={{ width: VW, flexShrink: 0, overflow: "hidden", whiteSpace: "nowrap" }}>Last {VIS} · ← scroll</span>
         <span title="Share of the window at RS ≥ the lead line — durability" style={{ width: 21, flexShrink: 0, textAlign: "right" }}>Held</span>
         <span title="Consecutive sessions ending today" style={{ width: 16, flexShrink: 0, textAlign: "right" }}>Now</span>
+        <span title="ZCR — today's volume effort x closing result (live)" style={{ width: 20, flexShrink: 0, textAlign: "right" }}>ZCR</span>
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 48, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 71, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
         {rows.map((r) => {
           const bits = r.leadBits;
           const held = bits[bits.length - 1] === "1";
@@ -1940,6 +1941,9 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
                 <span style={{ width: 21, textAlign: "right", fontSize: 7.5, fontWeight: r.persist >= 60 ? 800 : 400,
                   color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
                 <span style={{ width: 16, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
+                <span style={{ width: 20, textAlign: "right", fontSize: 7 }}>
+                  {(() => { const m = metricsOf?.(r.ticker); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} ARIA={ARIA} /> : null; })()}
+                </span>
               </span>
             </div>
           );
@@ -2903,7 +2907,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
           {rotTab === "seats" && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "nowrap", overflowX: "auto", overscrollBehavior: "contain" }}>
               <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
-              <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA} />
+              <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA}
+                metricsOf={(t) => ({ zvr: tickerZvr(t), cr: computeCR(liveQuotes.get(t), stockMap?.[t]) })} />
             </div>
           )}
           {rotTab === "rotation" && (<>
