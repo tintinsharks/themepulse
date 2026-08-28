@@ -568,11 +568,19 @@ function computeCR(q, s) {
 //   quality  = (CR - 50) / 50         → -1 (closed at low) … +1 (at high)
 //   pressure = min(|ZVR|, 300) / 300  →  0 (quiet) … 1 (3x+ pace)
 //   ZCR      = 100 × quality × pressure × recovery
-// `recovery` is the down-day correction. CR is measured inside the day's OWN
-// range, so it knows nothing about the day's net move: PYPL falling 11.8% on
-// 3.5x volume and grinding up off the low prints CR 96 and, without this,
-// scored +92 — top of the board, on the day it was liquidated. A strong close
-// inside a DOWN day is absorption, not accumulation, so it counts a quarter.
+// The third term is the down-day correction. CR is measured inside the day's
+// OWN range, so it knows nothing about the net move: PYPL falling 11.8% on
+// 3.5x volume and grinding up off the low prints CR 96 and, uncorrected,
+// scored +92 — top of the board, on the day it was liquidated.
+// A strong close inside a DOWN day is absorption, and how much it counts
+// depends on the damage done, measured against the name's OWN ADR so a 6%
+// drop in a 7%-ADR name isn't judged like a 12% drop in a 2.7%-ADR one:
+//   absorption = quality × 0.25         credit for closing off the low
+//   damage     = min(|chg| / ADR, 3)/3  0 (flat) … 1 (a 3-ADR rout)
+//   ZCR        = 100 × pressure × (absorption - damage)
+// A flat day closing on its high stays mildly positive (SNDK -0.02%: +7); a
+// rout closing on its high goes clearly negative (PYPL -11.8%: -77).
+// Without chg/ADR — layer averages — it falls back to a flat quarter weight.
 // Deliberately asymmetric: on an up day CR already tells the whole story, and
 // the up-day-closed-at-the-low case (-90) is the failed-gap signature this
 // column exists to catch. Damping that too would defeat the purpose.
@@ -581,21 +589,25 @@ function computeCR(q, s) {
 // Near 0 = a mid-range close OR a volume-less day: no conviction either way,
 // which is itself the point — it demotes the noise that a raw ZVR sort
 // floats to the top.
-function zcrScore(zvr, cr) {
+function zcrScore(zvr, cr, chg = null, adr = null) {
   if (zvr == null || cr == null || isNaN(zvr) || isNaN(cr)) return null;
   const quality = (cr - 50) / 50;
   const pressure = Math.min(Math.abs(zvr), 300) / 300;
-  const recovery = zvr < 0 && quality > 0 ? 0.25 : 1;
-  return Math.round(100 * quality * pressure * recovery);
+  if (zvr >= 0 || quality <= 0) return Math.round(100 * quality * pressure);
+  // Down day that closed strong — absorption or liquidation? Only the size of
+  // the loss separates them, and it is in neither zvr nor cr.
+  if (chg == null || isNaN(chg)) return Math.round(100 * quality * pressure * 0.25);
+  const damage = Math.min(Math.abs(chg) / (adr > 0 ? adr : 4), 3) / 3;
+  return Math.round(100 * pressure * (quality * 0.25 - damage));
 }
 
 // Shared cell renderer so ZCR reads identically in every table.
-function ZcrCell({ zvr, cr, ARIA }) {
-  const v = zcrScore(zvr, cr);
+function ZcrCell({ zvr, cr, chg = null, adr = null, ARIA }) {
+  const v = zcrScore(zvr, cr, chg, adr);
   if (v == null) return <span style={{ color: ARIA.textMuted }}>—</span>;
   const c = v >= 50 ? ARIA.green : v >= 20 ? "#4ade80" : v <= -50 ? ARIA.red : v <= -20 ? "#f87171" : ARIA.textDim;
   return (
-    <span title={`ZCR ${v} — volume effort × closing result (ZVR ${zvr}% · CR ${Math.round(cr)}%). ${zvr < 0 && cr > 50 ? "Absorption, not accumulation: the day was DOWN and it closed off the low. Scored at a quarter weight — a recovery inside a loss is not buying." : v >= 50 ? "Strong accumulation: closed near the high on heavy volume." : v >= 20 ? "Constructive close on above-average volume." : v <= -50 ? "Distribution: closed near the low on heavy volume — the failed-gap signature." : v <= -20 ? "Weak close on active volume." : "No conviction — mid-range close or light volume."}`}
+    <span title={`ZCR ${v} — volume effort × closing result (ZVR ${zvr}% · CR ${Math.round(cr)}%). ${zvr < 0 && cr > 50 ? `Absorption, not accumulation: the day was DOWN${chg == null ? "" : ` ${chg.toFixed(1)}%`} and it closed off the low. Credit for the close is set against the damage done${adr > 0 && chg != null ? ` (${(Math.abs(chg) / adr).toFixed(1)}x its ADR)` : ""} — a recovery inside a loss is not buying.` : v >= 50 ? "Strong accumulation: closed near the high on heavy volume." : v >= 20 ? "Constructive close on above-average volume." : v <= -50 ? "Distribution: closed near the low on heavy volume — the failed-gap signature." : v <= -20 ? "Weak close on active volume." : "No conviction — mid-range close or light volume."}`}
       style={{ color: c, fontWeight: Math.abs(v) >= 20 ? 700 : 400 }}>{v}</span>
   );
 }
@@ -1919,7 +1931,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
       case "ticker": return r.ticker;
       case "held": return r.persist;
       case "streak": return r.streak;
-      case "zcr": { const m = metricsOf?.(r.ticker); const v = m ? zcrScore(m.zvr, m.cr) : null; return v == null ? -9999 : v; }
+      case "zcr": { const m = metricsOf?.(r.ticker); const v = m ? zcrScore(m.zvr, m.cr, m.chg, m.adr) : null; return v == null ? -9999 : v; }
       default: return r.now;
     }
   };
@@ -1993,7 +2005,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
                   color: r.persist >= 60 ? ARIA.green : r.persist >= 30 ? ARIA.yellow : ARIA.textMuted }}>{r.persist}%</span>
                 <span style={{ width: 20, textAlign: "right", fontSize: 7, color: r.streak >= 20 ? ARIA.green : ARIA.textMuted }}>{r.streak || ""}</span>
                 <span style={{ width: 22, textAlign: "right", fontSize: 7 }}>
-                  {(() => { const m = metricsOf?.(r.ticker); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} ARIA={ARIA} /> : null; })()}
+                  {(() => { const m = metricsOf?.(r.ticker); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} chg={m.chg} adr={m.adr} ARIA={ARIA} /> : null; })()}
                 </span>
               </span>
             </div>
@@ -2161,7 +2173,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
     // actual weekly relative return. Live intraday (rsDay is live). Positive =
     // fresh inflection today; negative = today lags its own week (extended).
     rsAcc1: (r.rsDay != null && r.rsWk != null) ? +(r.rsDay * 5 - r.rsWk).toFixed(2) : null,
-    zcr: zcrScore(r.zvr, r.cr),
+    zcr: zcrScore(r.zvr, r.cr, r.chg, r.adr),
   })), [rows]);
   // Percentile rank of RS Acc² among the current rows — drives a heatmap tint
   // behind each Acc² cell so a value's standing vs peers reads at a glance
@@ -2328,7 +2340,7 @@ function RsTable({ rows, sortable, onTicker, ARIA, tickerLabel = "Ticker", getTa
               style={{ textAlign: "right", padding: "2px 6px", background: heatBg(rsDayPct.get(r)) }}>{pctCell(r.rsDay)}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.zvr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: Math.abs(r.zvr) >= 200 ? (r.zvr < 0 ? "#ef4444" : "#fbbf24") : Math.abs(r.zvr) >= 130 ? (r.zvr < 0 ? ARIA.red : ARIA.green) : ARIA.textDim, fontWeight: Math.abs(r.zvr) >= 130 ? 700 : 400 }}>{r.zvr}%</span>}</td>
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.cr == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.cr >= 70 ? ARIA.green : r.cr >= 40 ? ARIA.textDim : ARIA.red, fontWeight: 600 }}>{Math.round(r.cr)}%</span>}</td>
-            <td style={{ textAlign: "right", padding: "2px 6px" }}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
+            <td style={{ textAlign: "right", padding: "2px 6px" }}><ZcrCell zvr={r.zvr} cr={r.cr} chg={r.chg} adr={r.adr} ARIA={ARIA} /></td>
             {getTag && <td style={{ textAlign: "right", padding: "2px 6px", whiteSpace: "nowrap" }}><PersistCell bits={r.leadBits} persist={r.persist} streak={r.streak} ARIA={ARIA} /></td>}
             <td style={{ textAlign: "right", padding: "2px 6px" }}>{r.eif == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.eif >= 55 ? ARIA.green : ARIA.textDim, fontWeight: r.eif >= 55 ? 700 : 400 }}>{Math.round(r.eif)}</span>}</td>
             {getTag && <td title={`Layer internals: % of constituents above their own 20dma${r.nh15 != null ? ` · ${r.nh15}% within 15% of 52w highs` : ""}${r.dshift != null ? ` · $vol share 5d vs 20d ${r.dshift > 0 ? "+" : ""}${r.dshift}%` : ""} — breadth firms up BEFORE the return-based rank moves`} style={{ textAlign: "right", padding: "2px 6px" }}>{r.b20 == null ? <span style={{ color: ARIA.textMuted }}>—</span> : <span style={{ color: r.b20 >= 70 ? ARIA.green : r.b20 <= 30 ? ARIA.red : ARIA.textDim, fontWeight: r.b20 >= 70 || r.b20 <= 30 ? 700 : 400 }}>{r.b20}%</span>}</td>}
@@ -2826,9 +2838,14 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
     (d.layers || []).forEach((l) => {
       const zs = (l.holds || []).map((h) => tickerZvr(h.t)).filter((v) => v != null);
       const cs = (l.holds || []).map((h) => computeCR(liveQuotes.get(h.t), stockMap?.[h.t])).filter((v) => v != null);
-      const zvr = zs.length ? Math.round(zs.reduce((a, b) => a + b, 0) / zs.length) : null;
-      const cr = cs.length ? Math.round(cs.reduce((a, b) => a + b, 0) / cs.length) : null;
-      const z = zcrScore(zvr, cr);
+      // chg/adr too, so a layer that fell hard and bounced is read the same way
+      // a single name is — otherwise layers alone keep the old flat weighting.
+      const gs = (l.holds || []).map((h) => liveQuotes.get(h.t)?.change ?? stockMap?.[h.t]?.change_pct).filter((v) => v != null);
+      const as = (l.holds || []).map((h) => stockMap?.[h.t]?.adr_pct).filter((v) => v > 0);
+      const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+      const zvr = zs.length ? Math.round(avg(zs)) : null;
+      const cr = cs.length ? Math.round(avg(cs)) : null;
+      const z = zcrScore(zvr, cr, avg(gs), avg(as));
       byKey[`${l.themeId}|${l.name}`] = { z, zvr, cr };
       if (z != null) vals.push(z);
     });
@@ -3047,7 +3064,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
               <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA}
                 zcrRank={layerZcrPct.of} zcrN={layerZcrPct.n} />
               <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA}
-                metricsOf={(t) => ({ zvr: tickerZvr(t), cr: computeCR(liveQuotes.get(t), stockMap?.[t]) })} />
+                metricsOf={(t) => ({ zvr: tickerZvr(t), cr: computeCR(liveQuotes.get(t), stockMap?.[t]),
+                  chg: liveQuotes.get(t)?.change ?? stockMap?.[t]?.change_pct ?? null, adr: stockMap?.[t]?.adr_pct ?? null })} />
             </div>
           )}
           {rotTab === "rotation" && (<>
@@ -3607,7 +3625,7 @@ function rowSortValue(r, key) {
     case "cr":
       return r.cr || 0;
     case "zcr":
-      return zcrScore(r.zvr, r.cr) ?? -999;
+      return zcrScore(r.zvr, r.cr, r.chg, r.adr) ?? -999;
     case "adr":
       return r.adr || 0;
     case "subtheme":
@@ -5625,7 +5643,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
         chgOpen,
         rvol,
         zvr,
-        zcr: zcrScore(zvr, cr),
+        zcr: zcrScore(zvr, cr, chg, s.adr_pct ?? null),
         cr,
         accel: s.accel || 0,
         magna,
@@ -6587,7 +6605,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
           str: tickerStrengthMap?.[sr.ticker] ?? null,
           cr: sr.cr ?? computeCR(q, s),
           zvr: calcZVR(sr.ticker, liveVol, avgVol, s?.rel_volume, chg),
-          get zcr() { return zcrScore(this.zvr, this.cr); },
+          get zcr() { return zcrScore(this.zvr, this.cr, this.chg, this.adr); },
           zvrTrend: calcZvrTrend(sr.ticker),
           adr: s?.adr_pct ?? null,
           is33: s ? TAG_PREDICATES["33"].test(s) : false,
@@ -6692,7 +6710,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
             off52: s?.off_52w_high ?? null, d20: s?.dist_20dma_atrx ?? null, d50: s?.dist_50sma_atrx ?? null, rsNH: !!s?.rs_line_new_high, tt: !!s?.two_day_tight, de: !!s?.de_ready, deTrig: s?.de_trigger ?? null, deHold: s?.de_hold ?? null, news: s?._newsPipe ?? null, inPlay: !!s?._inPlay,
             str: tickerStrengthMap?.[tk] ?? null, cr: computeCR(q, s),
             zvr: calcZVR(tk, liveVol, avgVol, s?.rel_volume, chg), zvrTrend: calcZvrTrend(tk),
-            get zcr() { return zcrScore(this.zvr, this.cr); },
+            get zcr() { return zcrScore(this.zvr, this.cr, this.chg, this.adr); },
             adr: s?.adr_pct ?? null, is33: s ? TAG_PREDICATES["33"].test(s) : false,
             mcap: s?.market_cap_raw ?? null, erDays: s?.earnings_days ?? null,
           });
@@ -7168,7 +7186,7 @@ function ChainTickerTable({ stockMap, tickerStrengthMap, onTickerClick, onLayerC
                     );
                   })()}
                 </td>
-                <td style={cell}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
+                <td style={cell}><ZcrCell zvr={r.zvr} cr={r.cr} chg={r.chg} adr={r.adr} ARIA={ARIA} /></td>
                 {(() => {
                   const isEifLeader = r.rs != null && r.rs >= 55 && eifReasons[r.ticker]?.drivers?.length;
                   return (
@@ -7522,7 +7540,7 @@ function ScanWatchTable({ rows, sort, onSort, onSort2, chgMode, onTickerClick, o
               <td style={{ ...bodyCell, color: colorCr(r.cr) }}>
                 {r.cr != null ? r.cr + "%" : "—"}
               </td>
-              <td style={bodyCell}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
+              <td style={bodyCell}><ZcrCell zvr={r.zvr} cr={r.cr} chg={r.chg} adr={r.adr} ARIA={ARIA} /></td>
               <td style={{ ...bodyCell, color: ARIA.cyan }}>
                 {r.adr ? r.adr.toFixed(1) + "%" : "—"}
               </td>
@@ -10917,7 +10935,7 @@ function WatchlistSectionTable({
                     <td style={{ ...cell, color: colorCr(r.cr) }}>
                       {r.cr != null ? Math.round(r.cr) + "%" : "\u2014"}
                     </td>
-                    <td style={cell}><ZcrCell zvr={r.zvr} cr={r.cr} ARIA={ARIA} /></td>
+                    <td style={cell}><ZcrCell zvr={r.zvr} cr={r.cr} chg={r.chg} adr={r.adr} ARIA={ARIA} /></td>
                     <td style={{ ...cell, color: r.rs >= 55 ? ARIA.green : ARIA.textDim, fontWeight: r.rs >= 55 ? 700 : 400 }}>
                       {r.rs || "\u2014"}
                     </td>
@@ -11164,7 +11182,7 @@ function Watchlist({ stockMap, onTickerClick, tickerStrengthMap, onChainClick })
         ticker,
         price,
         change,
-        zcr: zcrScore(zvr, cr),
+        zcr: zcrScore(zvr, cr, change, s?.adr_pct ?? null),
         chg: change, // alias for ScanWatchTable
         chgOpen,
         rsDay,
