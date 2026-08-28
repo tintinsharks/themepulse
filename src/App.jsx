@@ -1902,9 +1902,10 @@ function TickerSeats({ data, onPick, tiers, ARIA }) {
   const VW = Math.min(N, VIS) * CW; // visible window: the most recent VIS sessions
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px", minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
+        marginBottom: 4, width: 48 + VW + 48, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Strongest tickers</span>
-        <span>{data.window} sessions · {data.seats} at RS ≥{data.lead} today</span>
+        <span>{data.seats} at RS ≥{data.lead}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
@@ -1977,10 +1978,10 @@ function LeadershipSeats({ layers, onPick, ARIA }) {
   const RC = { green: "#16a34a", yellow: "#d9a441", red: "#b1374a" };
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 7.5, color: ARIA.textMuted, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
+        marginBottom: 4, width: 118 + VW + 48, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership seats</span>
-        <span>{N} sessions · ~{seatsNow} seats at rank ≥88 · {rows.length} layers have held one</span>
-        <span style={{ marginLeft: "auto" }}>oldest → today ▸</span>
+        <span>~{seatsNow} seats · {rows.length} layers held one</span>
       </div>
       {/* Column labels — the two numeric columns aren't self-evident: one is
           how OFTEN it leads, the other whether it's leading RIGHT NOW. */}
@@ -2900,7 +2901,7 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
             ))}
           </div>
           {rotTab === "seats" && (
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 18, flexWrap: "nowrap", overflowX: "auto", overscrollBehavior: "contain" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "nowrap", overflowX: "auto", overscrollBehavior: "contain" }}>
               <LeadershipSeats layers={d.layers || []} onPick={applyLayer} ARIA={ARIA} />
               <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA} />
             </div>
