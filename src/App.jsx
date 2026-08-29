@@ -559,6 +559,43 @@ function computeCR(q, s) {
   return null;
 }
 
+// ── Lead Edge: expected 21d alpha vs SPY, from the measured cohort tables ──
+// Not a hand-weighted composite — each branch returns the alpha that cohort
+// actually produced in backtest_leadership_quality / _decompose.py over 500
+// sessions of the liquid universe, so the sort order IS the evidence.
+//
+// TICKERS (subsets of RS >= 90). Persistence pays in a BAND: leaders holding
+// a seat 20-60% of the quarter returned +2.4%, while the most durable (>= 60%)
+// returned +0.8% at t=0.90 — indistinguishable from nothing, which is why
+// sorting by Held% descending points at the weakest names. Being off the highs
+// or printing an accumulation day is weak alone (t=+2.5 / +1.9) and noise
+// together without the band (t=+1.25), but layered ON it each roughly doubles
+// a plain leader's edge.
+function tickerEdge({ persist, off52, cr, zvr, now }) {
+  if (persist == null) return null;
+  if (!(now >= 90)) return 1.2;                       // has seat history, not leading today
+  const band = persist >= 20 && persist < 60;         // A — the carrier
+  const dip = off52 != null && off52 < -15;           // B — off the 52w high
+  const accum = cr >= 70 && zvr >= 150;               // C — strong close on heavy volume
+  if (band && dip) return 4.9;
+  if (band && accum) return 4.8;
+  if (band) return 2.4;
+  if (dip) return 1.7;
+  if (accum) return 1.6;
+  return 1.2;
+}
+// LAYERS behave differently and were measured separately: persistence is
+// roughly monotonic there, so a durable layer is fine (+7.1%) where a durable
+// ticker is dead. Only FRESH layers lag (+4.9% vs +7.5% mid). Do not collapse
+// these two functions — the whole point is that the band does not transfer.
+function layerEdge({ persist, leadingNow }) {
+  if (persist == null) return null;
+  if (!leadingNow) return 2.3;                        // baseline: any layer, any day
+  if (persist >= 20 && persist < 60) return 7.5;
+  if (persist >= 60) return 7.1;
+  return 4.9;
+}
+
 // ── ZCR: volume effort × closing result, as one sortable number ──────────
 // ZVR is EFFORT (pace-adjusted relative volume, signed by the day's
 // direction); CR% is RESULT (where price closed inside the day's range).
@@ -1911,7 +1948,9 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
   // ZCR desc is the default across ThemePulse — the question these panels get
   // asked first is where today's effort is going, and rank is already implied
   // by which names have seats at all. Rank stays one click away on the strip.
-  const [sort, setSort] = useState({ key: "zcr", dir: "desc" });
+  // Defaults to Edge: measured expected alpha, so the strongest leaders sort
+  // to the top rather than the most durable ones. ZCR is one click away.
+  const [sort, setSort] = useState({ key: "edge", dir: "desc" });
   // Opens on the most recent sessions; scroll left for the full window.
   const scrollRef = useRef(null);
   useEffect(() => { const el = scrollRef.current; if (el) el.scrollLeft = el.scrollWidth; });
@@ -1932,6 +1971,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
       case "held": return r.persist;
       case "streak": return r.streak;
       case "zcr": { const m = metricsOf?.(r.ticker); const v = m ? zcrScore(m.zvr, m.cr, m.chg, m.adr) : null; return v == null ? -9999 : v; }
+      case "edge": { const m = metricsOf?.(r.ticker) || {}; const v = tickerEdge({ persist: r.persist, off52: m.off52, cr: m.cr, zvr: m.zvr, now: r.now }); return v == null ? -9999 : v; }
       default: return r.now;
     }
   };
@@ -1966,19 +2006,20 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
-        marginBottom: 4, width: 48 + VW + 80, boxSizing: "border-box" }}>
+        marginBottom: 4, width: 48 + VW + 103, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Strongest tickers</span>
         <span>{data.seats} at RS ≥{data.lead}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 2px 2px",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         {hCell("ticker", "Ticker", 48, "left", "Sort alphabetically")}
-        {hCell("rank", `Last ${VIS} · ← scroll`, VW, "left", "Sort by RS rank today (the default) — the strip is that leadership over time")}
+        {hCell("rank", `Last ${VIS} · ← scroll`, VW, "left", "Sort by RS rank today — the strip is that leadership over time")}
         {hCell("held", "Held", 24, "right", "Share of the window at RS ≥ the lead line — durability")}
         {hCell("streak", "Run", 20, "right", "Current run: consecutive sessions ending today with a seat — blank if it isn't holding one now. Not the rank (the layers table's NOW is rank)")}
         {hCell("zcr", "ZCR", 22, "right", "ZCR — today's volume effort x closing result (live)")}
+        {hCell("edge", "Edge", 20, "right", "Expected 21d alpha vs SPY for the cohort this name is in, straight from the backtest — the default sort")}
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 80, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 103, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
         {rows.map((r) => {
           const bits = r.leadBits;
           const held = bits[bits.length - 1] === "1";
@@ -2007,6 +2048,20 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
                 <span style={{ width: 22, textAlign: "right", fontSize: 7 }}>
                   {(() => { const m = metricsOf?.(r.ticker); return m ? <ZcrCell zvr={m.zvr} cr={m.cr} chg={m.chg} adr={m.adr} ARIA={ARIA} /> : null; })()}
                 </span>
+                {(() => {
+                  const m = metricsOf?.(r.ticker) || {};
+                  const e = tickerEdge({ persist: r.persist, off52: m.off52, cr: m.cr, zvr: m.zvr, now: r.now });
+                  if (e == null) return <span style={{ width: 20, textAlign: "right", fontSize: 7, color: ARIA.textMuted }}>—</span>;
+                  const c = e >= 4 ? ARIA.green : e >= 2 ? "#4ade80" : ARIA.textMuted;
+                  const why = !(r.now >= 90) ? "not leading today" : (r.persist >= 20 && r.persist < 60)
+                    ? (m.off52 < -15 ? "in the 20-60% persistence band AND >15% off its 52w high"
+                       : (m.cr >= 70 && m.zvr >= 150) ? "in the 20-60% persistence band AND closing strong on heavy volume"
+                       : "in the 20-60% persistence band")
+                    : r.persist >= 60 ? "durable leader (Held >= 60%) — measured at +0.8%, t=0.90: no edge"
+                    : "fresh leader (Held < 20%)";
+                  return <span title={`Edge ${e.toFixed(1)}% — expected 21d alpha vs SPY. ${why}. Cohort measured over 500 sessions in backtest_leadership_decompose.py; a plain RS>=90 leader averaged +2.2%.`}
+                    style={{ width: 20, textAlign: "right", fontSize: 7, fontWeight: e >= 4 ? 800 : 400, color: c }}>{e.toFixed(1)}</span>;
+                })()}
               </span>
             </div>
           );
@@ -2035,7 +2090,7 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   // strip beside each says whether that is durable or a first visit. Rank is a
   // click away on the strip header. (Persistence stays a tiebreak so tied rows
   // don't jitter on every quote tick.)
-  const [sort, setSort] = useState({ key: "zcr", dir: "desc" });
+  const [sort, setSort] = useState({ key: "edge", dir: "desc" });
   const base = useMemo(() => (layers || [])
     .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`)), [layers]);
   // Sorted outside the memo: the ZCR percentile moves with live quotes, so a
@@ -2046,6 +2101,7 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
       case "held": return l.persist;
       case "streak": return l.streak;
       case "zcr": return zcrRank?.(l)?.pct ?? -1;
+      case "edge": return layerEdge({ persist: l.persist, leadingNow: l.leadBits?.endsWith("1") }) ?? -1;
       default: return l.now;
     }
   };
@@ -2084,7 +2140,7 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   return (
     <div style={{ fontFamily: "monospace", padding: "2px 4px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap", fontSize: 7.5, color: ARIA.textMuted,
-        marginBottom: 4, width: 118 + VW + 98, boxSizing: "border-box" }}>
+        marginBottom: 4, width: 118 + VW + 121, boxSizing: "border-box" }}>
         <span style={{ color: ARIA.text, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership seats</span>
         <span>~{seatsNow} seats · {rows.length} layers held one</span>
       </div>
@@ -2097,17 +2153,18 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
           wrong column. Same total width + `marginLeft: auto` on the tail puts
           each label over the numbers it names, which is also what makes the
           sort targets hittable. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px", width: 118 + VW + 98, boxSizing: "border-box",
+      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 2px 2px", width: 118 + VW + 121, boxSizing: "border-box",
         fontSize: 6.5, fontWeight: 700, letterSpacing: 0.3, color: ARIA.textMuted, textTransform: "uppercase" }}>
         {hCell("name", "Layer", 118, "left", "Sort alphabetically")}
-        {hCell("now", `Last ${VIS} · ← scroll`, VW, "left", "Sort by rank today (the default) — the strip is that leadership over time")}
+        {hCell("now", `Last ${VIS} · ← scroll`, VW, "left", "Sort by rank today — the strip is that leadership over time")}
         <span style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: "auto", paddingLeft: 1 }}>
           {hCell("held", "Held", 21, "right", "Share of the window spent at rank ≥88 — durability")}
           {hCell("streak", "Run", 16, "right", "Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)")}
           {hCell("zcr", "ZCR%", 22, "right", "Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution")}
+          {hCell("edge", "Edge", 20, "right", "Expected 21d alpha vs SPY for the cohort this layer is in, measured over 500 sessions — the default sort. Leading layers averaged +6.5% against +2.3% for all layers")}
         </span>
       </div>
-      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 98, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
+      <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 121, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
       {rows.map((l) => {
         const bits = l.leadBits;
         const held = bits[bits.length - 1] === "1";
@@ -2139,6 +2196,15 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
                   <span title={`ZCR ${e.z} (ZVR ${e.zvr}% · CR ${e.cr}%) — ${e.pct}th percentile of ${zcrN} layers today`}
                     style={{ width: 22, textAlign: "right", fontSize: 7, fontWeight: e.pct >= 80 || e.pct <= 20 ? 800 : 400, color: c }}>{e.pct}</span>
                 );
+              })()}
+              {(() => {
+                const e = layerEdge({ persist: l.persist, leadingNow: bits.endsWith("1") });
+                if (e == null) return <span style={{ width: 20, textAlign: "right", fontSize: 7, color: ARIA.textMuted }}>—</span>;
+                const c = e >= 7 ? ARIA.green : e >= 4 ? "#4ade80" : ARIA.textMuted;
+                const why = !bits.endsWith("1") ? "not holding a seat today" : l.persist >= 60 ? "durable leader (Held >= 60%)"
+                  : l.persist >= 20 ? "in the 20-60% persistence band — the strongest layer cohort" : "fresh leader (Held < 20%) — the weakest leading cohort";
+                return <span title={`Edge ${e.toFixed(1)}% — expected 21d alpha vs SPY. ${why}. Measured over 500 sessions in backtest_layer_quality.py; leading layers averaged +6.5%, all layers +2.3%. Unlike tickers, layer persistence is roughly monotonic — a durable LAYER still pays.`}
+                  style={{ width: 20, textAlign: "right", fontSize: 7, fontWeight: e >= 7 ? 800 : 400, color: c }}>{e.toFixed(1)}</span>;
               })()}
             </span>
           </div>
@@ -3065,7 +3131,8 @@ function RsRotationBoard({ onTickerClick, chartTicker, stockMap, pipelineMeta, m
                 zcrRank={layerZcrPct.of} zcrN={layerZcrPct.n} />
               <TickerSeats data={tickerSeats} onPick={onTickerClick} tiers={tierRef.current} ARIA={ARIA}
                 metricsOf={(t) => ({ zvr: tickerZvr(t), cr: computeCR(liveQuotes.get(t), stockMap?.[t]),
-                  chg: liveQuotes.get(t)?.change ?? stockMap?.[t]?.change_pct ?? null, adr: stockMap?.[t]?.adr_pct ?? null })} />
+                  chg: liveQuotes.get(t)?.change ?? stockMap?.[t]?.change_pct ?? null, adr: stockMap?.[t]?.adr_pct ?? null,
+                  off52: stockMap?.[t]?.off_52w_high ?? null })} />
             </div>
           )}
           {rotTab === "rotation" && (<>
