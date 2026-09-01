@@ -165,14 +165,12 @@
   "exit_px": 60.52
  },
  "PBF": {
-  "entered": "2026-07-31",
-  "px": 73.1,
+  "entered": "2026-09-01",
+  "px": 74.85,
   "layer": "Refining",
-  "peak": 73.1,
-  "last_seen": "2026-07-31",
-  "ondeck": true,
-  "exited": "2026-08-06",
-  "exit_px": 61.44
+  "peak": 74.85,
+  "last_seen": "2026-09-01",
+  "ondeck": true
  },
  "VRNS": {
   "entered": "2026-07-21",
@@ -401,7 +399,7 @@
   "px": 8.13,
   "layer": "Oncology",
   "peak": 8.25,
-  "last_seen": "2026-08-27",
+  "last_seen": "2026-09-01",
   "ondeck": false
  },
  "CRL": {
@@ -479,6 +477,14 @@
   "px": 48.72,
   "layer": "Biotech Momentum",
   "peak": 48.72,
+  "last_seen": "2026-09-01",
+  "ondeck": false
+ },
+ "CLMT": {
+  "entered": "2026-09-01",
+  "px": 50.93,
+  "layer": "Refining",
+  "peak": 50.93,
   "last_seen": "2026-09-01",
   "ondeck": false
  }
