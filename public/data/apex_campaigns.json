@@ -168,7 +168,7 @@
   "entered": "2026-09-01",
   "px": 74.85,
   "layer": "Refining",
-  "peak": 74.99,
+  "peak": 76.0,
   "last_seen": "2026-09-02",
   "ondeck": true
  },
@@ -399,7 +399,7 @@
   "px": 8.13,
   "layer": "Oncology",
   "peak": 8.25,
-  "last_seen": "2026-09-01",
+  "last_seen": "2026-09-02",
   "ondeck": false
  },
  "CRL": {
@@ -484,8 +484,16 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 51.52,
+  "peak": 52.89,
   "last_seen": "2026-09-02",
   "ondeck": false
+ },
+ "GTLB": {
+  "entered": "2026-09-02",
+  "px": 50.13,
+  "layer": "DevOps + Observability",
+  "peak": 50.13,
+  "last_seen": "2026-09-02",
+  "ondeck": true
  }
 }
