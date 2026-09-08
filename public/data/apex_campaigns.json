@@ -74,7 +74,7 @@
   "entered": "2026-09-08",
   "px": 8.82,
   "layer": "Biotech Momentum",
-  "peak": 8.82,
+  "peak": 8.98,
   "last_seen": "2026-09-08",
   "ondeck": true
  },
@@ -170,7 +170,7 @@
   "entered": "2026-09-01",
   "px": 74.85,
   "layer": "Refining",
-  "peak": 76.0,
+  "peak": 76.24,
   "last_seen": "2026-09-08",
   "ondeck": true
  },
@@ -408,7 +408,7 @@
   "entered": "2026-08-20",
   "px": 8.13,
   "layer": "Oncology",
-  "peak": 8.25,
+  "peak": 8.3,
   "last_seen": "2026-09-08",
   "ondeck": false
  },
@@ -506,7 +506,7 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 53.5,
+  "peak": 54.17,
   "last_seen": "2026-09-08",
   "ondeck": false
  },
