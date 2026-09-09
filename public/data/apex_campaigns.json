@@ -20,24 +20,20 @@
   "exit_px": 271.45
  },
  "SNDK": {
-  "entered": "2026-08-17",
-  "px": 1641.11,
+  "entered": "2026-09-09",
+  "px": 1774.46,
   "layer": "Memory + Storage",
-  "peak": 1641.11,
-  "last_seen": "2026-08-17",
-  "ondeck": false,
-  "exited": "2026-08-24",
-  "exit_px": 1429.05
+  "peak": 1774.46,
+  "last_seen": "2026-09-09",
+  "ondeck": true
  },
  "MU": {
-  "entered": "2026-08-17",
-  "px": 971.66,
+  "entered": "2026-09-09",
+  "px": 1020.99,
   "layer": "Memory + Storage",
-  "peak": 971.66,
-  "last_seen": "2026-08-17",
-  "ondeck": false,
-  "exited": "2026-08-24",
-  "exit_px": 903.07
+  "peak": 1020.99,
+  "last_seen": "2026-09-09",
+  "ondeck": false
  },
  "SLS": {
   "entered": "2026-07-02",
@@ -508,7 +504,7 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 54.17,
+  "peak": 54.87,
   "last_seen": "2026-09-09",
   "ondeck": false
  },
