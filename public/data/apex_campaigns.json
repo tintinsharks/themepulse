@@ -24,26 +24,24 @@
   "px": 1774.46,
   "layer": "Memory + Storage",
   "peak": 1774.46,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": true
  },
  "MU": {
   "entered": "2026-09-09",
   "px": 1020.99,
   "layer": "Memory + Storage",
-  "peak": 1020.99,
-  "last_seen": "2026-09-09",
+  "peak": 1027.77,
+  "last_seen": "2026-09-10",
   "ondeck": false
  },
  "SLS": {
-  "entered": "2026-07-02",
-  "px": 14.98,
-  "spy": 744.78,
+  "entered": "2026-09-10",
+  "px": 13.95,
   "layer": "Biotech Momentum",
-  "peak": 15.46,
-  "last_seen": "2026-08-25",
-  "exited": "2026-08-31",
-  "exit_px": 13.09
+  "peak": 13.95,
+  "last_seen": "2026-09-10",
+  "ondeck": true
  },
  "INTC": {
   "entered": "2026-08-06",
@@ -167,7 +165,7 @@
   "px": 74.85,
   "layer": "Refining",
   "peak": 76.77,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": true
  },
  "VRNS": {
@@ -221,14 +219,12 @@
   "exit_px": 247.32
  },
  "FROG": {
-  "entered": "2026-07-28",
-  "px": 81.23,
+  "entered": "2026-09-10",
+  "px": 87.32,
   "layer": "DevOps + Observability",
-  "peak": 104.03,
-  "last_seen": "2026-09-03",
-  "ondeck": false,
-  "exited": "2026-09-09",
-  "exit_px": 86.73
+  "peak": 87.32,
+  "last_seen": "2026-09-10",
+  "ondeck": true
  },
  "RHI": {
   "entered": "2026-07-28",
@@ -265,7 +261,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 52.36,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": true
  },
  "GH": {
@@ -283,7 +279,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 153.1,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": false
  },
  "SNOW": {
@@ -321,7 +317,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 194.68,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": false
  },
  "APPS": {
@@ -399,7 +395,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": false
  },
  "IBRX": {
@@ -504,8 +500,8 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 54.87,
-  "last_seen": "2026-09-09",
+  "peak": 55.69,
+  "last_seen": "2026-09-10",
   "ondeck": false
  },
  "GTLB": {
