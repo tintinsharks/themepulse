@@ -69,7 +69,7 @@
   "px": 8.82,
   "layer": "Biotech Momentum",
   "peak": 8.98,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-10",
   "ondeck": true
  },
  "ANRO": {
@@ -164,7 +164,7 @@
   "entered": "2026-09-01",
   "px": 74.85,
   "layer": "Refining",
-  "peak": 76.77,
+  "peak": 77.75,
   "last_seen": "2026-09-10",
   "ondeck": true
  },
@@ -222,7 +222,7 @@
   "entered": "2026-09-10",
   "px": 87.32,
   "layer": "DevOps + Observability",
-  "peak": 87.32,
+  "peak": 88.81,
   "last_seen": "2026-09-10",
   "ondeck": true
  },
@@ -457,14 +457,12 @@
   "exit_px": 16.8
  },
  "TGTX": {
-  "entered": "2026-08-25",
-  "px": 57.22,
+  "entered": "2026-09-10",
+  "px": 54.88,
   "layer": "Oncology",
-  "peak": 57.22,
-  "last_seen": "2026-09-02",
-  "ondeck": false,
-  "exited": "2026-09-08",
-  "exit_px": 55.98
+  "peak": 54.88,
+  "last_seen": "2026-09-10",
+  "ondeck": true
  },
  "INTA": {
   "entered": "2026-08-28",
@@ -500,7 +498,7 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 55.69,
+  "peak": 56.05,
   "last_seen": "2026-09-10",
   "ondeck": false
  },
