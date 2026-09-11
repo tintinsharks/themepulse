@@ -69,7 +69,7 @@
   "px": 8.82,
   "layer": "Biotech Momentum",
   "peak": 8.98,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "ANRO": {
@@ -78,7 +78,9 @@
   "layer": "Biotech Momentum",
   "peak": 36.64,
   "last_seen": "2026-09-05",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-11",
+  "exit_px": 31.68
  },
  "AMD": {
   "entered": "2026-07-22",
@@ -223,7 +225,7 @@
   "px": 87.32,
   "layer": "DevOps + Observability",
   "peak": 88.81,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "RHI": {
@@ -261,7 +263,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 52.36,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "GH": {
@@ -279,7 +281,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 153.1,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": false
  },
  "SNOW": {
@@ -317,7 +319,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 194.68,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": false
  },
  "APPS": {
@@ -395,7 +397,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": false
  },
  "IBRX": {
@@ -460,8 +462,8 @@
   "entered": "2026-09-10",
   "px": 54.88,
   "layer": "Oncology",
-  "peak": 54.88,
-  "last_seen": "2026-09-10",
+  "peak": 55.39,
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "INTA": {
@@ -498,8 +500,8 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 56.05,
-  "last_seen": "2026-09-10",
+  "peak": 56.44,
+  "last_seen": "2026-09-11",
   "ondeck": false
  },
  "GTLB": {
@@ -508,6 +510,14 @@
   "layer": "DevOps + Observability",
   "peak": 50.5,
   "last_seen": "2026-09-09",
+  "ondeck": true
+ },
+ "DINO": {
+  "entered": "2026-09-11",
+  "px": 107.72,
+  "layer": "Refining",
+  "peak": 107.72,
+  "last_seen": "2026-09-11",
   "ondeck": true
  }
 }
