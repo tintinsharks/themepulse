@@ -40,7 +40,7 @@
   "px": 13.95,
   "layer": "Biotech Momentum",
   "peak": 13.95,
-  "last_seen": "2026-09-10",
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "INTC": {
@@ -166,8 +166,8 @@
   "entered": "2026-09-01",
   "px": 74.85,
   "layer": "Refining",
-  "peak": 77.75,
-  "last_seen": "2026-09-10",
+  "peak": 79.0,
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "VRNS": {
@@ -405,7 +405,7 @@
   "px": 8.13,
   "layer": "Oncology",
   "peak": 8.3,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-11",
   "ondeck": false
  },
  "CRL": {
@@ -500,7 +500,7 @@
   "entered": "2026-09-01",
   "px": 50.93,
   "layer": "Refining",
-  "peak": 56.44,
+  "peak": 57.72,
   "last_seen": "2026-09-11",
   "ondeck": false
  },
@@ -509,7 +509,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-09",
+  "last_seen": "2026-09-11",
   "ondeck": true
  },
  "DINO": {
