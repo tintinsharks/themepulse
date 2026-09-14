@@ -40,7 +40,7 @@
   "px": 13.95,
   "layer": "Biotech Momentum",
   "peak": 13.95,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": true
  },
  "INTC": {
@@ -263,7 +263,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 52.36,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": true
  },
  "GH": {
@@ -281,7 +281,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 153.1,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": false
  },
  "SNOW": {
@@ -319,7 +319,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 194.68,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": false
  },
  "APPS": {
@@ -397,7 +397,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": false
  },
  "IBRX": {
@@ -429,24 +429,20 @@
   "exit_px": 261.51
  },
  "TXG": {
-  "entered": "2026-08-20",
-  "px": 61.4,
+  "entered": "2026-09-14",
+  "px": 68.94,
   "layer": "Telemedicine / Health IT",
-  "peak": 65.12,
-  "last_seen": "2026-08-28",
-  "ondeck": true,
-  "exited": "2026-09-03",
-  "exit_px": 61.65
+  "peak": 68.94,
+  "last_seen": "2026-09-14",
+  "ondeck": true
  },
  "HTFL": {
-  "entered": "2026-08-20",
-  "px": 46.0,
+  "entered": "2026-09-14",
+  "px": 49.36,
   "layer": "Telemedicine / Health IT",
-  "peak": 50.52,
-  "last_seen": "2026-08-28",
-  "ondeck": false,
-  "exited": "2026-09-03",
-  "exit_px": 50.0
+  "peak": 49.36,
+  "last_seen": "2026-09-14",
+  "ondeck": false
  },
  "PSNL": {
   "entered": "2026-08-22",
@@ -501,7 +497,7 @@
   "px": 50.93,
   "layer": "Refining",
   "peak": 57.72,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": false
  },
  "GTLB": {
@@ -509,7 +505,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": true
  },
  "DINO": {
@@ -517,7 +513,7 @@
   "px": 107.72,
   "layer": "Refining",
   "peak": 107.72,
-  "last_seen": "2026-09-11",
+  "last_seen": "2026-09-14",
   "ondeck": true
  }
 }
