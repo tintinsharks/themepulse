@@ -103,14 +103,12 @@
   "exit_px": 33.94
  },
  "RPD": {
-  "entered": "2026-08-11",
-  "px": 14.37,
+  "entered": "2026-09-15",
+  "px": 12.76,
   "layer": "Threat Operations",
-  "peak": 14.37,
-  "last_seen": "2026-09-01",
-  "ondeck": false,
-  "exited": "2026-09-08",
-  "exit_px": 11.0
+  "peak": 12.76,
+  "last_seen": "2026-09-15",
+  "ondeck": true
  },
  "AAOI": {
   "entered": "2026-08-04",
@@ -156,7 +154,7 @@
   "entered": "2026-09-15",
   "px": 74.47,
   "layer": "Refining",
-  "peak": 74.47,
+  "peak": 77.38,
   "last_seen": "2026-09-15",
   "ondeck": true
  },
@@ -260,7 +258,7 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 52.37,
+  "peak": 53.53,
   "last_seen": "2026-09-15",
   "ondeck": true
  },
@@ -293,14 +291,12 @@
   "exit_px": 334.7
  },
  "QLYS": {
-  "entered": "2026-08-05",
-  "px": 188.52,
+  "entered": "2026-09-15",
+  "px": 184.17,
   "layer": "Threat Operations",
-  "peak": 195.88,
-  "last_seen": "2026-09-01",
-  "ondeck": true,
-  "exited": "2026-09-08",
-  "exit_px": 171.65
+  "peak": 184.17,
+  "last_seen": "2026-09-15",
+  "ondeck": true
  },
  "MRVL": {
   "entered": "2026-08-27",
