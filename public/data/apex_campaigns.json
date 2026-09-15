@@ -40,7 +40,7 @@
   "px": 13.95,
   "layer": "Biotech Momentum",
   "peak": 13.95,
-  "last_seen": "2026-09-14",
+  "last_seen": "2026-09-15",
   "ondeck": true
  },
  "INTC": {
@@ -153,14 +153,12 @@
   "exit_px": 155.85
  },
  "DK": {
-  "entered": "2026-07-17",
-  "px": 63.72,
+  "entered": "2026-09-15",
+  "px": 74.47,
   "layer": "Refining",
-  "peak": 67.95,
-  "last_seen": "2026-08-04",
-  "ondeck": true,
-  "exited": "2026-08-10",
-  "exit_px": 60.52
+  "peak": 74.47,
+  "last_seen": "2026-09-15",
+  "ondeck": true
  },
  "PBF": {
   "entered": "2026-09-01",
@@ -262,8 +260,8 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 52.36,
-  "last_seen": "2026-09-14",
+  "peak": 52.37,
+  "last_seen": "2026-09-15",
   "ondeck": true
  },
  "GH": {
@@ -281,7 +279,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 153.1,
-  "last_seen": "2026-09-14",
+  "last_seen": "2026-09-15",
   "ondeck": false
  },
  "SNOW": {
@@ -319,7 +317,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 194.68,
-  "last_seen": "2026-09-14",
+  "last_seen": "2026-09-15",
   "ondeck": false
  },
  "APPS": {
@@ -397,7 +395,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-09-14",
+  "last_seen": "2026-09-15",
   "ondeck": false
  },
  "IBRX": {
@@ -432,8 +430,8 @@
   "entered": "2026-09-14",
   "px": 68.94,
   "layer": "Telemedicine / Health IT",
-  "peak": 68.94,
-  "last_seen": "2026-09-14",
+  "peak": 70.11,
+  "last_seen": "2026-09-15",
   "ondeck": true
  },
  "HTFL": {
@@ -497,7 +495,7 @@
   "px": 50.93,
   "layer": "Refining",
   "peak": 57.72,
-  "last_seen": "2026-09-14",
+  "last_seen": "2026-09-15",
   "ondeck": false
  },
  "GTLB": {
@@ -505,7 +503,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-14",
+  "last_seen": "2026-09-15",
   "ondeck": true
  },
  "DINO": {
@@ -514,6 +512,14 @@
   "layer": "Refining",
   "peak": 107.72,
   "last_seen": "2026-09-14",
+  "ondeck": true
+ },
+ "NUTX": {
+  "entered": "2026-09-15",
+  "px": 217.02,
+  "layer": "Telemedicine / Health IT",
+  "peak": 217.02,
+  "last_seen": "2026-09-15",
   "ondeck": true
  }
 }
