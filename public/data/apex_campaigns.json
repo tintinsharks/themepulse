@@ -25,7 +25,9 @@
   "layer": "Memory + Storage",
   "peak": 1774.46,
   "last_seen": "2026-09-10",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-16",
+  "exit_px": 1530.9
  },
  "MU": {
   "entered": "2026-09-09",
@@ -33,14 +35,16 @@
   "layer": "Memory + Storage",
   "peak": 1027.77,
   "last_seen": "2026-09-10",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-09-16",
+  "exit_px": 927.6
  },
  "SLS": {
   "entered": "2026-09-10",
   "px": 13.95,
   "layer": "Biotech Momentum",
   "peak": 13.95,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": true
  },
  "INTC": {
@@ -107,7 +111,7 @@
   "px": 12.76,
   "layer": "Threat Operations",
   "peak": 12.76,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": true
  },
  "AAOI": {
@@ -154,8 +158,8 @@
   "entered": "2026-09-15",
   "px": 74.47,
   "layer": "Refining",
-  "peak": 77.38,
-  "last_seen": "2026-09-15",
+  "peak": 78.14,
+  "last_seen": "2026-09-16",
   "ondeck": true
  },
  "PBF": {
@@ -259,7 +263,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 53.53,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": true
  },
  "GH": {
@@ -277,7 +281,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 153.1,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": false
  },
  "SNOW": {
@@ -294,8 +298,8 @@
   "entered": "2026-09-15",
   "px": 184.17,
   "layer": "Threat Operations",
-  "peak": 184.17,
-  "last_seen": "2026-09-15",
+  "peak": 185.37,
+  "last_seen": "2026-09-16",
   "ondeck": true
  },
  "MRVL": {
@@ -313,7 +317,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 194.68,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": false
  },
  "APPS": {
@@ -391,7 +395,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": false
  },
  "IBRX": {
@@ -491,7 +495,7 @@
   "px": 50.93,
   "layer": "Refining",
   "peak": 57.72,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": false
  },
  "GTLB": {
@@ -499,7 +503,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-15",
+  "last_seen": "2026-09-16",
   "ondeck": true
  },
  "DINO": {
