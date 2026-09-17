@@ -44,7 +44,7 @@
   "px": 13.95,
   "layer": "Biotech Momentum",
   "peak": 13.95,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": true
  },
  "INTC": {
@@ -74,7 +74,9 @@
   "layer": "Biotech Momentum",
   "peak": 8.98,
   "last_seen": "2026-09-11",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-17",
+  "exit_px": 8.04
  },
  "ANRO": {
   "entered": "2026-09-03",
@@ -111,7 +113,7 @@
   "px": 12.76,
   "layer": "Threat Operations",
   "peak": 12.76,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": true
  },
  "AAOI": {
@@ -168,7 +170,9 @@
   "layer": "Refining",
   "peak": 79.0,
   "last_seen": "2026-09-11",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-17",
+  "exit_px": 75.93
  },
  "VRNS": {
   "entered": "2026-07-21",
@@ -226,7 +230,9 @@
   "layer": "DevOps + Observability",
   "peak": 88.81,
   "last_seen": "2026-09-11",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-17",
+  "exit_px": 92.62
  },
  "RHI": {
   "entered": "2026-07-28",
@@ -263,7 +269,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 54.07,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": true
  },
  "GH": {
@@ -281,7 +287,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 153.1,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": false
  },
  "SNOW": {
@@ -299,7 +305,7 @@
   "px": 184.17,
   "layer": "Threat Operations",
   "peak": 185.37,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": true
  },
  "MRVL": {
@@ -317,7 +323,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 194.68,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": false
  },
  "APPS": {
@@ -395,7 +401,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 174.38,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": false
  },
  "IBRX": {
@@ -404,7 +410,9 @@
   "layer": "Oncology",
   "peak": 8.3,
   "last_seen": "2026-09-11",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-09-17",
+  "exit_px": 7.91
  },
  "CRL": {
   "entered": "2026-08-20",
@@ -458,7 +466,9 @@
   "layer": "Oncology",
   "peak": 55.39,
   "last_seen": "2026-09-11",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-17",
+  "exit_px": 55.85
  },
  "INTA": {
   "entered": "2026-08-28",
@@ -495,7 +505,7 @@
   "px": 50.93,
   "layer": "Refining",
   "peak": 58.49,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": false
  },
  "GTLB": {
@@ -503,7 +513,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-16",
+  "last_seen": "2026-09-17",
   "ondeck": true
  },
  "DINO": {
@@ -521,5 +531,13 @@
   "peak": 217.02,
   "last_seen": "2026-09-15",
   "ondeck": true
+ },
+ "CVI": {
+  "entered": "2026-09-17",
+  "px": 53.05,
+  "layer": "Refining",
+  "peak": 53.05,
+  "last_seen": "2026-09-17",
+  "ondeck": false
  }
 }
