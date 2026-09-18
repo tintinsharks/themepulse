@@ -69,14 +69,12 @@
   "exit_px": 124.23
  },
  "ABSI": {
-  "entered": "2026-09-08",
-  "px": 8.82,
+  "entered": "2026-09-18",
+  "px": 9.47,
   "layer": "Biotech Momentum",
-  "peak": 8.98,
-  "last_seen": "2026-09-11",
-  "ondeck": true,
-  "exited": "2026-09-17",
-  "exit_px": 8.04
+  "peak": 9.47,
+  "last_seen": "2026-09-18",
+  "ondeck": false
  },
  "ANRO": {
   "entered": "2026-09-03",
@@ -284,7 +282,7 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 158.05,
+  "peak": 162.29,
   "last_seen": "2026-09-18",
   "ondeck": false
  },
@@ -532,8 +530,8 @@
   "entered": "2026-09-17",
   "px": 53.05,
   "layer": "Refining",
-  "peak": 53.05,
-  "last_seen": "2026-09-17",
+  "peak": 53.52,
+  "last_seen": "2026-09-18",
   "ondeck": false
  }
 }
