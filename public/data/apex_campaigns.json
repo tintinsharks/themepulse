@@ -72,8 +72,8 @@
   "entered": "2026-09-18",
   "px": 9.47,
   "layer": "Biotech Momentum",
-  "peak": 9.47,
-  "last_seen": "2026-09-18",
+  "peak": 9.74,
+  "last_seen": "2026-09-21",
   "ondeck": false
  },
  "ANRO": {
@@ -148,8 +148,8 @@
   "entered": "2026-09-17",
   "px": 172.99,
   "layer": "Platform + Endpoint",
-  "peak": 172.99,
-  "last_seen": "2026-09-18",
+  "peak": 174.48,
+  "last_seen": "2026-09-21",
   "ondeck": false
  },
  "DK": {
@@ -265,7 +265,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 54.28,
-  "last_seen": "2026-09-18",
+  "last_seen": "2026-09-21",
   "ondeck": true
  },
  "GH": {
@@ -282,8 +282,8 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 162.29,
-  "last_seen": "2026-09-18",
+  "peak": 163.82,
+  "last_seen": "2026-09-21",
   "ondeck": false
  },
  "SNOW": {
@@ -318,8 +318,8 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 194.68,
-  "last_seen": "2026-09-18",
+  "peak": 195.35,
+  "last_seen": "2026-09-21",
   "ondeck": false
  },
  "APPS": {
@@ -376,8 +376,8 @@
   "entered": "2026-09-17",
   "px": 190.54,
   "layer": "Platform + Endpoint",
-  "peak": 190.54,
-  "last_seen": "2026-09-18",
+  "peak": 190.9,
+  "last_seen": "2026-09-21",
   "ondeck": true
  },
  "AXTI": {
@@ -394,8 +394,8 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 174.38,
-  "last_seen": "2026-09-18",
+  "peak": 175.59,
+  "last_seen": "2026-09-21",
   "ondeck": false
  },
  "IBRX": {
@@ -434,7 +434,9 @@
   "layer": "Telemedicine / Health IT",
   "peak": 70.11,
   "last_seen": "2026-09-15",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-21",
+  "exit_px": 79.25
  },
  "HTFL": {
   "entered": "2026-09-14",
@@ -442,7 +444,9 @@
   "layer": "Telemedicine / Health IT",
   "peak": 49.36,
   "last_seen": "2026-09-14",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-09-21",
+  "exit_px": 50.44
  },
  "PSNL": {
   "entered": "2026-08-22",
@@ -499,7 +503,7 @@
   "px": 50.93,
   "layer": "Refining",
   "peak": 59.05,
-  "last_seen": "2026-09-18",
+  "last_seen": "2026-09-21",
   "ondeck": false
  },
  "GTLB": {
@@ -507,7 +511,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-18",
+  "last_seen": "2026-09-21",
   "ondeck": true
  },
  "DINO": {
@@ -516,7 +520,9 @@
   "layer": "Refining",
   "peak": 107.72,
   "last_seen": "2026-09-14",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-21",
+  "exit_px": 112.82
  },
  "NUTX": {
   "entered": "2026-09-15",
@@ -524,14 +530,16 @@
   "layer": "Telemedicine / Health IT",
   "peak": 217.02,
   "last_seen": "2026-09-15",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-09-21",
+  "exit_px": 205.64
  },
  "CVI": {
   "entered": "2026-09-17",
   "px": 53.05,
   "layer": "Refining",
-  "peak": 53.52,
-  "last_seen": "2026-09-18",
+  "peak": 54.59,
+  "last_seen": "2026-09-21",
   "ondeck": false
  }
 }
