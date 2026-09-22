@@ -48,14 +48,12 @@
   "ondeck": true
  },
  "INTC": {
-  "entered": "2026-08-06",
-  "px": 102.44,
+  "entered": "2026-09-22",
+  "px": 121.62,
   "layer": "Compute Silicon",
-  "peak": 102.44,
-  "last_seen": "2026-08-07",
-  "ondeck": true,
-  "exited": "2026-08-13",
-  "exit_px": 100.95
+  "peak": 121.62,
+  "last_seen": "2026-09-22",
+  "ondeck": false
  },
  "ABVX": {
   "entered": "2026-07-03",
@@ -72,7 +70,7 @@
   "entered": "2026-09-18",
   "px": 9.47,
   "layer": "Biotech Momentum",
-  "peak": 9.82,
+  "peak": 10.72,
   "last_seen": "2026-09-22",
   "ondeck": false
  },
@@ -87,14 +85,12 @@
   "exit_px": 31.68
  },
  "AMD": {
-  "entered": "2026-07-22",
-  "px": 551.81,
+  "entered": "2026-09-22",
+  "px": 616.8,
   "layer": "Compute Silicon",
-  "peak": 552.33,
-  "last_seen": "2026-07-24",
-  "ondeck": true,
-  "exited": "2026-07-30",
-  "exit_px": 429.56
+  "peak": 616.8,
+  "last_seen": "2026-09-22",
+  "ondeck": true
  },
  "TENB": {
   "entered": "2026-08-05",
@@ -135,14 +131,12 @@
   "exit_px": 269.61
  },
  "PANW": {
-  "entered": "2026-07-24",
-  "px": 326.03,
+  "entered": "2026-09-22",
+  "px": 372.14,
   "layer": "Platform + Endpoint",
-  "peak": 396.0,
-  "last_seen": "2026-08-14",
-  "ondeck": true,
-  "exited": "2026-08-20",
-  "exit_px": 359.76
+  "peak": 372.14,
+  "last_seen": "2026-09-22",
+  "ondeck": true
  },
  "FTNT": {
   "entered": "2026-09-17",
@@ -262,7 +256,7 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 54.33,
+  "peak": 56.37,
   "last_seen": "2026-09-22",
   "ondeck": true
  },
@@ -280,7 +274,7 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 165.83,
+  "peak": 168.0,
   "last_seen": "2026-09-22",
   "ondeck": false
  },
@@ -374,7 +368,7 @@
   "entered": "2026-09-17",
   "px": 190.54,
   "layer": "Platform + Endpoint",
-  "peak": 191.33,
+  "peak": 197.41,
   "last_seen": "2026-09-22",
   "ondeck": true
  },
@@ -392,7 +386,7 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 175.59,
+  "peak": 182.38,
   "last_seen": "2026-09-22",
   "ondeck": false
  },
