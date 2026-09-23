@@ -71,7 +71,7 @@
   "px": 9.47,
   "layer": "Biotech Momentum",
   "peak": 10.72,
-  "last_seen": "2026-09-22",
+  "last_seen": "2026-09-23",
   "ondeck": false
  },
  "ANRO": {
@@ -103,14 +103,12 @@
   "exit_px": 33.94
  },
  "RPD": {
-  "entered": "2026-09-15",
-  "px": 12.76,
+  "entered": "2026-09-23",
+  "px": 12.95,
   "layer": "Threat Operations",
-  "peak": 12.76,
-  "last_seen": "2026-09-17",
-  "ondeck": true,
-  "exited": "2026-09-23",
-  "exit_px": 12.85
+  "peak": 12.95,
+  "last_seen": "2026-09-23",
+  "ondeck": true
  },
  "AAOI": {
   "entered": "2026-08-04",
@@ -136,8 +134,8 @@
   "entered": "2026-09-22",
   "px": 372.14,
   "layer": "Platform + Endpoint",
-  "peak": 372.14,
-  "last_seen": "2026-09-22",
+  "peak": 385.85,
+  "last_seen": "2026-09-23",
   "ondeck": true
  },
  "FTNT": {
@@ -259,7 +257,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 56.37,
-  "last_seen": "2026-09-22",
+  "last_seen": "2026-09-23",
   "ondeck": true
  },
  "GH": {
@@ -277,7 +275,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 168.0,
-  "last_seen": "2026-09-22",
+  "last_seen": "2026-09-23",
   "ondeck": false
  },
  "SNOW": {
@@ -295,7 +293,7 @@
   "px": 184.17,
   "layer": "Threat Operations",
   "peak": 185.37,
-  "last_seen": "2026-09-22",
+  "last_seen": "2026-09-23",
   "ondeck": true
  },
  "MRVL": {
@@ -313,7 +311,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 195.67,
-  "last_seen": "2026-09-22",
+  "last_seen": "2026-09-23",
   "ondeck": false
  },
  "APPS": {
@@ -370,8 +368,8 @@
   "entered": "2026-09-17",
   "px": 190.54,
   "layer": "Platform + Endpoint",
-  "peak": 197.41,
-  "last_seen": "2026-09-22",
+  "peak": 203.03,
+  "last_seen": "2026-09-23",
   "ondeck": true
  },
  "AXTI": {
@@ -388,8 +386,8 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 182.38,
-  "last_seen": "2026-09-22",
+  "peak": 185.02,
+  "last_seen": "2026-09-23",
   "ondeck": false
  },
  "IBRX": {
@@ -505,7 +503,7 @@
   "px": 50.13,
   "layer": "DevOps + Observability",
   "peak": 50.5,
-  "last_seen": "2026-09-22",
+  "last_seen": "2026-09-23",
   "ondeck": true
  },
  "DINO": {
