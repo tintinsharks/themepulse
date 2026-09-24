@@ -53,7 +53,7 @@
   "entered": "2026-09-22",
   "px": 121.62,
   "layer": "Compute Silicon",
-  "peak": 122.6,
+  "peak": 125.41,
   "last_seen": "2026-09-24",
   "ondeck": false
  },
@@ -90,7 +90,7 @@
   "entered": "2026-09-22",
   "px": 616.8,
   "layer": "Compute Silicon",
-  "peak": 616.8,
+  "peak": 622.12,
   "last_seen": "2026-09-24",
   "ondeck": true
  },
@@ -260,7 +260,7 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 56.37,
+  "peak": 62.01,
   "last_seen": "2026-09-24",
   "ondeck": true
  },
@@ -278,7 +278,7 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 168.0,
+  "peak": 176.12,
   "last_seen": "2026-09-24",
   "ondeck": false
  },
@@ -372,7 +372,7 @@
   "entered": "2026-09-17",
   "px": 190.54,
   "layer": "Platform + Endpoint",
-  "peak": 205.36,
+  "peak": 211.09,
   "last_seen": "2026-09-24",
   "ondeck": true
  },
