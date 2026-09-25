@@ -1,13 +1,11 @@
 {
  "MXL": {
-  "entered": "2026-08-27",
-  "px": 63.42,
+  "entered": "2026-09-25",
+  "px": 93.77,
   "layer": "AI Connectivity",
-  "peak": 63.42,
-  "last_seen": "2026-08-28",
-  "ondeck": true,
-  "exited": "2026-09-03",
-  "exit_px": 60.1
+  "peak": 93.77,
+  "last_seen": "2026-09-25",
+  "ondeck": true
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -54,7 +52,7 @@
   "px": 121.62,
   "layer": "Compute Silicon",
   "peak": 125.41,
-  "last_seen": "2026-09-24",
+  "last_seen": "2026-09-25",
   "ondeck": false
  },
  "ABVX": {
@@ -90,8 +88,8 @@
   "entered": "2026-09-22",
   "px": 616.8,
   "layer": "Compute Silicon",
-  "peak": 622.12,
-  "last_seen": "2026-09-24",
+  "peak": 629.26,
+  "last_seen": "2026-09-25",
   "ondeck": true
  },
  "TENB": {
@@ -260,7 +258,7 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 62.01,
+  "peak": 64.33,
   "last_seen": "2026-09-25",
   "ondeck": true
  },
@@ -278,7 +276,7 @@
   "entered": "2026-08-11",
   "px": 124.88,
   "layer": "Diagnostics",
-  "peak": 184.03,
+  "peak": 184.6,
   "last_seen": "2026-09-25",
   "ondeck": false
  },
@@ -301,14 +299,12 @@
   "ondeck": true
  },
  "MRVL": {
-  "entered": "2026-08-27",
-  "px": 241.45,
+  "entered": "2026-09-25",
+  "px": 265.39,
   "layer": "AI Connectivity",
-  "peak": 241.45,
-  "last_seen": "2026-08-28",
-  "ondeck": true,
-  "exited": "2026-09-03",
-  "exit_px": 206.48
+  "peak": 265.39,
+  "last_seen": "2026-09-25",
+  "ondeck": true
  },
  "TEAM": {
   "entered": "2026-08-07",
