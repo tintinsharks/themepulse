@@ -1,15 +1,15 @@
 {
   "date": "2026-09-29",
-  "generated": "2026-09-29 08:17",
-  "vix": 16.09,
+  "generated": "2026-09-29 18:29",
+  "vix": 16.14,
   "vixChg": null,
-  "tenYearYield": 5.24,
-  "yieldBps": 6,
-  "dxy": 101.085,
-  "dxyChg": 0.114,
+  "tenYearYield": 5.265,
+  "yieldBps": 2,
+  "dxy": 101.133,
+  "dxyChg": 0.162,
   "putCallRatio": null,
-  "regime": "CAUTION",
-  "regimeReason": "Caution warranted: moderate vol, yields rising",
+  "regime": "MIXED",
+  "regimeReason": "Leaning bullish but mixed: moderate vol",
   "t2108": null,
   "ratio5d": null
 }

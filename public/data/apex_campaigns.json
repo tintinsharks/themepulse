@@ -4,7 +4,7 @@
   "px": 93.77,
   "layer": "AI Connectivity",
   "peak": 93.77,
-  "last_seen": "2026-09-25",
+  "last_seen": "2026-09-29",
   "ondeck": true
  },
  "ALAB": {
@@ -305,7 +305,7 @@
   "px": 265.39,
   "layer": "AI Connectivity",
   "peak": 265.39,
-  "last_seen": "2026-09-25",
+  "last_seen": "2026-09-29",
   "ondeck": true
  },
  "TEAM": {
@@ -388,7 +388,7 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 197.28,
+  "peak": 199.73,
   "last_seen": "2026-09-29",
   "ondeck": false
  },
@@ -554,7 +554,7 @@
   "entered": "2026-09-28",
   "px": 132.53,
   "layer": "Diagnostics",
-  "peak": 132.63,
+  "peak": 136.52,
   "last_seen": "2026-09-29",
   "ondeck": true
  },
