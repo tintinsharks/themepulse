@@ -52,7 +52,7 @@
   "px": 121.62,
   "layer": "Compute Silicon",
   "peak": 125.41,
-  "last_seen": "2026-09-29",
+  "last_seen": "2026-09-30",
   "ondeck": false
  },
  "ABVX": {
@@ -212,7 +212,7 @@
   "entered": "2026-09-28",
   "px": 268.61,
   "layer": "DevOps + Observability",
-  "peak": 268.7,
+  "peak": 275.59,
   "last_seen": "2026-09-30",
   "ondeck": true
  },
@@ -554,7 +554,7 @@
   "entered": "2026-09-28",
   "px": 132.53,
   "layer": "Diagnostics",
-  "peak": 136.57,
+  "peak": 141.39,
   "last_seen": "2026-09-30",
   "ondeck": true
  },
@@ -562,7 +562,7 @@
   "entered": "2026-09-28",
   "px": 90.06,
   "layer": "Biotech Momentum",
-  "peak": 91.12,
+  "peak": 93.75,
   "last_seen": "2026-09-30",
   "ondeck": false
  }
