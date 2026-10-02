@@ -3,7 +3,7 @@
   "entered": "2026-09-25",
   "px": 93.77,
   "layer": "AI Connectivity",
-  "peak": 93.77,
+  "peak": 103.84,
   "last_seen": "2026-10-02",
   "ondeck": true
  },
@@ -90,7 +90,7 @@
   "entered": "2026-09-22",
   "px": 616.8,
   "layer": "Compute Silicon",
-  "peak": 629.26,
+  "peak": 638.59,
   "last_seen": "2026-10-02",
   "ondeck": true
  },
@@ -216,7 +216,7 @@
   "entered": "2026-09-28",
   "px": 268.61,
   "layer": "DevOps + Observability",
-  "peak": 276.46,
+  "peak": 279.6,
   "last_seen": "2026-10-02",
   "ondeck": true
  },
@@ -264,7 +264,7 @@
   "entered": "2026-08-11",
   "px": 47.07,
   "layer": "Diagnostics",
-  "peak": 66.4,
+  "peak": 67.4,
   "last_seen": "2026-10-02",
   "ondeck": true
  },
@@ -310,7 +310,7 @@
   "entered": "2026-09-25",
   "px": 265.39,
   "layer": "AI Connectivity",
-  "peak": 268.29,
+  "peak": 276.67,
   "last_seen": "2026-10-02",
   "ondeck": true
  },
