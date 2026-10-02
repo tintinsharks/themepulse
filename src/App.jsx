@@ -242,8 +242,20 @@ function pushLegs(s) {
   if ((s.avg_dollar_vol_raw || 0) < 20e6) out.push("$Vol < 20M");
   const ind = s.industry || "";
   if (ind.includes("Biotechnology") || ind.includes("Drug Manufacturers")) out.push("biotech");
+  // NOT "must be off the highs" — that was backwards, and the point-in-time
+  // study says so. On a survivor-only panel the depth curve rose monotonically
+  // (leaders >60% off their highs "returned" +18.6%/63d), so being deeply off
+  // the high looked best. Rebuilt with the names that delisted or went illiquid
+  // (7,367 symbols, membership decided per-date), the curve TURNS OVER:
+  //   0 to -5  +1.14%   -10 to -15 +2.69%   -15 to -25 +3.07%  (peak, 21d)
+  //   -25 to -40 -1.57%   -40 to -60 -1.61%   below -60 -8.73%
+  // A leader more than ~25% below its high is not pulling back, it is broken,
+  // and the old monotonic result was the recovery survivors of that bucket. So
+  // the leg excludes BROKEN names rather than extended ones; -10 to -25 is the
+  // sweet spot but 0 to -25 is all positive, and gating on it would throw away
+  // good names for a difference the data does not strongly separate.
   const off = s.off_52w_high;                       // negative = below the high
-  if (off == null || off > -8) out.push("extended (<8% off high)");
+  if (off == null || off < -25) out.push("broken (>25% off high)");
   if ((s.framework_score ?? 0) < 55) out.push("EIF < 55");
   const sp = seatPersist(s.ticker);
   if (sp === undefined) out.push("no leadership history");
@@ -321,8 +333,8 @@ const PRESETS = {
   push: {
     label: "Push",
     desc:
-      "A liquid, non-biotech RS >= 90 leader that is NOT extended (>8% off its 52w high), has held a top-decile seat on at least 20% of the quarter, carries EIF >= 55, and is printing a strong close on heavy volume RIGHT NOW (CR >= 70 on RVol >= 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close). " +
-      "What the evidence actually supports, re-measured on the pipeline's OWN rs_rank formula (backtest_leadership_v2.py): being a leader is worth +3.44% at 21d against a +0.55% baseline, and being off the highs is worth +5.31% (t=7.12) against +1.41% for a leader sitting at its high. Those two replicated across two independent formulas. " +
+      "A liquid, non-biotech RS >= 90 leader that is not BROKEN (within 25% of its 52w high), has held a top-decile seat on at least 20% of the quarter, carries EIF >= 55, and is printing a strong close on heavy volume RIGHT NOW (CR >= 70 on RVol >= 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close). " +
+      "Re-measured on a POINT-IN-TIME universe (backtest_leadership_pit.py — 7,367 symbols including delisted and de-liquified names, membership decided per date). Leadership is worth +0.83% at 21d (t=2.11) against a ~0.00% baseline — real but far smaller than the +3.44% a survivor-only panel claimed. Distance from the high matters MORE than leadership and in the opposite direction to the earlier read: -15 to -25% off the high is the peak (+3.07%/21d, +7.64%/63d), 0 to -5% is still positive (+1.14%), and below -25% it inverts hard (-8.73% at 21d for names >60% off). " +
       "What it does NOT support: the close-and-volume day. CR >= 70 on RVol >= 1.5 returns +3.39% against +3.44% for simply being a leader — no measurable edge. Those legs are here because they are how you like to ENTER, not because they add alpha. Persistence is similar: every bucket sits between +2.6% and +4.2%, so the fresh exclusion is worth little and the backtest's 20-60 band was an artifact of a churnier proxy RS (it put durable names at 7.8% of leaders; the real formula puts them at 61%, matching live).",
     color: "#34d399",
     test: (s) => pushLegs(s).length === 0,
