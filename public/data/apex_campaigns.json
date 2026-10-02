@@ -4,7 +4,7 @@
   "px": 93.77,
   "layer": "AI Connectivity",
   "peak": 93.77,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": true
  },
  "ALAB": {
@@ -52,7 +52,7 @@
   "px": 121.62,
   "layer": "Compute Silicon",
   "peak": 125.41,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": false
  },
  "ABVX": {
@@ -91,7 +91,7 @@
   "px": 616.8,
   "layer": "Compute Silicon",
   "peak": 629.26,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": true
  },
  "TENB": {
@@ -216,8 +216,8 @@
   "entered": "2026-09-28",
   "px": 268.61,
   "layer": "DevOps + Observability",
-  "peak": 276.18,
-  "last_seen": "2026-10-01",
+  "peak": 276.46,
+  "last_seen": "2026-10-02",
   "ondeck": true
  },
  "FROG": {
@@ -265,7 +265,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 66.4,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": true
  },
  "GH": {
@@ -283,7 +283,7 @@
   "px": 124.88,
   "layer": "Diagnostics",
   "peak": 193.86,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": false
  },
  "SNOW": {
@@ -311,7 +311,7 @@
   "px": 265.39,
   "layer": "AI Connectivity",
   "peak": 268.29,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": true
  },
  "TEAM": {
@@ -319,7 +319,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 195.67,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": false
  },
  "APPS": {
@@ -395,7 +395,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 203.46,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": false
  },
  "IBRX": {
@@ -571,7 +571,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-01",
+  "last_seen": "2026-10-02",
   "ondeck": false
  }
 }
