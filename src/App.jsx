@@ -300,7 +300,7 @@ const PRESETS = {
   push: {
     label: "Push",
     desc:
-      "The measured version of the top-third-close rule. A leader (RS ≥ 90) that is NOT extended (>8% off its 52w high), holding a top-decile seat 20-60% of the quarter, printing a strong close on heavy volume RIGHT NOW (CR ≥ 70 on RVol ≥ 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close), EIF ≥ 55, $Vol ≥ $20M, no biotech. " +
+      "The measured version of the top-third-close rule. A leader (RS ≥ 90) that is NOT extended (>8% off its 52w high), holding a top-decile seat on at least 20% of the quarter (fresh arrivals excluded; the backtest's 20-60 BAND is deliberately not applied — its upper bound was calibrated on a proxy RS where durable names were a rare 7.8% tail, but under the real rs_rank they are 61% of leaders), printing a strong close on heavy volume RIGHT NOW (CR ≥ 70 on RVol ≥ 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close), EIF ≥ 55, $Vol ≥ $20M, no biotech. " +
       "Why these legs: over 500 sessions the close-and-volume day is worth only +1.55% at t=1.90 ON ITS OWN — not significant — but +4.77% inside the 20-60% persistence band. A strong close alone (+2.04%) does not beat a plain leader (+2.16%); the VOLUME is the half that pays. And leaders sitting at their highs returned +0.02% (t=0.07), which is why extension is excluded rather than rewarded. " +
       "Caveats: the 20-60% band was chosen in-sample, and the off-the-highs leg comes from a 2024-26 sample (it did hold up in the risk-off split). The persistence leg needs persistMap in ticker_seats.json — before the next pipeline run it is skipped and the pill is looser than advertised.",
     color: "#34d399",
@@ -318,7 +318,14 @@ const PRESETS = {
       const sp = seatPersist(s.ticker);
       if (sp === null) return true;                     // map not loaded — skip this leg
       if (sp === undefined) return false;               // tradeable but never held a seat
-      return sp.persist >= 20 && sp.persist < 60;
+      // NOT the 20-60 band the backtest found. That band's UPPER bound does not
+      // transfer: in the backtest's proxy-RS sample "durable" (>=60%) was a rare
+      // 7.8% tail that underperformed, but under the pipeline's real rs_rank it
+      // is 61% of all leaders — MXL sits at 100, MRVL at 98. A cut calibrated on
+      // an 8% tail cannot be applied to a 61% majority, so excluding them would
+      // be acting on a number measured somewhere else. Only the FRESH exclusion
+      // replicated in both the ticker and the layer study, so only it ships.
+      return sp.persist >= 20;
     },
   },
   accum: {
