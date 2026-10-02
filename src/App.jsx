@@ -213,6 +213,19 @@ const MOM_LEGS = {
   },
 };
 
+// Universe-wide leadership persistence, from ticker_seats.json's persistMap
+// (10d_ticker_seats.py). The `rows` strip is a 60-name leaderboard; this map
+// covers every tradeable name, which is what a 500-row scan filter needs.
+// Lazily indexed off the same module cache the seats panels already fill.
+let _persistIdx = null, _persistSrc = null;
+function seatPersist(ticker) {
+  const pm = _tkSeatsCache?.persistMap;
+  if (!pm) return null;                       // not loaded, or pipeline predates the map
+  if (_persistSrc !== pm) { _persistSrc = pm; _persistIdx = pm; }
+  const e = _persistIdx[ticker];
+  return e ? { persist: e[0], streak: e[1], now: e[2] } : undefined;  // undefined = known-absent
+}
+
 const PRESETS = {
   reset: {
     label: "Reset",
@@ -262,6 +275,32 @@ const PRESETS = {
       "70%+ above 52W low, EPS or Sales growth ≥ 25%, near moving averages (SMA20 -2% to 18%, SMA50 ≥ -3%). The fundamentals + buyable-position preset.",
     color: "#0ea5e9",
     test: MOM_LEGS.strongest,
+  },
+  push: {
+    label: "Push",
+    desc:
+      "The measured version of the top-third-close rule. A leader (RS ≥ 90) that is NOT extended (>8% off its 52w high), holding a top-decile seat 20-60% of the quarter, printing a strong close on heavy volume today (CR ≥ 70 on RVol ≥ 1.5, up day), EIF ≥ 55, $Vol ≥ $20M, no biotech. " +
+      "Why these legs: over 500 sessions the close-and-volume day is worth only +1.55% at t=1.90 ON ITS OWN — not significant — but +4.77% inside the 20-60% persistence band. A strong close alone (+2.04%) does not beat a plain leader (+2.16%); the VOLUME is the half that pays. And leaders sitting at their highs returned +0.02% (t=0.07), which is why extension is excluded rather than rewarded. " +
+      "Caveats: the 20-60% band was chosen in-sample, and the off-the-highs leg comes from a 2024-26 sample (it did hold up in the risk-off split). The persistence leg needs persistMap in ticker_seats.json — before the next pipeline run it is skipped and the pill is looser than advertised.",
+    color: "#34d399",
+    test: (s) => {
+      const rs = s.rs_rank || 0;
+      if (rs < 90) return false;
+      if ((s.avg_dollar_vol_raw || 0) < 20e6) return false;
+      const ind = s.industry || "";
+      if (ind.includes("Biotechnology") || ind.includes("Drug Manufacturers")) return false;
+      const off = s.off_52w_high;                       // negative = below the high
+      if (off == null || off > -8) return false;        // extended: no measured edge
+      const cr = s.cr_pct;
+      const rv = s.rel_volume ?? 0;
+      const chg = s.change_pct || 0;
+      if (cr == null || cr < 70 || rv < 1.5 || chg <= 0) return false;
+      if ((s.framework_score ?? 0) < 55) return false;
+      const sp = seatPersist(s.ticker);
+      if (sp === null) return true;                     // map not loaded — skip this leg
+      if (sp === undefined) return false;               // tradeable but never held a seat
+      return sp.persist >= 20 && sp.persist < 60;
+    },
   },
   accum: {
     label: "Accum",
