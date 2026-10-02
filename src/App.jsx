@@ -643,41 +643,36 @@ function computeCR(q, s) {
   return null;
 }
 
-// ── Lead Edge: expected 21d alpha vs SPY, from the measured cohort tables ──
-// Not a hand-weighted composite — each branch returns the alpha that cohort
-// actually produced in backtest_leadership_quality / _decompose.py over 500
-// sessions of the liquid universe, so the sort order IS the evidence.
+// ── Lead Edge: expected 21d alpha vs SPY, from the POINT-IN-TIME study ──
+// (backtest_leadership_pit.py — 7,367 symbols including delisted and
+// de-liquified names, membership decided per date, the pipeline's own rs_rank).
 //
-// TICKERS (subsets of RS >= 90). Persistence pays in a BAND: leaders holding
-// a seat 20-60% of the quarter returned +2.4%, while the most durable (>= 60%)
-// returned +0.8% at t=0.90 — indistinguishable from nothing, which is why
-// sorting by Held% descending points at the weakest names. Being off the highs
-// or printing an accumulation day is weak alone (t=+2.5 / +1.9) and noise
-// together without the band (t=+1.25), but layered ON it each roughly doubles
-// a plain leader's edge.
-function tickerEdge({ persist, off52, cr, zvr, now }) {
-  if (persist == null) return null;
-  if (!(now >= 90)) return 1.2;                       // has seat history, not leading today
-  const band = persist >= 20 && persist < 60;         // A — the carrier
-  const dip = off52 != null && off52 < -15;           // B — off the 52w high
-  const accum = cr >= 70 && zvr >= 150;               // C — strong close on heavy volume
-  if (band && dip) return 4.9;
-  if (band && accum) return 4.8;
-  if (band) return 2.4;
-  if (dip) return 1.7;
-  if (accum) return 1.6;
-  return 1.2;
-}
-// LAYERS behave differently and were measured separately: persistence is
-// roughly monotonic there, so a durable layer is fine (+7.1%) where a durable
-// ticker is dead. Only FRESH layers lag (+4.9% vs +7.5% mid). Do not collapse
-// these two functions — the whole point is that the band does not transfer.
-function layerEdge({ persist, leadingNow }) {
-  if (persist == null) return null;
-  if (!leadingNow) return 2.3;                        // baseline: any layer, any day
-  if (persist >= 20 && persist < 60) return 7.5;
-  if (persist >= 60) return 7.1;
-  return 4.9;
+// The previous version returned numbers from a survivor-only panel and a proxy
+// RS: 4.9 for a leader >15% off its high, 2.4 for the "20-60 persistence band".
+// Both are wrong. Off-the-highs is NEGATIVE once the names that left are in the
+// sample (-0.55%/21d), and the band does not exist — every persistence bucket
+// lands within a point of the others. This panel's default sort was therefore
+// ranking the losing cohort first.
+//
+// What replaced it is the one relationship that measured large and held up:
+// distance from the 52-week high, inside the RS >= 90 leader cohort. The curve
+// peaks on a normal pullback and inverts on a broken one.
+//
+// There is deliberately no layerEdge any more: the layer study used the same
+// proxy RS and the same survivor panel and has not been redone point-in-time,
+// so that column asserted numbers no better than the ones removed here. The
+// layer panel goes back to sorting on ZCR — a measurement, not a claim about
+// forward returns.
+function tickerEdge({ off52, now }) {
+  if (!(now >= 90)) return 0.0;          // not a leader: ~baseline
+  if (off52 == null) return null;
+  if (off52 >= -5) return 1.1;           // at the high — modest, still positive
+  if (off52 >= -10) return 1.7;
+  if (off52 >= -15) return 2.7;
+  if (off52 >= -25) return 3.1;          // the pullback sweet spot
+  if (off52 >= -40) return -1.6;         // broken, not pulling back
+  if (off52 >= -60) return -1.6;
+  return -8.7;
 }
 
 // ── ZCR: volume effort × closing result, as one sortable number ──────────
@@ -2055,7 +2050,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
       case "held": return r.persist;
       case "streak": return r.streak;
       case "zcr": { const m = metricsOf?.(r.ticker); const v = m ? zcrScore(m.zvr, m.cr, m.chg, m.adr) : null; return v == null ? -9999 : v; }
-      case "edge": { const m = metricsOf?.(r.ticker) || {}; const v = tickerEdge({ persist: r.persist, off52: m.off52, cr: m.cr, zvr: m.zvr, now: r.now }); return v == null ? -9999 : v; }
+      case "edge": { const m = metricsOf?.(r.ticker) || {}; const v = tickerEdge({ off52: m.off52, now: r.now }); return v == null ? -9999 : v; }
       default: return r.now;
     }
   };
@@ -2101,7 +2096,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
         {hCell("held", "Held", 24, "right", "Share of the window at RS ≥ the lead line — durability")}
         {hCell("streak", "Run", 20, "right", "Current run: consecutive sessions ending today with a seat — blank if it isn't holding one now. Not the rank (the layers table's NOW is rank)")}
         {hCell("zcr", "ZCR", 22, "right", "ZCR — today's volume effort x closing result (live)")}
-        {hCell("edge", "Edge", 20, "right", "Expected 21d alpha vs SPY for the cohort this name is in, straight from the backtest — the default sort")}
+        {hCell("edge", "Edge", 20, "right", "Expected 21d alpha vs SPY from the point-in-time study — a leader’s distance from its 52w high. Peaks on a normal pullback (-15 to -25%: +3.1%) and inverts on a broken one (below -60%: -8.7%). The default sort")}
       </div>
       <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 48 + VW + 103, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
         {rows.map((r) => {
@@ -2134,7 +2129,7 @@ function TickerSeats({ data, onPick, tiers, metricsOf, ARIA }) {
                 </span>
                 {(() => {
                   const m = metricsOf?.(r.ticker) || {};
-                  const e = tickerEdge({ persist: r.persist, off52: m.off52, cr: m.cr, zvr: m.zvr, now: r.now });
+                  const e = tickerEdge({ off52: m.off52, now: r.now });
                   if (e == null) return <span style={{ width: 20, textAlign: "right", fontSize: 7, color: ARIA.textMuted }}>—</span>;
                   const c = e >= 4 ? ARIA.green : e >= 2 ? "#4ade80" : ARIA.textMuted;
                   const why = !(r.now >= 90) ? "not leading today" : (r.persist >= 20 && r.persist < 60)
@@ -2174,7 +2169,7 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
   // strip beside each says whether that is durable or a first visit. Rank is a
   // click away on the strip header. (Persistence stays a tiebreak so tied rows
   // don't jitter on every quote tick.)
-  const [sort, setSort] = useState({ key: "edge", dir: "desc" });
+  const [sort, setSort] = useState({ key: "zcr", dir: "desc" });;
   const base = useMemo(() => (layers || [])
     .filter((l) => l.leadBits && l.persist > 0 && !SEATS_EXCLUDE.has(`${l.themeId}|${l.name}`)), [layers]);
   // Sorted outside the memo: the ZCR percentile moves with live quotes, so a
@@ -2185,7 +2180,6 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
       case "held": return l.persist;
       case "streak": return l.streak;
       case "zcr": return zcrRank?.(l)?.pct ?? -1;
-      case "edge": return layerEdge({ persist: l.persist, leadingNow: l.leadBits?.endsWith("1") }) ?? -1;
       default: return l.now;
     }
   };
@@ -2245,7 +2239,6 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
           {hCell("held", "Held", 21, "right", "Share of the window spent at rank ≥88 — durability")}
           {hCell("streak", "Run", 16, "right", "Current run: consecutive sessions at rank ≥88 ending today — blank if it isn't leading now. Not the rank (the layers table's NOW is rank)")}
           {hCell("zcr", "ZCR%", 22, "right", "Where this layer's ZCR (volume effort × closing result, averaged over its holdings) ranks against every other layer priced today. 99 = the strongest accumulation on the board, 1 = the heaviest distribution")}
-          {hCell("edge", "Edge", 20, "right", "Expected 21d alpha vs SPY for the cohort this layer is in, measured over 500 sessions — the default sort. Leading layers averaged +6.5% against +2.3% for all layers")}
         </span>
       </div>
       <div ref={scrollRef} style={{ maxHeight: VISIBLE * ROW, width: 118 + VW + 121, overflowY: "auto", overflowX: "auto", overscrollBehavior: "contain" }}>
@@ -2280,15 +2273,6 @@ function LeadershipSeats({ layers, onPick, zcrRank, zcrN, ARIA }) {
                   <span title={`ZCR ${e.z} (ZVR ${e.zvr}% · CR ${e.cr}%) — ${e.pct}th percentile of ${zcrN} layers today`}
                     style={{ width: 22, textAlign: "right", fontSize: 7, fontWeight: e.pct >= 80 || e.pct <= 20 ? 800 : 400, color: c }}>{e.pct}</span>
                 );
-              })()}
-              {(() => {
-                const e = layerEdge({ persist: l.persist, leadingNow: bits.endsWith("1") });
-                if (e == null) return <span style={{ width: 20, textAlign: "right", fontSize: 7, color: ARIA.textMuted }}>—</span>;
-                const c = e >= 7 ? ARIA.green : e >= 4 ? "#4ade80" : ARIA.textMuted;
-                const why = !bits.endsWith("1") ? "not holding a seat today" : l.persist >= 60 ? "durable leader (Held >= 60%)"
-                  : l.persist >= 20 ? "in the 20-60% persistence band — the strongest layer cohort" : "fresh leader (Held < 20%) — the weakest leading cohort";
-                return <span title={`Edge ${e.toFixed(1)}% — expected 21d alpha vs SPY. ${why}. Measured over 500 sessions in backtest_layer_quality.py; leading layers averaged +6.5%, all layers +2.3%. Unlike tickers, layer persistence is roughly monotonic — a durable LAYER still pays.`}
-                  style={{ width: 20, textAlign: "right", fontSize: 7, fontWeight: e >= 7 ? 800 : 400, color: c }}>{e.toFixed(1)}</span>;
               })()}
             </span>
           </div>
