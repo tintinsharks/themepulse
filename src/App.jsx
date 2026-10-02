@@ -234,6 +234,27 @@ function liveBar(s) {
   return { cr: computeCR(q, s), rvol, chg };
 }
 
+// Push's legs as data, so the pill and its near-miss twin can't drift apart and
+// the row tooltip can name what's missing. Returns the FAILING leg labels.
+function pushLegs(s) {
+  const out = [];
+  if ((s.rs_rank || 0) < 90) out.push("RS < 90");
+  if ((s.avg_dollar_vol_raw || 0) < 20e6) out.push("$Vol < 20M");
+  const ind = s.industry || "";
+  if (ind.includes("Biotechnology") || ind.includes("Drug Manufacturers")) out.push("biotech");
+  const off = s.off_52w_high;                       // negative = below the high
+  if (off == null || off > -8) out.push("extended (<8% off high)");
+  if ((s.framework_score ?? 0) < 55) out.push("EIF < 55");
+  const sp = seatPersist(s.ticker);
+  if (sp === undefined) out.push("no leadership history");
+  else if (sp && sp.persist < 20) out.push("fresh (held < 20%)");
+  const { cr, rvol, chg } = liveBar(s);
+  if (cr == null || cr < 70) out.push(`CR ${cr == null ? "—" : Math.round(cr)}% < 70`);
+  if (!(rvol >= 1.5)) out.push(`RVol ${rvol == null ? "—" : rvol.toFixed(2)} < 1.5`);
+  if (!(chg > 0)) out.push("not up on the day");
+  return out;
+}
+
 // Universe-wide leadership persistence, from ticker_seats.json's persistMap
 // (10d_ticker_seats.py). The `rows` strip is a 60-name leaderboard; this map
 // covers every tradeable name, which is what a 500-row scan filter needs.
@@ -300,33 +321,19 @@ const PRESETS = {
   push: {
     label: "Push",
     desc:
-      "The measured version of the top-third-close rule. A leader (RS ≥ 90) that is NOT extended (>8% off its 52w high), holding a top-decile seat on at least 20% of the quarter (fresh arrivals excluded; the backtest's 20-60 BAND is deliberately not applied — its upper bound was calibrated on a proxy RS where durable names were a rare 7.8% tail, but under the real rs_rank they are 61% of leaders), printing a strong close on heavy volume RIGHT NOW (CR ≥ 70 on RVol ≥ 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close), EIF ≥ 55, $Vol ≥ $20M, no biotech. " +
-      "Why these legs: over 500 sessions the close-and-volume day is worth only +1.55% at t=1.90 ON ITS OWN — not significant — but +4.77% inside the 20-60% persistence band. A strong close alone (+2.04%) does not beat a plain leader (+2.16%); the VOLUME is the half that pays. And leaders sitting at their highs returned +0.02% (t=0.07), which is why extension is excluded rather than rewarded. " +
-      "Caveats: the 20-60% band was chosen in-sample, and the off-the-highs leg comes from a 2024-26 sample (it did hold up in the risk-off split). The persistence leg needs persistMap in ticker_seats.json — before the next pipeline run it is skipped and the pill is looser than advertised.",
+      "A liquid, non-biotech RS >= 90 leader that is NOT extended (>8% off its 52w high), has held a top-decile seat on at least 20% of the quarter, carries EIF >= 55, and is printing a strong close on heavy volume RIGHT NOW (CR >= 70 on RVol >= 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close). " +
+      "What the evidence actually supports, re-measured on the pipeline's OWN rs_rank formula (backtest_leadership_v2.py): being a leader is worth +3.44% at 21d against a +0.55% baseline, and being off the highs is worth +5.31% (t=7.12) against +1.41% for a leader sitting at its high. Those two replicated across two independent formulas. " +
+      "What it does NOT support: the close-and-volume day. CR >= 70 on RVol >= 1.5 returns +3.39% against +3.44% for simply being a leader — no measurable edge. Those legs are here because they are how you like to ENTER, not because they add alpha. Persistence is similar: every bucket sits between +2.6% and +4.2%, so the fresh exclusion is worth little and the backtest's 20-60 band was an artifact of a churnier proxy RS (it put durable names at 7.8% of leaders; the real formula puts them at 61%, matching live).",
     color: "#34d399",
-    test: (s) => {
-      const rs = s.rs_rank || 0;
-      if (rs < 90) return false;
-      if ((s.avg_dollar_vol_raw || 0) < 20e6) return false;
-      const ind = s.industry || "";
-      if (ind.includes("Biotechnology") || ind.includes("Drug Manufacturers")) return false;
-      const off = s.off_52w_high;                       // negative = below the high
-      if (off == null || off > -8) return false;        // extended: no measured edge
-      const { cr, rvol, chg } = liveBar(s);
-      if (cr == null || cr < 70 || !(rvol >= 1.5) || !(chg > 0)) return false;
-      if ((s.framework_score ?? 0) < 55) return false;
-      const sp = seatPersist(s.ticker);
-      if (sp === null) return true;                     // map not loaded — skip this leg
-      if (sp === undefined) return false;               // tradeable but never held a seat
-      // NOT the 20-60 band the backtest found. That band's UPPER bound does not
-      // transfer: in the backtest's proxy-RS sample "durable" (>=60%) was a rare
-      // 7.8% tail that underperformed, but under the pipeline's real rs_rank it
-      // is 61% of all leaders — MXL sits at 100, MRVL at 98. A cut calibrated on
-      // an 8% tail cannot be applied to a 61% majority, so excluding them would
-      // be acting on a number measured somewhere else. Only the FRESH exclusion
-      // replicated in both the ticker and the layer study, so only it ships.
-      return sp.persist >= 20;
-    },
+    test: (s) => pushLegs(s).length === 0,
+  },
+  push1: {
+    label: "Push −1",
+    desc:
+      "Tomorrow's stalk list: everything that fails Push by EXACTLY ONE leg, with the missing leg named in the row tooltip. " +
+      "The structural legs — RS, EIF, liquidity, not-extended, persistence — move slowly; CR and RVol are one day's dice. This separates 'is this the right kind of stock' from 'is today the day', which is the part a live pill cannot show you because names flicker in and out of Push through the session.",
+    color: "#fbbf24",
+    test: (s) => pushLegs(s).length === 1,
   },
   accum: {
     label: "Accum",
@@ -5983,7 +5990,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           fontFamily: "monospace",
         }}
       >
-        {["reset", "combo", "1w20", "gap4", "tight", "strongest", "accum", "push", "de", "tt8"].map((key) => [key, PRESETS[key]]).map(([key, p]) => {
+        {["reset", "combo", "1w20", "gap4", "tight", "strongest", "accum", "push", "push1", "de", "tt8"].map((key) => [key, PRESETS[key]]).map(([key, p]) => {
           const on = activePresets.has(key);
           return (
             <button
