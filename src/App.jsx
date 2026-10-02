@@ -5957,7 +5957,7 @@ function ScanWatch({ stocks, onTickerClick, chartTicker, stockMap, themeHealth, 
           fontFamily: "monospace",
         }}
       >
-        {["reset", "combo", "1w20", "gap4", "tight", "strongest", "accum", "de", "tt8"].map((key) => [key, PRESETS[key]]).map(([key, p]) => {
+        {["reset", "combo", "1w20", "gap4", "tight", "strongest", "accum", "push", "de", "tt8"].map((key) => [key, PRESETS[key]]).map(([key, p]) => {
           const on = activePresets.has(key);
           return (
             <button
