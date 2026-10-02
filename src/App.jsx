@@ -213,6 +213,27 @@ const MOM_LEGS = {
   },
 };
 
+// Live CR / ZVR / change for a preset test. PRESETS run against the stockMap
+// record, whose cr_pct, rel_volume and change_pct are the PIPELINE's — i.e.
+// the last completed session. The table beside them shows live intraday values
+// computed from quotes, so a preset reading the record disagrees with the
+// columns all session: MXL printing CR 90% on 2.5x volume at 10:32 ET was
+// judged on yesterday's CR 31% and skipped. Same quote cache, same
+// session-elapsed denominator the table uses, with the pipeline fields as the
+// fallback for before the first poll lands and outside RTH.
+function liveBar(s) {
+  const q = _quoteManager.cache.get(s.ticker);
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const mins = et.getHours() * 60 + et.getMinutes();
+  const elapsed = mins >= 570 && mins < 960 ? Math.max(0.02, sessionVolFraction(mins - 570)) : 1.0;
+  const chg = q?.change ?? s.change_pct ?? null;
+  const avgVol = s.avg_volume_raw || q?.avgVolume || 0;
+  let rvol = null;
+  if (q?.volume && avgVol > 0) rvol = q.volume / (avgVol * elapsed);
+  else if (s.rel_volume > 0) rvol = s.rel_volume;
+  return { cr: computeCR(q, s), rvol, chg };
+}
+
 // Universe-wide leadership persistence, from ticker_seats.json's persistMap
 // (10d_ticker_seats.py). The `rows` strip is a 60-name leaderboard; this map
 // covers every tradeable name, which is what a 500-row scan filter needs.
@@ -279,7 +300,7 @@ const PRESETS = {
   push: {
     label: "Push",
     desc:
-      "The measured version of the top-third-close rule. A leader (RS ≥ 90) that is NOT extended (>8% off its 52w high), holding a top-decile seat 20-60% of the quarter, printing a strong close on heavy volume today (CR ≥ 70 on RVol ≥ 1.5, up day), EIF ≥ 55, $Vol ≥ $20M, no biotech. " +
+      "The measured version of the top-third-close rule. A leader (RS ≥ 90) that is NOT extended (>8% off its 52w high), holding a top-decile seat 20-60% of the quarter, printing a strong close on heavy volume RIGHT NOW (CR ≥ 70 on RVol ≥ 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close), EIF ≥ 55, $Vol ≥ $20M, no biotech. " +
       "Why these legs: over 500 sessions the close-and-volume day is worth only +1.55% at t=1.90 ON ITS OWN — not significant — but +4.77% inside the 20-60% persistence band. A strong close alone (+2.04%) does not beat a plain leader (+2.16%); the VOLUME is the half that pays. And leaders sitting at their highs returned +0.02% (t=0.07), which is why extension is excluded rather than rewarded. " +
       "Caveats: the 20-60% band was chosen in-sample, and the off-the-highs leg comes from a 2024-26 sample (it did hold up in the risk-off split). The persistence leg needs persistMap in ticker_seats.json — before the next pipeline run it is skipped and the pill is looser than advertised.",
     color: "#34d399",
@@ -291,10 +312,8 @@ const PRESETS = {
       if (ind.includes("Biotechnology") || ind.includes("Drug Manufacturers")) return false;
       const off = s.off_52w_high;                       // negative = below the high
       if (off == null || off > -8) return false;        // extended: no measured edge
-      const cr = s.cr_pct;
-      const rv = s.rel_volume ?? 0;
-      const chg = s.change_pct || 0;
-      if (cr == null || cr < 70 || rv < 1.5 || chg <= 0) return false;
+      const { cr, rvol, chg } = liveBar(s);
+      if (cr == null || cr < 70 || !(rvol >= 1.5) || !(chg > 0)) return false;
       if ((s.framework_score ?? 0) < 55) return false;
       const sp = seatPersist(s.ticker);
       if (sp === null) return true;                     // map not loaded — skip this leg
