@@ -213,27 +213,6 @@ const MOM_LEGS = {
   },
 };
 
-// Live CR / ZVR / change for a preset test. PRESETS run against the stockMap
-// record, whose cr_pct, rel_volume and change_pct are the PIPELINE's — i.e.
-// the last completed session. The table beside them shows live intraday values
-// computed from quotes, so a preset reading the record disagrees with the
-// columns all session: MXL printing CR 90% on 2.5x volume at 10:32 ET was
-// judged on yesterday's CR 31% and skipped. Same quote cache, same
-// session-elapsed denominator the table uses, with the pipeline fields as the
-// fallback for before the first poll lands and outside RTH.
-function liveBar(s) {
-  const q = _quoteManager.cache.get(s.ticker);
-  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const mins = et.getHours() * 60 + et.getMinutes();
-  const elapsed = mins >= 570 && mins < 960 ? Math.max(0.02, sessionVolFraction(mins - 570)) : 1.0;
-  const chg = q?.change ?? s.change_pct ?? null;
-  const avgVol = s.avg_volume_raw || q?.avgVolume || 0;
-  let rvol = null;
-  if (q?.volume && avgVol > 0) rvol = q.volume / (avgVol * elapsed);
-  else if (s.rel_volume > 0) rvol = s.rel_volume;
-  return { cr: computeCR(q, s), rvol, chg };
-}
-
 // Push's legs as data, so the pill and its near-miss twin can't drift apart and
 // the row tooltip can name what's missing. Returns the FAILING leg labels.
 function pushLegs(s) {
@@ -260,10 +239,14 @@ function pushLegs(s) {
   const sp = seatPersist(s.ticker);
   if (sp === undefined) out.push("no leadership history");
   else if (sp && sp.persist < 20) out.push("fresh (held < 20%)");
-  const { cr, rvol, chg } = liveBar(s);
-  if (cr == null || cr < 70) out.push(`CR ${cr == null ? "—" : Math.round(cr)}% < 70`);
-  if (!(rvol >= 1.5)) out.push(`RVol ${rvol == null ? "—" : rvol.toFixed(2)} < 1.5`);
-  if (!(chg > 0)) out.push("not up on the day");
+  // The closing-range / volume / up-day legs were REMOVED. They were the
+  // original premise of this pill — "top third of the range on increased
+  // volume" — and they were measured three times on progressively cleaner
+  // data: no edge, no edge, then negative. In the point-in-time reconstruction
+  // (backtest_push_conversion.py) the full pill returned -1.26%/21d while the
+  // same names WITHOUT the day legs returned +1.46% (t=+2.59), the best of the
+  // four cohorts tested. The trigger was not neutral, it subtracted. What is
+  // left is the structural skeleton, which is where the measurable edge is.
   return out;
 }
 
@@ -333,7 +316,7 @@ const PRESETS = {
   push: {
     label: "Push",
     desc:
-      "A liquid, non-biotech RS >= 90 leader that is not BROKEN (within 25% of its 52w high), has held a top-decile seat on at least 20% of the quarter, carries EIF >= 55, and is printing a strong close on heavy volume RIGHT NOW (CR >= 70 on RVol >= 1.5, up day — live intraday, matching the CR%/ZVR columns, not the prior close). " +
+      "A liquid, non-biotech RS >= 90 leader that is not BROKEN (within 25% of its 52w high), has held a top-decile seat on at least 20% of the quarter, and carries EIF >= 55. Structural only — there is deliberately no closing-range or volume trigger. " +
       "Re-measured on a POINT-IN-TIME universe (backtest_leadership_pit.py — 7,367 symbols including delisted and de-liquified names, membership decided per date). Leadership is worth +0.83% at 21d (t=2.11) against a ~0.00% baseline — real but far smaller than the +3.44% a survivor-only panel claimed. Distance from the high matters MORE than leadership and in the opposite direction to the earlier read: -15 to -25% off the high is the peak (+3.07%/21d, +7.64%/63d), 0 to -5% is still positive (+1.14%), and below -25% it inverts hard (-8.73% at 21d for names >60% off). " +
       "What it does NOT support: the close-and-volume day. CR >= 70 on RVol >= 1.5 returns +3.39% against +3.44% for simply being a leader — no measurable edge. Those legs are here because they are how you like to ENTER, not because they add alpha. Persistence is similar: every bucket sits between +2.6% and +4.2%, so the fresh exclusion is worth little and the backtest's 20-60 band was an artifact of a churnier proxy RS (it put durable names at 7.8% of leaders; the real formula puts them at 61%, matching live).",
     color: "#34d399",
@@ -342,8 +325,9 @@ const PRESETS = {
   push1: {
     label: "Push −1",
     desc:
-      "Tomorrow's stalk list: everything that fails Push by EXACTLY ONE leg, with the missing leg named in the row tooltip. " +
-      "The structural legs — RS, EIF, liquidity, not-extended, persistence — move slowly; CR and RVol are one day's dice. This separates 'is this the right kind of stock' from 'is today the day', which is the part a live pill cannot show you because names flicker in and out of Push through the session.",
+      "Everything that fails Push by EXACTLY ONE leg, with the missing leg named in the row tooltip. " +
+      "This was built as a daily stalk list back when Push had closing-range and volume legs that flipped overnight — a near-miss converted to a full Push 4.5% of the time within one session and 22.9% within ten, against a 0.2% base rate. Those legs are gone, so what is left are the STRUCTURAL legs, which move slowly: a name one leg short today is usually one leg short next week too. Read it as a watchlist of near-qualifiers, not a trigger. " +
+      "The buckets are not interchangeable, so check which leg: short only on liquidity measured +5.4% at 21d (t=+2.21), short only on persistence +0.9%, while short only on 'not broken' measured -4.7% — those are names more than 25% below their highs, the cohort the depth curve says to avoid.",
     color: "#fbbf24",
     test: (s) => pushLegs(s).length === 1,
   },
