@@ -3,7 +3,7 @@
   "entered": "2026-09-25",
   "px": 93.77,
   "layer": "AI Connectivity",
-  "peak": 105.49,
+  "peak": 109.02,
   "last_seen": "2026-10-06",
   "ondeck": true
  },
@@ -90,7 +90,7 @@
   "entered": "2026-09-22",
   "px": 616.8,
   "layer": "Compute Silicon",
-  "peak": 638.59,
+  "peak": 653.88,
   "last_seen": "2026-10-06",
   "ondeck": true
  },
@@ -135,14 +135,12 @@
   "exit_px": 269.61
  },
  "PANW": {
-  "entered": "2026-09-22",
-  "px": 372.14,
+  "entered": "2026-10-06",
+  "px": 419.0,
   "layer": "Platform + Endpoint",
-  "peak": 393.3,
-  "last_seen": "2026-09-29",
-  "ondeck": true,
-  "exited": "2026-10-05",
-  "exit_px": 406.76
+  "peak": 419.0,
+  "last_seen": "2026-10-06",
+  "ondeck": false
  },
  "FTNT": {
   "entered": "2026-09-17",
@@ -312,7 +310,7 @@
   "entered": "2026-09-25",
   "px": 265.39,
   "layer": "AI Connectivity",
-  "peak": 276.67,
+  "peak": 286.2,
   "last_seen": "2026-10-06",
   "ondeck": true
  },
@@ -375,14 +373,12 @@
   "exit_px": 16.36
  },
  "OKTA": {
-  "entered": "2026-09-17",
-  "px": 190.54,
+  "entered": "2026-10-06",
+  "px": 218.43,
   "layer": "Platform + Endpoint",
-  "peak": 211.09,
-  "last_seen": "2026-09-29",
-  "ondeck": true,
-  "exited": "2026-10-05",
-  "exit_px": 218.29
+  "peak": 218.43,
+  "last_seen": "2026-10-06",
+  "ondeck": true
  },
  "AXTI": {
   "entered": "2026-08-18",
