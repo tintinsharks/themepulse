@@ -3,8 +3,8 @@
   "entered": "2026-09-25",
   "px": 93.77,
   "layer": "AI Connectivity",
-  "peak": 109.02,
-  "last_seen": "2026-10-06",
+  "peak": 109.3,
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "ALAB": {
@@ -91,7 +91,7 @@
   "px": 616.8,
   "layer": "Compute Silicon",
   "peak": 653.88,
-  "last_seen": "2026-10-06",
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "TENB": {
@@ -138,8 +138,8 @@
   "entered": "2026-10-06",
   "px": 419.0,
   "layer": "Platform + Endpoint",
-  "peak": 419.0,
-  "last_seen": "2026-10-06",
+  "peak": 419.91,
+  "last_seen": "2026-10-07",
   "ondeck": false
  },
  "FTNT": {
@@ -217,7 +217,7 @@
   "px": 268.61,
   "layer": "DevOps + Observability",
   "peak": 279.6,
-  "last_seen": "2026-10-06",
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "FROG": {
@@ -265,7 +265,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 69.85,
-  "last_seen": "2026-10-06",
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "GH": {
@@ -310,8 +310,8 @@
   "entered": "2026-09-25",
   "px": 265.39,
   "layer": "AI Connectivity",
-  "peak": 286.2,
-  "last_seen": "2026-10-06",
+  "peak": 287.01,
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "TEAM": {
@@ -319,7 +319,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 196.65,
-  "last_seen": "2026-10-06",
+  "last_seen": "2026-10-07",
   "ondeck": false
  },
  "APPS": {
@@ -376,8 +376,8 @@
   "entered": "2026-10-06",
   "px": 218.43,
   "layer": "Platform + Endpoint",
-  "peak": 218.43,
-  "last_seen": "2026-10-06",
+  "peak": 218.67,
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "AXTI": {
@@ -563,7 +563,7 @@
   "px": 132.53,
   "layer": "Diagnostics",
   "peak": 154.08,
-  "last_seen": "2026-10-06",
+  "last_seen": "2026-10-07",
   "ondeck": true
  },
  "KOD": {
