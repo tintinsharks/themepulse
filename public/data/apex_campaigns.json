@@ -4,7 +4,7 @@
   "px": 93.77,
   "layer": "AI Connectivity",
   "peak": 109.3,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": true
  },
  "ALAB": {
@@ -53,7 +53,9 @@
   "layer": "Compute Silicon",
   "peak": 125.41,
   "last_seen": "2026-10-02",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-10-08",
+  "exit_px": 113.12
  },
  "ABVX": {
   "entered": "2026-07-03",
@@ -139,7 +141,7 @@
   "px": 419.0,
   "layer": "Platform + Endpoint",
   "peak": 419.91,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": false
  },
  "FTNT": {
@@ -217,7 +219,7 @@
   "px": 268.61,
   "layer": "DevOps + Observability",
   "peak": 279.6,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": true
  },
  "FROG": {
@@ -265,7 +267,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 69.85,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": true
  },
  "GH": {
@@ -284,7 +286,9 @@
   "layer": "Diagnostics",
   "peak": 193.86,
   "last_seen": "2026-10-02",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-10-08",
+  "exit_px": 155.65
  },
  "SNOW": {
   "entered": "2026-07-31",
@@ -311,7 +315,7 @@
   "px": 265.39,
   "layer": "AI Connectivity",
   "peak": 287.01,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": true
  },
  "TEAM": {
@@ -319,7 +323,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 196.65,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": false
  },
  "APPS": {
@@ -377,7 +381,7 @@
   "px": 218.43,
   "layer": "Platform + Endpoint",
   "peak": 218.67,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": true
  },
  "AXTI": {
@@ -395,7 +399,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 203.46,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": false
  },
  "IBRX": {
@@ -563,7 +567,7 @@
   "px": 132.53,
   "layer": "Diagnostics",
   "peak": 154.08,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": true
  },
  "KOD": {
@@ -571,7 +575,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-07",
+  "last_seen": "2026-10-08",
   "ondeck": false
  }
 }
