@@ -97,14 +97,12 @@
   "ondeck": true
  },
  "TENB": {
-  "entered": "2026-08-05",
-  "px": 36.17,
+  "entered": "2026-10-08",
+  "px": 39.63,
   "layer": "Threat Operations",
-  "peak": 38.68,
-  "last_seen": "2026-08-17",
-  "ondeck": true,
-  "exited": "2026-08-24",
-  "exit_px": 33.94
+  "peak": 39.63,
+  "last_seen": "2026-10-08",
+  "ondeck": false
  },
  "RPD": {
   "entered": "2026-09-23",
@@ -145,14 +143,12 @@
   "ondeck": false
  },
  "FTNT": {
-  "entered": "2026-09-17",
-  "px": 172.99,
+  "entered": "2026-10-08",
+  "px": 189.8,
   "layer": "Platform + Endpoint",
-  "peak": 175.23,
-  "last_seen": "2026-09-22",
-  "ondeck": false,
-  "exited": "2026-09-28",
-  "exit_px": 176.27
+  "peak": 189.8,
+  "last_seen": "2026-10-08",
+  "ondeck": true
  },
  "DK": {
   "entered": "2026-09-15",
@@ -165,14 +161,12 @@
   "exit_px": 72.26
  },
  "PBF": {
-  "entered": "2026-09-01",
-  "px": 74.85,
+  "entered": "2026-10-08",
+  "px": 88.02,
   "layer": "Refining",
-  "peak": 79.0,
-  "last_seen": "2026-09-11",
-  "ondeck": true,
-  "exited": "2026-09-17",
-  "exit_px": 75.93
+  "peak": 88.02,
+  "last_seen": "2026-10-08",
+  "ondeck": true
  },
  "VRNS": {
   "entered": "2026-09-22",
@@ -301,14 +295,12 @@
   "exit_px": 334.7
  },
  "QLYS": {
-  "entered": "2026-09-15",
-  "px": 184.17,
+  "entered": "2026-10-08",
+  "px": 197.61,
   "layer": "Threat Operations",
-  "peak": 185.37,
-  "last_seen": "2026-09-25",
-  "ondeck": true,
-  "exited": "2026-10-01",
-  "exit_px": 187.2
+  "peak": 197.61,
+  "last_seen": "2026-10-08",
+  "ondeck": true
  },
  "MRVL": {
   "entered": "2026-09-25",
@@ -322,7 +314,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 196.65,
+  "peak": 201.74,
   "last_seen": "2026-10-08",
   "ondeck": false
  },
@@ -380,7 +372,7 @@
   "entered": "2026-10-06",
   "px": 218.43,
   "layer": "Platform + Endpoint",
-  "peak": 218.67,
+  "peak": 218.87,
   "last_seen": "2026-10-08",
   "ondeck": true
  },
@@ -523,14 +515,12 @@
   "exit_px": 47.25
  },
  "DINO": {
-  "entered": "2026-09-11",
-  "px": 107.72,
+  "entered": "2026-10-08",
+  "px": 119.79,
   "layer": "Refining",
-  "peak": 107.72,
-  "last_seen": "2026-09-14",
-  "ondeck": true,
-  "exited": "2026-09-21",
-  "exit_px": 112.82
+  "peak": 119.79,
+  "last_seen": "2026-10-08",
+  "ondeck": false
  },
  "NUTX": {
   "entered": "2026-09-15",
