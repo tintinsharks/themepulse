@@ -100,7 +100,7 @@
   "entered": "2026-10-08",
   "px": 39.63,
   "layer": "Threat Operations",
-  "peak": 39.63,
+  "peak": 40.91,
   "last_seen": "2026-10-09",
   "ondeck": false
  },
@@ -146,8 +146,8 @@
   "entered": "2026-10-08",
   "px": 189.8,
   "layer": "Platform + Endpoint",
-  "peak": 189.8,
-  "last_seen": "2026-10-08",
+  "peak": 194.48,
+  "last_seen": "2026-10-09",
   "ondeck": true
  },
  "DK": {
@@ -212,7 +212,7 @@
   "entered": "2026-09-28",
   "px": 268.61,
   "layer": "DevOps + Observability",
-  "peak": 279.6,
+  "peak": 291.93,
   "last_seen": "2026-10-09",
   "ondeck": true
  },
@@ -298,7 +298,7 @@
   "entered": "2026-10-08",
   "px": 197.61,
   "layer": "Threat Operations",
-  "peak": 197.61,
+  "peak": 200.61,
   "last_seen": "2026-10-09",
   "ondeck": true
  },
@@ -314,7 +314,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 203.57,
+  "peak": 206.12,
   "last_seen": "2026-10-09",
   "ondeck": false
  },
@@ -372,7 +372,7 @@
   "entered": "2026-10-06",
   "px": 218.43,
   "layer": "Platform + Endpoint",
-  "peak": 220.21,
+  "peak": 228.87,
   "last_seen": "2026-10-09",
   "ondeck": true
  },
@@ -390,8 +390,8 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 203.46,
-  "last_seen": "2026-10-08",
+  "peak": 221.04,
+  "last_seen": "2026-10-09",
   "ondeck": false
  },
  "IBRX": {
@@ -565,7 +565,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-08",
+  "last_seen": "2026-10-09",
   "ondeck": false
  }
 }
