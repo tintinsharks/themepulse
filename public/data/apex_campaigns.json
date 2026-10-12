@@ -101,7 +101,7 @@
   "px": 39.63,
   "layer": "Threat Operations",
   "peak": 40.91,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": false
  },
  "RPD": {
@@ -147,7 +147,7 @@
   "px": 189.8,
   "layer": "Platform + Endpoint",
   "peak": 194.48,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": true
  },
  "DK": {
@@ -261,7 +261,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 69.85,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": true
  },
  "GH": {
@@ -299,7 +299,7 @@
   "px": 197.61,
   "layer": "Threat Operations",
   "peak": 200.61,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": true
  },
  "MRVL": {
@@ -314,8 +314,8 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 206.12,
-  "last_seen": "2026-10-09",
+  "peak": 207.75,
+  "last_seen": "2026-10-12",
   "ondeck": false
  },
  "APPS": {
@@ -373,7 +373,7 @@
   "px": 218.43,
   "layer": "Platform + Endpoint",
   "peak": 228.87,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": true
  },
  "AXTI": {
@@ -391,7 +391,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 221.04,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": false
  },
  "IBRX": {
@@ -505,14 +505,12 @@
   "exit_px": 52.55
  },
  "GTLB": {
-  "entered": "2026-09-02",
-  "px": 50.13,
+  "entered": "2026-10-12",
+  "px": 56.01,
   "layer": "DevOps + Observability",
-  "peak": 50.5,
-  "last_seen": "2026-09-25",
-  "ondeck": true,
-  "exited": "2026-10-01",
-  "exit_px": 47.25
+  "peak": 56.01,
+  "last_seen": "2026-10-12",
+  "ondeck": false
  },
  "DINO": {
   "entered": "2026-10-08",
@@ -557,7 +555,7 @@
   "px": 132.53,
   "layer": "Diagnostics",
   "peak": 154.08,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": true
  },
  "KOD": {
@@ -565,7 +563,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-09",
+  "last_seen": "2026-10-12",
   "ondeck": false
  }
 }
