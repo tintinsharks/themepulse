@@ -94,14 +94,16 @@
   "layer": "Compute Silicon",
   "peak": 653.88,
   "last_seen": "2026-10-07",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-13",
+  "exit_px": 594.24
  },
  "TENB": {
   "entered": "2026-10-08",
   "px": 39.63,
   "layer": "Threat Operations",
   "peak": 40.91,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": false
  },
  "RPD": {
@@ -147,7 +149,7 @@
   "px": 189.8,
   "layer": "Platform + Endpoint",
   "peak": 194.48,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": true
  },
  "DK": {
@@ -261,7 +263,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 69.85,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": true
  },
  "GH": {
@@ -299,7 +301,7 @@
   "px": 197.61,
   "layer": "Threat Operations",
   "peak": 200.61,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": true
  },
  "MRVL": {
@@ -315,7 +317,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 207.75,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": false
  },
  "APPS": {
@@ -373,7 +375,7 @@
   "px": 218.43,
   "layer": "Platform + Endpoint",
   "peak": 228.87,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": true
  },
  "AXTI": {
@@ -391,7 +393,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 221.04,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": false
  },
  "IBRX": {
@@ -509,7 +511,7 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 56.01,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": false
  },
  "DINO": {
@@ -555,7 +557,7 @@
   "px": 132.53,
   "layer": "Diagnostics",
   "peak": 154.08,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": true
  },
  "KOD": {
@@ -563,7 +565,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-12",
+  "last_seen": "2026-10-13",
   "ondeck": false
  }
 }
