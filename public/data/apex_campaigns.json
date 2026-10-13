@@ -166,8 +166,8 @@
   "entered": "2026-10-08",
   "px": 88.02,
   "layer": "Refining",
-  "peak": 89.34,
-  "last_seen": "2026-10-09",
+  "peak": 90.7,
+  "last_seen": "2026-10-13",
   "ondeck": true
  },
  "VRNS": {
@@ -219,14 +219,12 @@
   "ondeck": true
  },
  "FROG": {
-  "entered": "2026-09-10",
-  "px": 87.32,
+  "entered": "2026-10-13",
+  "px": 101.57,
   "layer": "DevOps + Observability",
-  "peak": 88.81,
-  "last_seen": "2026-09-11",
-  "ondeck": true,
-  "exited": "2026-09-17",
-  "exit_px": 92.62
+  "peak": 101.57,
+  "last_seen": "2026-10-13",
+  "ondeck": true
  },
  "RHI": {
   "entered": "2026-07-28",
@@ -316,7 +314,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 207.75,
+  "peak": 209.53,
   "last_seen": "2026-10-13",
   "ondeck": false
  },
@@ -518,8 +516,8 @@
   "entered": "2026-10-08",
   "px": 119.79,
   "layer": "Refining",
-  "peak": 120.72,
-  "last_seen": "2026-10-09",
+  "peak": 128.17,
+  "last_seen": "2026-10-13",
   "ondeck": false
  },
  "NUTX": {
