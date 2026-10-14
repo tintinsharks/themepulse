@@ -5,7 +5,9 @@
   "layer": "AI Connectivity",
   "peak": 109.3,
   "last_seen": "2026-10-08",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-14",
+  "exit_px": 88.64
  },
  "ALAB": {
   "entered": "2026-07-02",
@@ -149,7 +151,7 @@
   "px": 189.8,
   "layer": "Platform + Endpoint",
   "peak": 194.48,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": true
  },
  "DK": {
@@ -166,8 +168,8 @@
   "entered": "2026-10-08",
   "px": 88.02,
   "layer": "Refining",
-  "peak": 90.7,
-  "last_seen": "2026-10-13",
+  "peak": 91.17,
+  "last_seen": "2026-10-14",
   "ondeck": true
  },
  "VRNS": {
@@ -261,7 +263,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 69.85,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": true
  },
  "GH": {
@@ -308,14 +310,16 @@
   "layer": "AI Connectivity",
   "peak": 287.01,
   "last_seen": "2026-10-08",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-14",
+  "exit_px": 268.73
  },
  "TEAM": {
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 209.53,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": false
  },
  "APPS": {
@@ -373,7 +377,7 @@
   "px": 218.43,
   "layer": "Platform + Endpoint",
   "peak": 228.87,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": true
  },
  "AXTI": {
@@ -391,7 +395,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 221.04,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": false
  },
  "IBRX": {
@@ -509,15 +513,15 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 56.01,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": false
  },
  "DINO": {
   "entered": "2026-10-08",
   "px": 119.79,
   "layer": "Refining",
-  "peak": 128.17,
-  "last_seen": "2026-10-13",
+  "peak": 128.23,
+  "last_seen": "2026-10-14",
   "ondeck": false
  },
  "NUTX": {
@@ -555,7 +559,7 @@
   "px": 132.53,
   "layer": "Diagnostics",
   "peak": 154.08,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": true
  },
  "KOD": {
@@ -563,7 +567,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-13",
+  "last_seen": "2026-10-14",
   "ondeck": false
  }
 }
