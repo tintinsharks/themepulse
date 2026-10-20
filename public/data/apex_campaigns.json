@@ -156,7 +156,9 @@
   "layer": "Platform + Endpoint",
   "peak": 194.48,
   "last_seen": "2026-10-14",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-20",
+  "exit_px": 171.5
  },
  "DK": {
   "entered": "2026-09-15",
@@ -271,7 +273,7 @@
   "px": 47.07,
   "layer": "Diagnostics",
   "peak": 69.85,
-  "last_seen": "2026-10-19",
+  "last_seen": "2026-10-20",
   "ondeck": true
  },
  "GH": {
@@ -288,8 +290,8 @@
   "entered": "2026-10-16",
   "px": 132.29,
   "layer": "Diagnostics",
-  "peak": 138.71,
-  "last_seen": "2026-10-19",
+  "peak": 139.77,
+  "last_seen": "2026-10-20",
   "ondeck": true
  },
  "SNOW": {
@@ -327,7 +329,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 217.12,
-  "last_seen": "2026-10-19",
+  "last_seen": "2026-10-20",
   "ondeck": false
  },
  "APPS": {
@@ -386,7 +388,9 @@
   "layer": "Platform + Endpoint",
   "peak": 228.87,
   "last_seen": "2026-10-14",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-20",
+  "exit_px": 189.93
  },
  "AXTI": {
   "entered": "2026-08-18",
@@ -403,7 +407,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 237.75,
-  "last_seen": "2026-10-19",
+  "last_seen": "2026-10-20",
   "ondeck": false
  },
  "IBRX": {
@@ -571,7 +575,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-19",
+  "last_seen": "2026-10-20",
   "ondeck": false
  },
  "MPC": {
@@ -587,23 +591,23 @@
   "px": 22.75,
   "layer": "Oncology",
   "peak": 22.75,
-  "last_seen": "2026-10-19",
+  "last_seen": "2026-10-20",
   "ondeck": true
  },
  "PD": {
   "entered": "2026-10-16",
   "px": 16.11,
   "layer": "DevOps + Observability",
-  "peak": 16.61,
-  "last_seen": "2026-10-19",
+  "peak": 16.69,
+  "last_seen": "2026-10-20",
   "ondeck": true
  },
  "RNG": {
   "entered": "2026-10-19",
   "px": 78.86,
   "layer": "Collab + Productivity",
-  "peak": 78.86,
-  "last_seen": "2026-10-19",
+  "peak": 79.19,
+  "last_seen": "2026-10-20",
   "ondeck": true
  },
  "BOX": {
@@ -611,7 +615,7 @@
   "px": 40.56,
   "layer": "Collab + Productivity",
   "peak": 40.56,
-  "last_seen": "2026-10-19",
+  "last_seen": "2026-10-20",
   "ondeck": false
  }
 }
