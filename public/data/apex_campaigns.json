@@ -328,7 +328,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 217.12,
+  "peak": 221.19,
   "last_seen": "2026-10-20",
   "ondeck": false
  },
@@ -406,7 +406,7 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 237.75,
+  "peak": 239.43,
   "last_seen": "2026-10-20",
   "ondeck": false
  },
@@ -479,24 +479,20 @@
   "exit_px": 55.85
  },
  "INTA": {
-  "entered": "2026-08-28",
-  "px": 43.47,
+  "entered": "2026-10-20",
+  "px": 45.66,
   "layer": "Vertical SaaS",
-  "peak": 43.47,
-  "last_seen": "2026-08-30",
-  "ondeck": false,
-  "exited": "2026-09-05",
-  "exit_px": 41.71
+  "peak": 45.66,
+  "last_seen": "2026-10-20",
+  "ondeck": true
  },
  "PAYC": {
-  "entered": "2026-08-28",
-  "px": 238.53,
+  "entered": "2026-10-20",
+  "px": 262.32,
   "layer": "Vertical SaaS",
-  "peak": 238.53,
-  "last_seen": "2026-08-30",
-  "ondeck": false,
-  "exited": "2026-09-05",
-  "exit_px": 231.67
+  "peak": 262.32,
+  "last_seen": "2026-10-20",
+  "ondeck": true
  },
  "QURE": {
   "entered": "2026-08-30",
@@ -590,7 +586,7 @@
   "entered": "2026-10-16",
   "px": 22.75,
   "layer": "Oncology",
-  "peak": 22.75,
+  "peak": 23.46,
   "last_seen": "2026-10-20",
   "ondeck": true
  },
@@ -598,7 +594,7 @@
   "entered": "2026-10-16",
   "px": 16.11,
   "layer": "DevOps + Observability",
-  "peak": 16.69,
+  "peak": 16.92,
   "last_seen": "2026-10-20",
   "ondeck": true
  },
@@ -606,7 +602,7 @@
   "entered": "2026-10-19",
   "px": 78.86,
   "layer": "Collab + Productivity",
-  "peak": 79.19,
+  "peak": 82.05,
   "last_seen": "2026-10-20",
   "ondeck": true
  },
@@ -614,7 +610,7 @@
   "entered": "2026-10-19",
   "px": 40.56,
   "layer": "Collab + Productivity",
-  "peak": 40.56,
+  "peak": 41.53,
   "last_seen": "2026-10-20",
   "ondeck": false
  }
