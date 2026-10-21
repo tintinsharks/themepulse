@@ -328,7 +328,7 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 221.19,
+  "peak": 225.87,
   "last_seen": "2026-10-21",
   "ondeck": false
  },
@@ -406,7 +406,7 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 242.08,
+  "peak": 249.9,
   "last_seen": "2026-10-21",
   "ondeck": false
  },
@@ -492,7 +492,7 @@
   "entered": "2026-10-20",
   "px": 262.32,
   "layer": "Vertical SaaS",
-  "peak": 262.32,
+  "peak": 262.65,
   "last_seen": "2026-10-21",
   "ondeck": true
  },
@@ -588,7 +588,7 @@
   "entered": "2026-10-16",
   "px": 22.75,
   "layer": "Oncology",
-  "peak": 23.46,
+  "peak": 23.89,
   "last_seen": "2026-10-21",
   "ondeck": true
  },
@@ -604,7 +604,7 @@
   "entered": "2026-10-19",
   "px": 78.86,
   "layer": "Collab + Productivity",
-  "peak": 82.05,
+  "peak": 83.0,
   "last_seen": "2026-10-21",
   "ondeck": true
  },
@@ -612,8 +612,8 @@
   "entered": "2026-10-19",
   "px": 40.56,
   "layer": "Collab + Productivity",
-  "peak": 41.53,
-  "last_seen": "2026-10-20",
+  "peak": 42.27,
+  "last_seen": "2026-10-21",
   "ondeck": false
  },
  "DOCU": {
