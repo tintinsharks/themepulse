@@ -176,7 +176,9 @@
   "layer": "Refining",
   "peak": 91.17,
   "last_seen": "2026-10-16",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-22",
+  "exit_px": 81.54
  },
  "VRNS": {
   "entered": "2026-09-22",
@@ -329,7 +331,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 225.87,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": false
  },
  "APPS": {
@@ -407,7 +409,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": false
  },
  "IBRX": {
@@ -485,7 +487,7 @@
   "px": 45.66,
   "layer": "Vertical SaaS",
   "peak": 45.66,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": true
  },
  "PAYC": {
@@ -493,7 +495,7 @@
   "px": 262.32,
   "layer": "Vertical SaaS",
   "peak": 262.65,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": true
  },
  "QURE": {
@@ -521,7 +523,7 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 56.01,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": false
  },
  "DINO": {
@@ -530,7 +532,9 @@
   "layer": "Refining",
   "peak": 128.23,
   "last_seen": "2026-10-16",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-10-22",
+  "exit_px": 125.57
  },
  "NUTX": {
   "entered": "2026-09-15",
@@ -548,7 +552,9 @@
   "layer": "Refining",
   "peak": 61.49,
   "last_seen": "2026-10-16",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-10-22",
+  "exit_px": 60.73
  },
  "ATAI": {
   "entered": "2026-09-23",
@@ -566,14 +572,16 @@
   "layer": "Diagnostics",
   "peak": 154.08,
   "last_seen": "2026-10-16",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-22",
+  "exit_px": 132.6
  },
  "KOD": {
   "entered": "2026-09-28",
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": false
  },
  "MPC": {
@@ -582,14 +590,16 @@
   "layer": "Refining",
   "peak": 484.92,
   "last_seen": "2026-10-16",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-22",
+  "exit_px": 467.98
  },
  "FTRE": {
   "entered": "2026-10-16",
   "px": 22.75,
   "layer": "Oncology",
-  "peak": 23.89,
-  "last_seen": "2026-10-21",
+  "peak": 24.06,
+  "last_seen": "2026-10-22",
   "ondeck": true
  },
  "PD": {
@@ -605,7 +615,7 @@
   "px": 78.86,
   "layer": "Collab + Productivity",
   "peak": 83.0,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": true
  },
  "BOX": {
@@ -613,7 +623,7 @@
   "px": 40.56,
   "layer": "Collab + Productivity",
   "peak": 42.27,
-  "last_seen": "2026-10-21",
+  "last_seen": "2026-10-22",
   "ondeck": false
  },
  "DOCU": {
