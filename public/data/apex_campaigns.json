@@ -104,7 +104,7 @@
   "entered": "2026-10-22",
   "px": 41.22,
   "layer": "Threat Operations",
-  "peak": 42.0,
+  "peak": 44.09,
   "last_seen": "2026-10-23",
   "ondeck": false
  },
@@ -308,7 +308,7 @@
   "entered": "2026-10-22",
   "px": 205.31,
   "layer": "Threat Operations",
-  "peak": 208.2,
+  "peak": 215.38,
   "last_seen": "2026-10-23",
   "ondeck": true
  },
@@ -482,7 +482,7 @@
   "entered": "2026-10-20",
   "px": 45.66,
   "layer": "Vertical SaaS",
-  "peak": 47.18,
+  "peak": 47.91,
   "last_seen": "2026-10-23",
   "ondeck": true
  },
@@ -490,7 +490,7 @@
   "entered": "2026-10-20",
   "px": 262.32,
   "layer": "Vertical SaaS",
-  "peak": 272.61,
+  "peak": 273.72,
   "last_seen": "2026-10-23",
   "ondeck": true
  },
@@ -518,7 +518,7 @@
   "entered": "2026-10-12",
   "px": 56.01,
   "layer": "DevOps + Observability",
-  "peak": 56.01,
+  "peak": 56.61,
   "last_seen": "2026-10-23",
   "ondeck": false
  },
@@ -610,7 +610,7 @@
   "entered": "2026-10-19",
   "px": 78.86,
   "layer": "Collab + Productivity",
-  "peak": 83.0,
+  "peak": 85.0,
   "last_seen": "2026-10-23",
   "ondeck": true
  },
@@ -618,7 +618,7 @@
   "entered": "2026-10-19",
   "px": 40.56,
   "layer": "Collab + Productivity",
-  "peak": 42.78,
+  "peak": 42.91,
   "last_seen": "2026-10-23",
   "ondeck": false
  },
