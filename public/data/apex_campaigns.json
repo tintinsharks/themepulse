@@ -104,8 +104,8 @@
   "entered": "2026-10-22",
   "px": 41.22,
   "layer": "Threat Operations",
-  "peak": 44.09,
-  "last_seen": "2026-10-23",
+  "peak": 44.59,
+  "last_seen": "2026-10-24",
   "ondeck": false
  },
  "RPD": {
@@ -308,8 +308,8 @@
   "entered": "2026-10-22",
   "px": 205.31,
   "layer": "Threat Operations",
-  "peak": 215.38,
-  "last_seen": "2026-10-23",
+  "peak": 216.7,
+  "last_seen": "2026-10-24",
   "ondeck": true
  },
  "MRVL": {
@@ -326,8 +326,8 @@
   "entered": "2026-08-07",
   "px": 147.06,
   "layer": "DevOps + Observability",
-  "peak": 225.87,
-  "last_seen": "2026-10-23",
+  "peak": 227.61,
+  "last_seen": "2026-10-24",
   "ondeck": false
  },
  "APPS": {
@@ -405,7 +405,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-23",
+  "last_seen": "2026-10-24",
   "ondeck": false
  },
  "IBRX": {
@@ -482,16 +482,16 @@
   "entered": "2026-10-20",
   "px": 45.66,
   "layer": "Vertical SaaS",
-  "peak": 47.91,
-  "last_seen": "2026-10-23",
+  "peak": 47.99,
+  "last_seen": "2026-10-24",
   "ondeck": true
  },
  "PAYC": {
   "entered": "2026-10-20",
   "px": 262.32,
   "layer": "Vertical SaaS",
-  "peak": 273.72,
-  "last_seen": "2026-10-23",
+  "peak": 274.59,
+  "last_seen": "2026-10-24",
   "ondeck": true
  },
  "QURE": {
@@ -519,7 +519,7 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 56.61,
-  "last_seen": "2026-10-23",
+  "last_seen": "2026-10-24",
   "ondeck": false
  },
  "DINO": {
@@ -577,7 +577,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-23",
+  "last_seen": "2026-10-24",
   "ondeck": false
  },
  "MPC": {
@@ -611,15 +611,15 @@
   "px": 78.86,
   "layer": "Collab + Productivity",
   "peak": 85.0,
-  "last_seen": "2026-10-23",
+  "last_seen": "2026-10-24",
   "ondeck": true
  },
  "BOX": {
   "entered": "2026-10-19",
   "px": 40.56,
   "layer": "Collab + Productivity",
-  "peak": 42.91,
-  "last_seen": "2026-10-23",
+  "peak": 43.18,
+  "last_seen": "2026-10-24",
   "ondeck": false
  },
  "DOCU": {
