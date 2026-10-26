@@ -109,14 +109,12 @@
   "ondeck": false
  },
  "RPD": {
-  "entered": "2026-09-23",
-  "px": 12.95,
+  "entered": "2026-10-26",
+  "px": 17.53,
   "layer": "Threat Operations",
-  "peak": 13.09,
-  "last_seen": "2026-09-25",
-  "ondeck": true,
-  "exited": "2026-10-01",
-  "exit_px": 12.22
+  "peak": 17.53,
+  "last_seen": "2026-10-26",
+  "ondeck": true
  },
  "AAOI": {
   "entered": "2026-08-04",
@@ -149,14 +147,12 @@
   "exit_px": 375.04
  },
  "FTNT": {
-  "entered": "2026-10-08",
-  "px": 189.8,
+  "entered": "2026-10-26",
+  "px": 183.81,
   "layer": "Platform + Endpoint",
-  "peak": 194.48,
-  "last_seen": "2026-10-14",
-  "ondeck": true,
-  "exited": "2026-10-20",
-  "exit_px": 171.5
+  "peak": 183.81,
+  "last_seen": "2026-10-26",
+  "ondeck": false
  },
  "DK": {
   "entered": "2026-09-15",
@@ -274,7 +270,9 @@
   "layer": "Diagnostics",
   "peak": 69.85,
   "last_seen": "2026-10-20",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-26",
+  "exit_px": 68.55
  },
  "GH": {
   "entered": "2026-07-30",
@@ -292,7 +290,9 @@
   "layer": "Diagnostics",
   "peak": 139.77,
   "last_seen": "2026-10-20",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-26",
+  "exit_px": 143.69
  },
  "SNOW": {
   "entered": "2026-07-31",
@@ -308,8 +308,8 @@
   "entered": "2026-10-22",
   "px": 205.31,
   "layer": "Threat Operations",
-  "peak": 216.7,
-  "last_seen": "2026-10-24",
+  "peak": 223.1,
+  "last_seen": "2026-10-26",
   "ondeck": true
  },
  "MRVL": {
@@ -327,7 +327,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 227.61,
-  "last_seen": "2026-10-24",
+  "last_seen": "2026-10-26",
   "ondeck": false
  },
  "APPS": {
@@ -381,14 +381,12 @@
   "exit_px": 16.36
  },
  "OKTA": {
-  "entered": "2026-10-06",
-  "px": 218.43,
+  "entered": "2026-10-26",
+  "px": 220.85,
   "layer": "Platform + Endpoint",
-  "peak": 228.87,
-  "last_seen": "2026-10-14",
-  "ondeck": true,
-  "exited": "2026-10-20",
-  "exit_px": 189.93
+  "peak": 220.85,
+  "last_seen": "2026-10-26",
+  "ondeck": true
  },
  "AXTI": {
   "entered": "2026-08-18",
@@ -405,7 +403,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-24",
+  "last_seen": "2026-10-26",
   "ondeck": false
  },
  "IBRX": {
@@ -519,7 +517,7 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 56.61,
-  "last_seen": "2026-10-24",
+  "last_seen": "2026-10-26",
   "ondeck": false
  },
  "DINO": {
@@ -577,7 +575,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-24",
+  "last_seen": "2026-10-26",
   "ondeck": false
  },
  "MPC": {
@@ -610,8 +608,8 @@
   "entered": "2026-10-19",
   "px": 78.86,
   "layer": "Collab + Productivity",
-  "peak": 85.0,
-  "last_seen": "2026-10-24",
+  "peak": 87.76,
+  "last_seen": "2026-10-26",
   "ondeck": true
  },
  "BOX": {
@@ -619,7 +617,7 @@
   "px": 40.56,
   "layer": "Collab + Productivity",
   "peak": 43.18,
-  "last_seen": "2026-10-24",
+  "last_seen": "2026-10-26",
   "ondeck": false
  },
  "DOCU": {
