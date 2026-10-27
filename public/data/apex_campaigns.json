@@ -112,8 +112,8 @@
   "entered": "2026-10-26",
   "px": 17.53,
   "layer": "Threat Operations",
-  "peak": 17.53,
-  "last_seen": "2026-10-26",
+  "peak": 17.93,
+  "last_seen": "2026-10-27",
   "ondeck": true
  },
  "AAOI": {
@@ -151,7 +151,7 @@
   "px": 183.81,
   "layer": "Platform + Endpoint",
   "peak": 183.81,
-  "last_seen": "2026-10-26",
+  "last_seen": "2026-10-27",
   "ondeck": false
  },
  "DK": {
@@ -308,8 +308,8 @@
   "entered": "2026-10-22",
   "px": 205.31,
   "layer": "Threat Operations",
-  "peak": 223.1,
-  "last_seen": "2026-10-26",
+  "peak": 225.15,
+  "last_seen": "2026-10-27",
   "ondeck": true
  },
  "MRVL": {
@@ -327,7 +327,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 227.61,
-  "last_seen": "2026-10-26",
+  "last_seen": "2026-10-27",
   "ondeck": false
  },
  "APPS": {
@@ -385,7 +385,7 @@
   "px": 220.85,
   "layer": "Platform + Endpoint",
   "peak": 220.85,
-  "last_seen": "2026-10-26",
+  "last_seen": "2026-10-27",
   "ondeck": true
  },
  "AXTI": {
@@ -403,7 +403,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-26",
+  "last_seen": "2026-10-27",
   "ondeck": false
  },
  "IBRX": {
@@ -516,8 +516,8 @@
   "entered": "2026-10-12",
   "px": 56.01,
   "layer": "DevOps + Observability",
-  "peak": 56.61,
-  "last_seen": "2026-10-26",
+  "peak": 56.65,
+  "last_seen": "2026-10-27",
   "ondeck": false
  },
  "DINO": {
@@ -575,7 +575,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-26",
+  "last_seen": "2026-10-27",
   "ondeck": false
  },
  "MPC": {
@@ -609,15 +609,15 @@
   "px": 78.86,
   "layer": "Collab + Productivity",
   "peak": 87.76,
-  "last_seen": "2026-10-26",
+  "last_seen": "2026-10-27",
   "ondeck": true
  },
  "BOX": {
   "entered": "2026-10-19",
   "px": 40.56,
   "layer": "Collab + Productivity",
-  "peak": 43.18,
-  "last_seen": "2026-10-26",
+  "peak": 43.21,
+  "last_seen": "2026-10-27",
   "ondeck": false
  },
  "DOCU": {
@@ -626,6 +626,8 @@
   "layer": "Collab + Productivity",
   "peak": 80.28,
   "last_seen": "2026-10-21",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-27",
+  "exit_px": 84.89
  }
 }
