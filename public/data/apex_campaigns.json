@@ -113,7 +113,7 @@
   "px": 17.53,
   "layer": "Threat Operations",
   "peak": 17.93,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": true
  },
  "AAOI": {
@@ -269,7 +269,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 72.31,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": true
  },
  "GH": {
@@ -305,7 +305,7 @@
   "px": 205.31,
   "layer": "Threat Operations",
   "peak": 229.72,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": true
  },
  "MRVL": {
@@ -323,7 +323,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 227.61,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": false
  },
  "APPS": {
@@ -399,7 +399,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": false
  },
  "IBRX": {
@@ -513,7 +513,7 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 57.09,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": false
  },
  "DINO": {
@@ -557,21 +557,19 @@
   "exit_px": 7.35
  },
  "GRAL": {
-  "entered": "2026-09-28",
-  "px": 132.53,
+  "entered": "2026-10-28",
+  "px": 150.61,
   "layer": "Diagnostics",
-  "peak": 154.08,
-  "last_seen": "2026-10-16",
-  "ondeck": true,
-  "exited": "2026-10-22",
-  "exit_px": 132.6
+  "peak": 150.61,
+  "last_seen": "2026-10-28",
+  "ondeck": true
  },
  "KOD": {
   "entered": "2026-09-28",
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-27",
+  "last_seen": "2026-10-28",
   "ondeck": false
  },
  "MPC": {
@@ -588,8 +586,8 @@
   "entered": "2026-10-16",
   "px": 22.75,
   "layer": "Oncology",
-  "peak": 24.06,
-  "last_seen": "2026-10-22",
+  "peak": 24.43,
+  "last_seen": "2026-10-28",
   "ondeck": true
  },
  "PD": {
@@ -598,7 +596,9 @@
   "layer": "DevOps + Observability",
   "peak": 17.29,
   "last_seen": "2026-10-22",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-28",
+  "exit_px": 17.75
  },
  "RNG": {
   "entered": "2026-10-19",
