@@ -113,7 +113,7 @@
   "px": 17.53,
   "layer": "Threat Operations",
   "peak": 17.93,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": true
  },
  "AAOI": {
@@ -269,7 +269,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 72.83,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": true
  },
  "GH": {
@@ -305,7 +305,7 @@
   "px": 205.31,
   "layer": "Threat Operations",
   "peak": 229.72,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": true
  },
  "MRVL": {
@@ -323,7 +323,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 227.61,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": false
  },
  "APPS": {
@@ -399,7 +399,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": false
  },
  "IBRX": {
@@ -512,8 +512,8 @@
   "entered": "2026-10-12",
   "px": 56.01,
   "layer": "DevOps + Observability",
-  "peak": 57.89,
-  "last_seen": "2026-10-28",
+  "peak": 57.97,
+  "last_seen": "2026-10-29",
   "ondeck": false
  },
  "DINO": {
@@ -561,7 +561,7 @@
   "px": 150.61,
   "layer": "Diagnostics",
   "peak": 158.42,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": true
  },
  "KOD": {
@@ -569,7 +569,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 99.65,
-  "last_seen": "2026-10-28",
+  "last_seen": "2026-10-29",
   "ondeck": false
  },
  "MPC": {
@@ -586,8 +586,8 @@
   "entered": "2026-10-16",
   "px": 22.75,
   "layer": "Oncology",
-  "peak": 25.65,
-  "last_seen": "2026-10-28",
+  "peak": 25.88,
+  "last_seen": "2026-10-29",
   "ondeck": true
  },
  "PD": {
