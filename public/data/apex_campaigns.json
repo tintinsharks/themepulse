@@ -433,14 +433,12 @@
   "exit_px": 261.51
  },
  "TXG": {
-  "entered": "2026-09-14",
-  "px": 68.94,
+  "entered": "2026-10-29",
+  "px": 81.53,
   "layer": "Telemedicine / Health IT",
-  "peak": 70.11,
-  "last_seen": "2026-09-15",
-  "ondeck": true,
-  "exited": "2026-09-21",
-  "exit_px": 79.25
+  "peak": 81.53,
+  "last_seen": "2026-10-29",
+  "ondeck": true
  },
  "HTFL": {
   "entered": "2026-09-14",
@@ -560,7 +558,7 @@
   "entered": "2026-10-28",
   "px": 150.61,
   "layer": "Diagnostics",
-  "peak": 158.42,
+  "peak": 158.76,
   "last_seen": "2026-10-29",
   "ondeck": true
  },
@@ -568,7 +566,7 @@
   "entered": "2026-09-28",
   "px": 90.06,
   "layer": "Biotech Momentum",
-  "peak": 99.65,
+  "peak": 100.47,
   "last_seen": "2026-10-29",
   "ondeck": false
  },
@@ -625,5 +623,13 @@
   "ondeck": true,
   "exited": "2026-10-27",
   "exit_px": 84.89
+ },
+ "HNGE": {
+  "entered": "2026-10-29",
+  "px": 116.43,
+  "layer": "Telemedicine / Health IT",
+  "peak": 116.43,
+  "last_seen": "2026-10-29",
+  "ondeck": false
  }
 }
