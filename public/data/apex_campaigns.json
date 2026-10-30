@@ -104,8 +104,8 @@
   "entered": "2026-10-22",
   "px": 41.22,
   "layer": "Threat Operations",
-  "peak": 44.59,
-  "last_seen": "2026-10-24",
+  "peak": 51.78,
+  "last_seen": "2026-10-30",
   "ondeck": false
  },
  "RPD": {
@@ -269,7 +269,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 72.83,
-  "last_seen": "2026-10-29",
+  "last_seen": "2026-10-30",
   "ondeck": true
  },
  "GH": {
@@ -304,8 +304,8 @@
   "entered": "2026-10-22",
   "px": 205.31,
   "layer": "Threat Operations",
-  "peak": 229.72,
-  "last_seen": "2026-10-29",
+  "peak": 230.29,
+  "last_seen": "2026-10-30",
   "ondeck": true
  },
  "MRVL": {
@@ -323,7 +323,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 227.61,
-  "last_seen": "2026-10-29",
+  "last_seen": "2026-10-30",
   "ondeck": false
  },
  "APPS": {
@@ -399,7 +399,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-10-29",
+  "last_seen": "2026-10-30",
   "ondeck": false
  },
  "IBRX": {
@@ -476,7 +476,9 @@
   "layer": "Vertical SaaS",
   "peak": 47.99,
   "last_seen": "2026-10-24",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-30",
+  "exit_px": 39.1
  },
  "PAYC": {
   "entered": "2026-10-20",
@@ -484,7 +486,9 @@
   "layer": "Vertical SaaS",
   "peak": 274.59,
   "last_seen": "2026-10-24",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-10-30",
+  "exit_px": 260.66
  },
  "QURE": {
   "entered": "2026-08-30",
@@ -511,7 +515,7 @@
   "px": 56.01,
   "layer": "DevOps + Observability",
   "peak": 57.97,
-  "last_seen": "2026-10-29",
+  "last_seen": "2026-10-30",
   "ondeck": false
  },
  "DINO": {
@@ -558,8 +562,8 @@
   "entered": "2026-10-28",
   "px": 150.61,
   "layer": "Diagnostics",
-  "peak": 158.76,
-  "last_seen": "2026-10-29",
+  "peak": 158.92,
+  "last_seen": "2026-10-30",
   "ondeck": true
  },
  "KOD": {
@@ -567,7 +571,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 100.47,
-  "last_seen": "2026-10-29",
+  "last_seen": "2026-10-30",
   "ondeck": false
  },
  "MPC": {
@@ -585,7 +589,7 @@
   "px": 22.75,
   "layer": "Oncology",
   "peak": 25.88,
-  "last_seen": "2026-10-29",
+  "last_seen": "2026-10-30",
   "ondeck": true
  },
  "PD": {
