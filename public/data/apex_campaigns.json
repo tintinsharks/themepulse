@@ -105,7 +105,7 @@
   "px": 41.22,
   "layer": "Threat Operations",
   "peak": 51.78,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": false
  },
  "RPD": {
@@ -271,7 +271,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 87.41,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": true
  },
  "GH": {
@@ -289,7 +289,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": false
  },
  "SNOW": {
@@ -403,7 +403,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": false
  },
  "IBRX": {
@@ -419,7 +419,7 @@
   "px": 338.54,
   "layer": "CRO + Services",
   "peak": 338.54,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": true
  },
  "IQV": {
@@ -571,7 +571,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 100.47,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": false
  },
  "MPC": {
@@ -643,7 +643,7 @@
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": false
  },
  "EXEL": {
@@ -651,7 +651,7 @@
   "px": 70.13,
   "layer": "Oncology",
   "peak": 70.13,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": true
  },
  "ICLR": {
@@ -659,7 +659,7 @@
   "px": 205.14,
   "layer": "CRO + Services",
   "peak": 205.14,
-  "last_seen": "2026-11-02",
+  "last_seen": "2026-11-03",
   "ondeck": false
  }
 }
