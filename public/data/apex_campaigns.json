@@ -105,7 +105,7 @@
   "px": 41.22,
   "layer": "Threat Operations",
   "peak": 51.78,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": false
  },
  "RPD": {
@@ -114,7 +114,9 @@
   "layer": "Threat Operations",
   "peak": 17.93,
   "last_seen": "2026-10-29",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-04",
+  "exit_px": 14.84
  },
  "AAOI": {
   "entered": "2026-08-04",
@@ -271,7 +273,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": true
  },
  "GH": {
@@ -289,7 +291,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": false
  },
  "SNOW": {
@@ -325,7 +327,7 @@
   "px": 147.06,
   "layer": "DevOps + Observability",
   "peak": 227.61,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": false
  },
  "APPS": {
@@ -403,15 +405,15 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 249.9,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": false
  },
  "IBRX": {
   "entered": "2026-10-30",
   "px": 8.19,
   "layer": "Oncology",
-  "peak": 8.19,
-  "last_seen": "2026-10-30",
+  "peak": 8.29,
+  "last_seen": "2026-11-04",
   "ondeck": true
  },
  "CRL": {
@@ -438,7 +440,9 @@
   "layer": "Telemedicine / Health IT",
   "peak": 81.53,
   "last_seen": "2026-10-29",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-04",
+  "exit_px": 65.29
  },
  "HTFL": {
   "entered": "2026-09-14",
@@ -571,7 +575,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 100.47,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": false
  },
  "MPC": {
@@ -597,7 +601,7 @@
   "px": 16.69,
   "layer": "DevOps + Observability",
   "peak": 16.94,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": true
  },
  "RNG": {
@@ -636,14 +640,16 @@
   "layer": "Telemedicine / Health IT",
   "peak": 116.43,
   "last_seen": "2026-10-29",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-11-04",
+  "exit_px": 116.84
  },
  "OSPN": {
   "entered": "2026-10-30",
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-03",
+  "last_seen": "2026-11-04",
   "ondeck": false
  },
  "EXEL": {
