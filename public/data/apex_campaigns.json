@@ -412,7 +412,7 @@
   "entered": "2026-10-30",
   "px": 8.19,
   "layer": "Oncology",
-  "peak": 8.29,
+  "peak": 8.56,
   "last_seen": "2026-11-04",
   "ondeck": true
  },
@@ -435,14 +435,12 @@
   "exit_px": 261.51
  },
  "TXG": {
-  "entered": "2026-10-29",
-  "px": 81.53,
+  "entered": "2026-11-04",
+  "px": 66.12,
   "layer": "Telemedicine / Health IT",
-  "peak": 81.53,
-  "last_seen": "2026-10-29",
-  "ondeck": true,
-  "exited": "2026-11-04",
-  "exit_px": 65.29
+  "peak": 66.12,
+  "last_seen": "2026-11-04",
+  "ondeck": true
  },
  "HTFL": {
   "entered": "2026-09-14",
@@ -635,14 +633,12 @@
   "exit_px": 84.89
  },
  "HNGE": {
-  "entered": "2026-10-29",
-  "px": 116.43,
+  "entered": "2026-11-04",
+  "px": 120.78,
   "layer": "Telemedicine / Health IT",
-  "peak": 116.43,
-  "last_seen": "2026-10-29",
-  "ondeck": false,
-  "exited": "2026-11-04",
-  "exit_px": 116.84
+  "peak": 120.78,
+  "last_seen": "2026-11-04",
+  "ondeck": false
  },
  "OSPN": {
   "entered": "2026-10-30",
