@@ -105,7 +105,7 @@
   "px": 41.22,
   "layer": "Threat Operations",
   "peak": 51.78,
-  "last_seen": "2026-11-04",
+  "last_seen": "2026-11-05",
   "ondeck": false
  },
  "RPD": {
@@ -273,7 +273,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-04",
+  "last_seen": "2026-11-05",
   "ondeck": true
  },
  "GH": {
@@ -291,7 +291,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-04",
+  "last_seen": "2026-11-05",
   "ondeck": false
  },
  "SNOW": {
@@ -310,7 +310,9 @@
   "layer": "Threat Operations",
   "peak": 230.29,
   "last_seen": "2026-10-30",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-05",
+  "exit_px": 210.89
  },
  "MRVL": {
   "entered": "2026-09-25",
@@ -404,16 +406,16 @@
   "entered": "2026-08-19",
   "px": 123.2,
   "layer": "Biotech Momentum",
-  "peak": 249.9,
-  "last_seen": "2026-11-04",
+  "peak": 258.38,
+  "last_seen": "2026-11-05",
   "ondeck": false
  },
  "IBRX": {
   "entered": "2026-10-30",
   "px": 8.19,
   "layer": "Oncology",
-  "peak": 8.56,
-  "last_seen": "2026-11-04",
+  "peak": 8.93,
+  "last_seen": "2026-11-05",
   "ondeck": true
  },
  "CRL": {
@@ -438,8 +440,8 @@
   "entered": "2026-11-04",
   "px": 66.12,
   "layer": "Telemedicine / Health IT",
-  "peak": 66.12,
-  "last_seen": "2026-11-04",
+  "peak": 67.52,
+  "last_seen": "2026-11-05",
   "ondeck": true
  },
  "HTFL": {
@@ -518,7 +520,9 @@
   "layer": "DevOps + Observability",
   "peak": 57.97,
   "last_seen": "2026-10-30",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-11-05",
+  "exit_px": 52.37
  },
  "DINO": {
   "entered": "2026-10-08",
@@ -566,14 +570,16 @@
   "layer": "Diagnostics",
   "peak": 158.92,
   "last_seen": "2026-10-30",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-05",
+  "exit_px": 143.66
  },
  "KOD": {
   "entered": "2026-09-28",
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 100.47,
-  "last_seen": "2026-11-04",
+  "last_seen": "2026-11-05",
   "ondeck": false
  },
  "MPC": {
@@ -636,8 +642,8 @@
   "entered": "2026-11-04",
   "px": 120.78,
   "layer": "Telemedicine / Health IT",
-  "peak": 120.78,
-  "last_seen": "2026-11-04",
+  "peak": 120.87,
+  "last_seen": "2026-11-05",
   "ondeck": false
  },
  "OSPN": {
@@ -645,7 +651,7 @@
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-04",
+  "last_seen": "2026-11-05",
   "ondeck": false
  },
  "EXEL": {
