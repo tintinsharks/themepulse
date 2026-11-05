@@ -109,14 +109,12 @@
   "ondeck": false
  },
  "RPD": {
-  "entered": "2026-10-26",
-  "px": 17.53,
+  "entered": "2026-11-05",
+  "px": 15.71,
   "layer": "Threat Operations",
-  "peak": 17.93,
-  "last_seen": "2026-10-29",
-  "ondeck": true,
-  "exited": "2026-11-04",
-  "exit_px": 14.84
+  "peak": 15.71,
+  "last_seen": "2026-11-05",
+  "ondeck": true
  },
  "AAOI": {
   "entered": "2026-08-04",
@@ -668,6 +666,22 @@
   "layer": "CRO + Services",
   "peak": 205.14,
   "last_seen": "2026-11-03",
+  "ondeck": false
+ },
+ "MANH": {
+  "entered": "2026-11-05",
+  "px": 255.78,
+  "layer": "Vertical SaaS",
+  "peak": 255.78,
+  "last_seen": "2026-11-05",
+  "ondeck": true
+ },
+ "PCOR": {
+  "entered": "2026-11-05",
+  "px": 76.25,
+  "layer": "Vertical SaaS",
+  "peak": 76.25,
+  "last_seen": "2026-11-05",
   "ondeck": false
  }
 }

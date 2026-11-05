@@ -1,15 +1,15 @@
 {
   "date": "2026-11-05",
-  "generated": "2026-11-05 09:40",
-  "vix": 17.14,
+  "generated": "2026-11-05 20:33",
+  "vix": 26.32,
   "vixChg": null,
-  "tenYearYield": 4.894,
+  "tenYearYield": 4.838,
   "yieldBps": -6,
-  "dxy": 101.32,
-  "dxyChg": -0.547,
+  "dxy": 101.435,
+  "dxyChg": -0.131,
   "putCallRatio": null,
-  "regime": "RISK-ON",
-  "regimeReason": "Strong risk-on: moderate vol, yields falling, dollar weak",
+  "regime": "CAUTION",
+  "regimeReason": "Caution warranted: high vol, yields falling",
   "t2108": null,
   "ratio5d": null
 }
