@@ -105,7 +105,7 @@
   "px": 41.22,
   "layer": "Threat Operations",
   "peak": 51.78,
-  "last_seen": "2026-11-05",
+  "last_seen": "2026-11-09",
   "ondeck": false
  },
  "RPD": {
@@ -271,7 +271,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": true
  },
  "GH": {
@@ -405,7 +405,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 263.5,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": false
  },
  "IBRX": {
@@ -413,7 +413,7 @@
   "px": 8.19,
   "layer": "Oncology",
   "peak": 8.93,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": true
  },
  "CRL": {
@@ -421,7 +421,7 @@
   "px": 338.54,
   "layer": "CRO + Services",
   "peak": 338.54,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": true
  },
  "IQV": {
@@ -453,14 +453,12 @@
   "exit_px": 50.44
  },
  "PSNL": {
-  "entered": "2026-08-22",
-  "px": 18.38,
+  "entered": "2026-11-09",
+  "px": 15.79,
   "layer": "Diagnostics",
-  "peak": 18.38,
-  "last_seen": "2026-08-22",
-  "ondeck": true,
-  "exited": "2026-08-28",
-  "exit_px": 16.8
+  "peak": 15.79,
+  "last_seen": "2026-11-09",
+  "ondeck": true
  },
  "TGTX": {
   "entered": "2026-09-10",
@@ -577,7 +575,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 100.47,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": false
  },
  "MPC": {
@@ -596,7 +594,9 @@
   "layer": "Oncology",
   "peak": 25.88,
   "last_seen": "2026-11-02",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-09",
+  "exit_px": 21.96
  },
  "PD": {
   "entered": "2026-10-30",
@@ -649,7 +649,7 @@
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": false
  },
  "EXEL": {
@@ -658,14 +658,16 @@
   "layer": "Oncology",
   "peak": 72.98,
   "last_seen": "2026-11-03",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-09",
+  "exit_px": 69.57
  },
  "ICLR": {
   "entered": "2026-11-02",
   "px": 205.14,
   "layer": "CRO + Services",
   "peak": 205.14,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-09",
   "ondeck": false
  },
  "MANH": {
