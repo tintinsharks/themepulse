@@ -422,8 +422,8 @@
   "entered": "2026-11-02",
   "px": 338.54,
   "layer": "CRO + Services",
-  "peak": 338.54,
-  "last_seen": "2026-11-09",
+  "peak": 346.06,
+  "last_seen": "2026-11-10",
   "ondeck": true
  },
  "IQV": {
@@ -463,14 +463,12 @@
   "ondeck": true
  },
  "TGTX": {
-  "entered": "2026-09-10",
-  "px": 54.88,
+  "entered": "2026-11-10",
+  "px": 63.35,
   "layer": "Oncology",
-  "peak": 55.39,
-  "last_seen": "2026-09-11",
-  "ondeck": true,
-  "exited": "2026-09-17",
-  "exit_px": 55.85
+  "peak": 63.35,
+  "last_seen": "2026-11-10",
+  "ondeck": true
  },
  "INTA": {
   "entered": "2026-10-20",
@@ -669,7 +667,7 @@
   "px": 205.14,
   "layer": "CRO + Services",
   "peak": 205.14,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": false
  },
  "MANH": {
@@ -677,7 +675,7 @@
   "px": 255.78,
   "layer": "Vertical SaaS",
   "peak": 255.78,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-10",
   "ondeck": true
  },
  "PCOR": {
@@ -685,7 +683,7 @@
   "px": 76.25,
   "layer": "Vertical SaaS",
   "peak": 76.25,
-  "last_seen": "2026-11-06",
+  "last_seen": "2026-11-10",
   "ondeck": false
  }
 }
