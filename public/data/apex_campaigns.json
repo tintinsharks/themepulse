@@ -113,7 +113,7 @@
   "px": 15.71,
   "layer": "Threat Operations",
   "peak": 15.71,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": true
  },
  "AAOI": {
@@ -271,7 +271,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": true
  },
  "GH": {
@@ -289,7 +289,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": false
  },
  "SNOW": {
@@ -328,7 +328,9 @@
   "layer": "DevOps + Observability",
   "peak": 227.61,
   "last_seen": "2026-11-04",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-11-10",
+  "exit_px": 154.9
  },
  "APPS": {
   "entered": "2026-08-07",
@@ -405,7 +407,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 269.0,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": false
  },
  "IBRX": {
@@ -439,7 +441,7 @@
   "px": 66.12,
   "layer": "Telemedicine / Health IT",
   "peak": 67.52,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": true
  },
  "HTFL": {
@@ -575,7 +577,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 107.1,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": false
  },
  "MPC": {
@@ -604,7 +606,9 @@
   "layer": "DevOps + Observability",
   "peak": 16.94,
   "last_seen": "2026-11-04",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-10",
+  "exit_px": 15.66
  },
  "RNG": {
   "entered": "2026-10-19",
@@ -641,7 +645,7 @@
   "px": 120.78,
   "layer": "Telemedicine / Health IT",
   "peak": 122.19,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": false
  },
  "OSPN": {
@@ -649,7 +653,7 @@
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": false
  },
  "EXEL": {
@@ -657,7 +661,7 @@
   "px": 71.74,
   "layer": "Oncology",
   "peak": 71.74,
-  "last_seen": "2026-11-09",
+  "last_seen": "2026-11-10",
   "ondeck": true
  },
  "ICLR": {
