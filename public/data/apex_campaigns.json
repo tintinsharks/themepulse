@@ -422,8 +422,8 @@
   "entered": "2026-11-02",
   "px": 338.54,
   "layer": "CRO + Services",
-  "peak": 346.06,
-  "last_seen": "2026-11-10",
+  "peak": 347.74,
+  "last_seen": "2026-11-11",
   "ondeck": true
  },
  "IQV": {
@@ -466,7 +466,7 @@
   "entered": "2026-11-10",
   "px": 63.35,
   "layer": "Oncology",
-  "peak": 64.26,
+  "peak": 64.72,
   "last_seen": "2026-11-11",
   "ondeck": true
  },
@@ -574,7 +574,7 @@
   "entered": "2026-09-28",
   "px": 90.06,
   "layer": "Biotech Momentum",
-  "peak": 108.06,
+  "peak": 109.84,
   "last_seen": "2026-11-11",
   "ondeck": false
  },
@@ -667,7 +667,7 @@
   "px": 205.14,
   "layer": "CRO + Services",
   "peak": 205.14,
-  "last_seen": "2026-11-10",
+  "last_seen": "2026-11-11",
   "ondeck": false
  },
  "MANH": {
