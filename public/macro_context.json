@@ -1,15 +1,15 @@
 {
   "date": "2026-11-12",
-  "generated": "2026-11-12 09:55",
-  "vix": 18.19,
+  "generated": "2026-11-12 20:40",
+  "vix": 18.8,
   "vixChg": null,
-  "tenYearYield": 4.998,
-  "yieldBps": 1,
-  "dxy": 102.81,
-  "dxyChg": 0.579,
+  "tenYearYield": 5.104,
+  "yieldBps": 11,
+  "dxy": 103.102,
+  "dxyChg": 0.194,
   "putCallRatio": null,
   "regime": "CAUTION",
-  "regimeReason": "Caution warranted: moderate vol, dollar strong",
+  "regimeReason": "Caution warranted: moderate vol, yields spiking",
   "t2108": null,
   "ratio5d": null
 }
