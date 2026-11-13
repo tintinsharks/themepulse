@@ -271,7 +271,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": true
  },
  "GH": {
@@ -289,7 +289,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": false
  },
  "SNOW": {
@@ -407,7 +407,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 269.0,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": false
  },
  "IBRX": {
@@ -423,7 +423,7 @@
   "px": 338.54,
   "layer": "CRO + Services",
   "peak": 347.74,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": true
  },
  "IQV": {
@@ -467,7 +467,7 @@
   "px": 63.35,
   "layer": "Oncology",
   "peak": 65.76,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": true
  },
  "INTA": {
@@ -573,7 +573,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 109.84,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": false
  },
  "MPC": {
@@ -665,7 +665,7 @@
   "px": 205.14,
   "layer": "CRO + Services",
   "peak": 205.14,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": false
  },
  "MANH": {
@@ -673,15 +673,15 @@
   "px": 255.78,
   "layer": "Vertical SaaS",
   "peak": 258.86,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-13",
   "ondeck": true
  },
  "PCOR": {
   "entered": "2026-11-05",
   "px": 76.25,
   "layer": "Vertical SaaS",
-  "peak": 76.26,
-  "last_seen": "2026-11-11",
+  "peak": 77.23,
+  "last_seen": "2026-11-13",
   "ondeck": false
  }
 }
