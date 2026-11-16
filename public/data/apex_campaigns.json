@@ -106,14 +106,16 @@
   "layer": "Threat Operations",
   "peak": 51.78,
   "last_seen": "2026-11-09",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-11-16",
+  "exit_px": 40.76
  },
  "RPD": {
   "entered": "2026-11-05",
   "px": 15.71,
   "layer": "Threat Operations",
   "peak": 15.71,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-16",
   "ondeck": true
  },
  "AAOI": {
@@ -271,7 +273,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": true
  },
  "GH": {
@@ -289,7 +291,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": false
  },
  "SNOW": {
@@ -407,7 +409,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 269.0,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": false
  },
  "IBRX": {
@@ -416,14 +418,16 @@
   "layer": "Oncology",
   "peak": 8.93,
   "last_seen": "2026-11-09",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-16",
+  "exit_px": 6.02
  },
  "CRL": {
   "entered": "2026-11-02",
   "px": 338.54,
   "layer": "CRO + Services",
   "peak": 347.74,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": true
  },
  "IQV": {
@@ -442,7 +446,9 @@
   "layer": "Telemedicine / Health IT",
   "peak": 67.52,
   "last_seen": "2026-11-10",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-16",
+  "exit_px": 58.19
  },
  "HTFL": {
   "entered": "2026-09-14",
@@ -460,14 +466,16 @@
   "layer": "Diagnostics",
   "peak": 15.79,
   "last_seen": "2026-11-09",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-16",
+  "exit_px": 15.71
  },
  "TGTX": {
   "entered": "2026-11-10",
   "px": 63.35,
   "layer": "Oncology",
   "peak": 65.76,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": true
  },
  "INTA": {
@@ -573,7 +581,7 @@
   "px": 90.06,
   "layer": "Biotech Momentum",
   "peak": 111.33,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": false
  },
  "MPC": {
@@ -642,14 +650,16 @@
   "layer": "Telemedicine / Health IT",
   "peak": 122.19,
   "last_seen": "2026-11-10",
-  "ondeck": false
+  "ondeck": false,
+  "exited": "2026-11-16",
+  "exit_px": 115.39
  },
  "OSPN": {
   "entered": "2026-10-30",
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-12",
+  "last_seen": "2026-11-16",
   "ondeck": false
  },
  "EXEL": {
@@ -658,14 +668,16 @@
   "layer": "Oncology",
   "peak": 71.74,
   "last_seen": "2026-11-10",
-  "ondeck": true
+  "ondeck": true,
+  "exited": "2026-11-16",
+  "exit_px": 69.0
  },
  "ICLR": {
   "entered": "2026-11-02",
   "px": 205.14,
   "layer": "CRO + Services",
   "peak": 205.14,
-  "last_seen": "2026-11-13",
+  "last_seen": "2026-11-16",
   "ondeck": false
  },
  "MANH": {
