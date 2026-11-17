@@ -40,14 +40,12 @@
   "exit_px": 927.6
  },
  "SLS": {
-  "entered": "2026-09-10",
-  "px": 13.95,
+  "entered": "2026-11-17",
+  "px": 19.15,
   "layer": "Biotech Momentum",
-  "peak": 13.95,
-  "last_seen": "2026-09-18",
-  "ondeck": true,
-  "exited": "2026-09-24",
-  "exit_px": 11.52
+  "peak": 19.15,
+  "last_seen": "2026-11-17",
+  "ondeck": true
  },
  "INTC": {
   "entered": "2026-09-22",
@@ -179,14 +177,12 @@
   "exit_px": 81.54
  },
  "VRNS": {
-  "entered": "2026-09-22",
-  "px": 48.45,
+  "entered": "2026-11-17",
+  "px": 49.02,
   "layer": "Threat Operations",
-  "peak": 48.45,
-  "last_seen": "2026-09-22",
-  "ondeck": true,
-  "exited": "2026-09-28",
-  "exit_px": 47.99
+  "peak": 49.02,
+  "last_seen": "2026-11-17",
+  "ondeck": false
  },
  "PARR": {
   "entered": "2026-07-28",
