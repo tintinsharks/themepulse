@@ -180,7 +180,7 @@
   "entered": "2026-11-17",
   "px": 49.02,
   "layer": "Threat Operations",
-  "peak": 49.02,
+  "peak": 49.24,
   "last_seen": "2026-11-18",
   "ondeck": false
  },
@@ -470,7 +470,7 @@
   "entered": "2026-11-10",
   "px": 63.35,
   "layer": "Oncology",
-  "peak": 65.76,
+  "peak": 66.07,
   "last_seen": "2026-11-18",
   "ondeck": true
  },
