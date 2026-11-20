@@ -1,0 +1,101 @@
+{
+ "generated": "2026-11-20T05:12",
+ "universe": 3277,
+ "in_layer": 2553,
+ "layers": 161,
+ "checks": [
+  {
+   "id": "dead_curated",
+   "label": "Curated layer tickers missing from the universe",
+   "count": 0,
+   "items": [],
+   "status": "ok",
+   "note": "acquired / renamed / delisted, or a new listing not yet ingested"
+  },
+  {
+   "id": "orphans_strong",
+   "label": "Liquid (\u2265$25M/day), RS \u2265 75, in no layer",
+   "count": 1,
+   "items": [
+    "VSCO"
+   ],
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "id": "hollow_layers",
+   "label": "Layers with fewer than 2 live members",
+   "count": 0,
+   "items": [],
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "id": "unplaced_liquid",
+   "label": "Liquid (\u2265$10M/day) names in no layer",
+   "count": 6,
+   "items": [
+    "PSTG",
+    "PSKY",
+    "VSCO",
+    "JMUB",
+    "BKH",
+    "MSGS"
+   ],
+   "status": "warn",
+   "note": ""
+  },
+  {
+   "id": "untagged",
+   "label": "Liquid (\u2265$25M/day) non-REITs with no theme tag",
+   "count": 15,
+   "items": [
+    "SKHY",
+    "CBRS",
+    "SATS",
+    "HONA",
+    "SUNB",
+    "PSTG",
+    "PSKY",
+    "FDXF",
+    "VSCO",
+    "JCPB",
+    "MMED",
+    "JMUB",
+    "BSP",
+    "BKH",
+    "MSGS"
+   ],
+   "status": "warn",
+   "note": ""
+  },
+  {
+   "id": "young_unranked",
+   "label": "Listings 2\u201312 months old with no RS rank",
+   "count": 5,
+   "items": [
+    "EMAT(2026-01-06)",
+    "CMCSV(2025-12-15)",
+    "VSNTV(2025-12-15)",
+    "AACI(2026-03-27)",
+    "GTOP(2025-12-05)"
+   ],
+   "status": "warn",
+   "note": ""
+  },
+  {
+   "id": "blank_industry",
+   "label": "Liquid names FMP gives no industry (need a curated pin)",
+   "count": 5,
+   "items": [
+    "BKH",
+    "MSGS",
+    "PSKY",
+    "PSTG",
+    "VSCO"
+   ],
+   "status": "warn",
+   "note": ""
+  }
+ ]
+}

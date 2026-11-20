@@ -103,7 +103,7 @@
   "px": 44.09,
   "layer": "Threat Operations",
   "peak": 44.09,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": true
  },
  "RPD": {
@@ -267,7 +267,7 @@
   "px": 72.31,
   "layer": "Diagnostics",
   "peak": 89.32,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": true
  },
  "GH": {
@@ -285,7 +285,7 @@
   "px": 159.87,
   "layer": "Diagnostics",
   "peak": 159.87,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": false
  },
  "SNOW": {
@@ -383,7 +383,7 @@
   "px": 206.85,
   "layer": "Platform + Endpoint",
   "peak": 206.85,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": true
  },
  "AXTI": {
@@ -401,7 +401,7 @@
   "px": 123.2,
   "layer": "Biotech Momentum",
   "peak": 269.0,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": false
  },
  "IBRX": {
@@ -471,14 +471,12 @@
   "ondeck": true
  },
  "INTA": {
-  "entered": "2026-11-12",
-  "px": 46.45,
+  "entered": "2026-11-20",
+  "px": 42.43,
   "layer": "Vertical SaaS",
-  "peak": 46.45,
-  "last_seen": "2026-11-13",
-  "ondeck": true,
-  "exited": "2026-11-19",
-  "exit_px": 44.26
+  "peak": 42.43,
+  "last_seen": "2026-11-20",
+  "ondeck": true
  },
  "PAYC": {
   "entered": "2026-10-20",
@@ -683,14 +681,12 @@
   "exit_px": 250.14
  },
  "PCOR": {
-  "entered": "2026-11-05",
-  "px": 76.25,
+  "entered": "2026-11-20",
+  "px": 73.3,
   "layer": "Vertical SaaS",
-  "peak": 77.23,
-  "last_seen": "2026-11-13",
-  "ondeck": false,
-  "exited": "2026-11-19",
-  "exit_px": 76.2
+  "peak": 73.3,
+  "last_seen": "2026-11-20",
+  "ondeck": true
  },
  "SPSC": {
   "entered": "2026-11-20",
