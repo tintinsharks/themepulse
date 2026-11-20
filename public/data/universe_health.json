@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-20T08:14",
+ "generated": "2026-11-20T10:12",
  "universe": 3277,
  "in_layer": 2554,
  "layers": 161,
@@ -99,7 +99,7 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-19",
-   "count": 120,
+   "count": 118,
    "items": [
     "ABR",
     "ACA",
