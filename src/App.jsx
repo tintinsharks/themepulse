@@ -8833,6 +8833,7 @@ function AppMain() {
             <LeadershipView
               ARIA={ARIA}
               indexQuotes={indexQuotes}
+              pipeline={data.pipeline}
               stockMap={stockMap}
               chartTicker={chartTicker}
               onTickerClick={handleTickerClick}

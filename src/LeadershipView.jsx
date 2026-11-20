@@ -747,7 +747,103 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
   );
 }
 
-export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chartTicker, chartSlot, indexQuotes }) {
+// ── Pre/After-market movers ───────────────────────────────────────────────
+// Today's pre-market movers and the last session's after-hours movers, from
+// the pipeline's session-stamped snapshots (last_pm / last_ah — the live ah_*
+// lists are emptied by the morning scrape). Earnings movers are flagged ER.
+function extRows(snap, stockMap, tickerLayer, universeOnly) {
+  if (!snap) return [];
+  const seen = new Map();
+  const add = (list, er) => (list || []).forEach((m) => {
+    const t = m?.ticker;
+    if (!t || seen.has(t)) return;
+    const chg = m.ext_hours_change_pct ?? m.change_pct;
+    const s = stockMap?.[t];
+    const L = tickerLayer[t];
+    const head = (m.headlines || [])[0] || "";
+    seen.set(t, {
+      t, chg, price: m.price, vol: m.volume, er,
+      grade: m.ep_quality_label || null,
+      catalyst: head.replace(/\s*\[[^\]]*\]\s*$/, ""),
+      rs: s?.rs_rank ?? m.rs_rank ?? null,
+      inU: !!s, layer: L?.name, layerSt: L?.st,
+    });
+  });
+  add(snap.earnings, true);
+  add(snap.movers, false);
+  add(snap.top, false);
+  return [...seen.values()]
+    .filter((r) => r.chg != null && r.chg !== 0)
+    .filter((r) => !universeOnly || (r.inU && (r.price ?? 0) >= 5))
+    .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg));
+}
+
+function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker }) {
+  const [uOnly, setUOnly] = useState(true);
+  const today = etClock().today;
+  const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
+    ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null);
+  const ahSnap = pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
+    ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null);
+  const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly), [pmSnap, stockMap, tickerLayer, uOnly]);
+  const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly), [ahSnap, stockMap, tickerLayer, uOnly]);
+  const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
+  const section = (title, sub, rows) => (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: A.text }}>{title}</span>
+        <span style={{ fontSize: 10, color: A.textMuted }}>{sub}</span>
+      </div>
+      {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "4px 2px" }}>No movers{uOnly ? " in the universe (≥ $5)" : ""}.</div> : (
+        <div style={{ overflowX: "auto", maxHeight: 340, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+              <tr>
+                <th style={th(A)}>Ticker</th><th style={th(A, "right")}>Chg</th><th style={th(A, "right")}>Price</th>
+                <th style={th(A, "right")}>Vol</th><th style={th(A, "right")}>RS</th><th style={th(A)}>Layer</th><th style={th(A)}>Catalyst</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                  <td style={td(A)}>
+                    <span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                    {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 3, padding: "0 3px" }}>ER</span>}
+                  </td>
+                  <td style={{ ...td(A, "right"), color: r.chg >= 0 ? A.green : A.red, fontWeight: 700 }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</td>
+                  <td style={td(A, "right")}>{r.price ? r.price.toFixed(2) : "—"}</td>
+                  <td style={td(A, "right")}>{fmtVol(r.vol)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                  </td>
+                  <td title={r.catalyst} style={{ ...td(A), fontSize: 11, color: A.textDim, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>{r.catalyst || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+  const pmSub = pmSnap?.session
+    ? (pmSnap.session === today ? `today · scanned ${String(pmSnap.scanned || "").slice(11)} ET` : `no scan yet today — last: ${pmSnap.session}`)
+    : "today";
+  const ahSub = ahSnap?.session ? `${ahSnap.session} close · scanned ${String(ahSnap.scanned || "").slice(5)} ET` : (ahSnap ? "last session" : "no after-hours scan saved yet");
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+        <label style={{ fontSize: 11, color: A.textDim, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          <input type="checkbox" checked={uOnly} onChange={(e) => setUOnly(e.target.checked)} /> Universe only, ≥ $5
+        </label>
+      </div>
+      {section("Pre-market", pmSub, pmRows)}
+      {section("After-hours", ahSub, ahRows)}
+    </div>
+  );
+}
+
+export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chartTicker, chartSlot, indexQuotes, pipeline }) {
   const rot = useJson("/data/rs_rotation.json");
   const hist = useJson("/data/rank_history.json");
   const seats = useJson("/data/ticker_seats.json");
@@ -973,15 +1069,18 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
             <Card A={A} title="Stocks"
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
-                : stockTab === "intra"
+                : stockTab === "intra" || stockTab === "ext"
                 ? undefined
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
                 ["brk", "Leaders breaking down", stocks.brk.length, A.red],
                 ["intra", "Intraday scan", "", A.cyan],
+                ["ext", "Pre/After-market", "", A.purple],
               ]} />}>
-              {stockTab === "intra"
+              {stockTab === "ext"
+                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMap} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
+                : stockTab === "intra"
                 ? <IntradayScan A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
                     allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
                 : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
