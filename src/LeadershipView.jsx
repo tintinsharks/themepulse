@@ -13,7 +13,7 @@
 // edge, so "leading" means >= 88 and holding. Early rotation (emerging) tested
 // NEGATIVE, so it is shown but labelled unproven, never mixed in with leaders.
 // ──────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const LEAD = 88;          // layer leadership threshold (backtest)
 const PEAK_LOOKBACK = 40; // sessions to look back for "was leading"
@@ -240,7 +240,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode }) {
             const on = chartTicker === r.ticker;
             const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
             return (
-              <tr key={r.ticker} onClick={() => onTicker(r.ticker)} style={{ cursor: "pointer", background: on ? A.bgHover : "transparent" }}>
+              <tr key={r.ticker} data-nav={r.ticker} onClick={() => onTicker(r.ticker)} style={{ cursor: "pointer", background: on ? A.bgHover : "transparent" }}>
                 <td style={td(A)}>
                   <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
@@ -755,7 +755,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
@@ -857,7 +857,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}>
                     <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
                     {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 3, padding: "0 3px" }}>ER</span>}
@@ -1054,7 +1054,7 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}><FlagButton t={r.t} A={A} /></td>
                   <td style={td(A)}><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
                   <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
@@ -1081,6 +1081,33 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
   const breadth = useJson("/data/breadth.json");
   const [theme, setTheme] = useState(null);
   const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
+  // ↑/↓ steps through the rows of the Stocks box (whatever tab/sort is showing)
+  // and loads each one in the chart. Ignored while typing in a field.
+  const stocksRef = useRef(null);
+  const navRef = useRef({ chartTicker, onTickerClick });
+  navRef.current = { chartTicker, onTickerClick };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const box = stocksRef.current;
+      if (!box) return;
+      const rows = [...box.querySelectorAll("tr[data-nav]")];
+      if (!rows.length) return;
+      e.preventDefault();
+      const { chartTicker: cur, onTickerClick: go } = navRef.current;
+      const i = rows.findIndex((r) => r.dataset.nav === cur);
+      const j = i < 0 ? (e.key === "ArrowDown" ? 0 : rows.length - 1)
+        : Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)));
+      if (j === i) return;
+      rows[j].scrollIntoView({ block: "nearest" });
+      go(rows[j].dataset.nav);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [layerTab, setLayerTab] = useState("lead");
   const [stockTab, setStockTab] = useState("intra");
   const [expanded, setExpanded] = useState(null);
@@ -1297,6 +1324,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
                 </Card>
               );
             })()}
+            <div ref={stocksRef}>
             <Card A={A} title="Stocks"
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
@@ -1319,6 +1347,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
                     allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
                 : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
             </Card>
+            </div>
 
             <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
               onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); setExpanded(l.key); }}
