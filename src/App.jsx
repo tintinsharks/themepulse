@@ -24,6 +24,8 @@ import {
   IntradayChart as LegacyIntradayChart,
 } from "./LWChartLegacy.jsx";
 import SubthemeRotation, { SubthemeRotationAutoRefresh } from "./SubthemeRotation";
+import LeadershipView, { LEAD_INDEXES } from "./LeadershipView.jsx";
+const LEAD_INDEX_TICKERS = LEAD_INDEXES.map((x) => x.t);
 
 // ──────────────────────────────────────────────────────────────────────────
 // Theme system: Aria light/dark palettes via React context
@@ -14176,13 +14178,14 @@ function AppMain() {
   const ARIA = useAriaTheme();
   const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
+  const { quotes: indexQuotes } = useLiveQuotes(LEAD_INDEX_TICKERS);
   // Active ticker for the inline chart panel.
   // Default chart ticker. Persists in localStorage.
   const [chartTicker, setChartTicker] = useState(() => {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
   // Top-level view: dashboard or setup journal
-  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "leaders" || v === "journal" ? "dash" : (v || "dash"); });
+  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "dash" || v === "wheel" ? v : "lead"; });
   const switchView = useCallback((v) => {
     setMainView(v);
     try { localStorage.setItem("themepulse-view", v); } catch {}
@@ -14400,7 +14403,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["dash", "DASH"], ["wheel", "WHEEL"]].map(([v, label]) => (
+          {[["lead", "LEADERS"], ["dash", "DASH"], ["wheel", "WHEEL"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
@@ -14512,6 +14515,25 @@ function AppMain() {
             stockMap={stockMap}
             onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
           />
+        ) : mainView === "lead" ? (
+          <ErrorBoundary>
+            <LeadershipView
+              ARIA={ARIA}
+              indexQuotes={indexQuotes}
+              stockMap={stockMap}
+              chartTicker={chartTicker}
+              onTickerClick={handleTickerClick}
+              chartSlot={
+                <ChartPanelInline
+                  ticker={chartTicker}
+                  onTickerChange={handleTickerClick}
+                  stockMap={stockMap}
+                  themeHealth={data.pipeline?.theme_health || []}
+                  tickerStrengthMap={tickerStrengthMap}
+                />
+              }
+            />
+          </ErrorBoundary>
         ) : mainView === "wheel" ? (
           <ErrorBoundary>
             <WheelView stockMap={stockMap} onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }} />
