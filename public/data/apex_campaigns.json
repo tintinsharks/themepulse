@@ -44,7 +44,7 @@
   "px": 19.15,
   "layer": "Biotech Momentum",
   "peak": 19.15,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": true
  },
  "INTC": {
@@ -467,7 +467,7 @@
   "px": 63.35,
   "layer": "Oncology",
   "peak": 66.12,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": true
  },
  "INTA": {
@@ -551,14 +551,12 @@
   "exit_px": 60.73
  },
  "ATAI": {
-  "entered": "2026-09-23",
+  "entered": "2026-11-20",
   "px": 7.35,
   "layer": "Biotech Momentum",
   "peak": 7.35,
-  "last_seen": "2026-09-23",
-  "ondeck": false,
-  "exited": "2026-09-29",
-  "exit_px": 7.35
+  "last_seen": "2026-11-20",
+  "ondeck": false
  },
  "GRAL": {
   "entered": "2026-10-28",
@@ -653,7 +651,7 @@
   "px": 25.3,
   "layer": "Threat Operations",
   "peak": 25.66,
-  "last_seen": "2026-11-19",
+  "last_seen": "2026-11-20",
   "ondeck": false
  },
  "EXEL": {
@@ -693,5 +691,45 @@
   "ondeck": false,
   "exited": "2026-11-19",
   "exit_px": 76.2
+ },
+ "SPSC": {
+  "entered": "2026-11-20",
+  "px": 77.16,
+  "layer": "Threat Operations",
+  "peak": 77.16,
+  "last_seen": "2026-11-20",
+  "ondeck": false
+ },
+ "RVTY": {
+  "entered": "2026-11-20",
+  "px": 151.59,
+  "layer": "Diagnostics",
+  "peak": 151.59,
+  "last_seen": "2026-11-20",
+  "ondeck": true
+ },
+ "LH": {
+  "entered": "2026-11-20",
+  "px": 368.88,
+  "layer": "Diagnostics",
+  "peak": 368.88,
+  "last_seen": "2026-11-20",
+  "ondeck": false
+ },
+ "GEN": {
+  "entered": "2026-11-20",
+  "px": 30.15,
+  "layer": "Platform + Endpoint",
+  "peak": 30.15,
+  "last_seen": "2026-11-20",
+  "ondeck": false
+ },
+ "REGN": {
+  "entered": "2026-11-20",
+  "px": 923.34,
+  "layer": "Oncology",
+  "peak": 923.34,
+  "last_seen": "2026-11-20",
+  "ondeck": true
  }
 }
