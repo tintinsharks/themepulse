@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-20T05:12",
+ "generated": "2026-11-20T05:31",
  "universe": 3277,
  "in_layer": 2553,
  "layers": 161,
@@ -72,13 +72,12 @@
   {
    "id": "young_unranked",
    "label": "Listings 2\u201312 months old with no RS rank",
-   "count": 5,
+   "count": 4,
    "items": [
     "EMAT(2026-01-06)",
     "CMCSV(2025-12-15)",
     "VSNTV(2025-12-15)",
-    "AACI(2026-03-27)",
-    "GTOP(2025-12-05)"
+    "AACI(2026-03-27)"
    ],
    "status": "warn",
    "note": ""
