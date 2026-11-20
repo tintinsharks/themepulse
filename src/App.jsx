@@ -1257,7 +1257,6 @@ The strip is one bar per session, oldest→newest; filled = leading. A solid blo
 // SERVICES layers stay (Telemedicine, Diagnostics, Managed Care, Providers,
 // CRO, Devices): those are names actually held, and they lead on their own.
 const SEATS_EXCLUDE = new Set([
-  "health|Biotech Momentum",
   "health|Biotech",
   "health|Biotech Leaders",
   "health|Oncology",
@@ -9069,7 +9068,6 @@ const DRAWER_SUBTHEMES = [
   { theme: "Consumer", themeId: "consumer", layer: "Luxury + Apparel", desc: "Apparel, footwear & luxury brands", tickers: ["RL","TPR","PVH","LEVI","VFC","ELA","FIGS","NKE","DECK","ON","CROX"] },
   // ── Biotech (expanded) ──
   { theme: "Healthcare", themeId: "health", layer: "Biotech Leaders", desc: "Large-cap profitable biotech", tickers: ["VRTX","REGN","GILD","BIIB","IONS","ALNY","BMRN","NBIX","UTHR","SRPT"] },
-  { theme: "Healthcare", themeId: "health", layer: "Biotech Momentum", desc: "High-momentum clinical-stage biotech", tickers: ["KOD","VTYX","RLMD","CELC","ANRO","TNGX","PRAX","ABVX","MRNA","IONS","SLS","RAPT","QURE","ABSI","CMPS","ATAI"] },
   { theme: "Healthcare", themeId: "health", layer: "Pharma Majors", desc: "Big pharma", tickers: ["LLY","JNJ","MRK","PFE","AZN","GSK","TEVA","ELAN","VTRS"] },
   { theme: "Healthcare", themeId: "health", layer: "Managed Care + Payers", desc: "Health insurers & managed care", tickers: ["UNH","CI","ELV","HUM","CNC","MOH","OSCR"] },
   { theme: "Healthcare", themeId: "health", layer: "CRO + Services", desc: "Clinical research orgs & pharma services", tickers: ["ICLR","CRL","MEDP","IQV","DOCS","VEEV"] },
