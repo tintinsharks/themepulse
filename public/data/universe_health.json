@@ -1,7 +1,7 @@
 {
- "generated": "2026-11-20T14:29",
- "universe": 3275,
- "in_layer": 2551,
+ "generated": "2026-11-20T15:39",
+ "universe": 3274,
+ "in_layer": 2545,
  "layers": 161,
  "checks": [
   {
@@ -33,14 +33,15 @@
   {
    "id": "unplaced_liquid",
    "label": "Liquid (\u2265$10M/day) names in no layer",
-   "count": 6,
+   "count": 7,
    "items": [
     "PSTG",
     "PSKY",
     "VSCO",
     "JMUB",
     "BKH",
-    "MSGS"
+    "MSGS",
+    "JKS"
    ],
    "status": "warn",
    "note": ""
@@ -56,13 +57,13 @@
     "SUNB",
     "PSTG",
     "PSKY",
-    "FDXF",
     "VSCO",
+    "FDXF",
     "JCPB",
-    "JMUB",
     "MMED",
-    "BKH",
+    "JMUB",
     "BSP",
+    "BKH",
     "MSGS"
    ],
    "status": "warn",
@@ -84,9 +85,10 @@
   {
    "id": "blank_industry",
    "label": "Liquid names FMP gives no industry (need a curated pin)",
-   "count": 5,
+   "count": 6,
    "items": [
     "BKH",
+    "JKS",
     "MSGS",
     "PSKY",
     "PSTG",
@@ -97,8 +99,8 @@
   },
   {
    "id": "stale_prices",
-   "label": "Liquid names whose price history is behind 2026-11-19",
-   "count": 115,
+   "label": "Liquid names whose price history is behind 2026-11-20",
+   "count": 121,
    "items": [
     "ABR",
     "ACA",
@@ -119,6 +121,7 @@
     "BDXA",
     "BITF",
     "BK",
+    "BKH",
     "BLD",
     "BLFS",
     "BWMN",
@@ -138,8 +141,7 @@
     "CUK",
     "CWAN",
     "DAWN",
-    "EA",
-    "EHAB"
+    "EA"
    ],
    "status": "warn",
    "note": ""

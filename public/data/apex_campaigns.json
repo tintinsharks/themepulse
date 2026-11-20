@@ -479,14 +479,12 @@
   "ondeck": true
  },
  "PAYC": {
-  "entered": "2026-10-20",
-  "px": 262.32,
+  "entered": "2026-11-20",
+  "px": 246.02,
   "layer": "Vertical SaaS",
-  "peak": 274.59,
-  "last_seen": "2026-10-24",
-  "ondeck": true,
-  "exited": "2026-10-30",
-  "exit_px": 260.66
+  "peak": 246.02,
+  "last_seen": "2026-11-20",
+  "ondeck": true
  },
  "QURE": {
   "entered": "2026-08-30",
@@ -674,7 +672,7 @@
   "entered": "2026-11-20",
   "px": 244.95,
   "layer": "Vertical SaaS",
-  "peak": 244.95,
+  "peak": 248.66,
   "last_seen": "2026-11-20",
   "ondeck": true
  },
