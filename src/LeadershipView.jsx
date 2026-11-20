@@ -651,7 +651,24 @@ function scanBase(s, session) {
 }
 
 
+// Exact "relative volume at time": each stock's own average cumulative volume
+// by this minute over the last 10 sessions (pipeline: 10e_rvol_profiles.py,
+// 78 five-minute marks). Returns null outside RTH or without a profile, so the
+// caller falls back to the generic session curve.
+function rthMinute() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const m = et.getHours() * 60 + et.getMinutes() + et.getSeconds() / 60 - 570;
+  return et.getDay() >= 1 && et.getDay() <= 5 && m > 0 && m < 390 ? m : null;
+}
+function expectedVolAt(p, m) {
+  if (!Array.isArray(p) || p.length < 78 || m == null) return null;
+  const t = m / 5, k = Math.floor(t);
+  const v = k === 0 ? p[0] * t : p[k - 1] + (p[Math.min(k, 77)] - p[k - 1]) * (t - k);
+  return v > 0 ? v : null;
+}
+
 function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed }) {
+  const profiles = useJson("/data/rvol_profiles.json");
   const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
     .filter((b) => !allowed || allowed.has(b.t)), [stockMap, allowed]);
   const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
@@ -661,6 +678,12 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
   const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
   const rows = useMemo(() => {
     const frac = sessionElapsedFrac();
+    const rm = rthMinute();
+    const zvrOf = (b, vol) => {
+      const exp = expectedVolAt(profiles?.p?.[b.t], rm);
+      if (exp) return +(vol / exp).toFixed(2);
+      return b.avg10 ? +(vol / (b.avg10 * frac)).toFixed(2) : null;
+    };
     const out = [];
     base.forEach((b) => {
       const q = quotes.get(b.t);
@@ -674,7 +697,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
       const fromOpen = q.open ? (px / q.open - 1) * 100 : null;
       // RVol at time (TradingView-style): today's volume ÷ (10-session avg ×
       // share of a normal day's volume done by now). 1.00 = normal pace.
-      const liveZvr = b.avg10 ? +(vol / (b.avg10 * frac)).toFixed(2) : null;
+      const liveZvr = zvrOf(b, vol);
       const zvr = snapOk && snap.z[b.t] != null ? snap.z[b.t] : liveZvr;
       if (px < 7 || vol <= 50e3 || !(zvr > 0.1) || !(chg > 0)) return;
       if (offHi == null || offHi < -30) return;
@@ -686,20 +709,22 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
     const k = sort.k, d = sort.d;
     out.sort((x, y) => ((x[k] ?? -1e9) - (y[k] ?? -1e9)) * d);
     return out;
-  }, [base, quotes, tickerLayer, sort, snap, snapOk]);
+  }, [base, quotes, tickerLayer, sort, snap, snapOk, profiles]);
   // During RTH, persist every structural-pass name's ZVR (not just the rows
   // that pass today's live filters) so the after-hours view has a value.
   useEffect(() => {
     if (!clock.rth || !quotes.size) return;
     const frac = sessionElapsedFrac();
+    const rm = rthMinute();
     const z = {};
     base.forEach((b) => {
       const q = quotes.get(b.t);
       if (!q?.price || !b.avg10) return;
-      z[b.t] = +(((q.volume ?? 0) / (b.avg10 * frac))).toFixed(2);
+      const exp = expectedVolAt(profiles?.p?.[b.t], rm);
+      z[b.t] = +(((q.volume ?? 0) / (exp || b.avg10 * frac))).toFixed(2);
     });
     writeZvrSnap(clock.today, z);
-  }, [quotes, base, clock.rth, clock.today]);
+  }, [quotes, base, clock.rth, clock.today, profiles]);
   const col = (k, label, align = "right", title) => (
     <th style={{ ...th(A, align), cursor: "pointer", color: sort.k === k ? A.text : A.textMuted }} title={title}
       onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
