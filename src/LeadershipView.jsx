@@ -1115,8 +1115,8 @@ const SCAN_NOTES = {
   m3m: "Up 70%+ in 3 months · ≥ 100% above the 52w low · ADR ≥ 3% · same base as 1W",
   m6m: "Up 100%+ in 6 months · ≥ 100% above the 52w low · ADR ≥ 3% · same base as 1W",
   strong: "≥ 70% above the 52w low · EPS & sales growth ≥ 25% · avg vol ≥ 500K · <$10B: float ≤ 50M, ADR ≥ 3% · $10B+: float ≤ 150M, ADR ≥ 2% · near SMA20, ≥ SMA50 −3%",
-  s20: "Stockbee: up 20%+ in 5 sessions within the last 15 · price ≥ $3 · avg $vol ≥ $5M · Ago = sessions since the burst, Pullback = from the high since",
-  antic: "Stockbee: quiet day (−1% to +1%) · TI65 (7d ÷ 65d avg close) ≥ 1.05 · above SMA20 & SMA50 · within 15% of the high · price ≥ $5, avg $vol ≥ $10M",
+  s20: "Stockbee: up 20%+ in 5 sessions within the last 15 · still above the 50-day and within 25% of the high · price ≥ $3 · avg $vol ≥ $5M · Ago = sessions since the burst, Pullback = from the high since",
+  antic: "Stockbee: quiet day (−1% to +1%) · TI65 (7d ÷ 65d avg close) ≥ 1.05 · above SMA20 & SMA50 · within 15% of the high · ADR ≥ 2.5% · price ≥ $5, avg $vol ≥ $10M",
   hot: "TradingView Hottest Stock: mkt cap > $25M · perf 1M > 30% · avg vol > 300K · vol > 100K · price > $1 · float < 75M · volatility 1W > 3% · perf 1W −10% to +10%",
   liquid: "Price > $10 · mkt cap ≥ $300M · avg vol ≥ 1M · avg $vol ≥ $100M · ADR > 3% · EPS growth this year > 20% or 5y sales growth > 15% · RS ≥ 70 · above the 50-day",
 };
@@ -1147,8 +1147,8 @@ function scanHits(s, q) {
     if (!big && (fl == null || fl <= 50e6) && sma20 >= -2 && sma20 <= 18 && adr >= 3) out.strong = "S";
     else if (big && (fl == null || fl <= 150e6) && sma20 >= -2 && sma20 <= 12 && adr >= 2) out.strong = "L";
   }
-  if (s.burst20_pct != null && c >= 3 && adv >= 5e6) out.s20 = true;
-  if (chg != null && chg >= -1 && chg <= 1 && (s.ti65 ?? 0) >= 1.05 && sma20 > 0 && sma50 > 0 &&
+  if (s.burst20_pct != null && c >= 3 && adv >= 5e6 && sma50 > 0 && off != null && off >= -25) out.s20 = true;
+  if (chg != null && chg >= -1 && chg <= 1 && (s.ti65 ?? 0) >= 1.05 && sma20 > 0 && sma50 > 0 && adr >= 2.5 &&
       off != null && off >= -15 && c >= 5 && adv >= 10e6) out.antic = true;
   const vol = q?.volume;
   if (mcap > 25e6 && (s.return_1m ?? 0) > 30 && av > 300e3 && (vol == null || vol > 100e3) && c > 1 &&
@@ -1159,7 +1159,7 @@ function scanHits(s, q) {
   return out;
 }
 
-const SCAN_SORT = { m1w: "r1w", m1m: "r1m", m3m: "r3m", m6m: "r6m", strong: "rs", s20: "burst", antic: "ti65", hot: "r1m", liquid: "rs" };
+const SCAN_SORT = { m1w: "r1w", m1m: "r1m", m3m: "r3m", m6m: "r6m", strong: "rs", s20: "ago", antic: "ti65", hot: "r1m", liquid: "rs" };
 
 export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }) {
   const [scan, setScan] = useState(() => { try { return localStorage.getItem("tp-scan-tab") || "m1w"; } catch { return "m1w"; } });
