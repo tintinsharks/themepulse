@@ -577,7 +577,11 @@ function useScanQuotes(tickers, active) {
       id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 60000 : 15 * 60000);
     };
     schedule();
-    return () => { live = false; clearTimeout(id); };
+    // fetch as soon as a background tab is brought forward, instead of
+    // waiting for the next tick
+    const onVis = () => { if (!document.hidden) pull(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { live = false; clearTimeout(id); document.removeEventListener("visibilitychange", onVis); };
   }, [key, active]);
   return { quotes, at };
 }
