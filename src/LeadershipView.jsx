@@ -998,19 +998,39 @@ function FlagButton({ t, A }) {
 
 function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
   const flags = useFlags();
+  const profiles = useJson("/data/rvol_profiles.json");
   const [only, setOnly] = useState(null);
   const tickers = Object.entries(flags).filter(([, v]) => v?.c).map(([t]) => t).sort();
   const { quotes, at } = useScanQuotes(tickers, true);
+  // default: grouped by flag colour; header clicks sort like the Intraday scan
   const [sort, setSort] = useState({ k: "flag", d: 1 });
-  const TEXT = new Set(["t", "layer"]);
+  const clock = etClock();
+  const snap = useMemo(() => (clock.rth ? null : readZvrSnap()), [clock.rth, quotes]);
+  const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
+  const frac = sessionElapsedFrac();
+  const rm = rthMinute();
+  // Same columns and maths as the Intraday scan, but no filters: a flagged
+  // name shows even when it fails the scan today.
   const rows = tickers.filter((t) => !only || flags[t].c === only).map((t) => {
-    const q = quotes.get(t), s = stockMap?.[t], L = tickerLayer[t];
+    const q = quotes.get(t), s = stockMap?.[t] || {}, L = tickerLayer[t];
+    const c0 = s.close || s.price;
+    const px = q?.price ?? c0 ?? null;
+    const hiLvl = s.hi52_lvl ?? (c0 && s.off_52w_high != null ? c0 / (1 + s.off_52w_high / 100) : null);
+    const hi = Math.max(hiLvl || 0, q?.yearHigh || 0) || null;
+    const avg10 = (s.last_bar_date && s.last_bar_date === clock.session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+    let zvr = null;
+    if (snapOk && snap.z[t] != null) zvr = snap.z[t];
+    else if (q?.volume != null) {
+      const exp = expectedVolAt(profiles?.p?.[t], rm);
+      zvr = exp ? +(q.volume / exp).toFixed(2) : avg10 ? +(q.volume / (avg10 * frac)).toFixed(2) : null;
+    }
     return {
-      t, c: flags[t].c, flag: FLAG_ORDER.indexOf(flags[t].c),
-      px: q?.price ?? s?.close ?? null,
-      chg: q?.change ?? s?.change_pct ?? null,
+      t, c: flags[t].c, flag: FLAG_ORDER.indexOf(flags[t].c), px, zvr,
+      chg: q?.change ?? (q?.previousClose ? (q.price / q.previousClose - 1) * 100 : s.change_pct ?? null),
       fromOpen: q?.open ? (q.price / q.open - 1) * 100 : null,
-      rs: s?.rs_rank ?? null, layer: L?.name, layerSt: L?.st,
+      adr: s.adr20 ?? s.adr_pct ?? null,
+      offHi: hi && px ? (px / hi - 1) * 100 : null,
+      rs: s.rs_rank ?? null, layer: L?.name, layerSt: L?.st,
     };
   });
   rows.sort((a, b) => {
@@ -1019,15 +1039,13 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
     if (x == null && y == null) return a.t.localeCompare(b.t);
     if (x == null) return 1;
     if (y == null) return -1;
-    return ((TEXT.has(k) ? String(x).localeCompare(String(y)) : x - y) * d) || a.t.localeCompare(b.t);
+    return ((x - y) * d) || a.t.localeCompare(b.t);
   });
-  const hdr = (k, label, align = "left") => (
-    <th style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }}
-      onClick={() => setSort((p) => (p.k === k ? { k, d: -p.d } : { k, d: TEXT.has(k) || k === "flag" ? 1 : -1 }))}>
-      {label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}
-    </th>
+  const col = (k, label, align = "right", title) => (
+    <th style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }} title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : k === "flag" ? 1 : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
   );
-  const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`);
+  const pct = (v, dgt = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dgt)}%`);
   const counts = Object.fromEntries(FLAG_ORDER.map((k) => [k, tickers.filter((t) => flags[t].c === k).length]));
   return (
     <div>
@@ -1050,16 +1068,22 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
         <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ position: "sticky", top: 0, background: A.bg }}>
-              <tr>{hdr("flag", "Flag")}{hdr("t", "Ticker")}{hdr("px", "Price", "right")}{hdr("chg", "Chg", "right")}{hdr("fromOpen", "From open", "right")}{hdr("rs", "RS", "right")}{hdr("layer", "Layer")}</tr>
+              <tr>
+                {col("flag", "Ticker", "left", "Click to group by flag colour")}
+                {col("zvr", "ZVR", "right", "Relative volume at time: today's volume ÷ the stock's average volume by this time of day. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
+                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}
+                <th style={th(A)}>Layer</th>
+              </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
-                  <td style={td(A)}><FlagButton t={r.t} A={A} /></td>
-                  <td style={td(A)}><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
-                  <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
-                  <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.chg)}</td>
-                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red }}>{pct(r.fromOpen)}</td>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
+                  <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red }}>{pct(r.chg, 2)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
+                  <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                  <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
