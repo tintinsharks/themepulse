@@ -5981,171 +5981,70 @@ const fmtPct = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
 // each quarter is a flex column with value on top, bar, YoY%, and quarter
 // label beneath. Scales proportionally; baseline drops below zero when any
 // value is negative (handles EPS loss quarters).
-function MiniQBars({ quarters, accessor, yoyAccessor, color, labelFmt, title, ARIA, passYoy, hotYoy }) {
-  const values = quarters.map(accessor).filter((v) => v != null && Number.isFinite(v));
-  if (values.length === 0) return null;
-  // Bars scale by the %-CHANGE (YoY / delta), not the metric's level — the
-  // acceleration is the signal; the level lives in the label above each bar.
-  // Falls back to level-scaling when no change series exists (first quarters).
-  const pcts = yoyAccessor ? quarters.map(yoyAccessor).filter((v) => v != null && Number.isFinite(v)) : [];
-  const scaleByPct = pcts.length > 0;
-  const scaleVals = scaleByPct ? pcts : values;
-  const max = Math.max(...scaleVals, 0);
-  const min = Math.min(...scaleVals, 0);
-  const range = max - min || 1;
-  const barAreaH = 52;
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-      <div
-        style={{
-          fontSize: 7,
-          color: ARIA.textMuted,
-          marginBottom: 4,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-          fontWeight: 700,
-          fontFamily: "monospace",
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: 3,
-          alignItems: "stretch",
-          fontFamily: "monospace",
-        }}
-      >
-        {quarters.map((q, i) => {
-          const v = accessor(q);
-          const yoy = yoyAccessor ? yoyAccessor(q) : null;
-          const yoyColor =
-            yoy == null ? ARIA.textMuted : yoy >= 0 ? ARIA.green : ARIA.red;
-          const sv = scaleByPct ? yoy : v;
-          const hPos = sv == null || sv <= 0 ? 0 : (sv / range) * barAreaH;
-          const hNeg = sv == null || sv >= 0 ? 0 : (Math.abs(sv) / range) * barAreaH;
-          const zeroLine = (max / range) * barAreaH; // space above zero
+// ── EarningsBox — quarterly + annual fundamentals as one compact grid ─────
+// Replaces the four MiniQBars charts. Oldest → newest left to right, next
+// quarter's consensus as an orange "Est" column. Cell colors: green = strong
+// (YoY ≥ 25%, net margin ≥ 15%), red = negative, blue fill = best in row.
+function EarningsBox({ quarters, annuals, est, ARIA }) {
+  const fmtSales = (m) => (m == null ? "—" : Math.abs(m) >= 1000 ? `${(m / 1000).toFixed(1)} B` : `${Math.round(m)} M`);
+  const fmtPct = (v) => (v == null || !Number.isFinite(v) ? "—" : `${v.toFixed(1)}%`);
+  const fmtEps = (v) => (v == null || !Number.isFinite(v) ? "—" : v.toFixed(2));
+  const rows = [
+    { k: "eps", label: "EPS ($)", fmt: fmtEps, kind: "eps" },
+    { k: "eps_yoy", label: "EPS YoY %", fmt: fmtPct, kind: "growth" },
+    { k: "revenue", label: "Sales ($)", fmt: fmtSales, kind: "plain" },
+    { k: "revenue_yoy", label: "Sales YoY %", fmt: fmtPct, kind: "growth" },
+    { k: "net_margin", label: "Net Margin %", fmt: fmtPct, kind: "margin" },
+  ];
+  const cellStyle = (row, v, isMax, isEst) => {
+    const base = { padding: "4px 8px", textAlign: "center", fontVariantNumeric: "tabular-nums", fontSize: 11, color: ARIA.text, borderBottom: `1px solid ${ARIA.border}` };
+    if (v == null || !Number.isFinite(v)) return { ...base, color: ARIA.textMuted };
+    if (isEst) return { ...base, color: ARIA.gold || "#e3b341" };
+    if (isMax) return { ...base, background: "rgba(37,99,235,0.55)", color: "#fff" };
+    if (v < 0) return { ...base, color: ARIA.red };
+    if (row.kind === "growth" && v >= 25) return { ...base, color: ARIA.green };
+    if (row.kind === "margin" && v >= 15) return { ...base, color: ARIA.green };
+    return base;
+  };
+  const grid = (title, cols) => {
+    if (!cols.length) return null;
+    return (
+      <>
+        <tr>
+          <th style={{ padding: "4px 8px", textAlign: "left", fontSize: 11, fontWeight: 600, color: ARIA.textDim, background: ARIA.bgRow }}>{title}</th>
+          {cols.map((c, i) => (
+            <th key={i} style={{ padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, background: ARIA.bgRow, color: c._est ? (ARIA.gold || "#e3b341") : ARIA.textDim }}>{c._label}</th>
+          ))}
+        </tr>
+        {rows.map((row) => {
+          const actual = cols.filter((c) => !c._est).map((c) => c[row.k]).filter((v) => v != null && Number.isFinite(v));
+          const max = row.kind !== "eps" && row.kind !== "plain" && actual.length > 1 ? Math.max(...actual) : null;
           return (
-            <div
-              key={i}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                minWidth: 0,
-              }}
-            >
-              <div
-                title={q._code33 ? "Minervini Code 33 — 3 consecutive periods of accelerating EPS, Sales, and Margin" : undefined}
-                style={{
-                  fontSize: 8,
-                  // Match EPS badge color tiers so each bar's value flags at a
-                  // glance whether that period clears the growth threshold.
-                  color:
-                    yoy == null
-                      ? ARIA.text
-                      : hotYoy != null && yoy >= hotYoy
-                      ? "#f59e0b"
-                      : passYoy != null && yoy >= passYoy
-                      ? ARIA.blue
-                      : ARIA.text,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  // Code 33 border — gold outline on qualifying periods
-                  ...(q._code33
-                    ? {
-                        border: `1px solid ${ARIA.yellow}`,
-                        borderRadius: 3,
-                        padding: "1px 3px",
-                        boxShadow: `0 0 4px ${ARIA.yellow}60`,
-                      }
-                    : {}),
-                }}
-              >
-                {v == null ? "—" : labelFmt(v)}
-              </div>
-              {/* Bar area: zero line at (max/range) of height; positive bars
-                  grow up from zero line, negative bars drop below it. */}
-              <div
-                style={{
-                  width: "70%",
-                  height: barAreaH,
-                  marginTop: 2,
-                  position: "relative",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: zeroLine,
-                    left: 0,
-                    right: 0,
-                    height: 1,
-                    background: "#ffffff30",
-                  }}
-                />
-                {hPos > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: barAreaH - zeroLine,
-                      left: 0,
-                      right: 0,
-                      height: hPos,
-                      background: color,
-                      borderRadius: "2px 2px 0 0",
-                    }}
-                  />
-                )}
-                {hNeg > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: zeroLine,
-                      left: 0,
-                      right: 0,
-                      height: hNeg,
-                      background: ARIA.red,
-                      borderRadius: "0 0 2px 2px",
-                      opacity: 0.8,
-                    }}
-                  />
-                )}
-              </div>
-              <div
-                style={{
-                  fontSize: 7,
-                  color: yoyColor,
-                  lineHeight: 1,
-                  marginTop: 2,
-                  fontWeight: 600,
-                }}
-              >
-                {yoy == null ? "" : (yoy >= 0 ? "+" : "") + yoy.toFixed(0) + "%"}
-              </div>
-              <div
-                style={{
-                  fontSize: 7,
-                  color: ARIA.textMuted,
-                  marginTop: 1,
-                  whiteSpace: "nowrap",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  fontWeight: 700,
-                  fontFamily: "monospace",
-                }}
-              >
-                {q.label}
-              </div>
-            </div>
+            <tr key={row.k}>
+              <td style={{ padding: "4px 8px", fontSize: 11, color: ARIA.textDim, whiteSpace: "nowrap", borderBottom: `1px solid ${ARIA.border}` }}>{row.label}</td>
+              {cols.map((c, i) => {
+                const v = c[row.k];
+                const isMax = max != null && max > 0 && v === max && !c._est;
+                return <td key={i} style={cellStyle(row, v, isMax, c._est)}>{row.fmt(v)}</td>;
+              })}
+            </tr>
           );
         })}
-      </div>
+      </>
+    );
+  };
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace" }}>
+        <tbody>
+          {grid("Quarterly", [...quarters, ...(est ? [est] : [])])}
+          {grid("Annual", annuals)}
+        </tbody>
+      </table>
     </div>
   );
 }
+
 
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -7746,52 +7645,51 @@ function ChartPanelInline({
           : null;
         const effectiveQuarters = erQ || (quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters));
         const effectiveAnnuals  = annuals.length  > 0 ? annuals  : normPipelineA(stockInfo?.annual);
-        const baseSeries = qbarsMode === "annual" ? effectiveAnnuals : effectiveQuarters;
-        const modeLabel = qbarsMode === "annual" ? "annual" : "quarterly";
-        const series = baseSeries.map((p, i, arr) => {
-          const prevMargin = i > 0 ? arr[i - 1].net_margin : null;
-          const marginDelta =
-            p.net_margin != null && prevMargin != null
-              ? p.net_margin - prevMargin
-              : null;
-          const prevGross = i > 0 ? arr[i - 1].gross_margin : null;
-          const grossDelta =
-            p.gross_margin != null && prevGross != null
-              ? +(p.gross_margin - prevGross).toFixed(2)
-              : null;
-          if (i < 2) return { ...p, _code33: false, _marginDelta: marginDelta, _grossDelta: grossDelta };
-          const a = arr[i - 2], b = arr[i - 1], c = p;
-          const accel = (x, y, z) =>
-            x != null && y != null && z != null && z > y && y > x;
-          const c33 =
-            accel(a.eps_yoy, b.eps_yoy, c.eps_yoy) &&
-            accel(a.revenue_yoy, b.revenue_yoy, c.revenue_yoy) &&
-            accel(a.net_margin, b.net_margin, c.net_margin);
-          return { ...p, _code33: c33, _marginDelta: marginDelta, _grossDelta: grossDelta };
-        });
-        if (series.length === 0) return null;
+        // Oldest → newest. Street history (erQ) already is; pipeline arrays are
+        // newest-first, so order by report date / year when available.
+        const orderQ = (arr) => {
+          const a = [...arr];
+          if (a.length > 1 && a.every((q) => q.report_date)) a.sort((x, y) => String(x.report_date).localeCompare(String(y.report_date)));
+          return a;
+        };
+        const qAll = erQ || orderQ(effectiveQuarters);
+        const qCols = qAll.slice(-6).map((q) => ({
+          _label: q.label || q.period || "",
+          eps: q.eps ?? null, eps_yoy: q.eps_yoy ?? null,
+          revenue: q.revenue ?? null, revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
+          net_margin: q.net_margin ?? null,
+        }));
+        const aCols = [...effectiveAnnuals]
+          .sort((x, y) => (Number(x.year ?? x.label) || 0) - (Number(y.year ?? y.label) || 0))
+          .slice(-6)
+          .map((a) => ({
+            _label: String(a.year ?? a.label ?? ""),
+            eps: a.eps ?? null, eps_yoy: a.eps_yoy ?? null,
+            revenue: a.revenue ?? null, revenue_yoy: a.revenue_yoy ?? a.sales_yoy ?? null,
+            net_margin: a.net_margin ?? null,
+          }));
+        // Next quarter's consensus (orange). YoY vs the quarter 4 back.
+        let est = null;
+        const eEps = stockInfo?.eps_estimated, eRev = stockInfo?.revenue_estimated;
+        if (eEps != null || eRev != null) {
+          const yAgo = qAll.length >= 4 ? qAll[qAll.length - 4] : null;
+          const revM = eRev != null ? eRev / 1e6 : null;
+          const yoy = (now, then) => (now != null && then != null && then !== 0 ? ((now - then) / Math.abs(then)) * 100 : null);
+          est = {
+            _est: true,
+            _label: `Est ${String(stockInfo?.earnings_display || "").replace(/^~/, "").split("/").slice(0, 2).join("/")}`.trim(),
+            eps: eEps ?? null, eps_yoy: yoy(eEps, yAgo?.eps),
+            revenue: revM, revenue_yoy: yoy(revM, yAgo?.revenue),
+            net_margin: null,
+          };
+        }
+        if (!qCols.length && !aCols.length) return null;
         return (
           <div style={{ padding: "6px 14px 10px", borderTop: `1px solid ${ARIA.border}`, background: ARIA.glass || "transparent" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontFamily: "monospace" }}>
-              <span style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
-                Last {series.length} Quarter{series.length === 1 ? "" : "s"} · {qbarsMode !== "annual" && erQ ? "Street Actuals (adjusted)" : quarters.length > 0 ? "Finviz Actuals" : "Pipeline Data"}
-              </span>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
-                <button onClick={() => setQbarsModePersist("quarter")} style={pillStyle(qbarsMode === "quarter", ARIA.blue)}>Quarterly</button>
-                <button onClick={() => setQbarsModePersist("annual")} style={pillStyle(qbarsMode === "annual", ARIA.blue)}>Annual</button>
-              </div>
+            <div style={{ fontSize: 8, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, marginBottom: 6, fontFamily: "monospace" }}>
+              Fundamentals · {erQ ? "street actuals (adjusted)" : quarters.length > 0 ? "Finviz actuals" : "pipeline data"}{est ? " · orange = consensus estimate" : ""}
             </div>
-            <div style={{ display: "flex", gap: 14 }}>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                <MiniQBars quarters={series} accessor={(q) => q.eps} yoyAccessor={(q) => q.eps_yoy} color={ARIA.blue} labelFmt={(v) => v.toFixed(2)} title="EPS (Diluted)" ARIA={ARIA} passYoy={25} hotYoy={40} />
-                <MiniQBars quarters={series} accessor={(q) => q.net_margin} yoyAccessor={(q) => q._marginDelta} color={ARIA.cyan} labelFmt={(v) => v.toFixed(1) + "%"} title="Net Margin" ARIA={ARIA} passYoy={2} hotYoy={5} />
-              </div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                <MiniQBars quarters={series} accessor={(q) => q.revenue} yoyAccessor={(q) => q.revenue_yoy} color={ARIA.purple} labelFmt={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}B` : `${Math.round(v)}M`} title="Revenue" ARIA={ARIA} passYoy={20} hotYoy={40} />
-                <MiniQBars quarters={series} accessor={(q) => q.gross_margin} yoyAccessor={(q) => q._grossDelta} color={ARIA.green} labelFmt={(v) => v.toFixed(1) + "%"} title="Gross Margin" ARIA={ARIA} passYoy={2} hotYoy={5} />
-
-              </div>
-            </div>
+            <EarningsBox quarters={qCols} annuals={aCols} est={est} ARIA={ARIA} />
           </div>
         );
       })()}
